@@ -380,7 +380,7 @@ const handleProcess = async () => {
       })
       showProcessModal.value = false
     } catch (error: any) {
-      alert(error.data?.message || '审核失败，请重试')
+      alert(error.message || '审核失败，请重试')
     }
   }
 }
@@ -405,8 +405,8 @@ const handleReset = async () => {
     try {
       await store.resetData()
       alert('数据已重置')
-    } catch (error) {
-      alert('重置失败，请重试')
+    } catch (error: any) {
+      alert(error.message || '重置失败，请重试')
     }
   }
 }

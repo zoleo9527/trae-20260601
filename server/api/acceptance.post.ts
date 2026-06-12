@@ -1,33 +1,12 @@
-import { addRecord, generateId, getCurrentUserId } from '../utils/storage'
+import { addRecord, generateId, requireRole, getUserName } from '../utils/storage'
 import type { CreateAcceptancePayload, AcceptanceRecord } from '~/types'
-
-const userMap: Record<string, { name: string }> = {
-  'm1': { name: '张明' },
-  'm2': { name: '李华' },
-  'd1': { name: '王芳' },
-  'e1': { name: '赵强' },
-  'e2': { name: '刘伟' }
-}
 
 export default defineEventHandler(async (event) => {
   try {
+    const userId = requireRole('manager')
+    const userName = getUserName(userId)!
+    
     const body = await readBody<CreateAcceptancePayload>(event)
-    const userId = getCurrentUserId()
-    
-    if (!userId) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: '未登录'
-      })
-    }
-    
-    const user = userMap[userId]
-    if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: '用户不存在'
-      })
-    }
     
     const now = new Date().toISOString()
     const record: AcceptanceRecord = {
@@ -40,7 +19,7 @@ export default defineEventHandler(async (event) => {
       contractDate: body.contractDate,
       plannedMoveInDate: body.plannedMoveInDate,
       managerId: userId,
-      managerName: user.name,
+      managerName: userName,
       submitTime: null,
       engineerId: null,
       engineerName: null,

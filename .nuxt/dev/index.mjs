@@ -3326,6 +3326,20 @@ const styles$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
 }, Symbol.toStringTag, { value: 'Module' }));
 
 const STORAGE_KEY = "acceptance_records";
+const userRoleMap = {
+  "m1": "manager",
+  "m2": "manager",
+  "d1": "director",
+  "e1": "engineer",
+  "e2": "engineer"
+};
+const userNameMap = {
+  "m1": "\u5F20\u660E",
+  "m2": "\u674E\u534E",
+  "d1": "\u738B\u82B3",
+  "e1": "\u8D75\u5F3A",
+  "e2": "\u5218\u4F1F"
+};
 async function getRecords() {
   const storage = useStorage("data");
   const records = await storage.getItem(STORAGE_KEY);
@@ -3364,15 +3378,47 @@ function getCurrentUserId() {
   const cookie = getCookie(useEvent(), "current_user_id");
   return cookie || null;
 }
+function getUserName(userId) {
+  return userNameMap[userId] || null;
+}
+function requireAuth() {
+  const userId = getCurrentUserId();
+  if (!userId) {
+    throw createError({ statusCode: 401, statusMessage: "\u672A\u767B\u5F55\uFF0C\u8BF7\u5148\u767B\u5F55" });
+  }
+  return userId;
+}
+function requireRole(role) {
+  const userId = requireAuth();
+  const userRole = userRoleMap[userId];
+  if (!userRole) {
+    throw createError({ statusCode: 401, statusMessage: "\u7528\u6237\u4E0D\u5B58\u5728" });
+  }
+  const roleNameMap = {
+    manager: "\u62DB\u5546\u7ECF\u7406",
+    director: "\u62DB\u5546\u4E3B\u7BA1",
+    engineer: "\u7269\u4E1A\u5DE5\u7A0B"
+  };
+  if (userRole !== role) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: `\u6743\u9650\u4E0D\u8DB3\uFF1A\u5F53\u524D\u89D2\u8272\u4E3A${roleNameMap[userRole]}\uFF0C\u8BE5\u64CD\u4F5C\u4EC5\u9650${roleNameMap[role]}`
+    });
+  }
+  return userId;
+}
 
 const acceptance_get = defineEventHandler(async () => {
   try {
+    requireAuth();
     const records = await getRecords();
     return records;
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u83B7\u53D6\u6570\u636E\u5931\u8D25";
     throw createError({
-      statusCode: 500,
-      statusMessage: "\u83B7\u53D6\u6570\u636E\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });
@@ -3382,30 +3428,11 @@ const acceptance_get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePr
   default: acceptance_get
 }, Symbol.toStringTag, { value: 'Module' }));
 
-const userMap$2 = {
-  "m1": { name: "\u5F20\u660E" },
-  "m2": { name: "\u674E\u534E" },
-  "d1": { name: "\u738B\u82B3" },
-  "e1": { name: "\u8D75\u5F3A" },
-  "e2": { name: "\u5218\u4F1F" }
-};
 const acceptance_post = defineEventHandler(async (event) => {
   try {
+    const userId = requireRole("manager");
+    const userName = getUserName(userId);
     const body = await readBody(event);
-    const userId = getCurrentUserId();
-    if (!userId) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u672A\u767B\u5F55"
-      });
-    }
-    const user = userMap$2[userId];
-    if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u7528\u6237\u4E0D\u5B58\u5728"
-      });
-    }
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const record = {
       id: generateId(),
@@ -3417,7 +3444,7 @@ const acceptance_post = defineEventHandler(async (event) => {
       contractDate: body.contractDate,
       plannedMoveInDate: body.plannedMoveInDate,
       managerId: userId,
-      managerName: user.name,
+      managerName: userName,
       submitTime: null,
       engineerId: null,
       engineerName: null,
@@ -3453,15 +3480,10 @@ const acceptance_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineP
   default: acceptance_post
 }, Symbol.toStringTag, { value: 'Module' }));
 
-const userMap$1 = {
-  "m1": { name: "\u5F20\u660E" },
-  "m2": { name: "\u674E\u534E" },
-  "d1": { name: "\u738B\u82B3" },
-  "e1": { name: "\u8D75\u5F3A" },
-  "e2": { name: "\u5218\u4F1F" }
-};
 const director_post = defineEventHandler(async (event) => {
   try {
+    const userId = requireRole("director");
+    const userName = getUserName(userId);
     const id = getRouterParam(event, "id");
     if (!id) {
       throw createError({
@@ -3470,20 +3492,6 @@ const director_post = defineEventHandler(async (event) => {
       });
     }
     const body = await readBody(event);
-    const userId = getCurrentUserId();
-    if (!userId) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u672A\u767B\u5F55"
-      });
-    }
-    const user = userMap$1[userId];
-    if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u7528\u6237\u4E0D\u5B58\u5728"
-      });
-    }
     const record = await getRecordById(id);
     if (!record) {
       throw createError({
@@ -3512,7 +3520,7 @@ const director_post = defineEventHandler(async (event) => {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const updates = {
       directorId: userId,
-      directorName: user.name,
+      directorName: userName,
       directorConfirmTime: now,
       directorResult: body.result,
       directorRemark: body.directorRemark || null,
@@ -3537,15 +3545,10 @@ const director_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePro
   default: director_post
 }, Symbol.toStringTag, { value: 'Module' }));
 
-const userMap = {
-  "m1": { name: "\u5F20\u660E" },
-  "m2": { name: "\u674E\u534E" },
-  "d1": { name: "\u738B\u82B3" },
-  "e1": { name: "\u8D75\u5F3A" },
-  "e2": { name: "\u5218\u4F1F" }
-};
 const engineer_post = defineEventHandler(async (event) => {
   try {
+    const userId = requireRole("engineer");
+    const userName = getUserName(userId);
     const id = getRouterParam(event, "id");
     if (!id) {
       throw createError({
@@ -3554,20 +3557,6 @@ const engineer_post = defineEventHandler(async (event) => {
       });
     }
     const body = await readBody(event);
-    const userId = getCurrentUserId();
-    if (!userId) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u672A\u767B\u5F55"
-      });
-    }
-    const user = userMap[userId];
-    if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: "\u7528\u6237\u4E0D\u5B58\u5728"
-      });
-    }
     const record = await getRecordById(id);
     if (!record) {
       throw createError({
@@ -3590,7 +3579,7 @@ const engineer_post = defineEventHandler(async (event) => {
     const now = (/* @__PURE__ */ new Date()).toISOString();
     const updates = {
       engineerId: userId,
-      engineerName: user.name,
+      engineerName: userName,
       engineerAcceptTime: now,
       engineerResult: body.result,
       engineerRemark: body.engineerRemark || null,
@@ -3616,6 +3605,7 @@ const engineer_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePro
 
 const resubmit_post = defineEventHandler(async (event) => {
   try {
+    requireRole("manager");
     const id = getRouterParam(event, "id");
     if (!id) {
       throw createError({
@@ -3672,6 +3662,7 @@ const resubmit_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePro
 
 const submit_post = defineEventHandler(async (event) => {
   try {
+    requireRole("manager");
     const id = getRouterParam(event, "id");
     if (!id) {
       throw createError({
@@ -3715,6 +3706,7 @@ const submit_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePrope
 
 const reset_post = defineEventHandler(async () => {
   try {
+    requireAuth();
     const storage = useStorage("data");
     await storage.setItem("acceptance_records", initialMockRecords);
     return {
@@ -3723,9 +3715,11 @@ const reset_post = defineEventHandler(async () => {
       count: initialMockRecords.length
     };
   } catch (error) {
+    const code = error.status || error.statusCode || 500;
+    const msg = error.statusMessage || error.message || "\u6570\u636E\u91CD\u7F6E\u5931\u8D25";
     throw createError({
-      statusCode: 500,
-      statusMessage: "\u6570\u636E\u91CD\u7F6E\u5931\u8D25"
+      statusCode: code,
+      statusMessage: msg
     });
   }
 });

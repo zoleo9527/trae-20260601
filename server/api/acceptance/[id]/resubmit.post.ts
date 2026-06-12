@@ -1,7 +1,9 @@
-import { getRecordById, updateRecord } from '../../../utils/storage'
+import { getRecordById, updateRecord, requireRole } from '../../../utils/storage'
 
 export default defineEventHandler(async (event) => {
   try {
+    requireRole('manager')
+    
     const id = getRouterParam(event, 'id')
     if (!id) {
       throw createError({

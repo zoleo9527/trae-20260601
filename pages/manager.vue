@@ -267,8 +267,8 @@ const handleCreate = async () => {
       plannedMoveInDate: '',
       supplementRemark: ''
     }
-  } catch (error) {
-    alert('创建失败，请重试')
+  } catch (error: any) {
+    alert(error.message || '创建失败，请重试')
   }
 }
 
@@ -276,8 +276,8 @@ const handleSubmit = async (id: string) => {
   if (confirm('确定要提交此申请吗？提交后将进入物业验收流程。')) {
     try {
       await store.submitRecord(id)
-    } catch (error) {
-      alert('提交失败，请重试')
+    } catch (error: any) {
+      alert(error.message || '提交失败，请重试')
     }
   }
 }
@@ -286,8 +286,8 @@ const handleResubmit = async (id: string) => {
   if (confirm('确定要重新提交此申请吗？')) {
     try {
       await store.resubmitRecord(id)
-    } catch (error) {
-      alert('重新提交失败，请重试')
+    } catch (error: any) {
+      alert(error.message || '重新提交失败，请重试')
     }
   }
 }
@@ -297,8 +297,8 @@ const handleReset = async () => {
     try {
       await store.resetData()
       alert('数据已重置')
-    } catch (error) {
-      alert('重置失败，请重试')
+    } catch (error: any) {
+      alert(error.message || '重置失败，请重试')
     }
   }
 }

@@ -49,6 +49,7 @@ declare global {
   const generateId: typeof import('../../server/utils/storage').generateId
   const getCookie: typeof import('../../node_modules/h3').getCookie
   const getCurrentUserId: typeof import('../../server/utils/storage').getCurrentUserId
+  const getCurrentUserRole: typeof import('../../server/utils/storage').getCurrentUserRole
   const getHeader: typeof import('../../node_modules/h3').getHeader
   const getHeaders: typeof import('../../node_modules/h3').getHeaders
   const getMethod: typeof import('../../node_modules/h3').getMethod
@@ -73,6 +74,7 @@ declare global {
   const getRouterParam: typeof import('../../node_modules/h3').getRouterParam
   const getRouterParams: typeof import('../../node_modules/h3').getRouterParams
   const getSession: typeof import('../../node_modules/h3').getSession
+  const getUserName: typeof import('../../server/utils/storage').getUserName
   const getValidatedQuery: typeof import('../../node_modules/h3').getValidatedQuery
   const getValidatedRouterParams: typeof import('../../node_modules/h3').getValidatedRouterParams
   const handleCacheHeaders: typeof import('../../node_modules/h3').handleCacheHeaders
@@ -97,6 +99,8 @@ declare global {
   const readRawBody: typeof import('../../node_modules/h3').readRawBody
   const readValidatedBody: typeof import('../../node_modules/h3').readValidatedBody
   const removeResponseHeader: typeof import('../../node_modules/h3').removeResponseHeader
+  const requireAuth: typeof import('../../server/utils/storage').requireAuth
+  const requireRole: typeof import('../../server/utils/storage').requireRole
   const runTask: typeof import('../../node_modules/nitropack/dist/runtime/internal/task').runTask
   const sanitizeStatusCode: typeof import('../../node_modules/h3').sanitizeStatusCode
   const sanitizeStatusMessage: typeof import('../../node_modules/h3').sanitizeStatusMessage
@@ -156,4 +160,4 @@ export { defineNitroErrorHandler } from 'nitropack/runtime/internal/error/utils'
 export { buildAssetsURL as __buildAssetsURL, publicAssetsURL as __publicAssetsURL } from '/Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/@nuxt/nitro-server/dist/runtime/utils/paths';
 export { defineAppConfig } from '/Users/liu/Documents/private/model-test/trae-20260601-4/node_modules/@nuxt/nitro-server/dist/runtime/utils/config';
 export { initialMockRecords } from '/Users/liu/Documents/private/model-test/trae-20260601-4/server/utils/mockData';
-export { getRecords, saveRecords, getRecordById, addRecord, updateRecord, generateId, getCurrentUserId } from '/Users/liu/Documents/private/model-test/trae-20260601-4/server/utils/storage';
+export { getRecords, saveRecords, getRecordById, addRecord, updateRecord, generateId, getCurrentUserId, getCurrentUserRole, getUserName, requireAuth, requireRole } from '/Users/liu/Documents/private/model-test/trae-20260601-4/server/utils/storage';

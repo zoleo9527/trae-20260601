@@ -1,16 +1,11 @@
-import { getRecordById, updateRecord, getCurrentUserId } from '../../../utils/storage'
+import { getRecordById, updateRecord, requireRole, getUserName } from '../../../utils/storage'
 import type { EngineerProcessPayload } from '~/types'
-
-const userMap: Record<string, { name: string }> = {
-  'm1': { name: '张明' },
-  'm2': { name: '李华' },
-  'd1': { name: '王芳' },
-  'e1': { name: '赵强' },
-  'e2': { name: '刘伟' }
-}
 
 export default defineEventHandler(async (event) => {
   try {
+    const userId = requireRole('engineer')
+    const userName = getUserName(userId)!
+    
     const id = getRouterParam(event, 'id')
     if (!id) {
       throw createError({
@@ -20,22 +15,6 @@ export default defineEventHandler(async (event) => {
     }
     
     const body = await readBody<EngineerProcessPayload>(event)
-    const userId = getCurrentUserId()
-    
-    if (!userId) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: '未登录'
-      })
-    }
-    
-    const user = userMap[userId]
-    if (!user) {
-      throw createError({
-        statusCode: 401,
-        statusMessage: '用户不存在'
-      })
-    }
     
     const record = await getRecordById(id)
     if (!record) {
@@ -62,7 +41,7 @@ export default defineEventHandler(async (event) => {
     const now = new Date().toISOString()
     const updates: Partial<typeof record> = {
       engineerId: userId,
-      engineerName: user.name,
+      engineerName: userName,
       engineerAcceptTime: now,
       engineerResult: body.result,
       engineerRemark: body.engineerRemark || null,

@@ -1,13 +1,16 @@
-import { getRecords } from '../utils/storage'
+import { getRecords, requireAuth } from '../utils/storage'
 
 export default defineEventHandler(async () => {
   try {
+    requireAuth()
     const records = await getRecords()
     return records
-  } catch (error) {
+  } catch (error: any) {
+    const code = error.status || error.statusCode || 500
+    const msg = error.statusMessage || error.message || '获取数据失败'
     throw createError({
-      statusCode: 500,
-      statusMessage: '获取数据失败'
+      statusCode: code,
+      statusMessage: msg
     })
   }
 })

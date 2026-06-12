@@ -69,58 +69,83 @@ export const useAcceptanceStore = defineStore('acceptance', {
     },
     
     async createRecord(payload: CreateAcceptancePayload) {
-      const record = await $fetch<AcceptanceRecord>('/api/acceptance', {
-        method: 'POST',
-        body: payload
-      })
-      this.records.unshift(record)
-      return record
+      try {
+        const record = await $fetch<AcceptanceRecord>('/api/acceptance', {
+          method: 'POST',
+          body: payload
+        })
+        this.records.unshift(record)
+        return record
+      } catch (error: any) {
+        const msg = error.data?.statusMessage || error.data?.message || '创建失败'
+        throw new Error(msg)
+      }
     },
     
     async submitRecord(recordId: string) {
-      const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${recordId}/submit`, {
-        method: 'POST'
-      })
-      const idx = this.records.findIndex(r => r.id === recordId)
-      if (idx !== -1) {
-        this.records[idx] = record
+      try {
+        const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${recordId}/submit`, {
+          method: 'POST'
+        })
+        const idx = this.records.findIndex(r => r.id === recordId)
+        if (idx !== -1) {
+          this.records[idx] = record
+        }
+        return record
+      } catch (error: any) {
+        const msg = error.data?.statusMessage || error.data?.message || '提交失败'
+        throw new Error(msg)
       }
-      return record
     },
     
     async processEngineer(payload: EngineerProcessPayload) {
-      const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${payload.recordId}/engineer`, {
-        method: 'POST',
-        body: payload
-      })
-      const idx = this.records.findIndex(r => r.id === payload.recordId)
-      if (idx !== -1) {
-        this.records[idx] = record
+      try {
+        const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${payload.recordId}/engineer`, {
+          method: 'POST',
+          body: payload
+        })
+        const idx = this.records.findIndex(r => r.id === payload.recordId)
+        if (idx !== -1) {
+          this.records[idx] = record
+        }
+        return record
+      } catch (error: any) {
+        const msg = error.data?.statusMessage || error.data?.message || '验收处理失败'
+        throw new Error(msg)
       }
-      return record
     },
     
     async processDirector(payload: DirectorProcessPayload) {
-      const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${payload.recordId}/director`, {
-        method: 'POST',
-        body: payload
-      })
-      const idx = this.records.findIndex(r => r.id === payload.recordId)
-      if (idx !== -1) {
-        this.records[idx] = record
+      try {
+        const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${payload.recordId}/director`, {
+          method: 'POST',
+          body: payload
+        })
+        const idx = this.records.findIndex(r => r.id === payload.recordId)
+        if (idx !== -1) {
+          this.records[idx] = record
+        }
+        return record
+      } catch (error: any) {
+        const msg = error.data?.statusMessage || error.data?.message || '审核处理失败'
+        throw new Error(msg)
       }
-      return record
     },
     
     async resubmitRecord(recordId: string) {
-      const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${recordId}/resubmit`, {
-        method: 'POST'
-      })
-      const idx = this.records.findIndex(r => r.id === recordId)
-      if (idx !== -1) {
-        this.records[idx] = record
+      try {
+        const record = await $fetch<AcceptanceRecord>(`/api/acceptance/${recordId}/resubmit`, {
+          method: 'POST'
+        })
+        const idx = this.records.findIndex(r => r.id === recordId)
+        if (idx !== -1) {
+          this.records[idx] = record
+        }
+        return record
+      } catch (error: any) {
+        const msg = error.data?.statusMessage || error.data?.message || '重新提交失败'
+        throw new Error(msg)
       }
-      return record
     },
     
     async resetData() {
