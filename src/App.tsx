@@ -1,16 +1,17 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider, useAuth } from '@/context/AuthContext'
 import Layout from '@/components/Layout'
-import Login from '@/pages/Login'
-import Dashboard from '@/pages/Dashboard'
-import Customers from '@/pages/Customers'
+import { AuthProvider, useAuth } from '@/context/AuthContext'
 import CustomerDetail from '@/pages/CustomerDetail'
-import Handovers from '@/pages/Handovers'
+import Customers from '@/pages/Customers'
+import Dashboard from '@/pages/Dashboard'
 import HandoverDetail from '@/pages/HandoverDetail'
 import HandoverForm from '@/pages/HandoverForm'
-import Renewals from '@/pages/Renewals'
+import Handovers from '@/pages/Handovers'
+import Login from '@/pages/Login'
+import NoteForm from '@/pages/NoteForm'
 import Notes from '@/pages/Notes'
+import Renewals from '@/pages/Renewals'
 import Users from '@/pages/Users'
+import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom'
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth()
@@ -75,6 +76,7 @@ function AppRoutes() {
         <Route path="/handovers/new" element={<HandoverForm />} />
         <Route path="/renewals" element={<Renewals />} />
         <Route path="/notes" element={<Notes />} />
+        <Route path="/notes/new" element={<NoteForm />} />
         <Route path="/users" element={<Users />} />
       </Route>
 

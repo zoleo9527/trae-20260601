@@ -1,5 +1,5 @@
 import { run, get, all } from '../database/database.js'
-import { Handover, HandoverStatus, PendingItems, CustomerHabits, InvoiceDetails, NextDeclaration } from '../types/types.js'
+import { Handover, HandoverStatus, PendingItems, CustomerHabits, InvoiceDetails, NextDeclaration, Customer, SafeUser, CustomerStatus, RiskLevel, UserRole } from '../types/types.js'
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2)
@@ -22,6 +22,58 @@ function rowToHandover(row: Record<string, unknown>): Handover {
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),
     completedAt: row.completed_at ? new Date(row.completed_at as string) : null,
+    customer: row.customer_name ? {
+      id: row.customer_id as string,
+      name: row.customer_name as string,
+      contactPerson: row.customer_contact_person as string | null,
+      phone: row.customer_phone as string | null,
+      email: row.customer_email as string | null,
+      address: row.customer_address as string | null,
+      taxNumber: row.customer_tax_number as string | null,
+      contractStartDate: row.customer_contract_start_date ? new Date(row.customer_contract_start_date as string) : null,
+      contractEndDate: row.customer_contract_end_date ? new Date(row.customer_contract_end_date as string) : null,
+      status: row.customer_status as CustomerStatus,
+      riskLevel: row.customer_risk_level as RiskLevel,
+      riskReasons: JSON.parse(row.customer_risk_reasons as string || '[]'),
+      accountantId: row.customer_accountant_id as string | null,
+      managerId: row.customer_manager_id as string | null,
+      notes: row.customer_notes as string | null,
+      createdAt: new Date(row.customer_created_at as string),
+      updatedAt: new Date(row.customer_updated_at as string),
+    } : undefined,
+    fromUser: row.from_user_name ? {
+      id: row.from_user_id as string,
+      username: row.from_user_username as string,
+      name: row.from_user_name as string,
+      role: row.from_user_role as UserRole,
+      email: row.from_user_email as string | null,
+      phone: row.from_user_phone as string | null,
+      status: row.from_user_status as 'active' | 'inactive',
+      createdAt: new Date(row.from_user_created_at as string),
+      updatedAt: new Date(row.from_user_updated_at as string),
+    } : undefined,
+    toUser: row.to_user_name ? {
+      id: row.to_user_id as string,
+      username: row.to_user_username as string,
+      name: row.to_user_name as string,
+      role: row.to_user_role as UserRole,
+      email: row.to_user_email as string | null,
+      phone: row.to_user_phone as string | null,
+      status: row.to_user_status as 'active' | 'inactive',
+      createdAt: new Date(row.to_user_created_at as string),
+      updatedAt: new Date(row.to_user_updated_at as string),
+    } : undefined,
+    reviewer: row.reviewer_name ? {
+      id: row.reviewer_id as string,
+      username: row.reviewer_username as string,
+      name: row.reviewer_name as string,
+      role: row.reviewer_role as UserRole,
+      email: row.reviewer_email as string | null,
+      phone: row.reviewer_phone as string | null,
+      status: row.reviewer_status as 'active' | 'inactive',
+      createdAt: new Date(row.reviewer_created_at as string),
+      updatedAt: new Date(row.reviewer_updated_at as string),
+    } : undefined,
   }
 }
 
@@ -61,20 +113,165 @@ export async function create(data: Omit<Handover, 'id' | 'createdAt' | 'updatedA
 }
 
 export async function findById(id: string): Promise<Handover | null> {
-  const row = await get<Record<string, unknown>>('SELECT * FROM handovers WHERE id = ?', [id])
+  const row = await get<Record<string, unknown>>(`
+    SELECT 
+      h.*,
+      c.name as customer_name,
+      c.contact_person as customer_contact_person,
+      c.phone as customer_phone,
+      c.email as customer_email,
+      c.address as customer_address,
+      c.tax_number as customer_tax_number,
+      c.contract_start_date as customer_contract_start_date,
+      c.contract_end_date as customer_contract_end_date,
+      c.status as customer_status,
+      c.risk_level as customer_risk_level,
+      c.risk_reasons as customer_risk_reasons,
+      c.accountant_id as customer_accountant_id,
+      c.manager_id as customer_manager_id,
+      c.notes as customer_notes,
+      c.created_at as customer_created_at,
+      c.updated_at as customer_updated_at,
+      fu.username as from_user_username,
+      fu.name as from_user_name,
+      fu.role as from_user_role,
+      fu.email as from_user_email,
+      fu.phone as from_user_phone,
+      fu.status as from_user_status,
+      fu.created_at as from_user_created_at,
+      fu.updated_at as from_user_updated_at,
+      tu.username as to_user_username,
+      tu.name as to_user_name,
+      tu.role as to_user_role,
+      tu.email as to_user_email,
+      tu.phone as to_user_phone,
+      tu.status as to_user_status,
+      tu.created_at as to_user_created_at,
+      tu.updated_at as to_user_updated_at,
+      r.username as reviewer_username,
+      r.name as reviewer_name,
+      r.role as reviewer_role,
+      r.email as reviewer_email,
+      r.phone as reviewer_phone,
+      r.status as reviewer_status,
+      r.created_at as reviewer_created_at,
+      r.updated_at as reviewer_updated_at
+    FROM handovers h
+    LEFT JOIN customers c ON h.customer_id = c.id
+    LEFT JOIN users fu ON h.from_user_id = fu.id
+    LEFT JOIN users tu ON h.to_user_id = tu.id
+    LEFT JOIN users r ON h.reviewer_id = r.id
+    WHERE h.id = ?
+  `, [id])
   return row ? rowToHandover(row) : null
 }
 
 export async function findByCustomerId(customerId: string): Promise<Handover[]> {
-  const rows = await all<Record<string, unknown>>(
-    'SELECT * FROM handovers WHERE customer_id = ? ORDER BY created_at DESC',
-    [customerId]
-  )
+  const rows = await all<Record<string, unknown>>(`
+    SELECT 
+      h.*,
+      c.name as customer_name,
+      c.contact_person as customer_contact_person,
+      c.phone as customer_phone,
+      c.email as customer_email,
+      c.address as customer_address,
+      c.tax_number as customer_tax_number,
+      c.contract_start_date as customer_contract_start_date,
+      c.contract_end_date as customer_contract_end_date,
+      c.status as customer_status,
+      c.risk_level as customer_risk_level,
+      c.risk_reasons as customer_risk_reasons,
+      c.accountant_id as customer_accountant_id,
+      c.manager_id as customer_manager_id,
+      c.notes as customer_notes,
+      c.created_at as customer_created_at,
+      c.updated_at as customer_updated_at,
+      fu.username as from_user_username,
+      fu.name as from_user_name,
+      fu.role as from_user_role,
+      fu.email as from_user_email,
+      fu.phone as from_user_phone,
+      fu.status as from_user_status,
+      fu.created_at as from_user_created_at,
+      fu.updated_at as from_user_updated_at,
+      tu.username as to_user_username,
+      tu.name as to_user_name,
+      tu.role as to_user_role,
+      tu.email as to_user_email,
+      tu.phone as to_user_phone,
+      tu.status as to_user_status,
+      tu.created_at as to_user_created_at,
+      tu.updated_at as to_user_updated_at,
+      r.username as reviewer_username,
+      r.name as reviewer_name,
+      r.role as reviewer_role,
+      r.email as reviewer_email,
+      r.phone as reviewer_phone,
+      r.status as reviewer_status,
+      r.created_at as reviewer_created_at,
+      r.updated_at as reviewer_updated_at
+    FROM handovers h
+    LEFT JOIN customers c ON h.customer_id = c.id
+    LEFT JOIN users fu ON h.from_user_id = fu.id
+    LEFT JOIN users tu ON h.to_user_id = tu.id
+    LEFT JOIN users r ON h.reviewer_id = r.id
+    WHERE h.customer_id = ?
+    ORDER BY h.created_at DESC
+  `, [customerId])
   return rows.map(rowToHandover)
 }
 
 export async function findAll(): Promise<Handover[]> {
-  const rows = await all<Record<string, unknown>>('SELECT * FROM handovers ORDER BY created_at DESC')
+  const rows = await all<Record<string, unknown>>(`
+    SELECT 
+      h.*,
+      c.name as customer_name,
+      c.contact_person as customer_contact_person,
+      c.phone as customer_phone,
+      c.email as customer_email,
+      c.address as customer_address,
+      c.tax_number as customer_tax_number,
+      c.contract_start_date as customer_contract_start_date,
+      c.contract_end_date as customer_contract_end_date,
+      c.status as customer_status,
+      c.risk_level as customer_risk_level,
+      c.risk_reasons as customer_risk_reasons,
+      c.accountant_id as customer_accountant_id,
+      c.manager_id as customer_manager_id,
+      c.notes as customer_notes,
+      c.created_at as customer_created_at,
+      c.updated_at as customer_updated_at,
+      fu.username as from_user_username,
+      fu.name as from_user_name,
+      fu.role as from_user_role,
+      fu.email as from_user_email,
+      fu.phone as from_user_phone,
+      fu.status as from_user_status,
+      fu.created_at as from_user_created_at,
+      fu.updated_at as from_user_updated_at,
+      tu.username as to_user_username,
+      tu.name as to_user_name,
+      tu.role as to_user_role,
+      tu.email as to_user_email,
+      tu.phone as to_user_phone,
+      tu.status as to_user_status,
+      tu.created_at as to_user_created_at,
+      tu.updated_at as to_user_updated_at,
+      r.username as reviewer_username,
+      r.name as reviewer_name,
+      r.role as reviewer_role,
+      r.email as reviewer_email,
+      r.phone as reviewer_phone,
+      r.status as reviewer_status,
+      r.created_at as reviewer_created_at,
+      r.updated_at as reviewer_updated_at
+    FROM handovers h
+    LEFT JOIN customers c ON h.customer_id = c.id
+    LEFT JOIN users fu ON h.from_user_id = fu.id
+    LEFT JOIN users tu ON h.to_user_id = tu.id
+    LEFT JOIN users r ON h.reviewer_id = r.id
+    ORDER BY h.created_at DESC
+  `)
   return rows.map(rowToHandover)
 }
 
@@ -83,33 +280,84 @@ export async function findWithFilter(filter: HandoverFilter, pagination: Handove
   const params: unknown[] = []
 
   if (filter.customerId) {
-    conditions.push('customer_id = ?')
+    conditions.push('h.customer_id = ?')
     params.push(filter.customerId)
   }
   if (filter.fromUserId) {
-    conditions.push('from_user_id = ?')
+    conditions.push('h.from_user_id = ?')
     params.push(filter.fromUserId)
   }
   if (filter.toUserId) {
-    conditions.push('to_user_id = ?')
+    conditions.push('h.to_user_id = ?')
     params.push(filter.toUserId)
   }
   if (filter.status) {
-    conditions.push('status = ?')
+    conditions.push('h.status = ?')
     params.push(filter.status)
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
 
-  const countRow = await get<{ count: number }>(`SELECT COUNT(*) as count FROM handovers ${whereClause}`, params)
+  const countRow = await get<{ count: number }>(`SELECT COUNT(*) as count FROM handovers h ${whereClause}`, params)
   const total = countRow?.count || 0
 
-  const sortBy = pagination.sortBy || 'created_at'
+  const sortBy = pagination.sortBy || 'h.created_at'
   const sortOrder = pagination.sortOrder || 'desc'
   const offset = (pagination.page - 1) * pagination.pageSize
 
   const rows = await all<Record<string, unknown>>(
-    `SELECT * FROM handovers ${whereClause} ORDER BY ${sortBy} ${sortOrder} LIMIT ? OFFSET ?`,
+    `
+    SELECT 
+      h.*,
+      c.name as customer_name,
+      c.contact_person as customer_contact_person,
+      c.phone as customer_phone,
+      c.email as customer_email,
+      c.address as customer_address,
+      c.tax_number as customer_tax_number,
+      c.contract_start_date as customer_contract_start_date,
+      c.contract_end_date as customer_contract_end_date,
+      c.status as customer_status,
+      c.risk_level as customer_risk_level,
+      c.risk_reasons as customer_risk_reasons,
+      c.accountant_id as customer_accountant_id,
+      c.manager_id as customer_manager_id,
+      c.notes as customer_notes,
+      c.created_at as customer_created_at,
+      c.updated_at as customer_updated_at,
+      fu.username as from_user_username,
+      fu.name as from_user_name,
+      fu.role as from_user_role,
+      fu.email as from_user_email,
+      fu.phone as from_user_phone,
+      fu.status as from_user_status,
+      fu.created_at as from_user_created_at,
+      fu.updated_at as from_user_updated_at,
+      tu.username as to_user_username,
+      tu.name as to_user_name,
+      tu.role as to_user_role,
+      tu.email as to_user_email,
+      tu.phone as to_user_phone,
+      tu.status as to_user_status,
+      tu.created_at as to_user_created_at,
+      tu.updated_at as to_user_updated_at,
+      r.username as reviewer_username,
+      r.name as reviewer_name,
+      r.role as reviewer_role,
+      r.email as reviewer_email,
+      r.phone as reviewer_phone,
+      r.status as reviewer_status,
+      r.created_at as reviewer_created_at,
+      r.updated_at as reviewer_updated_at
+    FROM handovers h
+    LEFT JOIN customers c ON h.customer_id = c.id
+    LEFT JOIN users fu ON h.from_user_id = fu.id
+    LEFT JOIN users tu ON h.to_user_id = tu.id
+    LEFT JOIN users r ON h.reviewer_id = r.id
+    ${whereClause}
+    ORDER BY ${sortBy} ${sortOrder}
+    LIMIT ? OFFSET ?
+    `,
     [...params, pagination.pageSize, offset]
   )
 

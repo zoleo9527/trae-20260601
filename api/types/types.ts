@@ -135,6 +135,10 @@ export interface Handover {
   createdAt: Date
   updatedAt: Date
   completedAt: Date | null
+  customer?: Customer
+  fromUser?: SafeUser
+  toUser?: SafeUser
+  reviewer?: SafeUser
 }
 
 export interface RenewalFollowUp {
@@ -160,6 +164,8 @@ export interface Note {
   attachments: string[]
   createdAt: Date
   updatedAt: Date
+  customer?: Customer
+  user?: SafeUser
 }
 
 export interface ApiResponse<T> {

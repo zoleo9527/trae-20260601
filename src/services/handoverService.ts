@@ -26,11 +26,11 @@ export const handoverService = {
   },
 
   approveHandover: async (id: string, reviewComment?: string): Promise<ApiResponse<Handover>> => {
-    return api.put(`/handovers/${id}/approve`, { reviewComment })
+    return api.put(`/handovers/${id}/approve`, { comment: reviewComment })
   },
 
   rejectHandover: async (id: string, reviewComment?: string): Promise<ApiResponse<Handover>> => {
-    return api.put(`/handovers/${id}/reject`, { reviewComment })
+    return api.put(`/handovers/${id}/reject`, { comment: reviewComment })
   },
 }
 
