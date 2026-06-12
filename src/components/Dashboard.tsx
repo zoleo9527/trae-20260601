@@ -1,4 +1,4 @@
-import { FileTextOutlined, AlertOutlined, ClockCircleOutlined, CheckCircleOutlined, AlertCircleOutlined } from '@ant-design/icons'
+import { FileTextOutlined, AlertOutlined, ClockCircleOutlined, CheckCircleOutlined, WarningOutlined } from '@ant-design/icons'
 import { Card, Row, Col, Statistic } from 'antd'
 import { Task, UserRole } from '@/types'
 import { taskTypeLabels, statusLabels } from '@/data/mockData'
@@ -90,7 +90,7 @@ export function Dashboard({ userRole, todayTasks, stats, onViewAsset }: Dashboar
                 </div>
                 {task.relatedIssue && (
                   <div className="task-issue">
-                    <AlertCircleOutlined />
+                    <WarningOutlined />
                     <span>{task.relatedIssue}</span>
                   </div>
                 )}

@@ -10,21 +10,21 @@ interface NotificationPanelProps {
 }
 
 const typeIcons: Record<string, typeof BellOutlined> = {
-  task_assigned: BellOutlined,
+  task_assignment: BellOutlined,
   status_changed: FileTextOutlined,
   document_supplement: AlertOutlined,
   deposit_refund: CreditCardOutlined,
 }
 
 const typeColors: Record<string, string> = {
-  task_assigned: 'blue',
+  task_assignment: 'blue',
   status_changed: 'green',
   document_supplement: 'orange',
   deposit_refund: 'gold',
 }
 
 const typeLabels: Record<string, string> = {
-  task_assigned: '任务分配',
+  task_assignment: '任务分配',
   status_changed: '状态变更',
   document_supplement: '资料补正',
   deposit_refund: '保证金退还',

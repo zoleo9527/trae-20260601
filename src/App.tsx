@@ -9,7 +9,7 @@ import { AssetEntry } from '@/components/AssetEntry'
 import { NotificationPanel } from '@/components/NotificationPanel'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { assetService } from '@/services/assetService'
-import { Asset, UserRole, Notification, FilterParams } from '@/types'
+import { Asset, UserRole, Notification, FilterParams, AssetStatus } from '@/types'
 import './App.scss'
 
 const { Sider, Content } = Layout

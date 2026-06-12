@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { XOutlined, FileTextOutlined, UserOutlined, CalendarOutlined, MessageOutlined, UploadOutlined } from '@ant-design/icons'
 import { Modal, Tabs, Tag, Button, Form, Input, Upload, Row, Col, Space } from 'antd'
 import TextArea from 'antd/es/input/TextArea'
@@ -27,8 +27,14 @@ const statusColors: Record<string, string> = {
  completed: 'gray',
 }
 export function AssetDetail({ asset, flowRecords, attachments, visible, activeTab: defaultTab, onClose, onSubmitReview, onSubmitFinance, userRole }: AssetDetailProps) {
-  const [activeTab, setActiveTab] = useState(defaultTab || 'info')
- const [form] = Form.useForm()
+  const [activeTab, setActiveTab] = useState('info')
+  const [form] = Form.useForm()
+
+  useEffect(() => {
+    if (visible && defaultTab) {
+      setActiveTab(defaultTab)
+    }
+  }, [visible, defaultTab])
  const handleSubmit = (status: string) => {
  const values = form.getFieldsValue()
  const comment = values.comment || ''

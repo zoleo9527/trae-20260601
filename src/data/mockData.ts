@@ -1,4 +1,4 @@
-import { User, Asset, FlowRecord, Task, Notification, Attachment } from '@/types'
+import { Asset, Attachment, FlowRecord, Notification, Task, User } from '@/types'
 
 export const users: User[] = [
   { id: 'u1', name: '王经理', role: 'project_manager', department: '项目部' },
@@ -245,12 +245,13 @@ export const tasks: Task[] = [
 export const notifications: Notification[] = [
   {
     id: 'n1',
-    type: 'task_assigned',
+    type: 'task_assignment',
     title: '新任务分配',
     content: '您有1项新的审核任务待处理：北京市朝阳区XX写字楼3层301室',
     read: false,
     createdAt: '2024-01-15 14:30:00',
-    relatedAssetId: 'a1',
+    assetId: 'a1',
+    userId: 'u2',
   },
   {
     id: 'n2',
@@ -259,7 +260,8 @@ export const notifications: Notification[] = [
     content: '标的【上海市浦东新区XX商铺1层】已通过审核，等待财务处理',
     read: false,
     createdAt: '2024-01-15 11:35:00',
-    relatedAssetId: 'a2',
+    assetId: 'a2',
+    userId: 'u3',
   },
   {
     id: 'n3',
@@ -268,7 +270,8 @@ export const notifications: Notification[] = [
     content: '标的【深圳市南山区XX厂房整栋】审核未通过，需补充土地权属证明',
     read: true,
     createdAt: '2024-01-15 10:00:00',
-    relatedAssetId: 'a3',
+    assetId: 'a3',
+    userId: 'u4',
   },
   {
     id: 'n4',
@@ -277,7 +280,8 @@ export const notifications: Notification[] = [
     content: '标的【机械设备一批】拍卖已完成，请处理保证金退还',
     read: false,
     createdAt: '2024-01-14 17:00:00',
-    relatedAssetId: 'a6',
+    assetId: 'a6',
+    userId: 'u3',
   },
 ]
 

@@ -1,4 +1,4 @@
-import { SearchOutlined, FilterOutlined, EyeOutlined, EditOutlined, UploadOutlined, Filter } from '@ant-design/icons'
+import { SearchOutlined, FilterOutlined, EyeOutlined, EditOutlined, UploadOutlined } from '@ant-design/icons'
 import { Table, Input, Select, Button, Space, Tag } from 'antd'
 import { Asset, FilterParams } from '@/types'
 import { statusLabels, categories } from '@/data/mockData'
@@ -129,7 +129,7 @@ export function AssetList({ assets, onViewAsset, onEditAsset, onUploadAttachment
             {cat}
           </Select.Option>))}
         </Select>
-        <Button icon={<Filter />} onClick={handleFilter}>筛选</Button>
+        <Button icon={<FilterOutlined />} onClick={handleFilter}>筛选</Button>
       </div>
     </div>
     <Table columns={columns} dataSource={assets} rowKey="id" pagination={{ pageSize: 10 }} scroll={{ x: 1200 }}/>
