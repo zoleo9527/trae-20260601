@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { Confirmation, CollectionRecord, ActionLog } from '@/types';
+import type { Confirmation, CollectionRecord, ActionLog, Reminder } from '@/types';
 import { mockConfirmations, mockCollectionRecords, mockActionLogs } from '@/data/mockData';
 
 export interface StoreState {
@@ -50,40 +50,198 @@ export function useStore() {
   }, [addLog]);
 
   const resolveDispute = useCallback((id: string) => {
-    setConfirmations(prev => prev.map(c => 
-      c.id === id ? { ...c, status: 'confirmed', updatedAt: new Date().toISOString().split('T')[0] } : c
-    ));
+    const confirmation = confirmations.find(c => c.id === id);
+    const today = new Date().toISOString().split('T')[0];
     
-    addLog('解决争议', id, 'confirmation', '当前用户', '竞买资格争议已解决');
-  }, [addLog]);
+    setConfirmations(prev => prev.map(c => 
+      c.id === id ? { ...c, status: 'confirmed', updatedAt: today } : c
+    ));
+
+    const existingCollection = collections.find(col => col.confirmationId === id);
+    
+    if (!existingCollection && confirmation) {
+      const newCollection: CollectionRecord = {
+        id: `CL${Date.now()}`,
+        confirmationId: id,
+        subjectCode: confirmation.subjectCode,
+        subjectName: confirmation.subjectName,
+        bidderName: confirmation.bidderName,
+        bidderPhone: '待补充',
+        totalAmount: confirmation.bidAmount,
+        paidAmount: 0,
+        remainingAmount: confirmation.balanceAmount,
+        status: 'pending',
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: `争议已解决（${today}），备注：${confirmation.notes || '无'}`,
+        createdAt: today,
+        updatedAt: today,
+        reminders: [{
+          id: `R${Date.now()}`,
+          type: 'call',
+          content: `争议处理回访：竞买人资格核实完成，流程继续`,
+          sentAt: today,
+          operator: '系统',
+          result: 'success',
+        }],
+      };
+      setCollections(prev => [...prev, newCollection]);
+      addLog('解决争议', id, 'confirmation', '当前用户', `竞买资格争议已解决，自动生成催收记录`);
+    } else if (existingCollection) {
+      const disputeResolutionReminder: Reminder = {
+        id: `R${Date.now()}`,
+        type: 'call',
+        content: `争议处理回访：竞买人资格核实完成，流程继续`,
+        sentAt: today,
+        operator: '系统',
+        result: 'success',
+      };
+      setCollections(prev => prev.map(col => 
+        col.confirmationId === id ? { 
+          ...col, 
+          notes: `${col.notes}\n争议解决记录（${today}）：竞买资格已核实，流程继续`,
+          reminders: [...col.reminders, disputeResolutionReminder],
+          updatedAt: today 
+        } : col
+      ));
+      addLog('解决争议', id, 'confirmation', '当前用户', '竞买资格争议已解决');
+    }
+  }, [confirmations, collections, addLog]);
 
   const confirmCompletion = useCallback((id: string) => {
-    setConfirmations(prev => prev.map(c => 
-      c.id === id ? { ...c, status: 'completed', updatedAt: new Date().toISOString().split('T')[0] } : c
-    ));
+    const confirmation = confirmations.find(c => c.id === id);
+    const today = new Date().toISOString().split('T')[0];
     
-    setCollections(prev => prev.map(col => 
-      col.confirmationId === id ? { ...col, status: 'first_reminder' as const, updatedAt: new Date().toISOString().split('T')[0] } : col
+    setConfirmations(prev => prev.map(c => 
+      c.id === id ? { ...c, status: 'completed', updatedAt: today } : c
     ));
 
-    addLog('确认完成', id, 'confirmation', '当前用户', '成交确认完成，进入催收流程');
-  }, [addLog]);
+    const existingCollection = collections.find(col => col.confirmationId === id);
+    
+    if (!existingCollection && confirmation) {
+      const newCollection: CollectionRecord = {
+        id: `CL${Date.now()}`,
+        confirmationId: id,
+        subjectCode: confirmation.subjectCode,
+        subjectName: confirmation.subjectName,
+        bidderName: confirmation.bidderName,
+        bidderPhone: '待补充',
+        totalAmount: confirmation.bidAmount,
+        paidAmount: confirmation.depositAmount,
+        remainingAmount: confirmation.balanceAmount,
+        status: 'first_reminder',
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        notes: `成交确认完成（${today}），备注：${confirmation.notes || '无'}`,
+        createdAt: today,
+        updatedAt: today,
+        reminders: [{
+          id: `R${Date.now()}`,
+          type: 'sms',
+          content: `欢迎参与拍卖，您竞得的标的已进入尾款催收流程`,
+          sentAt: today,
+          operator: '系统',
+          result: 'success',
+        }],
+      };
+      setCollections(prev => [...prev, newCollection]);
+      addLog('确认完成', id, 'confirmation', '当前用户', '成交确认完成，自动生成催收记录');
+    } else if (existingCollection) {
+      if (existingCollection.status === 'pending') {
+        const startReminder: Reminder = {
+          id: `R${Date.now()}`,
+          type: 'sms',
+          content: `欢迎参与拍卖，您竞得的标的已进入尾款催收流程`,
+          sentAt: today,
+          operator: '系统',
+          result: 'success',
+        };
+        setCollections(prev => prev.map(col => 
+          col.confirmationId === id ? { 
+            ...col, 
+            status: 'first_reminder' as const,
+            notes: `${col.notes}\n成交确认完成（${today}）`,
+            reminders: [...col.reminders, startReminder],
+            updatedAt: today 
+          } : col
+        ));
+      } else {
+        setCollections(prev => prev.map(col => 
+          col.confirmationId === id ? { ...col, updatedAt: today } : col
+        ));
+      }
+      addLog('确认完成', id, 'confirmation', '当前用户', '成交确认完成');
+    }
+  }, [confirmations, collections, addLog]);
 
   const batchConfirm = useCallback((ids: string[]) => {
-    setConfirmations(prev => prev.map(c => 
-      ids.includes(c.id) ? { ...c, status: 'completed', updatedAt: new Date().toISOString().split('T')[0] } : c
-    ));
+    const today = new Date().toISOString().split('T')[0];
     
-    setCollections(prev => prev.map(col => 
-      ids.includes(col.confirmationId) ? { ...col, status: 'first_reminder' as const, updatedAt: new Date().toISOString().split('T')[0] } : col
+    setConfirmations(prev => prev.map(c => 
+      ids.includes(c.id) ? { ...c, status: 'completed', updatedAt: today } : c
     ));
 
+    const newCollections: CollectionRecord[] = [];
+    
+    ids.forEach(id => {
+      const confirmation = confirmations.find(c => c.id === id);
+      const existingCollection = collections.find(col => col.confirmationId === id);
+      
+      if (!existingCollection && confirmation) {
+        newCollections.push({
+          id: `CL${Date.now()}`,
+          confirmationId: id,
+          subjectCode: confirmation.subjectCode,
+          subjectName: confirmation.subjectName,
+          bidderName: confirmation.bidderName,
+          bidderPhone: '待补充',
+          totalAmount: confirmation.bidAmount,
+          paidAmount: confirmation.depositAmount,
+          remainingAmount: confirmation.balanceAmount,
+          status: 'first_reminder',
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          notes: `批量确认完成（${today}），备注：${confirmation.notes || '无'}`,
+          createdAt: today,
+          updatedAt: today,
+          reminders: [{
+            id: `R${Date.now()}`,
+            type: 'sms',
+            content: `欢迎参与拍卖，您竞得的标的已进入尾款催收流程`,
+            sentAt: today,
+            operator: '系统',
+            result: 'success',
+          }],
+        });
+      } else if (existingCollection && existingCollection.status === 'pending') {
+        const startReminder: Reminder = {
+          id: `R${Date.now()}`,
+          type: 'sms',
+          content: `欢迎参与拍卖，您竞得的标的已进入尾款催收流程`,
+          sentAt: today,
+          operator: '系统',
+          result: 'success',
+        };
+        setCollections(prev => prev.map(col => 
+          col.confirmationId === id ? { 
+            ...col, 
+            status: 'first_reminder' as const,
+            notes: `${col.notes}\n批量确认完成（${today}）`,
+            reminders: [...col.reminders, startReminder],
+            updatedAt: today 
+          } : col
+        ));
+      }
+    });
+
+    if (newCollections.length > 0) {
+      setCollections(prev => [...prev, ...newCollections]);
+    }
+
     addLog('批量确认', ids.join(','), 'confirmation', '当前用户', `批量确认 ${ids.length} 条成交确认`);
-  }, [addLog]);
+  }, [confirmations, collections, addLog]);
 
   const sendReminder = useCallback((collectionId: string, type: 'sms' | 'call' | 'email' | 'letter', content: string, operator: string) => {
     setCollections(prev => prev.map(col => {
       if (col.id !== collectionId) return col;
+      if (col.status === 'paid') return col;
       
       const newStatus = col.status === 'pending' ? 'first_reminder' : 
                         col.status === 'first_reminder' ? 'second_reminder' : 
@@ -109,6 +267,8 @@ export function useStore() {
   }, [addLog]);
 
   const confirmPayment = useCallback((collectionId: string) => {
+    const collection = collections.find(c => c.id === collectionId);
+    
     setCollections(prev => prev.map(col => {
       if (col.id !== collectionId) return col;
       return {
@@ -117,16 +277,22 @@ export function useStore() {
         remainingAmount: 0,
         status: 'paid',
         updatedAt: new Date().toISOString().split('T')[0],
-        notes: `${col.notes || ''}\n${new Date().toISOString().split('T')[0]}: 尾款已全部结清`,
+        notes: `${col.notes || ''}\n${new Date().toISOString().split('T')[0]}：尾款已全部结清`,
       };
     }));
 
-    addLog('确认收款', collectionId, 'collection', '当前用户', '确认尾款到账');
-  }, [addLog]);
+    addLog('确认收款', collectionId, 'collection', '当前用户', `确认${collection?.bidderName || ''}尾款${collection?.remainingAmount || 0}元到账`);
+  }, [collections, addLog]);
 
   const batchRemind = useCallback((ids: string[], operator: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const processedIds: string[] = [];
+    
     setCollections(prev => prev.map(col => {
       if (!ids.includes(col.id)) return col;
+      if (col.status === 'paid') return col;
+      
+      processedIds.push(col.id);
 
       const newStatus = col.status === 'pending' ? 'first_reminder' : 
                         col.status === 'first_reminder' ? 'second_reminder' : 
@@ -135,20 +301,22 @@ export function useStore() {
       return {
         ...col,
         status: newStatus,
-        lastRemindAt: new Date().toISOString().split('T')[0],
+        lastRemindAt: today,
         reminders: [...col.reminders, {
           id: `R${Date.now()}`,
           type: 'sms' as const,
           content: `批量催收：请于${col.dueDate}前支付尾款${col.remainingAmount}元`,
-          sentAt: new Date().toISOString().split('T')[0],
+          sentAt: today,
           operator,
           result: 'success' as const,
         }],
-        updatedAt: new Date().toISOString().split('T')[0],
+        updatedAt: today,
       };
     }));
 
-    addLog('批量催收', ids.join(','), 'collection', operator, `批量发送 ${ids.length} 条催收通知`);
+    if (processedIds.length > 0) {
+      addLog('批量催收', processedIds.join(','), 'collection', operator, `批量发送 ${processedIds.length} 条催收通知`);
+    }
   }, [addLog]);
 
   return {
@@ -166,34 +334,42 @@ export function useStore() {
   };
 }
 
-export interface TodoStats {
-  pendingConfirmations: number;
-  incompleteData: number;
-  disputes: number;
-  pendingCollections: number;
-  overdueCollections: number;
-  totalConfirmations: number;
-  totalCollections: number;
+export type ConfirmationFilter = 'all' | 'pending' | 'dispute' | 'incomplete' | 'confirmed';
+export type CollectionFilter = 'all' | 'pending' | 'overdue' | 'paid';
+
+export function filterConfirmations(confirmations: Confirmation[], filter: ConfirmationFilter): Confirmation[] {
+  switch (filter) {
+    case 'pending':
+      return confirmations.filter(c => c.status === 'pending');
+    case 'dispute':
+      return confirmations.filter(c => c.status === 'dispute');
+    case 'incomplete':
+      return confirmations.filter(c => 
+        !c.dataCompleteness.subjectData || 
+        !c.dataCompleteness.bidderQualification || 
+        !c.dataCompleteness.contractSigned || 
+        !c.dataCompleteness.otherDocuments
+      );
+    case 'confirmed':
+      return confirmations.filter(c => c.status === 'confirmed');
+    default:
+      return confirmations;
+  }
 }
 
-export function getTodoStats(confirmations: Confirmation[], collections: CollectionRecord[]): TodoStats {
+export function filterCollections(collections: CollectionRecord[], filter: CollectionFilter): CollectionRecord[] {
   const today = new Date();
-  
-  return {
-    pendingConfirmations: confirmations.filter(c => c.status === 'pending').length,
-    incompleteData: confirmations.filter(c => 
-      !c.dataCompleteness.subjectData || 
-      !c.dataCompleteness.bidderQualification || 
-      !c.dataCompleteness.contractSigned || 
-      !c.dataCompleteness.otherDocuments
-    ).length,
-    disputes: confirmations.filter(c => c.status === 'dispute').length,
-    pendingCollections: collections.filter(c => c.status !== 'paid').length,
-    overdueCollections: collections.filter(c => {
-      const due = new Date(c.dueDate);
-      return due < today && c.status !== 'paid';
-    }).length,
-    totalConfirmations: confirmations.length,
-    totalCollections: collections.length,
-  };
+  switch (filter) {
+    case 'pending':
+      return collections.filter(c => c.status !== 'paid');
+    case 'overdue':
+      return collections.filter(c => {
+        const due = new Date(c.dueDate);
+        return due < today && c.status !== 'paid';
+      });
+    case 'paid':
+      return collections.filter(c => c.status === 'paid');
+    default:
+      return collections;
+  }
 }

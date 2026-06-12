@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Progress, Space, Tooltip, Popconfirm, Checkbox } from 'antd';
 import { EditOutlined, CheckOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Confirmation, UserRole, DepositRecord } from '@/types';
-import { StoreActions } from '@/store/useStore';
+import { StoreActions, ConfirmationFilter, filterConfirmations } from '@/store/useStore';
 import { mockDepositRecords } from '@/data/mockData';
 import { formatCurrency } from '@/utils/format';
 import { hasPermission } from '@/utils/auth';
@@ -39,6 +39,7 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
   const [editingItem, setEditingItem] = useState<Confirmation | null>(null);
   const [selectedRows, setSelectedRows] = useState<React.Key[]>([]);
   const [form] = Form.useForm();
+  const [filter, setFilter] = useState<ConfirmationFilter>('all');
 
   const pendingCount = confirmations.filter(c => c.status === 'pending').length;
   const incompleteCount = confirmations.filter(c => 
@@ -50,7 +51,7 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
   const disputeCount = confirmations.filter(c => c.status === 'dispute').length;
   const confirmedCount = confirmations.filter(c => c.status === 'confirmed').length;
 
-  const filteredConfirmations = confirmations;
+  const filteredConfirmations = filterConfirmations(confirmations, filter);
 
   const columns = [
     {
@@ -224,30 +225,50 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
     setSelectedRows([]);
   };
 
+  const handleCardClick = (cardFilter: ConfirmationFilter) => {
+    setFilter(cardFilter);
+  };
+
   const renderRoleSpecificCards = () => {
     if (currentUserRole === 'project_manager') {
       return (
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #1890ff' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #1890ff', cursor: 'pointer', background: filter === 'pending' ? '#e6f7ff' : undefined }}
+              onClick={() => handleCardClick('pending')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{pendingCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>待处理成交</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'incomplete' ? '#fffbe6' : undefined }}
+              onClick={() => handleCardClick('incomplete')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>资料待补正</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #52c41a' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #52c41a', cursor: 'pointer', background: filter === 'confirmed' ? '#f6ffed' : undefined }}
+              onClick={() => handleCardClick('confirmed')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{confirmedCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>待确认完成</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'all' ? '#f5f5f5' : undefined }}
+              onClick={() => handleCardClick('all')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
               <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
             </Card>
@@ -260,19 +281,31 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
       return (
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'dispute' ? '#fff1f0' : undefined }}
+              onClick={() => handleCardClick('dispute')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{disputeCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>待处理争议</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'incomplete' ? '#fffbe6' : undefined }}
+              onClick={() => handleCardClick('incomplete')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>资格待审核</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'all' ? '#f5f5f5' : undefined }}
+              onClick={() => handleCardClick('all')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
               <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
             </Card>
@@ -309,7 +342,11 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'all' ? '#f5f5f5' : undefined }}
+              onClick={() => handleCardClick('all')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
               <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
             </Card>
@@ -329,19 +366,31 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
     return (
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable
+            style={{ cursor: 'pointer', background: filter === 'all' ? '#f5f5f5' : undefined }}
+            onClick={() => handleCardClick('all')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
             <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable 
+            style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'incomplete' ? '#fffbe6' : undefined }}
+            onClick={() => handleCardClick('incomplete')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
             <div style={{ fontSize: 12, color: '#666' }}>资料待补正</div>
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable 
+            style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'dispute' ? '#fff1f0' : undefined }}
+            onClick={() => handleCardClick('dispute')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{disputeCount}</div>
             <div style={{ fontSize: 12, color: '#666' }}>资格争议</div>
           </Card>
@@ -366,6 +415,9 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
         title="成交确认管理" 
         extra={
           <div style={{ display: 'flex', gap: 12 }}>
+            {filter !== 'all' && (
+              <Button onClick={() => setFilter('all')}>清除筛选</Button>
+            )}
             {hasPermission(currentUserRole, 'confirmation_edit') && (
               <Button icon={<PlusOutlined />} type="primary">
                 新增成交确认

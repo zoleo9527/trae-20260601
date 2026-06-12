@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Space, Tooltip, Tabs } from 'antd';
 import { PhoneOutlined, MailOutlined, MessageOutlined, FileTextOutlined, EyeOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import type { CollectionRecord, UserRole } from '@/types';
-import { StoreActions } from '@/store/useStore';
+import { StoreActions, CollectionFilter, filterCollections } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { hasPermission } from '@/utils/auth';
 
@@ -51,6 +51,7 @@ export default function CollectionPage({ currentUserRole, collections, actions }
   const [selectedItem, setSelectedItem] = useState<CollectionRecord | null>(null);
   const [selectedRows, setSelectedRows] = useState<React.Key[]>([]);
   const [reminderForm] = Form.useForm();
+  const [filter, setFilter] = useState<CollectionFilter>('all');
 
   const today = new Date();
   const pendingCount = collections.filter(c => c.status === 'pending').length;
@@ -61,6 +62,8 @@ export default function CollectionPage({ currentUserRole, collections, actions }
     return due < today && c.status !== 'paid';
   }).length;
   const unpaidTotal = collections.filter(c => c.status !== 'paid').reduce((sum, c) => sum + c.remainingAmount, 0);
+
+  const filteredCollections = filterCollections(collections, filter);
 
   const columns = [
     {
@@ -212,18 +215,30 @@ export default function CollectionPage({ currentUserRole, collections, actions }
     setSelectedRows([]);
   };
 
+  const handleCardClick = (cardFilter: CollectionFilter) => {
+    setFilter(cardFilter);
+  };
+
   const renderRoleSpecificCards = () => {
     if (currentUserRole === 'project_manager') {
       return (
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'pending' ? '#fffbe6' : undefined }}
+              onClick={() => handleCardClick('pending')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{pendingCount + firstReminderCount + secondReminderCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>待催收任务</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'overdue' ? '#fff1f0' : undefined }}
+              onClick={() => handleCardClick('overdue')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>已逾期</div>
             </Card>
@@ -235,7 +250,11 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'paid' ? '#f6ffed' : undefined }}
+              onClick={() => handleCardClick('paid')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
                 {collections.filter(c => c.status === 'paid').length}
               </div>
@@ -256,7 +275,11 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'overdue' ? '#fff1f0' : undefined }}
+              onClick={() => handleCardClick('overdue')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>已逾期</div>
             </Card>
@@ -268,7 +291,11 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'paid' ? '#f6ffed' : undefined }}
+              onClick={() => handleCardClick('paid')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
                 {collections.filter(c => c.status === 'paid').length}
               </div>
@@ -283,13 +310,17 @@ export default function CollectionPage({ currentUserRole, collections, actions }
       return (
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'overdue' ? '#fff1f0' : undefined }}
+              onClick={() => handleCardClick('overdue')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>逾期催收</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #52c41a' }} onClick={() => {}}>
+            <Card>
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
                 {collections.filter(c => c.status !== 'paid' && c.remainingAmount > 0).length}
               </div>
@@ -303,7 +334,11 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ cursor: 'pointer', background: filter === 'paid' ? '#f6ffed' : undefined }}
+              onClick={() => handleCardClick('paid')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
                 {collections.filter(c => c.status === 'paid').length}
               </div>
@@ -317,25 +352,41 @@ export default function CollectionPage({ currentUserRole, collections, actions }
     return (
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable
+            style={{ cursor: 'pointer', background: filter === 'all' ? '#f5f5f5' : undefined }}
+            onClick={() => handleCardClick('all')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{collections.length}</div>
             <div style={{ fontSize: 12, color: '#666' }}>催收任务总数</div>
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable 
+            style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'pending' ? '#fffbe6' : undefined }}
+            onClick={() => handleCardClick('pending')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{pendingCount + firstReminderCount + secondReminderCount}</div>
             <div style={{ fontSize: 12, color: '#666' }}>待催收</div>
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable 
+            style={{ borderLeft: '4px solid #f5222d', cursor: 'pointer', background: filter === 'overdue' ? '#fff1f0' : undefined }}
+            onClick={() => handleCardClick('overdue')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
             <div style={{ fontSize: 12, color: '#666' }}>已逾期</div>
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card 
+            hoverable
+            style={{ cursor: 'pointer', background: filter === 'paid' ? '#f6ffed' : undefined }}
+            onClick={() => handleCardClick('paid')}
+          >
             <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
               {collections.filter(c => c.status === 'paid').length}
             </div>
@@ -354,6 +405,9 @@ export default function CollectionPage({ currentUserRole, collections, actions }
         title="尾款催收管理" 
         extra={
           <div style={{ display: 'flex', gap: 12 }}>
+            {filter !== 'all' && (
+              <Button onClick={() => setFilter('all')}>清除筛选</Button>
+            )}
             {selectedRows.length > 0 && hasPermission(currentUserRole, 'collection_edit') && (
               <Button icon={<MessageOutlined />} type="primary" onClick={handleBatchReminder}>
                 批量催收 ({selectedRows.length})
@@ -365,7 +419,7 @@ export default function CollectionPage({ currentUserRole, collections, actions }
         <Table
           rowKey="id"
           columns={columns}
-          dataSource={collections}
+          dataSource={filteredCollections}
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1300 }}
           rowSelection={{
