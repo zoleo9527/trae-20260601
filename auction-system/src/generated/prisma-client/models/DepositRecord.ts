@@ -40,7 +40,10 @@ export type DepositRecordMinAggregateOutputType = {
   amount: runtime.Decimal | null
   status: $Enums.DepositStatus | null
   paymentTime: Date | null
+  paidBy: string | null
   refundTime: Date | null
+  refundedBy: string | null
+  refundReason: string | null
   paymentMethod: string | null
   transactionNumber: string | null
   payerId: string | null
@@ -52,7 +55,10 @@ export type DepositRecordMaxAggregateOutputType = {
   amount: runtime.Decimal | null
   status: $Enums.DepositStatus | null
   paymentTime: Date | null
+  paidBy: string | null
   refundTime: Date | null
+  refundedBy: string | null
+  refundReason: string | null
   paymentMethod: string | null
   transactionNumber: string | null
   payerId: string | null
@@ -64,7 +70,10 @@ export type DepositRecordCountAggregateOutputType = {
   amount: number
   status: number
   paymentTime: number
+  paidBy: number
   refundTime: number
+  refundedBy: number
+  refundReason: number
   paymentMethod: number
   transactionNumber: number
   payerId: number
@@ -86,7 +95,10 @@ export type DepositRecordMinAggregateInputType = {
   amount?: true
   status?: true
   paymentTime?: true
+  paidBy?: true
   refundTime?: true
+  refundedBy?: true
+  refundReason?: true
   paymentMethod?: true
   transactionNumber?: true
   payerId?: true
@@ -98,7 +110,10 @@ export type DepositRecordMaxAggregateInputType = {
   amount?: true
   status?: true
   paymentTime?: true
+  paidBy?: true
   refundTime?: true
+  refundedBy?: true
+  refundReason?: true
   paymentMethod?: true
   transactionNumber?: true
   payerId?: true
@@ -110,7 +125,10 @@ export type DepositRecordCountAggregateInputType = {
   amount?: true
   status?: true
   paymentTime?: true
+  paidBy?: true
   refundTime?: true
+  refundedBy?: true
+  refundReason?: true
   paymentMethod?: true
   transactionNumber?: true
   payerId?: true
@@ -209,7 +227,10 @@ export type DepositRecordGroupByOutputType = {
   amount: runtime.Decimal
   status: $Enums.DepositStatus
   paymentTime: Date | null
+  paidBy: string | null
   refundTime: Date | null
+  refundedBy: string | null
+  refundReason: string | null
   paymentMethod: string | null
   transactionNumber: string | null
   payerId: string | null
@@ -244,12 +265,17 @@ export type DepositRecordWhereInput = {
   amount?: Prisma.DecimalFilter<"DepositRecord"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFilter<"DepositRecord"> | $Enums.DepositStatus
   paymentTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  paidBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   refundTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  refundedBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
+  refundReason?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   paymentMethod?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   transactionNumber?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   payerId?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   registration?: Prisma.XOR<Prisma.BidRegistrationScalarRelationFilter, Prisma.BidRegistrationWhereInput>
   payer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  paymentProcessor?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  refundProcessor?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
 
 export type DepositRecordOrderByWithRelationInput = {
@@ -258,12 +284,17 @@ export type DepositRecordOrderByWithRelationInput = {
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   paymentTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  paidBy?: Prisma.SortOrderInput | Prisma.SortOrder
   refundTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  refundedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  refundReason?: Prisma.SortOrderInput | Prisma.SortOrder
   paymentMethod?: Prisma.SortOrderInput | Prisma.SortOrder
   transactionNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   payerId?: Prisma.SortOrderInput | Prisma.SortOrder
   registration?: Prisma.BidRegistrationOrderByWithRelationInput
   payer?: Prisma.UserOrderByWithRelationInput
+  paymentProcessor?: Prisma.UserOrderByWithRelationInput
+  refundProcessor?: Prisma.UserOrderByWithRelationInput
 }
 
 export type DepositRecordWhereUniqueInput = Prisma.AtLeast<{
@@ -275,12 +306,17 @@ export type DepositRecordWhereUniqueInput = Prisma.AtLeast<{
   amount?: Prisma.DecimalFilter<"DepositRecord"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFilter<"DepositRecord"> | $Enums.DepositStatus
   paymentTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  paidBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   refundTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  refundedBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
+  refundReason?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   paymentMethod?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   transactionNumber?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   payerId?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   registration?: Prisma.XOR<Prisma.BidRegistrationScalarRelationFilter, Prisma.BidRegistrationWhereInput>
   payer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  paymentProcessor?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  refundProcessor?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }, "id" | "registrationId">
 
 export type DepositRecordOrderByWithAggregationInput = {
@@ -289,7 +325,10 @@ export type DepositRecordOrderByWithAggregationInput = {
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   paymentTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  paidBy?: Prisma.SortOrderInput | Prisma.SortOrder
   refundTime?: Prisma.SortOrderInput | Prisma.SortOrder
+  refundedBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  refundReason?: Prisma.SortOrderInput | Prisma.SortOrder
   paymentMethod?: Prisma.SortOrderInput | Prisma.SortOrder
   transactionNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   payerId?: Prisma.SortOrderInput | Prisma.SortOrder
@@ -309,7 +348,10 @@ export type DepositRecordScalarWhereWithAggregatesInput = {
   amount?: Prisma.DecimalWithAggregatesFilter<"DepositRecord"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusWithAggregatesFilter<"DepositRecord"> | $Enums.DepositStatus
   paymentTime?: Prisma.DateTimeNullableWithAggregatesFilter<"DepositRecord"> | Date | string | null
+  paidBy?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
   refundTime?: Prisma.DateTimeNullableWithAggregatesFilter<"DepositRecord"> | Date | string | null
+  refundedBy?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
+  refundReason?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
   paymentMethod?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
   transactionNumber?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
   payerId?: Prisma.StringNullableWithAggregatesFilter<"DepositRecord"> | string | null
@@ -321,10 +363,13 @@ export type DepositRecordCreateInput = {
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
   refundTime?: Date | string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   registration: Prisma.BidRegistrationCreateNestedOneWithoutDepositInput
   payer?: Prisma.UserCreateNestedOneWithoutDepositsInput
+  paymentProcessor?: Prisma.UserCreateNestedOneWithoutProcessedDepositsInput
+  refundProcessor?: Prisma.UserCreateNestedOneWithoutRefundedDepositsInput
 }
 
 export type DepositRecordUncheckedCreateInput = {
@@ -333,7 +378,10 @@ export type DepositRecordUncheckedCreateInput = {
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
+  paidBy?: string | null
   refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   payerId?: string | null
@@ -345,10 +393,13 @@ export type DepositRecordUpdateInput = {
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutDepositNestedInput
   payer?: Prisma.UserUpdateOneWithoutDepositsNestedInput
+  paymentProcessor?: Prisma.UserUpdateOneWithoutProcessedDepositsNestedInput
+  refundProcessor?: Prisma.UserUpdateOneWithoutRefundedDepositsNestedInput
 }
 
 export type DepositRecordUncheckedUpdateInput = {
@@ -357,7 +408,10 @@ export type DepositRecordUncheckedUpdateInput = {
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -369,7 +423,10 @@ export type DepositRecordCreateManyInput = {
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
+  paidBy?: string | null
   refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   payerId?: string | null
@@ -381,6 +438,7 @@ export type DepositRecordUpdateManyMutationInput = {
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
@@ -391,7 +449,10 @@ export type DepositRecordUncheckedUpdateManyInput = {
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -418,7 +479,10 @@ export type DepositRecordCountOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   paymentTime?: Prisma.SortOrder
+  paidBy?: Prisma.SortOrder
   refundTime?: Prisma.SortOrder
+  refundedBy?: Prisma.SortOrder
+  refundReason?: Prisma.SortOrder
   paymentMethod?: Prisma.SortOrder
   transactionNumber?: Prisma.SortOrder
   payerId?: Prisma.SortOrder
@@ -434,7 +498,10 @@ export type DepositRecordMaxOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   paymentTime?: Prisma.SortOrder
+  paidBy?: Prisma.SortOrder
   refundTime?: Prisma.SortOrder
+  refundedBy?: Prisma.SortOrder
+  refundReason?: Prisma.SortOrder
   paymentMethod?: Prisma.SortOrder
   transactionNumber?: Prisma.SortOrder
   payerId?: Prisma.SortOrder
@@ -446,7 +513,10 @@ export type DepositRecordMinOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   status?: Prisma.SortOrder
   paymentTime?: Prisma.SortOrder
+  paidBy?: Prisma.SortOrder
   refundTime?: Prisma.SortOrder
+  refundedBy?: Prisma.SortOrder
+  refundReason?: Prisma.SortOrder
   paymentMethod?: Prisma.SortOrder
   transactionNumber?: Prisma.SortOrder
   payerId?: Prisma.SortOrder
@@ -463,10 +533,38 @@ export type DepositRecordCreateNestedManyWithoutPayerInput = {
   connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
 }
 
+export type DepositRecordCreateNestedManyWithoutPaymentProcessorInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput> | Prisma.DepositRecordCreateWithoutPaymentProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyPaymentProcessorInputEnvelope
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+}
+
+export type DepositRecordCreateNestedManyWithoutRefundProcessorInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput> | Prisma.DepositRecordCreateWithoutRefundProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyRefundProcessorInputEnvelope
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+}
+
 export type DepositRecordUncheckedCreateNestedManyWithoutPayerInput = {
   create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPayerInput, Prisma.DepositRecordUncheckedCreateWithoutPayerInput> | Prisma.DepositRecordCreateWithoutPayerInput[] | Prisma.DepositRecordUncheckedCreateWithoutPayerInput[]
   connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPayerInput | Prisma.DepositRecordCreateOrConnectWithoutPayerInput[]
   createMany?: Prisma.DepositRecordCreateManyPayerInputEnvelope
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+}
+
+export type DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput> | Prisma.DepositRecordCreateWithoutPaymentProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyPaymentProcessorInputEnvelope
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+}
+
+export type DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput> | Prisma.DepositRecordCreateWithoutRefundProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyRefundProcessorInputEnvelope
   connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
 }
 
@@ -484,6 +582,34 @@ export type DepositRecordUpdateManyWithoutPayerNestedInput = {
   deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
 }
 
+export type DepositRecordUpdateManyWithoutPaymentProcessorNestedInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput> | Prisma.DepositRecordCreateWithoutPaymentProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput[]
+  upsert?: Prisma.DepositRecordUpsertWithWhereUniqueWithoutPaymentProcessorInput | Prisma.DepositRecordUpsertWithWhereUniqueWithoutPaymentProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyPaymentProcessorInputEnvelope
+  set?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  disconnect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  delete?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  update?: Prisma.DepositRecordUpdateWithWhereUniqueWithoutPaymentProcessorInput | Prisma.DepositRecordUpdateWithWhereUniqueWithoutPaymentProcessorInput[]
+  updateMany?: Prisma.DepositRecordUpdateManyWithWhereWithoutPaymentProcessorInput | Prisma.DepositRecordUpdateManyWithWhereWithoutPaymentProcessorInput[]
+  deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
+}
+
+export type DepositRecordUpdateManyWithoutRefundProcessorNestedInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput> | Prisma.DepositRecordCreateWithoutRefundProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput[]
+  upsert?: Prisma.DepositRecordUpsertWithWhereUniqueWithoutRefundProcessorInput | Prisma.DepositRecordUpsertWithWhereUniqueWithoutRefundProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyRefundProcessorInputEnvelope
+  set?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  disconnect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  delete?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  update?: Prisma.DepositRecordUpdateWithWhereUniqueWithoutRefundProcessorInput | Prisma.DepositRecordUpdateWithWhereUniqueWithoutRefundProcessorInput[]
+  updateMany?: Prisma.DepositRecordUpdateManyWithWhereWithoutRefundProcessorInput | Prisma.DepositRecordUpdateManyWithWhereWithoutRefundProcessorInput[]
+  deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
+}
+
 export type DepositRecordUncheckedUpdateManyWithoutPayerNestedInput = {
   create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPayerInput, Prisma.DepositRecordUncheckedCreateWithoutPayerInput> | Prisma.DepositRecordCreateWithoutPayerInput[] | Prisma.DepositRecordUncheckedCreateWithoutPayerInput[]
   connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPayerInput | Prisma.DepositRecordCreateOrConnectWithoutPayerInput[]
@@ -495,6 +621,34 @@ export type DepositRecordUncheckedUpdateManyWithoutPayerNestedInput = {
   connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
   update?: Prisma.DepositRecordUpdateWithWhereUniqueWithoutPayerInput | Prisma.DepositRecordUpdateWithWhereUniqueWithoutPayerInput[]
   updateMany?: Prisma.DepositRecordUpdateManyWithWhereWithoutPayerInput | Prisma.DepositRecordUpdateManyWithWhereWithoutPayerInput[]
+  deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
+}
+
+export type DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput> | Prisma.DepositRecordCreateWithoutPaymentProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutPaymentProcessorInput[]
+  upsert?: Prisma.DepositRecordUpsertWithWhereUniqueWithoutPaymentProcessorInput | Prisma.DepositRecordUpsertWithWhereUniqueWithoutPaymentProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyPaymentProcessorInputEnvelope
+  set?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  disconnect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  delete?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  update?: Prisma.DepositRecordUpdateWithWhereUniqueWithoutPaymentProcessorInput | Prisma.DepositRecordUpdateWithWhereUniqueWithoutPaymentProcessorInput[]
+  updateMany?: Prisma.DepositRecordUpdateManyWithWhereWithoutPaymentProcessorInput | Prisma.DepositRecordUpdateManyWithWhereWithoutPaymentProcessorInput[]
+  deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
+}
+
+export type DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput = {
+  create?: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput> | Prisma.DepositRecordCreateWithoutRefundProcessorInput[] | Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput[]
+  connectOrCreate?: Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput | Prisma.DepositRecordCreateOrConnectWithoutRefundProcessorInput[]
+  upsert?: Prisma.DepositRecordUpsertWithWhereUniqueWithoutRefundProcessorInput | Prisma.DepositRecordUpsertWithWhereUniqueWithoutRefundProcessorInput[]
+  createMany?: Prisma.DepositRecordCreateManyRefundProcessorInputEnvelope
+  set?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  disconnect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  delete?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  connect?: Prisma.DepositRecordWhereUniqueInput | Prisma.DepositRecordWhereUniqueInput[]
+  update?: Prisma.DepositRecordUpdateWithWhereUniqueWithoutRefundProcessorInput | Prisma.DepositRecordUpdateWithWhereUniqueWithoutRefundProcessorInput[]
+  updateMany?: Prisma.DepositRecordUpdateManyWithWhereWithoutRefundProcessorInput | Prisma.DepositRecordUpdateManyWithWhereWithoutRefundProcessorInput[]
   deleteMany?: Prisma.DepositRecordScalarWhereInput | Prisma.DepositRecordScalarWhereInput[]
 }
 
@@ -540,9 +694,12 @@ export type DepositRecordCreateWithoutPayerInput = {
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
   refundTime?: Date | string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   registration: Prisma.BidRegistrationCreateNestedOneWithoutDepositInput
+  paymentProcessor?: Prisma.UserCreateNestedOneWithoutProcessedDepositsInput
+  refundProcessor?: Prisma.UserCreateNestedOneWithoutRefundedDepositsInput
 }
 
 export type DepositRecordUncheckedCreateWithoutPayerInput = {
@@ -551,7 +708,10 @@ export type DepositRecordUncheckedCreateWithoutPayerInput = {
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
+  paidBy?: string | null
   refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
 }
@@ -563,6 +723,80 @@ export type DepositRecordCreateOrConnectWithoutPayerInput = {
 
 export type DepositRecordCreateManyPayerInputEnvelope = {
   data: Prisma.DepositRecordCreateManyPayerInput | Prisma.DepositRecordCreateManyPayerInput[]
+}
+
+export type DepositRecordCreateWithoutPaymentProcessorInput = {
+  id?: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  refundTime?: Date | string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  registration: Prisma.BidRegistrationCreateNestedOneWithoutDepositInput
+  payer?: Prisma.UserCreateNestedOneWithoutDepositsInput
+  refundProcessor?: Prisma.UserCreateNestedOneWithoutRefundedDepositsInput
+}
+
+export type DepositRecordUncheckedCreateWithoutPaymentProcessorInput = {
+  id?: string
+  registrationId: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  payerId?: string | null
+}
+
+export type DepositRecordCreateOrConnectWithoutPaymentProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  create: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput>
+}
+
+export type DepositRecordCreateManyPaymentProcessorInputEnvelope = {
+  data: Prisma.DepositRecordCreateManyPaymentProcessorInput | Prisma.DepositRecordCreateManyPaymentProcessorInput[]
+}
+
+export type DepositRecordCreateWithoutRefundProcessorInput = {
+  id?: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  refundTime?: Date | string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  registration: Prisma.BidRegistrationCreateNestedOneWithoutDepositInput
+  payer?: Prisma.UserCreateNestedOneWithoutDepositsInput
+  paymentProcessor?: Prisma.UserCreateNestedOneWithoutProcessedDepositsInput
+}
+
+export type DepositRecordUncheckedCreateWithoutRefundProcessorInput = {
+  id?: string
+  registrationId: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  paidBy?: string | null
+  refundTime?: Date | string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  payerId?: string | null
+}
+
+export type DepositRecordCreateOrConnectWithoutRefundProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  create: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput>
+}
+
+export type DepositRecordCreateManyRefundProcessorInputEnvelope = {
+  data: Prisma.DepositRecordCreateManyRefundProcessorInput | Prisma.DepositRecordCreateManyRefundProcessorInput[]
 }
 
 export type DepositRecordUpsertWithWhereUniqueWithoutPayerInput = {
@@ -590,10 +824,45 @@ export type DepositRecordScalarWhereInput = {
   amount?: Prisma.DecimalFilter<"DepositRecord"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFilter<"DepositRecord"> | $Enums.DepositStatus
   paymentTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  paidBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   refundTime?: Prisma.DateTimeNullableFilter<"DepositRecord"> | Date | string | null
+  refundedBy?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
+  refundReason?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   paymentMethod?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   transactionNumber?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
   payerId?: Prisma.StringNullableFilter<"DepositRecord"> | string | null
+}
+
+export type DepositRecordUpsertWithWhereUniqueWithoutPaymentProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  update: Prisma.XOR<Prisma.DepositRecordUpdateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedUpdateWithoutPaymentProcessorInput>
+  create: Prisma.XOR<Prisma.DepositRecordCreateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutPaymentProcessorInput>
+}
+
+export type DepositRecordUpdateWithWhereUniqueWithoutPaymentProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  data: Prisma.XOR<Prisma.DepositRecordUpdateWithoutPaymentProcessorInput, Prisma.DepositRecordUncheckedUpdateWithoutPaymentProcessorInput>
+}
+
+export type DepositRecordUpdateManyWithWhereWithoutPaymentProcessorInput = {
+  where: Prisma.DepositRecordScalarWhereInput
+  data: Prisma.XOR<Prisma.DepositRecordUpdateManyMutationInput, Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorInput>
+}
+
+export type DepositRecordUpsertWithWhereUniqueWithoutRefundProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  update: Prisma.XOR<Prisma.DepositRecordUpdateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedUpdateWithoutRefundProcessorInput>
+  create: Prisma.XOR<Prisma.DepositRecordCreateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedCreateWithoutRefundProcessorInput>
+}
+
+export type DepositRecordUpdateWithWhereUniqueWithoutRefundProcessorInput = {
+  where: Prisma.DepositRecordWhereUniqueInput
+  data: Prisma.XOR<Prisma.DepositRecordUpdateWithoutRefundProcessorInput, Prisma.DepositRecordUncheckedUpdateWithoutRefundProcessorInput>
+}
+
+export type DepositRecordUpdateManyWithWhereWithoutRefundProcessorInput = {
+  where: Prisma.DepositRecordScalarWhereInput
+  data: Prisma.XOR<Prisma.DepositRecordUpdateManyMutationInput, Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorInput>
 }
 
 export type DepositRecordCreateWithoutRegistrationInput = {
@@ -602,9 +871,12 @@ export type DepositRecordCreateWithoutRegistrationInput = {
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
   refundTime?: Date | string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   payer?: Prisma.UserCreateNestedOneWithoutDepositsInput
+  paymentProcessor?: Prisma.UserCreateNestedOneWithoutProcessedDepositsInput
+  refundProcessor?: Prisma.UserCreateNestedOneWithoutRefundedDepositsInput
 }
 
 export type DepositRecordUncheckedCreateWithoutRegistrationInput = {
@@ -612,7 +884,10 @@ export type DepositRecordUncheckedCreateWithoutRegistrationInput = {
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
+  paidBy?: string | null
   refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
   payerId?: string | null
@@ -640,9 +915,12 @@ export type DepositRecordUpdateWithoutRegistrationInput = {
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   payer?: Prisma.UserUpdateOneWithoutDepositsNestedInput
+  paymentProcessor?: Prisma.UserUpdateOneWithoutProcessedDepositsNestedInput
+  refundProcessor?: Prisma.UserUpdateOneWithoutRefundedDepositsNestedInput
 }
 
 export type DepositRecordUncheckedUpdateWithoutRegistrationInput = {
@@ -650,7 +928,10 @@ export type DepositRecordUncheckedUpdateWithoutRegistrationInput = {
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
@@ -662,9 +943,40 @@ export type DepositRecordCreateManyPayerInput = {
   amount: runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: $Enums.DepositStatus
   paymentTime?: Date | string | null
+  paidBy?: string | null
   refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
   paymentMethod?: string | null
   transactionNumber?: string | null
+}
+
+export type DepositRecordCreateManyPaymentProcessorInput = {
+  id?: string
+  registrationId: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  refundTime?: Date | string | null
+  refundedBy?: string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  payerId?: string | null
+}
+
+export type DepositRecordCreateManyRefundProcessorInput = {
+  id?: string
+  registrationId: string
+  amount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: $Enums.DepositStatus
+  paymentTime?: Date | string | null
+  paidBy?: string | null
+  refundTime?: Date | string | null
+  refundReason?: string | null
+  paymentMethod?: string | null
+  transactionNumber?: string | null
+  payerId?: string | null
 }
 
 export type DepositRecordUpdateWithoutPayerInput = {
@@ -673,9 +985,12 @@ export type DepositRecordUpdateWithoutPayerInput = {
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutDepositNestedInput
+  paymentProcessor?: Prisma.UserUpdateOneWithoutProcessedDepositsNestedInput
+  refundProcessor?: Prisma.UserUpdateOneWithoutRefundedDepositsNestedInput
 }
 
 export type DepositRecordUncheckedUpdateWithoutPayerInput = {
@@ -684,7 +999,10 @@ export type DepositRecordUncheckedUpdateWithoutPayerInput = {
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
@@ -695,9 +1013,96 @@ export type DepositRecordUncheckedUpdateManyWithoutPayerInput = {
   amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
   paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type DepositRecordUpdateWithoutPaymentProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutDepositNestedInput
+  payer?: Prisma.UserUpdateOneWithoutDepositsNestedInput
+  refundProcessor?: Prisma.UserUpdateOneWithoutRefundedDepositsNestedInput
+}
+
+export type DepositRecordUncheckedUpdateWithoutPaymentProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type DepositRecordUncheckedUpdateManyWithoutPaymentProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type DepositRecordUpdateWithoutRefundProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutDepositNestedInput
+  payer?: Prisma.UserUpdateOneWithoutDepositsNestedInput
+  paymentProcessor?: Prisma.UserUpdateOneWithoutProcessedDepositsNestedInput
+}
+
+export type DepositRecordUncheckedUpdateWithoutRefundProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type DepositRecordUncheckedUpdateManyWithoutRefundProcessorInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  status?: Prisma.EnumDepositStatusFieldUpdateOperationsInput | $Enums.DepositStatus
+  paymentTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paidBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundTime?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  refundReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  paymentMethod?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  transactionNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -708,12 +1113,17 @@ export type DepositRecordSelect<ExtArgs extends runtime.Types.Extensions.Interna
   amount?: boolean
   status?: boolean
   paymentTime?: boolean
+  paidBy?: boolean
   refundTime?: boolean
+  refundedBy?: boolean
+  refundReason?: boolean
   paymentMethod?: boolean
   transactionNumber?: boolean
   payerId?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }, ExtArgs["result"]["depositRecord"]>
 
 export type DepositRecordSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -722,12 +1132,17 @@ export type DepositRecordSelectCreateManyAndReturn<ExtArgs extends runtime.Types
   amount?: boolean
   status?: boolean
   paymentTime?: boolean
+  paidBy?: boolean
   refundTime?: boolean
+  refundedBy?: boolean
+  refundReason?: boolean
   paymentMethod?: boolean
   transactionNumber?: boolean
   payerId?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }, ExtArgs["result"]["depositRecord"]>
 
 export type DepositRecordSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -736,12 +1151,17 @@ export type DepositRecordSelectUpdateManyAndReturn<ExtArgs extends runtime.Types
   amount?: boolean
   status?: boolean
   paymentTime?: boolean
+  paidBy?: boolean
   refundTime?: boolean
+  refundedBy?: boolean
+  refundReason?: boolean
   paymentMethod?: boolean
   transactionNumber?: boolean
   payerId?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }, ExtArgs["result"]["depositRecord"]>
 
 export type DepositRecordSelectScalar = {
@@ -750,24 +1170,33 @@ export type DepositRecordSelectScalar = {
   amount?: boolean
   status?: boolean
   paymentTime?: boolean
+  paidBy?: boolean
   refundTime?: boolean
+  refundedBy?: boolean
+  refundReason?: boolean
   paymentMethod?: boolean
   transactionNumber?: boolean
   payerId?: boolean
 }
 
-export type DepositRecordOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "registrationId" | "amount" | "status" | "paymentTime" | "refundTime" | "paymentMethod" | "transactionNumber" | "payerId", ExtArgs["result"]["depositRecord"]>
+export type DepositRecordOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "registrationId" | "amount" | "status" | "paymentTime" | "paidBy" | "refundTime" | "refundedBy" | "refundReason" | "paymentMethod" | "transactionNumber" | "payerId", ExtArgs["result"]["depositRecord"]>
 export type DepositRecordInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }
 export type DepositRecordIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }
 export type DepositRecordIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
   payer?: boolean | Prisma.DepositRecord$payerArgs<ExtArgs>
+  paymentProcessor?: boolean | Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>
+  refundProcessor?: boolean | Prisma.DepositRecord$refundProcessorArgs<ExtArgs>
 }
 
 export type $DepositRecordPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -775,6 +1204,8 @@ export type $DepositRecordPayload<ExtArgs extends runtime.Types.Extensions.Inter
   objects: {
     registration: Prisma.$BidRegistrationPayload<ExtArgs>
     payer: Prisma.$UserPayload<ExtArgs> | null
+    paymentProcessor: Prisma.$UserPayload<ExtArgs> | null
+    refundProcessor: Prisma.$UserPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -782,7 +1213,10 @@ export type $DepositRecordPayload<ExtArgs extends runtime.Types.Extensions.Inter
     amount: runtime.Decimal
     status: $Enums.DepositStatus
     paymentTime: Date | null
+    paidBy: string | null
     refundTime: Date | null
+    refundedBy: string | null
+    refundReason: string | null
     paymentMethod: string | null
     transactionNumber: string | null
     payerId: string | null
@@ -1182,6 +1616,8 @@ export interface Prisma__DepositRecordClient<T, Null = never, ExtArgs extends ru
   readonly [Symbol.toStringTag]: "PrismaPromise"
   registration<T extends Prisma.BidRegistrationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistrationDefaultArgs<ExtArgs>>): Prisma.Prisma__BidRegistrationClient<runtime.Types.Result.GetResult<Prisma.$BidRegistrationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   payer<T extends Prisma.DepositRecord$payerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DepositRecord$payerArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  paymentProcessor<T extends Prisma.DepositRecord$paymentProcessorArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DepositRecord$paymentProcessorArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  refundProcessor<T extends Prisma.DepositRecord$refundProcessorArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DepositRecord$refundProcessorArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1216,7 +1652,10 @@ export interface DepositRecordFieldRefs {
   readonly amount: Prisma.FieldRef<"DepositRecord", 'Decimal'>
   readonly status: Prisma.FieldRef<"DepositRecord", 'DepositStatus'>
   readonly paymentTime: Prisma.FieldRef<"DepositRecord", 'DateTime'>
+  readonly paidBy: Prisma.FieldRef<"DepositRecord", 'String'>
   readonly refundTime: Prisma.FieldRef<"DepositRecord", 'DateTime'>
+  readonly refundedBy: Prisma.FieldRef<"DepositRecord", 'String'>
+  readonly refundReason: Prisma.FieldRef<"DepositRecord", 'String'>
   readonly paymentMethod: Prisma.FieldRef<"DepositRecord", 'String'>
   readonly transactionNumber: Prisma.FieldRef<"DepositRecord", 'String'>
   readonly payerId: Prisma.FieldRef<"DepositRecord", 'String'>
@@ -1617,6 +2056,44 @@ export type DepositRecordDeleteManyArgs<ExtArgs extends runtime.Types.Extensions
  * DepositRecord.payer
  */
 export type DepositRecord$payerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+}
+
+/**
+ * DepositRecord.paymentProcessor
+ */
+export type DepositRecord$paymentProcessorArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+}
+
+/**
+ * DepositRecord.refundProcessor
+ */
+export type DepositRecord$refundProcessorArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   /**
    * Select specific fields to fetch from the User
    */

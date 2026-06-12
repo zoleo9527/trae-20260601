@@ -40,7 +40,10 @@ export type TransactionConfirmationMinAggregateOutputType = {
   status: $Enums.TransactionStatus | null
   finalPrice: runtime.Decimal | null
   confirmedAt: Date | null
+  confirmedBy: string | null
   cancelledAt: Date | null
+  cancelledBy: string | null
+  cancelReason: string | null
   contractNumber: string | null
 }
 
@@ -50,7 +53,10 @@ export type TransactionConfirmationMaxAggregateOutputType = {
   status: $Enums.TransactionStatus | null
   finalPrice: runtime.Decimal | null
   confirmedAt: Date | null
+  confirmedBy: string | null
   cancelledAt: Date | null
+  cancelledBy: string | null
+  cancelReason: string | null
   contractNumber: string | null
 }
 
@@ -60,7 +66,10 @@ export type TransactionConfirmationCountAggregateOutputType = {
   status: number
   finalPrice: number
   confirmedAt: number
+  confirmedBy: number
   cancelledAt: number
+  cancelledBy: number
+  cancelReason: number
   contractNumber: number
   _all: number
 }
@@ -80,7 +89,10 @@ export type TransactionConfirmationMinAggregateInputType = {
   status?: true
   finalPrice?: true
   confirmedAt?: true
+  confirmedBy?: true
   cancelledAt?: true
+  cancelledBy?: true
+  cancelReason?: true
   contractNumber?: true
 }
 
@@ -90,7 +102,10 @@ export type TransactionConfirmationMaxAggregateInputType = {
   status?: true
   finalPrice?: true
   confirmedAt?: true
+  confirmedBy?: true
   cancelledAt?: true
+  cancelledBy?: true
+  cancelReason?: true
   contractNumber?: true
 }
 
@@ -100,7 +115,10 @@ export type TransactionConfirmationCountAggregateInputType = {
   status?: true
   finalPrice?: true
   confirmedAt?: true
+  confirmedBy?: true
   cancelledAt?: true
+  cancelledBy?: true
+  cancelReason?: true
   contractNumber?: true
   _all?: true
 }
@@ -197,7 +215,10 @@ export type TransactionConfirmationGroupByOutputType = {
   status: $Enums.TransactionStatus
   finalPrice: runtime.Decimal
   confirmedAt: Date | null
+  confirmedBy: string | null
   cancelledAt: Date | null
+  cancelledBy: string | null
+  cancelReason: string | null
   contractNumber: string | null
   _count: TransactionConfirmationCountAggregateOutputType | null
   _avg: TransactionConfirmationAvgAggregateOutputType | null
@@ -230,9 +251,14 @@ export type TransactionConfirmationWhereInput = {
   status?: Prisma.EnumTransactionStatusFilter<"TransactionConfirmation"> | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalFilter<"TransactionConfirmation"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   cancelledAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  cancelledBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+  cancelReason?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   contractNumber?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   registration?: Prisma.XOR<Prisma.BidRegistrationScalarRelationFilter, Prisma.BidRegistrationWhereInput>
+  confirmer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  canceller?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
 
 export type TransactionConfirmationOrderByWithRelationInput = {
@@ -241,9 +267,14 @@ export type TransactionConfirmationOrderByWithRelationInput = {
   status?: Prisma.SortOrder
   finalPrice?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  cancelledBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  cancelReason?: Prisma.SortOrderInput | Prisma.SortOrder
   contractNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   registration?: Prisma.BidRegistrationOrderByWithRelationInput
+  confirmer?: Prisma.UserOrderByWithRelationInput
+  canceller?: Prisma.UserOrderByWithRelationInput
 }
 
 export type TransactionConfirmationWhereUniqueInput = Prisma.AtLeast<{
@@ -255,9 +286,14 @@ export type TransactionConfirmationWhereUniqueInput = Prisma.AtLeast<{
   status?: Prisma.EnumTransactionStatusFilter<"TransactionConfirmation"> | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalFilter<"TransactionConfirmation"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   cancelledAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  cancelledBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+  cancelReason?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   contractNumber?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
   registration?: Prisma.XOR<Prisma.BidRegistrationScalarRelationFilter, Prisma.BidRegistrationWhereInput>
+  confirmer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  canceller?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }, "id" | "registrationId">
 
 export type TransactionConfirmationOrderByWithAggregationInput = {
@@ -266,7 +302,10 @@ export type TransactionConfirmationOrderByWithAggregationInput = {
   status?: Prisma.SortOrder
   finalPrice?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   cancelledAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  cancelledBy?: Prisma.SortOrderInput | Prisma.SortOrder
+  cancelReason?: Prisma.SortOrderInput | Prisma.SortOrder
   contractNumber?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.TransactionConfirmationCountOrderByAggregateInput
   _avg?: Prisma.TransactionConfirmationAvgOrderByAggregateInput
@@ -284,7 +323,10 @@ export type TransactionConfirmationScalarWhereWithAggregatesInput = {
   status?: Prisma.EnumTransactionStatusWithAggregatesFilter<"TransactionConfirmation"> | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalWithAggregatesFilter<"TransactionConfirmation"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"TransactionConfirmation"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableWithAggregatesFilter<"TransactionConfirmation"> | string | null
   cancelledAt?: Prisma.DateTimeNullableWithAggregatesFilter<"TransactionConfirmation"> | Date | string | null
+  cancelledBy?: Prisma.StringNullableWithAggregatesFilter<"TransactionConfirmation"> | string | null
+  cancelReason?: Prisma.StringNullableWithAggregatesFilter<"TransactionConfirmation"> | string | null
   contractNumber?: Prisma.StringNullableWithAggregatesFilter<"TransactionConfirmation"> | string | null
 }
 
@@ -294,8 +336,11 @@ export type TransactionConfirmationCreateInput = {
   finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Date | string | null
   cancelledAt?: Date | string | null
+  cancelReason?: string | null
   contractNumber?: string | null
   registration: Prisma.BidRegistrationCreateNestedOneWithoutTransactionInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedTransactionsInput
+  canceller?: Prisma.UserCreateNestedOneWithoutCancelledTransactionsInput
 }
 
 export type TransactionConfirmationUncheckedCreateInput = {
@@ -304,7 +349,10 @@ export type TransactionConfirmationUncheckedCreateInput = {
   status?: $Enums.TransactionStatus
   finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   cancelledAt?: Date | string | null
+  cancelledBy?: string | null
+  cancelReason?: string | null
   contractNumber?: string | null
 }
 
@@ -314,8 +362,11 @@ export type TransactionConfirmationUpdateInput = {
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutTransactionNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedTransactionsNestedInput
+  canceller?: Prisma.UserUpdateOneWithoutCancelledTransactionsNestedInput
 }
 
 export type TransactionConfirmationUncheckedUpdateInput = {
@@ -324,7 +375,10 @@ export type TransactionConfirmationUncheckedUpdateInput = {
   status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
@@ -334,7 +388,10 @@ export type TransactionConfirmationCreateManyInput = {
   status?: $Enums.TransactionStatus
   finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   cancelledAt?: Date | string | null
+  cancelledBy?: string | null
+  cancelReason?: string | null
   contractNumber?: string | null
 }
 
@@ -344,6 +401,7 @@ export type TransactionConfirmationUpdateManyMutationInput = {
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
@@ -353,8 +411,21 @@ export type TransactionConfirmationUncheckedUpdateManyInput = {
   status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type TransactionConfirmationListRelationFilter = {
+  every?: Prisma.TransactionConfirmationWhereInput
+  some?: Prisma.TransactionConfirmationWhereInput
+  none?: Prisma.TransactionConfirmationWhereInput
+}
+
+export type TransactionConfirmationOrderByRelationAggregateInput = {
+  _count?: Prisma.SortOrder
 }
 
 export type TransactionConfirmationNullableScalarRelationFilter = {
@@ -368,7 +439,10 @@ export type TransactionConfirmationCountOrderByAggregateInput = {
   status?: Prisma.SortOrder
   finalPrice?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
+  cancelledBy?: Prisma.SortOrder
+  cancelReason?: Prisma.SortOrder
   contractNumber?: Prisma.SortOrder
 }
 
@@ -382,7 +456,10 @@ export type TransactionConfirmationMaxOrderByAggregateInput = {
   status?: Prisma.SortOrder
   finalPrice?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
+  cancelledBy?: Prisma.SortOrder
+  cancelReason?: Prisma.SortOrder
   contractNumber?: Prisma.SortOrder
 }
 
@@ -392,12 +469,99 @@ export type TransactionConfirmationMinOrderByAggregateInput = {
   status?: Prisma.SortOrder
   finalPrice?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   cancelledAt?: Prisma.SortOrder
+  cancelledBy?: Prisma.SortOrder
+  cancelReason?: Prisma.SortOrder
   contractNumber?: Prisma.SortOrder
 }
 
 export type TransactionConfirmationSumOrderByAggregateInput = {
   finalPrice?: Prisma.SortOrder
+}
+
+export type TransactionConfirmationCreateNestedManyWithoutConfirmerInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput> | Prisma.TransactionConfirmationCreateWithoutConfirmerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyConfirmerInputEnvelope
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+}
+
+export type TransactionConfirmationCreateNestedManyWithoutCancellerInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput> | Prisma.TransactionConfirmationCreateWithoutCancellerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyCancellerInputEnvelope
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+}
+
+export type TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput> | Prisma.TransactionConfirmationCreateWithoutConfirmerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyConfirmerInputEnvelope
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+}
+
+export type TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput> | Prisma.TransactionConfirmationCreateWithoutCancellerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyCancellerInputEnvelope
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+}
+
+export type TransactionConfirmationUpdateManyWithoutConfirmerNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput> | Prisma.TransactionConfirmationCreateWithoutConfirmerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput[]
+  upsert?: Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutConfirmerInput | Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutConfirmerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyConfirmerInputEnvelope
+  set?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  disconnect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  delete?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  update?: Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutConfirmerInput | Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutConfirmerInput[]
+  updateMany?: Prisma.TransactionConfirmationUpdateManyWithWhereWithoutConfirmerInput | Prisma.TransactionConfirmationUpdateManyWithWhereWithoutConfirmerInput[]
+  deleteMany?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
+}
+
+export type TransactionConfirmationUpdateManyWithoutCancellerNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput> | Prisma.TransactionConfirmationCreateWithoutCancellerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput[]
+  upsert?: Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutCancellerInput | Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutCancellerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyCancellerInputEnvelope
+  set?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  disconnect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  delete?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  update?: Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutCancellerInput | Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutCancellerInput[]
+  updateMany?: Prisma.TransactionConfirmationUpdateManyWithWhereWithoutCancellerInput | Prisma.TransactionConfirmationUpdateManyWithWhereWithoutCancellerInput[]
+  deleteMany?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
+}
+
+export type TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput> | Prisma.TransactionConfirmationCreateWithoutConfirmerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutConfirmerInput[]
+  upsert?: Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutConfirmerInput | Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutConfirmerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyConfirmerInputEnvelope
+  set?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  disconnect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  delete?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  update?: Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutConfirmerInput | Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutConfirmerInput[]
+  updateMany?: Prisma.TransactionConfirmationUpdateManyWithWhereWithoutConfirmerInput | Prisma.TransactionConfirmationUpdateManyWithWhereWithoutConfirmerInput[]
+  deleteMany?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
+}
+
+export type TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput = {
+  create?: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput> | Prisma.TransactionConfirmationCreateWithoutCancellerInput[] | Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput[]
+  connectOrCreate?: Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput | Prisma.TransactionConfirmationCreateOrConnectWithoutCancellerInput[]
+  upsert?: Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutCancellerInput | Prisma.TransactionConfirmationUpsertWithWhereUniqueWithoutCancellerInput[]
+  createMany?: Prisma.TransactionConfirmationCreateManyCancellerInputEnvelope
+  set?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  disconnect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  delete?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  connect?: Prisma.TransactionConfirmationWhereUniqueInput | Prisma.TransactionConfirmationWhereUniqueInput[]
+  update?: Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutCancellerInput | Prisma.TransactionConfirmationUpdateWithWhereUniqueWithoutCancellerInput[]
+  updateMany?: Prisma.TransactionConfirmationUpdateManyWithWhereWithoutCancellerInput | Prisma.TransactionConfirmationUpdateManyWithWhereWithoutCancellerInput[]
+  deleteMany?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
 }
 
 export type TransactionConfirmationCreateNestedOneWithoutRegistrationInput = {
@@ -436,13 +600,130 @@ export type EnumTransactionStatusFieldUpdateOperationsInput = {
   set?: $Enums.TransactionStatus
 }
 
+export type TransactionConfirmationCreateWithoutConfirmerInput = {
+  id?: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  cancelledAt?: Date | string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+  registration: Prisma.BidRegistrationCreateNestedOneWithoutTransactionInput
+  canceller?: Prisma.UserCreateNestedOneWithoutCancelledTransactionsInput
+}
+
+export type TransactionConfirmationUncheckedCreateWithoutConfirmerInput = {
+  id?: string
+  registrationId: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  cancelledAt?: Date | string | null
+  cancelledBy?: string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+}
+
+export type TransactionConfirmationCreateOrConnectWithoutConfirmerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  create: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput>
+}
+
+export type TransactionConfirmationCreateManyConfirmerInputEnvelope = {
+  data: Prisma.TransactionConfirmationCreateManyConfirmerInput | Prisma.TransactionConfirmationCreateManyConfirmerInput[]
+}
+
+export type TransactionConfirmationCreateWithoutCancellerInput = {
+  id?: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  cancelledAt?: Date | string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+  registration: Prisma.BidRegistrationCreateNestedOneWithoutTransactionInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedTransactionsInput
+}
+
+export type TransactionConfirmationUncheckedCreateWithoutCancellerInput = {
+  id?: string
+  registrationId: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  confirmedBy?: string | null
+  cancelledAt?: Date | string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+}
+
+export type TransactionConfirmationCreateOrConnectWithoutCancellerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  create: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput>
+}
+
+export type TransactionConfirmationCreateManyCancellerInputEnvelope = {
+  data: Prisma.TransactionConfirmationCreateManyCancellerInput | Prisma.TransactionConfirmationCreateManyCancellerInput[]
+}
+
+export type TransactionConfirmationUpsertWithWhereUniqueWithoutConfirmerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  update: Prisma.XOR<Prisma.TransactionConfirmationUpdateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedUpdateWithoutConfirmerInput>
+  create: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutConfirmerInput>
+}
+
+export type TransactionConfirmationUpdateWithWhereUniqueWithoutConfirmerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  data: Prisma.XOR<Prisma.TransactionConfirmationUpdateWithoutConfirmerInput, Prisma.TransactionConfirmationUncheckedUpdateWithoutConfirmerInput>
+}
+
+export type TransactionConfirmationUpdateManyWithWhereWithoutConfirmerInput = {
+  where: Prisma.TransactionConfirmationScalarWhereInput
+  data: Prisma.XOR<Prisma.TransactionConfirmationUpdateManyMutationInput, Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerInput>
+}
+
+export type TransactionConfirmationScalarWhereInput = {
+  AND?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
+  OR?: Prisma.TransactionConfirmationScalarWhereInput[]
+  NOT?: Prisma.TransactionConfirmationScalarWhereInput | Prisma.TransactionConfirmationScalarWhereInput[]
+  id?: Prisma.StringFilter<"TransactionConfirmation"> | string
+  registrationId?: Prisma.StringFilter<"TransactionConfirmation"> | string
+  status?: Prisma.EnumTransactionStatusFilter<"TransactionConfirmation"> | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFilter<"TransactionConfirmation"> | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+  cancelledAt?: Prisma.DateTimeNullableFilter<"TransactionConfirmation"> | Date | string | null
+  cancelledBy?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+  cancelReason?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+  contractNumber?: Prisma.StringNullableFilter<"TransactionConfirmation"> | string | null
+}
+
+export type TransactionConfirmationUpsertWithWhereUniqueWithoutCancellerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  update: Prisma.XOR<Prisma.TransactionConfirmationUpdateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedUpdateWithoutCancellerInput>
+  create: Prisma.XOR<Prisma.TransactionConfirmationCreateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedCreateWithoutCancellerInput>
+}
+
+export type TransactionConfirmationUpdateWithWhereUniqueWithoutCancellerInput = {
+  where: Prisma.TransactionConfirmationWhereUniqueInput
+  data: Prisma.XOR<Prisma.TransactionConfirmationUpdateWithoutCancellerInput, Prisma.TransactionConfirmationUncheckedUpdateWithoutCancellerInput>
+}
+
+export type TransactionConfirmationUpdateManyWithWhereWithoutCancellerInput = {
+  where: Prisma.TransactionConfirmationScalarWhereInput
+  data: Prisma.XOR<Prisma.TransactionConfirmationUpdateManyMutationInput, Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerInput>
+}
+
 export type TransactionConfirmationCreateWithoutRegistrationInput = {
   id?: string
   status?: $Enums.TransactionStatus
   finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Date | string | null
   cancelledAt?: Date | string | null
+  cancelReason?: string | null
   contractNumber?: string | null
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedTransactionsInput
+  canceller?: Prisma.UserCreateNestedOneWithoutCancelledTransactionsInput
 }
 
 export type TransactionConfirmationUncheckedCreateWithoutRegistrationInput = {
@@ -450,7 +731,10 @@ export type TransactionConfirmationUncheckedCreateWithoutRegistrationInput = {
   status?: $Enums.TransactionStatus
   finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   cancelledAt?: Date | string | null
+  cancelledBy?: string | null
+  cancelReason?: string | null
   contractNumber?: string | null
 }
 
@@ -476,7 +760,10 @@ export type TransactionConfirmationUpdateWithoutRegistrationInput = {
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedTransactionsNestedInput
+  canceller?: Prisma.UserUpdateOneWithoutCancelledTransactionsNestedInput
 }
 
 export type TransactionConfirmationUncheckedUpdateWithoutRegistrationInput = {
@@ -484,7 +771,106 @@ export type TransactionConfirmationUncheckedUpdateWithoutRegistrationInput = {
   status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
   finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type TransactionConfirmationCreateManyConfirmerInput = {
+  id?: string
+  registrationId: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  cancelledAt?: Date | string | null
+  cancelledBy?: string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+}
+
+export type TransactionConfirmationCreateManyCancellerInput = {
+  id?: string
+  registrationId: string
+  status?: $Enums.TransactionStatus
+  finalPrice: runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Date | string | null
+  confirmedBy?: string | null
+  cancelledAt?: Date | string | null
+  cancelReason?: string | null
+  contractNumber?: string | null
+}
+
+export type TransactionConfirmationUpdateWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutTransactionNestedInput
+  canceller?: Prisma.UserUpdateOneWithoutCancelledTransactionsNestedInput
+}
+
+export type TransactionConfirmationUncheckedUpdateWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type TransactionConfirmationUncheckedUpdateManyWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type TransactionConfirmationUpdateWithoutCancellerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  registration?: Prisma.BidRegistrationUpdateOneRequiredWithoutTransactionNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedTransactionsNestedInput
+}
+
+export type TransactionConfirmationUncheckedUpdateWithoutCancellerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type TransactionConfirmationUncheckedUpdateManyWithoutCancellerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  registrationId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumTransactionStatusFieldUpdateOperationsInput | $Enums.TransactionStatus
+  finalPrice?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cancelledAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  cancelReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   contractNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
@@ -496,9 +882,14 @@ export type TransactionConfirmationSelect<ExtArgs extends runtime.Types.Extensio
   status?: boolean
   finalPrice?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   cancelledAt?: boolean
+  cancelledBy?: boolean
+  cancelReason?: boolean
   contractNumber?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }, ExtArgs["result"]["transactionConfirmation"]>
 
 export type TransactionConfirmationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -507,9 +898,14 @@ export type TransactionConfirmationSelectCreateManyAndReturn<ExtArgs extends run
   status?: boolean
   finalPrice?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   cancelledAt?: boolean
+  cancelledBy?: boolean
+  cancelReason?: boolean
   contractNumber?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }, ExtArgs["result"]["transactionConfirmation"]>
 
 export type TransactionConfirmationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -518,9 +914,14 @@ export type TransactionConfirmationSelectUpdateManyAndReturn<ExtArgs extends run
   status?: boolean
   finalPrice?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   cancelledAt?: boolean
+  cancelledBy?: boolean
+  cancelReason?: boolean
   contractNumber?: boolean
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }, ExtArgs["result"]["transactionConfirmation"]>
 
 export type TransactionConfirmationSelectScalar = {
@@ -529,25 +930,36 @@ export type TransactionConfirmationSelectScalar = {
   status?: boolean
   finalPrice?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   cancelledAt?: boolean
+  cancelledBy?: boolean
+  cancelReason?: boolean
   contractNumber?: boolean
 }
 
-export type TransactionConfirmationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "registrationId" | "status" | "finalPrice" | "confirmedAt" | "cancelledAt" | "contractNumber", ExtArgs["result"]["transactionConfirmation"]>
+export type TransactionConfirmationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "registrationId" | "status" | "finalPrice" | "confirmedAt" | "confirmedBy" | "cancelledAt" | "cancelledBy" | "cancelReason" | "contractNumber", ExtArgs["result"]["transactionConfirmation"]>
 export type TransactionConfirmationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }
 export type TransactionConfirmationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }
 export type TransactionConfirmationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   registration?: boolean | Prisma.BidRegistrationDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>
+  canceller?: boolean | Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>
 }
 
 export type $TransactionConfirmationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "TransactionConfirmation"
   objects: {
     registration: Prisma.$BidRegistrationPayload<ExtArgs>
+    confirmer: Prisma.$UserPayload<ExtArgs> | null
+    canceller: Prisma.$UserPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -555,7 +967,10 @@ export type $TransactionConfirmationPayload<ExtArgs extends runtime.Types.Extens
     status: $Enums.TransactionStatus
     finalPrice: runtime.Decimal
     confirmedAt: Date | null
+    confirmedBy: string | null
     cancelledAt: Date | null
+    cancelledBy: string | null
+    cancelReason: string | null
     contractNumber: string | null
   }, ExtArgs["result"]["transactionConfirmation"]>
   composites: {}
@@ -952,6 +1367,8 @@ readonly fields: TransactionConfirmationFieldRefs;
 export interface Prisma__TransactionConfirmationClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   registration<T extends Prisma.BidRegistrationDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistrationDefaultArgs<ExtArgs>>): Prisma.Prisma__BidRegistrationClient<runtime.Types.Result.GetResult<Prisma.$BidRegistrationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
+  confirmer<T extends Prisma.TransactionConfirmation$confirmerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TransactionConfirmation$confirmerArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  canceller<T extends Prisma.TransactionConfirmation$cancellerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.TransactionConfirmation$cancellerArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -986,7 +1403,10 @@ export interface TransactionConfirmationFieldRefs {
   readonly status: Prisma.FieldRef<"TransactionConfirmation", 'TransactionStatus'>
   readonly finalPrice: Prisma.FieldRef<"TransactionConfirmation", 'Decimal'>
   readonly confirmedAt: Prisma.FieldRef<"TransactionConfirmation", 'DateTime'>
+  readonly confirmedBy: Prisma.FieldRef<"TransactionConfirmation", 'String'>
   readonly cancelledAt: Prisma.FieldRef<"TransactionConfirmation", 'DateTime'>
+  readonly cancelledBy: Prisma.FieldRef<"TransactionConfirmation", 'String'>
+  readonly cancelReason: Prisma.FieldRef<"TransactionConfirmation", 'String'>
   readonly contractNumber: Prisma.FieldRef<"TransactionConfirmation", 'String'>
 }
     
@@ -1379,6 +1799,44 @@ export type TransactionConfirmationDeleteManyArgs<ExtArgs extends runtime.Types.
    * Limit how many TransactionConfirmations to delete.
    */
   limit?: number
+}
+
+/**
+ * TransactionConfirmation.confirmer
+ */
+export type TransactionConfirmation$confirmerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+}
+
+/**
+ * TransactionConfirmation.canceller
+ */
+export type TransactionConfirmation$cancellerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
 }
 
 /**

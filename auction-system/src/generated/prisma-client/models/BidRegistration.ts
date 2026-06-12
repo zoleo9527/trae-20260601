@@ -42,8 +42,11 @@ export type BidRegistrationMinAggregateOutputType = {
   bidAmount: runtime.Decimal | null
   registrationTime: Date | null
   confirmedAt: Date | null
+  confirmedBy: string | null
   rejectedAt: Date | null
+  rejectedBy: string | null
   rejectionReason: string | null
+  withdrawnAt: Date | null
 }
 
 export type BidRegistrationMaxAggregateOutputType = {
@@ -54,8 +57,11 @@ export type BidRegistrationMaxAggregateOutputType = {
   bidAmount: runtime.Decimal | null
   registrationTime: Date | null
   confirmedAt: Date | null
+  confirmedBy: string | null
   rejectedAt: Date | null
+  rejectedBy: string | null
   rejectionReason: string | null
+  withdrawnAt: Date | null
 }
 
 export type BidRegistrationCountAggregateOutputType = {
@@ -66,8 +72,11 @@ export type BidRegistrationCountAggregateOutputType = {
   bidAmount: number
   registrationTime: number
   confirmedAt: number
+  confirmedBy: number
   rejectedAt: number
+  rejectedBy: number
   rejectionReason: number
+  withdrawnAt: number
   _all: number
 }
 
@@ -88,8 +97,11 @@ export type BidRegistrationMinAggregateInputType = {
   bidAmount?: true
   registrationTime?: true
   confirmedAt?: true
+  confirmedBy?: true
   rejectedAt?: true
+  rejectedBy?: true
   rejectionReason?: true
+  withdrawnAt?: true
 }
 
 export type BidRegistrationMaxAggregateInputType = {
@@ -100,8 +112,11 @@ export type BidRegistrationMaxAggregateInputType = {
   bidAmount?: true
   registrationTime?: true
   confirmedAt?: true
+  confirmedBy?: true
   rejectedAt?: true
+  rejectedBy?: true
   rejectionReason?: true
+  withdrawnAt?: true
 }
 
 export type BidRegistrationCountAggregateInputType = {
@@ -112,8 +127,11 @@ export type BidRegistrationCountAggregateInputType = {
   bidAmount?: true
   registrationTime?: true
   confirmedAt?: true
+  confirmedBy?: true
   rejectedAt?: true
+  rejectedBy?: true
   rejectionReason?: true
+  withdrawnAt?: true
   _all?: true
 }
 
@@ -211,8 +229,11 @@ export type BidRegistrationGroupByOutputType = {
   bidAmount: runtime.Decimal
   registrationTime: Date
   confirmedAt: Date | null
+  confirmedBy: string | null
   rejectedAt: Date | null
+  rejectedBy: string | null
   rejectionReason: string | null
+  withdrawnAt: Date | null
   _count: BidRegistrationCountAggregateOutputType | null
   _avg: BidRegistrationAvgAggregateOutputType | null
   _sum: BidRegistrationSumAggregateOutputType | null
@@ -246,12 +267,17 @@ export type BidRegistrationWhereInput = {
   bidAmount?: Prisma.DecimalFilter<"BidRegistration"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFilter<"BidRegistration"> | Date | string
   confirmedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  rejectedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectionReason?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
+  withdrawnAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
   announcement?: Prisma.XOR<Prisma.AnnouncementScalarRelationFilter, Prisma.AnnouncementWhereInput>
   bidder?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   deposit?: Prisma.XOR<Prisma.DepositRecordNullableScalarRelationFilter, Prisma.DepositRecordWhereInput> | null
   transaction?: Prisma.XOR<Prisma.TransactionConfirmationNullableScalarRelationFilter, Prisma.TransactionConfirmationWhereInput> | null
+  confirmer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  rejecter?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }
 
 export type BidRegistrationOrderByWithRelationInput = {
@@ -262,12 +288,17 @@ export type BidRegistrationOrderByWithRelationInput = {
   bidAmount?: Prisma.SortOrder
   registrationTime?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   rejectedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   rejectionReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  withdrawnAt?: Prisma.SortOrderInput | Prisma.SortOrder
   announcement?: Prisma.AnnouncementOrderByWithRelationInput
   bidder?: Prisma.UserOrderByWithRelationInput
   deposit?: Prisma.DepositRecordOrderByWithRelationInput
   transaction?: Prisma.TransactionConfirmationOrderByWithRelationInput
+  confirmer?: Prisma.UserOrderByWithRelationInput
+  rejecter?: Prisma.UserOrderByWithRelationInput
 }
 
 export type BidRegistrationWhereUniqueInput = Prisma.AtLeast<{
@@ -281,12 +312,17 @@ export type BidRegistrationWhereUniqueInput = Prisma.AtLeast<{
   bidAmount?: Prisma.DecimalFilter<"BidRegistration"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFilter<"BidRegistration"> | Date | string
   confirmedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  rejectedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectionReason?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
+  withdrawnAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
   announcement?: Prisma.XOR<Prisma.AnnouncementScalarRelationFilter, Prisma.AnnouncementWhereInput>
   bidder?: Prisma.XOR<Prisma.UserScalarRelationFilter, Prisma.UserWhereInput>
   deposit?: Prisma.XOR<Prisma.DepositRecordNullableScalarRelationFilter, Prisma.DepositRecordWhereInput> | null
   transaction?: Prisma.XOR<Prisma.TransactionConfirmationNullableScalarRelationFilter, Prisma.TransactionConfirmationWhereInput> | null
+  confirmer?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
+  rejecter?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
 }, "id">
 
 export type BidRegistrationOrderByWithAggregationInput = {
@@ -297,8 +333,11 @@ export type BidRegistrationOrderByWithAggregationInput = {
   bidAmount?: Prisma.SortOrder
   registrationTime?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   rejectedAt?: Prisma.SortOrderInput | Prisma.SortOrder
+  rejectedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   rejectionReason?: Prisma.SortOrderInput | Prisma.SortOrder
+  withdrawnAt?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.BidRegistrationCountOrderByAggregateInput
   _avg?: Prisma.BidRegistrationAvgOrderByAggregateInput
   _max?: Prisma.BidRegistrationMaxOrderByAggregateInput
@@ -317,8 +356,11 @@ export type BidRegistrationScalarWhereWithAggregatesInput = {
   bidAmount?: Prisma.DecimalWithAggregatesFilter<"BidRegistration"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeWithAggregatesFilter<"BidRegistration"> | Date | string
   confirmedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"BidRegistration"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableWithAggregatesFilter<"BidRegistration"> | string | null
   rejectedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"BidRegistration"> | Date | string | null
+  rejectedBy?: Prisma.StringNullableWithAggregatesFilter<"BidRegistration"> | string | null
   rejectionReason?: Prisma.StringNullableWithAggregatesFilter<"BidRegistration"> | string | null
+  withdrawnAt?: Prisma.DateTimeNullableWithAggregatesFilter<"BidRegistration"> | Date | string | null
 }
 
 export type BidRegistrationCreateInput = {
@@ -329,10 +371,13 @@ export type BidRegistrationCreateInput = {
   confirmedAt?: Date | string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
   bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
   deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
 }
 
 export type BidRegistrationUncheckedCreateInput = {
@@ -343,8 +388,11 @@ export type BidRegistrationUncheckedCreateInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
 }
@@ -357,10 +405,13 @@ export type BidRegistrationUpdateInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
   bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
   deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
 }
 
 export type BidRegistrationUncheckedUpdateInput = {
@@ -371,8 +422,11 @@ export type BidRegistrationUncheckedUpdateInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
 }
@@ -385,8 +439,11 @@ export type BidRegistrationCreateManyInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
 }
 
 export type BidRegistrationUpdateManyMutationInput = {
@@ -397,6 +454,7 @@ export type BidRegistrationUpdateManyMutationInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type BidRegistrationUncheckedUpdateManyInput = {
@@ -407,8 +465,11 @@ export type BidRegistrationUncheckedUpdateManyInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type BidRegistrationListRelationFilter = {
@@ -429,8 +490,11 @@ export type BidRegistrationCountOrderByAggregateInput = {
   bidAmount?: Prisma.SortOrder
   registrationTime?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   rejectedAt?: Prisma.SortOrder
+  rejectedBy?: Prisma.SortOrder
   rejectionReason?: Prisma.SortOrder
+  withdrawnAt?: Prisma.SortOrder
 }
 
 export type BidRegistrationAvgOrderByAggregateInput = {
@@ -445,8 +509,11 @@ export type BidRegistrationMaxOrderByAggregateInput = {
   bidAmount?: Prisma.SortOrder
   registrationTime?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   rejectedAt?: Prisma.SortOrder
+  rejectedBy?: Prisma.SortOrder
   rejectionReason?: Prisma.SortOrder
+  withdrawnAt?: Prisma.SortOrder
 }
 
 export type BidRegistrationMinOrderByAggregateInput = {
@@ -457,8 +524,11 @@ export type BidRegistrationMinOrderByAggregateInput = {
   bidAmount?: Prisma.SortOrder
   registrationTime?: Prisma.SortOrder
   confirmedAt?: Prisma.SortOrder
+  confirmedBy?: Prisma.SortOrder
   rejectedAt?: Prisma.SortOrder
+  rejectedBy?: Prisma.SortOrder
   rejectionReason?: Prisma.SortOrder
+  withdrawnAt?: Prisma.SortOrder
 }
 
 export type BidRegistrationSumOrderByAggregateInput = {
@@ -477,10 +547,38 @@ export type BidRegistrationCreateNestedManyWithoutBidderInput = {
   connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
 }
 
+export type BidRegistrationCreateNestedManyWithoutConfirmerInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput> | Prisma.BidRegistrationCreateWithoutConfirmerInput[] | Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput | Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput[]
+  createMany?: Prisma.BidRegistrationCreateManyConfirmerInputEnvelope
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+}
+
+export type BidRegistrationCreateNestedManyWithoutRejecterInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput> | Prisma.BidRegistrationCreateWithoutRejecterInput[] | Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput | Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput[]
+  createMany?: Prisma.BidRegistrationCreateManyRejecterInputEnvelope
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+}
+
 export type BidRegistrationUncheckedCreateNestedManyWithoutBidderInput = {
   create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutBidderInput, Prisma.BidRegistrationUncheckedCreateWithoutBidderInput> | Prisma.BidRegistrationCreateWithoutBidderInput[] | Prisma.BidRegistrationUncheckedCreateWithoutBidderInput[]
   connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutBidderInput | Prisma.BidRegistrationCreateOrConnectWithoutBidderInput[]
   createMany?: Prisma.BidRegistrationCreateManyBidderInputEnvelope
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+}
+
+export type BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput> | Prisma.BidRegistrationCreateWithoutConfirmerInput[] | Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput | Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput[]
+  createMany?: Prisma.BidRegistrationCreateManyConfirmerInputEnvelope
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+}
+
+export type BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput> | Prisma.BidRegistrationCreateWithoutRejecterInput[] | Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput | Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput[]
+  createMany?: Prisma.BidRegistrationCreateManyRejecterInputEnvelope
   connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
 }
 
@@ -498,6 +596,34 @@ export type BidRegistrationUpdateManyWithoutBidderNestedInput = {
   deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
 }
 
+export type BidRegistrationUpdateManyWithoutConfirmerNestedInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput> | Prisma.BidRegistrationCreateWithoutConfirmerInput[] | Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput | Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput[]
+  upsert?: Prisma.BidRegistrationUpsertWithWhereUniqueWithoutConfirmerInput | Prisma.BidRegistrationUpsertWithWhereUniqueWithoutConfirmerInput[]
+  createMany?: Prisma.BidRegistrationCreateManyConfirmerInputEnvelope
+  set?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  disconnect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  delete?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  update?: Prisma.BidRegistrationUpdateWithWhereUniqueWithoutConfirmerInput | Prisma.BidRegistrationUpdateWithWhereUniqueWithoutConfirmerInput[]
+  updateMany?: Prisma.BidRegistrationUpdateManyWithWhereWithoutConfirmerInput | Prisma.BidRegistrationUpdateManyWithWhereWithoutConfirmerInput[]
+  deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
+}
+
+export type BidRegistrationUpdateManyWithoutRejecterNestedInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput> | Prisma.BidRegistrationCreateWithoutRejecterInput[] | Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput | Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput[]
+  upsert?: Prisma.BidRegistrationUpsertWithWhereUniqueWithoutRejecterInput | Prisma.BidRegistrationUpsertWithWhereUniqueWithoutRejecterInput[]
+  createMany?: Prisma.BidRegistrationCreateManyRejecterInputEnvelope
+  set?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  disconnect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  delete?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  update?: Prisma.BidRegistrationUpdateWithWhereUniqueWithoutRejecterInput | Prisma.BidRegistrationUpdateWithWhereUniqueWithoutRejecterInput[]
+  updateMany?: Prisma.BidRegistrationUpdateManyWithWhereWithoutRejecterInput | Prisma.BidRegistrationUpdateManyWithWhereWithoutRejecterInput[]
+  deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
+}
+
 export type BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput = {
   create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutBidderInput, Prisma.BidRegistrationUncheckedCreateWithoutBidderInput> | Prisma.BidRegistrationCreateWithoutBidderInput[] | Prisma.BidRegistrationUncheckedCreateWithoutBidderInput[]
   connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutBidderInput | Prisma.BidRegistrationCreateOrConnectWithoutBidderInput[]
@@ -509,6 +635,34 @@ export type BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput = {
   connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
   update?: Prisma.BidRegistrationUpdateWithWhereUniqueWithoutBidderInput | Prisma.BidRegistrationUpdateWithWhereUniqueWithoutBidderInput[]
   updateMany?: Prisma.BidRegistrationUpdateManyWithWhereWithoutBidderInput | Prisma.BidRegistrationUpdateManyWithWhereWithoutBidderInput[]
+  deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
+}
+
+export type BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput> | Prisma.BidRegistrationCreateWithoutConfirmerInput[] | Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput | Prisma.BidRegistrationCreateOrConnectWithoutConfirmerInput[]
+  upsert?: Prisma.BidRegistrationUpsertWithWhereUniqueWithoutConfirmerInput | Prisma.BidRegistrationUpsertWithWhereUniqueWithoutConfirmerInput[]
+  createMany?: Prisma.BidRegistrationCreateManyConfirmerInputEnvelope
+  set?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  disconnect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  delete?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  update?: Prisma.BidRegistrationUpdateWithWhereUniqueWithoutConfirmerInput | Prisma.BidRegistrationUpdateWithWhereUniqueWithoutConfirmerInput[]
+  updateMany?: Prisma.BidRegistrationUpdateManyWithWhereWithoutConfirmerInput | Prisma.BidRegistrationUpdateManyWithWhereWithoutConfirmerInput[]
+  deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
+}
+
+export type BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput = {
+  create?: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput> | Prisma.BidRegistrationCreateWithoutRejecterInput[] | Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput[]
+  connectOrCreate?: Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput | Prisma.BidRegistrationCreateOrConnectWithoutRejecterInput[]
+  upsert?: Prisma.BidRegistrationUpsertWithWhereUniqueWithoutRejecterInput | Prisma.BidRegistrationUpsertWithWhereUniqueWithoutRejecterInput[]
+  createMany?: Prisma.BidRegistrationCreateManyRejecterInputEnvelope
+  set?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  disconnect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  delete?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  connect?: Prisma.BidRegistrationWhereUniqueInput | Prisma.BidRegistrationWhereUniqueInput[]
+  update?: Prisma.BidRegistrationUpdateWithWhereUniqueWithoutRejecterInput | Prisma.BidRegistrationUpdateWithWhereUniqueWithoutRejecterInput[]
+  updateMany?: Prisma.BidRegistrationUpdateManyWithWhereWithoutRejecterInput | Prisma.BidRegistrationUpdateManyWithWhereWithoutRejecterInput[]
   deleteMany?: Prisma.BidRegistrationScalarWhereInput | Prisma.BidRegistrationScalarWhereInput[]
 }
 
@@ -594,9 +748,12 @@ export type BidRegistrationCreateWithoutBidderInput = {
   confirmedAt?: Date | string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
   deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
 }
 
 export type BidRegistrationUncheckedCreateWithoutBidderInput = {
@@ -606,8 +763,11 @@ export type BidRegistrationUncheckedCreateWithoutBidderInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
 }
@@ -619,6 +779,88 @@ export type BidRegistrationCreateOrConnectWithoutBidderInput = {
 
 export type BidRegistrationCreateManyBidderInputEnvelope = {
   data: Prisma.BidRegistrationCreateManyBidderInput | Prisma.BidRegistrationCreateManyBidderInput[]
+}
+
+export type BidRegistrationCreateWithoutConfirmerInput = {
+  id?: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  rejectedAt?: Date | string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+  announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
+  bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
+  deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
+  transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
+}
+
+export type BidRegistrationUncheckedCreateWithoutConfirmerInput = {
+  id?: string
+  announcementId: string
+  bidderId: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  rejectedAt?: Date | string | null
+  rejectedBy?: string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+  deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
+  transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
+}
+
+export type BidRegistrationCreateOrConnectWithoutConfirmerInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  create: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput>
+}
+
+export type BidRegistrationCreateManyConfirmerInputEnvelope = {
+  data: Prisma.BidRegistrationCreateManyConfirmerInput | Prisma.BidRegistrationCreateManyConfirmerInput[]
+}
+
+export type BidRegistrationCreateWithoutRejecterInput = {
+  id?: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  rejectedAt?: Date | string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+  announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
+  bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
+  deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
+  transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+}
+
+export type BidRegistrationUncheckedCreateWithoutRejecterInput = {
+  id?: string
+  announcementId: string
+  bidderId: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  confirmedBy?: string | null
+  rejectedAt?: Date | string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+  deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
+  transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
+}
+
+export type BidRegistrationCreateOrConnectWithoutRejecterInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  create: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput>
+}
+
+export type BidRegistrationCreateManyRejecterInputEnvelope = {
+  data: Prisma.BidRegistrationCreateManyRejecterInput | Prisma.BidRegistrationCreateManyRejecterInput[]
 }
 
 export type BidRegistrationUpsertWithWhereUniqueWithoutBidderInput = {
@@ -648,8 +890,43 @@ export type BidRegistrationScalarWhereInput = {
   bidAmount?: Prisma.DecimalFilter<"BidRegistration"> | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFilter<"BidRegistration"> | Date | string
   confirmedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  confirmedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectedAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+  rejectedBy?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
   rejectionReason?: Prisma.StringNullableFilter<"BidRegistration"> | string | null
+  withdrawnAt?: Prisma.DateTimeNullableFilter<"BidRegistration"> | Date | string | null
+}
+
+export type BidRegistrationUpsertWithWhereUniqueWithoutConfirmerInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  update: Prisma.XOR<Prisma.BidRegistrationUpdateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedUpdateWithoutConfirmerInput>
+  create: Prisma.XOR<Prisma.BidRegistrationCreateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedCreateWithoutConfirmerInput>
+}
+
+export type BidRegistrationUpdateWithWhereUniqueWithoutConfirmerInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  data: Prisma.XOR<Prisma.BidRegistrationUpdateWithoutConfirmerInput, Prisma.BidRegistrationUncheckedUpdateWithoutConfirmerInput>
+}
+
+export type BidRegistrationUpdateManyWithWhereWithoutConfirmerInput = {
+  where: Prisma.BidRegistrationScalarWhereInput
+  data: Prisma.XOR<Prisma.BidRegistrationUpdateManyMutationInput, Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerInput>
+}
+
+export type BidRegistrationUpsertWithWhereUniqueWithoutRejecterInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  update: Prisma.XOR<Prisma.BidRegistrationUpdateWithoutRejecterInput, Prisma.BidRegistrationUncheckedUpdateWithoutRejecterInput>
+  create: Prisma.XOR<Prisma.BidRegistrationCreateWithoutRejecterInput, Prisma.BidRegistrationUncheckedCreateWithoutRejecterInput>
+}
+
+export type BidRegistrationUpdateWithWhereUniqueWithoutRejecterInput = {
+  where: Prisma.BidRegistrationWhereUniqueInput
+  data: Prisma.XOR<Prisma.BidRegistrationUpdateWithoutRejecterInput, Prisma.BidRegistrationUncheckedUpdateWithoutRejecterInput>
+}
+
+export type BidRegistrationUpdateManyWithWhereWithoutRejecterInput = {
+  where: Prisma.BidRegistrationScalarWhereInput
+  data: Prisma.XOR<Prisma.BidRegistrationUpdateManyMutationInput, Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterInput>
 }
 
 export type BidRegistrationCreateWithoutAnnouncementInput = {
@@ -660,9 +937,12 @@ export type BidRegistrationCreateWithoutAnnouncementInput = {
   confirmedAt?: Date | string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
   deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
 }
 
 export type BidRegistrationUncheckedCreateWithoutAnnouncementInput = {
@@ -672,8 +952,11 @@ export type BidRegistrationUncheckedCreateWithoutAnnouncementInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
   transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
 }
@@ -711,9 +994,12 @@ export type BidRegistrationCreateWithoutDepositInput = {
   confirmedAt?: Date | string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
   bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
   transaction?: Prisma.TransactionConfirmationCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
 }
 
 export type BidRegistrationUncheckedCreateWithoutDepositInput = {
@@ -724,8 +1010,11 @@ export type BidRegistrationUncheckedCreateWithoutDepositInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   transaction?: Prisma.TransactionConfirmationUncheckedCreateNestedOneWithoutRegistrationInput
 }
 
@@ -753,9 +1042,12 @@ export type BidRegistrationUpdateWithoutDepositInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
   bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
   transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
 }
 
 export type BidRegistrationUncheckedUpdateWithoutDepositInput = {
@@ -766,8 +1058,11 @@ export type BidRegistrationUncheckedUpdateWithoutDepositInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
 }
 
@@ -779,9 +1074,12 @@ export type BidRegistrationCreateWithoutTransactionInput = {
   confirmedAt?: Date | string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   announcement: Prisma.AnnouncementCreateNestedOneWithoutRegistrationsInput
   bidder: Prisma.UserCreateNestedOneWithoutRegistrationsInput
   deposit?: Prisma.DepositRecordCreateNestedOneWithoutRegistrationInput
+  confirmer?: Prisma.UserCreateNestedOneWithoutConfirmedRegistrationsInput
+  rejecter?: Prisma.UserCreateNestedOneWithoutRejectedRegistrationsInput
 }
 
 export type BidRegistrationUncheckedCreateWithoutTransactionInput = {
@@ -792,8 +1090,11 @@ export type BidRegistrationUncheckedCreateWithoutTransactionInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
   deposit?: Prisma.DepositRecordUncheckedCreateNestedOneWithoutRegistrationInput
 }
 
@@ -821,9 +1122,12 @@ export type BidRegistrationUpdateWithoutTransactionInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
   bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
   deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
 }
 
 export type BidRegistrationUncheckedUpdateWithoutTransactionInput = {
@@ -834,8 +1138,11 @@ export type BidRegistrationUncheckedUpdateWithoutTransactionInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
 }
 
@@ -846,8 +1153,39 @@ export type BidRegistrationCreateManyBidderInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
+  rejectedAt?: Date | string | null
+  rejectedBy?: string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+}
+
+export type BidRegistrationCreateManyConfirmerInput = {
+  id?: string
+  announcementId: string
+  bidderId: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  rejectedAt?: Date | string | null
+  rejectedBy?: string | null
+  rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
+}
+
+export type BidRegistrationCreateManyRejecterInput = {
+  id?: string
+  announcementId: string
+  bidderId: string
+  status?: $Enums.RegistrationStatus
+  bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Date | string
+  confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
 }
 
 export type BidRegistrationUpdateWithoutBidderInput = {
@@ -858,9 +1196,12 @@ export type BidRegistrationUpdateWithoutBidderInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
   deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
 }
 
 export type BidRegistrationUncheckedUpdateWithoutBidderInput = {
@@ -870,8 +1211,11 @@ export type BidRegistrationUncheckedUpdateWithoutBidderInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
 }
@@ -883,8 +1227,103 @@ export type BidRegistrationUncheckedUpdateManyWithoutBidderInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type BidRegistrationUpdateWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
+  bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
+  deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
+  transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
+}
+
+export type BidRegistrationUncheckedUpdateWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  announcementId?: Prisma.StringFieldUpdateOperationsInput | string
+  bidderId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
+  transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
+}
+
+export type BidRegistrationUncheckedUpdateManyWithoutConfirmerInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  announcementId?: Prisma.StringFieldUpdateOperationsInput | string
+  bidderId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+}
+
+export type BidRegistrationUpdateWithoutRejecterInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  announcement?: Prisma.AnnouncementUpdateOneRequiredWithoutRegistrationsNestedInput
+  bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
+  deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
+  transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+}
+
+export type BidRegistrationUncheckedUpdateWithoutRejecterInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  announcementId?: Prisma.StringFieldUpdateOperationsInput | string
+  bidderId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
+  transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
+}
+
+export type BidRegistrationUncheckedUpdateManyWithoutRejecterInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  announcementId?: Prisma.StringFieldUpdateOperationsInput | string
+  bidderId?: Prisma.StringFieldUpdateOperationsInput | string
+  status?: Prisma.EnumRegistrationStatusFieldUpdateOperationsInput | $Enums.RegistrationStatus
+  bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
+  registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 export type BidRegistrationCreateManyAnnouncementInput = {
@@ -894,8 +1333,11 @@ export type BidRegistrationCreateManyAnnouncementInput = {
   bidAmount: runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Date | string
   confirmedAt?: Date | string | null
+  confirmedBy?: string | null
   rejectedAt?: Date | string | null
+  rejectedBy?: string | null
   rejectionReason?: string | null
+  withdrawnAt?: Date | string | null
 }
 
 export type BidRegistrationUpdateWithoutAnnouncementInput = {
@@ -906,9 +1348,12 @@ export type BidRegistrationUpdateWithoutAnnouncementInput = {
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   bidder?: Prisma.UserUpdateOneRequiredWithoutRegistrationsNestedInput
   deposit?: Prisma.DepositRecordUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUpdateOneWithoutRegistrationNestedInput
+  confirmer?: Prisma.UserUpdateOneWithoutConfirmedRegistrationsNestedInput
+  rejecter?: Prisma.UserUpdateOneWithoutRejectedRegistrationsNestedInput
 }
 
 export type BidRegistrationUncheckedUpdateWithoutAnnouncementInput = {
@@ -918,8 +1363,11 @@ export type BidRegistrationUncheckedUpdateWithoutAnnouncementInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deposit?: Prisma.DepositRecordUncheckedUpdateOneWithoutRegistrationNestedInput
   transaction?: Prisma.TransactionConfirmationUncheckedUpdateOneWithoutRegistrationNestedInput
 }
@@ -931,8 +1379,11 @@ export type BidRegistrationUncheckedUpdateManyWithoutAnnouncementInput = {
   bidAmount?: Prisma.DecimalFieldUpdateOperationsInput | runtime.Decimal | runtime.DecimalJsLike | number | string
   registrationTime?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   confirmedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  confirmedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  rejectedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   rejectionReason?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  withdrawnAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
 }
 
 
@@ -945,12 +1396,17 @@ export type BidRegistrationSelect<ExtArgs extends runtime.Types.Extensions.Inter
   bidAmount?: boolean
   registrationTime?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   rejectedAt?: boolean
+  rejectedBy?: boolean
   rejectionReason?: boolean
+  withdrawnAt?: boolean
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   deposit?: boolean | Prisma.BidRegistration$depositArgs<ExtArgs>
   transaction?: boolean | Prisma.BidRegistration$transactionArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }, ExtArgs["result"]["bidRegistration"]>
 
 export type BidRegistrationSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -961,10 +1417,15 @@ export type BidRegistrationSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   bidAmount?: boolean
   registrationTime?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   rejectedAt?: boolean
+  rejectedBy?: boolean
   rejectionReason?: boolean
+  withdrawnAt?: boolean
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }, ExtArgs["result"]["bidRegistration"]>
 
 export type BidRegistrationSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -975,10 +1436,15 @@ export type BidRegistrationSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   bidAmount?: boolean
   registrationTime?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   rejectedAt?: boolean
+  rejectedBy?: boolean
   rejectionReason?: boolean
+  withdrawnAt?: boolean
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }, ExtArgs["result"]["bidRegistration"]>
 
 export type BidRegistrationSelectScalar = {
@@ -989,24 +1455,33 @@ export type BidRegistrationSelectScalar = {
   bidAmount?: boolean
   registrationTime?: boolean
   confirmedAt?: boolean
+  confirmedBy?: boolean
   rejectedAt?: boolean
+  rejectedBy?: boolean
   rejectionReason?: boolean
+  withdrawnAt?: boolean
 }
 
-export type BidRegistrationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "announcementId" | "bidderId" | "status" | "bidAmount" | "registrationTime" | "confirmedAt" | "rejectedAt" | "rejectionReason", ExtArgs["result"]["bidRegistration"]>
+export type BidRegistrationOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "announcementId" | "bidderId" | "status" | "bidAmount" | "registrationTime" | "confirmedAt" | "confirmedBy" | "rejectedAt" | "rejectedBy" | "rejectionReason" | "withdrawnAt", ExtArgs["result"]["bidRegistration"]>
 export type BidRegistrationInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
   deposit?: boolean | Prisma.BidRegistration$depositArgs<ExtArgs>
   transaction?: boolean | Prisma.BidRegistration$transactionArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }
 export type BidRegistrationIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }
 export type BidRegistrationIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   announcement?: boolean | Prisma.AnnouncementDefaultArgs<ExtArgs>
   bidder?: boolean | Prisma.UserDefaultArgs<ExtArgs>
+  confirmer?: boolean | Prisma.BidRegistration$confirmerArgs<ExtArgs>
+  rejecter?: boolean | Prisma.BidRegistration$rejecterArgs<ExtArgs>
 }
 
 export type $BidRegistrationPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1016,6 +1491,8 @@ export type $BidRegistrationPayload<ExtArgs extends runtime.Types.Extensions.Int
     bidder: Prisma.$UserPayload<ExtArgs>
     deposit: Prisma.$DepositRecordPayload<ExtArgs> | null
     transaction: Prisma.$TransactionConfirmationPayload<ExtArgs> | null
+    confirmer: Prisma.$UserPayload<ExtArgs> | null
+    rejecter: Prisma.$UserPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1025,8 +1502,11 @@ export type $BidRegistrationPayload<ExtArgs extends runtime.Types.Extensions.Int
     bidAmount: runtime.Decimal
     registrationTime: Date
     confirmedAt: Date | null
+    confirmedBy: string | null
     rejectedAt: Date | null
+    rejectedBy: string | null
     rejectionReason: string | null
+    withdrawnAt: Date | null
   }, ExtArgs["result"]["bidRegistration"]>
   composites: {}
 }
@@ -1425,6 +1905,8 @@ export interface Prisma__BidRegistrationClient<T, Null = never, ExtArgs extends 
   bidder<T extends Prisma.UserDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.UserDefaultArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   deposit<T extends Prisma.BidRegistration$depositArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistration$depositArgs<ExtArgs>>): Prisma.Prisma__DepositRecordClient<runtime.Types.Result.GetResult<Prisma.$DepositRecordPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   transaction<T extends Prisma.BidRegistration$transactionArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistration$transactionArgs<ExtArgs>>): Prisma.Prisma__TransactionConfirmationClient<runtime.Types.Result.GetResult<Prisma.$TransactionConfirmationPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  confirmer<T extends Prisma.BidRegistration$confirmerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistration$confirmerArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  rejecter<T extends Prisma.BidRegistration$rejecterArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.BidRegistration$rejecterArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1461,8 +1943,11 @@ export interface BidRegistrationFieldRefs {
   readonly bidAmount: Prisma.FieldRef<"BidRegistration", 'Decimal'>
   readonly registrationTime: Prisma.FieldRef<"BidRegistration", 'DateTime'>
   readonly confirmedAt: Prisma.FieldRef<"BidRegistration", 'DateTime'>
+  readonly confirmedBy: Prisma.FieldRef<"BidRegistration", 'String'>
   readonly rejectedAt: Prisma.FieldRef<"BidRegistration", 'DateTime'>
+  readonly rejectedBy: Prisma.FieldRef<"BidRegistration", 'String'>
   readonly rejectionReason: Prisma.FieldRef<"BidRegistration", 'String'>
+  readonly withdrawnAt: Prisma.FieldRef<"BidRegistration", 'DateTime'>
 }
     
 
@@ -1892,6 +2377,44 @@ export type BidRegistration$transactionArgs<ExtArgs extends runtime.Types.Extens
    */
   include?: Prisma.TransactionConfirmationInclude<ExtArgs> | null
   where?: Prisma.TransactionConfirmationWhereInput
+}
+
+/**
+ * BidRegistration.confirmer
+ */
+export type BidRegistration$confirmerArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
+}
+
+/**
+ * BidRegistration.rejecter
+ */
+export type BidRegistration$rejecterArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the User
+   */
+  select?: Prisma.UserSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the User
+   */
+  omit?: Prisma.UserOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.UserInclude<ExtArgs> | null
+  where?: Prisma.UserWhereInput
 }
 
 /**

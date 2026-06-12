@@ -220,6 +220,12 @@ export type UserWhereInput = {
   deposits?: Prisma.DepositRecordListRelationFilter
   attachments?: Prisma.AttachmentListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  confirmedRegistrations?: Prisma.BidRegistrationListRelationFilter
+  rejectedRegistrations?: Prisma.BidRegistrationListRelationFilter
+  processedDeposits?: Prisma.DepositRecordListRelationFilter
+  refundedDeposits?: Prisma.DepositRecordListRelationFilter
+  confirmedTransactions?: Prisma.TransactionConfirmationListRelationFilter
+  cancelledTransactions?: Prisma.TransactionConfirmationListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -238,6 +244,12 @@ export type UserOrderByWithRelationInput = {
   deposits?: Prisma.DepositRecordOrderByRelationAggregateInput
   attachments?: Prisma.AttachmentOrderByRelationAggregateInput
   notifications?: Prisma.NotificationOrderByRelationAggregateInput
+  confirmedRegistrations?: Prisma.BidRegistrationOrderByRelationAggregateInput
+  rejectedRegistrations?: Prisma.BidRegistrationOrderByRelationAggregateInput
+  processedDeposits?: Prisma.DepositRecordOrderByRelationAggregateInput
+  refundedDeposits?: Prisma.DepositRecordOrderByRelationAggregateInput
+  confirmedTransactions?: Prisma.TransactionConfirmationOrderByRelationAggregateInput
+  cancelledTransactions?: Prisma.TransactionConfirmationOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -259,6 +271,12 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   deposits?: Prisma.DepositRecordListRelationFilter
   attachments?: Prisma.AttachmentListRelationFilter
   notifications?: Prisma.NotificationListRelationFilter
+  confirmedRegistrations?: Prisma.BidRegistrationListRelationFilter
+  rejectedRegistrations?: Prisma.BidRegistrationListRelationFilter
+  processedDeposits?: Prisma.DepositRecordListRelationFilter
+  refundedDeposits?: Prisma.DepositRecordListRelationFilter
+  confirmedTransactions?: Prisma.TransactionConfirmationListRelationFilter
+  cancelledTransactions?: Prisma.TransactionConfirmationListRelationFilter
 }, "id" | "username" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -307,6 +325,12 @@ export type UserCreateInput = {
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -325,6 +349,12 @@ export type UserUncheckedCreateInput = {
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUpdateInput = {
@@ -343,6 +373,12 @@ export type UserUpdateInput = {
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -361,6 +397,12 @@ export type UserUncheckedUpdateInput = {
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -495,6 +537,18 @@ export type UserCreateNestedOneWithoutRegistrationsInput = {
   connect?: Prisma.UserWhereUniqueInput
 }
 
+export type UserCreateNestedOneWithoutConfirmedRegistrationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedCreateWithoutConfirmedRegistrationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutConfirmedRegistrationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutRejectedRegistrationsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedCreateWithoutRejectedRegistrationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRejectedRegistrationsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
 export type UserUpdateOneRequiredWithoutRegistrationsNestedInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutRegistrationsInput, Prisma.UserUncheckedCreateWithoutRegistrationsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutRegistrationsInput
@@ -503,9 +557,41 @@ export type UserUpdateOneRequiredWithoutRegistrationsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRegistrationsInput, Prisma.UserUpdateWithoutRegistrationsInput>, Prisma.UserUncheckedUpdateWithoutRegistrationsInput>
 }
 
+export type UserUpdateOneWithoutConfirmedRegistrationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedCreateWithoutConfirmedRegistrationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutConfirmedRegistrationsInput
+  upsert?: Prisma.UserUpsertWithoutConfirmedRegistrationsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutConfirmedRegistrationsInput, Prisma.UserUpdateWithoutConfirmedRegistrationsInput>, Prisma.UserUncheckedUpdateWithoutConfirmedRegistrationsInput>
+}
+
+export type UserUpdateOneWithoutRejectedRegistrationsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedCreateWithoutRejectedRegistrationsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRejectedRegistrationsInput
+  upsert?: Prisma.UserUpsertWithoutRejectedRegistrationsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRejectedRegistrationsInput, Prisma.UserUpdateWithoutRejectedRegistrationsInput>, Prisma.UserUncheckedUpdateWithoutRejectedRegistrationsInput>
+}
+
 export type UserCreateNestedOneWithoutDepositsInput = {
   create?: Prisma.XOR<Prisma.UserCreateWithoutDepositsInput, Prisma.UserUncheckedCreateWithoutDepositsInput>
   connectOrCreate?: Prisma.UserCreateOrConnectWithoutDepositsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutProcessedDepositsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutProcessedDepositsInput, Prisma.UserUncheckedCreateWithoutProcessedDepositsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutProcessedDepositsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutRefundedDepositsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRefundedDepositsInput, Prisma.UserUncheckedCreateWithoutRefundedDepositsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRefundedDepositsInput
   connect?: Prisma.UserWhereUniqueInput
 }
 
@@ -517,6 +603,58 @@ export type UserUpdateOneWithoutDepositsNestedInput = {
   delete?: Prisma.UserWhereInput | boolean
   connect?: Prisma.UserWhereUniqueInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutDepositsInput, Prisma.UserUpdateWithoutDepositsInput>, Prisma.UserUncheckedUpdateWithoutDepositsInput>
+}
+
+export type UserUpdateOneWithoutProcessedDepositsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutProcessedDepositsInput, Prisma.UserUncheckedCreateWithoutProcessedDepositsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutProcessedDepositsInput
+  upsert?: Prisma.UserUpsertWithoutProcessedDepositsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutProcessedDepositsInput, Prisma.UserUpdateWithoutProcessedDepositsInput>, Prisma.UserUncheckedUpdateWithoutProcessedDepositsInput>
+}
+
+export type UserUpdateOneWithoutRefundedDepositsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutRefundedDepositsInput, Prisma.UserUncheckedCreateWithoutRefundedDepositsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutRefundedDepositsInput
+  upsert?: Prisma.UserUpsertWithoutRefundedDepositsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutRefundedDepositsInput, Prisma.UserUpdateWithoutRefundedDepositsInput>, Prisma.UserUncheckedUpdateWithoutRefundedDepositsInput>
+}
+
+export type UserCreateNestedOneWithoutConfirmedTransactionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedCreateWithoutConfirmedTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutConfirmedTransactionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutCancelledTransactionsInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCancelledTransactionsInput, Prisma.UserUncheckedCreateWithoutCancelledTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCancelledTransactionsInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutConfirmedTransactionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedCreateWithoutConfirmedTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutConfirmedTransactionsInput
+  upsert?: Prisma.UserUpsertWithoutConfirmedTransactionsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutConfirmedTransactionsInput, Prisma.UserUpdateWithoutConfirmedTransactionsInput>, Prisma.UserUncheckedUpdateWithoutConfirmedTransactionsInput>
+}
+
+export type UserUpdateOneWithoutCancelledTransactionsNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutCancelledTransactionsInput, Prisma.UserUncheckedCreateWithoutCancelledTransactionsInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutCancelledTransactionsInput
+  upsert?: Prisma.UserUpsertWithoutCancelledTransactionsInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutCancelledTransactionsInput, Prisma.UserUpdateWithoutCancelledTransactionsInput>, Prisma.UserUncheckedUpdateWithoutCancelledTransactionsInput>
 }
 
 export type UserCreateNestedOneWithoutAttachmentsInput = {
@@ -562,6 +700,12 @@ export type UserCreateWithoutAnnouncementsInput = {
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutAnnouncementsInput = {
@@ -579,6 +723,12 @@ export type UserUncheckedCreateWithoutAnnouncementsInput = {
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutAnnouncementsInput = {
@@ -612,6 +762,12 @@ export type UserUpdateWithoutAnnouncementsInput = {
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAnnouncementsInput = {
@@ -629,6 +785,12 @@ export type UserUncheckedUpdateWithoutAnnouncementsInput = {
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserCreateWithoutReviewsInput = {
@@ -646,6 +808,12 @@ export type UserCreateWithoutReviewsInput = {
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutReviewsInput = {
@@ -663,6 +831,12 @@ export type UserUncheckedCreateWithoutReviewsInput = {
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutReviewsInput = {
@@ -696,6 +870,12 @@ export type UserUpdateWithoutReviewsInput = {
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutReviewsInput = {
@@ -713,6 +893,12 @@ export type UserUncheckedUpdateWithoutReviewsInput = {
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserCreateWithoutRegistrationsInput = {
@@ -730,6 +916,12 @@ export type UserCreateWithoutRegistrationsInput = {
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutRegistrationsInput = {
@@ -747,11 +939,119 @@ export type UserUncheckedCreateWithoutRegistrationsInput = {
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutRegistrationsInput = {
   where: Prisma.UserWhereUniqueInput
   create: Prisma.XOR<Prisma.UserCreateWithoutRegistrationsInput, Prisma.UserUncheckedCreateWithoutRegistrationsInput>
+}
+
+export type UserCreateWithoutConfirmedRegistrationsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
+}
+
+export type UserUncheckedCreateWithoutConfirmedRegistrationsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
+}
+
+export type UserCreateOrConnectWithoutConfirmedRegistrationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedCreateWithoutConfirmedRegistrationsInput>
+}
+
+export type UserCreateWithoutRejectedRegistrationsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
+}
+
+export type UserUncheckedCreateWithoutRejectedRegistrationsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
+}
+
+export type UserCreateOrConnectWithoutRejectedRegistrationsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedCreateWithoutRejectedRegistrationsInput>
 }
 
 export type UserUpsertWithoutRegistrationsInput = {
@@ -780,6 +1080,12 @@ export type UserUpdateWithoutRegistrationsInput = {
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRegistrationsInput = {
@@ -797,6 +1103,126 @@ export type UserUncheckedUpdateWithoutRegistrationsInput = {
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUpsertWithoutConfirmedRegistrationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedUpdateWithoutConfirmedRegistrationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedCreateWithoutConfirmedRegistrationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutConfirmedRegistrationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutConfirmedRegistrationsInput, Prisma.UserUncheckedUpdateWithoutConfirmedRegistrationsInput>
+}
+
+export type UserUpdateWithoutConfirmedRegistrationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutConfirmedRegistrationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUpsertWithoutRejectedRegistrationsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedUpdateWithoutRejectedRegistrationsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedCreateWithoutRejectedRegistrationsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutRejectedRegistrationsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutRejectedRegistrationsInput, Prisma.UserUncheckedUpdateWithoutRejectedRegistrationsInput>
+}
+
+export type UserUpdateWithoutRejectedRegistrationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutRejectedRegistrationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserCreateWithoutDepositsInput = {
@@ -814,6 +1240,12 @@ export type UserCreateWithoutDepositsInput = {
   registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutDepositsInput = {
@@ -831,11 +1263,119 @@ export type UserUncheckedCreateWithoutDepositsInput = {
   registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutDepositsInput = {
   where: Prisma.UserWhereUniqueInput
   create: Prisma.XOR<Prisma.UserCreateWithoutDepositsInput, Prisma.UserUncheckedCreateWithoutDepositsInput>
+}
+
+export type UserCreateWithoutProcessedDepositsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
+}
+
+export type UserUncheckedCreateWithoutProcessedDepositsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
+}
+
+export type UserCreateOrConnectWithoutProcessedDepositsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutProcessedDepositsInput, Prisma.UserUncheckedCreateWithoutProcessedDepositsInput>
+}
+
+export type UserCreateWithoutRefundedDepositsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
+}
+
+export type UserUncheckedCreateWithoutRefundedDepositsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
+}
+
+export type UserCreateOrConnectWithoutRefundedDepositsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutRefundedDepositsInput, Prisma.UserUncheckedCreateWithoutRefundedDepositsInput>
 }
 
 export type UserUpsertWithoutDepositsInput = {
@@ -864,6 +1404,12 @@ export type UserUpdateWithoutDepositsInput = {
   registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDepositsInput = {
@@ -881,6 +1427,342 @@ export type UserUncheckedUpdateWithoutDepositsInput = {
   registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUpsertWithoutProcessedDepositsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutProcessedDepositsInput, Prisma.UserUncheckedUpdateWithoutProcessedDepositsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutProcessedDepositsInput, Prisma.UserUncheckedCreateWithoutProcessedDepositsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutProcessedDepositsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutProcessedDepositsInput, Prisma.UserUncheckedUpdateWithoutProcessedDepositsInput>
+}
+
+export type UserUpdateWithoutProcessedDepositsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutProcessedDepositsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUpsertWithoutRefundedDepositsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutRefundedDepositsInput, Prisma.UserUncheckedUpdateWithoutRefundedDepositsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutRefundedDepositsInput, Prisma.UserUncheckedCreateWithoutRefundedDepositsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutRefundedDepositsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutRefundedDepositsInput, Prisma.UserUncheckedUpdateWithoutRefundedDepositsInput>
+}
+
+export type UserUpdateWithoutRefundedDepositsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutRefundedDepositsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserCreateWithoutConfirmedTransactionsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
+}
+
+export type UserUncheckedCreateWithoutConfirmedTransactionsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
+}
+
+export type UserCreateOrConnectWithoutConfirmedTransactionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedCreateWithoutConfirmedTransactionsInput>
+}
+
+export type UserCreateWithoutCancelledTransactionsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+}
+
+export type UserUncheckedCreateWithoutCancelledTransactionsInput = {
+  id?: string
+  username: string
+  passwordHash: string
+  name: string
+  email: string
+  phone?: string | null
+  role: $Enums.UserRole
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  announcements?: Prisma.AnnouncementUncheckedCreateNestedManyWithoutCreatorInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedCreateNestedManyWithoutReviewerInput
+  registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
+  deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+}
+
+export type UserCreateOrConnectWithoutCancelledTransactionsInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutCancelledTransactionsInput, Prisma.UserUncheckedCreateWithoutCancelledTransactionsInput>
+}
+
+export type UserUpsertWithoutConfirmedTransactionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedUpdateWithoutConfirmedTransactionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedCreateWithoutConfirmedTransactionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutConfirmedTransactionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutConfirmedTransactionsInput, Prisma.UserUncheckedUpdateWithoutConfirmedTransactionsInput>
+}
+
+export type UserUpdateWithoutConfirmedTransactionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutConfirmedTransactionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
+}
+
+export type UserUpsertWithoutCancelledTransactionsInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutCancelledTransactionsInput, Prisma.UserUncheckedUpdateWithoutCancelledTransactionsInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutCancelledTransactionsInput, Prisma.UserUncheckedCreateWithoutCancelledTransactionsInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutCancelledTransactionsInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutCancelledTransactionsInput, Prisma.UserUncheckedUpdateWithoutCancelledTransactionsInput>
+}
+
+export type UserUpdateWithoutCancelledTransactionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+}
+
+export type UserUncheckedUpdateWithoutCancelledTransactionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  passwordHash?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  phone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  role?: Prisma.EnumUserRoleFieldUpdateOperationsInput | $Enums.UserRole
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  announcements?: Prisma.AnnouncementUncheckedUpdateManyWithoutCreatorNestedInput
+  reviews?: Prisma.AnnouncementApprovalUncheckedUpdateManyWithoutReviewerNestedInput
+  registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
+  deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
 }
 
 export type UserCreateWithoutAttachmentsInput = {
@@ -898,6 +1780,12 @@ export type UserCreateWithoutAttachmentsInput = {
   registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutAttachmentsInput = {
@@ -915,6 +1803,12 @@ export type UserUncheckedCreateWithoutAttachmentsInput = {
   registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutAttachmentsInput = {
@@ -948,6 +1842,12 @@ export type UserUpdateWithoutAttachmentsInput = {
   registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutAttachmentsInput = {
@@ -965,6 +1865,12 @@ export type UserUncheckedUpdateWithoutAttachmentsInput = {
   registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserCreateWithoutNotificationsInput = {
@@ -982,6 +1888,12 @@ export type UserCreateWithoutNotificationsInput = {
   registrations?: Prisma.BidRegistrationCreateNestedManyWithoutBidderInput
   deposits?: Prisma.DepositRecordCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentCreateNestedManyWithoutUploaderInput
+  confirmedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationCreateNestedManyWithoutCancellerInput
 }
 
 export type UserUncheckedCreateWithoutNotificationsInput = {
@@ -999,6 +1911,12 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   registrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutBidderInput
   deposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPayerInput
   attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutUploaderInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutConfirmerInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedCreateNestedManyWithoutRejecterInput
+  processedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutPaymentProcessorInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedCreateNestedManyWithoutRefundProcessorInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutConfirmerInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedCreateNestedManyWithoutCancellerInput
 }
 
 export type UserCreateOrConnectWithoutNotificationsInput = {
@@ -1032,6 +1950,12 @@ export type UserUpdateWithoutNotificationsInput = {
   registrations?: Prisma.BidRegistrationUpdateManyWithoutBidderNestedInput
   deposits?: Prisma.DepositRecordUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUpdateManyWithoutUploaderNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUpdateManyWithoutCancellerNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotificationsInput = {
@@ -1049,6 +1973,12 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   registrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutBidderNestedInput
   deposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPayerNestedInput
   attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutUploaderNestedInput
+  confirmedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutConfirmerNestedInput
+  rejectedRegistrations?: Prisma.BidRegistrationUncheckedUpdateManyWithoutRejecterNestedInput
+  processedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutPaymentProcessorNestedInput
+  refundedDeposits?: Prisma.DepositRecordUncheckedUpdateManyWithoutRefundProcessorNestedInput
+  confirmedTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutConfirmerNestedInput
+  cancelledTransactions?: Prisma.TransactionConfirmationUncheckedUpdateManyWithoutCancellerNestedInput
 }
 
 
@@ -1063,6 +1993,12 @@ export type UserCountOutputType = {
   deposits: number
   attachments: number
   notifications: number
+  confirmedRegistrations: number
+  rejectedRegistrations: number
+  processedDeposits: number
+  refundedDeposits: number
+  confirmedTransactions: number
+  cancelledTransactions: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1072,6 +2008,12 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   deposits?: boolean | UserCountOutputTypeCountDepositsArgs
   attachments?: boolean | UserCountOutputTypeCountAttachmentsArgs
   notifications?: boolean | UserCountOutputTypeCountNotificationsArgs
+  confirmedRegistrations?: boolean | UserCountOutputTypeCountConfirmedRegistrationsArgs
+  rejectedRegistrations?: boolean | UserCountOutputTypeCountRejectedRegistrationsArgs
+  processedDeposits?: boolean | UserCountOutputTypeCountProcessedDepositsArgs
+  refundedDeposits?: boolean | UserCountOutputTypeCountRefundedDepositsArgs
+  confirmedTransactions?: boolean | UserCountOutputTypeCountConfirmedTransactionsArgs
+  cancelledTransactions?: boolean | UserCountOutputTypeCountCancelledTransactionsArgs
 }
 
 /**
@@ -1126,6 +2068,48 @@ export type UserCountOutputTypeCountNotificationsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.NotificationWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountConfirmedRegistrationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BidRegistrationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountRejectedRegistrationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.BidRegistrationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountProcessedDepositsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DepositRecordWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountRefundedDepositsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.DepositRecordWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountConfirmedTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TransactionConfirmationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountCancelledTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.TransactionConfirmationWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1143,6 +2127,12 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   deposits?: boolean | Prisma.User$depositsArgs<ExtArgs>
   attachments?: boolean | Prisma.User$attachmentsArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  confirmedRegistrations?: boolean | Prisma.User$confirmedRegistrationsArgs<ExtArgs>
+  rejectedRegistrations?: boolean | Prisma.User$rejectedRegistrationsArgs<ExtArgs>
+  processedDeposits?: boolean | Prisma.User$processedDepositsArgs<ExtArgs>
+  refundedDeposits?: boolean | Prisma.User$refundedDepositsArgs<ExtArgs>
+  confirmedTransactions?: boolean | Prisma.User$confirmedTransactionsArgs<ExtArgs>
+  cancelledTransactions?: boolean | Prisma.User$cancelledTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -1190,6 +2180,12 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   deposits?: boolean | Prisma.User$depositsArgs<ExtArgs>
   attachments?: boolean | Prisma.User$attachmentsArgs<ExtArgs>
   notifications?: boolean | Prisma.User$notificationsArgs<ExtArgs>
+  confirmedRegistrations?: boolean | Prisma.User$confirmedRegistrationsArgs<ExtArgs>
+  rejectedRegistrations?: boolean | Prisma.User$rejectedRegistrationsArgs<ExtArgs>
+  processedDeposits?: boolean | Prisma.User$processedDepositsArgs<ExtArgs>
+  refundedDeposits?: boolean | Prisma.User$refundedDepositsArgs<ExtArgs>
+  confirmedTransactions?: boolean | Prisma.User$confirmedTransactionsArgs<ExtArgs>
+  cancelledTransactions?: boolean | Prisma.User$cancelledTransactionsArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
@@ -1204,6 +2200,12 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     deposits: Prisma.$DepositRecordPayload<ExtArgs>[]
     attachments: Prisma.$AttachmentPayload<ExtArgs>[]
     notifications: Prisma.$NotificationPayload<ExtArgs>[]
+    confirmedRegistrations: Prisma.$BidRegistrationPayload<ExtArgs>[]
+    rejectedRegistrations: Prisma.$BidRegistrationPayload<ExtArgs>[]
+    processedDeposits: Prisma.$DepositRecordPayload<ExtArgs>[]
+    refundedDeposits: Prisma.$DepositRecordPayload<ExtArgs>[]
+    confirmedTransactions: Prisma.$TransactionConfirmationPayload<ExtArgs>[]
+    cancelledTransactions: Prisma.$TransactionConfirmationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1615,6 +2617,12 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   deposits<T extends Prisma.User$depositsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$depositsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DepositRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   attachments<T extends Prisma.User$attachmentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$attachmentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$AttachmentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   notifications<T extends Prisma.User$notificationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$notificationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$NotificationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  confirmedRegistrations<T extends Prisma.User$confirmedRegistrationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$confirmedRegistrationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BidRegistrationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  rejectedRegistrations<T extends Prisma.User$rejectedRegistrationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$rejectedRegistrationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$BidRegistrationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  processedDeposits<T extends Prisma.User$processedDepositsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$processedDepositsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DepositRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  refundedDeposits<T extends Prisma.User$refundedDepositsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$refundedDepositsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DepositRecordPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  confirmedTransactions<T extends Prisma.User$confirmedTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$confirmedTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransactionConfirmationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  cancelledTransactions<T extends Prisma.User$cancelledTransactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$cancelledTransactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransactionConfirmationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2180,6 +3188,150 @@ export type User$notificationsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.NotificationScalarFieldEnum | Prisma.NotificationScalarFieldEnum[]
+}
+
+/**
+ * User.confirmedRegistrations
+ */
+export type User$confirmedRegistrationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BidRegistration
+   */
+  select?: Prisma.BidRegistrationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the BidRegistration
+   */
+  omit?: Prisma.BidRegistrationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.BidRegistrationInclude<ExtArgs> | null
+  where?: Prisma.BidRegistrationWhereInput
+  orderBy?: Prisma.BidRegistrationOrderByWithRelationInput | Prisma.BidRegistrationOrderByWithRelationInput[]
+  cursor?: Prisma.BidRegistrationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.BidRegistrationScalarFieldEnum | Prisma.BidRegistrationScalarFieldEnum[]
+}
+
+/**
+ * User.rejectedRegistrations
+ */
+export type User$rejectedRegistrationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the BidRegistration
+   */
+  select?: Prisma.BidRegistrationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the BidRegistration
+   */
+  omit?: Prisma.BidRegistrationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.BidRegistrationInclude<ExtArgs> | null
+  where?: Prisma.BidRegistrationWhereInput
+  orderBy?: Prisma.BidRegistrationOrderByWithRelationInput | Prisma.BidRegistrationOrderByWithRelationInput[]
+  cursor?: Prisma.BidRegistrationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.BidRegistrationScalarFieldEnum | Prisma.BidRegistrationScalarFieldEnum[]
+}
+
+/**
+ * User.processedDeposits
+ */
+export type User$processedDepositsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DepositRecord
+   */
+  select?: Prisma.DepositRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DepositRecord
+   */
+  omit?: Prisma.DepositRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DepositRecordInclude<ExtArgs> | null
+  where?: Prisma.DepositRecordWhereInput
+  orderBy?: Prisma.DepositRecordOrderByWithRelationInput | Prisma.DepositRecordOrderByWithRelationInput[]
+  cursor?: Prisma.DepositRecordWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DepositRecordScalarFieldEnum | Prisma.DepositRecordScalarFieldEnum[]
+}
+
+/**
+ * User.refundedDeposits
+ */
+export type User$refundedDepositsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DepositRecord
+   */
+  select?: Prisma.DepositRecordSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DepositRecord
+   */
+  omit?: Prisma.DepositRecordOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DepositRecordInclude<ExtArgs> | null
+  where?: Prisma.DepositRecordWhereInput
+  orderBy?: Prisma.DepositRecordOrderByWithRelationInput | Prisma.DepositRecordOrderByWithRelationInput[]
+  cursor?: Prisma.DepositRecordWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.DepositRecordScalarFieldEnum | Prisma.DepositRecordScalarFieldEnum[]
+}
+
+/**
+ * User.confirmedTransactions
+ */
+export type User$confirmedTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TransactionConfirmation
+   */
+  select?: Prisma.TransactionConfirmationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TransactionConfirmation
+   */
+  omit?: Prisma.TransactionConfirmationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TransactionConfirmationInclude<ExtArgs> | null
+  where?: Prisma.TransactionConfirmationWhereInput
+  orderBy?: Prisma.TransactionConfirmationOrderByWithRelationInput | Prisma.TransactionConfirmationOrderByWithRelationInput[]
+  cursor?: Prisma.TransactionConfirmationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TransactionConfirmationScalarFieldEnum | Prisma.TransactionConfirmationScalarFieldEnum[]
+}
+
+/**
+ * User.cancelledTransactions
+ */
+export type User$cancelledTransactionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the TransactionConfirmation
+   */
+  select?: Prisma.TransactionConfirmationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the TransactionConfirmation
+   */
+  omit?: Prisma.TransactionConfirmationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.TransactionConfirmationInclude<ExtArgs> | null
+  where?: Prisma.TransactionConfirmationWhereInput
+  orderBy?: Prisma.TransactionConfirmationOrderByWithRelationInput | Prisma.TransactionConfirmationOrderByWithRelationInput[]
+  cursor?: Prisma.TransactionConfirmationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.TransactionConfirmationScalarFieldEnum | Prisma.TransactionConfirmationScalarFieldEnum[]
 }
 
 /**

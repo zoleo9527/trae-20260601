@@ -141,8 +141,11 @@ export const BidRegistrationScalarFieldEnum = {
   bidAmount: 'bidAmount',
   registrationTime: 'registrationTime',
   confirmedAt: 'confirmedAt',
+  confirmedBy: 'confirmedBy',
   rejectedAt: 'rejectedAt',
-  rejectionReason: 'rejectionReason'
+  rejectedBy: 'rejectedBy',
+  rejectionReason: 'rejectionReason',
+  withdrawnAt: 'withdrawnAt'
 } as const
 
 export type BidRegistrationScalarFieldEnum = (typeof BidRegistrationScalarFieldEnum)[keyof typeof BidRegistrationScalarFieldEnum]
@@ -154,7 +157,10 @@ export const DepositRecordScalarFieldEnum = {
   amount: 'amount',
   status: 'status',
   paymentTime: 'paymentTime',
+  paidBy: 'paidBy',
   refundTime: 'refundTime',
+  refundedBy: 'refundedBy',
+  refundReason: 'refundReason',
   paymentMethod: 'paymentMethod',
   transactionNumber: 'transactionNumber',
   payerId: 'payerId'
@@ -169,7 +175,10 @@ export const TransactionConfirmationScalarFieldEnum = {
   status: 'status',
   finalPrice: 'finalPrice',
   confirmedAt: 'confirmedAt',
+  confirmedBy: 'confirmedBy',
   cancelledAt: 'cancelledAt',
+  cancelledBy: 'cancelledBy',
+  cancelReason: 'cancelReason',
   contractNumber: 'contractNumber'
 } as const
 
