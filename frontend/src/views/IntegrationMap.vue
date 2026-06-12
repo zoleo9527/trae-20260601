@@ -90,6 +90,10 @@
                   <div class="role-account">账号: consultant1 / pass123</div>
                 </div>
               </div>
+              <div class="role-landing">
+                <el-tag size="small" type="primary">登录落点</el-tag>
+                <span>/dashboard → /viewings → /borrow → /key-transfers</span>
+              </div>
               <div class="role-permissions">
                 <div class="perm-title">可执行操作：</div>
                 <ul class="perm-list">
@@ -105,7 +109,7 @@
               </div>
               <div class="role-actions">
                 <el-button type="primary" size="small" @click="quickLogin('consultant1')">
-                  快速登录
+                  快速登录 → 落入工作台
                 </el-button>
               </div>
             </div>
@@ -117,6 +121,10 @@
                   <div class="role-name">运营经理</div>
                   <div class="role-account">账号: operations1 / pass123</div>
                 </div>
+              </div>
+              <div class="role-landing">
+                <el-tag size="small" type="success">登录落点</el-tag>
+                <span>/dashboard → /borrow → /key-transfers → /audit</span>
               </div>
               <div class="role-permissions">
                 <div class="perm-title">可执行操作：</div>
@@ -133,7 +141,7 @@
               </div>
               <div class="role-actions">
                 <el-button type="success" size="small" @click="quickLogin('operations1')">
-                  快速登录
+                  快速登录 → 落入工作台
                 </el-button>
               </div>
             </div>
@@ -145,6 +153,10 @@
                   <div class="role-name">财务</div>
                   <div class="role-account">账号: finance1 / pass123</div>
                 </div>
+              </div>
+              <div class="role-landing">
+                <el-tag size="small" type="warning">登录落点</el-tag>
+                <span>/dashboard → /deposits → /audit</span>
               </div>
               <div class="role-permissions">
                 <div class="perm-title">可执行操作：</div>
@@ -161,10 +173,41 @@
               </div>
               <div class="role-actions">
                 <el-button type="warning" size="small" @click="quickLogin('finance1')">
-                  快速登录
+                  快速登录 → 落入工作台
                 </el-button>
               </div>
             </div>
+          </div>
+
+          <div class="section-subtitle" style="margin-top: 20px">角色→页面→后端映射</div>
+          <div class="role-route-table">
+            <el-table :data="roleRouteMap" size="small" border stripe>
+              <el-table-column label="角色" width="100">
+                <template #default="{ row }">
+                  <el-tag :type="row.roleTag" size="small">{{ row.roleLabel }}</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="前端路由" width="160">
+                <template #default="{ row }">
+                  <code class="repo-path">{{ row.route }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column label="后端模块" width="180">
+                <template #default="{ row }">
+                  <code class="repo-path">{{ row.backend }}</code>
+                </template>
+              </el-table-column>
+              <el-table-column label="关键动作" min-width="240">
+                <template #default="{ row }">
+                  <span class="action-text">{{ row.action }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="处理顺序" width="80" align="center">
+                <template #default="{ row }">
+                  <el-tag v-if="row.order" size="small" type="info">第{{ row.order }}</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
           </div>
 
           <div class="section-subtitle" style="margin-top: 20px">权限校验位置</div>
@@ -415,6 +458,21 @@ import { useAuthStore } from '@/stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
+const roleRouteMap = [
+  { roleLabel: '租赁顾问', roleTag: '', route: '/dashboard', backend: 'backend/src/modules/overview/overview.service.ts', action: '查看扯皮预警总览、待办事项', order: 1 },
+  { roleLabel: '租赁顾问', roleTag: '', route: '/viewings', backend: 'backend/src/modules/viewing/viewing.controller.ts', action: '录入看房反馈 addFeedback()', order: 2 },
+  { roleLabel: '租赁顾问', roleTag: '', route: '/borrow', backend: 'backend/src/modules/handover/handover.controller.ts', action: '提交交房验收 submit()', order: 3 },
+  { roleLabel: '租赁顾问', roleTag: '', route: '/key-transfers', backend: 'backend/src/modules/key-transfer/key-transfer.controller.ts', action: '发起钥匙移交 initiateTransfer()', order: 4 },
+  { roleLabel: '租赁顾问', roleTag: '', route: '/deposits', backend: 'backend/src/modules/deposit/deposit.controller.ts', action: '发起押金结算 initiate()', order: 4 },
+  { roleLabel: '运营经理', roleTag: 'success', route: '/dashboard', backend: 'backend/src/modules/overview/overview.service.ts', action: '查看扯皮预警、状态滞后房源', order: 1 },
+  { roleLabel: '运营经理', roleTag: 'success', route: '/borrow', backend: 'backend/src/modules/handover/handover.controller.ts', action: '确认交房 confirm() / 提出异议 dispute()', order: 2 },
+  { roleLabel: '运营经理', roleTag: 'success', route: '/key-transfers', backend: 'backend/src/modules/key-transfer/key-transfer.controller.ts', action: '确认接收 confirmReception() / 归还 returnKeys()', order: 3 },
+  { roleLabel: '运营经理', roleTag: 'success', route: '/audit', backend: 'backend/src/modules/audit/audit.controller.ts', action: '查询审计日志 query()', order: 5 },
+  { roleLabel: '财务', roleTag: 'warning', route: '/dashboard', backend: 'backend/src/modules/overview/overview.service.ts', action: '查看押金争议预警', order: 1 },
+  { roleLabel: '财务', roleTag: 'warning', route: '/deposits', backend: 'backend/src/modules/deposit/deposit.controller.ts', action: '确认 confirm() / 异议 dispute() / 结算 markSettled()', order: 2 },
+  { roleLabel: '财务', roleTag: 'warning', route: '/audit', backend: 'backend/src/modules/audit/audit.controller.ts', action: '查询审计日志 query()', order: 3 },
+]
+
 async function quickLogin(username) {
   try {
     await authStore.login(username, 'pass123')
@@ -586,6 +644,28 @@ async function quickLogin(username) {
 .role-actions {
   margin-top: 16px;
   text-align: right;
+}
+
+.role-landing {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 12px;
+  padding: 8px 10px;
+  background: rgba(0, 0, 0, 0.02);
+  border-radius: 6px;
+}
+
+.role-route-table {
+  margin-top: 8px;
+}
+
+.action-text {
+  font-size: 12px;
+  color: #606266;
+  line-height: 1.5;
 }
 
 .integration-list {
