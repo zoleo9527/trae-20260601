@@ -198,11 +198,10 @@ export const mockTasks: AccountingTask[] = [
     status: 'review_pass',
     bills: makeBills(2),
     vouchers: makeVouchers(2, 52),
-    currentHandler: '张伟',
+    currentHandler: '王芳',
     deadline: '2026-06-08',
     reviewRecords: reviewRecords.t002,
-    hasRisk: true,
-    riskNote: '进项发票缺3张，客户承诺6月5日前补齐',
+    hasRisk: false,
     overdue: false
   },
   {
@@ -330,17 +329,6 @@ export const mockRisks: RiskItem[] = [
     description: '原计划6月5日前完成复核，当前仍在待复核状态，已逾期1天',
     relatedTaskId: 't007',
     updatedAt: '2026-06-06 00:00'
-  },
-  {
-    id: 'rk004',
-    customerId: 'c002',
-    customerName: '上海诚达贸易有限公司',
-    type: 'missing_bill',
-    level: 'medium',
-    title: '进项发票缺失3张',
-    description: '采购入库凭证对应3张进项发票尚未收到，客户承诺6月5日前补齐',
-    relatedTaskId: 't002',
-    updatedAt: '2026-06-02 16:10'
   },
   {
     id: 'rk005',

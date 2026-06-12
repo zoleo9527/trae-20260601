@@ -302,14 +302,14 @@ const roleStats = computed(() => {
   } else if (currentRole.value === 'manager') {
     base.todo = list.filter(t => t.status === 'pending_bill').length
     base.processing = list.filter(t => ['pending_accounting', 'accounting'].includes(t.status)).length
-    base.risk = list.filter(t => t.hasRisk).length
-    base.overdue = list.filter(t => t.overdue).length
-    base.done = list.filter(t => t.status === 'completed').length
+    base.risk = list.filter(t => t.hasRisk && !['review_pass', 'completed'].includes(t.status)).length
+    base.overdue = list.filter(t => t.overdue && !['review_pass', 'completed'].includes(t.status)).length
+    base.done = list.filter(t => ['review_pass', 'completed'].includes(t.status)).length
   } else {
     base.todo = list.filter(t => ['pending_review', 'reviewing'].includes(t.status)).length
     base.processing = list.filter(t => ['pending_accounting', 'accounting'].includes(t.status)).length
     base.risk = risks.value.filter(r => r.level === 'high').length
-    base.overdue = list.filter(t => t.overdue).length
+    base.overdue = list.filter(t => t.overdue && !['review_pass', 'completed'].includes(t.status)).length
     base.done = list.filter(t => ['review_pass', 'completed'].includes(t.status)).length
   }
   return base
@@ -330,8 +330,8 @@ const roleMenusComputed = computed(() => {
     ]
   }
   if (currentRole.value === 'manager') {
-    const todo = list.filter(t => ['pending_bill', 'review_reject'].includes(t.status) || t.hasRisk).length
-    const billCollect = list.filter(t => t.status === 'pending_bill' || (t.hasRisk && t.status === 'pending_bill')).length
+    const todo = list.filter(t => (['pending_bill', 'review_reject'].includes(t.status) || t.hasRisk) && !['review_pass', 'completed'].includes(t.status)).length
+    const billCollect = list.filter(t => (t.status === 'pending_bill' || (t.hasRisk && t.status === 'pending_bill')) && !['review_pass', 'completed'].includes(t.status)).length
     const upload = list.filter(t => t.status === 'pending_bill').length
     return [
       { key: 'todo', label: '我的待办', badge: todo > 0 ? String(todo) : undefined, badgeType: 'danger' as const },
@@ -372,11 +372,11 @@ const todayTodoList = computed(() => {
   }
   if (r === 'manager') {
     const items: { time: string; title: string; tag: string; taskId: string; tone: string; desc: string }[] = []
-    const billTasks = list.filter(t => t.status === 'pending_bill')
+    const billTasks = list.filter(t => t.status === 'pending_bill' && !['review_pass', 'completed'].includes(t.status))
     for (const t of billTasks.slice(0, 2)) {
       items.push({ time: '优先', title: `催交${t.customer.name.slice(0, 6)}票据`, tag: '高优先级', taskId: t.id, tone: 'danger', desc: t.hasRisk ? (t.riskNote || '票据严重不足') : '票据待收' })
     }
-    const riskTasks = list.filter(t => t.hasRisk && t.status !== 'pending_bill')
+    const riskTasks = list.filter(t => t.hasRisk && t.status !== 'pending_bill' && !['review_pass', 'completed'].includes(t.status))
     for (const t of riskTasks.slice(0, 2)) {
       items.push({ time: '今日', title: `${t.customer.name.slice(0, 6)}风险沟通`, tag: '风险沟通', taskId: t.id, tone: 'danger', desc: t.riskNote || '需关注' })
     }

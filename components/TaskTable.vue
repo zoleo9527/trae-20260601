@@ -30,7 +30,7 @@ const filteredTasks = computed(() => {
   }
   if (props.role === 'manager') {
     if (props.activeMenu === 'bill_collect') {
-      return list.filter(t => t.status === 'pending_bill' || t.hasRisk)
+      return list.filter(t => (t.status === 'pending_bill' || t.hasRisk) && !['review_pass', 'completed'].includes(t.status))
     } else if (props.activeMenu === 'upload') {
       return list.filter(t => ['pending_bill', 'pending_accounting'].includes(t.status))
     }
@@ -39,7 +39,7 @@ const filteredTasks = computed(() => {
     if (props.activeMenu === 'review') {
       return list.filter(t => ['pending_review', 'reviewing'].includes(t.status))
     } else if (props.activeMenu === 'risk') {
-      return list.filter(t => t.hasRisk || t.overdue)
+      return list.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status))
     }
   }
   return list.filter(t => !['completed', 'review_pass'].includes(t.status))
