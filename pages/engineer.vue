@@ -131,14 +131,14 @@
         <div class="modal-header">
           <h3>现场验收 - {{ processingRecord.enterpriseName }}</h3>
           <div style="display: flex; align-items: center; gap: 1rem;">
-            <span v-if="pendingList.length > 1" class="nav-info">
-              第 {{ processNavIndex + 1 }} 条 / 共 {{ pendingList.length }} 条
+            <span v-if="filteredPendingList.length > 1" class="nav-info">
+              第 {{ processNavIndex + 1 }} 条 / 共 {{ filteredPendingList.length }} 条
             </span>
             <button class="close-btn" @click="showProcessModal = false">×</button>
           </div>
         </div>
         
-        <div v-if="pendingList.length > 1" class="modal-nav">
+        <div v-if="filteredPendingList.length > 1" class="modal-nav">
           <button 
             class="btn btn-secondary nav-btn" 
             :disabled="processNavIndex === 0"
@@ -148,7 +148,7 @@
           </button>
           <button 
             class="btn btn-secondary nav-btn" 
-            :disabled="processNavIndex === pendingList.length - 1"
+            :disabled="processNavIndex === filteredPendingList.length - 1"
             @click="navProcess(1)"
           >
             下一条 →
@@ -275,6 +275,18 @@ const allRecords = computed(() =>
 
 const pendingList = computed(() => store.getPendingForEngineer)
 
+const filteredPendingList = computed(() => {
+  let result = [...pendingList.value]
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(r => 
+      r.enterpriseName.toLowerCase().includes(keyword) || 
+      r.contractNo.toLowerCase().includes(keyword)
+    )
+  }
+  return result
+})
+
 const passedList = computed(() => 
   store.records.filter(r => 
     r.engineerResult === 'pass' && 
@@ -351,7 +363,7 @@ const navDetail = (direction: number) => {
 }
 
 const showProcess = (record: AcceptanceRecord) => {
-  const idx = pendingList.value.findIndex(r => r.id === record.id)
+  const idx = filteredPendingList.value.findIndex(r => r.id === record.id)
   processNavIndex.value = idx >= 0 ? idx : 0
   processingRecord.value = record
   processForm.value = {
@@ -365,9 +377,9 @@ const showProcess = (record: AcceptanceRecord) => {
 
 const navProcess = (direction: number) => {
   const newIndex = processNavIndex.value + direction
-  if (newIndex >= 0 && newIndex < pendingList.value.length) {
+  if (newIndex >= 0 && newIndex < filteredPendingList.value.length) {
     processNavIndex.value = newIndex
-    const record = pendingList.value[newIndex]
+    const record = filteredPendingList.value[newIndex]
     processingRecord.value = record
     processForm.value = {
       recordId: record.id,

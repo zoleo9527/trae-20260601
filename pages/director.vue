@@ -140,7 +140,7 @@
         </table>
       </div>
       
-      <div class="card" v-if="filteredFeeStartedList.length > 0">
+      <div class="card" v-if="!onlyTodo && filteredFeeStartedList.length > 0">
         <div class="card-title">💰 费用起算回看</div>
         <p class="text-sm text-muted" style="margin-bottom: 1rem;">
           以下企业已完成入驻验收流程，费用已正式起算
@@ -189,7 +189,7 @@
                 <span v-else class="text-muted">-</span>
               </td>
               <td>
-                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" @click="showDetail(record)">
+                <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;" @click="showFeeDetail(record)">
                   详情
                 </button>
               </td>
@@ -227,14 +227,14 @@
         <div class="modal-header">
           <h3>审核入驻验收 - {{ processingRecord.enterpriseName }}</h3>
           <div style="display: flex; align-items: center; gap: 1rem;">
-            <span v-if="pendingList.length > 1" class="nav-info">
-              第 {{ processNavIndex + 1 }} 条 / 共 {{ pendingList.length }} 条
+            <span v-if="filteredPendingList.length > 1" class="nav-info">
+              第 {{ processNavIndex + 1 }} 条 / 共 {{ filteredPendingList.length }} 条
             </span>
             <button class="close-btn" @click="showProcessModal = false">×</button>
           </div>
         </div>
         
-        <div v-if="pendingList.length > 1" class="modal-nav">
+        <div v-if="filteredPendingList.length > 1" class="modal-nav">
           <button 
             class="btn btn-secondary nav-btn" 
             :disabled="processNavIndex === 0"
@@ -244,7 +244,7 @@
           </button>
           <button 
             class="btn btn-secondary nav-btn" 
-            :disabled="processNavIndex === pendingList.length - 1"
+            :disabled="processNavIndex === filteredPendingList.length - 1"
             @click="navProcess(1)"
           >
             下一条 →
@@ -351,7 +351,7 @@
       :visible="showDetailModal" 
       :record="selectedRecord"
       :currentIndex="detailNavIndex"
-      :totalCount="filteredRecords.length"
+      :totalCount="detailNavList.length"
       @close="showDetailModal = false"
       @prev="navDetail(-1)"
       @next="navDetail(1)"
@@ -375,6 +375,7 @@ const searchKeyword = ref('')
 const onlyTodo = ref(false)
 const detailNavIndex = ref(0)
 const processNavIndex = ref(0)
+const detailNavListId = ref<'main' | 'fee'>('main')
 
 const processForm = ref<DirectorProcessPayload & { recordId: string }>({
   recordId: '',
@@ -392,6 +393,19 @@ const tabs: { value: 'all' | 'pending' | 'completed' | 'rejected'; label: string
 ]
 
 const pendingList = computed(() => store.getPendingForDirector)
+
+const filteredPendingList = computed(() => {
+  let result = [...pendingList.value]
+  if (searchKeyword.value.trim()) {
+    const keyword = searchKeyword.value.trim().toLowerCase()
+    result = result.filter(r => 
+      r.enterpriseName.toLowerCase().includes(keyword) || 
+      r.contractNo.toLowerCase().includes(keyword)
+    )
+  }
+  return result
+})
+
 const confirmedList = computed(() => 
   store.records.filter(r => r.directorResult === 'pass')
 )
@@ -407,6 +421,10 @@ const directorVisibleRecords = computed(() =>
     r.status !== 'engineer_rejected'
   )
 )
+
+const detailNavList = computed(() => {
+  return detailNavListId.value === 'fee' ? filteredFeeStartedList.value : filteredRecords.value
+})
 
 const filteredRecords = computed(() => {
   let result: AcceptanceRecord[] = []
@@ -465,22 +483,32 @@ const getTabCount = (tab: 'all' | 'pending' | 'completed' | 'rejected') => {
 }
 
 const showDetail = (record: AcceptanceRecord) => {
+  detailNavListId.value = 'main'
   const idx = filteredRecords.value.findIndex(r => r.id === record.id)
   detailNavIndex.value = idx >= 0 ? idx : 0
   selectedRecord.value = record
   showDetailModal.value = true
 }
 
+const showFeeDetail = (record: AcceptanceRecord) => {
+  detailNavListId.value = 'fee'
+  const idx = filteredFeeStartedList.value.findIndex(r => r.id === record.id)
+  detailNavIndex.value = idx >= 0 ? idx : 0
+  selectedRecord.value = record
+  showDetailModal.value = true
+}
+
 const navDetail = (direction: number) => {
+  const list = detailNavList.value
   const newIndex = detailNavIndex.value + direction
-  if (newIndex >= 0 && newIndex < filteredRecords.value.length) {
+  if (newIndex >= 0 && newIndex < list.length) {
     detailNavIndex.value = newIndex
-    selectedRecord.value = filteredRecords.value[newIndex]
+    selectedRecord.value = list[newIndex]
   }
 }
 
 const showProcess = (record: AcceptanceRecord) => {
-  const idx = pendingList.value.findIndex(r => r.id === record.id)
+  const idx = filteredPendingList.value.findIndex(r => r.id === record.id)
   processNavIndex.value = idx >= 0 ? idx : 0
   processingRecord.value = record
   processForm.value = {
@@ -495,9 +523,9 @@ const showProcess = (record: AcceptanceRecord) => {
 
 const navProcess = (direction: number) => {
   const newIndex = processNavIndex.value + direction
-  if (newIndex >= 0 && newIndex < pendingList.value.length) {
+  if (newIndex >= 0 && newIndex < filteredPendingList.value.length) {
     processNavIndex.value = newIndex
-    const record = pendingList.value[newIndex]
+    const record = filteredPendingList.value[newIndex]
     processingRecord.value = record
     processForm.value = {
       recordId: record.id,
