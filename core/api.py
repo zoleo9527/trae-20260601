@@ -360,17 +360,19 @@ def list_quality_tests(request, batch_id: Optional[int] = None, result: Optional
         schema.batch_no = test.batch.batch_no
         schema.batch_status = test.batch.status
         
-        error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+        error_code = 'E002' if test.test_type == 'antibiotic' else 'E001'
+        error_log = ErrorLog.objects.filter(
+            batch=test.batch, 
+            error_code=error_code, 
+            resolved=True
+        ).order_by('-resolved_at').first()
         if error_log:
             schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
             schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
-            schema.process_notes = error_log.description
+            schema.process_notes = f'已处理: {error_log.description}'
         
         if test.result == 'fail':
-            if test.test_type == 'antibiotic':
-                schema.error_code = 'E002'
-            else:
-                schema.error_code = 'E001'
+            schema.error_code = error_code
         
         result_list.append(schema)
     
@@ -384,17 +386,19 @@ def get_quality_test(request, test_id: int):
     schema.batch_no = test.batch.batch_no
     schema.batch_status = test.batch.status
     
-    error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+    error_code = 'E002' if test.test_type == 'antibiotic' else 'E001'
+    error_log = ErrorLog.objects.filter(
+        batch=test.batch, 
+        error_code=error_code, 
+        resolved=True
+    ).order_by('-resolved_at').first()
     if error_log:
         schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
         schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
-        schema.process_notes = error_log.description
+        schema.process_notes = f'已处理: {error_log.description}'
     
     if test.result == 'fail':
-        if test.test_type == 'antibiotic':
-            schema.error_code = 'E002'
-        else:
-            schema.error_code = 'E001'
+        schema.error_code = error_code
     
     return schema
 
@@ -448,17 +452,19 @@ def update_quality_test(request, test_id: int, data: UpdateTestSchema):
     schema.batch_no = test.batch.batch_no
     schema.batch_status = test.batch.status
     
-    error_log = ErrorLog.objects.filter(batch=test.batch, resolved=False).first()
+    error_code = 'E002' if test.test_type == 'antibiotic' else 'E001'
+    error_log = ErrorLog.objects.filter(
+        batch=test.batch, 
+        error_code=error_code, 
+        resolved=True
+    ).order_by('-resolved_at').first()
     if error_log:
         schema.processed_by_username = error_log.resolved_by.username if error_log.resolved_by else None
         schema.processed_at = error_log.resolved_at.isoformat() if error_log.resolved_at else None
-        schema.process_notes = error_log.description
+        schema.process_notes = f'已处理: {error_log.description}'
     
     if test.result == 'fail':
-        if test.test_type == 'antibiotic':
-            schema.error_code = 'E002'
-        else:
-            schema.error_code = 'E001'
+        schema.error_code = error_code
     
     return schema
 
@@ -484,9 +490,8 @@ def resolve_notification(request, notification_id: int):
     notification.read = True
     notification.save()
     
-    if notification.batch and notification.notification_type == 'quality_fail':
-        notification.batch.status = 'completed'
-        notification.batch.save()
+    if notification.batch:
+        update_batch_status_from_tests(notification.batch)
     
     return {'success': True}
 
@@ -530,11 +535,12 @@ def resolve_error_log(request, log_id: int):
     error_log.resolved_at = timezone.now()
     error_log.save()
     
-    if error_log.batch and error_log.error_code == 'E002':
-        error_log.batch.antibiotic_isolated = False
-        error_log.batch.isolation_reason = None
-        error_log.batch.status = 'completed'
-        error_log.batch.save()
+    if error_log.batch:
+        if error_log.error_code == 'E002':
+            error_log.batch.antibiotic_isolated = False
+            error_log.batch.isolation_reason = None
+            error_log.batch.save()
+        update_batch_status_from_tests(error_log.batch)
     
     return {'success': True}
 
@@ -555,12 +561,19 @@ def list_attachments(request, batch_id: Optional[int] = None):
     return result
 
 @api.post("/attachments", response=AttachmentDetailSchema, auth=auth)
-def upload_attachment(request, attachment_type: str, batch_id: Optional[int] = None, test_id: Optional[int] = None):
+def upload_attachment(request):
+    attachment_type = request.POST.get('attachment_type')
+    batch_id = request.POST.get('batch_id')
+    test_id = request.POST.get('test_id')
+    
     batch = MilkingBatch.objects.filter(id=batch_id).first() if batch_id else None
     test = QualityTest.objects.filter(id=test_id).first() if test_id else None
     
     if not batch and not test:
         return api.create_response(request, {'error': '必须指定批次或检测记录'}, status=400)
+    
+    if not attachment_type:
+        return api.create_response(request, {'error': '请指定附件类型'}, status=400)
     
     uploaded_file = request.FILES.get('file')
     if not uploaded_file:
