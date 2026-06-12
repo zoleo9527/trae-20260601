@@ -130,15 +130,15 @@ class AuctionDB {
         }
     }
 
-    async addLog(targetId, targetType, action, remark = '') {
+    async addLog(targetId, targetType, action, remark = '', createdAt = null, operator = '当前用户') {
         const log = {
-            id: Date.now(),
+            id: Date.now() + Math.random().toString(36).substr(2, 9),
             targetId,
             targetType,
             action,
             remark,
-            operator: '当前用户',
-            createdAt: new Date().toISOString()
+            operator,
+            createdAt: createdAt || new Date().toISOString()
         };
         return this.add('logs', log);
     }

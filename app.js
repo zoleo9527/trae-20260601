@@ -108,11 +108,13 @@ async function initMockData() {
                 bidderId: 'BDR001',
                 amount: 500000,
                 payMethod: '银行转账',
-                payTime: new Date(Date.now() - 86400000).toISOString(),
+                payTime: new Date(Date.now() - 86400000 * 2).toISOString(),
                 status: 'paid',
                 slowRefund: false,
-                createdAt: new Date(Date.now() - 86400000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
                 operator: '财务人员A',
+                confirmTime: new Date(Date.now() - 86400000).toISOString(),
+                confirmOperator: '财务人员A',
                 lastOperator: '财务人员A',
                 lastOperationTime: new Date(Date.now() - 86400000).toISOString(),
                 lastOperationRemark: '确认保证金到账'
@@ -123,13 +125,15 @@ async function initMockData() {
                 bidderId: 'BDR002',
                 amount: 500000,
                 payMethod: '网银支付',
-                payTime: new Date(Date.now() - 172800000).toISOString(),
+                payTime: new Date(Date.now() - 86400000 * 3).toISOString(),
                 status: 'paid',
                 slowRefund: false,
-                createdAt: new Date(Date.now() - 172800000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
                 operator: '财务人员B',
+                confirmTime: new Date(Date.now() - 86400000 * 2).toISOString(),
+                confirmOperator: '财务人员B',
                 lastOperator: '财务人员B',
-                lastOperationTime: new Date(Date.now() - 172800000).toISOString(),
+                lastOperationTime: new Date(Date.now() - 86400000 * 2).toISOString(),
                 lastOperationRemark: '确认保证金到账'
             },
             {
@@ -138,15 +142,20 @@ async function initMockData() {
                 bidderId: 'BDR003',
                 amount: 800000,
                 payMethod: '银行转账',
-                payTime: new Date(Date.now() - 259200000).toISOString(),
+                payTime: new Date(Date.now() - 86400000 * 5).toISOString(),
                 status: 'refunded',
-                refundTime: new Date(Date.now() - 604800000).toISOString(),
+                refundTime: new Date(Date.now() - 86400000 * 2).toISOString(),
                 slowRefund: true,
-                createdAt: new Date(Date.now() - 259200000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
                 operator: '财务人员A',
-                lastOperator: '财务人员A',
-                lastOperationTime: new Date(Date.now() - 604800000).toISOString(),
-                lastOperationRemark: '退还保证金，标记退还慢'
+                confirmTime: new Date(Date.now() - 86400000 * 4).toISOString(),
+                confirmOperator: '财务人员A',
+                refundOperator: '财务人员B',
+                slowRefundTime: new Date(Date.now() - 86400000).toISOString(),
+                slowRefundOperator: '财务人员C',
+                lastOperator: '财务人员C',
+                lastOperationTime: new Date(Date.now() - 86400000).toISOString(),
+                lastOperationRemark: '标记退还慢'
             },
             {
                 id: 'DEP004',
@@ -166,7 +175,16 @@ async function initMockData() {
         ];
         for (const deposit of mockDeposits) {
             await db.add('deposits', deposit);
-            await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人 ${deposit.bidderId} 缴纳保证金 ${deposit.amount}`);
+            await db.addLog(deposit.id, 'deposit', '创建保证金记录', `竞买人 ${deposit.bidderId} 缴纳保证金 ${deposit.amount}，操作人：${deposit.operator}`, deposit.createdAt);
+            if (deposit.confirmTime) {
+                await db.addLog(deposit.id, 'deposit', '确认到账', `确认保证金到账 ${formatMoney(deposit.amount)}，操作人：${deposit.confirmOperator}`, deposit.confirmTime);
+            }
+            if (deposit.refundTime) {
+                await db.addLog(deposit.id, 'deposit', '退还保证金', `退还保证金 ${formatMoney(deposit.amount)}，操作人：${deposit.refundOperator}`, deposit.refundTime);
+            }
+            if (deposit.slowRefundTime) {
+                await db.addLog(deposit.id, 'deposit', '标记退还慢', `标记为退还慢提醒，操作人：${deposit.slowRefundOperator}`, deposit.slowRefundTime);
+            }
         }
 
         const mockQuals = [
@@ -175,13 +193,14 @@ async function initMockData() {
                 bidId: 'BD001',
                 bidderId: 'BDR001',
                 status: 'approved',
-                verifyTime: new Date(Date.now() - 43200000).toISOString(),
+                verifyTime: new Date(Date.now() - 86400000).toISOString(),
                 verifyRemark: '资料齐全，资格审核通过',
-                createdAt: new Date(Date.now() - 86400000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
                 operator: '审核员A',
+                verifyOperator: '审核员A',
                 lastOperator: '审核员A',
-                lastOperationTime: new Date(Date.now() - 43200000).toISOString(),
-                lastOperationRemark: '资料齐全，资格审核通过'
+                lastOperationTime: new Date(Date.now() - 86400000).toISOString(),
+                lastOperationRemark: '审核通过：资料齐全，资格审核通过'
             },
             {
                 id: 'QUAL002',
@@ -189,10 +208,12 @@ async function initMockData() {
                 bidderId: 'BDR002',
                 status: 'supplement',
                 supplementItems: ['缺少营业执照副本', '缺少授权委托书'],
-                createdAt: new Date(Date.now() - 172800000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
                 operator: '审核员B',
+                supplementTime: new Date(Date.now() - 86400000 * 3).toISOString(),
+                supplementOperator: '审核员B',
                 lastOperator: '审核员B',
-                lastOperationTime: new Date(Date.now() - 172800000).toISOString(),
+                lastOperationTime: new Date(Date.now() - 86400000 * 3).toISOString(),
                 lastOperationRemark: '要求补正：缺少营业执照副本、缺少授权委托书'
             },
             {
@@ -201,11 +222,13 @@ async function initMockData() {
                 bidderId: 'BDR003',
                 status: 'dispute',
                 disputeReason: '竞买人资格存在争议，需进一步核实',
-                createdAt: new Date(Date.now() - 259200000).toISOString(),
+                createdAt: new Date(Date.now() - 86400000 * 6).toISOString(),
                 operator: '审核员A',
+                disputeTime: new Date(Date.now() - 86400000 * 5).toISOString(),
+                disputeOperator: '审核员A',
                 lastOperator: '审核员A',
-                lastOperationTime: new Date(Date.now() - 259200000).toISOString(),
-                lastOperationRemark: '竞买人资格存在争议，需进一步核实'
+                lastOperationTime: new Date(Date.now() - 86400000 * 5).toISOString(),
+                lastOperationRemark: '标记争议：竞买人资格存在争议'
             },
             {
                 id: 'QUAL004',
@@ -217,11 +240,34 @@ async function initMockData() {
                 lastOperator: '审核员C',
                 lastOperationTime: new Date().toISOString(),
                 lastOperationRemark: '创建资格审核任务'
+            },
+            {
+                id: 'QUAL005',
+                bidId: 'BD003',
+                bidderId: 'BDR001',
+                status: 'approved',
+                verifyTime: new Date(Date.now() - 86400000 * 2).toISOString(),
+                verifyRemark: '资料齐全，资格审核通过',
+                createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+                operator: '审核员B',
+                verifyOperator: '审核员B',
+                lastOperator: '审核员B',
+                lastOperationTime: new Date(Date.now() - 86400000 * 2).toISOString(),
+                lastOperationRemark: '审核通过：资料齐全'
             }
         ];
         for (const qual of mockQuals) {
             await db.add('qualifications', qual);
-            await db.addLog(qual.id, 'qualification', '创建资格审核', `竞买人 ${qual.bidderId} 资格审核状态: ${qual.status}`);
+            await db.addLog(qual.id, 'qualification', '创建资格审核', `竞买人 ${qual.bidderId} 创建审核任务，操作人：${qual.operator}`, qual.createdAt);
+            if (qual.supplementTime) {
+                await db.addLog(qual.id, 'qualification', '要求补正', `要求补正：${qual.supplementItems.join('、')}，操作人：${qual.supplementOperator}`, qual.supplementTime);
+            }
+            if (qual.disputeTime) {
+                await db.addLog(qual.id, 'qualification', '标记争议', `标记为资格争议，原因：${qual.disputeReason}，操作人：${qual.disputeOperator}`, qual.disputeTime);
+            }
+            if (qual.verifyTime) {
+                await db.addLog(qual.id, 'qualification', '审核通过', `资格审核通过，备注：${qual.verifyRemark}，操作人：${qual.verifyOperator}`, qual.verifyTime);
+            }
         }
     }
 }
@@ -337,27 +383,90 @@ async function showBidDetail(bidId) {
     if (deposits.length === 0) {
         depositsHtml += '<p class="empty-state">暂无保证金记录</p>';
     } else {
-        depositsHtml += '<ul>';
         for (const dep of deposits) {
             const bidder = await db.get('bidders', dep.bidderId);
-            depositsHtml += `<li>${bidder?.name || dep.bidderId} - ${formatMoney(dep.amount)} - ${getStatusText(dep.status, 'deposit')}</li>`;
+            const depLogs = await db.getLogs(dep.id, 'deposit');
+            
+            depositsHtml += `
+                <div class="card" style="margin-bottom:15px;">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${bidder?.name || dep.bidderId} - ${formatMoney(dep.amount)}</div>
+                            <span class="status-badge status-${dep.status}">${getStatusText(dep.status, 'deposit')}</span>
+                            ${dep.slowRefund ? '<span class="alert-badge alert-slow">退还慢提醒</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>缴纳方式：</strong>${dep.payMethod}</p>
+                        <p><strong>缴纳时间：</strong>${formatDate(dep.payTime)}</p>
+                        ${dep.confirmTime ? `<p><strong>确认到账：</strong>${formatDate(dep.confirmTime)} by ${dep.confirmOperator}</p>` : ''}
+                        ${dep.refundTime ? `<p><strong>退还时间：</strong>${formatDate(dep.refundTime)} by ${dep.refundOperator}</p>` : ''}
+                        <h5>操作历史</h5>
+                        <div class="timeline" style="margin-left:10px;">
+            `;
+            for (const log of depLogs) {
+                depositsHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-time">${formatDate(log.createdAt)}</div>
+                        <div class="timeline-user">${log.operator}</div>
+                        <div class="timeline-action">${log.action}</div>
+                        ${log.remark ? `<div class="timeline-remark">${log.remark}</div>` : ''}
+                    </div>
+                `;
+            }
+            depositsHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
         }
-        depositsHtml += '</ul>';
     }
     
     let qualHtml = '<h4>资格审核</h4>';
     if (qualifications.length === 0) {
         qualHtml += '<p class="empty-state">暂无资格审核记录</p>';
     } else {
-        qualHtml += '<ul>';
         for (const qual of qualifications) {
             const bidder = await db.get('bidders', qual.bidderId);
-            qualHtml += `<li>${bidder?.name || qual.bidderId} - ${getStatusText(qual.status, 'qualification')}</li>`;
+            const qualLogs = await db.getLogs(qual.id, 'qualification');
+            
+            qualHtml += `
+                <div class="card" style="margin-bottom:15px;">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">${bidder?.name || qual.bidderId}</div>
+                            <span class="status-badge status-${qual.status}">${getStatusText(qual.status, 'qualification')}</span>
+                            ${qual.status === 'supplement' ? '<span class="alert-badge alert-slow">需补正</span>' : ''}
+                            ${qual.status === 'dispute' ? '<span class="alert-badge alert-dispute">资格争议</span>' : ''}
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${qual.supplementItems?.length > 0 ? `<p><strong>补正项目：</strong>${qual.supplementItems.join('、')}</p>` : ''}
+                        ${qual.verifyRemark ? `<p><strong>审核备注：</strong>${qual.verifyRemark}</p>` : ''}
+                        ${qual.verifyTime ? `<p><strong>审核时间：</strong>${formatDate(qual.verifyTime)} by ${qual.verifyOperator || qual.lastOperator}</p>` : ''}
+                        ${qual.disputeTime ? `<p><strong>争议标记：</strong>${formatDate(qual.disputeTime)} by ${qual.disputeOperator}</p>` : ''}
+                        <h5>操作历史</h5>
+                        <div class="timeline" style="margin-left:10px;">
+            `;
+            for (const log of qualLogs) {
+                qualHtml += `
+                    <div class="timeline-item">
+                        <div class="timeline-time">${formatDate(log.createdAt)}</div>
+                        <div class="timeline-user">${log.operator}</div>
+                        <div class="timeline-action">${log.action}</div>
+                        ${log.remark ? `<div class="timeline-remark">${log.remark}</div>` : ''}
+                    </div>
+                `;
+            }
+            qualHtml += `
+                        </div>
+                    </div>
+                </div>
+            `;
         }
-        qualHtml += '</ul>';
     }
     
-    let logsHtml = '<h4>操作日志</h4><div class="timeline">';
+    let logsHtml = '<h4>标的操作日志</h4><div class="timeline">';
     for (const log of logs) {
         logsHtml += `
             <div class="timeline-item">
