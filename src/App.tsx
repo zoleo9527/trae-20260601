@@ -92,11 +92,11 @@ function App() {
       category: data.category,
       location: data.location,
       estimatedValue: parseFloat(data.estimatedValue) * 10000,
-      status: 'entry_completed',
+      status: 'entry_completed' as AssetStatus,
       submitter: user,
     }
     const asset = assetService.createAsset(newAsset)
-    assetService.updateAssetStatus(asset.id, 'pending_review', user.id, '标的入库完成')
+    assetService.updateAssetStatus(asset.id, 'pending_review' as AssetStatus, user.id, '标的入库完成')
     loadAssets()
     loadNotifications()
   }
@@ -143,7 +143,7 @@ function App() {
                   标的入库
                 </Button>
               )}
-              <Button icon={<SyncOutlined />} onClick={loadAssets}>
+              <Button icon={<SyncOutlined />} onClick={() => loadAssets()}>
                 刷新
               </Button>
             </div>
@@ -188,7 +188,6 @@ function App() {
         visible={showEntry}
         onClose={() => setShowEntry(false)}
         onSubmit={handleAssetEntry}
-        currentUser={user}
       />
 
       <NotificationPanel

@@ -7,7 +7,7 @@ interface DashboardProps {
   userRole: UserRole
   todayTasks: Task[]
   stats: Record<string, number>
-  onViewAsset: (assetId: string) => void
+  onViewAsset: (assetId: string, showFlow?: boolean) => void
 }
 
 const roleTaskTypes: Record<UserRole, string[]> = {

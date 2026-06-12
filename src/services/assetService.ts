@@ -7,18 +7,6 @@ let tasks: Task[] = [...mockTasks]
 let notifications: Notification[] = [...mockNotifications]
 let attachmentList: Attachment[] = [...mockAttachments]
 
-const statusTransitions: Record<AssetStatus, AssetStatus> = {
-  pending_entry: 'entry_completed',
-  entry_completed: 'pending_review',
-  pending_review: 'review_approved',
-  review_approved: 'pending_finance',
-  review_rejected: 'pending_entry',
-  pending_finance: 'finance_approved',
-  finance_approved: 'completed',
-  finance_rejected: 'pending_entry',
-  completed: 'completed',
-}
-
 export const assetService = {
   getAssets(params?: FilterParams): Asset[] {
     let result = [...assets]

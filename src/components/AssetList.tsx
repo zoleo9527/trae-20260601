@@ -5,10 +5,10 @@ import { statusLabels, categories } from '@/data/mockData'
 
 interface AssetListProps {
   assets: Asset[]
-  onViewAsset: (assetId: string) => void
+  onViewAsset: (assetId: string, showFlow?: boolean) => void
   onEditAsset: (assetId: string) => void
   onUploadAttachment: (assetId: string) => void
-  onFilterChange: (params: FilterParams) => void
+  onFilterChange: (updater: (prev: FilterParams) => FilterParams) => void
   onFilterApply: () => void
 }
 

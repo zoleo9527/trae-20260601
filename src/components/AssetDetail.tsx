@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { XOutlined, FileTextOutlined, UserOutlined, CalendarOutlined, MessageOutlined, UploadOutlined } from '@ant-design/icons'
-import { Modal, Tabs, Tag, Button, Form, Input, Upload, Row, Col, Space } from 'antd'
+import { Modal, Tabs, Tag, Button, Form, Upload, Row, Col, Space } from 'antd'
 import TextArea from 'antd/es/input/TextArea'
 import { Asset, FlowRecord, Attachment, UserRole } from '@/types'
 import { statusLabels, roleLabels } from '@/data/mockData'

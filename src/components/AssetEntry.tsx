@@ -1,13 +1,11 @@
 import { XOutlined } from '@ant-design/icons'
 import { Modal, Form, Input, Select, Button, Row, Col, Upload } from 'antd'
-import { User } from '@/types'
 import { categories } from '@/data/mockData'
 
 interface AssetEntryProps {
   visible: boolean
   onClose: () => void
   onSubmit: (data: AssetEntryData) => void
-  currentUser: User
 }
 
 interface AssetEntryData {
@@ -18,7 +16,7 @@ interface AssetEntryData {
   estimatedValue: string
 }
 
-export function AssetEntry({ visible, onClose, onSubmit, currentUser }: AssetEntryProps) {
+export function AssetEntry({ visible, onClose, onSubmit }: AssetEntryProps) {
   const [form] = Form.useForm()
 
   const handleSubmit = () => {
