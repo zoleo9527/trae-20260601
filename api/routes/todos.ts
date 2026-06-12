@@ -61,13 +61,9 @@ router.get('/', async (req: Request, res: Response): Promise<void> => {
       registrationStatus = 'approved';
       registrationLabel = '已通过报名';
       
-      clarificationCount = await prisma.clarification.count({
-        where: {
-          status: 'approved'
-        }
-      });
-      clarificationStatus = 'approved';
-      clarificationLabel = '已通过澄清';
+      clarificationCount = 0;
+      clarificationStatus = '';
+      clarificationLabel = '';
     } else {
       registrationCount = await prisma.bidRegistration.count({
         where: {

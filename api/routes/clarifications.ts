@@ -143,15 +143,21 @@ router.patch('/:id', async (req: Request, res: Response): Promise<void> => {
       });
     }
     
+    const updateData: any = {
+      question: question || oldClarification.question,
+      answer: answer || oldClarification.answer,
+      status: status || oldClarification.status,
+      version: question || answer ? newVersion : oldClarification.version,
+      updatedAt: new Date()
+    };
+    
+    if (status === 'approved' || status === 'rejected') {
+      updateData.reviewedById = operatorId;
+    }
+    
     const clarification = await prisma.clarification.update({
       where: { id },
-      data: {
-        question: question || oldClarification.question,
-        answer: answer || oldClarification.answer,
-        status: status || oldClarification.status,
-        version: question || answer ? newVersion : oldClarification.version,
-        updatedAt: new Date()
-      }
+      data: updateData
     });
     
     await prisma.operationLog.create({

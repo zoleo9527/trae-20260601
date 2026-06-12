@@ -182,16 +182,6 @@ export default function Dashboard() {
         icon: CheckCircle,
         color: 'green'
       });
-      
-      const clarCount = todos?.clarifications?.status === 'approved' ? todos.clarifications.count : 0;
-      cards.push({
-        type: 'clarification',
-        status: 'approved',
-        count: clarCount,
-        label: '已通过澄清',
-        icon: CheckCircle,
-        color: 'green'
-      });
     }
     
     return cards;
