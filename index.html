@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>资产拍卖公司 - 保证金缴纳与资格确认</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>资产拍卖公司 - 保证金缴纳与资格确认</h1>
+        <nav>
+            <button id="nav-bid">标的资料</button>
+            <button id="nav-deposit">保证金缴纳</button>
+            <button id="nav-qualification">资格确认</button>
+            <button id="nav-trace">追溯查询</button>
+            <button id="nav-batch">批量录入</button>
+        </nav>
+    </header>
+
+    <main>
+        <div id="section-bid" class="section">
+            <div class="section-header">
+                <h2>标的资料管理</h2>
+                <button id="add-bid-btn" class="btn-primary">新增标的</button>
+            </div>
+            <div id="bid-list"></div>
+        </div>
+
+        <div id="section-deposit" class="section hidden">
+            <div class="section-header">
+                <h2>保证金缴纳处理</h2>
+                <button id="add-deposit-btn" class="btn-primary">新增缴纳记录</button>
+            </div>
+            <div id="deposit-filters">
+                <select id="deposit-status-filter">
+                    <option value="">全部状态</option>
+                    <option value="pending">待处理</option>
+                    <option value="paid">已到账</option>
+                    <option value="refunded">已退还</option>
+                    <option value="dispute">争议中</option>
+                </select>
+                <select id="deposit-slow-filter">
+                    <option value="">全部</option>
+                    <option value="slow">退还慢提醒</option>
+                </select>
+            </div>
+            <div id="deposit-list"></div>
+        </div>
+
+        <div id="section-qualification" class="section hidden">
+            <div class="section-header">
+                <h2>资格确认管理</h2>
+                <button id="add-qual-btn" class="btn-primary">新增资格审核</button>
+            </div>
+            <div id="qual-filters">
+                <select id="qual-status-filter">
+                    <option value="">全部状态</option>
+                    <option value="pending">待审核</option>
+                    <option value="approved">已通过</option>
+                    <option value="rejected">未通过</option>
+                    <option value="supplement">资料补正</option>
+                    <option value="dispute">资格争议</option>
+                </select>
+            </div>
+            <div id="qual-list"></div>
+        </div>
+
+        <div id="section-trace" class="section hidden">
+            <div class="section-header">
+                <h2>追溯查询</h2>
+                <div id="trace-search">
+                    <input type="text" id="trace-keyword" placeholder="搜索：标的编号/竞买人姓名/证件号">
+                    <button id="trace-search-btn">搜索</button>
+                </div>
+            </div>
+            <div id="trace-list"></div>
+        </div>
+
+        <div id="section-batch" class="section hidden">
+            <div class="section-header">
+                <h2>批量录入</h2>
+            </div>
+            <div id="batch-form">
+                <h3>批量导入竞买人</h3>
+                <textarea id="batch-text" placeholder="格式：标的编号|竞买人姓名|证件号|保证金金额|联系电话&#10;例如：BD2024001|张三|110101199001011234|50000|13800138000"></textarea>
+                <button id="batch-import-btn" class="btn-primary">导入数据</button>
+            </div>
+        </div>
+    </main>
+
+    <div id="modal" class="modal hidden">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="db.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
