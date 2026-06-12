@@ -12,6 +12,7 @@ import SidePanel from '~/components/SidePanel.vue'
 
 const currentRole = ref<Role>('accountant')
 const activeMenu = ref('todo')
+const activeFilter = ref<'todo' | 'risk' | 'all'>('todo')
 const selectedTaskIds = ref<string[]>([])
 const drawerVisible = ref(false)
 const selectedTaskId = ref<string | null>(null)
@@ -398,6 +399,51 @@ const todayTodoList = computed(() => {
   return items
 })
 
+const filterCounts = computed(() => {
+  const list = tasks.value
+  const r = currentRole.value
+  const menu = activeMenu.value
+  let baseList: AccountingTask[] = [...list]
+
+  if (r === 'accountant') {
+    if (menu === 'accounting') {
+      baseList = list.filter(t => ['pending_accounting', 'accounting', 'review_reject'].includes(t.status))
+    } else if (menu === 'rework') {
+      baseList = list.filter(t => t.status === 'review_reject')
+    } else if (menu === 'completed') {
+      baseList = list.filter(t => ['review_pass', 'completed'].includes(t.status))
+    } else {
+      baseList = list.filter(t => !['completed', 'review_pass'].includes(t.status))
+    }
+  } else if (r === 'manager') {
+    if (menu === 'bill_collect') {
+      baseList = list.filter(t => (t.status === 'pending_bill' || t.hasRisk) && !['review_pass', 'completed'].includes(t.status))
+    } else if (menu === 'upload') {
+      baseList = list.filter(t => ['pending_bill', 'pending_accounting'].includes(t.status))
+    } else if (menu === 'communicate') {
+      baseList = list.filter(t => !['completed', 'review_pass'].includes(t.status))
+    } else {
+      baseList = list.filter(t => !['completed', 'review_pass'].includes(t.status))
+    }
+  } else {
+      if (menu === 'review') {
+        baseList = list.filter(t => ['pending_review', 'reviewing'].includes(t.status))
+      } else if (menu === 'risk') {
+        baseList = list.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status))
+      } else if (menu === 'report') {
+        baseList = list.filter(t => ['review_pass', 'completed'].includes(t.status))
+      } else {
+        baseList = list.filter(t => !['completed', 'review_pass'].includes(t.status))
+      }
+    }
+
+  const todo = baseList.filter(t => !['review_pass', 'completed'].includes(t.status)).length
+  const risk = baseList.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status)).length
+  const all = baseList.length
+
+  return { todo, risk, all }
+})
+
 const openDrawer = (task: AccountingTask) => {
   selectedTaskId.value = task.id
   drawerVisible.value = true
@@ -440,7 +486,7 @@ const closeDrawer = () => {
         </div>
       </div>
       <div class="top-right">
-        <RoleSwitcher :current="currentRole" @change="(r: Role) => { currentRole = r; activeMenu = 'todo'; selectedTaskIds = [] }" />
+        <RoleSwitcher :current="currentRole" @change="(r: Role) => { currentRole = r; activeMenu = 'todo'; activeFilter = 'todo'; selectedTaskIds = [] }" />
         <div class="divider-v" />
         <button class="icon-btn" title="通知">
           <span class="icon">🔔</span>
@@ -468,7 +514,7 @@ const closeDrawer = () => {
             :key="m.key"
             class="nav-item"
             :class="{ active: activeMenu === m.key }"
-            @click="activeMenu = m.key"
+            @click="activeMenu = m.key; activeFilter = 'todo'; selectedTaskIds = []"
           >
             <span class="nav-label">{{ m.label }}</span>
             <span
@@ -591,12 +637,14 @@ const closeDrawer = () => {
             <div class="filter-tabs">
               <button
                 v-for="tab in [
-                  { k: 'todo', l: '待我处理', c: roleStats.todo },
-                  { k: 'risk', l: '风险优先', c: roleStats.risk },
-                  { k: 'all', l: '全部任务', c: tasks.length }
+                  { k: 'todo', l: '待我处理', c: filterCounts.todo },
+                  { k: 'risk', l: '风险优先', c: filterCounts.risk },
+                  { k: 'all', l: '全部任务', c: filterCounts.all }
                 ]"
                 :key="tab.k"
                 class="filter-tab"
+                :class="{ active: activeFilter === tab.k }"
+                @click="activeFilter = tab.k as any; selectedTaskIds = []"
               >
                 {{ tab.l }}
                 <span class="tab-count">{{ tab.c }}</span>
@@ -609,6 +657,7 @@ const closeDrawer = () => {
               :role="currentRole"
               :data="tasks"
               :active-menu="activeMenu"
+              :top-filter="activeFilter"
               v-model:selected-ids="selectedTaskIds"
               @open="openDrawer"
               @action="(task: AccountingTask, action: string) => executeAction(action, task)"
@@ -973,7 +1022,7 @@ const closeDrawer = () => {
   transition: all 0.15s ease;
 }
 .filter-tab:hover { color: var(--color-text); }
-.filter-tab:first-child {
+.filter-tab.active {
   background-color: var(--color-bg-card);
   color: var(--color-primary);
   box-shadow: var(--shadow-sm);
@@ -985,7 +1034,7 @@ const closeDrawer = () => {
   background-color: var(--color-bg-soft);
   border-radius: 8px;
 }
-.filter-tab:first-child .tab-count {
+.filter-tab.active .tab-count {
   background-color: var(--color-primary-light);
   color: var(--color-primary);
 }

@@ -8,6 +8,7 @@ const props = defineProps<{
   data: AccountingTask[]
   selectedIds: string[]
   activeMenu: string
+  topFilter: 'todo' | 'risk' | 'all'
 }>()
 
 const emit = defineEmits<{
@@ -19,30 +20,47 @@ const emit = defineEmits<{
 
 const filteredTasks = computed(() => {
   const list = [...props.data]
+  let result: AccountingTask[] = []
+
   if (props.role === 'accountant') {
     if (props.activeMenu === 'accounting') {
-      return list.filter(t => ['pending_accounting', 'accounting', 'review_reject'].includes(t.status))
+      result = list.filter(t => ['pending_accounting', 'accounting', 'review_reject'].includes(t.status))
     } else if (props.activeMenu === 'rework') {
-      return list.filter(t => t.status === 'review_reject')
+      result = list.filter(t => t.status === 'review_reject')
     } else if (props.activeMenu === 'completed') {
-      return list.filter(t => ['review_pass', 'completed'].includes(t.status))
+      result = list.filter(t => ['review_pass', 'completed'].includes(t.status))
+    } else {
+      result = list.filter(t => !['completed', 'review_pass'].includes(t.status))
     }
-  }
-  if (props.role === 'manager') {
+  } else if (props.role === 'manager') {
     if (props.activeMenu === 'bill_collect') {
-      return list.filter(t => (t.status === 'pending_bill' || t.hasRisk) && !['review_pass', 'completed'].includes(t.status))
+      result = list.filter(t => (t.status === 'pending_bill' || t.hasRisk) && !['review_pass', 'completed'].includes(t.status))
     } else if (props.activeMenu === 'upload') {
-      return list.filter(t => ['pending_bill', 'pending_accounting'].includes(t.status))
+      result = list.filter(t => ['pending_bill', 'pending_accounting'].includes(t.status))
+    } else if (props.activeMenu === 'communicate') {
+      result = list.filter(t => !['completed', 'review_pass'].includes(t.status))
+    } else {
+      result = list.filter(t => !['completed', 'review_pass'].includes(t.status))
     }
-  }
-  if (props.role === 'supervisor') {
+  } else {
     if (props.activeMenu === 'review') {
-      return list.filter(t => ['pending_review', 'reviewing'].includes(t.status))
+      result = list.filter(t => ['pending_review', 'reviewing'].includes(t.status))
     } else if (props.activeMenu === 'risk') {
-      return list.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status))
+      result = list.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status))
+    } else if (props.activeMenu === 'report') {
+      result = list.filter(t => ['review_pass', 'completed'].includes(t.status))
+    } else {
+      result = list.filter(t => !['completed', 'review_pass'].includes(t.status))
     }
   }
-  return list.filter(t => !['completed', 'review_pass'].includes(t.status))
+
+  if (props.topFilter === 'todo') {
+    result = result.filter(t => !['review_pass', 'completed'].includes(t.status))
+  } else if (props.topFilter === 'risk') {
+    result = result.filter(t => (t.hasRisk || t.overdue) && !['review_pass', 'completed'].includes(t.status))
+  }
+
+  return result
 })
 
 const toggleSelect = (id: string) => {
