@@ -318,8 +318,8 @@ export const mockApplications: SurrenderApplication[] = [
       preparedBy: '陈会计',
       preparedAt: '2026-06-01',
       totalDeposit: 192000,
-      totalDeduction: 28500,
-      refundAmount: 163500,
+      totalDeduction: 22500,
+      refundAmount: 169500,
       rentSettlement: {
         occupationDays: 25,
         dailyRent: 1200,
@@ -343,8 +343,8 @@ export const mockApplications: SurrenderApplication[] = [
           id: 'ded_201',
           category: 'rent',
           itemName: '5月实际占用租金',
-          amount: 25000,
-          basis: '25天 × 1000元/天 = 25000元',
+          amount: 19000,
+          basis: '25天 × 1000元/天 = 25000元（异议调整 -6000元）',
           relatedEvidence: '《租赁合同》第4.2条',
         },
         {

@@ -303,20 +303,21 @@ export default function ApplicationDetail() {
                 {(() => {
                   const cost = app.costBreakdown!;
                   const disputes = app.confirmation?.disputes || [];
-                  const hasPendingAdjustment = disputes.some(
+                  const hasDisputeWithAdjustment = disputes.some(
                     (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0
                   );
-                  const effectiveDeductions = cost.deductions.map((d) => {
-                    const relatedDispute = disputes.find(
-                      (dis) => dis.deductionItemId === d.id && dis.response?.adjustedAmount !== undefined
+                  const isDeductionSynced = (deductionItemId: string): boolean => {
+                    const dispute = disputes.find(
+                      (d) => d.deductionItemId === deductionItemId && d.response?.adjustedAmount !== undefined
                     );
-                    if (relatedDispute?.response?.adjustedAmount) {
-                      return { ...d, adjustedAmount: Math.max(0, d.amount + relatedDispute.response.adjustedAmount) };
-                    }
-                    return { ...d, adjustedAmount: d.amount };
-                  });
-                  const effectiveTotalDeduction = effectiveDeductions.reduce((sum, d) => sum + d.adjustedAmount, 0);
-                  const effectiveRefundAmount = cost.totalDeposit - effectiveTotalDeduction;
+                    if (!dispute?.response?.adjustedAmount) return true;
+                    const deduction = cost.deductions.find((d) => d.id === deductionItemId);
+                    if (!deduction) return false;
+                    return deduction.basis.includes('异议调整');
+                  };
+                  const hasUnsyncedAdjustment = disputes.some(
+                    (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0 && !isDeductionSynced(d.deductionItemId)
+                  );
                   return (
                     <div className="space-y-2 text-sm">
                       <div className="flex justify-between py-1">
@@ -324,13 +325,21 @@ export default function ApplicationDetail() {
                         <span className="money-text text-amber-600 font-semibold">{formatCurrency(cost.totalDeposit)}</span>
                       </div>
                       <div className="flex justify-between py-1">
-                        <span className="text-navy-500">扣减合计{hasPendingAdjustment ? '（协商后）' : ''}</span>
-                        <span className="money-text text-coral-600 font-semibold">{formatCurrency(effectiveTotalDeduction)}</span>
+                        <span className="text-navy-500">扣减合计{hasDisputeWithAdjustment ? '（协商后）' : ''}</span>
+                        <span className="money-text text-coral-600 font-semibold">{formatCurrency(cost.totalDeduction)}</span>
                       </div>
                       <div className="flex justify-between py-1.5 border-t border-navy-100 pt-2">
-                        <span className="text-navy-700 font-medium">应退还{hasPendingAdjustment ? '（协商后）' : ''}</span>
-                        <span className="font-serif text-lg font-semibold text-sage-600 money-text">{formatCurrency(effectiveRefundAmount)}</span>
+                        <span className="text-navy-700 font-medium">应退还{hasDisputeWithAdjustment ? '（协商后）' : ''}</span>
+                        <span className="font-serif text-lg font-semibold text-sage-600 money-text">{formatCurrency(cost.refundAmount)}</span>
                       </div>
+                      {hasUnsyncedAdjustment && (
+                        <div className="mt-2 p-2 rounded bg-coral-50 border border-coral-200">
+                          <p className="text-xs text-coral-700 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
+                            异议调整尚未同步到扣减明细
+                          </p>
+                        </div>
+                      )}
                       {disputes.length > 0 && (
                         <div className="mt-2 pt-2 border-t border-navy-100">
                           <p className="text-xs text-navy-400 mb-1">异议状态</p>

@@ -261,6 +261,40 @@ router.put('/:id/confirm', (req: Request, res: Response) => {
     });
   }
 
+  if (!applications[idx].costBreakdown) {
+    return res.status(400).json({
+      success: false,
+      error: '费用明细尚未完成，无法确认签署',
+    });
+  }
+
+  const disputes = applications[idx].confirmation?.disputes || [];
+  const hasUnresolvedDispute = disputes.some((d) => !d.response);
+  if (hasUnresolvedDispute) {
+    return res.status(400).json({
+      success: false,
+      error: '存在未回复的异议，请先处理所有异议后再签署确认',
+    });
+  }
+
+  const hasUnsyncedAdjustment = disputes.some((d) => {
+    if (d.response?.adjustedAmount === undefined || d.response.adjustedAmount === 0) {
+      return false;
+    }
+    const deduction = applications[idx].costBreakdown?.deductions.find(
+      (ded) => ded.id === d.deductionItemId
+    );
+    if (!deduction) return true;
+    return !deduction.basis.includes('异议调整');
+  });
+
+  if (hasUnsyncedAdjustment) {
+    return res.status(400).json({
+      success: false,
+      error: '异议金额调整尚未同步到扣减明细，请先完成费用明细重算后再签署确认',
+    });
+  }
+
   const existingConfirmation = applications[idx].confirmation || {
     id: generateId('conf'),
     disputes: [],

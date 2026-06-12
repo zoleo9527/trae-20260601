@@ -180,27 +180,24 @@ export default function ConfirmationPage() {
   const confirmation = app.confirmation;
 
   const hasUnresolvedDispute = confirmation?.disputes.some((d) => !d.response) ?? false;
-  const hasPendingAdjustment = confirmation?.disputes.some(
-    (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0
+
+  const isDeductionSynced = (deductionItemId: string): boolean => {
+    const dispute = confirmation?.disputes.find(
+      (d) => d.deductionItemId === deductionItemId && d.response?.adjustedAmount !== undefined
+    );
+    if (!dispute?.response?.adjustedAmount) return true;
+    const deduction = cost.deductions.find((d) => d.id === deductionItemId);
+    if (!deduction) return false;
+    return deduction.basis.includes('异议调整');
+  };
+
+  const hasUnsyncedAdjustment = confirmation?.disputes.some(
+    (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0 && !isDeductionSynced(d.deductionItemId)
   ) ?? false;
 
-  const effectiveDeductions = cost.deductions.map((d) => {
-    const relatedDispute = confirmation?.disputes.find(
-      (dis) => dis.deductionItemId === d.id && dis.response?.adjustedAmount !== undefined
-    );
-    if (relatedDispute?.response?.adjustedAmount) {
-      return {
-        ...d,
-        adjustedAmount: Math.max(0, d.amount + relatedDispute.response.adjustedAmount),
-        adjustment: relatedDispute.response.adjustedAmount,
-        isAdjusted: true,
-      };
-    }
-    return { ...d, adjustedAmount: d.amount, isAdjusted: false };
-  });
-
-  const effectiveTotalDeduction = effectiveDeductions.reduce((sum, d) => sum + d.adjustedAmount, 0);
-  const effectiveRefundAmount = cost.totalDeposit - effectiveTotalDeduction;
+  const hasDisputeWithAdjustment = confirmation?.disputes.some(
+    (d) => d.response?.adjustedAmount !== undefined && d.response.adjustedAmount !== 0
+  ) ?? false;
 
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => {
@@ -388,15 +385,15 @@ export default function ConfirmationPage() {
               </p>
             </div>
             <div className="card p-5 bg-gradient-to-br from-coral-500 to-coral-700 text-white">
-              <p className="text-xs text-coral-100 mb-1">扣减费用{hasPendingAdjustment ? '（协商后）' : ''}</p>
+              <p className="text-xs text-coral-100 mb-1">扣减费用{hasDisputeWithAdjustment ? '（协商后）' : ''}</p>
               <p className="font-serif text-2xl font-semibold money-text">
-                {formatCurrency(effectiveTotalDeduction)}
+                {formatCurrency(cost.totalDeduction)}
               </p>
             </div>
             <div className="card p-5 bg-gradient-to-br from-sage-500 to-sage-700 text-white">
-              <p className="text-xs text-sage-100 mb-1">应退还金额{hasPendingAdjustment ? '（协商后）' : ''}</p>
+              <p className="text-xs text-sage-100 mb-1">应退还金额{hasDisputeWithAdjustment ? '（协商后）' : ''}</p>
               <p className="font-serif text-2xl font-semibold money-text">
-                {formatCurrency(effectiveRefundAmount)}
+                {formatCurrency(cost.refundAmount)}
               </p>
             </div>
           </div>
@@ -679,18 +676,16 @@ export default function ConfirmationPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {effectiveDeductions.map((d) => {
+                      {cost.deductions.map((d) => {
                         const hasDispute = confirmation?.disputes.some(
                           (dis) => dis.deductionItemId === d.id && !dis.response
                         );
-                        const hasResolvedDispute = confirmation?.disputes.some(
-                          (dis) => dis.deductionItemId === d.id && dis.response
-                        );
+                        const isAdjusted = d.basis.includes('异议调整');
                         return (
                           <tr
                             key={d.id}
                             className={`border-b border-navy-50 hover:bg-navy-50/50 ${
-                              hasDispute ? 'bg-coral-50/50' : d.isAdjusted ? 'bg-amber-50/30' : ''
+                              hasDispute ? 'bg-coral-50/50' : isAdjusted ? 'bg-amber-50/30' : ''
                             }`}
                           >
                             <td className="py-3 px-3">
@@ -706,28 +701,15 @@ export default function ConfirmationPage() {
                                   异议中
                                 </span>
                               )}
-                              {d.isAdjusted && !hasDispute && (
+                              {isAdjusted && !hasDispute && (
                                 <span className="ml-2 inline-flex items-center gap-1 text-xs text-amber-600">
                                   <CheckCircle2 className="w-3 h-3" />
                                   已调整
                                 </span>
                               )}
                             </td>
-                            <td className="py-3 px-3 text-right">
-                              {d.isAdjusted ? (
-                                <div>
-                                  <span className="money-text text-amber-600 font-semibold">
-                                    {formatCurrency(d.adjustedAmount)}
-                                  </span>
-                                  <div className="text-xs text-navy-400 line-through">
-                                    {formatCurrency(d.amount)}
-                                  </div>
-                                </div>
-                              ) : (
-                                <span className="money-text text-coral-600 font-semibold">
-                                  {formatCurrency(d.amount)}
-                                </span>
-                              )}
+                            <td className="py-3 px-3 text-right money-text text-coral-600 font-semibold">
+                              {formatCurrency(d.amount)}
                             </td>
                             <td className="py-3 px-3 text-navy-600 text-xs max-w-[200px]">
                               {d.basis}
@@ -740,23 +722,23 @@ export default function ConfirmationPage() {
                       })}
                       <tr className="bg-amber-50 border-2 border-amber-200">
                         <td colSpan={2} className="py-3 px-3 font-semibold text-navy-800">
-                          扣减合计{hasPendingAdjustment ? '（协商后）' : ''}
+                          扣减合计{hasDisputeWithAdjustment ? '（协商后）' : ''}
                         </td>
                         <td className="py-3 px-3 text-right money-text text-coral-600 font-bold text-lg">
-                          {formatCurrency(effectiveTotalDeduction)}
+                          {formatCurrency(cost.totalDeduction)}
                         </td>
                         <td colSpan={2}></td>
                       </tr>
                       <tr className="bg-sage-50 border-2 border-sage-200">
                         <td colSpan={2} className="py-3 px-3 font-semibold text-navy-800">
-                          应退还押金{hasPendingAdjustment ? '（协商后）' : ''}
+                          应退还押金{hasDisputeWithAdjustment ? '（协商后）' : ''}
                         </td>
                         <td className="py-3 px-3 text-right money-text text-sage-700 font-bold text-lg">
-                          {formatCurrency(effectiveRefundAmount)}
+                          {formatCurrency(cost.refundAmount)}
                         </td>
                         <td colSpan={2} className="py-3 px-3 text-sm text-navy-500">
                           押金总额 {formatCurrency(cost.totalDeposit)} - 扣减合计{' '}
-                          {formatCurrency(effectiveTotalDeduction)}
+                          {formatCurrency(cost.totalDeduction)}
                         </td>
                       </tr>
                     </tbody>
@@ -989,15 +971,15 @@ export default function ConfirmationPage() {
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5">
-                  <span className="text-navy-500">扣减合计{hasPendingAdjustment ? '（协商后）' : ''}</span>
+                  <span className="text-navy-500">扣减合计{hasDisputeWithAdjustment ? '（协商后）' : ''}</span>
                   <span className="money-text text-coral-600 font-semibold">
-                    {formatCurrency(effectiveTotalDeduction)}
+                    {formatCurrency(cost.totalDeduction)}
                   </span>
                 </div>
                 <div className="flex justify-between py-1.5 border-t border-navy-100 mt-1 pt-2">
-                  <span className="text-navy-700 font-medium">应退还金额{hasPendingAdjustment ? '（协商后）' : ''}</span>
+                  <span className="text-navy-700 font-medium">应退还金额{hasDisputeWithAdjustment ? '（协商后）' : ''}</span>
                   <span className="font-serif text-xl font-semibold text-sage-600 money-text">
-                    {formatCurrency(effectiveRefundAmount)}
+                    {formatCurrency(cost.refundAmount)}
                   </span>
                 </div>
               </div>
@@ -1042,15 +1024,23 @@ export default function ConfirmationPage() {
                       </p>
                     </div>
                   )}
-                  {!hasUnresolvedDispute && hasPendingAdjustment && (
-                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                  {!hasUnresolvedDispute && hasUnsyncedAdjustment && (
+                    <div className="p-3 rounded-lg bg-coral-50 border border-coral-200 text-sm text-coral-700">
                       <p className="flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        异议已回复并产生金额调整，上方金额已更新为协商后数值，请确认后签署。
+                        <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        异议金额调整尚未同步到费用明细，请等待运营方完成扣减明细重算后方可签署。
                       </p>
                     </div>
                   )}
-                  {!hasUnresolvedDispute && !hasPendingAdjustment && (
+                  {!hasUnresolvedDispute && !hasUnsyncedAdjustment && hasDisputeWithAdjustment && (
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+                      <p className="flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        异议已处理并调整了费用，上方金额为协商后最终数值，请核对后签署。
+                      </p>
+                    </div>
+                  )}
+                  {!hasUnresolvedDispute && !hasUnsyncedAdjustment && !hasDisputeWithAdjustment && (
                     <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
                       <p className="flex items-start gap-2">
                         <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -1086,7 +1076,7 @@ export default function ConfirmationPage() {
                   </div>
                   <button
                     onClick={handleFinalConfirm}
-                    disabled={!confirmerName.trim() || isSigning || hasUnresolvedDispute}
+                    disabled={!confirmerName.trim() || isSigning || hasUnresolvedDispute || hasUnsyncedAdjustment}
                     className="btn-primary w-full"
                   >
                     {isSigning ? (
