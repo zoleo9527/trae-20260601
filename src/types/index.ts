@@ -76,12 +76,13 @@ export interface Task {
 
 export interface Notification {
   id: string
-  type: 'task_assigned' | 'status_changed' | 'document_supplement' | 'deposit_refund'
+  type: 'task_assignment' | 'status_changed' | 'document_supplement' | 'deposit_refund'
   title: string
   content: string
   read: boolean
   createdAt: string
-  relatedAssetId?: string
+  assetId?: string
+  userId?: string
 }
 
 export interface FilterParams {

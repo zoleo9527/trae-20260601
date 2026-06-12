@@ -26,13 +26,13 @@ const statusColors: Record<string, string> = {
 
 export function AssetList({ assets, onViewAsset, onEditAsset, onUploadAttachment, onFilterChange, onFilterApply }: AssetListProps) {
   const handleKeywordChange = (value: string) => {
-    onFilterChange({ keyword: value })
+    onFilterChange(prev => ({ ...prev, keyword: value }))
   }
   const handleStatusChange = (value: string) => {
-    onFilterChange({ status: value || undefined })
+    onFilterChange(prev => ({ ...prev, status: value || undefined }))
   }
   const handleCategoryChange = (value: string) => {
-    onFilterChange({ category: value || undefined })
+    onFilterChange(prev => ({ ...prev, category: value || undefined }))
   }
   const handleFilter = () => {
     onFilterApply()

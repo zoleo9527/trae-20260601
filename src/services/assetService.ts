@@ -140,25 +140,25 @@ export const assetService = {
 
     const taskTypeMap: Record<AssetStatus, Task['type']> = {
       entry_completed: 'document_review',
-      review_approved: 'deposit_refund',
-      review_rejected: 'document_supplement',
-      finance_rejected: 'document_supplement',
-      pending_entry: 'asset_entry',
       pending_review: 'document_review',
+      review_rejected: 'document_supplement',
       pending_finance: 'deposit_refund',
+      finance_rejected: 'document_supplement',
+      review_approved: 'deposit_refund',
       finance_approved: 'deposit_refund',
+      pending_entry: 'asset_entry',
       completed: 'deposit_refund',
     }
 
     const statusDescriptionMap: Record<AssetStatus, string> = {
       entry_completed: '标的入库完成，等待审核',
-      review_approved: '审核通过，等待财务处理',
-      review_rejected: '审核驳回，请补充资料',
-      finance_rejected: '财务驳回，请重新提交',
-      pending_entry: '待入库',
       pending_review: '待审核',
-      pending_finance: '待财务处理',
+      review_rejected: '审核驳回，请补充资料',
+      pending_finance: '审核通过，等待财务处理',
+      finance_rejected: '财务驳回，请重新提交',
+      review_approved: '审核通过',
       finance_approved: '财务通过',
+      pending_entry: '待入库',
       completed: '已完成',
     }
 

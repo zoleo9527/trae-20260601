@@ -1,17 +1,19 @@
+import { useState } from 'react'
 import { XOutlined, FileTextOutlined, UserOutlined, CalendarOutlined, MessageOutlined, UploadOutlined } from '@ant-design/icons'
 import { Modal, Tabs, Tag, Button, Form, Input, Upload, Row, Col, Space } from 'antd'
 import TextArea from 'antd/es/input/TextArea'
 import { Asset, FlowRecord, Attachment, UserRole } from '@/types'
 import { statusLabels, roleLabels } from '@/data/mockData'
 interface AssetDetailProps {
- asset: Asset | undefined
- flowRecords: FlowRecord[]
- attachments: Attachment[]
- visible: boolean
- onClose: () => void
- onSubmitReview: (assetId: string, status: string, comment: string) => void
- onSubmitFinance: (assetId: string, status: string, comment: string) => void
- userRole: UserRole
+  asset: Asset | undefined
+  flowRecords: FlowRecord[]
+  attachments: Attachment[]
+  visible: boolean
+  activeTab?: string
+  onClose: () => void
+  onSubmitReview: (assetId: string, status: string, comment: string) => void
+  onSubmitFinance: (assetId: string, status: string, comment: string) => void
+  userRole: UserRole
 }
 const statusColors: Record<string, string> = {
  pending_entry: 'orange',
@@ -24,8 +26,8 @@ const statusColors: Record<string, string> = {
  finance_rejected: 'red',
  completed: 'gray',
 }
-export function AssetDetail({ asset, flowRecords, attachments, visible, onClose, onSubmitReview, onSubmitFinance, userRole }: AssetDetailProps) {
- const [activeTab, setActiveTab] = useState('info')
+export function AssetDetail({ asset, flowRecords, attachments, visible, activeTab: defaultTab, onClose, onSubmitReview, onSubmitFinance, userRole }: AssetDetailProps) {
+  const [activeTab, setActiveTab] = useState(defaultTab || 'info')
  const [form] = Form.useForm()
  const handleSubmit = (status: string) => {
  const values = form.getFieldsValue()

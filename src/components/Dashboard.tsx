@@ -76,7 +76,7 @@ export function Dashboard({ userRole, todayTasks, stats, onViewAsset }: Dashboar
               <div 
                 key={task.id} 
                 className={`task-item ${task.priority}`}
-                onClick={() => onViewAsset(task.assetId)}
+                onClick={() => onViewAsset(task.assetId, true)}
               >
                 <div className="task-header">
                   <span className="task-type">{taskTypeLabels[task.type]}</span>

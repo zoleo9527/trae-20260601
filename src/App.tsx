@@ -27,7 +27,7 @@ function App() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [currentRole, setCurrentRole] = useState<UserRole>(user.role)
   const [filterParams, setFilterParams] = useState<FilterParams>({})
-  const [detailAssetId, setDetailAssetId] = useState<string | null>(null)
+  const [showFlowTab, setShowFlowTab] = useState(false)
 
   useEffect(() => {
     loadAssets()
@@ -46,9 +46,10 @@ function App() {
     setNotifications(assetService.getNotifications())
   }
 
-  const handleViewAsset = (assetId: string) => {
+  const handleViewAsset = (assetId: string, showFlow = false) => {
     const asset = assetService.getAssetById(assetId)
     setSelectedAsset(asset)
+    setShowFlowTab(showFlow)
     setShowDetail(true)
   }
 
@@ -65,14 +66,23 @@ function App() {
   }
 
   const handleSubmitReview = (assetId: string, status: string, comment: string) => {
-    assetService.updateAssetStatus(assetId, status as any, user.id, comment)
+    let targetStatus = status as AssetStatus
+    if (status === 'review_approved') {
+      targetStatus = 'pending_finance'
+    }
+    assetService.updateAssetStatus(assetId, targetStatus, user.id, comment)
     loadAssets()
+    loadNotifications()
   }
 
   const handleSubmitFinance = (assetId: string, status: string, comment: string) => {
-    const newStatus = status === 'finance_approved' ? 'completed' : status
-    assetService.updateAssetStatus(assetId, newStatus as any, user.id, comment)
+    let targetStatus = status as AssetStatus
+    if (status === 'finance_approved') {
+      targetStatus = 'completed'
+    }
+    assetService.updateAssetStatus(assetId, targetStatus, user.id, comment)
     loadAssets()
+    loadNotifications()
   }
 
   const handleAssetEntry = (data: { name: string; code: string; category: string; location: string; estimatedValue: string }) => {
@@ -82,11 +92,13 @@ function App() {
       category: data.category,
       location: data.location,
       estimatedValue: parseFloat(data.estimatedValue) * 10000,
-      status: 'pending_entry',
+      status: 'entry_completed',
       submitter: user,
     }
-    assetService.createAsset(newAsset)
+    const asset = assetService.createAsset(newAsset)
+    assetService.updateAssetStatus(asset.id, 'pending_review', user.id, '标的入库完成')
     loadAssets()
+    loadNotifications()
   }
 
   const handleMarkNotificationAsRead = (id: string) => {
@@ -162,7 +174,11 @@ function App() {
         flowRecords={selectedAsset ? assetService.getFlowRecords(selectedAsset.id) : []}
         attachments={selectedAsset ? assetService.getAttachments(selectedAsset.id) : []}
         visible={showDetail}
-        onClose={() => setShowDetail(false)}
+        activeTab={showFlowTab ? 'flow' : 'info'}
+        onClose={() => {
+          setShowDetail(false)
+          setShowFlowTab(false)
+        }}
         onSubmitReview={handleSubmitReview}
         onSubmitFinance={handleSubmitFinance}
         userRole={currentRole}
