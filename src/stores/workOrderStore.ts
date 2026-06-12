@@ -12,9 +12,11 @@ interface WorkOrderState {
   fetchWorkOrders: () => void;
   getWorkOrderById: (id: string) => WorkOrder | null;
   setCurrentWorkOrder: (workOrder: WorkOrder | null) => void;
+  startPolicyJudge: (id: string, userName: string) => void;
   submitPolicyJudgment: (id: string, judgment: PolicyJudgment) => void;
   submitApproval: (id: string, approval: Approval) => void;
   submitSignReceipt: (id: string, receipt: SignReceipt) => void;
+  completeProcess: (id: string) => void;
   setFilters: (filters: FilterParams) => void;
   getFilteredWorkOrders: () => WorkOrder[];
   getNextWorkOrder: (currentId: string) => WorkOrder | null;
@@ -42,6 +44,32 @@ export const useWorkOrderStore = create<WorkOrderState>()(
       
       setCurrentWorkOrder: (workOrder: WorkOrder | null) => {
         set({ currentWorkOrder: workOrder });
+      },
+      
+      startPolicyJudge: (id: string, userName: string) => {
+        set(state => ({
+          workOrders: state.workOrders.map(wo => {
+            if (wo.id === id && wo.status === '待判断') {
+              return {
+                ...wo,
+                status: '判断中' as const,
+                updatedAt: new Date().toISOString(),
+                historyRemarks: [
+                  ...wo.historyRemarks,
+                  {
+                    id: `remark-${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    operator: userName,
+                    role: '税务顾问',
+                    action: '开始政策判断',
+                    detail: '税务顾问开始处理政策判断'
+                  }
+                ]
+              };
+            }
+            return wo;
+          })
+        }));
       },
       
       submitPolicyJudgment: (id: string, judgment: PolicyJudgment) => {
@@ -119,6 +147,32 @@ export const useWorkOrderStore = create<WorkOrderState>()(
                     role: '客户财务',
                     action: '确认签收',
                     detail: `签收确认：${receipt.receiptConfirm}\n签收备注：${receipt.receiptRemark}`
+                  }
+                ]
+              };
+            }
+            return wo;
+          })
+        }));
+      },
+      
+      completeProcess: (id: string) => {
+        set(state => ({
+          workOrders: state.workOrders.map(wo => {
+            if (wo.id === id && wo.status === '已签收') {
+              return {
+                ...wo,
+                status: '处理完成' as const,
+                updatedAt: new Date().toISOString(),
+                historyRemarks: [
+                  ...wo.historyRemarks,
+                  {
+                    id: `remark-${Date.now()}`,
+                    timestamp: new Date().toISOString(),
+                    operator: '系统',
+                    role: '系统',
+                    action: '处理完成',
+                    detail: '工单处理流程已完成'
                   }
                 ]
               };

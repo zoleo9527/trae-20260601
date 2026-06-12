@@ -11,11 +11,9 @@ import type { WorkOrder, FilterParams, WorkOrderStatus } from '../../types';
 import { StatusTag } from './StatusTag';
 import { formatDate, getUrgencyColor } from '../../lib/utils';
 import { useWorkOrderStore } from '../../stores/workOrderStore';
-import { useAuthStore } from '../../stores/authStore';
 
 export const WorkOrderList: React.FC = () => {
   const navigate = useNavigate();
-  const user = useAuthStore(state => state.user);
   const { filters, setFilters, getFilteredWorkOrders } = useWorkOrderStore();
   const filteredWorkOrders = getFilteredWorkOrders();
   
@@ -24,13 +22,7 @@ export const WorkOrderList: React.FC = () => {
   };
   
   const handleRowClick = (workOrder: WorkOrder) => {
-    if (user?.role === '税务顾问') {
-      navigate(`/policy-judge/${workOrder.id}`);
-    } else if (user?.role === '项目经理') {
-      navigate(`/approval/${workOrder.id}`);
-    } else {
-      navigate(`/sign-receipt/${workOrder.id}`);
-    }
+    navigate(`/work-orders/${workOrder.id}`);
   };
   
   return (

@@ -239,5 +239,77 @@ export const mockWorkOrders: WorkOrder[] = [
       receivedBy: '刘芳',
       receivedAt: '2024-03-20T14:00:00Z'
     }
+  },
+  {
+    id: 'wo-004',
+    orderNo: 'TC-2024-00126',
+    customerName: '新材料科技有限公司',
+    businessType: '政策咨询',
+    urgencyLevel: '普通',
+    status: '判断中',
+    assignee: '张明',
+    createdAt: '2024-03-25T10:00:00Z',
+    updatedAt: '2024-03-25T10:30:00Z',
+    attachments: [
+      {
+        id: 'att-004',
+        name: '企业营业执照.pdf',
+        type: 'application/pdf',
+        size: 512000,
+        url: '#',
+        uploadedBy: '张明',
+        uploadedAt: '2024-03-25T10:00:00Z'
+      }
+    ],
+    historyRemarks: [
+      {
+        id: 'remark-013',
+        timestamp: '2024-03-25T10:00:00Z',
+        operator: '张明',
+        role: '税务顾问',
+        action: '创建工单',
+        detail: '创建工单，客户咨询关于技术转让所得减免税政策的相关问题'
+      },
+      {
+        id: 'remark-014',
+        timestamp: '2024-03-25T10:30:00Z',
+        operator: '张明',
+        role: '税务顾问',
+        action: '开始政策判断',
+        detail: '税务顾问开始处理政策判断，正在查阅相关政策文件'
+      }
+    ]
+  },
+  {
+    id: 'wo-005',
+    orderNo: 'TC-2024-00127',
+    customerName: '新能源股份有限公司',
+    businessType: '税务筹划',
+    urgencyLevel: '加急',
+    status: '待判断',
+    assignee: '陈静',
+    createdAt: '2024-03-26T08:00:00Z',
+    updatedAt: '2024-03-26T08:00:00Z',
+    attachments: [
+      {
+        id: 'att-005',
+        name: '公司章程.pdf',
+        type: 'application/pdf',
+        size: 768000,
+        url: '#',
+        uploadedBy: '陈静',
+        uploadedAt: '2024-03-26T08:00:00Z'
+      }
+    ],
+    historyRemarks: [
+      {
+        id: 'remark-015',
+        timestamp: '2024-03-26T08:00:00Z',
+        operator: '陈静',
+        role: '税务顾问',
+        action: '创建工单',
+        detail: '创建工单，客户需要了解最新的节能环保税收优惠政策，用于新项目的税务筹划'
+      }
+    ]
   }
 ];

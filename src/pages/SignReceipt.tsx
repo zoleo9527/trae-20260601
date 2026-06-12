@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -20,9 +20,23 @@ export const SignReceiptPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
-  const { getWorkOrderById, submitSignReceipt, getNextWorkOrder, getPrevWorkOrder } = useWorkOrderStore();
+  const { getWorkOrderById, submitSignReceipt, completeProcess, getNextWorkOrder, getPrevWorkOrder, workOrders } = useWorkOrderStore();
 
   const workOrder = id ? getWorkOrderById(id) : null;
+  
+  useEffect(() => {
+    if (!id && user) {
+      const pendingWorkOrder = workOrders.find(wo => 
+        wo.status === '审批通过'
+      );
+      
+      if (pendingWorkOrder) {
+        navigate(`/sign-receipt/${pendingWorkOrder.id}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [id, user, navigate, workOrders]);
 
   const [formData, setFormData] = useState<SignReceipt>({
     receiptConfirm: '已了解政策内容和操作建议，将按要求执行。',
@@ -35,7 +49,7 @@ export const SignReceiptPage: React.FC = () => {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
         <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-        <p className="text-gray-500">工单不存在</p>
+        <p className="text-gray-500">正在跳转到待签收工单...</p>
       </div>
     );
   }
@@ -81,8 +95,10 @@ export const SignReceiptPage: React.FC = () => {
       receivedBy: user?.name || '',
       receivedAt: new Date().toISOString()
     });
+    
+    completeProcess(workOrder.id);
 
-    alert('签收成功！');
+    alert('签收成功！工单处理完成。');
     if (nextWorkOrder) {
       navigate(`/sign-receipt/${nextWorkOrder.id}`);
     } else {

@@ -21,9 +21,23 @@ export const PolicyJudge: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const user = useAuthStore(state => state.user);
-  const { getWorkOrderById, submitPolicyJudgment, getNextWorkOrder, getPrevWorkOrder } = useWorkOrderStore();
+  const { getWorkOrderById, submitPolicyJudgment, startPolicyJudge, getNextWorkOrder, getPrevWorkOrder, workOrders } = useWorkOrderStore();
   
   const workOrder = id ? getWorkOrderById(id) : null;
+  
+  useEffect(() => {
+    if (!id && user) {
+      const pendingWorkOrder = workOrders.find(wo => 
+        wo.status === '待判断' || wo.status === '判断中'
+      );
+      
+      if (pendingWorkOrder) {
+        navigate(`/policy-judge/${pendingWorkOrder.id}`, { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
+    }
+  }, [id, user, navigate, workOrders]);
   
   const [formData, setFormData] = useState<PolicyJudgment>({
     judgmentBasis: '',
@@ -40,11 +54,17 @@ export const PolicyJudge: React.FC = () => {
     }
   }, [workOrder]);
   
+  useEffect(() => {
+    if (workOrder && workOrder.status === '待判断' && user) {
+      startPolicyJudge(workOrder.id, user.name);
+    }
+  }, [workOrder, user, startPolicyJudge]);
+  
   if (!workOrder) {
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
         <FileText className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-        <p className="text-gray-500">工单不存在</p>
+        <p className="text-gray-500">正在跳转到待办工单...</p>
       </div>
     );
   }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from './components/layout/MainLayout';
 import { Dashboard } from './pages/Dashboard';
 import { WorkOrdersPage } from './pages/WorkOrders';
+import { WorkOrderDetailPage } from './pages/WorkOrderDetailPage';
 import { PolicyJudge } from './pages/PolicyJudge';
 import { ApprovalPage } from './pages/Approval';
 import { SignReceiptPage } from './pages/SignReceipt';
@@ -15,6 +16,7 @@ function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="work-orders" element={<WorkOrdersPage />} />
+          <Route path="work-orders/:id" element={<WorkOrderDetailPage />} />
           <Route path="policy-judge" element={<PolicyJudge />} />
           <Route path="policy-judge/:id" element={<PolicyJudge />} />
           <Route path="approval" element={<ApprovalPage />} />
