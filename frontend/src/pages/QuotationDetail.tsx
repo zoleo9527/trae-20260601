@@ -315,7 +315,7 @@ const QuotationDetail = () => {
                 <p style={{ marginTop: 8 }}>是否直接跳转到已有合同？</p>
               </div>
             ),
-            okText: '查看合同',
+            okText: '查看合同详情',
             cancelText: '取消',
             onOk: () => {
               navigate(`/contracts/${errData.existingContractId}`);
@@ -537,8 +537,8 @@ const QuotationDetail = () => {
           )}
           {relatedContract && (
             <>
-              <Button icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}#contract-timeline`)}>
-                查看关联合同
+              <Button icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                查看合同详情
               </Button>
               <Button icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}#contract-timeline`)}>
                 流转回看
@@ -740,7 +740,7 @@ const QuotationDetail = () => {
                 <Button type="primary" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
                   查看合同详情
                 </Button>
-                <Button size="small" icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}`)}>
+                <Button size="small" icon={<ClockCircleOutlined />} onClick={() => navigate(`/contracts/${relatedContract.id}#contract-timeline`)}>
                   流转回看
                 </Button>
               </Space>
@@ -1159,7 +1159,7 @@ const QuotationDetail = () => {
               size="large"
               onClick={() => {
                 setContractSuccessVisible(false);
-                navigate(`/contracts/${newlyCreatedContract?.id}#contract-timeline`);
+                navigate(`/contracts/${newlyCreatedContract?.id}`);
               }}
             >
               查看合同详情
