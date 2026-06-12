@@ -241,19 +241,23 @@ export const Sidebar = () => {
           )}
           {selectedOrder.status === 'overdue' && (
             <>
-              <button
-                onClick={handleContinueProcess}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-              >
-                <CheckCircle size={16} />
-                继续处理
-              </button>
+              {selectedOrder.assignee ? (
+                <button
+                  onClick={handleContinueProcess}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  <CheckCircle size={16} />
+                  继续处理
+                </button>
+              ) : null}
               <button
                 onClick={() => setShowReassign(true)}
-                className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className={`flex items-center justify-center gap-2 px-4 py-2 text-white rounded-lg hover:bg-blue-600 transition-colors ${
+                  selectedOrder.assignee ? 'bg-blue-500' : 'flex-1 bg-blue-500'
+                }`}
               >
                 <UserPlus size={16} />
-                重新派单
+                {selectedOrder.assignee ? '重新派单' : '分配处理人'}
               </button>
             </>
           )}
@@ -271,7 +275,9 @@ export const Sidebar = () => {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900">重新派单</h3>
+              <h3 className="text-lg font-semibold text-gray-900">
+                {selectedOrder.assignee ? '重新派单' : '分配处理人'}
+              </h3>
               <button
                 onClick={() => {
                   setShowReassign(false);
@@ -288,6 +294,16 @@ export const Sidebar = () => {
               <input
                 type="text"
                 value="张主管"
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 focus:outline-none"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">派单时间</label>
+              <input
+                type="text"
+                value={new Date().toLocaleString('zh-CN')}
                 disabled
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 focus:outline-none"
               />

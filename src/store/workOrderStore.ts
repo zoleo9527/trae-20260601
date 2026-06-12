@@ -123,39 +123,45 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
 
   reassignOrder: (id, assignee, assigner) => {
     const now = new Date().toISOString();
-    const newOperation: Operation = {
-      id: `H${Date.now()}`,
-      operator: assigner,
-      operatorRole: 'admin',
-      action: `重新派单给${assignee}`,
-      timestamp: now,
-    };
     
-    set((state) => ({
-      orders: state.orders.map((order) =>
-        order.id === id
-          ? {
-              ...order,
-              assignee,
-              assigneeRole: 'repairman',
-              status: 'processing',
-              history: [...order.history, newOperation],
-              updatedAt: now,
-            }
-          : order
-      ),
-      selectedOrder:
-        state.selectedOrder?.id === id
-          ? {
-              ...state.selectedOrder,
-              assignee,
-              assigneeRole: 'repairman',
-              status: 'processing',
-              history: [...state.selectedOrder.history, newOperation],
-              updatedAt: now,
-            }
-          : state.selectedOrder,
-    }));
+    set((state) => {
+      const order = state.orders.find((o) => o.id === id);
+      const action = order?.assignee ? `重新派单给${assignee}` : `派单给${assignee}`;
+      
+      const newOperation: Operation = {
+        id: `H${Date.now()}`,
+        operator: assigner,
+        operatorRole: 'admin',
+        action,
+        timestamp: now,
+      };
+      
+      return {
+        orders: state.orders.map((order) =>
+          order.id === id
+            ? {
+                ...order,
+                assignee,
+                assigneeRole: 'repairman',
+                status: 'processing',
+                history: [...order.history, newOperation],
+                updatedAt: now,
+              }
+            : order
+        ),
+        selectedOrder:
+          state.selectedOrder?.id === id
+            ? {
+                ...state.selectedOrder,
+                assignee,
+                assigneeRole: 'repairman',
+                status: 'processing',
+                history: [...state.selectedOrder.history, newOperation],
+                updatedAt: now,
+              }
+            : state.selectedOrder,
+      };
+    });
   },
 
   filteredOrders: () => {
