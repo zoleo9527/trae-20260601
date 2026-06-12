@@ -44,7 +44,7 @@ interface Stats {
 }
 
 export default function Dashboard() {
-  const { currentRole } = useAppStore();
+  const { currentRole, currentUser } = useAppStore();
   const [todos, setTodos] = useState<TodoCounts | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
