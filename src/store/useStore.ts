@@ -334,10 +334,16 @@ export function useStore() {
   };
 }
 
-export type ConfirmationFilter = 'all' | 'pending' | 'dispute' | 'incomplete' | 'confirmed';
-export type CollectionFilter = 'all' | 'pending' | 'overdue' | 'paid';
+export type DepositStatus = 'pending' | 'paid' | 'refunding' | 'refunded';
 
-export function filterConfirmations(confirmations: Confirmation[], filter: ConfirmationFilter): Confirmation[] {
+export type ConfirmationFilter = 'all' | 'pending' | 'dispute' | 'incomplete' | 'confirmed' | 'deposit_pending' | 'deposit_refunding';
+export type CollectionFilter = 'all' | 'pending' | 'overdue' | 'paid' | 'unpaid';
+
+export function filterConfirmations(
+  confirmations: Confirmation[], 
+  filter: ConfirmationFilter, 
+  depositRecords: Array<{ bidId: string; status: DepositStatus }>
+): Confirmation[] {
   switch (filter) {
     case 'pending':
       return confirmations.filter(c => c.status === 'pending');
@@ -352,6 +358,16 @@ export function filterConfirmations(confirmations: Confirmation[], filter: Confi
       );
     case 'confirmed':
       return confirmations.filter(c => c.status === 'confirmed');
+    case 'deposit_pending':
+      return confirmations.filter(c => {
+        const deposit = depositRecords.find(d => d.bidId === c.id);
+        return deposit?.status === 'pending';
+      });
+    case 'deposit_refunding':
+      return confirmations.filter(c => {
+        const deposit = depositRecords.find(d => d.bidId === c.id);
+        return deposit?.status === 'refunding';
+      });
     default:
       return confirmations;
   }
@@ -369,7 +385,18 @@ export function filterCollections(collections: CollectionRecord[], filter: Colle
       });
     case 'paid':
       return collections.filter(c => c.status === 'paid');
+    case 'unpaid':
+      return collections.filter(c => c.status !== 'paid' && c.remainingAmount > 0);
     default:
       return collections;
   }
+}
+
+export function getSelectableCollectionIds(collections: CollectionRecord[]): string[] {
+  return collections.filter(c => c.status !== 'paid').map(c => c.id);
+}
+
+export function countSelectableCollections(selectedIds: string[], collections: CollectionRecord[]): number {
+  const selectableIds = getSelectableCollectionIds(collections);
+  return selectedIds.filter(id => selectableIds.includes(id as string)).length;
 }

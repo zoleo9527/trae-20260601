@@ -50,8 +50,16 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
   ).length;
   const disputeCount = confirmations.filter(c => c.status === 'dispute').length;
   const confirmedCount = confirmations.filter(c => c.status === 'confirmed').length;
+  const depositPendingCount = confirmations.filter(c => {
+    const deposit = depositRecords.find(d => d.bidId === c.id);
+    return deposit?.status === 'pending';
+  }).length;
+  const depositRefundingCount = confirmations.filter(c => {
+    const deposit = depositRecords.find(d => d.bidId === c.id);
+    return deposit?.status === 'refunding';
+  }).length;
 
-  const filteredConfirmations = filterConfirmations(confirmations, filter);
+  const filteredConfirmations = filterConfirmations(confirmations, filter, depositRecords);
 
   const columns = [
     {
@@ -326,18 +334,22 @@ export default function ConfirmationPage({ currentUserRole, confirmations, actio
       return (
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #1890ff' }} onClick={() => {}}>
-              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
-                {depositRecords.filter(d => d.status === 'pending').length}
-              </div>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #1890ff', cursor: 'pointer', background: filter === 'deposit_pending' ? '#e6f7ff' : undefined }}
+              onClick={() => handleCardClick('deposit_pending')}
+            >
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{depositPendingCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>保证金待到账</div>
             </Card>
           </Col>
           <Col span={6}>
-            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
-              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
-                {depositRecords.filter(d => d.status === 'refunding').length}
-              </div>
+            <Card 
+              hoverable 
+              style={{ borderLeft: '4px solid #faad14', cursor: 'pointer', background: filter === 'deposit_refunding' ? '#fffbe6' : undefined }}
+              onClick={() => handleCardClick('deposit_refunding')}
+            >
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{depositRefundingCount}</div>
               <div style={{ fontSize: 12, color: '#666' }}>保证金退款中</div>
             </Card>
           </Col>

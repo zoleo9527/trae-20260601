@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Space, Tooltip, Tabs } from 'antd';
 import { PhoneOutlined, MailOutlined, MessageOutlined, FileTextOutlined, EyeOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
 import type { CollectionRecord, UserRole } from '@/types';
-import { StoreActions, CollectionFilter, filterCollections } from '@/store/useStore';
+import { StoreActions, CollectionFilter, filterCollections, countSelectableCollections } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { hasPermission } from '@/utils/auth';
 
@@ -61,9 +61,12 @@ export default function CollectionPage({ currentUserRole, collections, actions }
     const due = new Date(c.dueDate);
     return due < today && c.status !== 'paid';
   }).length;
+  const unpaidCount = collections.filter(c => c.status !== 'paid' && c.remainingAmount > 0).length;
   const unpaidTotal = collections.filter(c => c.status !== 'paid').reduce((sum, c) => sum + c.remainingAmount, 0);
 
   const filteredCollections = filterCollections(collections, filter);
+  const selectableCollections = collections.filter(c => c.status !== 'paid');
+  const batchReminderCount = countSelectableCollections(selectedRows.map(id => String(id)), collections);
 
   const columns = [
     {
@@ -210,13 +213,19 @@ export default function CollectionPage({ currentUserRole, collections, actions }
   };
 
   const handleBatchReminder = () => {
-    const ids = selectedRows.map(id => String(id)) as string[];
-    actions.batchRemind(ids, '当前用户');
+    const ids = selectableCollections.filter(c => selectedRows.includes(c.id)).map(c => c.id);
+    if (ids.length > 0) {
+      actions.batchRemind(ids, '当前用户');
+    }
     setSelectedRows([]);
   };
 
   const handleCardClick = (cardFilter: CollectionFilter) => {
     setFilter(cardFilter);
+  };
+
+  const handleRowSelectChange = (selectedRowKeys: React.Key[]) => {
+    setSelectedRows(selectedRowKeys);
   };
 
   const renderRoleSpecificCards = () => {
@@ -320,9 +329,13 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             </Card>
           </Col>
           <Col span={6}>
-            <Card>
+            <Card 
+              hoverable
+              style={{ borderLeft: '4px solid #52c41a', cursor: 'pointer', background: filter === 'unpaid' ? '#f6ffed' : undefined }}
+              onClick={() => handleCardClick('unpaid')}
+            >
               <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-                {collections.filter(c => c.status !== 'paid' && c.remainingAmount > 0).length}
+                {unpaidCount}
               </div>
               <div style={{ fontSize: 12, color: '#666' }}>待确认收款</div>
             </Card>
@@ -408,9 +421,9 @@ export default function CollectionPage({ currentUserRole, collections, actions }
             {filter !== 'all' && (
               <Button onClick={() => setFilter('all')}>清除筛选</Button>
             )}
-            {selectedRows.length > 0 && hasPermission(currentUserRole, 'collection_edit') && (
+            {batchReminderCount > 0 && hasPermission(currentUserRole, 'collection_edit') && (
               <Button icon={<MessageOutlined />} type="primary" onClick={handleBatchReminder}>
-                批量催收 ({selectedRows.length})
+                批量催收 ({batchReminderCount})
               </Button>
             )}
           </div>
@@ -425,7 +438,10 @@ export default function CollectionPage({ currentUserRole, collections, actions }
           rowSelection={{
             type: 'checkbox',
             selectedRowKeys: selectedRows,
-            onChange: setSelectedRows,
+            onChange: handleRowSelectChange,
+            getCheckboxProps: (record: CollectionRecord) => ({
+              disabled: record.status === 'paid',
+            }),
           }}
         />
       </Card>
