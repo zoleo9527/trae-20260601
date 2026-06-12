@@ -1,16 +1,20 @@
 import { useEffect } from 'react';
-import { FileText, Wallet, AlertCircle, Clock, ArrowRight, TrendingUp, Users, Package } from 'lucide-react';
+import { FileText, Wallet, AlertCircle, Clock, ArrowRight, Users, Package } from 'lucide-react';
 import { useProjectStore } from '../stores/projectStore';
 import Layout from '../components/layout/Layout';
 import { statusNames } from '../data/mockData';
 
 export default function Dashboard() {
-  const { projects, todos, fetchProjects, fetchTodos, loading } = useProjectStore();
+  const { projects, todos, fetchProjects, fetchTodos, loading, currentUser } = useProjectStore();
 
   useEffect(() => {
     fetchProjects();
     fetchTodos();
   }, [fetchProjects, fetchTodos]);
+
+  useEffect(() => {
+    fetchTodos();
+  }, [currentUser, fetchTodos]);
 
   const stats = [
     { label: '项目总数', value: projects.length, icon: Package, color: 'bg-blue-500' },
@@ -19,11 +23,15 @@ export default function Dashboard() {
     { label: '待处理驳回', value: projects.filter(p => p.status === 'notice_rejected' || p.status === 'refund_rejected').length, icon: AlertCircle, color: 'bg-red-500' },
   ];
 
-  const urgentTodos = todos.filter(t => t.priority === 'high').slice(0, 3);
+  const urgentTodos = todos.filter(t => t.priority === 'high').slice(0, 5);
   const recentProjects = projects.slice(0, 5);
 
+  const getTodoTabLink = (type: 'notice' | 'refund') => {
+    return `/projects?tab=${type}`;
+  };
+
   return (
-    <Layout title="仪表盘" subtitle="实时监控项目进度与待办事项">
+    <Layout title="仪表盘" subtitle={`欢迎，${currentUser?.name}（${currentUser?.role === 'project_manager' ? '项目专员' : currentUser?.role === 'review_secretary' ? '评审秘书' : '财务'}）`}>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => {
@@ -47,17 +55,30 @@ export default function Dashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200">
             <div className="p-4 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-semibold text-slate-800">待办事项</h3>
-              <a href="/projects" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+              <h3 className="font-semibold text-slate-800">我的待办</h3>
+              <a 
+                href={todos[0]?.type === 'notice' ? getTodoTabLink('notice') : todos[0]?.type === 'refund' ? getTodoTabLink('refund') : '/projects'} 
+                className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
                 查看全部 <ArrowRight className="w-4 h-4" />
               </a>
             </div>
             <div className="divide-y divide-slate-100">
-              {urgentTodos.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">暂无待办事项</div>
+              {loading ? (
+                <div className="p-8 text-center">
+                  <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                </div>
+              ) : urgentTodos.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">
+                  <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Clock className="w-6 h-6 text-slate-400" />
+                  </div>
+                  <p>暂无待办事项</p>
+                  <p className="text-sm text-slate-400 mt-1">切换角色查看不同角色的待办</p>
+                </div>
               ) : (
                 urgentTodos.map(todo => (
-                  <div key={todo.id} className="p-4 hover:bg-slate-50 transition-colors">
+                  <a key={todo.id} href={`/projects/${todo.project_id}`} className="block p-4 hover:bg-slate-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -82,7 +103,7 @@ export default function Dashboard() {
                         <p className="font-medium text-slate-700">{todo.assignee}</p>
                       </div>
                     </div>
-                  </div>
+                  </a>
                 ))
               )}
             </div>

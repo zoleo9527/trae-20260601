@@ -1,4 +1,5 @@
 import { LayoutDashboard, FolderOpen, FileText, Wallet, Settings, LogOut, ChevronDown, UserCircle } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useProjectStore } from '../../stores/projectStore';
 import { roleNames, mockUsers } from '../../data/mockData';
 import { useState } from 'react';
@@ -16,7 +17,9 @@ const menuItems = [
 ];
 
 export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all' }: SidebarProps) {
-  const { currentUser, setCurrentUser, logout } = useProjectStore();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { currentUser, setCurrentUser } = useProjectStore();
   const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
 
   const handleRoleSwitch = (user: typeof mockUsers[0]) => {
@@ -28,8 +31,21 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
     if (onQuickAction) {
       onQuickAction(tab);
     }
-    if (tab !== 'all') {
-      window.location.href = '/projects';
+    if (tab !== 'all' && location.pathname !== '/projects') {
+      navigate(`/projects?tab=${tab}`);
+    }
+  };
+
+  const handleMenuClick = (path: string) => {
+    if (path === '/projects') {
+      const currentTabParam = new URLSearchParams(window.location.search).get('tab');
+      if (currentTabParam) {
+        navigate(`${path}?tab=${currentTabParam}`);
+      } else {
+        navigate(path);
+      }
+    } else {
+      navigate(path);
     }
   };
 
@@ -97,9 +113,9 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
             const isActive = currentPath === item.path;
             return (
               <li key={item.id}>
-                <a
-                  href={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                <button
+                  onClick={() => handleMenuClick(item.path)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors w-full text-left ${
                     isActive
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-300 hover:bg-slate-700'
@@ -107,7 +123,7 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
                 >
                   <Icon className="w-5 h-5" />
                   {item.label}
-                </a>
+                </button>
               </li>
             );
           })}
@@ -149,7 +165,10 @@ export default function Sidebar({ currentPath, onQuickAction, currentTab = 'all'
       {currentUser && (
         <div className="p-4 border-t border-slate-700">
           <button
-            onClick={logout}
+            onClick={() => {
+              useProjectStore.getState().logout();
+              navigate('/');
+            }}
             className="flex items-center gap-3 w-full px-4 py-2 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors"
           >
             <LogOut className="w-5 h-5" />
