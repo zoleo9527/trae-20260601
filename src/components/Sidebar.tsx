@@ -44,10 +44,13 @@ export const Sidebar = () => {
   };
 
   const handleProcess = () => {
+    if (!selectedOrder.assignee) {
+      return;
+    }
     updateOrderStatus(selectedOrder.id, 'processing');
     addOperation(selectedOrder.id, {
       id: `H${Date.now()}`,
-      operator: selectedOrder.assignee || '维修师傅',
+      operator: selectedOrder.assignee,
       operatorRole: 'repairman',
       action: '开始处理',
       timestamp: new Date().toISOString(),
@@ -55,10 +58,13 @@ export const Sidebar = () => {
   };
 
   const handleContinueProcess = () => {
+    if (!selectedOrder.assignee) {
+      return;
+    }
     updateOrderStatus(selectedOrder.id, 'processing');
     addOperation(selectedOrder.id, {
       id: `H${Date.now()}`,
-      operator: selectedOrder.assignee || '维修师傅',
+      operator: selectedOrder.assignee,
       operatorRole: 'repairman',
       action: '继续处理',
       timestamp: new Date().toISOString(),
@@ -193,8 +199,16 @@ export const Sidebar = () => {
       </div>
 
       <div className="p-4 border-t border-gray-200">
+        {!selectedOrder.assignee && (selectedOrder.status === 'pending' || selectedOrder.status === 'rejected') && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <AlertTriangle className="inline w-4 h-4 mr-2" />
+              请先分配处理人后再进行操作
+            </p>
+          </div>
+        )}
         <div className="flex gap-2">
-          {selectedOrder.status === 'pending' && (
+          {selectedOrder.status === 'pending' && selectedOrder.assignee && (
             <button
               onClick={handleProcess}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
@@ -230,7 +244,7 @@ export const Sidebar = () => {
               发起回访
             </button>
           )}
-          {selectedOrder.status === 'rejected' && (
+          {selectedOrder.status === 'rejected' && selectedOrder.assignee && (
             <button
               onClick={handleProcess}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
@@ -239,8 +253,25 @@ export const Sidebar = () => {
               重新提交
             </button>
           )}
+          {selectedOrder.status === 'rejected' && !selectedOrder.assignee && (
+            <button
+              onClick={() => setShowReassign(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              <UserPlus size={16} />
+              分配处理人
+            </button>
+          )}
           {selectedOrder.status === 'overdue' && (
             <>
+              {!selectedOrder.assignee && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <AlertTriangle className="inline w-4 h-4 mr-2" />
+                    请先分配处理人后再进行操作
+                  </p>
+                </div>
+              )}
               {selectedOrder.assignee ? (
                 <button
                   onClick={handleContinueProcess}
