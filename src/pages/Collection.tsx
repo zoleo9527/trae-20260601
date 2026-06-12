@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Space, Tooltip, Tabs } from 'antd';
 import { PhoneOutlined, MailOutlined, MessageOutlined, FileTextOutlined, EyeOutlined, CheckOutlined, ClockCircleOutlined } from '@ant-design/icons';
-import type { CollectionRecord, UserRole, Reminder } from '@/types';
-import { mockCollectionRecords } from '@/data/mockData';
+import type { CollectionRecord, UserRole } from '@/types';
+import { StoreActions } from '@/store/useStore';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { hasPermission } from '@/utils/auth';
 
 interface CollectionPageProps {
   currentUserRole: UserRole;
+  collections: CollectionRecord[];
+  actions: StoreActions;
 }
 
 const statusColors: Record<string, string> = {
@@ -42,14 +44,23 @@ const reminderTypeIcons: Record<string, React.ReactNode> = {
   letter: <FileTextOutlined />,
 };
 
-export default function CollectionPage({ currentUserRole }: CollectionPageProps) {
-  const [collections, setCollections] = useState<CollectionRecord[]>(mockCollectionRecords);
+export default function CollectionPage({ currentUserRole, collections, actions }: CollectionPageProps) {
   const [modalVisible, setModalVisible] = useState(false);
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [viewingItem, setViewingItem] = useState<CollectionRecord | null>(null);
   const [selectedItem, setSelectedItem] = useState<CollectionRecord | null>(null);
   const [selectedRows, setSelectedRows] = useState<React.Key[]>([]);
   const [reminderForm] = Form.useForm();
+
+  const today = new Date();
+  const pendingCount = collections.filter(c => c.status === 'pending').length;
+  const firstReminderCount = collections.filter(c => c.status === 'first_reminder').length;
+  const secondReminderCount = collections.filter(c => c.status === 'second_reminder').length;
+  const overdueCount = collections.filter(c => {
+    const due = new Date(c.dueDate);
+    return due < today && c.status !== 'paid';
+  }).length;
+  const unpaidTotal = collections.filter(c => c.status !== 'paid').reduce((sum, c) => sum + c.remainingAmount, 0);
 
   const columns = [
     {
@@ -108,7 +119,6 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
       key: 'dueDate',
       width: 100,
       render: (date: string) => {
-        const today = new Date();
         const due = new Date(date);
         const diffDays = Math.ceil((due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays < 0) {
@@ -137,7 +147,7 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
       render: (_: unknown, record: CollectionRecord) => record.reminders.length,
     },
     {
-      title: '成交备注',
+      title: '备注',
       dataIndex: 'notes',
       key: 'notes',
       width: 200,
@@ -163,7 +173,7 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
             </Button>
           )}
           {record.remainingAmount > 0 && hasPermission(currentUserRole, 'payment_confirm') && (
-            <Button icon={<CheckOutlined />} size="small" type="primary" onClick={() => confirmPayment(record)}>
+            <Button icon={<CheckOutlined />} size="small" type="primary" onClick={() => actions.confirmPayment(record.id)}>
               确认收款
             </Button>
           )}
@@ -186,55 +196,10 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
     setReminderModalVisible(true);
   };
 
-  const confirmPayment = (record: CollectionRecord) => {
-    Modal.confirm({
-      title: '确认收款',
-      content: `确认收到 ${record.bidderName} 的尾款 ${formatCurrency(record.remainingAmount)} 吗？`,
-      onOk: () => {
-        setCollections(prev => prev.map(c => 
-          c.id === record.id ? { 
-            ...c, 
-            paidAmount: record.totalAmount,
-            remainingAmount: 0,
-            status: 'paid' as const,
-            updatedAt: new Date().toISOString().split('T')[0],
-            notes: `${c.notes || ''}\n${new Date().toISOString().split('T')[0]}: 尾款已全部结清`,
-          } : c
-        ));
-      },
-    });
-  };
-
   const handleSendReminder = () => {
     reminderForm.validateFields().then(values => {
       if (selectedItem) {
-        const newReminder: Reminder = {
-          id: `R${Date.now()}`,
-          type: values.type as 'call' | 'sms' | 'email' | 'letter',
-          content: values.content,
-          sentAt: new Date().toISOString().split('T')[0],
-          operator: '当前用户',
-          result: 'success',
-        };
-
-        let newStatus: CollectionRecord['status'] = selectedItem.status;
-        if (selectedItem.status === 'pending') {
-          newStatus = 'first_reminder';
-        } else if (selectedItem.status === 'first_reminder') {
-          newStatus = 'second_reminder';
-        } else if (selectedItem.status === 'second_reminder') {
-          newStatus = 'legal_notice';
-        }
-
-        setCollections(prev => prev.map(c => 
-          c.id === selectedItem.id ? { 
-            ...c, 
-            status: newStatus,
-            lastRemindAt: new Date().toISOString().split('T')[0],
-            reminders: [...c.reminders, newReminder],
-            updatedAt: new Date().toISOString().split('T')[0],
-          } : c
-        ));
+        actions.sendReminder(selectedItem.id, values.type as 'sms' | 'call' | 'email' | 'letter', values.content, '当前用户');
       }
       setReminderModalVisible(false);
       reminderForm.resetFields();
@@ -242,24 +207,114 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
   };
 
   const handleBatchReminder = () => {
-    Modal.info({
-      title: '批量催收',
-      content: `已选择 ${selectedRows.length} 条记录，将向所有选中记录发送催收通知`,
-    });
+    const ids = selectedRows.map(id => String(id)) as string[];
+    actions.batchRemind(ids, '当前用户');
     setSelectedRows([]);
   };
 
-  const pendingCount = collections.filter(c => c.status === 'pending').length;
-  const firstReminderCount = collections.filter(c => c.status === 'first_reminder').length;
-  const secondReminderCount = collections.filter(c => c.status === 'second_reminder').length;
-  const overdueCount = collections.filter(c => {
-    const today = new Date();
-    const due = new Date(c.dueDate);
-    return due < today && c.status !== 'paid';
-  }).length;
+  const renderRoleSpecificCards = () => {
+    if (currentUserRole === 'project_manager') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{pendingCount + firstReminderCount + secondReminderCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待催收任务</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>已逾期</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{formatCurrency(unpaidTotal)}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待收总额</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {collections.filter(c => c.status === 'paid').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>已结清</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
 
-  return (
-    <div>
+    if (currentUserRole === 'reviewer') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{collections.length}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>催收任务总数</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>已逾期</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{formatCurrency(unpaidTotal)}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待收总额</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {collections.filter(c => c.status === 'paid').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>已结清</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
+
+    if (currentUserRole === 'finance') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{overdueCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>逾期催收</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #52c41a' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {collections.filter(c => c.status !== 'paid' && c.remainingAmount > 0).length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>待确认收款</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{formatCurrency(unpaidTotal)}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待收总额</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {collections.filter(c => c.status === 'paid').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>已结清</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
+
+    return (
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
@@ -288,12 +343,18 @@ export default function CollectionPage({ currentUserRole }: CollectionPageProps)
           </Card>
         </Col>
       </Row>
+    );
+  };
+
+  return (
+    <div>
+      {renderRoleSpecificCards()}
 
       <Card 
         title="尾款催收管理" 
         extra={
           <div style={{ display: 'flex', gap: 12 }}>
-            {selectedRows.length > 0 && (
+            {selectedRows.length > 0 && hasPermission(currentUserRole, 'collection_edit') && (
               <Button icon={<MessageOutlined />} type="primary" onClick={handleBatchReminder}>
                 批量催收 ({selectedRows.length})
               </Button>

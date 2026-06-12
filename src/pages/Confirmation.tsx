@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { Table, Button, Modal, Form, Input, Select, Tag, Card, Row, Col, Progress, Space, Tooltip, Popconfirm, Checkbox } from 'antd';
 import { EditOutlined, CheckOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import type { Confirmation, UserRole, DepositRecord } from '@/types';
-import { mockConfirmations, mockDepositRecords } from '@/data/mockData';
+import { StoreActions } from '@/store/useStore';
+import { mockDepositRecords } from '@/data/mockData';
 import { formatCurrency } from '@/utils/format';
 import { hasPermission } from '@/utils/auth';
 
 interface ConfirmationPageProps {
   currentUserRole: UserRole;
+  confirmations: Confirmation[];
+  actions: StoreActions;
 }
 
 const statusColors: Record<string, string> = {
@@ -30,13 +33,24 @@ const statusLabels: Record<string, string> = {
   cancelled: '已取消',
 };
 
-export default function ConfirmationPage({ currentUserRole }: ConfirmationPageProps) {
-  const [confirmations, setConfirmations] = useState<Confirmation[]>(mockConfirmations);
+export default function ConfirmationPage({ currentUserRole, confirmations, actions }: ConfirmationPageProps) {
   const [depositRecords] = useState<DepositRecord[]>(mockDepositRecords);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<Confirmation | null>(null);
   const [selectedRows, setSelectedRows] = useState<React.Key[]>([]);
   const [form] = Form.useForm();
+
+  const pendingCount = confirmations.filter(c => c.status === 'pending').length;
+  const incompleteCount = confirmations.filter(c => 
+    !c.dataCompleteness.subjectData || 
+    !c.dataCompleteness.bidderQualification || 
+    !c.dataCompleteness.contractSigned || 
+    !c.dataCompleteness.otherDocuments
+  ).length;
+  const disputeCount = confirmations.filter(c => c.status === 'dispute').length;
+  const confirmedCount = confirmations.filter(c => c.status === 'confirmed').length;
+
+  const filteredConfirmations = confirmations;
 
   const columns = [
     {
@@ -133,40 +147,27 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
     {
       title: '操作',
       key: 'actions',
-      width: 180,
+      width: 200,
       fixed: 'right' as const,
       render: (_: unknown, record: Confirmation) => (
         <Space>
-          <Button 
-            icon={<EyeOutlined />} 
-            size="small" 
-            onClick={() => viewDetail(record)}
-          >
+          <Button icon={<EyeOutlined />} size="small" onClick={() => viewDetail(record)}>
             查看
           </Button>
           {(hasPermission(currentUserRole, 'confirmation_edit') || hasPermission(currentUserRole, 'confirmation_audit')) && (
-            <Button 
-              icon={<EditOutlined />} 
-              size="small" 
-              onClick={() => editRecord(record)}
-            >
+            <Button icon={<EditOutlined />} size="small" onClick={() => editRecord(record)}>
               编辑
             </Button>
           )}
           {record.status === 'confirmed' && hasPermission(currentUserRole, 'confirmation_edit') && (
-            <Button 
-              icon={<CheckOutlined />} 
-              size="small" 
-              type="primary"
-              onClick={() => confirmCompletion(record)}
-            >
+            <Button icon={<CheckOutlined />} size="small" type="primary" onClick={() => actions.confirmCompletion(record.id)}>
               确认完成
             </Button>
           )}
           {record.status === 'dispute' && hasPermission(currentUserRole, 'confirmation_audit') && (
             <Popconfirm
               title="确认解决争议？"
-              onConfirm={() => resolveDispute(record)}
+              onConfirm={() => actions.resolveDispute(record.id)}
             >
               <Button icon={<CheckOutlined />} size="small" danger={false} style={{ backgroundColor: '#52c41a', borderColor: '#52c41a', color: '#fff' }}>
                 解决争议
@@ -198,35 +199,19 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
     setModalVisible(true);
   };
 
-  const confirmCompletion = (record: Confirmation) => {
-    setConfirmations(prev => prev.map(c => 
-      c.id === record.id ? { ...c, status: 'completed' as const, updatedAt: new Date().toISOString().split('T')[0] } : c
-    ));
-  };
-
-  const resolveDispute = (record: Confirmation) => {
-    setConfirmations(prev => prev.map(c => 
-      c.id === record.id ? { ...c, status: 'confirmed' as const, updatedAt: new Date().toISOString().split('T')[0] } : c
-    ));
-  };
-
   const handleSave = () => {
     form.validateFields().then(values => {
       if (editingItem) {
-        setConfirmations(prev => prev.map(c => 
-          c.id === editingItem.id ? { 
-            ...c, 
-            notes: values.notes,
-            status: values.status as Confirmation['status'],
-            dataCompleteness: {
-              subjectData: values.subjectData,
-              bidderQualification: values.bidderQualification,
-              contractSigned: values.contractSigned,
-              otherDocuments: values.otherDocuments,
-            },
-            updatedAt: new Date().toISOString().split('T')[0],
-          } : c
-        ));
+        actions.updateConfirmation(editingItem.id, {
+          notes: values.notes,
+          status: values.status as Confirmation['status'],
+          dataCompleteness: {
+            subjectData: values.subjectData,
+            bidderQualification: values.bidderQualification,
+            contractSigned: values.contractSigned,
+            otherDocuments: values.otherDocuments,
+          },
+        });
       }
       setModalVisible(false);
       form.resetFields();
@@ -234,24 +219,114 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
   };
 
   const handleBatchAction = () => {
-    Modal.info({
-      title: '批量操作',
-      content: `已选择 ${selectedRows.length} 条记录，执行批量确认`,
-    });
+    const ids = selectedRows.map(id => String(id)) as string[];
+    actions.batchConfirm(ids);
     setSelectedRows([]);
   };
 
-  const incompleteCount = confirmations.filter(c => 
-    !c.dataCompleteness.subjectData || 
-    !c.dataCompleteness.bidderQualification || 
-    !c.dataCompleteness.contractSigned || 
-    !c.dataCompleteness.otherDocuments
-  ).length;
+  const renderRoleSpecificCards = () => {
+    if (currentUserRole === 'project_manager') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #1890ff' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{pendingCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待处理成交</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>资料待补正</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #52c41a' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{confirmedCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待确认完成</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
 
-  const disputeCount = confirmations.filter(c => c.status === 'dispute').length;
+    if (currentUserRole === 'reviewer') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #f5222d' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>{disputeCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>待处理争议</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{incompleteCount}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>资格待审核</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {confirmations.filter(c => c.status === 'completed').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>已完成</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
 
-  return (
-    <div>
+    if (currentUserRole === 'finance') {
+      return (
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #1890ff' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                {depositRecords.filter(d => d.status === 'pending').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>保证金待到账</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card hoverable style={{ borderLeft: '4px solid #faad14' }} onClick={() => {}}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
+                {depositRecords.filter(d => d.status === 'refunding').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>保证金退款中</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{confirmations.length}</div>
+              <div style={{ fontSize: 12, color: '#666' }}>成交确认总数</div>
+            </Card>
+          </Col>
+          <Col span={6}>
+            <Card>
+              <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                {confirmations.filter(c => c.status === 'completed').length}
+              </div>
+              <div style={{ fontSize: 12, color: '#666' }}>已完成</div>
+            </Card>
+          </Col>
+        </Row>
+      );
+    }
+
+    return (
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
@@ -280,6 +355,12 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
           </Card>
         </Col>
       </Row>
+    );
+  };
+
+  return (
+    <div>
+      {renderRoleSpecificCards()}
 
       <Card 
         title="成交确认管理" 
@@ -291,7 +372,7 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
               </Button>
             )}
             {selectedRows.length > 0 && (
-              <Button icon={<CheckOutlined />} onClick={handleBatchAction}>
+              <Button icon={<CheckOutlined />} type="primary" onClick={handleBatchAction}>
                 批量确认 ({selectedRows.length})
               </Button>
             )}
@@ -301,7 +382,7 @@ export default function ConfirmationPage({ currentUserRole }: ConfirmationPagePr
         <Table
           rowKey="id"
           columns={columns}
-          dataSource={confirmations}
+          dataSource={filteredConfirmations}
           pagination={{ pageSize: 10 }}
           scroll={{ x: 1200 }}
           rowSelection={{

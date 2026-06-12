@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { Table, Button, Modal, Card, Row, Col, Select, Input, Tag } from 'antd';
 import { SearchOutlined, FilterOutlined, DownloadOutlined, FileTextOutlined, BellOutlined } from '@ant-design/icons';
 import type { ActionLog } from '@/types';
-import { mockActionLogs } from '@/data/mockData';
 import { formatDateTime } from '@/utils/format';
 
-export default function HistoryPage() {
-  const [logs] = useState<ActionLog[]>(mockActionLogs);
+interface HistoryPageProps {
+  logs: ActionLog[];
+}
+
+export default function HistoryPage({ logs }: HistoryPageProps) {
   const [searchText, setSearchText] = useState('');
   const [filterType, setFilterType] = useState<string>('');
   const [filterTargetType, setFilterTargetType] = useState<string>('');
@@ -32,7 +34,11 @@ export default function HistoryPage() {
                     type === '审核通过' ? 'green' : 
                     type === '发送催收' ? 'orange' : 
                     type === '确认收款' ? 'green' : 
-                    type === '发起争议' ? 'red' : 'gray'}>
+                    type === '发起争议' ? 'red' : 
+                    type === '解决争议' ? 'green' :
+                    type === '批量确认' ? 'blue' :
+                    type === '批量催收' ? 'orange' :
+                    type === '编辑成交确认' ? 'cyan' : 'gray'}>
           {type}
         </Tag>
       ),
@@ -64,7 +70,7 @@ export default function HistoryPage() {
       title: '操作内容',
       dataIndex: 'content',
       key: 'content',
-      width: 300,
+      width: 350,
     },
     {
       title: '操作人',
@@ -91,37 +97,38 @@ export default function HistoryPage() {
 
   const actionTypes = [...new Set(logs.map(log => log.type))];
 
+  const stats = {
+    total: logs.length,
+    confirm: logs.filter(l => l.type === '确认成交' || l.type === '批量确认').length,
+    remind: logs.filter(l => l.type === '发送催收' || l.type === '批量催收').length,
+    payment: logs.filter(l => l.type === '确认收款').length,
+  };
+
   return (
     <div>
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
           <Card>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{logs.length}</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{stats.total}</div>
             <div style={{ fontSize: 12, color: '#666' }}>操作记录总数</div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
-              {logs.filter(l => l.type === '确认收款').length}
-            </div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{stats.payment}</div>
             <div style={{ fontSize: 12, color: '#666' }}>收款完成</div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>
-              {logs.filter(l => l.type === '发送催收').length}
-            </div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#faad14' }}>{stats.remind}</div>
             <div style={{ fontSize: 12, color: '#666' }}>催收发送</div>
           </Card>
         </Col>
         <Col span={6}>
           <Card>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#f5222d' }}>
-              {logs.filter(l => l.type === '发起争议').length}
-            </div>
-            <div style={{ fontSize: 12, color: '#666' }}>争议处理</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>{stats.confirm}</div>
+            <div style={{ fontSize: 12, color: '#666' }}>成交确认</div>
           </Card>
         </Col>
       </Row>
