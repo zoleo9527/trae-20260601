@@ -11,6 +11,17 @@ from typing import List, Optional, Dict, Any
 
 api = NinjaAPI()
 
+BATCH_STATUS_CHOICES = [
+    ('pending', '待挤奶'),
+    ('milking', '挤奶中'),
+    ('completed', '已完成'),
+    ('testing', '检测中'),
+    ('abnormal', '不合格'),
+    ('isolated', '隔离中'),
+]
+
+BATCH_STATUS_MAP = dict(BATCH_STATUS_CHOICES)
+
 class AuthBearer(HttpBearer):
     def authenticate(self, request, token):
         try:
@@ -189,10 +200,10 @@ def trigger_notifications(batch: MilkingBatch, notification_type: str, content: 
                 batch=batch
             )
 
-def update_batch_status_from_tests(batch: MilkingBatch):
+def calculate_batch_status(batch: MilkingBatch) -> str:
     tests = batch.quality_tests.all()
     if not tests.exists():
-        return
+        return batch.status
     
     has_pending = tests.filter(result='pending').exists()
     has_testing = tests.filter(result='testing').exists()
@@ -202,18 +213,36 @@ def update_batch_status_from_tests(batch: MilkingBatch):
     antibiotic_fail = tests.filter(test_type='antibiotic', result='fail').exists()
     
     if antibiotic_fail:
+        return 'isolated'
+    elif has_fail:
+        return 'abnormal'
+    elif has_pending or has_testing:
+        return 'testing'
+    elif has_pass and not has_pending and not has_testing and not has_fail:
+        return 'completed'
+    
+    return batch.status
+
+def update_batch_status_from_tests(batch: MilkingBatch, trigger_alert: bool = True):
+    new_status = calculate_batch_status(batch)
+    old_status = batch.status
+    
+    if new_status == 'isolated':
         batch.status = 'isolated'
         batch.antibiotic_isolated = True
         batch.isolation_reason = '抗生素检测不合格'
-        trigger_notifications(batch, 'antibiotic_alert', f'批次 {batch.batch_no} 抗生素检测不合格，已自动隔离')
-    elif has_fail:
+        if trigger_alert and old_status != 'isolated':
+            trigger_notifications(batch, 'antibiotic_alert', f'批次 {batch.batch_no} 抗生素检测不合格，已自动隔离')
+    elif new_status == 'abnormal':
         batch.status = 'abnormal'
         batch.antibiotic_isolated = False
-        trigger_notifications(batch, 'quality_fail', f'批次 {batch.batch_no} 质量检测不合格')
-    elif has_pending or has_testing:
+        if trigger_alert and old_status != 'abnormal':
+            trigger_notifications(batch, 'quality_fail', f'批次 {batch.batch_no} 质量检测不合格')
+    elif new_status == 'testing':
         batch.status = 'testing'
-    elif has_pass and not has_pending and not has_testing and not has_fail:
+    elif new_status == 'completed':
         batch.status = 'completed'
+        batch.antibiotic_isolated = False
     
     batch.save()
 
@@ -302,9 +331,13 @@ def update_batch(request, batch_id: int, data: UpdateBatchSchema):
     batch = get_object_or_404(MilkingBatch, id=batch_id)
     old_status = batch.status
     
+    valid_statuses = [status[0] for status in BATCH_STATUS_CHOICES]
+    
     if data.cow_count is not None:
         batch.cow_count = data.cow_count
     if data.status is not None:
+        if data.status not in valid_statuses:
+            return api.create_response(request, {'error': f'无效的状态值: {data.status}, 有效值: {", ".join(valid_statuses)}'}, status=400)
         batch.status = data.status
         if data.status == 'milking' and not batch.start_time:
             batch.start_time = timezone.now()
@@ -491,7 +524,7 @@ def resolve_notification(request, notification_id: int):
     notification.save()
     
     if notification.batch:
-        update_batch_status_from_tests(notification.batch)
+        update_batch_status_from_tests(notification.batch, trigger_alert=False)
     
     return {'success': True}
 
@@ -540,7 +573,7 @@ def resolve_error_log(request, log_id: int):
             error_log.batch.antibiotic_isolated = False
             error_log.batch.isolation_reason = None
             error_log.batch.save()
-        update_batch_status_from_tests(error_log.batch)
+        update_batch_status_from_tests(error_log.batch, trigger_alert=False)
     
     return {'success': True}
 
@@ -560,7 +593,7 @@ def list_attachments(request, batch_id: Optional[int] = None):
     
     return result
 
-@api.post("/attachments", response=AttachmentDetailSchema, auth=auth)
+@api.post("/attachments", auth=auth)
 def upload_attachment(request):
     attachment_type = request.POST.get('attachment_type')
     batch_id = request.POST.get('batch_id')
@@ -592,10 +625,17 @@ def upload_attachment(request):
         uploaded_by=request.auth
     )
     
-    schema = AttachmentDetailSchema.from_orm(attachment)
-    schema.uploaded_by_username = request.auth.username
-    schema.download_url = f'/api/attachments/{attachment.id}/download'
-    return schema
+    result = {
+        'id': attachment.id,
+        'file_name': attachment.file_name,
+        'file_size': attachment.file_size,
+        'attachment_type': attachment.attachment_type,
+        'uploaded_by_username': request.auth.username,
+        'download_url': f'/api/attachments/{attachment.id}/download',
+        'uploaded_at': attachment.uploaded_at.isoformat()
+    }
+    
+    return result
 
 @api.delete("/attachments/{attachment_id}", auth=auth)
 def delete_attachment(request, attachment_id: int):
