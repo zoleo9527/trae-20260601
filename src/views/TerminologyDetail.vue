@@ -3,7 +3,7 @@
     <template #header-actions>
       <ActionButton
         variant="secondary"
-        icon="ArrowLeft"
+        :icon="ArrowLeftIcon"
         @click="goBack"
       >
         返回
@@ -54,7 +54,7 @@
             <ActionButton
               v-if="terminology.status === 'pending'"
               variant="success"
-              icon="CheckCircle"
+              :icon="CheckCircleIcon"
               @click="approveTerm"
             >
               确认通过
@@ -62,7 +62,7 @@
             <ActionButton
               v-if="terminology.status === 'pending'"
               variant="danger"
-              icon="XCircle"
+              :icon="XCircleIcon"
               @click="showRejectModal = true"
             >
               驳回术语
@@ -70,7 +70,7 @@
             <ActionButton
               v-if="terminology.status === 'rejected'"
               variant="primary"
-              icon="Edit"
+              :icon="EditIcon"
               @click="showUpdateModal = true"
             >
               更新术语
@@ -227,6 +227,11 @@ const router = useRouter()
 const terminologyStore = useTerminologyStore()
 const assignmentStore = useAssignmentStore()
 const userStore = useUserStore()
+
+const ArrowLeftIcon = ArrowLeft
+const CheckCircleIcon = CheckCircle
+const XCircleIcon = XCircle
+const EditIcon = Edit
 
 const terminologyId = route.params.id as string
 const terminology = computed(() => terminologyStore.getTerminologyById(terminologyId))

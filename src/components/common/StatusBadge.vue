@@ -19,8 +19,7 @@ import {
   Eye, 
   XCircle, 
   CheckCircle,
-  AlertCircle,
-  FileCheck
+  AlertCircle
 } from 'lucide-vue-next'
 import type { AssignmentStatus, TerminologyStatus } from '@/types'
 

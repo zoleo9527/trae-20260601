@@ -157,6 +157,8 @@ export const assignments: Assignment[] = [
     projectName: '小米智能家居手册',
     sourceLanguage: '中文',
     targetLanguage: '法语',
+    translatorId: '',
+    translatorName: '',
     status: 'pending',
     deadline: '2026-07-05',
     createdAt: '2026-06-12T16:00:00Z',

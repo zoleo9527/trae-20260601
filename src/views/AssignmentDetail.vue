@@ -3,7 +3,7 @@
     <template #header-actions>
       <ActionButton
         variant="secondary"
-        icon="ArrowLeft"
+        :icon="ArrowLeftIcon"
         @click="goBack"
       >
         返回
@@ -54,7 +54,7 @@
             <ActionButton
               v-if="assignment.status === 'pending'"
               variant="primary"
-              icon="UserPlus"
+              :icon="UserPlusIcon"
               @click="showAssignModal = true"
             >
               分配译员
@@ -62,7 +62,7 @@
             <ActionButton
               v-if="assignment.status === 'assigned'"
               variant="primary"
-              icon="CheckCircle"
+              :icon="CheckCircleIcon"
               @click="acceptTask"
             >
               接收任务
@@ -70,7 +70,7 @@
             <ActionButton
               v-if="assignment.status === 'in_progress'"
               variant="primary"
-              icon="Send"
+              :icon="SendIcon"
               @click="showSubmitModal = true"
             >
               提交译稿
@@ -78,7 +78,7 @@
             <ActionButton
               v-if="assignment.status === 'reviewing'"
               variant="success"
-              icon="CheckCircle"
+              :icon="CheckCircleIcon"
               @click="showApproveModal = true"
             >
               通过审核
@@ -86,7 +86,7 @@
             <ActionButton
               v-if="assignment.status === 'reviewing'"
               variant="danger"
-              icon="XCircle"
+              :icon="XCircleIcon"
               @click="showRejectModal = true"
             >
               驳回译稿
@@ -94,7 +94,7 @@
             <ActionButton
               v-if="assignment.status === 'rejected'"
               variant="primary"
-              icon="Send"
+              :icon="SendIcon"
               @click="showResubmitModal = true"
             >
               重新提交
@@ -361,6 +361,12 @@ const assignmentStore = useAssignmentStore()
 const terminologyStore = useTerminologyStore()
 const userStore = useUserStore()
 
+const UserPlusIcon = UserPlus
+const CheckCircleIcon = CheckCircle
+const SendIcon = Send
+const XCircleIcon = XCircle
+const ArrowLeftIcon = ArrowLeft
+
 const assignmentId = route.params.id as string
 const assignment = computed(() => assignmentStore.getAssignmentById(assignmentId))
 const terminologies = computed(() => terminologyStore.getTerminologiesByAssignment(assignmentId))
@@ -380,7 +386,7 @@ const resubmitRemark = ref('')
 
 const translators = computed(() => userStore.getUsersByRole('translator'))
 
-const workflowSteps = [
+const workflowSteps: Array<{ status: AssignmentStatus; label: string; icon: any }> = [
   { status: 'pending', label: '待分配', icon: Clock },
   { status: 'assigned', label: '已分配', icon: UserCheck },
   { status: 'in_progress', label: '进行中', icon: Loader },
@@ -398,14 +404,14 @@ const currentStepIndex = computed(() => {
   return index
 })
 
-const getStepClass = (status: AssignmentStatus, index: number) => {
+const getStepClass = (_status: AssignmentStatus, index: number) => {
   if (index <= currentStepIndex.value) {
     return 'bg-primary-50 text-primary-700 border border-primary-200'
   }
   return 'bg-gray-50 text-gray-400 border border-gray-200'
 }
 
-const getStepIconColor = (status: AssignmentStatus, index: number) => {
+const getStepIconColor = (_status: AssignmentStatus, index: number) => {
   if (index <= currentStepIndex.value) {
     return 'text-primary-600'
   }

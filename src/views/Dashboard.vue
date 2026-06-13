@@ -97,11 +97,9 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { 
   Clock, 
-  UserCheck, 
   Loader, 
   Eye, 
-  XCircle, 
-  CheckCircle,
+  XCircle,
   ChevronRight,
   Inbox
 } from 'lucide-vue-next'

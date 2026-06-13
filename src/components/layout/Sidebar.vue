@@ -90,7 +90,7 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { FileText, LayoutDashboard, Users, BookOpen } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import type { UserRole, User } from '@/types'
+import type { UserRole } from '@/types'
 
 const route = useRoute()
 const userStore = useUserStore()

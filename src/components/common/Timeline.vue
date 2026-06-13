@@ -49,9 +49,9 @@
           v-if="item.fromStatus && item.toStatus"
           class="mt-2 flex items-center gap-2"
         >
-          <StatusBadge :status="item.fromStatus" type="assignment" />
+          <StatusBadge :status="(item.fromStatus as AssignmentStatus)" type="assignment" />
           <ArrowRight class="w-4 h-4 text-gray-400" />
-          <StatusBadge :status="item.toStatus" type="assignment" />
+          <StatusBadge :status="(item.toStatus as AssignmentStatus)" type="assignment" />
         </div>
       </div>
     </div>
@@ -62,8 +62,9 @@
 import { ArrowRight } from 'lucide-vue-next'
 import type { HistoryRecord, UserRole } from '@/types'
 import StatusBadge from './StatusBadge.vue'
+import type { AssignmentStatus } from '@/types'
 
-const props = defineProps<{
+defineProps<{
   items: HistoryRecord[]
 }>()
 

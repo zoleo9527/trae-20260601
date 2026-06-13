@@ -30,10 +30,6 @@ const props = defineProps<{
   disabled?: boolean
 }>()
 
-const emit = defineEmits<{
-  click: []
-}>()
-
 const variantClass = computed(() => {
   const classes = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500',

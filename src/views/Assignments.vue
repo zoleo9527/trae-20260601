@@ -3,7 +3,7 @@
     <template #header-actions>
       <ActionButton
         variant="primary"
-        icon="Plus"
+        :icon="PlusIcon"
         @click="showCreateModal = true"
       >
         新建分配
@@ -24,7 +24,7 @@
           <ActionButton
             variant="secondary"
             size="sm"
-            icon="UserPlus"
+            :icon="UserPlusIcon"
             @click="showBatchAssignModal = true"
           >
             批量分配
@@ -32,7 +32,7 @@
           <ActionButton
             variant="danger"
             size="sm"
-            icon="XCircle"
+            :icon="XCircleIcon"
             @click="showBatchRejectModal = true"
           >
             批量驳回
@@ -40,7 +40,7 @@
           <ActionButton
             variant="success"
             size="sm"
-            icon="CheckCircle"
+            :icon="CheckCircleIcon"
             @click="showBatchApproveModal = true"
           >
             批量通过
@@ -424,6 +424,11 @@ import type { Assignment } from '@/types'
 const router = useRouter()
 const assignmentStore = useAssignmentStore()
 const userStore = useUserStore()
+
+const PlusIcon = Plus
+const UserPlusIcon = UserPlus
+const XCircleIcon = XCircle
+const CheckCircleIcon = CheckCircle
 
 const showCreateModal = ref(false)
 const showAssignModal = ref(false)

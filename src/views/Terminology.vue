@@ -62,7 +62,7 @@
                 v-if="term.status === 'pending'"
                 variant="success"
                 size="sm"
-                icon="CheckCircle"
+                :icon="CheckCircleIcon"
                 @click.stop="approveTerm(term)"
               >
                 确认
@@ -71,7 +71,7 @@
                 v-if="term.status === 'pending'"
                 variant="danger"
                 size="sm"
-                icon="XCircle"
+                :icon="XCircleIcon"
                 @click.stop="openRejectModal(term)"
               >
                 驳回
@@ -80,7 +80,7 @@
                 v-if="term.status === 'rejected'"
                 variant="primary"
                 size="sm"
-                icon="Edit"
+                :icon="EditIcon"
                 @click.stop="openUpdateModal(term)"
               >
                 更新
@@ -88,7 +88,7 @@
               <ActionButton
                 variant="secondary"
                 size="sm"
-                icon="History"
+                :icon="HistoryIcon"
                 @click.stop="openHistoryModal(term)"
               >
                 回看
@@ -252,6 +252,11 @@ import type { Terminology, TerminologyStatus } from '@/types'
 const router = useRouter()
 const terminologyStore = useTerminologyStore()
 const userStore = useUserStore()
+
+const CheckCircleIcon = CheckCircle
+const XCircleIcon = XCircle
+const EditIcon = Edit
+const HistoryIcon = History
 
 const statusFilter = ref<TerminologyStatus | ''>('')
 const searchTerm = ref('')
