@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Table, Tag, Button, Space, Select, Input, Modal, Form, DatePicker, message, Tooltip } from 'antd'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Table, Tag, Button, Space, Select, Input, Modal, Form, DatePicker, message, Tooltip, Empty, Card } from 'antd'
 import {
   EyeOutlined,
   PlayCircleOutlined,
@@ -8,8 +8,8 @@ import {
   PlusOutlined,
   RollbackOutlined,
   FileDoneOutlined,
-  EditOutlined,
   SearchOutlined,
+  ClearOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -17,16 +17,9 @@ import dayjs from 'dayjs'
 
 function TaxFilings() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState({ list: [], total: 0 })
   const [loading, setLoading] = useState(false)
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20 })
-  const [filters, setFilters] = useState({
-    status: searchParams.get('status') || undefined,
-    period: searchParams.get('period') || undefined,
-    tax_type: undefined,
-    keyword: '',
-  })
   const [createModal, setCreateModal] = useState(false)
   const [remarkModal, setRemarkModal] = useState(false)
   const [currentRecord, setCurrentRecord] = useState(null)
@@ -34,17 +27,52 @@ function TaxFilings() {
   const [remarkForm] = Form.useForm()
   const [customers, setCustomers] = useState([])
 
+  const statusFilter = searchParams.get('status') || undefined
+  const taxTypeFilter = searchParams.get('tax_type') || undefined
+  const keyword = searchParams.get('keyword') || ''
+  const currentPage = parseInt(searchParams.get('page') || '1')
+  const pageSize = parseInt(searchParams.get('pageSize') || '20')
+
+  const hasActiveFilter = statusFilter || taxTypeFilter || keyword
+
   useEffect(() => {
-    fetchData()
     api.getCustomers({ pageSize: 100 }).then(res => setCustomers(res.list))
   }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [searchParams.toString()])
+
+  const updateParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        newParams.delete(key)
+      } else {
+        newParams.set(key, value)
+      }
+    })
+    if (updates.page === undefined) {
+      newParams.set('page', '1')
+    }
+    setSearchParams(newParams, { replace: false })
+  }
+
+  const clearAllFilters = () => {
+    const newParams = new URLSearchParams()
+    newParams.set('page', '1')
+    newParams.set('pageSize', pageSize.toString())
+    setSearchParams(newParams, { replace: false })
+  }
 
   const fetchData = () => {
     setLoading(true)
     const params = {
-      page: pagination.current,
-      pageSize: pagination.pageSize,
-      ...filters,
+      page: currentPage,
+      pageSize: pageSize,
+      status: statusFilter,
+      tax_type: taxTypeFilter,
+      keyword: keyword || undefined,
     }
     Object.keys(params).forEach(key => {
       if (params[key] === undefined || params[key] === '') delete params[key]
@@ -54,10 +82,6 @@ function TaxFilings() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }
-
-  useEffect(() => {
-    fetchData()
-  }, [pagination.current, pagination.pageSize, filters])
 
   const statusMap = {
     pending: { label: '待处理', color: 'default' },
@@ -296,8 +320,8 @@ function TaxFilings() {
             placeholder="状态筛选"
             style={{ width: 120 }}
             allowClear
-            value={filters.status}
-            onChange={v => setFilters({ ...filters, status: v })}
+            value={statusFilter}
+            onChange={v => updateParams({ status: v })}
           >
             {Object.entries(statusMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val.label}</Select.Option>
@@ -307,47 +331,86 @@ function TaxFilings() {
             placeholder="税种筛选"
             style={{ width: 120 }}
             allowClear
-            value={filters.tax_type}
-            onChange={v => setFilters({ ...filters, tax_type: v })}
+            value={taxTypeFilter}
+            onChange={v => updateParams({ tax_type: v })}
           >
             {Object.entries(taxTypeMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val}</Select.Option>
             ))}
           </Select>
-          <Input
-            placeholder="搜索客户名称"
-            style={{ width: 200 }}
-            prefix={<SearchOutlined />}
+          <Input.Search
+            placeholder="搜索客户/备注"
+            style={{ width: 220 }}
             allowClear
-            value={filters.keyword}
-            onChange={e => setFilters({ ...filters, keyword: e.target.value })}
-            onPressEnter={() => {
-              setPagination({ ...pagination, current: 1 })
-              fetchData()
+            value={keyword}
+            onChange={e => {
+              if (!e.target.value) updateParams({ keyword: '' })
             }}
+            onSearch={value => updateParams({ keyword: value || '' })}
           />
+          {hasActiveFilter && (
+            <Button icon={<ClearOutlined />} onClick={clearAllFilters}>
+              清空筛选
+            </Button>
+          )}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
             新建申报
           </Button>
         </Space>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={data.list}
-        rowKey="id"
-        loading={loading}
-        scroll={{ x: 1200 }}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: data.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: t => `共 ${t} 条`,
-          onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
-        }}
-      />
+      {!loading && data.list.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Empty
+            description={
+            <div>
+            {hasActiveFilter ? (
+              <div>
+                <div style={{ marginBottom: 12 }}>
+                  当前筛选条件下没有数据
+                </div>
+                <Space size="small" wrap style={{ justifyContent: 'center' }}>
+                  {statusFilter && <Tag closable onClose={() => updateParams({ status: undefined })}>
+                    状态：{statusMap[statusFilter]?.label || statusFilter}
+                  </Tag>}
+                  {taxTypeFilter && <Tag closable onClose={() => updateParams({ tax_type: undefined })}>
+                    税种：{taxTypeMap[taxTypeFilter] || taxTypeFilter}
+                  </Tag>}
+                  {keyword && <Tag closable onClose={() => updateParams({ keyword: '' })}>
+                    关键词：{keyword}
+                  </Tag>}
+                </Space>
+                <div style={{ marginTop: 16 }}>
+                  <Button type="primary" onClick={clearAllFilters}>
+                    一键清空筛选
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              '暂无申报记录'
+            )}
+            </div>
+          }
+          />
+        </Card>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={data.list}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1200 }}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: data.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: t => `共 ${t} 条`,
+            onChange: (page, size) => updateParams({ page: page.toString(), pageSize: size.toString() }),
+          }}
+        />
+      )}
 
       <Modal
         title="新建申报记录"

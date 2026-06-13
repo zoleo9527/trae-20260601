@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react'
-import { Table, Tag, Button, Space, Select, Input, Modal, Form, message, Tooltip, Radio, Card, Row, Col } from 'antd'
+import React, { useState, useEffect, useMemo } from 'react'
+import { Table, Tag, Button, Space, Select, Input, Modal, Form, message, Tooltip, Radio, Card, Row, Col, Empty } from 'antd'
 import {
   EyeOutlined,
   PlayCircleOutlined,
@@ -11,7 +11,7 @@ import {
   ExclamationCircleOutlined,
   FileTextOutlined,
   SyncOutlined,
-  SearchOutlined,
+  ClearOutlined,
 } from '@ant-design/icons'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../api'
@@ -23,40 +23,70 @@ function Exceptions() {
   const [data, setData] = useState({ list: [], total: 0 })
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(false)
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 20 })
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || undefined)
-  const [priorityFilter, setPriorityFilter] = useState(undefined)
-  const [keyword, setKeyword] = useState('')
   const [createModal, setCreateModal] = useState(false)
   const [remarkModal, setRemarkModal] = useState(false)
   const [currentRecord, setCurrentRecord] = useState(null)
   const [form] = Form.useForm()
   const [remarkForm] = Form.useForm()
   const [customers, setCustomers] = useState([])
-  const [activeTypeCard, setActiveTypeCard] = useState('all')
+
+  const statusTab = searchParams.get('status') || 'all'
+  const typeFilter = searchParams.get('type') || undefined
+  const priorityFilter = searchParams.get('priority') || undefined
+  const keyword = searchParams.get('keyword') || ''
+  const currentPage = parseInt(searchParams.get('page') || '1')
+  const pageSize = parseInt(searchParams.get('pageSize') || '20')
+
+  const activeTypeCard = typeFilter || 'all'
+
+  const hasActiveFilter = (typeFilter) || priorityFilter || keyword || (statusTab !== 'all')
 
   useEffect(() => {
-    fetchData()
     fetchStats()
     api.getCustomers({ pageSize: 100 }).then(res => setCustomers(res.list))
   }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [searchParams.toString()])
 
   const fetchStats = () => {
     api.getExceptionStats().then(setStats)
   }
 
+  const updateParams = (updates) => {
+    const newParams = new URLSearchParams(searchParams)
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === undefined || value === null || value === '') {
+        newParams.delete(key)
+      } else {
+        newParams.set(key, value)
+      }
+    })
+    if (updates.page === undefined) {
+      newParams.set('page', '1')
+    }
+    setSearchParams(newParams, { replace: false })
+  }
+
+  const clearAllFilters = () => {
+    const newParams = new URLSearchParams()
+    newParams.set('page', '1')
+    newParams.set('pageSize', pageSize.toString())
+    setSearchParams(newParams, { replace: false })
+  }
+
   const fetchData = () => {
     setLoading(true)
     const params = {
-      page: pagination.current,
-      pageSize: pagination.pageSize,
+      page: currentPage,
+      pageSize: pageSize,
     }
 
-    if (statusFilter === 'open') {
+    if (statusTab === 'open') {
       params.status = 'open,processing'
-    } else if (statusFilter !== 'all') {
-      params.status = statusFilter
+    } else if (statusTab !== 'all') {
+      params.status = statusTab
     }
 
     if (typeFilter) {
@@ -80,23 +110,12 @@ function Exceptions() {
     }).catch(() => setLoading(false))
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [pagination.current, pagination.pageSize, statusFilter, typeFilter, priorityFilter, keyword])
-
   const handleTypeCardClick = (typeKey) => {
-    setActiveTypeCard(typeKey)
-    if (typeKey === 'all') {
-      setTypeFilter(undefined)
-    } else {
-      setTypeFilter(typeKey)
-    }
-    setPagination({ ...pagination, current: 1 })
+    updateParams({ type: typeKey === 'all' ? undefined : typeKey })
   }
 
   const handleStatusChange = (value) => {
-    setStatusFilter(value)
-    setPagination({ ...pagination, current: 1 })
+    updateParams({ status: value === 'all' ? undefined : value })
   }
 
   const typeMap = {
@@ -345,7 +364,7 @@ function Exceptions() {
 
       <div className="action-bar">
         <Space wrap>
-          <Radio.Group value={statusFilter} onChange={e => handleStatusChange(e.target.value)}>
+          <Radio.Group value={statusTab} onChange={e => handleStatusChange(e.target.value)}>
             <Radio.Button value="all">全部</Radio.Button>
             <Radio.Button value="open">待处理</Radio.Button>
             <Radio.Button value="resolved">已解决</Radio.Button>
@@ -356,7 +375,7 @@ function Exceptions() {
             style={{ width: 130 }}
             allowClear
             value={typeFilter}
-            onChange={v => { setTypeFilter(v); setPagination({ ...pagination, current: 1 }) }}
+            onChange={v => updateParams({ type: v })}
           >
             {Object.entries(typeMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val.label}</Select.Option>
@@ -367,23 +386,27 @@ function Exceptions() {
             style={{ width: 110 }}
             allowClear
             value={priorityFilter}
-            onChange={v => { setPriorityFilter(v); setPagination({ ...pagination, current: 1 }) }}
+            onChange={v => updateParams({ priority: v })}
           >
             {Object.entries(priorityMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val.label}</Select.Option>
             ))}
           </Select>
-          <Input
+          <Input.Search
             placeholder="搜索标题/客户"
-            style={{ width: 200 }}
-            prefix={<SearchOutlined />}
+            style={{ width: 220 }}
             allowClear
             value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            onPressEnter={() => {
-              setPagination({ ...pagination, current: 1 })
+            onChange={e => {
+              if (!e.target.value) updateParams({ keyword: '' })
             }}
+            onSearch={value => updateParams({ keyword: value || '' })}
           />
+          {hasActiveFilter && (
+            <Button icon={<ClearOutlined />} onClick={clearAllFilters}>
+              清空筛选
+            </Button>
+          )}
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>
             新建提醒
           </Button>
@@ -393,26 +416,65 @@ function Exceptions() {
         </Space>
       </div>
 
-      <Table
-        columns={columns}
-        dataSource={data.list}
-        rowKey="id"
-        loading={loading}
-        scroll={{ x: 1100 }}
-        onRow={(record) => ({
-          onClick: () => navigate(`/exceptions/${record.id}`),
-          style: { cursor: 'pointer' },
-        })}
-        pagination={{
-          current: pagination.current,
-          pageSize: pagination.pageSize,
-          total: data.total,
-          showSizeChanger: true,
-          showQuickJumper: true,
-          showTotal: t => `共 ${t} 条`,
-          onChange: (page, pageSize) => setPagination({ current: page, pageSize }),
-        }}
-      />
+      {!loading && data.list.length === 0 ? (
+        <Card style={{ textAlign: 'center', padding: '60px 0' }}>
+          <Empty
+            description={
+              <div>
+                {hasActiveFilter ? (
+                  <div>
+                    <div style={{ marginBottom: 12 }}>
+                      当前筛选条件下没有数据
+                    </div>
+                    <Space size="small" wrap style={{ justifyContent: 'center' }}>
+                      {statusTab !== 'all' && <Tag closable onClose={() => handleStatusChange('all')}>
+                        状态：{statusTab === 'open' ? '待处理' : statusTab === 'resolved' ? '已解决' : '已关闭'}
+                      </Tag>}
+                      {typeFilter && <Tag closable onClose={() => updateParams({ type: undefined })}>
+                        类型：{typeMap[typeFilter]?.label || typeFilter}
+                      </Tag>}
+                      {priorityFilter && <Tag closable onClose={() => updateParams({ priority: undefined })}>
+                        优先级：{priorityMap[priorityFilter]?.label || priorityFilter}
+                      </Tag>}
+                      {keyword && <Tag closable onClose={() => updateParams({ keyword: '' })}>
+                        关键词：{keyword}
+                      </Tag>}
+                    </Space>
+                    <div style={{ marginTop: 16 }}>
+                      <Button type="primary" onClick={clearAllFilters}>
+                        一键清空筛选
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  '暂无异常提醒'
+                )}
+              </div>
+            }
+          />
+        </Card>
+      ) : (
+        <Table
+          columns={columns}
+          dataSource={data.list}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1100 }}
+          onRow={(record) => ({
+            onClick: () => navigate(`/exceptions/${record.id}`),
+            style: { cursor: 'pointer' },
+          })}
+          pagination={{
+            current: currentPage,
+            pageSize: pageSize,
+            total: data.total,
+            showSizeChanger: true,
+            showQuickJumper: true,
+            showTotal: t => `共 ${t} 条`,
+            onChange: (page, size) => updateParams({ page: page.toString(), pageSize: size.toString() }),
+          }}
+        />
+      )}
 
       <Modal
         title="新建异常提醒"

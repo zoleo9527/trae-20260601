@@ -58,7 +58,7 @@ function Dashboard() {
     <div>
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/tax-filings')}>
             <Statistic
               title="客户总数"
               value={stats?.customerCount || 0}
@@ -67,7 +67,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/tax-filings')}>
             <Statistic
               title="申报记录数"
               value={stats?.filingCount || 0}
@@ -76,7 +76,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/exceptions?status=open')}>
             <Statistic
               title="待处理异常"
               value={exceptionStats?.totalOpen || 0}
@@ -86,7 +86,7 @@ function Dashboard() {
           </Card>
         </Col>
         <Col span={6}>
-          <Card>
+          <Card hoverable style={{ cursor: 'pointer' }} onClick={() => navigate('/exceptions?status=open&priority=urgent')}>
             <Statistic
               title="紧急异常"
               value={exceptionStats?.urgentCount || 0}
@@ -102,7 +102,10 @@ function Dashboard() {
           <Card
             title="催收提醒"
             size="small"
-            extra={<Button type="link" onClick={() => navigate('/exceptions?type=urge')}>查看全部 <ArrowRightOutlined /></Button>}
+            hoverable
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/exceptions?type=urge&status=open')}
+            extra={<Button type="link" onClick={(e) => { e.stopPropagation(); navigate('/exceptions?type=urge&status=open') }}>查看全部 <ArrowRightOutlined /></Button>}
           >
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 36, fontWeight: 700, color: '#fa8c16' }}>
@@ -116,7 +119,10 @@ function Dashboard() {
           <Card
             title="退回异常"
             size="small"
-            extra={<Button type="link" onClick={() => navigate('/exceptions?type=reject')}>查看全部 <ArrowRightOutlined /></Button>}
+            hoverable
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/exceptions?type=reject&status=open')}
+            extra={<Button type="link" onClick={(e) => { e.stopPropagation(); navigate('/exceptions?type=reject&status=open') }}>查看全部 <ArrowRightOutlined /></Button>}
           >
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 36, fontWeight: 700, color: '#ff4d4f' }}>
@@ -130,7 +136,10 @@ function Dashboard() {
           <Card
             title="补材料提醒"
             size="small"
-            extra={<Button type="link" onClick={() => navigate('/exceptions?type=supplement')}>查看全部 <ArrowRightOutlined /></Button>}
+            hoverable
+            style={{ cursor: 'pointer' }}
+            onClick={() => navigate('/exceptions?type=supplement&status=open')}
+            extra={<Button type="link" onClick={(e) => { e.stopPropagation(); navigate('/exceptions?type=supplement&status=open') }}>查看全部 <ArrowRightOutlined /></Button>}
           >
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 36, fontWeight: 700, color: '#1890ff' }}>
