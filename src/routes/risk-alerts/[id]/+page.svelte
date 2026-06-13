@@ -217,11 +217,6 @@
 				case 'sign_receive':
 					actions.push({ value: '签收确认', label: '签收确认', todoType: 'sign_receive' });
 					break;
-				case 'follow_up':
-					if (status === 'completed') {
-						actions.push({ value: '添加跟踪', label: '添加跟踪', todoType: 'follow_up' });
-					}
-					break;
 			}
 		}
 

@@ -46,7 +46,7 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 		`).run(id, userId, '状态从pending变更为processing', 'pending', 'processing');
 		
 		db.prepare(`
-			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+			UPDATE todo_items SET status = 'processing', updated_at = CURRENT_TIMESTAMP 
 			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'risk_process' AND status = 'pending'
 		`).run(id, userId);
 	}
@@ -107,6 +107,29 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
 			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'review_confirm' AND status IN ('pending', 'processing')
 		`).run(id, userId);
+		
+		const cfUser = db.prepare(`SELECT id FROM users WHERE role = 'client_finance' LIMIT 1`).get() as any;
+		if (cfUser) {
+			const existingSignTodo = db.prepare(`
+				SELECT id FROM todo_items 
+				WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'sign_receive' AND status IN ('pending', 'processing')
+			`).get(id, cfUser.id);
+			
+			if (!existingSignTodo) {
+				db.prepare(`
+					INSERT INTO todo_items (risk_alert_id, user_id, todo_type, status, priority)
+					VALUES (?, ?, 'sign_receive', 'pending', ?)
+				`).run(id, cfUser.id, riskAlert.severity);
+			}
+		}
+		
+		const pmOrTaUser = db.prepare(`SELECT id FROM users WHERE role IN ('project_manager', 'tax_advisor') AND id = ? LIMIT 1`).get(userId) as any;
+		if (pmOrTaUser) {
+			db.prepare(`
+				INSERT INTO todo_items (risk_alert_id, user_id, todo_type, status, priority)
+				VALUES (?, ?, 'follow_up', 'pending', 'low')
+			`).run(id, userId);
+		}
 	}
 
 	if (data.action === '退回补充') {
@@ -182,11 +205,6 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'supplement_docs' AND status IN ('pending', 'processing')
 		`).run(id, userId);
 		
-		db.prepare(`
-			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
-			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'sign_receive' AND status IN ('pending', 'processing')
-		`).run(id, userId);
-		
 		if (data.supplement_note) {
 			db.prepare('UPDATE risk_alerts SET supplement_note = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(data.supplement_note, id);
 			db.prepare(`
@@ -214,7 +232,7 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 			if (!existingProcessTodo) {
 				db.prepare(`
 					INSERT INTO todo_items (risk_alert_id, user_id, todo_type, status, priority)
-					VALUES (?, ?, 'risk_process', 'pending', ?)
+					VALUES (?, ?, 'risk_process', 'processing', ?)
 				`).run(id, taUser.id, riskAlert.severity);
 			}
 		}
@@ -233,17 +251,11 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
 			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'sign_receive' AND status IN ('pending', 'processing')
 		`).run(id, userId);
-	}
-
-	if (data.action === '添加跟踪') {
-		if (!['project_manager', 'tax_advisor'].includes(user.role)) {
-			return json({ error: '只有项目经理或税务顾问可以添加跟踪' }, { status: 403 });
-		}
 		
 		db.prepare(`
-			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
-			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'follow_up' AND status IN ('pending', 'processing')
-		`).run(id, userId);
+			INSERT INTO operation_logs (risk_alert_id, user_id, action, description)
+			VALUES (?, ?, '签收确认', ?)
+		`).run(id, userId, data.description || '客户财务已签收确认');
 	}
 
 	if (data.action === '重新处理') {
@@ -257,6 +269,16 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 			VALUES (?, ?, '状态变更', ?, ?, ?)
 		`).run(id, userId, '状态从completed变更为processing', 'completed', 'processing');
 		
+		db.prepare(`
+			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+			WHERE risk_alert_id = ? AND todo_type = 'follow_up' AND status IN ('pending', 'processing')
+		`).run(id);
+		
+		db.prepare(`
+			UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+			WHERE risk_alert_id = ? AND todo_type = 'sign_receive' AND status IN ('pending', 'processing')
+		`).run(id);
+		
 		const existingProcessTodo = db.prepare(`
 			SELECT id FROM todo_items 
 			WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'risk_process' AND status IN ('pending', 'processing')
@@ -265,7 +287,7 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 		if (!existingProcessTodo) {
 			db.prepare(`
 				INSERT INTO todo_items (risk_alert_id, user_id, todo_type, status, priority)
-				VALUES (?, ?, 'risk_process', 'pending', ?)
+				VALUES (?, ?, 'risk_process', 'processing', ?)
 			`).run(id, riskAlert.assignee_id, riskAlert.severity);
 		}
 	}
