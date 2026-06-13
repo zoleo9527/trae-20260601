@@ -25,4 +25,8 @@ public class DashboardResponse {
     private List<InterviewInvitationResponse> timeoutInvitations;
 
     private List<InterviewInvitationResponse> noShowInvitations;
+
+    private List<PositionResponse> expiredPositions;
+
+    private List<PositionResponse> expiringSoonPositions;
 }

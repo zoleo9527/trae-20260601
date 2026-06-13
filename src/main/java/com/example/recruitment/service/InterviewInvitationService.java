@@ -10,11 +10,14 @@ import com.example.recruitment.dto.response.CandidateApplicationResponse;
 import com.example.recruitment.dto.response.InterviewInvitationResponse;
 import com.example.recruitment.entity.CandidateApplication;
 import com.example.recruitment.entity.InterviewInvitation;
+import com.example.recruitment.entity.Position;
 import com.example.recruitment.enums.ApplicationStatusEnum;
 import com.example.recruitment.enums.InterviewStatusEnum;
+import com.example.recruitment.enums.PositionStatusEnum;
 import com.example.recruitment.exception.BusinessException;
 import com.example.recruitment.mapper.CandidateApplicationMapper;
 import com.example.recruitment.mapper.InterviewInvitationMapper;
+import com.example.recruitment.mapper.PositionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +32,7 @@ public class InterviewInvitationService {
 
     private final InterviewInvitationMapper interviewInvitationMapper;
     private final CandidateApplicationMapper candidateApplicationMapper;
+    private final PositionMapper positionMapper;
     private final SystemLogService systemLogService;
 
     @Transactional
@@ -40,6 +44,19 @@ public class InterviewInvitationService {
 
         if (application.getStatus() != ApplicationStatusEnum.CONFIRMED.getCode()) {
             throw new BusinessException(400, "仅已确认的报名可创建面试邀约");
+        }
+
+        Position position = positionMapper.selectById(application.getPositionId());
+        if (position == null) {
+            throw new BusinessException(404, "岗位信息不存在");
+        }
+
+        if (position.getStatus() != PositionStatusEnum.PUBLISHED.getCode()) {
+            throw new BusinessException(400, "岗位状态不允许创建面试邀约");
+        }
+
+        if (position.getExpireTime() != null && position.getExpireTime().isBefore(request.getInterviewTime())) {
+            throw new BusinessException(400, "面试时间不能晚于岗位过期时间");
         }
 
         LocalDateTime now = LocalDateTime.now();
@@ -115,17 +132,45 @@ public class InterviewInvitationService {
         invitation.setStatus(targetStatus.getCode());
         invitation.setUpdatedAt(LocalDateTime.now());
 
+        CandidateApplication application = candidateApplicationMapper.selectById(invitation.getApplicationId());
+
         if (targetStatus == InterviewStatusEnum.CONFIRMED) {
             invitation.setConfirmedAt(LocalDateTime.now());
             invitation.setCandidateConfirmed(1);
             logContent = "候选人确认参加面试";
+            if (application != null && application.getStatus() == ApplicationStatusEnum.CONFIRMED.getCode()) {
+                application.setStatus(ApplicationStatusEnum.INTERVIEWING.getCode());
+                application.setUpdatedAt(LocalDateTime.now());
+                candidateApplicationMapper.updateById(application);
+                systemLogService.logApplication(application.getId(), request.getOperatorId(),
+                        request.getOperatorName(), "面试邀约已确认，状态推进为面试中");
+            }
         } else if (targetStatus == InterviewStatusEnum.NO_SHOW) {
             invitation.setNoShowReason(request.getNoShowReason());
             logContent = "面试爽约: " + (request.getNoShowReason() != null ? request.getNoShowReason() : "无");
+            if (application != null) {
+                application.setStatus(ApplicationStatusEnum.ABANDONED.getCode());
+                application.setUpdatedAt(LocalDateTime.now());
+                candidateApplicationMapper.updateById(application);
+                systemLogService.logApplication(application.getId(), request.getOperatorId(),
+                        request.getOperatorName(), "面试爽约，状态推进为已放弃");
+            }
         } else if (targetStatus == InterviewStatusEnum.COMPLETED) {
             logContent = "面试已完成";
+            if (application != null) {
+                application.setStatus(ApplicationStatusEnum.INTERVIEWING.getCode());
+                application.setUpdatedAt(LocalDateTime.now());
+                candidateApplicationMapper.updateById(application);
+            }
         } else if (targetStatus == InterviewStatusEnum.REJECTED) {
             logContent = "拒绝面试邀约";
+            if (application != null) {
+                application.setStatus(ApplicationStatusEnum.ABANDONED.getCode());
+                application.setUpdatedAt(LocalDateTime.now());
+                candidateApplicationMapper.updateById(application);
+                systemLogService.logApplication(application.getId(), request.getOperatorId(),
+                        request.getOperatorName(), "拒绝面试邀约，状态推进为已放弃");
+            }
         } else if (targetStatus == InterviewStatusEnum.EXPIRED) {
             logContent = "面试邀约已过期";
         } else {
@@ -147,8 +192,9 @@ public class InterviewInvitationService {
     private void validateStatusTransition(InterviewStatusEnum current, InterviewStatusEnum target) {
         if (current == InterviewStatusEnum.COMPLETED || 
             current == InterviewStatusEnum.REJECTED || 
-            current == InterviewStatusEnum.EXPIRED) {
-            throw new BusinessException(400, "已完成、已拒绝或已过期的邀约无法修改状态");
+            current == InterviewStatusEnum.EXPIRED ||
+            current == InterviewStatusEnum.NO_SHOW) {
+            throw new BusinessException(400, "该面试邀约已终结，无法修改状态");
         }
     }
 
@@ -165,6 +211,11 @@ public class InterviewInvitationService {
     public List<InterviewInvitationResponse> getRecentlyRejected() {
         List<InterviewInvitation> invitations = interviewInvitationMapper.selectRecentlyRejected();
         return invitations.stream().map(this::convertToResponse).collect(Collectors.toList());
+    }
+
+    public List<InterviewInvitationResponse> getNoShowInvitations() {
+        List<InterviewInvitation> invitations = interviewInvitationMapper.selectNoShowInvitations();
+        return invitations.stream().map(this::convertToResponseWithApplication).collect(Collectors.toList());
     }
 
     public List<InterviewInvitationResponse> getByApplicationId(Long applicationId) {

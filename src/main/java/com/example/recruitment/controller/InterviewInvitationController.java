@@ -75,6 +75,12 @@ public class InterviewInvitationController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping("/no-show")
+    public ResponseEntity<ApiResponse<List<InterviewInvitationResponse>>> getNoShowInvitations() {
+        List<InterviewInvitationResponse> response = interviewInvitationService.getNoShowInvitations();
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @GetMapping("/application/{applicationId}")
     public ResponseEntity<ApiResponse<List<InterviewInvitationResponse>>> getByApplicationId(
             @PathVariable Long applicationId) {

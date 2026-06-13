@@ -28,5 +28,7 @@ public interface InterviewInvitationMapper extends BaseMapper<InterviewInvitatio
 
     List<InterviewInvitation> selectRecentlyRejected();
 
+    List<InterviewInvitation> selectNoShowInvitations();
+
     List<InterviewInvitation> selectByApplicationId(@Param("applicationId") Long applicationId);
 }

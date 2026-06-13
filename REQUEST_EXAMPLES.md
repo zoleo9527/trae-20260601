@@ -23,10 +23,25 @@ curl -X GET http://localhost:8080/api/dashboard
     "timeoutApplications": [...],
     "recentlyRejectedApplications": [...],
     "todayPendingInvitations": [...],
-    "timeoutInvitations": [...]
+    "timeoutInvitations": [...],
+    "noShowInvitations": [...],
+    "expiredPositions": [...],
+    "expiringSoonPositions": [...]
   }
 }
 ```
+
+**首屏数据说明:**
+| 字段 | 说明 |
+|------|------|
+| todayPendingApplications | 今日待审核的报名 |
+| timeoutApplications | 超过2小时未处理的报名 |
+| recentlyRejectedApplications | 24小时内被拒绝的报名 |
+| todayPendingInvitations | 今日待确认的面试邀约 |
+| timeoutInvitations | 已过面试时间但未处理的邀约 |
+| noShowInvitations | 爽约记录 |
+| expiredPositions | 已过期的岗位 |
+| expiringSoonPositions | 7天内即将过期的岗位 |
 
 ---
 
@@ -140,7 +155,7 @@ curl -X POST http://localhost:8080/api/invitations \
   -H "Content-Type: application/json" \
   -d '{
     "applicationId": 1,
-    "interviewTime": "2024-01-18 14:00:00",
+    "interviewTime": "2024-01-18T14:00:00",
     "interviewLocation": "上海市浦东新区张江高科技园区测试公司办公楼3楼会议室",
     "interviewerName": "李经理",
     "interviewerPhone": "13800138004",
@@ -265,6 +280,14 @@ curl -X GET http://localhost:8080/api/invitations/application/1
 
 ---
 
+## 15. 面试邀约 - 查询爽约记录
+
+```bash
+curl -X GET http://localhost:8080/api/invitations/no-show
+```
+
+---
+
 ## 角色说明
 
 | 角色ID | 角色名称 | 职责 |
@@ -284,16 +307,22 @@ curl -X GET http://localhost:8080/api/invitations/application/1
          ↓
        已拒绝 → 待审核(可重新提交)
          ↓
-       已放弃
+       已放弃(面试爽约时自动推进)
 ```
 
 **面试邀约:**
 ```
 待确认 → 已确认 → 已完成
          ↓
-       爽约
+       爽约(报名自动推进为已放弃)
          ↓
-       已拒绝
+       已拒绝(报名自动推进为已放弃)
          ↓
        已过期
 ```
+
+**状态同步规则:**
+1. 面试邀约"已确认" → 报名状态推进为"面试中"
+2. 面试邀约"爽约" → 报名状态推进为"已放弃"
+3. 面试邀约"已拒绝" → 报名状态推进为"已放弃"
+4. 创建面试邀约时，自动校验岗位状态和过期时间

@@ -8,8 +8,8 @@
         WHERE 1=1
         <if test="positionId != null">AND position_id = #{positionId}</if>
         <if test="status != null">AND status = #{status}</if>
-        <if test="candidateName != null and candidateName != ''">AND candidate_name LIKE CONCAT('%', #{candidateName}, '%')</if>
-        <if test="candidatePhone != null and candidatePhone != ''">AND candidate_phone LIKE CONCAT('%', #{candidatePhone}, '%')</if>
+        <if test="candidateName != null and candidateName != ''">AND candidate_name LIKE '%' || #{candidateName} || '%'</if>
+        <if test="candidatePhone != null and candidatePhone != ''">AND candidate_phone LIKE '%' || #{candidatePhone} || '%'</if>
         <if test="startTime != null">AND submitted_at >= #{startTime}</if>
         <if test="endTime != null">AND submitted_at <= #{endTime}</if>
         ORDER BY submitted_at DESC
