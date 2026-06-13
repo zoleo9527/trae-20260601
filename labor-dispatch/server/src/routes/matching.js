@@ -806,7 +806,7 @@ router.post('/:id/review', authenticate, async (req, res) => {
       await req.prisma.returnRecord.update({
         where: { id: existing.returnRecords[0].id },
         data: {
-          status: '已确认',
+          status: reviewResult === '通过' ? '已确认' : '待处理',
           handledById: req.userId,
           handledAt: new Date(),
           handleRemark: remark || `复核结果：${reviewResult}`
@@ -823,7 +823,7 @@ router.post('/:id/review', authenticate, async (req, res) => {
           returnType: '复核',
           returnReason: `复核结果：${reviewResult}`,
           operatorId: req.userId,
-          status: '已确认',
+          status: reviewResult === '通过' ? '已确认' : '待处理',
           handledById: req.userId,
           handledAt: new Date(),
           handleRemark: remark || `复核结果：${reviewResult}`

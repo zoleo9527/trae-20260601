@@ -307,6 +307,7 @@ export default {
     const currentRecord = ref(null)
     const userRole = ref('')
     const uploadRef = ref(null)
+    const isRehandle = ref(false)
 
     const pendingCount = ref(0)
     const processedCount = ref(0)
@@ -425,9 +426,15 @@ export default {
     const handleProcessSubmit = async () => {
       try {
         submitLoading.value = true
-        await api.returnRecords.handle(currentRecord.value.id, processForm)
-        ElMessage.success('处理成功，等待管理复核')
+        if (isRehandle.value) {
+          await api.returnRecords.rehandle(currentRecord.value.id, processForm)
+          ElMessage.success('重新处理成功')
+        } else {
+          await api.returnRecords.handle(currentRecord.value.id, processForm)
+          ElMessage.success('处理成功，等待管理复核')
+        }
         processDrawerVisible.value = false
+        isRehandle.value = false
         loadData()
         loadCounts()
       } catch (error) {
@@ -443,6 +450,7 @@ export default {
         processForm.handleResult = '继续处理'
         processForm.handleRemark = ''
         processDrawerVisible.value = true
+        isRehandle.value = true
       } catch (error) {
         ElMessage.error('加载详情失败')
       }

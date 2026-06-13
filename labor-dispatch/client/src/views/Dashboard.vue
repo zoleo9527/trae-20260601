@@ -333,7 +333,7 @@ export default {
     }
 
     const goToReturnRecord = (id) => {
-      router.push(`/return-records`)
+      router.push(`/return-records?status=待处理`)
     }
 
     const formatTime = (time) => {
