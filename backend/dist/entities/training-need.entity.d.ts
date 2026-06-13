@@ -18,6 +18,8 @@ export declare class TrainingNeed {
     department: string;
     submitterId: string;
     submitter: User;
+    currentHandlerId: string;
+    currentHandler: User;
     expectedDate: Date;
     participantCount: number;
     budget: number;

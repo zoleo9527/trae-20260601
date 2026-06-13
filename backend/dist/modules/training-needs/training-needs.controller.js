@@ -37,6 +37,9 @@ let TrainingNeedsController = class TrainingNeedsController {
     async findAll(queryDto, req) {
         return this.trainingNeedsService.findAll(queryDto, req.user);
     }
+    async getMyPendingNeeds(req) {
+        return this.trainingNeedsService.getMyPendingNeeds(req.user.id);
+    }
     async findOne(id) {
         return this.trainingNeedsService.findOne(id);
     }
@@ -89,6 +92,18 @@ __decorate([
     __metadata("design:paramtypes", [training_need_query_dto_1.TrainingNeedQueryDto, Object]),
     __metadata("design:returntype", Promise)
 ], TrainingNeedsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('my-pending'),
+    (0, roles_decorator_1.Roles)(user_entity_1.UserRole.TRAINING_MANAGER),
+    (0, swagger_1.ApiOperation)({ summary: '获取我的待处理需求' }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: '成功' }),
+    (0, swagger_1.ApiResponse)({ status: 401, description: '未授权' }),
+    (0, swagger_1.ApiResponse)({ status: 403, description: '无权限' }),
+    __param(0, (0, common_1.Request)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], TrainingNeedsController.prototype, "getMyPendingNeeds", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, roles_decorator_1.Roles)(user_entity_1.UserRole.DEPARTMENT_HEAD, user_entity_1.UserRole.TRAINING_MANAGER),

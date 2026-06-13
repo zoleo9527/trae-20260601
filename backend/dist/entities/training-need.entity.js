@@ -55,6 +55,15 @@ __decorate([
     __metadata("design:type", user_entity_1.User)
 ], TrainingNeed.prototype, "submitter", void 0);
 __decorate([
+    (0, typeorm_1.Column)({ name: 'current_handler_id', nullable: true }),
+    __metadata("design:type", String)
+], TrainingNeed.prototype, "currentHandlerId", void 0);
+__decorate([
+    (0, typeorm_1.ManyToOne)(() => user_entity_1.User),
+    (0, typeorm_1.JoinColumn)({ name: 'current_handler_id' }),
+    __metadata("design:type", user_entity_1.User)
+], TrainingNeed.prototype, "currentHandler", void 0);
+__decorate([
     (0, typeorm_1.Column)({ type: 'date', name: 'expected_date' }),
     __metadata("design:type", Date)
 ], TrainingNeed.prototype, "expectedDate", void 0);

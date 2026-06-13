@@ -40,6 +40,16 @@ export class TrainingNeedsController {
     return this.trainingNeedsService.findAll(queryDto, req.user);
   }
 
+  @Get('my-pending')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '获取我的待处理需求' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  async getMyPendingNeeds(@Request() req) {
+    return this.trainingNeedsService.getMyPendingNeeds(req.user.id);
+  }
+
   @Get(':id')
   @Roles(UserRole.DEPARTMENT_HEAD, UserRole.TRAINING_MANAGER)
   @ApiOperation({ summary: '获取培训需求详情' })

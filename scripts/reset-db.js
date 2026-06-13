@@ -41,6 +41,7 @@ db.exec(`
     description TEXT,
     department VARCHAR(100) NOT NULL,
     submitter_id VARCHAR(36) NOT NULL,
+    current_handler_id VARCHAR(36),
     expected_date DATE NOT NULL,
     participant_count INTEGER DEFAULT 0,
     budget DECIMAL(10, 2),
@@ -49,7 +50,8 @@ db.exec(`
     attachments TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (submitter_id) REFERENCES user(id)
+    FOREIGN KEY (submitter_id) REFERENCES user(id),
+    FOREIGN KEY (current_handler_id) REFERENCES user(id)
   );
 
   CREATE TABLE training_need_remark (

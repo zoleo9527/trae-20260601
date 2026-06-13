@@ -28,6 +28,11 @@ export declare class TrainingNeedsService {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -54,6 +59,11 @@ export declare class TrainingNeedsService {
             description: string;
             department: string;
             submitter: {
+                id: string;
+                name: string;
+                department: string;
+            };
+            currentHandler: {
                 id: string;
                 name: string;
                 department: string;
@@ -91,6 +101,11 @@ export declare class TrainingNeedsService {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -116,6 +131,11 @@ export declare class TrainingNeedsService {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -152,6 +172,11 @@ export declare class TrainingNeedsService {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -177,6 +202,11 @@ export declare class TrainingNeedsService {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -210,6 +240,11 @@ export declare class TrainingNeedsService {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -235,6 +270,11 @@ export declare class TrainingNeedsService {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -268,6 +308,40 @@ export declare class TrainingNeedsService {
         content: string;
         action: RemarkAction;
         createdAt: Date;
+    }[]>;
+    getMyPendingNeeds(userId: string): Promise<{
+        id: string;
+        title: string;
+        description: string;
+        department: string;
+        submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        expectedDate: Date;
+        participantCount: number;
+        budget: number;
+        urgency: Urgency;
+        status: TrainingNeedStatus;
+        attachments: any;
+        remarks: {
+            id: string;
+            handler: {
+                id: string;
+                name: string;
+            };
+            content: string;
+            action: RemarkAction;
+            createdAt: Date;
+        }[];
+        createdAt: Date;
+        updatedAt: Date;
     }[]>;
     private createRemark;
     private transformNeed;

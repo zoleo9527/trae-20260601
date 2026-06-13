@@ -45,6 +45,13 @@ export class TrainingNeed {
   @JoinColumn({ name: 'submitter_id' })
   submitter: User;
 
+  @Column({ name: 'current_handler_id', nullable: true })
+  currentHandlerId: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'current_handler_id' })
+  currentHandler: User;
+
   @Column({ type: 'date', name: 'expected_date' })
   expectedDate: Date;
 

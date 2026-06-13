@@ -49,6 +49,7 @@ let TrainingNeedsService = class TrainingNeedsService {
         const query = this.trainingNeedRepository
             .createQueryBuilder('tn')
             .leftJoinAndSelect('tn.submitter', 'submitter')
+            .leftJoinAndSelect('tn.currentHandler', 'currentHandler')
             .leftJoinAndSelect('tn.remarks', 'remarks')
             .leftJoinAndSelect('remarks.handler', 'handler');
         if (status) {
@@ -89,7 +90,7 @@ let TrainingNeedsService = class TrainingNeedsService {
     async findOne(id) {
         const trainingNeed = await this.trainingNeedRepository.findOne({
             where: { id },
-            relations: ['submitter', 'remarks', 'remarks.handler'],
+            relations: ['submitter', 'currentHandler', 'remarks', 'remarks.handler'],
         });
         if (!trainingNeed) {
             throw new common_1.NotFoundException('培训需求不存在');
@@ -130,16 +131,23 @@ let TrainingNeedsService = class TrainingNeedsService {
     async approve(id, approveDto, handlerId) {
         const trainingNeed = await this.trainingNeedRepository.findOne({
             where: { id },
-            relations: ['submitter'],
+            relations: ['submitter', 'currentHandler'],
         });
         if (!trainingNeed) {
             throw new common_1.NotFoundException('培训需求不存在');
         }
-        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING) {
-            throw new common_1.ForbiddenException('只能审批待审批状态的需求');
+        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING &&
+            trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.TRANSFERRED) {
+            throw new common_1.ForbiddenException('只能审批待审批或已转派状态的需求');
+        }
+        if (trainingNeed.currentHandlerId && trainingNeed.currentHandlerId !== handlerId) {
+            throw new common_1.ForbiddenException('只有当前处理人才能审批此需求');
         }
         const fromStatus = trainingNeed.status;
-        await this.trainingNeedRepository.update(id, { status: training_need_entity_1.TrainingNeedStatus.APPROVED });
+        await this.trainingNeedRepository.update(id, {
+            status: training_need_entity_1.TrainingNeedStatus.APPROVED,
+            currentHandlerId: null,
+        });
         await this.statusHistoryService.recordStatusChange(status_change_history_entity_1.EntityType.TRAINING_NEED, id, fromStatus, training_need_entity_1.TrainingNeedStatus.APPROVED, handlerId, undefined, approveDto.remarks);
         if (approveDto.remarks) {
             await this.createRemark(id, handlerId, approveDto.remarks, training_need_remark_entity_1.RemarkAction.APPROVE);
@@ -150,17 +158,24 @@ let TrainingNeedsService = class TrainingNeedsService {
     async reject(id, rejectDto, handlerId) {
         const trainingNeed = await this.trainingNeedRepository.findOne({
             where: { id },
-            relations: ['submitter'],
+            relations: ['submitter', 'currentHandler'],
         });
         if (!trainingNeed) {
             throw new common_1.NotFoundException('培训需求不存在');
         }
-        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING) {
-            throw new common_1.ForbiddenException('只能驳回待审批状态的需求');
+        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING &&
+            trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.TRANSFERRED) {
+            throw new common_1.ForbiddenException('只能驳回待审批或已转派状态的需求');
+        }
+        if (trainingNeed.currentHandlerId && trainingNeed.currentHandlerId !== handlerId) {
+            throw new common_1.ForbiddenException('只有当前处理人才能驳回此需求');
         }
         const remarks = rejectDto.reason + (rejectDto.remarks ? `\n${rejectDto.remarks}` : '');
         const fromStatus = trainingNeed.status;
-        await this.trainingNeedRepository.update(id, { status: training_need_entity_1.TrainingNeedStatus.REJECTED });
+        await this.trainingNeedRepository.update(id, {
+            status: training_need_entity_1.TrainingNeedStatus.REJECTED,
+            currentHandlerId: null,
+        });
         await this.statusHistoryService.recordStatusChange(status_change_history_entity_1.EntityType.TRAINING_NEED, id, fromStatus, training_need_entity_1.TrainingNeedStatus.REJECTED, handlerId, rejectDto.reason, rejectDto.remarks);
         await this.createRemark(id, handlerId, remarks, training_need_remark_entity_1.RemarkAction.REJECT);
         await this.notificationService.sendNotification(notification_entity_1.NotificationType.TRAINING_NEED_REJECTED, trainingNeed.submitterId, '培训需求已被驳回', `您提交的培训需求「${trainingNeed.title}」已被驳回，原因：${rejectDto.reason}`, 'training_need', id);
@@ -169,7 +184,7 @@ let TrainingNeedsService = class TrainingNeedsService {
     async transfer(id, transferDto, handlerId) {
         const trainingNeed = await this.trainingNeedRepository.findOne({
             where: { id },
-            relations: ['submitter'],
+            relations: ['submitter', 'currentHandler'],
         });
         if (!trainingNeed) {
             throw new common_1.NotFoundException('培训需求不存在');
@@ -180,12 +195,17 @@ let TrainingNeedsService = class TrainingNeedsService {
         if (!targetManager) {
             throw new common_1.NotFoundException('目标培训经理不存在');
         }
-        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING) {
-            throw new common_1.ForbiddenException('只能转派待审批状态的需求');
+        if (trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.PENDING &&
+            trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.TRANSFERRED) {
+            throw new common_1.ForbiddenException('只能转派待审批或已转派状态的需求');
         }
         const fromStatus = trainingNeed.status;
-        await this.trainingNeedRepository.update(id, { status: training_need_entity_1.TrainingNeedStatus.TRANSFERRED });
-        await this.statusHistoryService.recordStatusChange(status_change_history_entity_1.EntityType.TRAINING_NEED, id, fromStatus, training_need_entity_1.TrainingNeedStatus.TRANSFERRED, handlerId, `转派给${targetManager.name}`, transferDto.remarks);
+        const previousHandlerId = trainingNeed.currentHandlerId || handlerId;
+        await this.trainingNeedRepository.update(id, {
+            status: training_need_entity_1.TrainingNeedStatus.TRANSFERRED,
+            currentHandlerId: targetManager.id,
+        });
+        await this.statusHistoryService.recordStatusChange(status_change_history_entity_1.EntityType.TRAINING_NEED, id, fromStatus, training_need_entity_1.TrainingNeedStatus.TRANSFERRED, handlerId, `从${previousHandlerId === handlerId ? '当前处理人' : '原处理人'}转派给${targetManager.name}`, transferDto.remarks);
         if (transferDto.remarks) {
             await this.createRemark(id, handlerId, transferDto.remarks, training_need_remark_entity_1.RemarkAction.TRANSFER);
         }
@@ -218,6 +238,21 @@ let TrainingNeedsService = class TrainingNeedsService {
             createdAt: remark.createdAt,
         }));
     }
+    async getMyPendingNeeds(userId) {
+        const query = this.trainingNeedRepository
+            .createQueryBuilder('tn')
+            .leftJoinAndSelect('tn.submitter', 'submitter')
+            .leftJoinAndSelect('tn.currentHandler', 'currentHandler')
+            .where('(tn.status = :pending OR tn.status = :transferred)', {
+            pending: training_need_entity_1.TrainingNeedStatus.PENDING,
+            transferred: training_need_entity_1.TrainingNeedStatus.TRANSFERRED,
+        })
+            .andWhere('(tn.currentHandlerId = :userId OR tn.currentHandlerId IS NULL)')
+            .setParameter('userId', userId)
+            .orderBy('tn.createdAt', 'DESC');
+        const items = await query.getMany();
+        return items.map((item) => this.transformNeed(item));
+    }
     async createRemark(trainingNeedId, handlerId, content, action) {
         const remark = this.remarkRepository.create({
             trainingNeedId,
@@ -238,6 +273,11 @@ let TrainingNeedsService = class TrainingNeedsService {
                 name: trainingNeed.submitter.name,
                 department: trainingNeed.submitter.department,
             },
+            currentHandler: trainingNeed.currentHandler ? {
+                id: trainingNeed.currentHandler.id,
+                name: trainingNeed.currentHandler.name,
+                department: trainingNeed.currentHandler.department,
+            } : null,
             expectedDate: trainingNeed.expectedDate,
             participantCount: trainingNeed.participantCount,
             budget: trainingNeed.budget,

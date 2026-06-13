@@ -20,6 +20,11 @@ export declare class TrainingNeedsController {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -50,6 +55,11 @@ export declare class TrainingNeedsController {
                 name: string;
                 department: string;
             };
+            currentHandler: {
+                id: string;
+                name: string;
+                department: string;
+            };
             expectedDate: Date;
             participantCount: number;
             budget: number;
@@ -73,12 +83,51 @@ export declare class TrainingNeedsController {
         page: number;
         pageSize: number;
     }>;
+    getMyPendingNeeds(req: any): Promise<{
+        id: string;
+        title: string;
+        description: string;
+        department: string;
+        submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        expectedDate: Date;
+        participantCount: number;
+        budget: number;
+        urgency: import("../../entities/training-need.entity").Urgency;
+        status: import("../../entities/training-need.entity").TrainingNeedStatus;
+        attachments: any;
+        remarks: {
+            id: string;
+            handler: {
+                id: string;
+                name: string;
+            };
+            content: string;
+            action: import("../../entities/training-need-remark.entity").RemarkAction;
+            createdAt: Date;
+        }[];
+        createdAt: Date;
+        updatedAt: Date;
+    }[]>;
     findOne(id: string): Promise<{
         id: string;
         title: string;
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -108,6 +157,11 @@ export declare class TrainingNeedsController {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -144,6 +198,11 @@ export declare class TrainingNeedsController {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -169,6 +228,11 @@ export declare class TrainingNeedsController {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
@@ -202,6 +266,11 @@ export declare class TrainingNeedsController {
             name: string;
             department: string;
         };
+        currentHandler: {
+            id: string;
+            name: string;
+            department: string;
+        };
         expectedDate: Date;
         participantCount: number;
         budget: number;
@@ -227,6 +296,11 @@ export declare class TrainingNeedsController {
         description: string;
         department: string;
         submitter: {
+            id: string;
+            name: string;
+            department: string;
+        };
+        currentHandler: {
             id: string;
             name: string;
             department: string;
