@@ -427,6 +427,15 @@
       color: #667eea;
     }
 
+    .context-notes {
+      display: block;
+      background: #fff3e0;
+      color: #e65100;
+      font-size: 13px;
+      white-space: normal;
+      word-break: break-all;
+    }
+
     .modal {
       display: none;
       position: fixed;
@@ -990,6 +999,7 @@
 
       if (context.translator_name) items.push(`<span class="context-tag">译员: ${context.translator_name}</span>`);
       if (context.reviewer_name) items.push(`<span class="context-tag">审校: ${context.reviewer_name}</span>`);
+      if (context.quote_id) items.push(`<span class="context-tag">报价单: ${context.quote_id}</span>`);
       if (context.quote_price) items.push(`<span class="context-tag">报价: ¥${context.quote_price.toFixed(2)}</span>`);
       if (context.quote_delivery_days) items.push(`<span class="context-tag">交付: ${context.quote_delivery_days}天</span>`);
       if (context.due_date) items.push(`<span class="context-tag">截止: ${context.due_date}</span>`);
@@ -1000,6 +1010,9 @@
       if (context.has_feedback !== undefined) items.push(`<span class="context-tag">${context.has_feedback ? '✓ 客户反馈' : '⚠ 反馈缺失'}</span>`);
       if (context.glossary_version) items.push(`<span class="context-tag">术语表版本: ${context.glossary_version}</span>`);
       if (context.context_summary) items.push(`<span class="context-tag">${context.context_summary}</span>`);
+      if (context.translator_notes) {
+        items.push(`<span class="context-tag context-notes">译员备注: ${context.translator_notes}</span>`);
+      }
 
       html += items.join('');
       html += '</div>';

@@ -89,10 +89,17 @@ app.get('/api/today-tasks/:userId', (req, res) => {
   );
 
   if (user.role === '项目经理') {
-    todayTasks = data.manuscripts.filter(m => 
-      !['completed', 'draft'].includes(m.status) &&
-      ['received', 'assessing', 'quoted', 'approved', 'translated'].includes(m.status)
-    );
+    todayTasks = data.manuscripts.filter(m => {
+      if (['completed', 'draft'].includes(m.status)) return false;
+      if (m.status === 'translated') {
+        const lastAssignHistory = data.workflow_history
+          .filter(h => h.manuscript_id === m.id && h.action === 'assign_translator')
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
+        return lastAssignHistory?.operator_id === userId;
+      }
+      return ['received', 'assessing', 'quoted', 'approved', 'assigned', 'translating', 'reviewing'].includes(m.status) && 
+             (m.current_handler_id === userId || !m.current_handler_id);
+    });
   }
 
   const taskDetails = todayTasks.map(task => {
@@ -518,6 +525,8 @@ app.post('/api/quotes/:id/submit', (req, res) => {
   const manuscript = data.manuscripts.find(m => m.id === quote.manuscript_id);
   manuscript.status = 'quoted';
   manuscript.quote_status = 'quoted';
+  manuscript.current_handler_id = operator_id;
+  manuscript.current_handler_role = operator.role;
   quote.status = 'quoted';
 
   const historyEntry = {
@@ -577,9 +586,9 @@ app.post('/api/quotes/:id/approve', (req, res) => {
     return res.status(403).json({ error: '无确认报价权限' });
   }
 
-  const projectManager = data.users.find(u => u.role === '项目经理' && u.status === 'available');
-  const pmId = projectManager?.id || 'U001';
-  const pmName = projectManager?.name || '李明';
+  const pmId = manuscript.current_handler_id || operator_id;
+  const pmName = manuscript.current_handler_role === '项目经理' ? 
+    (data.users.find(u => u.id === pmId)?.name || operator.name) : operator.name;
   
   quote.status = 'approved';
   quote.approved_at = new Date().toISOString();
@@ -588,8 +597,6 @@ app.post('/api/quotes/:id/approve', (req, res) => {
 
   manuscript.status = 'approved';
   manuscript.quote_status = 'approved';
-  manuscript.current_handler_id = pmId;
-  manuscript.current_handler_role = '项目经理';
 
   const historyEntry = {
     id: `WH${Date.now()}`,
@@ -819,9 +826,9 @@ app.post('/api/manuscripts/:id/submit-translation', (req, res) => {
     return res.status(403).json({ error: '无提交翻译权限' });
   }
 
-  const projectManager = data.users.find(u => u.role === '项目经理' && u.status === 'available');
-  const pmId = projectManager?.id || 'U001';
-  const pmName = projectManager?.name || '李明';
+  const pmId = manuscript.current_handler_id || data.users.find(u => u.role === '项目经理')?.id || 'U001';
+  const pmName = manuscript.current_handler_role === '项目经理' ? 
+    (data.users.find(u => u.id === pmId)?.name || '项目经理') : '项目经理';
 
   const oldStatus = manuscript.status;
   manuscript.status = 'translated';
