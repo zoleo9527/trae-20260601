@@ -23,14 +23,15 @@ function saveData(data) {
 
 const STATUS_FLOW = {
   draft: ['received'],
-  received: ['assessing', 'assessing_missing_items'],
+  received: ['assessing'],
   assessing: ['quoted', 'assessing'],
   quoted: ['approved', 'rejected'],
   approved: ['assigned'],
   assigned: ['translating'],
   translating: ['translated'],
   translated: ['reviewing'],
-  reviewing: ['completed', 'reviewing'],
+  reviewing: ['completed'],
+  rejected: ['received'],
   completed: []
 };
 
@@ -82,10 +83,17 @@ app.get('/api/today-tasks/:userId', (req, res) => {
     return res.status(404).json({ error: '用户不存在' });
   }
 
-  const todayTasks = data.manuscripts.filter(m => 
+  let todayTasks = data.manuscripts.filter(m => 
     m.current_handler_id === userId && 
     !['completed', 'draft'].includes(m.status)
   );
+
+  if (user.role === '项目经理') {
+    todayTasks = data.manuscripts.filter(m => 
+      !['completed', 'draft'].includes(m.status) &&
+      ['received', 'assessing', 'quoted', 'approved'].includes(m.status)
+    );
+  }
 
   const taskDetails = todayTasks.map(task => {
     const quote = data.quotes.find(q => q.manuscript_id === task.id);
@@ -108,6 +116,9 @@ app.get('/api/today-tasks/:userId', (req, res) => {
       total: taskDetails.length,
       received: taskDetails.filter(t => t.status === 'received').length,
       assessing: taskDetails.filter(t => t.status === 'assessing').length,
+      quoting: taskDetails.filter(t => t.status === 'quoted').length,
+      approved: taskDetails.filter(t => t.status === 'approved').length,
+      assigned: taskDetails.filter(t => t.status === 'assigned').length,
       translating: taskDetails.filter(t => t.status === 'translating').length,
       reviewing: taskDetails.filter(t => t.status === 'reviewing').length
     }
@@ -135,12 +146,20 @@ app.get('/api/manuscripts/:id', (req, res) => {
     data.client_feedbacks.find(cf => cf.id === fid)
   ).filter(Boolean);
 
+  const translator = manuscript.translator_id ? 
+    data.users.find(u => u.id === manuscript.translator_id) : null;
+  
+  const reviewer = manuscript.reviewer_id ? 
+    data.users.find(u => u.id === manuscript.reviewer_id) : null;
+
   res.json({
     manuscript,
     quote,
     history,
     glossary,
-    feedbacks
+    feedbacks,
+    translator,
+    reviewer
   });
 });
 
@@ -342,37 +361,44 @@ app.post('/api/manuscripts/:id/start-assessment', (req, res) => {
   manuscript.current_handler_id = operator_id;
   manuscript.current_handler_role = operator.role;
 
-  const pendingItems = [];
-  if (!manuscript.terms_connected) {
-    pendingItems.push({
-      item: '术语表',
-      status: 'missing',
-      required: true,
-      message: '建议客户提供术语表以确保报价准确性'
-    });
-  }
-  if (!manuscript.feedback_connected) {
-    pendingItems.push({
-      item: '客户反馈',
-      status: 'missing',
-      required: false,
-      message: '如有历史反馈可提高翻译质量'
-    });
-  }
+  let existingQuote = data.quotes.find(q => q.manuscript_id === id);
+  
+  if (!existingQuote) {
+    const pendingItems = [];
+    if (!manuscript.terms_connected) {
+      pendingItems.push({
+        item: '术语表',
+        status: 'missing',
+        required: true,
+        message: '建议客户提供术语表以确保报价准确性'
+      });
+    }
+    if (!manuscript.feedback_connected) {
+      pendingItems.push({
+        item: '客户反馈',
+        status: 'missing',
+        required: false,
+        message: '如有历史反馈可提高翻译质量'
+      });
+    }
 
-  const quote = {
-    id: `QT${Date.now()}`,
-    manuscript_id: id,
-    status: 'pending_assessment',
-    assessor_id: operator_id,
-    assessor_name: operator.name,
-    pending_items: pendingItems,
-    created_at: new Date().toISOString()
-  };
+    existingQuote = {
+      id: `QT${Date.now()}`,
+      manuscript_id: id,
+      status: 'pending_assessment',
+      assessor_id: operator_id,
+      assessor_name: operator.name,
+      pending_items: pendingItems,
+      created_at: new Date().toISOString()
+    };
 
-  data.quotes.push(quote);
-  manuscript.quote_id = quote.id;
-  manuscript.quote_status = 'pending_assessment';
+    data.quotes.push(existingQuote);
+    manuscript.quote_id = existingQuote.id;
+    manuscript.quote_status = 'pending_assessment';
+  } else {
+    existingQuote.status = 'pending_assessment';
+    manuscript.quote_status = 'pending_assessment';
+  }
 
   const contextSummary = [
     manuscript.terms_connected ? '术语表已关联' : '术语表缺失',
@@ -404,7 +430,7 @@ app.post('/api/manuscripts/:id/start-assessment', (req, res) => {
   res.json({
     success: true,
     manuscript,
-    quote,
+    quote: existingQuote,
     history: historyEntry
   });
 });
@@ -439,7 +465,6 @@ app.post('/api/quotes/:id/assess', (req, res) => {
   quote.discount = discount || 0;
   quote.delivery_days = delivery_days;
   quote.assessment_notes = assessment_notes;
-  quote.pending_items = quote.pending_items.filter(p => p.status !== 'resolved');
 
   manuscript.quote_status = 'assessing';
 
@@ -523,6 +548,441 @@ app.post('/api/quotes/:id/submit', (req, res) => {
   });
 });
 
+app.post('/api/quotes/:id/approve', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, notes } = req.body;
+  const data = loadData();
+
+  const quote = data.quotes.find(q => q.id === id);
+  if (!quote) {
+    return res.status(404).json({ error: '报价单不存在' });
+  }
+
+  const manuscript = data.manuscripts.find(m => m.id === quote.manuscript_id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '关联稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'approved')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  
+  quote.status = 'approved';
+  quote.approved_at = new Date().toISOString();
+  quote.approved_by = operator_id;
+  quote.client_approval_notes = notes;
+
+  manuscript.status = 'approved';
+  manuscript.quote_status = 'approved';
+  manuscript.current_handler_id = operator_id;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: manuscript.id,
+    operator_id,
+    operator_name: operator.name || '客户',
+    operator_role: operator?.role || '客户',
+    action: 'approve_quote',
+    from_status: 'quoted',
+    to_status: 'approved',
+    notes: notes || '客户确认报价',
+    context_passed: {
+      quote_id: id,
+      final_price: quote.final_price
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    quote,
+    manuscript,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/assign-translator', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, translator_id, notes, due_date } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'assigned')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'assign_translator')) {
+    return res.status(403).json({ error: '无分配权限' });
+  }
+
+  const translator = data.users.find(u => u.id === translator_id);
+  if (!translator || translator.role !== '译员') {
+    return res.status(404).json({ error: '译员不存在或角色不正确' });
+  }
+
+  const oldStatus = manuscript.status;
+  manuscript.status = 'assigned';
+  manuscript.current_handler_id = translator_id;
+  manuscript.current_handler_role = '译员';
+  manuscript.translator_id = translator_id;
+  manuscript.translator_name = translator.name;
+  manuscript.due_date = due_date;
+  manuscript.progress = 0;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'assign_translator',
+    from_status: oldStatus,
+    to_status: 'assigned',
+    notes: notes || `分配给译员${translator.name}`,
+    context_passed: {
+      translator_id,
+      translator_name: translator.name,
+      due_date,
+      quote_context: `报价¥${manuscript.quote?.final_price || 0}，交付${manuscript.quote?.delivery_days || 0}天`
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    translator,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/start-translation', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'translating')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'start_translation')) {
+    return res.status(403).json({ error: '无开始翻译权限' });
+  }
+
+  const oldStatus = manuscript.status;
+  manuscript.status = 'translating';
+  manuscript.progress = 0;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'start_translation',
+    from_status: oldStatus,
+    to_status: 'translating',
+    notes: notes || '开始翻译',
+    context_passed: {
+      glossary_id: manuscript.glossary_id,
+      client_style: manuscript.reception_notes
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/update-progress', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, progress, notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'update_translation_progress')) {
+    return res.status(403).json({ error: '无更新进度权限' });
+  }
+
+  manuscript.progress = Math.min(100, Math.max(0, progress));
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'update_progress',
+    notes: notes || `进度更新至${progress}%`,
+    context_passed: { progress },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/submit-translation', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'translated')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'submit_translation')) {
+    return res.status(403).json({ error: '无提交翻译权限' });
+  }
+
+  const oldStatus = manuscript.status;
+  manuscript.status = 'translated';
+  manuscript.progress = 100;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'submit_translation',
+    from_status: oldStatus,
+    to_status: 'translated',
+    notes: notes || '翻译完成，等待审校',
+    context_passed: {
+      translator_notes: notes,
+      word_count: manuscript.word_count
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/assign-reviewer', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, reviewer_id, notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'reviewing')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'assign_reviewer')) {
+    return res.status(403).json({ error: '无分配权限' });
+  }
+
+  const reviewer = data.users.find(u => u.id === reviewer_id);
+  if (!reviewer || reviewer.role !== '审校') {
+    return res.status(404).json({ error: '审校不存在或角色不正确' });
+  }
+
+  const oldStatus = manuscript.status;
+  manuscript.status = 'reviewing';
+  manuscript.current_handler_id = reviewer_id;
+  manuscript.current_handler_role = '审校';
+  manuscript.reviewer_id = reviewer_id;
+  manuscript.reviewer_name = reviewer.name;
+  manuscript.review_progress = 0;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'assign_reviewer',
+    from_status: oldStatus,
+    to_status: 'reviewing',
+    notes: notes || `分配给审校${reviewer.name}`,
+    context_passed: {
+      reviewer_id,
+      reviewer_name: reviewer.name,
+      translator_notes: manuscript.reception_notes
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    reviewer,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/update-review-progress', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, review_progress, notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'update_review_progress')) {
+    return res.status(403).json({ error: '无更新审校进度权限' });
+  }
+
+  manuscript.review_progress = Math.min(100, Math.max(0, review_progress));
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'update_review_progress',
+    notes: notes || `审校进度更新至${review_progress}%`,
+    context_passed: { review_progress },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    history: historyEntry
+  });
+});
+
+app.post('/api/manuscripts/:id/submit-review', (req, res) => {
+  const { id } = req.params;
+  const { operator_id, notes, review_notes } = req.body;
+  const data = loadData();
+
+  const manuscript = data.manuscripts.find(m => m.id === id);
+  if (!manuscript) {
+    return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (!validateStatusTransition(manuscript.status, 'completed')) {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_next: STATUS_FLOW[manuscript.status]
+    });
+  }
+
+  const operator = data.users.find(u => u.id === operator_id);
+  if (!operator || !hasPermission(operator.role, 'submit_review')) {
+    return res.status(403).json({ error: '无提交审校权限' });
+  }
+
+  const oldStatus = manuscript.status;
+  manuscript.status = 'completed';
+  manuscript.review_progress = 100;
+  manuscript.review_notes = review_notes;
+
+  const historyEntry = {
+    id: `WH${Date.now()}`,
+    manuscript_id: id,
+    operator_id,
+    operator_name: operator.name,
+    operator_role: operator.role,
+    action: 'submit_review',
+    from_status: oldStatus,
+    to_status: 'completed',
+    notes: notes || '审校完成，任务结束',
+    context_passed: {
+      review_notes: review_notes,
+      final_status: 'completed'
+    },
+    created_at: new Date().toISOString()
+  };
+
+  data.workflow_history.push(historyEntry);
+  saveData(data);
+
+  res.json({
+    success: true,
+    manuscript,
+    history: historyEntry
+  });
+});
+
 app.get('/api/manuscripts', (req, res) => {
   const { status, handler_id, role } = req.query;
   const data = loadData();
@@ -573,6 +1033,19 @@ app.get('/api/client-feedbacks', (req, res) => {
   }
 
   res.json({ feedbacks });
+});
+
+app.get('/api/users', (req, res) => {
+  const { role } = req.query;
+  const data = loadData();
+  
+  let users = [...data.users];
+
+  if (role) {
+    users = users.filter(u => u.role === role);
+  }
+
+  res.json({ users });
 });
 
 app.listen(PORT, () => {

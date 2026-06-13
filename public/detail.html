@@ -203,59 +203,6 @@
       color: #2196f3;
     }
 
-    .glossary-item, .feedback-item {
-      padding: 16px;
-      background: #f8f9ff;
-      border-radius: 8px;
-      margin-bottom: 12px;
-    }
-
-    .glossary-header, .feedback-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 8px;
-    }
-
-    .glossary-name, .feedback-type {
-      font-weight: 600;
-      color: #333;
-    }
-
-    .glossary-meta, .feedback-summary {
-      font-size: 13px;
-      color: #666;
-    }
-
-    .terms-preview {
-      margin-top: 12px;
-      padding: 12px;
-      background: white;
-      border-radius: 6px;
-      font-size: 13px;
-    }
-
-    .term-row {
-      display: flex;
-      gap: 12px;
-      padding: 6px 0;
-      border-bottom: 1px solid #f0f0f0;
-    }
-
-    .term-row:last-child {
-      border-bottom: none;
-    }
-
-    .term-lang {
-      color: #667eea;
-      font-weight: 500;
-      width: 60px;
-    }
-
-    .term-value {
-      color: #333;
-    }
-
     .btn {
       padding: 10px 20px;
       border: none;
@@ -274,9 +221,9 @@
       color: white;
     }
 
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    .btn-success {
+      background: #4caf50;
+      color: white;
     }
 
     .btn-secondary {
@@ -289,21 +236,6 @@
       color: white;
     }
 
-    .btn-success {
-      background: #4caf50;
-      color: white;
-    }
-
-    .btn-success:hover {
-      background: #45a049;
-    }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      transform: none;
-    }
-
     .action-buttons {
       display: flex;
       gap: 12px;
@@ -311,11 +243,11 @@
       flex-wrap: wrap;
     }
 
-    .assessment-form {
+    .assessment-form, .assign-form {
       display: none;
     }
 
-    .assessment-form.active {
+    .assessment-form.active, .assign-form.active {
       display: block;
     }
 
@@ -349,6 +281,20 @@
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 16px;
+    }
+
+    .form-select {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #e8ecf1;
+      border-radius: 8px;
+      font-size: 14px;
+      background: white;
+    }
+
+    .form-select:focus {
+      outline: none;
+      border-color: #667eea;
     }
 
     .price-preview {
@@ -386,31 +332,19 @@
       font-size: 24px;
     }
 
-    .pending-items {
-      background: #fff3e0;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 16px 0;
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 8px 0;
     }
 
-    .pending-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 0;
-      font-size: 14px;
-    }
-
-    .pending-icon {
-      width: 20px;
-      height: 20px;
-      border-radius: 50%;
-      background: #ff9800;
-      color: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 4px;
     }
 
     .history-timeline {
@@ -423,10 +357,6 @@
       gap: 16px;
       padding: 16px 0;
       border-bottom: 1px solid #f0f0f0;
-    }
-
-    .history-item:last-child {
-      border-bottom: none;
     }
 
     .history-icon {
@@ -478,7 +408,6 @@
       font-size: 14px;
       color: #666;
       margin-top: 4px;
-      line-height: 1.6;
     }
 
     .history-context {
@@ -548,8 +477,23 @@
       color: #666;
     }
 
-    .modal-close:hover {
-      background: #e0e0e0;
+    .urgency-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+
+    .urgency-urgent {
+      background: #ffebee;
+      color: #f44336;
+    }
+
+    .urgency-normal {
+      background: #e3f2fd;
+      color: #2196f3;
     }
 
     @media (max-width: 1200px) {
@@ -583,24 +527,6 @@
               <h3 class="context-title">📎 上下文交接</h3>
               <div class="context-badges" id="contextBadges"></div>
             </div>
-
-            <div id="glossarySection" style="display: none;">
-              <h4 style="font-size: 14px; margin-bottom: 12px; color: #666;">术语表</h4>
-              <div id="glossaryContent"></div>
-            </div>
-
-            <div id="feedbackSection" style="display: none; margin-top: 16px;">
-              <h4 style="font-size: 14px; margin-bottom: 12px; color: #666;">客户反馈</h4>
-              <div id="feedbackContent"></div>
-            </div>
-
-            <div id="pendingItemsSection" style="display: none;">
-              <div class="pending-items">
-                <h4 style="font-size: 14px; margin-bottom: 12px;">⚠️ 待完善事项</h4>
-                <div id="pendingItemsContent"></div>
-              </div>
-            </div>
-
             <div class="action-buttons" id="actionButtons"></div>
           </div>
         </div>
@@ -609,15 +535,12 @@
           <div class="card-header">
             <h3 class="card-title">💰 报价评估</h3>
           </div>
-
           <div id="quoteSection"></div>
-
           <div id="assessmentForm" class="assessment-form">
             <div class="form-group">
               <label class="form-label">基础单价（元/字）</label>
-              <input type="number" class="form-input" id="basePrice" step="0.01" min="0" placeholder="例如：0.12">
+              <input type="number" class="form-input" id="basePrice" step="0.01" min="0">
             </div>
-
             <div class="form-row">
               <div class="form-group">
                 <label class="form-label">折扣（%）</label>
@@ -625,41 +548,94 @@
               </div>
               <div class="form-group">
                 <label class="form-label">交付周期（天）</label>
-                <input type="number" class="form-input" id="deliveryDays" min="1" placeholder="例如：5">
+                <input type="number" class="form-input" id="deliveryDays" min="1">
               </div>
             </div>
-
             <div class="form-group">
               <label class="form-label">评估备注</label>
-              <textarea class="form-input" id="assessmentNotes" rows="3" placeholder="说明报价依据、注意事项等"></textarea>
+              <textarea class="form-input" id="assessmentNotes" rows="3"></textarea>
             </div>
-
-            <div class="price-preview" id="pricePreview" style="display: none;">
-              <div class="price-row">
-                <span class="price-label">字数</span>
-                <span class="price-value" id="wordCountDisplay">0</span>
-              </div>
-              <div class="price-row">
-                <span class="price-label">单价</span>
-                <span class="price-value" id="unitPriceDisplay">¥0.00</span>
-              </div>
-              <div class="price-row">
-                <span class="price-label">小计</span>
-                <span class="price-value" id="subtotalDisplay">¥0.00</span>
-              </div>
-              <div class="price-row">
-                <span class="price-label">折扣</span>
-                <span class="price-value" id="discountDisplay">-¥0.00</span>
-              </div>
-              <div class="price-row">
-                <span class="price-label">最终报价</span>
-                <span class="price-value price-total" id="finalPriceDisplay">¥0.00</span>
-              </div>
+            <div class="price-preview" id="pricePreview">
+              <div class="price-row"><span class="price-label">字数</span><span class="price-value" id="wordCountDisplay">0</span></div>
+              <div class="price-row"><span class="price-label">单价</span><span class="price-value" id="unitPriceDisplay">¥0.00</span></div>
+              <div class="price-row"><span class="price-label">小计</span><span class="price-value" id="subtotalDisplay">¥0.00</span></div>
+              <div class="price-row"><span class="price-label">折扣</span><span class="price-value" id="discountDisplay">-¥0.00</span></div>
+              <div class="price-row"><span class="price-label">最终报价</span><span class="price-value price-total" id="finalPriceDisplay">¥0.00</span></div>
             </div>
-
             <div class="action-buttons">
-              <button class="btn btn-primary" id="submitAssessment" onclick="submitAssessment()">提交报价</button>
+              <button class="btn btn-primary" onclick="submitAssessment()">提交报价</button>
               <button class="btn btn-secondary" onclick="hideAssessmentForm()">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">👥 分配管理</h3>
+          </div>
+          <div id="assignmentSection"></div>
+          <div id="assignTranslatorForm" class="assign-form">
+            <div class="form-group">
+              <label class="form-label">选择译员</label>
+              <select class="form-select" id="translatorSelect"></select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">截止日期</label>
+              <input type="date" class="form-input" id="dueDate">
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-success" onclick="assignTranslator()">确认分配</button>
+              <button class="btn btn-secondary" onclick="hideAssignTranslatorForm()">取消</button>
+            </div>
+          </div>
+          <div id="assignReviewerForm" class="assign-form">
+            <div class="form-group">
+              <label class="form-label">选择审校</label>
+              <select class="form-select" id="reviewerSelect"></select>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-success" onclick="assignReviewer()">确认分配</button>
+              <button class="btn btn-secondary" onclick="hideAssignReviewerForm()">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">✍️ 翻译进度</h3>
+          </div>
+          <div id="translationSection"></div>
+          <div id="progressForm" class="assign-form">
+            <div class="form-group">
+              <label class="form-label">进度（%）</label>
+              <input type="number" class="form-input" id="progressInput" min="0" max="100">
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-primary" onclick="updateProgress()">更新进度</button>
+              <button class="btn btn-success" onclick="submitTranslation()">提交翻译</button>
+              <button class="btn btn-secondary" onclick="hideProgressForm()">取消</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3 class="card-title">🔍 审校进度</h3>
+          </div>
+          <div id="reviewSection"></div>
+          <div id="reviewForm" class="assign-form">
+            <div class="form-group">
+              <label class="form-label">审校进度（%）</label>
+              <input type="number" class="form-input" id="reviewProgressInput" min="0" max="100">
+            </div>
+            <div class="form-group">
+              <label class="form-label">审校备注</label>
+              <textarea class="form-input" id="reviewNotes" rows="3"></textarea>
+            </div>
+            <div class="action-buttons">
+              <button class="btn btn-primary" onclick="updateReviewProgress()">更新进度</button>
+              <button class="btn btn-success" onclick="submitReview()">完成审校</button>
+              <button class="btn btn-secondary" onclick="hideReviewForm()">取消</button>
             </div>
           </div>
         </div>
@@ -676,29 +652,19 @@
     </div>
   </div>
 
-  <div class="modal" id="receiveModal">
+  <div class="modal" id="approveQuoteModal">
     <div class="modal-content">
       <div class="modal-header">
-        <h3 class="modal-title">📥 接收稿件</h3>
-        <button class="modal-close" onclick="closeModal('receiveModal')">×</button>
+        <h3 class="modal-title">✅ 客户确认报价</h3>
+        <button class="modal-close" onclick="closeModal('approveQuoteModal')">×</button>
       </div>
       <div class="form-group">
-        <label class="form-label">接收备注</label>
-        <textarea class="form-input" id="receiveNotes" rows="3" placeholder="记录接收时的情况、注意事项等"></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">关联术语表</label>
-        <select class="form-input" id="glossarySelect">
-          <option value="">选择术语表（可选）</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">关联客户反馈</label>
-        <div id="feedbackCheckboxes"></div>
+        <label class="form-label">确认备注</label>
+        <textarea class="form-input" id="approveNotes" rows="3"></textarea>
       </div>
       <div class="action-buttons">
-        <button class="btn btn-primary" onclick="confirmReceive()">确认接收</button>
-        <button class="btn btn-secondary" onclick="closeModal('receiveModal')">取消</button>
+        <button class="btn btn-success" onclick="approveQuote()">确认报价</button>
+        <button class="btn btn-secondary" onclick="closeModal('approveQuoteModal')">取消</button>
       </div>
     </div>
   </div>
@@ -707,339 +673,221 @@
     const API_BASE = 'http://localhost:3000/api';
     let currentManuscript = null;
     let currentQuote = null;
-    let allGlossaries = [];
-    let allFeedbacks = [];
-    let selectedGlossary = null;
-    let selectedFeedbacks = [];
+    let allUsers = [];
+    let data = {};
 
     const actionIcons = {
-      receive: '📥',
-      connect_glossary: '📚',
-      connect_feedback: '💬',
-      start_assessment: '📊',
-      assess_quote: '💰',
-      submit_quote: '📤',
-      approve_quote: '✅',
-      reject_quote: '❌',
-      assign_translator: '👤',
-      assign_reviewer: '🔍',
-      start_translation: '✍️',
-      complete_translation: '✅',
-      start_review: '🔍',
-      submit_review: '📋'
+      receive: '📥', connect_glossary: '📚', connect_feedback: '💬',
+      start_assessment: '📊', assess_quote: '💰', submit_quote: '📤',
+      approve_quote: '✅', assign_translator: '👤', start_translation: '✍️',
+      update_progress: '📈', submit_translation: '✅', assign_reviewer: '🔍',
+      update_review_progress: '🔍', submit_review: '🏁'
     };
 
     async function loadManuscript() {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('id');
-
-      if (!id) {
-        alert('缺少稿件ID');
-        window.location.href = 'index.html';
-        return;
-      }
+      const id = new URLSearchParams(window.location.search).get('id');
+      if (!id) { alert('缺少稿件ID'); window.location.href = 'index.html'; return; }
 
       try {
-        const response = await fetch(`${API_BASE}/manuscripts/${id}`);
-        const data = await response.json();
-
+        const [manuscriptRes, usersRes] = await Promise.all([
+          fetch(`${API_BASE}/manuscripts/${id}`),
+          fetch(`${API_BASE}/users`)
+        ]);
+        data = await manuscriptRes.json();
+        allUsers = (await usersRes.json()).users;
         currentManuscript = data.manuscript;
         currentQuote = data.quote;
 
-        await loadGlossaries();
-        await loadFeedbacks();
-
-        renderManuscript(data);
-        renderQuote(data.quote);
-        renderHistory(data.history);
+        renderManuscript();
+        renderQuote();
+        renderAssignmentSection();
+        renderTranslationSection();
+        renderReviewSection();
+        renderHistory();
       } catch (error) {
-        console.error('加载失败:', error);
         alert('加载稿件失败');
       }
     }
 
-    async function loadGlossaries() {
-      try {
-        const response = await fetch(`${API_BASE}/glossaries`);
-        const data = await response.json();
-        allGlossaries = data.glossaries;
-      } catch (error) {
-        console.error('加载术语表失败:', error);
-      }
-    }
-
-    async function loadFeedbacks() {
-      try {
-        const response = await fetch(`${API_BASE}/client-feedbacks`);
-        const data = await response.json();
-        allFeedbacks = data.feedbacks;
-      } catch (error) {
-        console.error('加载客户反馈失败:', error);
-      }
-    }
-
-    function renderManuscript(data) {
-      const m = data.manuscript;
-
+    function renderManuscript() {
+      const m = currentManuscript;
       document.getElementById('manuscriptTitle').textContent = m.title;
+
+      const urgencyMap = { urgent: { text: '🔥 紧急', class: 'urgency-urgent' }, normal: { text: '📋 普通', class: 'urgency-normal' } };
+      const urgency = urgencyMap[m.urgency] || { text: '', class: '' };
 
       document.getElementById('manuscriptMeta').innerHTML = `
         <div class="meta-item">🏢 ${m.client}</div>
         <div class="meta-item">🌐 ${m.source_language} → ${m.target_language}</div>
         <div class="meta-item">📅 截止 ${m.deadline}</div>
+        <span class="urgency-badge ${urgency.class}">${urgency.text}</span>
       `;
 
-      const statusClass = `status-${m.status}`;
-      document.getElementById('statusBadge').className = `status-badge ${statusClass}`;
+      document.getElementById('statusBadge').className = `status-badge status-${m.status}`;
       document.getElementById('statusBadge').textContent = getStatusText(m.status);
 
-      const urgencyMap = {
-        urgent: { text: '🔥 紧急', class: 'urgency-urgent' },
-        normal: { text: '📋 普通', class: 'urgency-normal' },
-        low: { text: '⏰ 宽松', class: 'urgency-low' }
-      };
-      const urgency = urgencyMap[m.urgency] || { text: '', class: '' };
-
-      document.getElementById('infoGrid').innerHTML = `
-        <div class="info-item">
-          <div class="info-label">稿件编号</div>
-          <div class="info-value">${m.id}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">客户</div>
-          <div class="info-value">${m.client}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">字数</div>
-          <div class="info-value">${m.word_count.toLocaleString()} 字</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">紧急程度</div>
-          <div class="info-value"><span class="urgency-badge ${urgency.class}">${urgency.text}</span></div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">截止日期</div>
-          <div class="info-value">${m.deadline}</div>
-        </div>
-        <div class="info-item">
-          <div class="info-label">当前处理人</div>
-          <div class="info-value">${m.current_handler_role} - ${m[currentHandlerField(m)] || '待分配'}</div>
-        </div>
-        ${m.received_at ? `
-        <div class="info-item">
-          <div class="info-label">接收时间</div>
-          <div class="info-value">${formatDateTime(m.received_at)}</div>
-        </div>
-        ` : ''}
-        ${m.received_by ? `
-        <div class="info-item">
-          <div class="info-label">接收人</div>
-          <div class="info-value">${m.received_by}</div>
-        </div>
-        ` : ''}
+      let html = `
+        <div class="info-item"><div class="info-label">稿件编号</div><div class="info-value">${m.id}</div></div>
+        <div class="info-item"><div class="info-label">客户</div><div class="info-value">${m.client}</div></div>
+        <div class="info-item"><div class="info-label">字数</div><div class="info-value">${m.word_count.toLocaleString()} 字</div></div>
+        <div class="info-item"><div class="info-label">紧急程度</div><div class="info-value"><span class="urgency-badge ${urgency.class}">${urgency.text}</span></div></div>
+        <div class="info-item"><div class="info-label">截止日期</div><div class="info-value">${m.deadline}</div></div>
+        <div class="info-item"><div class="info-label">当前处理人</div><div class="info-value">${m.current_handler_role} - ${getCurrentHandlerName(m)}</div></div>
       `;
 
-      renderContextSection(m);
-      renderActionButtons(m);
+      if (m.translator_name) html += `<div class="info-item"><div class="info-label">译员</div><div class="info-value">${m.translator_name}</div></div>`;
+      if (m.reviewer_name) html += `<div class="info-item"><div class="info-label">审校</div><div class="info-value">${m.reviewer_name}</div></div>`;
+      if (m.due_date) html += `<div class="info-item"><div class="info-label">预计完成</div><div class="info-value">${m.due_date}</div></div>`;
+
+      document.getElementById('infoGrid').innerHTML = html;
+      renderContextBadges();
+      renderActionButtons();
     }
 
-    function currentHandlerField(m) {
-      if (m.status === 'translating' && m.translator_name) return 'translator_name';
-      if (m.status === 'reviewing' && m.reviewer_name) return 'reviewer_name';
-      return 'current_handler_role';
+    function getCurrentHandlerName(m) {
+      if (m.status === 'translating' && m.translator_name) return m.translator_name;
+      if (m.status === 'reviewing' && m.reviewer_name) return m.reviewer_name;
+      return m.current_handler_role;
     }
 
-    function renderContextSection(m) {
+    function getStatusText(status) {
+      const map = { draft: '草稿', received: '已接收', assessing: '评估中', quoted: '待确认', approved: '已批准', assigned: '已分配', translating: '翻译中', translated: '待审校', reviewing: '审校中', completed: '已完成' };
+      return map[status] || status;
+    }
+
+    function renderContextBadges() {
+      const m = currentManuscript;
       const badges = [];
-      badges.push(`<span class="badge ${m.terms_connected ? 'badge-success' : 'badge-warning'}">
-        ${m.terms_connected ? '✓' : '⚠️'} 术语表 ${m.terms_connected ? '已关联' : '未关联'}
-      </span>`);
-      badges.push(`<span class="badge ${m.feedback_connected ? 'badge-success' : 'badge-warning'}">
-        ${m.feedback_connected ? '✓' : '⚠️'} 客户反馈 ${m.feedback_connected ? '已关联' : '未关联'}
-      </span>`);
-      if (m.quote_id) {
-        badges.push(`<span class="badge badge-info">✓ 已有报价</span>`);
-      }
-
+      badges.push(`<span class="badge ${m.terms_connected ? 'badge-success' : 'badge-warning'}">${m.terms_connected ? '✓' : '⚠️'} 术语表</span>`);
+      badges.push(`<span class="badge ${m.feedback_connected ? 'badge-success' : 'badge-warning'}">${m.feedback_connected ? '✓' : '⚠️'} 客户反馈</span>`);
+      if (m.quote_id) badges.push(`<span class="badge ${m.quote_status === 'approved' ? 'badge-success' : m.quote_status === 'quoted' ? 'badge-info' : 'badge-warning'}">${m.quote_status === 'approved' ? '✓' : '⏳'} 报价</span>`);
       document.getElementById('contextBadges').innerHTML = badges.join('');
-
-      if (m.terms_connected && data.glossary) {
-        document.getElementById('glossarySection').style.display = 'block';
-        const g = data.glossary;
-        document.getElementById('glossaryContent').innerHTML = `
-          <div class="glossary-item">
-            <div class="glossary-header">
-              <span class="glossary-name">${g.client_name} - 术语表 ${g.version}</span>
-              <span class="badge badge-success">${g.term_count} 条术语</span>
-            </div>
-            <div class="glossary-meta">最后更新: ${g.last_updated}</div>
-            <div class="terms-preview">
-              <div style="font-size: 12px; color: #999; margin-bottom: 8px;">术语预览：</div>
-              ${g.terms_sample.slice(0, 5).map(t => `
-                <div class="term-row">
-                  <span class="term-lang">${t.zh ? '中文' : '源'}</span>
-                  <span class="term-value">${t.zh || t.en}</span>
-                  <span class="term-lang">${t.en ? '英文' : '目标'}</span>
-                  <span class="term-value">${t.en || t.zh}</span>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        `;
-      }
-
-      if (m.feedback_connected && data.feedbacks && data.feedbacks.length > 0) {
-        document.getElementById('feedbackSection').style.display = 'block';
-        document.getElementById('feedbackContent').innerHTML = data.feedbacks.map(f => `
-          <div class="feedback-item">
-            <div class="feedback-header">
-              <span class="feedback-type">${f.type === 'style_preference' ? '💅 风格偏好' : '📝 质量反馈'}</span>
-              <span style="font-size: 12px; color: #999;">${f.created_at}</span>
-            </div>
-            <div class="feedback-summary">${f.summary}</div>
-          </div>
-        `).join('');
-      }
     }
 
-    function renderActionButtons(m) {
+    function renderActionButtons() {
+      const m = currentManuscript;
       const buttons = [];
 
-      if (m.status === 'draft') {
-        buttons.push(`
-          <button class="btn btn-primary" onclick="openReceiveModal()">
-            📥 接收稿件
-          </button>
-        `);
-      }
-
-      if (m.status === 'received' && !m.quote_id) {
-        buttons.push(`
-          <button class="btn btn-primary" onclick="startAssessment()">
-            📊 开始报价评估
-          </button>
-        `);
-      }
-
-      if (m.status === 'assessing' && m.quote_status === 'pending_assessment') {
-        buttons.push(`
-          <button class="btn btn-primary" onclick="showAssessmentForm()">
-            💰 继续评估
-          </button>
-        `);
-      }
-
-      if (m.quote_status === 'assessing' && currentQuote && currentQuote.final_price !== null) {
-        buttons.push(`
-          <button class="btn btn-success" onclick="submitQuote()">
-            📤 提交报价
-          </button>
-        `);
-      }
+      if (m.status === 'received' && !m.quote_id) buttons.push(`<button class="btn btn-primary" onclick="startAssessment()">📊 开始报价评估</button>`);
+      if (m.status === 'assessing') buttons.push(`<button class="btn btn-primary" onclick="showAssessmentForm()">💰 继续评估</button>`);
+      if (m.quote_status === 'assessing' && currentQuote?.final_price !== null) buttons.push(`<button class="btn btn-success" onclick="submitQuote()">📤 提交报价</button>`);
+      if (m.status === 'quoted') buttons.push(`<button class="btn btn-success" onclick="openApproveQuoteModal()">✅ 客户确认报价</button>`);
+      if (m.status === 'approved') buttons.push(`<button class="btn btn-primary" onclick="showAssignTranslatorForm()">👤 分配译员</button>`);
+      if (m.status === 'assigned') buttons.push(`<button class="btn btn-primary" onclick="startTranslation()">✍️ 开始翻译</button>`);
+      if (m.status === 'translating') buttons.push(`<button class="btn btn-primary" onclick="showProgressForm()">📈 更新进度</button>`);
+      if (m.status === 'translated') buttons.push(`<button class="btn btn-primary" onclick="showAssignReviewerForm()">🔍 分配审校</button>`);
+      if (m.status === 'reviewing') buttons.push(`<button class="btn btn-primary" onclick="showReviewForm()">📝 更新审校</button>`);
 
       document.getElementById('actionButtons').innerHTML = buttons.join('');
     }
 
-    function renderQuote(quote) {
+    function renderQuote() {
+      const quote = currentQuote;
       const container = document.getElementById('quoteSection');
 
       if (!quote) {
-        container.innerHTML = `
-          <div style="text-align: center; padding: 40px; color: #999;">
-            <div style="font-size: 48px; margin-bottom: 16px;">📋</div>
-            <div>暂无报价信息</div>
-          </div>
-        `;
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">暂无报价信息</div>';
         return;
       }
 
-      let html = `
-        <div style="margin-bottom: 20px;">
-          <span class="badge ${quote.status === 'approved' ? 'badge-success' : 'badge-warning'}">
-            ${quote.status === 'approved' ? '✅ 已批准' : quote.status === 'quoted' ? '📤 已提交' : '⏳ 评估中'}
-          </span>
-        </div>
-      `;
+      let html = `<span class="badge ${quote.status === 'approved' ? 'badge-success' : quote.status === 'quoted' ? 'badge-info' : 'badge-warning'}">${quote.status === 'approved' ? '✅ 已批准' : quote.status === 'quoted' ? '📤 已提交' : '⏳ 评估中'}</span>`;
 
       if (quote.final_price !== null) {
         html += `
           <div class="price-preview">
-            <div class="price-row">
-              <span class="price-label">字数</span>
-              <span class="price-value">${currentManuscript.word_count.toLocaleString()} 字</span>
-            </div>
-            <div class="price-row">
-              <span class="price-label">基础单价</span>
-              <span class="price-value">¥${quote.base_price}/字</span>
-            </div>
-            <div class="price-row">
-              <span class="price-label">小计</span>
-              <span class="price-value">¥${quote.calculated_price.toFixed(2)}</span>
-            </div>
-            ${quote.discount > 0 ? `
-            <div class="price-row">
-              <span class="price-label">折扣 (${quote.discount}%)</span>
-              <span class="price-value">-¥${(quote.calculated_price * quote.discount / 100).toFixed(2)}</span>
-            </div>
-            ` : ''}
-            <div class="price-row">
-              <span class="price-label">最终报价</span>
-              <span class="price-value price-total">¥${quote.final_price.toFixed(2)}</span>
-            </div>
+            <div class="price-row"><span class="price-label">字数</span><span class="price-value">${currentManuscript.word_count.toLocaleString()} 字</span></div>
+            <div class="price-row"><span class="price-label">单价</span><span class="price-value">¥${quote.base_price}/字</span></div>
+            <div class="price-row"><span class="price-label">小计</span><span class="price-value">¥${quote.calculated_price.toFixed(2)}</span></div>
+            ${quote.discount > 0 ? `<div class="price-row"><span class="price-label">折扣 (${quote.discount}%)</span><span class="price-value">-¥${(quote.calculated_price * quote.discount / 100).toFixed(2)}</span></div>` : ''}
+            <div class="price-row"><span class="price-label">最终报价</span><span class="price-value price-total">¥${quote.final_price.toFixed(2)}</span></div>
           </div>
         `;
       }
 
-      if (quote.assessment_notes) {
-        html += `
-          <div style="padding: 16px; background: #f8f9ff; border-radius: 8px; margin-bottom: 16px;">
-            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">评估备注</div>
-            <div style="font-size: 14px; color: #333;">${quote.assessment_notes}</div>
-          </div>
-        `;
+      if (quote.assessment_notes) html += `<div style="padding: 16px; background: #f8f9ff; border-radius: 8px;"><div style="font-size: 12px; color: #999;">评估备注</div><div>${quote.assessment_notes}</div></div>`;
+      container.innerHTML = html;
+    }
+
+    function renderAssignmentSection() {
+      const m = currentManuscript;
+      const container = document.getElementById('assignmentSection');
+
+      if (m.status === 'completed') {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">任务已完成</div>';
+        return;
       }
 
-      if (quote.pending_items && quote.pending_items.length > 0) {
-        html += `
-          <div class="pending-items">
-            <h4 style="font-size: 14px; margin-bottom: 12px;">⚠️ 待完善事项</h4>
-            ${quote.pending_items.map(item => `
-              <div class="pending-item">
-                <span class="pending-icon">!</span>
-                <span>${item.item}: ${item.message}</span>
-              </div>
-            `).join('')}
-          </div>
-        `;
-      }
+      let html = '';
+      if (m.translator_name) html += `<div style="padding: 16px; background: #e3f2fd; border-radius: 8px;">译员：${m.translator_name}</div>`;
+      if (m.reviewer_name) html += `<div style="padding: 16px; background: #fce4ec; border-radius: 8px; margin-top: 12px;">审校：${m.reviewer_name}</div>`;
+      if (!m.translator_id && !m.reviewer_id) html += '<div style="text-align: center; padding: 40px; color: #999;">待分配人员</div>';
 
       container.innerHTML = html;
     }
 
-    function renderHistory(history) {
+    function renderTranslationSection() {
+      const m = currentManuscript;
+      const container = document.getElementById('translationSection');
+
+      if (m.status === 'completed') {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">翻译已完成</div>';
+        return;
+      }
+
+      if (!['assigned', 'translating', 'translated'].includes(m.status)) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">等待分配译员</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between;"><span>翻译进度</span><span style="font-weight: 600;">${m.progress || 0}%</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width: ${m.progress || 0}%;"></div></div>
+        </div>
+        ${m.translator_name ? `<div style="padding: 12px; background: #f8f9ff; border-radius: 8px;">译员：${m.translator_name} ${m.due_date ? `| 截止：${m.due_date}` : ''}</div>` : ''}
+      `;
+    }
+
+    function renderReviewSection() {
+      const m = currentManuscript;
+      const container = document.getElementById('reviewSection');
+
+      if (m.status === 'completed') {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">审校已完成</div>';
+        return;
+      }
+
+      if (!['translated', 'reviewing'].includes(m.status)) {
+        container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">等待翻译完成</div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="margin-bottom: 16px;">
+          <div style="display: flex; justify-content: space-between;"><span>审校进度</span><span style="font-weight: 600;">${m.review_progress || 0}%</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width: ${m.review_progress || 0}%; background: linear-gradient(90deg, #e91e63, #f48fb1);"></div></div>
+        </div>
+        ${m.reviewer_name ? `<div style="padding: 12px; background: #fce4ec; border-radius: 8px;">审校：${m.reviewer_name}</div>` : ''}
+        ${m.review_notes ? `<div style="padding: 12px; background: #fff3e0; border-radius: 8px; margin-top: 12px;">审校备注：${m.review_notes}</div>` : ''}
+      `;
+    }
+
+    function renderHistory() {
+      const history = data.history || [];
       const container = document.getElementById('historyTimeline');
 
-      if (!history || history.length === 0) {
+      if (!history.length) {
         container.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">暂无历史记录</div>';
         return;
       }
 
       container.innerHTML = history.map(item => {
         const actionText = {
-          receive: '接收稿件',
-          connect_glossary: '关联术语表',
-          connect_feedback: '关联客户反馈',
-          start_assessment: '开始报价评估',
-          assess_quote: '完成报价评估',
-          submit_quote: '提交报价',
-          approve_quote: '客户确认报价',
-          reject_quote: '客户拒绝报价',
-          assign_translator: '分配译员',
-          assign_reviewer: '分配审校',
-          start_translation: '开始翻译',
-          complete_translation: '完成翻译',
-          start_review: '开始审校',
-          submit_review: '提交审校'
+          receive: '接收稿件', connect_glossary: '关联术语表', connect_feedback: '关联客户反馈',
+          start_assessment: '开始报价评估', assess_quote: '完成报价评估', submit_quote: '提交报价',
+          approve_quote: '客户确认报价', assign_translator: '分配译员', start_translation: '开始翻译',
+          update_progress: '更新翻译进度', submit_translation: '提交翻译', assign_reviewer: '分配审校',
+          update_review_progress: '更新审校进度', submit_review: '完成审校'
         };
 
         return `
@@ -1047,149 +895,19 @@
             <div class="history-icon">${actionIcons[item.action] || '📋'}</div>
             <div class="history-content">
               <div class="history-header">
-                <div>
-                  <span class="history-operator">${item.operator_name}</span>
-                  <span class="history-role">${item.operator_role}</span>
-                </div>
+                <div><span class="history-operator">${item.operator_name}</span><span class="history-role">${item.operator_role}</span></div>
                 <span class="history-time">${formatDateTime(item.created_at)}</span>
               </div>
               <div class="history-action">${actionText[item.action] || item.action}</div>
               ${item.notes ? `<div class="history-notes">${item.notes}</div>` : ''}
-              ${item.context_passed && Object.keys(item.context_passed).length > 0 ? `
-                <div class="history-context">
-                  ${Object.entries(item.context_passed).map(([key, value]) => `
-                    <span class="context-tag">${formatContextKey(key)}: ${formatContextValue(value)}</span>
-                  `).join('')}
-                </div>
-              ` : ''}
             </div>
           </div>
         `;
       }).join('');
     }
 
-    function formatContextKey(key) {
-      const keyMap = {
-        from_module: '来自模块',
-        to_module: '目标模块',
-        has_glossary: '术语表',
-        has_feedback: '客户反馈',
-        glossary_id: '术语表ID',
-        glossary_version: '版本',
-        term_count: '术语数',
-        feedback_ids: '反馈ID',
-        context_summary: '上下文摘要',
-        final_price: '最终报价',
-        delivery_days: '交付周期',
-        quote_id: '报价单ID'
-      };
-      return keyMap[key] || key;
-    }
-
-    function formatContextValue(value) {
-      if (typeof value === 'boolean') {
-        return value ? '✓' : '✗';
-      }
-      if (typeof value === 'number') {
-        return value;
-      }
-      if (typeof value === 'string') {
-        return value;
-      }
-      return JSON.stringify(value);
-    }
-
-    function openReceiveModal() {
-      const glossarySelect = document.getElementById('glossarySelect');
-      glossarySelect.innerHTML = `
-        <option value="">选择术语表（可选）</option>
-        ${allGlossaries.filter(g => g.client_id === currentManuscript.client_id).map(g => `
-          <option value="${g.id}">${g.client_name} - ${g.version} (${g.term_count}条)</option>
-        `).join('')}
-      `;
-
-      const feedbackCheckboxes = document.getElementById('feedbackCheckboxes');
-      feedbackCheckboxes.innerHTML = allFeedbacks
-        .filter(f => f.client_id === currentManuscript.client_id)
-        .map(f => `
-          <label style="display: block; padding: 8px; cursor: pointer;">
-            <input type="checkbox" value="${f.id}" onchange="toggleFeedback('${f.id}')">
-            <span style="margin-left: 8px;">${f.summary}</span>
-          </label>
-        `).join('') || '<div style="color: #999; padding: 8px;">暂无客户反馈</div>';
-
-      document.getElementById('receiveModal').classList.add('active');
-    }
-
-    function closeModal(modalId) {
-      document.getElementById(modalId).classList.remove('active');
-    }
-
-    async function confirmReceive() {
-      const notes = document.getElementById('receiveNotes').value;
-      const glossaryId = document.getElementById('glossarySelect').value;
-
-      try {
-        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/receive`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operator_id: 'U001',
-            notes,
-            glossary_id: glossaryId || null,
-            client_feedback_ids: selectedFeedbacks
-          })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          alert('稿件接收成功！');
-          closeModal('receiveModal');
-          await loadManuscript();
-        } else {
-          alert('接收失败: ' + result.error);
-        }
-      } catch (error) {
-        console.error('接收失败:', error);
-        alert('接收失败，请重试');
-      }
-    }
-
-    function toggleFeedback(feedbackId) {
-      const index = selectedFeedbacks.indexOf(feedbackId);
-      if (index > -1) {
-        selectedFeedbacks.splice(index, 1);
-      } else {
-        selectedFeedbacks.push(feedbackId);
-      }
-    }
-
-    async function startAssessment() {
-      try {
-        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/start-assessment`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operator_id: 'U001',
-            notes: '开始报价评估'
-          })
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-          currentQuote = result.quote;
-          currentManuscript = result.manuscript;
-          await loadManuscript();
-          showAssessmentForm();
-        } else {
-          alert('启动评估失败: ' + result.error);
-        }
-      } catch (error) {
-        console.error('启动评估失败:', error);
-        alert('启动评估失败，请重试');
-      }
+    function formatDateTime(timestamp) {
+      return new Date(timestamp).toLocaleString('zh-CN');
     }
 
     function showAssessmentForm() {
@@ -1204,19 +922,15 @@
     function updatePricePreview() {
       const basePrice = parseFloat(document.getElementById('basePrice').value) || 0;
       const discount = parseFloat(document.getElementById('discount').value) || 0;
-
       const wordCount = currentManuscript.word_count;
       const subtotal = wordCount * basePrice;
       const discountAmount = subtotal * discount / 100;
-      const finalPrice = subtotal - discountAmount;
 
       document.getElementById('wordCountDisplay').textContent = `${wordCount.toLocaleString()} 字`;
       document.getElementById('unitPriceDisplay').textContent = `¥${basePrice.toFixed(2)}/字`;
       document.getElementById('subtotalDisplay').textContent = `¥${subtotal.toFixed(2)}`;
       document.getElementById('discountDisplay').textContent = `-¥${discountAmount.toFixed(2)}`;
-      document.getElementById('finalPriceDisplay').textContent = `¥${finalPrice.toFixed(2)}`;
-
-      document.getElementById('pricePreview').style.display = 'block';
+      document.getElementById('finalPriceDisplay').textContent = `¥${(subtotal - discountAmount).toFixed(2)}`;
     }
 
     document.getElementById('basePrice').addEventListener('input', updatePricePreview);
@@ -1226,15 +940,9 @@
       const basePrice = parseFloat(document.getElementById('basePrice').value);
       const discount = parseFloat(document.getElementById('discount').value) || 0;
       const deliveryDays = parseInt(document.getElementById('deliveryDays').value);
-      const assessmentNotes = document.getElementById('assessmentNotes').value;
 
-      if (!basePrice || basePrice <= 0) {
-        alert('请输入有效的单价');
-        return;
-      }
-
-      if (!deliveryDays || deliveryDays <= 0) {
-        alert('请输入有效的交付周期');
+      if (!basePrice || !deliveryDays) {
+        alert('请填写完整信息');
         return;
       }
 
@@ -1248,23 +956,19 @@
             final_price: currentManuscript.word_count * basePrice * (1 - discount / 100),
             discount,
             delivery_days: deliveryDays,
-            assessment_notes: assessmentNotes
+            assessment_notes: document.getElementById('assessmentNotes').value
           })
         });
 
         const result = await response.json();
-
         if (result.success) {
           currentQuote = result.quote;
-          currentManuscript = result.manuscript;
+          hideAssessmentForm();
           await loadManuscript();
-          alert('报价评估完成！可以提交报价了。');
-        } else {
-          alert('评估失败: ' + result.error);
+          alert('报价评估完成！');
         }
       } catch (error) {
-        console.error('评估失败:', error);
-        alert('评估失败，请重试');
+        alert('评估失败');
       }
     }
 
@@ -1273,90 +977,252 @@
         const response = await fetch(`${API_BASE}/quotes/${currentQuote.id}/submit`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operator_id: 'U001',
-            notes: '报价已提交，等待客户确认'
-          })
+          body: JSON.stringify({ operator_id: 'U001' })
         });
 
         const result = await response.json();
-
         if (result.success) {
-          currentQuote = result.quote;
-          currentManuscript = result.manuscript;
           await loadManuscript();
           alert('报价提交成功！');
-        } else {
-          alert('提交失败: ' + result.error);
         }
       } catch (error) {
-        console.error('提交失败:', error);
-        alert('提交失败，请重试');
+        alert('提交失败');
       }
     }
 
-    function getStatusText(status) {
-      const statusMap = {
-        draft: '草稿',
-        received: '已接收',
-        assessing: '评估中',
-        quoted: '已报价',
-        approved: '已批准',
-        assigned: '已分配',
-        translating: '翻译中',
-        translated: '已翻译',
-        reviewing: '审校中',
-        completed: '已完成'
-      };
-      return statusMap[status] || status;
+    function openApproveQuoteModal() {
+      document.getElementById('approveQuoteModal').classList.add('active');
     }
 
-    function formatDateTime(timestamp) {
-      if (!timestamp) return '-';
-      const date = new Date(timestamp);
-      return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.remove('active');
     }
 
-    let data = {};
+    async function approveQuote() {
+      try {
+        const response = await fetch(`${API_BASE}/quotes/${currentQuote.id}/approve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: 'U001', notes: document.getElementById('approveNotes').value })
+        });
 
-    window.addEventListener('DOMContentLoaded', async () => {
-      await loadManuscript();
-    });
+        const result = await response.json();
+        if (result.success) {
+          closeModal('approveQuoteModal');
+          await loadManuscript();
+          alert('报价已确认！');
+        }
+      } catch (error) {
+        alert('确认失败');
+      }
+    }
 
-    async function loadManuscript() {
-      const params = new URLSearchParams(window.location.search);
-      const id = params.get('id');
+    function showAssignTranslatorForm() {
+      const select = document.getElementById('translatorSelect');
+      select.innerHTML = allUsers.filter(u => u.role === '译员').map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+      document.getElementById('assignTranslatorForm').classList.add('active');
+    }
 
-      if (!id) {
-        alert('缺少稿件ID');
-        window.location.href = 'index.html';
+    function hideAssignTranslatorForm() {
+      document.getElementById('assignTranslatorForm').classList.remove('active');
+    }
+
+    async function assignTranslator() {
+      const translatorId = document.getElementById('translatorSelect').value;
+      const dueDate = document.getElementById('dueDate').value;
+
+      if (!translatorId || !dueDate) {
+        alert('请填写完整信息');
         return;
       }
 
       try {
-        const response = await fetch(`${API_BASE}/manuscripts/${id}`);
-        data = await response.json();
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/assign-translator`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: 'U001', translator_id: translatorId, due_date: dueDate })
+        });
 
-        currentManuscript = data.manuscript;
-        currentQuote = data.quote;
-
-        await loadGlossaries();
-        await loadFeedbacks();
-
-        renderManuscript(data);
-        renderQuote(data.quote);
-        renderHistory(data.history);
+        const result = await response.json();
+        if (result.success) {
+          hideAssignTranslatorForm();
+          await loadManuscript();
+          alert('译员分配成功！');
+        }
       } catch (error) {
-        console.error('加载失败:', error);
-        alert('加载稿件失败');
+        alert('分配失败');
       }
     }
+
+    async function startTranslation() {
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/start-translation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: currentManuscript.translator_id })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          await loadManuscript();
+          alert('开始翻译！');
+        }
+      } catch (error) {
+        alert('操作失败');
+      }
+    }
+
+    function showProgressForm() {
+      document.getElementById('progressInput').value = currentManuscript.progress || 0;
+      document.getElementById('progressForm').classList.add('active');
+    }
+
+    function hideProgressForm() {
+      document.getElementById('progressForm').classList.remove('active');
+    }
+
+    async function updateProgress() {
+      const progress = parseInt(document.getElementById('progressInput').value);
+
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/update-progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: currentManuscript.translator_id, progress })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          hideProgressForm();
+          await loadManuscript();
+          alert('进度更新成功！');
+        }
+      } catch (error) {
+        alert('更新失败');
+      }
+    }
+
+    async function submitTranslation() {
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/submit-translation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: currentManuscript.translator_id })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          hideProgressForm();
+          await loadManuscript();
+          alert('翻译已提交！');
+        }
+      } catch (error) {
+        alert('提交失败');
+      }
+    }
+
+    function showAssignReviewerForm() {
+      const select = document.getElementById('reviewerSelect');
+      select.innerHTML = allUsers.filter(u => u.role === '审校').map(u => `<option value="${u.id}">${u.name}</option>`).join('');
+      document.getElementById('assignReviewerForm').classList.add('active');
+    }
+
+    function hideAssignReviewerForm() {
+      document.getElementById('assignReviewerForm').classList.remove('active');
+    }
+
+    async function assignReviewer() {
+      const reviewerId = document.getElementById('reviewerSelect').value;
+
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/assign-reviewer`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: 'U001', reviewer_id: reviewerId })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          hideAssignReviewerForm();
+          await loadManuscript();
+          alert('审校分配成功！');
+        }
+      } catch (error) {
+        alert('分配失败');
+      }
+    }
+
+    function showReviewForm() {
+      document.getElementById('reviewProgressInput').value = currentManuscript.review_progress || 0;
+      document.getElementById('reviewForm').classList.add('active');
+    }
+
+    function hideReviewForm() {
+      document.getElementById('reviewForm').classList.remove('active');
+    }
+
+    async function updateReviewProgress() {
+      const progress = parseInt(document.getElementById('reviewProgressInput').value);
+
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/update-review-progress`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: currentManuscript.reviewer_id, review_progress: progress })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          hideReviewForm();
+          await loadManuscript();
+          alert('审校进度更新成功！');
+        }
+      } catch (error) {
+        alert('更新失败');
+      }
+    }
+
+    async function submitReview() {
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/submit-review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            operator_id: currentManuscript.reviewer_id,
+            review_notes: document.getElementById('reviewNotes').value 
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          hideReviewForm();
+          await loadManuscript();
+          alert('审校完成！');
+        }
+      } catch (error) {
+        alert('提交失败');
+      }
+    }
+
+    async function startAssessment() {
+      try {
+        const response = await fetch(`${API_BASE}/manuscripts/${currentManuscript.id}/start-assessment`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ operator_id: 'U001' })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          currentQuote = result.quote;
+          showAssessmentForm();
+        }
+      } catch (error) {
+        alert('启动评估失败');
+      }
+    }
+
+    loadManuscript();
   </script>
 </body>
 </html>

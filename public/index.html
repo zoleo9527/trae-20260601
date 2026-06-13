@@ -68,7 +68,7 @@
 
     .stats-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
       gap: 16px;
     }
 
@@ -94,6 +94,14 @@
       background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
     }
 
+    .stat-card.quoting {
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+    }
+
+    .stat-card.approved {
+      background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+    }
+
     .stat-card.translating {
       background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
     }
@@ -103,13 +111,13 @@
     }
 
     .stat-number {
-      font-size: 36px;
+      font-size: 32px;
       font-weight: 700;
       margin-bottom: 8px;
     }
 
     .stat-label {
-      font-size: 14px;
+      font-size: 13px;
       opacity: 0.9;
     }
 
@@ -194,9 +202,29 @@
       color: #2196f3;
     }
 
-    .status-translating {
-      background: #e8f5e9;
+    .status-quoted {
+      background: #e1bee7;
+      color: #9c27b0;
+    }
+
+    .status-approved {
+      background: #c8e6c9;
       color: #4caf50;
+    }
+
+    .status-assigned {
+      background: #b2dfdb;
+      color: #00897b;
+    }
+
+    .status-translating {
+      background: #d1ecf1;
+      color: #17a2b8;
+    }
+
+    .status-translated {
+      background: #ffe0b2;
+      color: #ff5722;
     }
 
     .status-reviewing {
@@ -232,6 +260,7 @@
       display: flex;
       gap: 8px;
       margin-top: 12px;
+      flex-wrap: wrap;
     }
 
     .context-badge {
@@ -256,6 +285,11 @@
     .context-badge.missing {
       background: #ffebee;
       color: #f44336;
+    }
+
+    .context-badge.info {
+      background: #e3f2fd;
+      color: #2196f3;
     }
 
     .next-action {
@@ -449,6 +483,8 @@
       const stats = [
         { key: 'received', label: '待评估', icon: '📥', class: 'received' },
         { key: 'assessing', label: '评估中', icon: '📊', class: 'assessing' },
+        { key: 'quoting', label: '待确认', icon: '💬', class: 'quoting' },
+        { key: 'approved', label: '已批准', icon: '✅', class: 'approved' },
         { key: 'translating', label: '翻译中', icon: '✍️', class: 'translating' },
         { key: 'reviewing', label: '审校中', icon: '🔍', class: 'reviewing' }
       ];
@@ -479,7 +515,11 @@
         const statusMap = {
           'received': { text: '待评估', class: 'status-received' },
           'assessing': { text: '评估中', class: 'status-assessing' },
+          'quoted': { text: '待确认', class: 'status-quoted' },
+          'approved': { text: '已批准', class: 'status-approved' },
+          'assigned': { text: '已分配', class: 'status-assigned' },
           'translating': { text: '翻译中', class: 'status-translating' },
+          'translated': { text: '待审校', class: 'status-translated' },
           'reviewing': { text: '审校中', class: 'status-reviewing' }
         };
         const status = statusMap[task.status] || { text: task.status, class: '' };
@@ -490,6 +530,20 @@
           'low': { text: '宽松', class: 'urgency-low' }
         };
         const urgency = urgencyMap[task.urgency] || { text: '', class: '' };
+
+        const contextBadges = [];
+        contextBadges.push(`<span class="context-badge ${task.terms_connected ? 'success' : 'warning'}">
+          ${task.terms_connected ? '✓' : '⚠️'} 术语表
+        </span>`);
+        contextBadges.push(`<span class="context-badge ${task.feedback_connected ? 'success' : 'warning'}">
+          ${task.feedback_connected ? '✓' : '⚠️'} 客户反馈
+        </span>`);
+        if (task.quote_id) {
+          contextBadges.push(`<span class="context-badge ${task.quote_status === 'approved' ? 'success' : task.quote_status === 'quoted' ? 'info' : 'warning'}">
+            ${task.quote_status === 'approved' ? '✓' : task.quote_status === 'quoted' ? '💬' : '⏳'} 
+            ${task.quote_status === 'approved' ? '报价已批' : task.quote_status === 'quoted' ? '待确认' : '评估中'}
+          </span>`);
+        }
 
         return `
           <div class="task-item" onclick="goToDetail('${task.id}')">
@@ -518,13 +572,13 @@
               </div>
             </div>
             <div class="context-indicator">
-              <span class="context-badge ${task.terms_connected ? 'success' : 'warning'}">
-                ${task.terms_connected ? '✓' : '⚠️'} 术语表
-              </span>
-              <span class="context-badge ${task.feedback_connected ? 'success' : 'warning'}">
-                ${task.feedback_connected ? '✓' : '⚠️'} 客户反馈
-              </span>
-              ${task.quote_id ? `<span class="context-badge success">✓ 已有报价</span>` : ''}
+              ${contextBadges.join('')}
+              ${task.progress !== undefined && task.progress > 0 ? `
+                <span class="context-badge info">📊 进度 ${task.progress}%</span>
+              ` : ''}
+              ${task.review_progress !== undefined && task.review_progress > 0 ? `
+                <span class="context-badge info">🔍 审校 ${task.review_progress}%</span>
+              ` : ''}
             </div>
           </div>
         `;
@@ -546,13 +600,90 @@
           });
         }
         
-        if (task.status === 'assessing' && task.quote && task.quote.status === 'pending_assessment') {
+        if (task.status === 'assessing' && task.quote) {
+          if (task.quote.status === 'pending_assessment' || (task.quote.status === 'assessing' && task.quote.final_price === null)) {
+            actions.push({
+              type: 'continue_assessment',
+              title: '继续报价评估',
+              desc: `${task.title} - 待完成评估`,
+              meta: '待评估报价',
+              urgent: task.urgency === 'urgent',
+              manuscriptId: task.id
+            });
+          } else if (task.quote.status === 'assessing' && task.quote.final_price !== null) {
+            actions.push({
+              type: 'submit_quote',
+              title: '提交报价',
+              desc: `${task.title} - 报价已完成，待提交`,
+              meta: `报价: ¥${task.quote.final_price.toFixed(2)}`,
+              urgent: task.urgency === 'urgent',
+              manuscriptId: task.id
+            });
+          }
+        }
+        
+        if (task.status === 'quoted') {
           actions.push({
-            type: 'continue_assessment',
-            title: '继续报价评估',
-            desc: `${task.title} - 待完成评估`,
-            meta: `基础价: ¥${task.quote.base_price}/字`,
-            urgent: task.quote.pending_items && task.quote.pending_items.some(p => p.required && p.status === 'missing'),
+            type: 'confirm_quote',
+            title: '确认客户报价',
+            desc: `${task.title} - 等待客户确认报价`,
+            meta: `报价: ¥${task.quote?.final_price?.toFixed(2) || '0.00'}`,
+            urgent: task.urgency === 'urgent',
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'approved') {
+          actions.push({
+            type: 'assign_translator',
+            title: '分配译员',
+            desc: `${task.title} - 报价已批准，等待分配`,
+            meta: `${task.client} · ${task.word_count}字`,
+            urgent: task.urgency === 'urgent',
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'assigned' && currentUser?.role === '译员') {
+          actions.push({
+            type: 'start_translation',
+            title: '开始翻译',
+            desc: `${task.title} - 已分配给您`,
+            meta: `截止: ${task.due_date}`,
+            urgent: task.urgency === 'urgent',
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'translating' && task.progress < 100) {
+          actions.push({
+            type: 'update_progress',
+            title: '更新翻译进度',
+            desc: `${task.title} - 当前进度 ${task.progress}%`,
+            meta: `${task.translator_name || '译员'} 正在处理`,
+            urgent: false,
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'translated') {
+          actions.push({
+            type: 'assign_reviewer',
+            title: '分配审校',
+            desc: `${task.title} - 翻译已完成`,
+            meta: `${task.translator_name || '译员'} 已提交`,
+            urgent: task.urgency === 'urgent',
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'reviewing' && task.review_progress < 100) {
+          actions.push({
+            type: 'update_review',
+            title: '更新审校进度',
+            desc: `${task.title} - 当前审校进度 ${task.review_progress}%`,
+            meta: `${task.reviewer_name || '审校'} 正在处理`,
+            urgent: false,
             manuscriptId: task.id
           });
         }
@@ -610,7 +741,15 @@
           'connect_feedback': '关联客户反馈',
           'start_assessment': '开始评估',
           'assess_quote': '完成报价',
-          'submit_quote': '提交报价'
+          'submit_quote': '提交报价',
+          'approve_quote': '确认报价',
+          'assign_translator': '分配译员',
+          'start_translation': '开始翻译',
+          'update_progress': '更新进度',
+          'submit_translation': '提交翻译',
+          'assign_reviewer': '分配审校',
+          'update_review_progress': '更新审校进度',
+          'submit_review': '提交审校'
         };
 
         return `
@@ -645,7 +784,15 @@
 
     function filterTasks(status) {
       const tasks = allData?.tasks || [];
-      const filtered = status ? tasks.filter(t => t.status === status) : tasks;
+      const statusMap = {
+        'received': 'received',
+        'assessing': 'assessing',
+        'quoting': 'quoted',
+        'approved': 'approved',
+        'translating': 'translating',
+        'reviewing': 'reviewing'
+      };
+      const filtered = statusMap[status] ? tasks.filter(t => t.status === statusMap[status]) : tasks;
       renderTasks(filtered);
     }
 
