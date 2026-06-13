@@ -10,6 +10,7 @@ import {
   CheckCircle,
   RotateCcw,
   Scale,
+  History,
 } from 'lucide-react'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import {
@@ -20,6 +21,7 @@ import {
 } from '@/types'
 import type { OperationRecord } from '@/types'
 import StatusTag from './StatusTag'
+import Timeline from './Timeline'
 import { formatMoney, formatDate } from '@/utils/cn'
 
 function SettlementPanel({ record }: { record: OperationRecord }) {
@@ -321,6 +323,17 @@ export default function RecordDetail() {
 
       <SettlementPanel record={record} />
       <ReconciliationPanel record={record} />
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 px-4 py-2.5 flex items-center gap-2 border-b border-gray-200">
+          <History className="w-4 h-4 text-gray-600" />
+          <span className="text-sm font-medium text-gray-700">处理时间线</span>
+          <span className="text-xs text-gray-400">· {record.timeline.length} 条记录</span>
+        </div>
+        <div className="p-4 bg-white">
+          <Timeline entries={record.timeline} />
+        </div>
+      </div>
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { OperationRecord, TodoItem, FilterState, Role, RecordStatus } from '@/types'
+import type { OperationRecord, TodoItem, FilterState, Role, RecordStatus, TimelineAction, TimelineEntry } from '@/types'
 import { mockRecords, mockTodos } from '@/data/mockData'
 
 function computeRecordStatus(record: OperationRecord): OperationRecord {
@@ -18,6 +18,26 @@ function computeRecordStatus(record: OperationRecord): OperationRecord {
   }
 
   return { ...record, recordStatus: newStatus }
+}
+
+const OPERATOR_BY_ROLE: Record<Role, string> = {
+  recruiter: '招聘专员-陈磊',
+  onsite: '驻场主管-周军',
+  payroll: '薪酬会计-刘芳',
+}
+
+function buildTimelineEntry(action: TimelineAction, role: Role, note?: string): TimelineEntry {
+  const now = new Date()
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`
+  return {
+    id: `TL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    action,
+    role,
+    operator: OPERATOR_BY_ROLE[role],
+    note,
+    timestamp,
+  }
 }
 
 interface WorkbenchStore {
@@ -53,6 +73,20 @@ const defaultFilters: FilterState = {
   clientName: '',
 }
 
+const SETTLEMENT_ACTION_MAP: Record<string, TimelineAction> = {
+  processing: 'settlement_processing',
+  confirmed: 'settlement_confirmed',
+  returned: 'settlement_returned',
+  disputed: 'settlement_disputed',
+}
+
+const RECONCILIATION_ACTION_MAP: Record<string, TimelineAction> = {
+  sent: 'reconciliation_sent',
+  confirmed: 'reconciliation_confirmed',
+  discrepancy: 'reconciliation_discrepancy',
+  disputed: 'reconciliation_disputed',
+}
+
 export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
   records: mockRecords,
   todos: mockTodos,
@@ -74,6 +108,7 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
 
   updateSettlementStatus: (recordId, status, note) =>
     set((s) => {
+      const { currentRole } = s
       const records = s.records.map((r) => {
         if (r.id !== recordId) return r
         const isReturned = status === 'returned'
@@ -85,9 +120,14 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
           ...(note && !isReturned ? { supplementNote: note } : {}),
           ...(status === 'processing' ? { processedAt: new Date().toISOString().slice(0, 10) } : {}),
         }
+        const action = SETTLEMENT_ACTION_MAP[status]
+        const newTimeline = action
+          ? [...r.timeline, buildTimelineEntry(action, currentRole, note)]
+          : r.timeline
         const newRecord = {
           ...r,
           settlement: newSettlement,
+          timeline: newTimeline,
           returnedReason: isReturned && note ? note : r.returnedReason,
           disputeDetail: isDisputed && note ? note : r.disputeDetail,
           updatedAt: new Date().toISOString().slice(0, 10),
@@ -99,6 +139,7 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
 
   updateReconciliationStatus: (recordId, status, note) =>
     set((s) => {
+      const { currentRole } = s
       const records = s.records.map((r) => {
         if (r.id !== recordId) return r
         const isDiscrepancy = status === 'discrepancy'
@@ -110,9 +151,14 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
           ...(status === 'sent' ? { sentAt: new Date().toISOString().slice(0, 10) } : {}),
           ...(status === 'confirmed' ? { confirmedAt: new Date().toISOString().slice(0, 10) } : {}),
         }
+        const action = RECONCILIATION_ACTION_MAP[status]
+        const newTimeline = action
+          ? [...r.timeline, buildTimelineEntry(action, currentRole, note)]
+          : r.timeline
         const newRecord = {
           ...r,
           reconciliation: newReconciliation,
+          timeline: newTimeline,
           returnedReason: isDiscrepancy && note ? note : r.returnedReason,
           disputeDetail: isDisputed && note ? note : r.disputeDetail,
           updatedAt: new Date().toISOString().slice(0, 10),
@@ -128,13 +174,19 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
     })),
 
   addSupplementNote: (recordId, note) =>
-    set((s) => ({
-      records: s.records.map((r) =>
-        r.id === recordId
-          ? { ...r, supplementNote: note, updatedAt: new Date().toISOString().slice(0, 10) }
-          : r
-      ),
-    })),
+    set((s) => {
+      const { currentRole } = s
+      const records = s.records.map((r) => {
+        if (r.id !== recordId) return r
+        return {
+          ...r,
+          supplementNote: note,
+          timeline: [...r.timeline, buildTimelineEntry('supplement_added', currentRole, note)],
+          updatedAt: new Date().toISOString().slice(0, 10),
+        }
+      })
+      return { records }
+    }),
 
   addReturnReason: (recordId, reason) =>
     set((s) => ({

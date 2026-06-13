@@ -48,6 +48,29 @@ export interface ClientReconciliation {
   disputedBy?: string
 }
 
+export type TimelineAction =
+  | 'record_created'
+  | 'settlement_processing'
+  | 'settlement_confirmed'
+  | 'settlement_returned'
+  | 'settlement_disputed'
+  | 'settlement_supplemented'
+  | 'reconciliation_sent'
+  | 'reconciliation_confirmed'
+  | 'reconciliation_discrepancy'
+  | 'reconciliation_disputed'
+  | 'supplement_added'
+  | 'dispute_escalated'
+
+export interface TimelineEntry {
+  id: string
+  action: TimelineAction
+  role: Role
+  operator: string
+  note?: string
+  timestamp: string
+}
+
 export interface OperationRecord {
   id: string
   batchNo: string
@@ -61,6 +84,7 @@ export interface OperationRecord {
   returnedReason?: string
   supplementNote?: string
   disputeDetail?: string
+  timeline: TimelineEntry[]
   createdBy: string
   createdAt: string
   updatedAt: string
@@ -113,4 +137,19 @@ export const RECONCILIATION_STATUS_LABELS: Record<ReconciliationStatus, string> 
   confirmed: '已确认',
   discrepancy: '有差异',
   disputed: '有争议',
+}
+
+export const TIMELINE_ACTION_LABELS: Record<TimelineAction, string> = {
+  record_created: '记录创建',
+  settlement_processing: '工资结算-开始处理',
+  settlement_confirmed: '工资结算-已确认',
+  settlement_returned: '工资结算-已退回',
+  settlement_disputed: '工资结算-标记争议',
+  settlement_supplemented: '工资结算-补充信息',
+  reconciliation_sent: '客户对账-发送对账单',
+  reconciliation_confirmed: '客户对账-已确认',
+  reconciliation_discrepancy: '客户对账-标记差异',
+  reconciliation_disputed: '客户对账-标记争议',
+  supplement_added: '补充备注',
+  dispute_escalated: '争议升级',
 }
