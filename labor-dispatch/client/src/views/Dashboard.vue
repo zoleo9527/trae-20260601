@@ -173,7 +173,7 @@
                             {{ item.returnType }}
                           </el-tag>
                           <span style="margin-left: 10px">{{ item.returnReason }}</span>
-                          <el-button type="primary" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id)">
+                          <el-button type="primary" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id, item.status)">
                             一线处理
                           </el-button>
                         </el-list-item>
@@ -190,7 +190,7 @@
                           <el-tag size="small" type="success" style="margin-left: 10px">
                             {{ item.status }}
                           </el-tag>
-                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.returnRecordId)">
+                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.returnRecordId, '已处理')">
                             复核
                           </el-button>
                         </el-list-item>
@@ -208,7 +208,7 @@
                           <el-tag size="small" type="success" style="margin-left: 10px">
                             已处理
                           </el-tag>
-                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id)">
+                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id, item.status)">
                             复核
                           </el-button>
                         </el-list-item>
@@ -332,8 +332,8 @@ export default {
       }
     }
 
-    const goToReturnRecord = (id) => {
-      router.push(`/return-records?status=待处理`)
+    const goToReturnRecord = (id, status = '待处理') => {
+      router.push(`/return-records?id=${id}&status=${status}`)
     }
 
     const formatTime = (time) => {

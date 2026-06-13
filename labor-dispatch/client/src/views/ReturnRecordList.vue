@@ -290,8 +290,8 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api from '../api'
 
@@ -299,6 +299,7 @@ export default {
   name: 'ReturnRecordList',
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const loading = ref(false)
     const submitLoading = ref(false)
     const processDrawerVisible = ref(false)
@@ -343,8 +344,62 @@ export default {
         const user = JSON.parse(userStr)
         userRole.value = user.role
       }
+      loadRouteParams()
       loadData()
       loadCounts()
+    })
+
+    const loadRouteParams = () => {
+      if (route.query.status) {
+        filterForm.status = route.query.status
+      }
+      if (route.query.returnType) {
+        filterForm.returnType = route.query.returnType
+      }
+      if (route.query.id) {
+        openRecordById(route.query.id)
+      }
+    }
+
+    const openRecordById = async (id) => {
+      try {
+        currentRecord.value = await api.returnRecords.getById(id)
+        if (currentRecord.value.status === '待处理') {
+          isRehandle.value = false
+          processForm.handleResult = '继续处理'
+          processForm.handleRemark = ''
+          processDrawerVisible.value = true
+        } else if (currentRecord.value.status === '已处理' && userRole.value === '管理') {
+          reviewForm.reviewResult = '通过'
+          reviewForm.remark = ''
+          reviewDialogVisible.value = true
+        } else if (currentRecord.value.status === '已处理' && userRole.value !== '管理') {
+          isRehandle.value = true
+          processForm.handleResult = '继续处理'
+          processForm.handleRemark = ''
+          processDrawerVisible.value = true
+        } else {
+          viewDialogVisible.value = true
+        }
+      } catch (error) {
+        ElMessage.error('加载记录失败')
+      }
+    }
+
+    const handleRouteChange = () => {
+      loadRouteParams()
+      loadData()
+      loadCounts()
+    }
+
+    const unwatch = watch(
+      () => route.query,
+      handleRouteChange,
+      { deep: true }
+    )
+
+    onUnmounted(() => {
+      unwatch()
     })
 
     const loadData = async () => {
@@ -417,6 +472,7 @@ export default {
         currentRecord.value = await api.returnRecords.getById(row.id)
         processForm.handleResult = '继续处理'
         processForm.handleRemark = ''
+        isRehandle.value = false
         processDrawerVisible.value = true
       } catch (error) {
         ElMessage.error('加载详情失败')
