@@ -11,6 +11,7 @@ import {
   ScheduleStatus,
   EnrollmentStatus,
   Student,
+  EnrollmentHistory,
 } from '../types';
 import {
   users,
@@ -326,11 +327,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const now = new Date();
       const updatedEnrollments = [...enrollments];
+      const oldEnrollment = updatedEnrollments[enrollmentIndex];
+      
+      const historyEntry: EnrollmentHistory = {
+        version: (oldEnrollment.history?.length || 0) + 1,
+        studentList: oldEnrollment.studentList,
+        updatedAt: now,
+        updatedBy: currentUser?.name || '',
+        status: oldEnrollment.status,
+      };
+
       updatedEnrollments[enrollmentIndex] = {
         ...updatedEnrollments[enrollmentIndex],
         status: EnrollmentStatus.CONFIRMED,
         studentList: students,
         confirmedAt: now,
+        history: [...(oldEnrollment.history || []), historyEntry],
       };
 
       const newLog: TimelineLog = {
@@ -396,11 +408,22 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const now = new Date();
       const updatedEnrollments = [...enrollments];
-      const oldStatus = updatedEnrollments[enrollmentIndex].status;
+      const oldEnrollment = updatedEnrollments[enrollmentIndex];
+      const oldStatus = oldEnrollment.status;
+
+      const historyEntry: EnrollmentHistory = {
+        version: (oldEnrollment.history?.length || 0) + 1,
+        studentList: oldEnrollment.studentList,
+        updatedAt: now,
+        updatedBy: currentUser?.name || '',
+        status: oldStatus,
+      };
+
       updatedEnrollments[enrollmentIndex] = {
         ...updatedEnrollments[enrollmentIndex],
         status: EnrollmentStatus.PENDING,
         studentList: [],
+        history: [...(oldEnrollment.history || []), historyEntry],
       };
 
       const newLog: TimelineLog = {

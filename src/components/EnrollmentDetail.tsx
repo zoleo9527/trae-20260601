@@ -4,7 +4,7 @@ import { Timeline } from './Timeline';
 import { StatusBadge } from './StatusBadge';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { X, Calendar, Users, Clock, RotateCcw, CheckCircle, XCircle, History, Edit } from 'lucide-react';
+import { X, Calendar, Users, Clock, RotateCcw, CheckCircle, XCircle, History, Edit, Trash2 } from 'lucide-react';
 import { EnrollmentStatus, Student } from '@/types';
 
 interface EnrollmentDetailProps {
@@ -25,6 +25,13 @@ export function EnrollmentDetail({ enrollmentId, onClose, onShowTimeline, onActi
   const [rejectReason, setRejectReason] = useState('');
   const [resetReason, setResetReason] = useState('');
   const [editedStudents, setEditedStudents] = useState<Student[]>([]);
+  const [newStudent, setNewStudent] = useState({
+    name: '',
+    employeeId: '',
+    position: '',
+    email: '',
+    phone: '',
+  });
 
   if (!enrollment) {
     return (
@@ -83,6 +90,10 @@ export function EnrollmentDetail({ enrollmentId, onClose, onShowTimeline, onActi
     actions.confirmEnrollment(enrollmentId, editedStudents);
     setShowStudentModal(false);
     onActionComplete?.();
+  };
+
+  const handleRemoveStudent = (studentId: string) => {
+    setEditedStudents(editedStudents.filter((s) => s.id !== studentId));
   };
 
   return (
@@ -354,11 +365,129 @@ export function EnrollmentDetail({ enrollmentId, onClose, onShowTimeline, onActi
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl p-6 max-w-4xl w-full max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">编辑学员名单</h3>
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">
-                当前已有 {editedStudents.length} 名学员
-              </p>
+            
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">添加新学员</h4>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <input
+                  type="text"
+                  value={newStudent.name}
+                  onChange={(e) => setNewStudent((prev) => ({ ...prev, name: e.target.value }))}
+                  placeholder="姓名"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  value={newStudent.employeeId}
+                  onChange={(e) => setNewStudent((prev) => ({ ...prev, employeeId: e.target.value }))}
+                  placeholder="工号"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <input
+                  type="text"
+                  value={newStudent.position}
+                  onChange={(e) => setNewStudent((prev) => ({ ...prev, position: e.target.value }))}
+                  placeholder="职位"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <input
+                  type="email"
+                  value={newStudent.email}
+                  onChange={(e) => setNewStudent((prev) => ({ ...prev, email: e.target.value }))}
+                  placeholder="邮箱"
+                  className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <button
+                onClick={() => {
+                  if (newStudent.name && newStudent.employeeId) {
+                    const student: Student = {
+                      id: `student-${Date.now()}-${Math.random()}`,
+                      ...newStudent,
+                      department: enrollment.departmentName,
+                    };
+                    setEditedStudents([...editedStudents, student]);
+                    setNewStudent({ name: '', employeeId: '', position: '', email: '', phone: '' });
+                  }
+                }}
+                disabled={!newStudent.name || !newStudent.employeeId}
+                className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                添加学员
+              </button>
             </div>
+
+            <div className="mb-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-2">
+                已添加 {editedStudents.length} 名学员
+              </h4>
+              {editedStudents.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  暂无学员,请添加
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-100">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">姓名</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">工号</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">职位</th>
+                        <th className="px-4 py-2 text-left font-medium text-gray-700">邮箱</th>
+                        <th className="px-4 py-2 text-center font-medium text-gray-700">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editedStudents.map((student, index) => (
+                        <tr key={student.id} className={`border-t border-gray-200 ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                          <td className="px-4 py-2 text-gray-900 font-medium">{student.name}</td>
+                          <td className="px-4 py-2 text-gray-600">{student.employeeId}</td>
+                          <td className="px-4 py-2 text-gray-600">{student.position}</td>
+                          <td className="px-4 py-2 text-gray-600">{student.email}</td>
+                          <td className="px-4 py-2 text-center">
+                            <button
+                              onClick={() => handleRemoveStudent(student.id)}
+                              className="p-1 hover:bg-red-100 rounded transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {enrollment.history && enrollment.history.length > 0 && (
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  历史记录 ({enrollment.history.length}条)
+                </h4>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {enrollment.history.map((record, index) => (
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs font-medium text-gray-700">
+                          版本 {record.version}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(record.updatedAt), 'MM-dd HH:mm')}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-600 mb-1">
+                        {record.updatedBy} - {record.status}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {record.studentList.length}人
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="flex gap-3 justify-end">
               <button
                 onClick={() => setShowStudentModal(false)}

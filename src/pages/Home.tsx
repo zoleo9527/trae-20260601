@@ -1,11 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '@/store/useAppStore';
 import { TodoList } from '@/components/TodoList';
 import { RoleSwitcher } from '@/components/RoleSwitcher';
-import { StatusBadge } from '@/components/StatusBadge';
 import { ScheduleDetail } from '@/components/ScheduleDetail';
 import { EnrollmentDetail } from '@/components/EnrollmentDetail';
-import { useTheme } from '@/hooks/useTheme';
+import { TrainingNeedDetail } from '@/components/TrainingNeedDetail';
+import { TrainingNeedList } from '@/components/TrainingNeedList';
+import { ScheduleList } from '@/components/ScheduleList';
+import { EnrollmentTaskList } from '@/components/EnrollmentTaskList';
+import { CreateScheduleModal } from '@/components/CreateScheduleModal';
+import { ConfirmEnrollmentModal } from '@/components/ConfirmEnrollmentModal';
 import { 
   Calendar, 
   Users, 
@@ -21,10 +25,18 @@ import {
 } from 'lucide-react';
 
 export default function Home() {
-  const { currentUser } = useAppStore();
+  const { currentUser, todos, actions } = useAppStore();
+  
+  useEffect(() => {
+    actions.fetchTodos();
+  }, [currentUser]);
+
   const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
   const [selectedEnrollment, setSelectedEnrollment] = useState<string | null>(null);
+  const [selectedTrainingNeed, setSelectedTrainingNeed] = useState<string | null>(null);
   const [showTimeline, setShowTimeline] = useState<string | null>(null);
+  const [showCreateSchedule, setShowCreateSchedule] = useState(false);
+  const [showEnrollmentModal, setShowEnrollmentModal] = useState<string | null>(null);
 
   const getRoleName = () => {
     switch (currentUser?.role) {
@@ -46,95 +58,40 @@ export default function Home() {
 
   const renderManagerDashboard = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">讲师排期</h3>
-          <p className="text-sm text-gray-500">指派讲师、设置时间地点</p>
-        </button>
-
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-green-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-green-50 rounded-lg text-green-600">
-              <BookOpen className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">培训需求</h3>
-          <p className="text-sm text-gray-500">创建、审核培训需求</p>
-        </button>
-
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-purple-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-purple-50 rounded-lg text-purple-600">
-              <ClipboardList className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-purple-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">报名监控</h3>
-          <p className="text-sm text-gray-500">查看各部门报名进度</p>
-        </button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <TrainingNeedList 
+          onViewDetail={(id) => setSelectedTrainingNeed(id)}
+        />
+        <ScheduleList 
+          onViewDetail={(id) => setSelectedSchedule(id)}
+          onCreateSchedule={() => setShowCreateSchedule(true)}
+        />
       </div>
     </div>
   );
 
   const renderDepartmentDashboard = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-              <Users className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">学员报名确认</h3>
-          <p className="text-sm text-gray-500">确认参训学员名单</p>
-        </button>
-
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-green-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-green-50 rounded-lg text-green-600">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">部门培训日历</h3>
-          <p className="text-sm text-gray-500">查看本部门培训安排</p>
-        </button>
-      </div>
+      <EnrollmentTaskList 
+        onViewDetail={(id) => {
+          const enrollment = useAppStore.getState().enrollments.find(e => e.id === id);
+          if (enrollment && enrollment.status === '待确认') {
+            setShowEnrollmentModal(id);
+          } else {
+            setSelectedEnrollment(id);
+          }
+        }}
+      />
     </div>
   );
 
   const renderInstructorDashboard = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-blue-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-              <CheckCircle className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">排期确认</h3>
-          <p className="text-sm text-gray-500">确认/拒绝培训排期</p>
-        </button>
-
-        <button className="bg-white rounded-lg border border-gray-200 p-5 hover:border-green-300 hover:shadow-md transition-all group">
-          <div className="flex items-center justify-between mb-3">
-            <div className="p-2 bg-green-50 rounded-lg text-green-600">
-              <Users className="w-5 h-5" />
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-green-600 transition-colors" />
-          </div>
-          <h3 className="font-semibold text-gray-900 mb-1">学员名单</h3>
-          <p className="text-sm text-gray-500">查看已报名学员信息</p>
-        </button>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-sm font-semibold text-gray-900 mb-4">我的排期</h3>
+        <p className="text-sm text-gray-500">
+          切换到刘讲师、孙讲师或周讲师账号查看待确认的排期任务
+        </p>
       </div>
     </div>
   );
@@ -192,6 +149,17 @@ export default function Home() {
           </>
         )}
 
+        {selectedTrainingNeed && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <TrainingNeedDetail
+                needId={selectedTrainingNeed}
+                onClose={() => setSelectedTrainingNeed(null)}
+              />
+            </div>
+          </div>
+        )}
+
         {selectedSchedule && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -201,6 +169,7 @@ export default function Home() {
                 onShowTimeline={() => setShowTimeline(`schedule-${selectedSchedule}`)}
                 onActionComplete={() => {
                   setSelectedSchedule(null);
+                  actions.fetchTodos();
                 }}
               />
             </div>
@@ -216,6 +185,27 @@ export default function Home() {
                 onShowTimeline={() => setShowTimeline(`enrollment-${selectedEnrollment}`)}
                 onActionComplete={() => {
                   setSelectedEnrollment(null);
+                  actions.fetchTodos();
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {showCreateSchedule && (
+          <CreateScheduleModal 
+            onClose={() => setShowCreateSchedule(false)} 
+          />
+        )}
+
+        {showEnrollmentModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <ConfirmEnrollmentModal
+                enrollment={useAppStore.getState().enrollments.find(e => e.id === showEnrollmentModal)!}
+                onClose={() => {
+                  setShowEnrollmentModal(null);
+                  actions.fetchTodos();
                 }}
               />
             </div>
