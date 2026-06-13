@@ -20,6 +20,9 @@ class ReceiptDialog(QDialog):
         self.interviews = interviews
         self.jobs = jobs
         self.receipt = receipt
+        self.interview_jobs_map = {}
+        for interview in interviews:
+            self.interview_jobs_map[interview.id] = interview.job_id
         self.init_ui()
         
     def init_ui(self):
@@ -143,12 +146,15 @@ class ReceiptDialog(QDialog):
         if not all([candidate, company, receipt_number]):
             QMessageBox.warning(self, '提示', '请填写必要信息')
             return
-            
+        
+        interview_id = self.interview_combo.currentData()
+        job_id = self.interview_jobs_map.get(interview_id, 0)
+        
         receipt = OnboardingReceipt(
             id=self.receipt.id if self.receipt else None,
-            interview_id=self.interview_combo.currentData(),
+            interview_id=interview_id,
             candidate_name=candidate,
-            job_id=self.jobs[self.interview_combo.currentData()].id if self.interview_combo.currentData() in self.jobs else 0,
+            job_id=job_id,
             company=company,
             onboarding_date=self.onboarding_date_edit.date().toPyDate(),
             receipt_photo=self.receipt_photo_path,
@@ -164,27 +170,7 @@ class ReceiptDialog(QDialog):
         if self.receipt:
             self.db.update_receipt(receipt)
         else:
-            receipt_id = self.db.add_receipt(receipt)
-            
-            from models import StabilityTracking, StabilityStatus
-            tracking = StabilityTracking(
-                id=None,
-                receipt_id=receipt_id,
-                candidate_name=candidate,
-                company=company,
-                onboarding_date=self.onboarding_date_edit.date().toPyDate(),
-                stability_period_days=30,
-                current_work_days=0,
-                status=StabilityStatus.IN_PROGRESS,
-                last_check_date=None,
-                next_check_date=self.onboarding_date_edit.date().toPyDate() + timedelta(days=7),
-                risk_notes='',
-                return_fee_paid=False,
-                return_fee_date=None,
-                created_at=datetime.now(),
-                updated_at=datetime.now()
-            )
-            self.db.add_stability_tracking(tracking)
+            self.db.add_receipt(receipt)
             
         self.accept()
 

@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
     QAbstractItemView, QDialog, QFormLayout, QLineEdit, QTextEdit,
     QComboBox, QDateTimeEdit, QMessageBox
 )
-from PyQt5.QtCore import Qt, QDateTime
+from PyQt5.QtCore import Qt, QDateTime, QDate
 from PyQt5.QtGui import QColor
 from datetime import datetime, date, timedelta
 
