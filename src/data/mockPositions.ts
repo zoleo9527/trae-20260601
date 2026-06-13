@@ -9,7 +9,7 @@ export const mockPositions: Position[] = [
     location: '深圳',
     requirements: ['年龄18-45岁', '身体健康', '能适应流水线工作'],
     status: 'open',
-    recruiterId: 'RC001',
+    recruiterId: 'user-002',
     recruiterName: '张三',
     createdAt: '2026-05-01',
     updatedAt: '2026-05-01'
@@ -22,7 +22,7 @@ export const mockPositions: Position[] = [
     location: '广州',
     requirements: ['年龄18-40岁', '能适应夜班', '有仓库工作经验优先'],
     status: 'open',
-    recruiterId: 'RC002',
+    recruiterId: 'user-004',
     recruiterName: '赵六',
     createdAt: '2026-05-02',
     updatedAt: '2026-05-02'
@@ -35,8 +35,8 @@ export const mockPositions: Position[] = [
     location: '上海',
     requirements: ['年龄18-35岁', '形象气质佳', '有服务意识'],
     status: 'open',
-    recruiterId: 'RC003',
-    recruiterName: '钱十',
+    recruiterId: 'user-002',
+    recruiterName: '张三',
     createdAt: '2026-05-03',
     updatedAt: '2026-05-03'
   },
@@ -48,8 +48,8 @@ export const mockPositions: Position[] = [
     location: '东莞',
     requirements: ['年龄20-45岁', '有质检经验', '细心负责'],
     status: 'open',
-    recruiterId: 'RC004',
-    recruiterName: '李十一',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-04',
     updatedAt: '2026-05-04'
   },
@@ -61,8 +61,8 @@ export const mockPositions: Position[] = [
     location: '北京',
     requirements: ['年龄22-40岁', '有销售经验', '沟通能力强'],
     status: 'open',
-    recruiterId: 'RC005',
-    recruiterName: '刘十四',
+    recruiterId: 'user-002',
+    recruiterName: '张三',
     createdAt: '2026-05-05',
     updatedAt: '2026-05-05'
   },
@@ -74,7 +74,7 @@ export const mockPositions: Position[] = [
     location: '杭州',
     requirements: ['年龄18-45岁', '身体健康', '能适应户外工作'],
     status: 'open',
-    recruiterId: 'RC001',
+    recruiterId: 'user-002',
     recruiterName: '张三',
     createdAt: '2026-05-06',
     updatedAt: '2026-05-06'
@@ -87,7 +87,7 @@ export const mockPositions: Position[] = [
     location: '南京',
     requirements: ['年龄25-50岁', '身高170cm以上', '有保安证优先'],
     status: 'open',
-    recruiterId: 'RC002',
+    recruiterId: 'user-004',
     recruiterName: '赵六',
     createdAt: '2026-05-07',
     updatedAt: '2026-05-07'
@@ -100,8 +100,8 @@ export const mockPositions: Position[] = [
     location: '成都',
     requirements: ['年龄30-55岁', '身体健康', '有保洁经验优先'],
     status: 'open',
-    recruiterId: 'RC003',
-    recruiterName: '钱十',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-08',
     updatedAt: '2026-05-08'
   },
@@ -113,8 +113,8 @@ export const mockPositions: Position[] = [
     location: '武汉',
     requirements: ['年龄25-50岁', '有厨师证', '5年以上工作经验'],
     status: 'open',
-    recruiterId: 'RC004',
-    recruiterName: '李十一',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-09',
     updatedAt: '2026-05-09'
   },
@@ -126,8 +126,8 @@ export const mockPositions: Position[] = [
     location: '天津',
     requirements: ['年龄25-50岁', '有驾照B证以上', '3年以上驾驶经验'],
     status: 'open',
-    recruiterId: 'RC005',
-    recruiterName: '刘十四',
+    recruiterId: 'user-002',
+    recruiterName: '张三',
     createdAt: '2026-05-10',
     updatedAt: '2026-05-10'
   },
@@ -139,7 +139,7 @@ export const mockPositions: Position[] = [
     location: '重庆',
     requirements: ['年龄18-50岁', '身体健康', '能适应户外作业'],
     status: 'open',
-    recruiterId: 'RC001',
+    recruiterId: 'user-002',
     recruiterName: '张三',
     createdAt: '2026-05-11',
     updatedAt: '2026-05-11'
@@ -152,7 +152,7 @@ export const mockPositions: Position[] = [
     location: '苏州',
     requirements: ['年龄20-35岁', '有美容师证', '形象气质佳'],
     status: 'open',
-    recruiterId: 'RC002',
+    recruiterId: 'user-004',
     recruiterName: '赵六',
     createdAt: '2026-05-12',
     updatedAt: '2026-05-12'
@@ -165,8 +165,8 @@ export const mockPositions: Position[] = [
     location: '郑州',
     requirements: ['年龄25-50岁', '有电工证', '3年以上工作经验'],
     status: 'open',
-    recruiterId: 'RC003',
-    recruiterName: '钱十',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-13',
     updatedAt: '2026-05-13'
   },
@@ -178,8 +178,8 @@ export const mockPositions: Position[] = [
     location: '青岛',
     requirements: ['年龄25-50岁', '有焊工证', '5年以上工作经验'],
     status: 'open',
-    recruiterId: 'RC004',
-    recruiterName: '李十一',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-14',
     updatedAt: '2026-05-14'
   },
@@ -191,8 +191,8 @@ export const mockPositions: Position[] = [
     location: '长沙',
     requirements: ['年龄18-30岁', '沟通能力强', '有客服经验优先'],
     status: 'open',
-    recruiterId: 'RC005',
-    recruiterName: '刘十四',
+    recruiterId: 'user-002',
+    recruiterName: '张三',
     createdAt: '2026-05-15',
     updatedAt: '2026-05-15'
   },
@@ -204,7 +204,7 @@ export const mockPositions: Position[] = [
     location: '厦门',
     requirements: ['年龄18-45岁', '身体健康', '能适应重体力劳动'],
     status: 'closed',
-    recruiterId: 'RC001',
+    recruiterId: 'user-002',
     recruiterName: '张三',
     createdAt: '2026-05-16',
     updatedAt: '2026-05-20'
@@ -217,7 +217,7 @@ export const mockPositions: Position[] = [
     location: '福州',
     requirements: ['年龄20-40岁', '有理发师证', '3年以上工作经验'],
     status: 'open',
-    recruiterId: 'RC002',
+    recruiterId: 'user-004',
     recruiterName: '赵六',
     createdAt: '2026-05-17',
     updatedAt: '2026-05-17'
@@ -230,8 +230,8 @@ export const mockPositions: Position[] = [
     location: '昆明',
     requirements: ['年龄30-50岁', '有家政经验', '身体健康'],
     status: 'open',
-    recruiterId: 'RC003',
-    recruiterName: '钱十',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-18',
     updatedAt: '2026-05-18'
   },
@@ -243,8 +243,8 @@ export const mockPositions: Position[] = [
     location: '南昌',
     requirements: ['年龄25-50岁', '有维修经验', '能适应高空作业'],
     status: 'open',
-    recruiterId: 'RC004',
-    recruiterName: '李十一',
+    recruiterId: 'user-004',
+    recruiterName: '赵六',
     createdAt: '2026-05-19',
     updatedAt: '2026-05-19'
   },
@@ -256,8 +256,8 @@ export const mockPositions: Position[] = [
     location: '贵阳',
     requirements: ['年龄18-35岁', '细心负责', '有收银经验优先'],
     status: 'open',
-    recruiterId: 'RC005',
-    recruiterName: '刘十四',
+    recruiterId: 'user-002',
+    recruiterName: '张三',
     createdAt: '2026-05-20',
     updatedAt: '2026-05-20'
   }

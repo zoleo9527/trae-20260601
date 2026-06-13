@@ -7,10 +7,50 @@ import { formatCurrency } from '../../../utils/helpers';
 const HrDashboard: React.FC = () => {
   const { settlements, appeals, positions, candidates, user } = useStore();
 
+  const myCompany = user?.company || '';
+
+  const myCompanies = [
+    '深圳XX电子科技有限公司',
+    '上海XX餐饮管理有限公司',
+    '东莞XX制造有限公司',
+    '成都XX清洁服务有限公司',
+    '广州XX物流有限公司',
+    '北京XX科技有限公司',
+    '武汉XX餐饮有限公司',
+    '天津XX运输有限公司',
+    '南京XX物业管理有限公司',
+  ];
+
+  const getCompaniesForUser = (hrId: string): string[] => {
+    if (hrId === 'user-003') {
+      return [
+        '深圳XX电子科技有限公司',
+        '上海XX餐饮管理有限公司',
+        '东莞XX制造有限公司',
+        '成都XX清洁服务有限公司',
+      ];
+    }
+    if (hrId === 'user-005') {
+      return [
+        '广州XX物流有限公司',
+        '北京XX科技有限公司',
+        '武汉XX餐饮有限公司',
+        '天津XX运输有限公司',
+        '南京XX物业管理有限公司',
+      ];
+    }
+    return [];
+  };
+
+  const userCompanies = getCompaniesForUser(user?.id || '');
+
   const mySettlements = settlements.filter((s) => s.hrId === user?.id);
   const myAppeals = appeals.filter((a) => a.hrId === user?.id);
-  const myPositions = positions.filter((p) => p.company.includes('XX'));
-  const myCandidates = candidates.filter((c) => c.positionId);
+  const myPositions = positions.filter((p) => userCompanies.includes(p.company));
+  const myCandidates = candidates.filter((c) => {
+    const candidatePosition = positions.find((p) => p.id === c.positionId);
+    return candidatePosition && userCompanies.includes(candidatePosition.company);
+  });
 
   const pendingSettlements = mySettlements.filter(
     (s) => s.status === 'pending_hr_confirm'

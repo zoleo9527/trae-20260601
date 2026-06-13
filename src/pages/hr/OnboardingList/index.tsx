@@ -8,8 +8,33 @@ const HrOnboardingList: React.FC = () => {
   const { candidates, positions, user } = useStore();
   const [searchTerm, setSearchTerm] = React.useState('');
 
-  const passedCandidates = candidates.filter((c) => c.interviewStatus === 'passed');
-  const filteredCandidates = passedCandidates.filter((c) =>
+  const getCompaniesForUser = (hrId: string): string[] => {
+    if (hrId === 'user-003') {
+      return [
+        '深圳XX电子科技有限公司',
+        '上海XX餐饮管理有限公司',
+        '东莞XX制造有限公司',
+        '成都XX清洁服务有限公司',
+      ];
+    }
+    if (hrId === 'user-005') {
+      return [
+        '广州XX物流有限公司',
+        '北京XX科技有限公司',
+        '武汉XX餐饮有限公司',
+        '天津XX运输有限公司',
+        '南京XX物业管理有限公司',
+      ];
+    }
+    return [];
+  };
+
+  const userCompanies = getCompaniesForUser(user?.id || '');
+  const myPassedCandidates = candidates.filter((c) => {
+    const candidatePosition = positions.find((p) => p.id === c.positionId);
+    return candidatePosition && userCompanies.includes(candidatePosition.company) && c.interviewStatus === 'passed';
+  });
+  const filteredCandidates = myPassedCandidates.filter((c) =>
     c.name.includes(searchTerm) || c.phone.includes(searchTerm)
   );
 
@@ -121,8 +146,8 @@ const HrOnboardingList: React.FC = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-64"
             />
-            <Tag color="orange">待入职: {passedCandidates.filter((c) => !c.onboardStatus || c.onboardStatus === 'pending').length}</Tag>
-            <Tag color="green">已入职: {passedCandidates.filter((c) => c.onboardStatus === 'onboarded').length}</Tag>
+            <Tag color="orange">待入职: {myPassedCandidates.filter((c) => !c.onboardStatus || c.onboardStatus === 'pending').length}</Tag>
+            <Tag color="green">已入职: {myPassedCandidates.filter((c) => c.onboardStatus === 'onboarded').length}</Tag>
           </Space>
         </div>
 
