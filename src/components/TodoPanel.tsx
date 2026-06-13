@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   ChevronRight,
   AlertTriangle,
@@ -58,10 +58,18 @@ export default function TodoPanel() {
   const currentRole = useWorkbenchStore((s) => s.currentRole)
   const activeTab = useWorkbenchStore((s) => s.activeTab)
   const records = useWorkbenchStore((s) => s.records)
+  const filters = useWorkbenchStore((s) => s.filters)
   const setCurrentRole = useWorkbenchStore((s) => s.setCurrentRole)
   const setActiveTab = useWorkbenchStore((s) => s.setActiveTab)
+  const setFilters = useWorkbenchStore((s) => s.setFilters)
   const markTodoRead = useWorkbenchStore((s) => s.markTodoRead)
   const selectRecord = useWorkbenchStore((s) => s.selectRecord)
+
+  const roleRecordIds = useMemo(() => {
+    const fromRole = new Set(records.filter((r) => r.role === currentRole).map((r) => r.id))
+    const fromTodo = new Set(todos.filter((t) => t.role === currentRole).map((t) => t.recordId))
+    return new Set([...fromRole, ...fromTodo])
+  }, [records, todos, currentRole])
 
   const allTodos = todos
     .filter((t) => t.role === currentRole)
@@ -71,10 +79,11 @@ export default function TodoPanel() {
     })
 
   const stats = {
-    total: records.filter((r) => r.role === currentRole).length,
-    pending: records.filter((r) => r.role === currentRole && r.recordStatus === 'normal').length,
-    overdue: records.filter((r) => r.role === currentRole && r.recordStatus === 'overdue').length,
-    disputed: records.filter((r) => r.role === currentRole && r.recordStatus === 'disputed').length,
+    total: records.filter((r) => roleRecordIds.has(r.id)).length,
+    pending: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'normal').length,
+    overdue: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'overdue').length,
+    disputed: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'disputed').length,
+    returned: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'returned').length,
   }
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
@@ -121,18 +130,28 @@ export default function TodoPanel() {
         ))}
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-5 gap-1.5">
         {[
-          { label: '总记录', value: stats.total, color: 'text-gray-700 bg-gray-50' },
-          { label: '正常', value: stats.pending, color: 'text-emerald-700 bg-emerald-50' },
-          { label: '逾期', value: stats.overdue, color: 'text-red-700 bg-red-50' },
-          { label: '争议', value: stats.disputed, color: 'text-purple-700 bg-purple-50' },
-        ].map((s) => (
-          <div key={s.label} className={`rounded-md px-2 py-1.5 text-center ${s.color}`}>
-            <div className="text-lg font-bold">{s.value}</div>
-            <div className="text-[10px]">{s.label}</div>
-          </div>
-        ))}
+          { label: '总记录', value: stats.total, color: 'text-gray-700 bg-gray-50', status: 'all' as const },
+          { label: '正常', value: stats.pending, color: 'text-emerald-700 bg-emerald-50', status: 'normal' as const },
+          { label: '退回', value: stats.returned, color: 'text-amber-700 bg-amber-50', status: 'returned' as const },
+          { label: '逾期', value: stats.overdue, color: 'text-red-700 bg-red-50', status: 'overdue' as const },
+          { label: '争议', value: stats.disputed, color: 'text-purple-700 bg-purple-50', status: 'disputed' as const },
+        ].map((s) => {
+          const isActive = filters.status === s.status
+          return (
+            <button
+              key={s.label}
+              onClick={() => setFilters({ status: isActive ? 'all' : s.status })}
+              className={`rounded-md px-1 py-1.5 text-center transition-all ${s.color} ${
+                isActive ? 'ring-2 ring-offset-1 ring-blue-400' : 'hover:opacity-80'
+              }`}
+            >
+              <div className="text-base font-bold">{s.value}</div>
+              <div className="text-[9px]">{s.label}</div>
+            </button>
+          )
+        })}
       </div>
 
       <div className="flex border-b border-gray-200 mb-1">
