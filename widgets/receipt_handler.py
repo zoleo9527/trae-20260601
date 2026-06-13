@@ -313,9 +313,51 @@ class ReceiptHandlerWidget(QWidget):
             self.refresh()
             
     def verify_receipt(self, receipt: OnboardingReceipt):
+        from models import StabilityTracking, StabilityStatus, ChangeLog
+        
+        old_status = receipt.status.value
         receipt.status = ReceiptStatus.VERIFIED
         self.db.update_receipt(receipt)
-        QMessageBox.information(self, '成功', '回执已核实')
+        
+        job = self.db.get_job(receipt.job_id)
+        stability_days = job.return_fee_condition if job else '30天'
+        try:
+            days = int(''.join(filter(str.isdigit, str(stability_days))))
+        except:
+            days = 30
+            
+        tracking = StabilityTracking(
+            id=None,
+            receipt_id=receipt.id,
+            candidate_name=receipt.candidate_name,
+            company=receipt.company,
+            onboarding_date=receipt.onboarding_date,
+            stability_period_days=days,
+            current_work_days=0,
+            status=StabilityStatus.IN_PROGRESS,
+            last_check_date=None,
+            next_check_date=receipt.onboarding_date + timedelta(days=7),
+            risk_notes='',
+            return_fee_paid=False,
+            return_fee_date=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        self.db.add_stability_tracking(tracking)
+        
+        change_log = ChangeLog(
+            id=None,
+            entity_type='receipt',
+            entity_id=receipt.id,
+            action='核实',
+            old_value=old_status,
+            new_value=receipt.status.value,
+            operator='运营',
+            created_at=datetime.now()
+        )
+        self.db.add_change_log(change_log)
+        
+        QMessageBox.information(self, '成功', '回执已核实，稳定期跟踪已自动创建')
         self.refresh()
         
     def reject_receipt(self, receipt: OnboardingReceipt):

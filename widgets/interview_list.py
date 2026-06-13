@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt, QDateTime
 from PyQt5.QtGui import QColor
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 from database import Database
 from models import Interview, InterviewStatus, Job
@@ -133,9 +133,10 @@ class InterviewDialog(QDialog):
 
 
 class InterviewListWidget(QWidget):
-    def __init__(self, db: Database):
+    def __init__(self, db: Database, parent_window=None):
         super().__init__()
         self.db = db
+        self.parent_window = parent_window
         self.init_ui()
         
     def init_ui(self):
@@ -246,4 +247,26 @@ class InterviewListWidget(QWidget):
             self.refresh()
             
     def create_receipt(self, interview: Interview):
-        QMessageBox.information(self, '提示', f'请前往入职回执模块为 {interview.candidate_name} 创建入职回执')
+        from widgets.receipt_handler import ReceiptDialog
+        
+        jobs = {j.id: j for j in self.db.get_jobs()}
+        job = jobs.get(interview.job_id)
+        
+        if self.parent_window:
+            self.parent_window.switch_page('receipts')
+            
+        dialog = ReceiptDialog(self.db, [interview], jobs, parent=self)
+        dialog.candidate_edit.setText(interview.candidate_name)
+        if job:
+            dialog.company_edit.setText(job.company)
+            dialog.return_fee_amount_spin.setValue(job.return_fee_amount)
+            stability_days = job.return_fee_condition if job.return_fee_condition else 30
+            try:
+                days = int(''.join(filter(str.isdigit, str(stability_days))))
+                due_date = date.today() + timedelta(days=days)
+                dialog.return_fee_due_date_edit.setDate(QDate(due_date.year, due_date.month, due_date.day))
+            except:
+                pass
+        
+        if dialog.exec_():
+            self.refresh()

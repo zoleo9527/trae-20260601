@@ -1,12 +1,13 @@
 import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QStackedWidget, QFrame, QSizePolicy
+    QPushButton, QLabel, QStackedWidget, QFrame, QComboBox, QMessageBox, QDialog
 )
-from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 from database import Database
+from models import UserRole
 from widgets.dashboard import DashboardWidget
 from widgets.job_management import JobManagementWidget
 from widgets.interview_list import InterviewListWidget
@@ -14,10 +15,40 @@ from widgets.receipt_handler import ReceiptHandlerWidget
 from widgets.stability_tracker import StabilityTrackerWidget
 
 
+class RoleLoginDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('选择角色')
+        self.setMinimumWidth(300)
+        
+        layout = QVBoxLayout(self)
+        
+        title = QLabel('请选择您的角色')
+        title.setStyleSheet('font-size: 18px; font-weight: bold; color: #2c3e50;')
+        title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title)
+        
+        self.role_combo = QComboBox()
+        for role in UserRole:
+            self.role_combo.addItem(role.value, role)
+        layout.addWidget(self.role_combo)
+        
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        
+        confirm_btn = QPushButton('确认')
+        confirm_btn.setStyleSheet('background-color: #27ae60; color: white; padding: 8px 20px;')
+        confirm_btn.clicked.connect(self.accept)
+        btn_layout.addWidget(confirm_btn)
+        
+        layout.addLayout(btn_layout)
+
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.db = Database()
+        self.current_role = None
         self.init_ui()
 
     def init_ui(self):
@@ -52,6 +83,13 @@ class MainWindow(QMainWindow):
             QPushButton:checked {
                 background-color: #3498db;
             }
+            QComboBox {
+                background-color: #34495e;
+                color: #ecf0f1;
+                border: none;
+                padding: 8px 15px;
+                font-size: 12px;
+            }
         ''')
         nav_layout = QVBoxLayout(nav_frame)
         nav_layout.setContentsMargins(0, 0, 0, 0)
@@ -70,7 +108,16 @@ class MainWindow(QMainWindow):
         ''')
         nav_layout.addWidget(title_label)
 
+        self.role_combo = QComboBox()
+        for role in UserRole:
+            self.role_combo.addItem(role.value, role)
+        self.role_combo.currentIndexChanged.connect(self.switch_role)
+        nav_layout.addWidget(self.role_combo)
+
+        nav_layout.addStretch(1)
+
         self.nav_buttons = []
+        
         nav_items = [
             ('仪表板', 'dashboard'),
             ('岗位发布', 'jobs'),
@@ -88,7 +135,7 @@ class MainWindow(QMainWindow):
             nav_layout.addWidget(btn)
             self.nav_buttons.append(btn)
 
-        nav_layout.addStretch()
+        nav_layout.addStretch(2)
 
         self.nav_buttons[0].setChecked(True)
 
@@ -101,7 +148,7 @@ class MainWindow(QMainWindow):
 
         self.dashboard_widget = DashboardWidget(self.db)
         self.jobs_widget = JobManagementWidget(self.db)
-        self.interviews_widget = InterviewListWidget(self.db)
+        self.interviews_widget = InterviewListWidget(self.db, self)
         self.receipts_widget = ReceiptHandlerWidget(self.db)
         self.stability_widget = StabilityTrackerWidget(self.db)
 
@@ -115,6 +162,46 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(nav_frame)
         main_layout.addWidget(content_frame, 1)
+        
+        self.apply_role_restrictions(UserRole.OPERATOR)
+        self.dashboard_widget.refresh()
+
+    def apply_role_restrictions(self, role: UserRole):
+        self.current_role = role
+        
+        nav_items = [
+            ('dashboard', ['运营', '招聘顾问', '企业HR']),
+            ('jobs', ['招聘顾问', '运营']),
+            ('interviews', ['招聘顾问', '运营']),
+            ('receipts', ['运营', '企业HR']),
+            ('stability', ['运营', '企业HR']),
+        ]
+        
+        for name, allowed_roles in nav_items:
+            for btn in self.nav_buttons:
+                if btn.objectName() == name:
+                    btn.setVisible(role.value in allowed_roles)
+                    break
+
+    def switch_role(self, index):
+        role = self.role_combo.itemData(index)
+        self.apply_role_restrictions(role)
+        
+        current_page = None
+        for btn in self.nav_buttons:
+            if btn.isVisible() and btn.isChecked():
+                current_page = btn.objectName()
+                break
+        
+        if not current_page:
+            for btn in self.nav_buttons:
+                if btn.isVisible():
+                    btn.setChecked(True)
+                    current_page = btn.objectName()
+                    break
+        
+        if current_page:
+            self.switch_page(current_page)
 
     def switch_page(self, name):
         for btn in self.nav_buttons:
