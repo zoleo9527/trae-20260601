@@ -203,23 +203,6 @@ def init_sample_data(db: Database):
     trackings = [
         StabilityTracking(
             id=None,
-            receipt_id=receipt_ids[0],
-            candidate_name='王五',
-            company='富士康科技',
-            onboarding_date=date.today() - timedelta(days=10),
-            stability_period_days=45,
-            current_work_days=10,
-            status=StabilityStatus.IN_PROGRESS,
-            last_check_date=date.today() - timedelta(days=3),
-            next_check_date=date.today() + timedelta(days=4),
-            risk_notes='',
-            return_fee_paid=False,
-            return_fee_date=None,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        ),
-        StabilityTracking(
-            id=None,
             receipt_id=receipt_ids[1],
             candidate_name='赵六',
             company='富士康科技',
@@ -264,12 +247,12 @@ def init_sample_data(db: Database):
         ChangeLog(
             id=None,
             entity_type='receipt',
-            entity_id=receipt_ids[1],
-            action='状态变更',
-            old_value='待处理',
-            new_value='已核实',
-            operator='运营',
-            created_at=datetime.now() - timedelta(hours=3)
+            entity_id=receipt_ids[0],
+            action='新增',
+            old_value='',
+            new_value='待处理',
+            operator='企业HR',
+            created_at=datetime.now() - timedelta(hours=1)
         ),
     ]
     

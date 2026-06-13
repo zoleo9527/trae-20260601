@@ -292,6 +292,12 @@ class ReceiptHandlerWidget(QWidget):
     def edit_receipt(self, receipt: OnboardingReceipt):
         interviews = self.db.get_interviews()
         passed_interviews = [i for i in interviews if i.status.value == '通过']
+        
+        if receipt.interview_id:
+            target_interview = next((i for i in passed_interviews if i.id == receipt.interview_id), None)
+            if target_interview and target_interview not in passed_interviews:
+                passed_interviews.insert(0, target_interview)
+        
         jobs = {j.id: j for j in self.db.get_jobs()}
         
         dialog = ReceiptDialog(self.db, passed_interviews, jobs, receipt, parent=self)
@@ -301,14 +307,20 @@ class ReceiptHandlerWidget(QWidget):
     def verify_receipt(self, receipt: OnboardingReceipt):
         from models import StabilityTracking, StabilityStatus, ChangeLog
         
+        trackings = self.db.get_stability_trackings()
+        existing = [t for t in trackings if t.receipt_id == receipt.id]
+        if existing:
+            QMessageBox.warning(self, '提示', '该回执已存在稳定期跟踪记录')
+            return
+        
         old_status = receipt.status.value
         receipt.status = ReceiptStatus.VERIFIED
         self.db.update_receipt(receipt)
         
         job = self.db.get_job(receipt.job_id)
-        stability_days = job.return_fee_condition if job else '30天'
+        stability_days_str = job.return_fee_condition if job else '30天'
         try:
-            days = int(''.join(filter(str.isdigit, str(stability_days))))
+            days = int(''.join(filter(str.isdigit, str(stability_days_str))))
         except:
             days = 30
             
