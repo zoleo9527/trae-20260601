@@ -12,8 +12,7 @@ function saveDatabase(db) {
 
 function prepareResult(result) {
   if (!result || result.length === 0) return [];
-  const columns = result[0];
-  const values = result[1];
+  const { columns, values } = result[0];
   if (!values || values.length === 0) return [];
   return values.map(row => {
     const obj = {};
@@ -41,11 +40,11 @@ function createManuscript(db, project_name, client_name, source_language, target
   return { lastInsertRowid: id };
 }
 
-function createVersion(db, manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final) {
+function createVersion(db, manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final, review_status) {
   db.run(`
-    INSERT INTO versions (manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `, [manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final]);
+    INSERT INTO versions (manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final, review_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, is_final, review_status]);
   const id = getLastInsertId(db);
   return { lastInsertRowid: id };
 }
@@ -115,6 +114,7 @@ async function initDatabase() {
       upload_time TEXT DEFAULT CURRENT_TIMESTAMP,
       notes TEXT,
       is_final INTEGER DEFAULT 0,
+      review_status TEXT DEFAULT 'pending',
       FOREIGN KEY (manuscript_id) REFERENCES manuscripts(id)
     )
   `);
@@ -181,8 +181,8 @@ async function initDatabase() {
   const m1 = createManuscript(db, '产品说明书翻译项目', '科技有限公司', '中文', '英文', 15000, '2024-02-15', 'completed');
   console.log('创建稿件:', m1.lastInsertRowid);
   
-  const v1_1 = createVersion(db, m1.lastInsertRowid, 'v1.0', '产品说明书_v1.0.docx', '/files/m1/v1.0.docx', 101, '张译员', '初稿翻译完成', 0);
-  console.log('创建版本 v1.0:', v1_1.lastInsertRowid);
+  const v1_1 = createVersion(db, m1.lastInsertRowid, 'v1.0', '产品说明书_v1.0.docx', '/files/m1/v1.0.docx', 101, '张译员', '初稿翻译完成', 0, 'rejected');
+  console.log('创建版本 v1.0 (待审校):', v1_1.lastInsertRowid);
   
   createReviewComment(db, v1_1.lastInsertRowid, 201, '李审校', 'terminology', '第3页第2段', '用户', 'user', '术语不统一：前面翻译为"用户"，这里又翻译为"使用者"，建议统一使用"用户"', 'high');
   createReviewComment(db, v1_1.lastInsertRowid, 201, '李审校', 'terminology', '第5页第4段', '登录', 'log in', '术语不统一:文档中"登录"有"log in"和"sign in"两种译法,建议统一使用"log in"', 'high');
@@ -192,12 +192,12 @@ async function initDatabase() {
   const rework1_1 = createReworkRecord(db, v1_1.lastInsertRowid, null, 201, '李审校', '术语翻译不统一,需要统一术语表', 'pending', '2024-02-10 10:30:00', null);
   console.log('创建返工记录:', rework1_1.lastInsertRowid);
   
-  const v1_2 = createVersion(db, m1.lastInsertRowid, 'v1.1', '产品说明书_v1.1.docx', '/files/m1/v1.1.docx', 101, '张译员', '根据审校意见统一术语', 0);
-  console.log('创建版本 v1.1:', v1_2.lastInsertRowid);
+  const v1_2 = createVersion(db, m1.lastInsertRowid, 'v1.1', '产品说明书_v1.1.docx', '/files/m1/v1.1.docx', 101, '张译员', '根据审校意见统一术语', 0, 'approved');
+  console.log('创建版本 v1.1 (已通过):', v1_2.lastInsertRowid);
   
   createReworkRecord(db, v1_1.lastInsertRowid, v1_2.lastInsertRowid, 201, '李审校', '术语翻译不统一,需要统一术语表', 'completed', '2024-02-10 10:30:00', '2024-02-11 14:00:00');
   
-  const v1_3 = createVersion(db, m1.lastInsertRowid, 'v1.2', '产品说明书_v1.2_final.docx', '/files/m1/v1.2_final.docx', 101, '张译员', '最终版本,通过审校', 1);
+  const v1_3 = createVersion(db, m1.lastInsertRowid, 'v1.2', '产品说明书_v1.2_final.docx', '/files/m1/v1.2_final.docx', 101, '张译员', '最终版本,通过审校', 1, 'approved');
   console.log('创建最终版本 v1.2:', v1_3.lastInsertRowid);
   
   createDeliveryRecord(db, m1.lastInsertRowid, v1_3.lastInsertRowid, '科技有限公司', '邮件', '王经理', '最终交付版本', '翻译质量很好,术语统一', '2024-02-15 16:00:00');
@@ -207,14 +207,18 @@ async function initDatabase() {
   const m2 = createManuscript(db, '合同翻译项目', '贸易集团', '中文', '英文', 8000, '2024-02-20', 'completed');
   console.log('创建稿件:', m2.lastInsertRowid);
   
-  const v2_1 = createVersion(db, m2.lastInsertRowid, 'v1.0', '合同_v1.0.docx', '/files/m2/v1.0.docx', 102, '王译员', '初稿翻译完成', 0);
+  const v2_1 = createVersion(db, m2.lastInsertRowid, 'v1.0', '合同_v1.0.docx', '/files/m2/v1.0.docx', 102, '王译员', '初稿翻译完成', 0, 'rejected');
   console.log('创建版本 v1.0:', v2_1.lastInsertRowid);
   
   createReviewComment(db, v2_1.lastInsertRowid, 202, '赵审校', 'format', '全文', null, null, '客户临时要求:需要将Word格式改为PDF格式,并添加公司水印', 'high');
   console.log('添加审校意见: 客户改格式要求');
   
-  const v2_2 = createVersion(db, m2.lastInsertRowid, 'v1.1', '合同_v1.1.pdf', '/files/m2/v1.1.pdf', 102, '王译员', '根据客户要求转换为PDF格式并添加水印', 1);
+  createReworkRecord(db, v2_1.lastInsertRowid, null, 202, '赵审校', '客户临时要求改格式', 'pending', '2024-02-18 14:00:00', null);
+  
+  const v2_2 = createVersion(db, m2.lastInsertRowid, 'v1.1', '合同_v1.1.pdf', '/files/m2/v1.1.pdf', 102, '王译员', '根据客户要求转换为PDF格式并添加水印', 1, 'approved');
   console.log('创建版本 v1.1:', v2_2.lastInsertRowid);
+  
+  createReworkRecord(db, v2_1.lastInsertRowid, v2_2.lastInsertRowid, 202, '赵审校', '客户临时要求改格式', 'completed', '2024-02-18 14:00:00', '2024-02-19 10:00:00');
   
   createDeliveryRecord(db, m2.lastInsertRowid, v2_2.lastInsertRowid, '贸易集团', '邮件', '李总', 'PDF格式,带水印', '格式符合要求,谢谢配合', '2024-02-20 18:00:00');
   console.log('创建交付记录');
@@ -223,7 +227,7 @@ async function initDatabase() {
   const m3 = createManuscript(db, '技术文档翻译项目', '软件公司', '英文', '中文', 20000, '2024-02-25', 'completed');
   console.log('创建稿件:', m3.lastInsertRowid);
   
-  const v3_1 = createVersion(db, m3.lastInsertRowid, 'v1.0', '技术文档_v1.0.docx', '/files/m3/v1.0.docx', 103, '李译员', '初稿翻译完成', 0);
+  const v3_1 = createVersion(db, m3.lastInsertRowid, 'v1.0', '技术文档_v1.0.docx', '/files/m3/v1.0.docx', 103, '李译员', '初稿翻译完成', 0, 'rejected');
   console.log('创建版本 v1.0:', v3_1.lastInsertRowid);
   
   createReviewComment(db, v3_1.lastInsertRowid, 203, '孙审校', 'translation', '第2章第3节', 'The system will be available 24/7', '系统将全天候可用', '翻译不准确,建议改为"系统将提供7×24小时服务"', 'high');
@@ -233,7 +237,7 @@ async function initDatabase() {
   const rework3_1 = createReworkRecord(db, v3_1.lastInsertRowid, null, 203, '孙审校', '翻译质量不达标,多处表达不准确', 'pending', '2024-02-18 9:00:00', null);
   console.log('创建第1次返工记录:', rework3_1.lastInsertRowid);
   
-  const v3_2 = createVersion(db, m3.lastInsertRowid, 'v1.1', '技术文档_v1.1.docx', '/files/m3/v1.1.docx', 103, '李译员', '第一次修改完成', 0);
+  const v3_2 = createVersion(db, m3.lastInsertRowid, 'v1.1', '技术文档_v1.1.docx', '/files/m3/v1.1.docx', 103, '李译员', '第一次修改完成', 0, 'rejected');
   console.log('创建版本 v1.1:', v3_2.lastInsertRowid);
   
   createReworkRecord(db, v3_1.lastInsertRowid, v3_2.lastInsertRowid, 203, '孙审校', '翻译质量不达标,多处表达不准确', 'completed', '2024-02-18 9:00:00', '2024-02-19 15:00:00');
@@ -245,15 +249,15 @@ async function initDatabase() {
   const rework3_2 = createReworkRecord(db, v3_2.lastInsertRowid, null, 203, '孙审校', '仍有部分翻译不准确,需要再次修改', 'pending', '2024-02-19 16:00:00', null);
   console.log('创建第2次返工记录:', rework3_2.lastInsertRowid);
   
-  const v3_3 = createVersion(db, m3.lastInsertRowid, 'v1.2', '技术文档_v1.2.docx', '/files/m3/v1.2.docx', 103, '李译员', '第二次修改完成', 0);
+  const v3_3 = createVersion(db, m3.lastInsertRowid, 'v1.2', '技术文档_v1.2.docx', '/files/m3/v1.2.docx', 103, '李译员', '第二次修改完成', 0, 'approved');
   console.log('创建版本 v1.2:', v3_3.lastInsertRowid);
   
-  createReworkRecord(db, v3_2.lastInsertRowid, v3_3.lastInsertRowid, 203, '孙审校', '仍有部分翻译不准确,需要再次修改', 'completed', '2024-02-19 16:00:00', '2024-02-20 10:0:00');
+  createReworkRecord(db, v3_2.lastInsertRowid, v3_3.lastInsertRowid, 203, '孙审校', '仍有部分翻译不准确,需要再次修改', 'completed', '2024-02-19 16:00:00', '2024-02-20 10:00:00');
   
   createReviewComment(db, v3_3.lastInsertRowid, 203, '孙审校', 'approval', null, null, null, '修改后质量达标,同意通过', 'low');
   console.log('添加审校意见: 审校通过');
   
-  const v3_4 = createVersion(db, m3.lastInsertRowid, 'v1.3', '技术文档_v1.3_final.docx', '/files/m3/v1.3_final.docx', 103, '李译员', '最终版本,通过审校', 1);
+  const v3_4 = createVersion(db, m3.lastInsertRowid, 'v1.3', '技术文档_v1.3_final.docx', '/files/m3/v1.3_final.docx', 103, '李译员', '最终版本,通过审校', 1, 'approved');
   console.log('创建最终版本 v1.3:', v3_4.lastInsertRowid);
   
   createDeliveryRecord(db, m3.lastInsertRowid, v3_4.lastInsertRowid, '软件公司', '邮件', '陈经理', '经过两次返工的最终版本', '感谢耐心修改,质量满意', '2024-02-25 17:00:00');
@@ -263,10 +267,10 @@ async function initDatabase() {
   const m4 = createManuscript(db, '营销文案翻译项目', '广告公司', '中文', '日文', 5000, '2024-02-28', 'in_review');
   console.log('创建稿件:', m4.lastInsertRowid);
   
-  const v4_1 = createVersion(db, m4.lastInsertRowid, 'v1.0', '营销文案_v1.0.docx', '/files/m4/v1.0.docx', 104, '赵译员', '初稿翻译完成', 0);
+  const v4_1 = createVersion(db, m4.lastInsertRowid, 'v1.0', '营销文案_v1.0.docx', '/files/m4/v1.0.docx', 104, '赵译员', '初稿翻译完成', 0, 'in_review');
   console.log('创建版本 v1.0:', v4_1.lastInsertRowid);
   
-  createReviewComment(db, v4_1.lastInsertRowid, 204, '周审校', 'style', '第1段', '我们的产品是最好的', '当社の製品は最高です', '语气过于生硬,建议改为更委婉的表达"当社の製品は最適な選択です"', 'medium');
+  createReviewComment(db, v4_1.lastInsertRowid, 204, '周审校', 'style', '第1段', '我们的产品是最好的', '当社の製品は最高です', '语气过于生硬,建议改为更委婉的表达"、当社の製品は最適な選択です"', 'medium');
   console.log('添加审校意见');
   
   saveDatabase(db);

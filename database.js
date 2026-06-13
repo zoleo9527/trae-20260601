@@ -42,6 +42,7 @@ async function initDatabase() {
       upload_time TEXT DEFAULT CURRENT_TIMESTAMP,
       notes TEXT,
       is_final INTEGER DEFAULT 0,
+      review_status TEXT DEFAULT 'pending',
       FOREIGN KEY (manuscript_id) REFERENCES manuscripts(id)
     )
   `);
@@ -110,8 +111,7 @@ function saveDatabase(db) {
 function prepareResult(result) {
   if (!result || result.length === 0) return [];
   
-  const columns = result[0];
-  const values = result[1];
+  const { columns, values } = result[0];
   
   if (!values || values.length === 0) return [];
   
@@ -129,9 +129,18 @@ function prepareOne(result) {
   return rows.length > 0 ? rows[0] : null;
 }
 
+function getLastInsertId(db) {
+  const result = db.exec('SELECT last_insert_rowid() as id');
+  if (result.length === 0 || result[0].values.length === 0) {
+    return null;
+  }
+  return result[0].values[0][0];
+}
+
 module.exports = {
   initDatabase,
   saveDatabase,
   prepareResult,
-  prepareOne
+  prepareOne,
+  getLastInsertId
 };

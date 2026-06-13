@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { initDatabase, saveDatabase, prepareResult, prepareOne } = require('./database');
+const { initDatabase, saveDatabase, prepareResult, prepareOne, getLastInsertId } = require('./database');
 
 const app = express();
 app.use(cors());
@@ -22,6 +22,7 @@ async function startServer() {
 app.get('/', (req, res) => {
   res.json({ 
     message: '翻译公司审校返工与版本交付管理系统 API',
+    version_status_options: ['pending', 'in_review', 'approved', 'rejected'],
     endpoints: {
       manuscripts: '/api/manuscripts',
       versions: '/api/versions',
@@ -54,17 +55,17 @@ app.get('/api/manuscripts', (req, res) => {
 });
 
 app.get('/api/manuscripts/:id', (req, res) => {
-  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [req.params.id]);
+  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [parseInt(req.params.id)]);
   const manuscript = prepareOne(result);
   
   if (!manuscript) {
     return res.status(404).json({ error: '稿件不存在' });
   }
   
-  const versionsResult = db.exec('SELECT * FROM versions WHERE manuscript_id = ? ORDER BY upload_time DESC', [req.params.id]);
+  const versionsResult = db.exec('SELECT * FROM versions WHERE manuscript_id = ? ORDER BY upload_time DESC', [parseInt(req.params.id)]);
   const versions = prepareResult(versionsResult);
   
-  const deliveriesResult = db.exec('SELECT * FROM delivery_records WHERE manuscript_id = ? ORDER BY delivery_time DESC', [req.params.id]);
+  const deliveriesResult = db.exec('SELECT dr.*, v.version_number, v.file_name FROM delivery_records dr LEFT JOIN versions v ON dr.version_id = v.id WHERE dr.manuscript_id = ? ORDER BY dr.delivery_time DESC', [parseInt(req.params.id)]);
   const deliveries = prepareResult(deliveriesResult);
   
   res.json({
@@ -88,41 +89,65 @@ app.post('/api/manuscripts', (req, res) => {
   
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM manuscripts WHERE id = (SELECT MAX(id) FROM manuscripts)');
+  const id = getLastInsertId(db);
+  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [id]);
   const manuscript = prepareOne(result);
   res.status(201).json(manuscript);
 });
 
 app.put('/api/manuscripts/:id', (req, res) => {
-  const { status } = req.body;
+  const { status, project_name, client_name } = req.body;
   
-  db.run('UPDATE manuscripts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [status, req.params.id]);
+  let updates = [];
+  let params = [];
+  
+  if (status) {
+    updates.push('status = ?');
+    params.push(status);
+  }
+  if (project_name) {
+    updates.push('project_name = ?');
+    params.push(project_name);
+  }
+  if (client_name) {
+    updates.push('client_name = ?');
+    params.push(client_name);
+  }
+  
+  updates.push('updated_at = CURRENT_TIMESTAMP');
+  params.push(parseInt(req.params.id));
+  
+  db.run(`UPDATE manuscripts SET ${updates.join(', ')} WHERE id = ?`, params);
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [req.params.id]);
+  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [parseInt(req.params.id)]);
   const manuscript = prepareOne(result);
   res.json(manuscript);
 });
 
 app.get('/api/versions', (req, res) => {
-  const { manuscript_id, translator_id, is_final } = req.query;
-  let sql = 'SELECT * FROM versions WHERE 1=1';
+  const { manuscript_id, translator_id, is_final, review_status } = req.query;
+  let sql = 'SELECT v.*, m.project_name, m.client_name FROM versions v LEFT JOIN manuscripts m ON v.manuscript_id = m.id WHERE 1=1';
   const params = [];
   
   if (manuscript_id) {
-    sql += ' AND manuscript_id = ?';
-    params.push(manuscript_id);
+    sql += ' AND v.manuscript_id = ?';
+    params.push(parseInt(manuscript_id));
   }
   if (translator_id) {
-    sql += ' AND translator_id = ?';
-    params.push(translator_id);
+    sql += ' AND v.translator_id = ?';
+    params.push(parseInt(translator_id));
   }
   if (is_final !== undefined) {
-    sql += ' AND is_final = ?';
+    sql += ' AND v.is_final = ?';
     params.push(is_final === 'true' ? 1 : 0);
   }
+  if (review_status) {
+    sql += ' AND v.review_status = ?';
+    params.push(review_status);
+  }
   
-  sql += ' ORDER BY upload_time DESC';
+  sql += ' ORDER BY v.upload_time DESC';
   
   const result = db.exec(sql, params);
   const versions = prepareResult(result);
@@ -130,17 +155,24 @@ app.get('/api/versions', (req, res) => {
 });
 
 app.get('/api/versions/:id', (req, res) => {
-  const result = db.exec('SELECT * FROM versions WHERE id = ?', [req.params.id]);
+  const versionId = parseInt(req.params.id);
+  const result = db.exec('SELECT v.*, m.project_name, m.client_name FROM versions v LEFT JOIN manuscripts m ON v.manuscript_id = m.id WHERE v.id = ?', [versionId]);
   const version = prepareOne(result);
   
   if (!version) {
     return res.status(404).json({ error: '版本不存在' });
   }
   
-  const reviewCommentsResult = db.exec('SELECT * FROM review_comments WHERE version_id = ? ORDER BY created_at DESC', [req.params.id]);
+  const reviewCommentsResult = db.exec('SELECT * FROM review_comments WHERE version_id = ? ORDER BY created_at DESC', [versionId]);
   const reviewComments = prepareResult(reviewCommentsResult);
   
-  const reworkRecordsResult = db.exec('SELECT * FROM rework_records WHERE version_id = ? ORDER BY created_at DESC', [req.params.id]);
+  const reworkRecordsResult = db.exec(`
+    SELECT rr.*, v.version_number as rework_version_number 
+    FROM rework_records rr 
+    LEFT JOIN versions v ON rr.rework_version_id = v.id 
+    WHERE rr.version_id = ? 
+    ORDER BY rr.created_at DESC
+  `, [versionId]);
   const reworkRecords = prepareResult(reworkRecordsResult);
   
   res.json({
@@ -151,54 +183,120 @@ app.get('/api/versions/:id', (req, res) => {
 });
 
 app.post('/api/versions', (req, res) => {
-  const { manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes } = req.body;
+  const { manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, review_status } = req.body;
   
   if (!manuscript_id || !version_number || !file_name || !translator_id || !translator_name) {
     return res.status(400).json({ error: '缺少必填字段' });
   }
   
   db.run(`
-    INSERT INTO versions (manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `, [manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes]);
+    INSERT INTO versions (manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, review_status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `, [manuscript_id, version_number, file_name, file_path, translator_id, translator_name, notes, review_status || 'pending']);
   
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM versions WHERE id = (SELECT MAX(id) FROM versions)');
+  const id = getLastInsertId(db);
+  const result = db.exec('SELECT * FROM versions WHERE id = ?', [id]);
   const version = prepareOne(result);
   res.status(201).json(version);
 });
 
 app.put('/api/versions/:id', (req, res) => {
-  const { is_final, notes } = req.body;
+  const { is_final, notes, review_status } = req.body;
+  const versionId = parseInt(req.params.id);
   
-  db.run('UPDATE versions SET is_final = ?, notes = ? WHERE id = ?', [is_final ? 1 : 0, notes, req.params.id]);
+  let updates = [];
+  let params = [];
+  
+  if (is_final !== undefined) {
+    updates.push('is_final = ?');
+    params.push(is_final ? 1 : 0);
+  }
+  if (notes !== undefined) {
+    updates.push('notes = ?');
+    params.push(notes);
+  }
+  if (review_status !== undefined) {
+    updates.push('review_status = ?');
+    params.push(review_status);
+  }
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ error: '没有需要更新的字段' });
+  }
+  
+  params.push(versionId);
+  db.run(`UPDATE versions SET ${updates.join(', ')} WHERE id = ?`, params);
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM versions WHERE id = ?', [req.params.id]);
+  const result = db.exec('SELECT * FROM versions WHERE id = ?', [versionId]);
   const version = prepareOne(result);
   res.json(version);
 });
 
+app.post('/api/versions/:id/decide', (req, res) => {
+  const { decision, reviewer_id, reviewer_name, rework_reason } = req.body;
+  const versionId = parseInt(req.params.id);
+  
+  if (!['approved', 'rejected'].includes(decision)) {
+    return res.status(400).json({ error: 'decision 必须是 approved 或 rejected' });
+  }
+  
+  const versionResult = db.exec('SELECT * FROM versions WHERE id = ?', [versionId]);
+  const version = prepareOne(versionResult);
+  
+  if (!version) {
+    return res.status(404).json({ error: '版本不存在' });
+  }
+  
+  if (decision === 'rejected') {
+    if (!rework_reason) {
+      return res.status(400).json({ error: '退回时必须提供 rework_reason' });
+    }
+    
+    db.run(`
+      INSERT INTO rework_records (version_id, reviewer_id, reviewer_name, rework_reason, status)
+      VALUES (?, ?, ?, ?, 'pending')
+    `, [versionId, reviewer_id, reviewer_name, rework_reason]);
+  }
+  
+  db.run('UPDATE versions SET review_status = ? WHERE id = ?', [decision, versionId]);
+  saveDatabase(db);
+  
+  const updatedResult = db.exec('SELECT * FROM versions WHERE id = ?', [versionId]);
+  const updatedVersion = prepareOne(updatedResult);
+  
+  res.json({
+    message: `版本已${decision === 'approved' ? '通过审校' : '被退回'}`,
+    version: updatedVersion,
+    rework_record: decision === 'rejected' ? {
+      version_id: versionId,
+      rework_reason,
+      status: 'pending'
+    } : null
+  });
+});
+
 app.get('/api/review-comments', (req, res) => {
   const { version_id, comment_type, severity } = req.query;
-  let sql = 'SELECT * FROM review_comments WHERE 1=1';
+  let sql = 'SELECT rc.*, v.version_number, v.manuscript_id FROM review_comments rc LEFT JOIN versions v ON rc.version_id = v.id WHERE 1=1';
   const params = [];
   
   if (version_id) {
-    sql += ' AND version_id = ?';
-    params.push(version_id);
+    sql += ' AND rc.version_id = ?';
+    params.push(parseInt(version_id));
   }
   if (comment_type) {
-    sql += ' AND comment_type = ?';
+    sql += ' AND rc.comment_type = ?';
     params.push(comment_type);
   }
   if (severity) {
-    sql += ' AND severity = ?';
+    sql += ' AND rc.severity = ?';
     params.push(severity);
   }
   
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY rc.created_at DESC';
   
   const result = db.exec(sql, params);
   const comments = prepareResult(result);
@@ -219,26 +317,37 @@ app.post('/api/review-comments', (req, res) => {
   
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM review_comments WHERE id = (SELECT MAX(id) FROM review_comments)');
+  const id = getLastInsertId(db);
+  const result = db.exec('SELECT * FROM review_comments WHERE id = ?', [id]);
   const comment = prepareOne(result);
   res.status(201).json(comment);
 });
 
 app.get('/api/rework-records', (req, res) => {
-  const { version_id, status } = req.query;
-  let sql = 'SELECT * FROM rework_records WHERE 1=1';
+  const { version_id, status, manuscript_id } = req.query;
+  let sql = `
+    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number
+    FROM rework_records rr 
+    LEFT JOIN versions v ON rr.version_id = v.id
+    LEFT JOIN versions rv ON rr.rework_version_id = rv.id
+    WHERE 1=1
+  `;
   const params = [];
   
   if (version_id) {
-    sql += ' AND version_id = ?';
-    params.push(version_id);
+    sql += ' AND rr.version_id = ?';
+    params.push(parseInt(version_id));
   }
   if (status) {
-    sql += ' AND status = ?';
+    sql += ' AND rr.status = ?';
     params.push(status);
   }
+  if (manuscript_id) {
+    sql += ' AND v.manuscript_id = ?';
+    params.push(parseInt(manuscript_id));
+  }
   
-  sql += ' ORDER BY created_at DESC';
+  sql += ' ORDER BY rr.created_at DESC';
   
   const result = db.exec(sql, params);
   const records = prepareResult(result);
@@ -259,42 +368,66 @@ app.post('/api/rework-records', (req, res) => {
   
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM rework_records WHERE id = (SELECT MAX(id) FROM rework_records)');
+  const id = getLastInsertId(db);
+  const result = db.exec(`
+    SELECT rr.*, v.version_number, v.manuscript_id
+    FROM rework_records rr 
+    LEFT JOIN versions v ON rr.version_id = v.id
+    WHERE rr.id = ?
+  `, [id]);
   const record = prepareOne(result);
   res.status(201).json(record);
 });
 
 app.put('/api/rework-records/:id', (req, res) => {
   const { status, rework_version_id } = req.body;
+  const recordId = parseInt(req.params.id);
   
   let completedAt = null;
   if (status === 'completed') {
     completedAt = new Date().toISOString();
   }
   
-  db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ? WHERE id = ?', [status, rework_version_id, completedAt, req.params.id]);
+  db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ? WHERE id = ?', 
+    [status, rework_version_id, completedAt, recordId]);
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM rework_records WHERE id = ?', [req.params.id]);
+  const result = db.exec(`
+    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number
+    FROM rework_records rr 
+    LEFT JOIN versions v ON rr.version_id = v.id
+    LEFT JOIN versions rv ON rr.rework_version_id = rv.id
+    WHERE rr.id = ?
+  `, [recordId]);
   const record = prepareOne(result);
   res.json(record);
 });
 
 app.get('/api/delivery-records', (req, res) => {
-  const { manuscript_id, client_name } = req.query;
-  let sql = 'SELECT * FROM delivery_records WHERE 1=1';
+  const { manuscript_id, client_name, version_id } = req.query;
+  let sql = `
+    SELECT dr.*, v.version_number, v.file_name, v.review_status, m.project_name
+    FROM delivery_records dr
+    LEFT JOIN versions v ON dr.version_id = v.id
+    LEFT JOIN manuscripts m ON dr.manuscript_id = m.id
+    WHERE 1=1
+  `;
   const params = [];
   
   if (manuscript_id) {
-    sql += ' AND manuscript_id = ?';
-    params.push(manuscript_id);
+    sql += ' AND dr.manuscript_id = ?';
+    params.push(parseInt(manuscript_id));
   }
   if (client_name) {
-    sql += ' AND client_name LIKE ?';
+    sql += ' AND dr.client_name LIKE ?';
     params.push(`%${client_name}%`);
   }
+  if (version_id) {
+    sql += ' AND dr.version_id = ?';
+    params.push(parseInt(version_id));
+  }
   
-  sql += ' ORDER BY delivery_time DESC';
+  sql += ' ORDER BY dr.delivery_time DESC';
   
   const result = db.exec(sql, params);
   const records = prepareResult(result);
@@ -302,24 +435,21 @@ app.get('/api/delivery-records', (req, res) => {
 });
 
 app.get('/api/delivery-records/:id', (req, res) => {
-  const result = db.exec('SELECT * FROM delivery_records WHERE id = ?', [req.params.id]);
+  const recordId = parseInt(req.params.id);
+  const result = db.exec(`
+    SELECT dr.*, v.version_number, v.file_name, v.review_status, v.translator_name, m.project_name
+    FROM delivery_records dr
+    LEFT JOIN versions v ON dr.version_id = v.id
+    LEFT JOIN manuscripts m ON dr.manuscript_id = m.id
+    WHERE dr.id = ?
+  `, [recordId]);
   const record = prepareOne(result);
   
   if (!record) {
     return res.status(404).json({ error: '交付记录不存在' });
   }
   
-  const versionResult = db.exec('SELECT * FROM versions WHERE id = ?', [record.version_id]);
-  const version = prepareOne(versionResult);
-  
-  const manuscriptResult = db.exec('SELECT * FROM manuscripts WHERE id = ?', [record.manuscript_id]);
-  const manuscript = prepareOne(manuscriptResult);
-  
-  res.json({
-    ...record,
-    version,
-    manuscript
-  });
+  res.json(record);
 });
 
 app.post('/api/delivery-records', (req, res) => {
@@ -336,43 +466,78 @@ app.post('/api/delivery-records', (req, res) => {
   
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM delivery_records WHERE id = (SELECT MAX(id) FROM delivery_records)');
+  const id = getLastInsertId(db);
+  const result = db.exec(`
+    SELECT dr.*, v.version_number, v.file_name, v.review_status, m.project_name
+    FROM delivery_records dr
+    LEFT JOIN versions v ON dr.version_id = v.id
+    LEFT JOIN manuscripts m ON dr.manuscript_id = m.id
+    WHERE dr.id = ?
+  `, [id]);
   const record = prepareOne(result);
   res.status(201).json(record);
 });
 
 app.put('/api/delivery-records/:id', (req, res) => {
   const { client_feedback } = req.body;
+  const recordId = parseInt(req.params.id);
   
   const feedbackTime = client_feedback ? new Date().toISOString() : null;
   
-  db.run('UPDATE delivery_records SET client_feedback = ?, feedback_time = ? WHERE id = ?', [client_feedback, feedbackTime, req.params.id]);
+  db.run('UPDATE delivery_records SET client_feedback = ?, feedback_time = ? WHERE id = ?', 
+    [client_feedback, feedbackTime, recordId]);
   saveDatabase(db);
   
-  const result = db.exec('SELECT * FROM delivery_records WHERE id = ?', [req.params.id]);
+  const result = db.exec(`
+    SELECT dr.*, v.version_number, v.file_name, v.review_status, m.project_name
+    FROM delivery_records dr
+    LEFT JOIN versions v ON dr.version_id = v.id
+    LEFT JOIN manuscripts m ON dr.manuscript_id = m.id
+    WHERE dr.id = ?
+  `, [recordId]);
   const record = prepareOne(result);
   res.json(record);
 });
 
 app.get('/api/manuscripts/:id/history', (req, res) => {
-  const result = db.exec('SELECT * FROM manuscripts WHERE id = ?', [req.params.id]);
-  const manuscript = prepareOne(result);
+  const manuscriptId = parseInt(req.params.id);
+  const manuscriptResult = db.exec('SELECT * FROM manuscripts WHERE id = ?', [manuscriptId]);
+  const manuscript = prepareOne(manuscriptResult);
   
   if (!manuscript) {
     return res.status(404).json({ error: '稿件不存在' });
   }
   
-  const versionsResult = db.exec('SELECT * FROM versions WHERE manuscript_id = ? ORDER BY upload_time ASC', [req.params.id]);
+  const versionsResult = db.exec(`
+    SELECT v.*, 
+      (SELECT COUNT(*) FROM review_comments WHERE version_id = v.id) as comment_count,
+      (SELECT COUNT(*) FROM rework_records WHERE version_id = v.id) as rework_count
+    FROM versions v 
+    WHERE v.manuscript_id = ? 
+    ORDER BY v.upload_time ASC
+  `, [manuscriptId]);
   const versions = prepareResult(versionsResult);
   
   const history = versions.map(version => {
-    const reviewCommentsResult = db.exec('SELECT * FROM review_comments WHERE version_id = ?', [version.id]);
+    const versionId = version.id;
+    
+    const reviewCommentsResult = db.exec('SELECT * FROM review_comments WHERE version_id = ? ORDER BY created_at ASC', [versionId]);
     const reviewComments = prepareResult(reviewCommentsResult);
     
-    const reworkRecordsResult = db.exec('SELECT * FROM rework_records WHERE version_id = ?', [version.id]);
+    const reworkRecordsResult = db.exec(`
+      SELECT rr.*, rv.version_number as rework_version_number, rv.file_name as rework_file_name
+      FROM rework_records rr 
+      LEFT JOIN versions rv ON rr.rework_version_id = rv.id
+      WHERE rr.version_id = ? 
+      ORDER BY rr.created_at ASC
+    `, [versionId]);
     const reworkRecords = prepareResult(reworkRecordsResult);
     
-    const deliveriesResult = db.exec('SELECT * FROM delivery_records WHERE version_id = ?', [version.id]);
+    const deliveriesResult = db.exec(`
+      SELECT dr.*, dr.client_feedback, dr.feedback_time
+      FROM delivery_records dr
+      WHERE dr.version_id = ?
+    `, [versionId]);
     const deliveries = prepareResult(deliveriesResult);
     
     return {
@@ -383,9 +548,36 @@ app.get('/api/manuscripts/:id/history', (req, res) => {
     };
   });
   
+  const approvedVersionResult = db.exec(`
+    SELECT v.*, m.project_name, m.client_name
+    FROM versions v
+    LEFT JOIN manuscripts m ON v.manuscript_id = m.id
+    WHERE v.manuscript_id = ? AND v.review_status = 'approved' AND v.is_final = 1
+    ORDER BY v.upload_time DESC
+    LIMIT 1
+  `, [manuscriptId]);
+  const finalApprovedVersion = prepareOne(approvedVersionResult);
+  
+  const allDeliveriesResult = db.exec(`
+    SELECT dr.*, v.version_number, v.review_status
+    FROM delivery_records dr
+    LEFT JOIN versions v ON dr.version_id = v.id
+    WHERE dr.manuscript_id = ?
+    ORDER BY dr.delivery_time DESC
+  `, [manuscriptId]);
+  const allDeliveries = prepareResult(allDeliveriesResult);
+  
   res.json({
     manuscript,
-    history
+    versionHistory: history,
+    finalApprovedVersion,
+    allDeliveries,
+    summary: {
+      totalVersions: versions.length,
+      totalReworks: history.reduce((sum, v) => sum + (v.reworkRecords?.length || 0), 0),
+      totalDeliveries: allDeliveries.length,
+      hasApprovedVersion: !!finalApprovedVersion
+    }
   });
 });
 
