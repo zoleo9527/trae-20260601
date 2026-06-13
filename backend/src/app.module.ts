@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TrainingNeedsModule } from './modules/training-needs/training-needs.module';
 import { CourseProjectsModule } from './modules/course-projects/course-projects.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StatusHistoryModule } from './modules/status-history/status-history.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TrainingNeedsModule,
     CourseProjectsModule,
     NotificationsModule,
+    StatusHistoryModule,
   ],
 })
 export class AppModule {

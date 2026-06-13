@@ -111,7 +111,28 @@ export class TrainingNeedsService {
       throw new NotFoundException('培训需求不存在');
     }
 
-    return this.transformNeed(trainingNeed);
+    const latestChange = await this.statusHistoryService.getLatestStatusChange(
+      EntityType.TRAINING_NEED,
+      id,
+    );
+
+    const result = this.transformNeed(trainingNeed);
+    
+    result.latestStatusChange = latestChange ? {
+      fromStatus: latestChange.fromStatus,
+      toStatus: latestChange.toStatus,
+      handler: latestChange.changedBy ? {
+        id: latestChange.changedBy.id,
+        name: latestChange.changedBy.name,
+        role: latestChange.changedBy.role,
+      } : null,
+      reason: latestChange.reason,
+      remarks: latestChange.remarks,
+      timestamp: latestChange.createdAt,
+      statusLabel: this.getStatusLabel(latestChange.toStatus),
+    } : null;
+
+    return result;
   }
 
   async update(id: string, updateDto: UpdateTrainingNeedDto, user: User) {
@@ -411,5 +432,19 @@ export class TrainingNeedsService {
       createdAt: trainingNeed.createdAt,
       updatedAt: trainingNeed.updatedAt,
     };
+  }
+
+  private getStatusLabel(status: string): string {
+    const statusMap: Record<string, string> = {
+      'pending': '待审批',
+      'approved': '已通过',
+      'rejected': '已驳回',
+      'transferred': '已转派',
+      'published': '已发布',
+      'in_progress': '进行中',
+      'completed': '已完成',
+      'cancelled': '已取消',
+    };
+    return statusMap[status] || status;
   }
 }

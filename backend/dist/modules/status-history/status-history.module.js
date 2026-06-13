@@ -12,12 +12,14 @@ const typeorm_1 = require("@nestjs/typeorm");
 const status_change_history_entity_1 = require("../../entities/status-change-history.entity");
 const user_entity_1 = require("../../entities/user.entity");
 const status_history_service_1 = require("./status-history.service");
+const status_history_controller_1 = require("./status-history.controller");
 let StatusHistoryModule = class StatusHistoryModule {
 };
 exports.StatusHistoryModule = StatusHistoryModule;
 exports.StatusHistoryModule = StatusHistoryModule = __decorate([
     (0, common_1.Module)({
         imports: [typeorm_1.TypeOrmModule.forFeature([status_change_history_entity_1.StatusChangeHistory, user_entity_1.User])],
+        controllers: [status_history_controller_1.StatusHistoryController],
         providers: [status_history_service_1.StatusChangeHistoryService],
         exports: [status_history_service_1.StatusChangeHistoryService],
     })

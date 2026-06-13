@@ -114,7 +114,28 @@ export class CourseProjectsService {
       throw new NotFoundException('课程立项不存在');
     }
 
-    return this.transformProject(courseProject);
+    const latestChange = await this.statusHistoryService.getLatestStatusChange(
+      EntityType.COURSE_PROJECT,
+      id,
+    );
+
+    const result = this.transformProject(courseProject);
+    
+    result.latestStatusChange = latestChange ? {
+      fromStatus: latestChange.fromStatus,
+      toStatus: latestChange.toStatus,
+      handler: latestChange.changedBy ? {
+        id: latestChange.changedBy.id,
+        name: latestChange.changedBy.name,
+        role: latestChange.changedBy.role,
+      } : null,
+      reason: latestChange.reason,
+      remarks: latestChange.remarks,
+      timestamp: latestChange.createdAt,
+      statusLabel: this.getStatusLabel(latestChange.toStatus),
+    } : null;
+
+    return result;
   }
 
   async update(id: string, updateDto: UpdateCourseProjectDto, user: User) {
@@ -482,5 +503,18 @@ export class CourseProjectsService {
       createdAt: courseProject.createdAt,
       updatedAt: courseProject.updatedAt,
     };
+  }
+
+  private getStatusLabel(status: string): string {
+    const statusMap: Record<string, string> = {
+      'pending': '待审批',
+      'approved': '已通过',
+      'rejected': '已驳回',
+      'published': '已发布',
+      'in_progress': '进行中',
+      'completed': '已完成',
+      'cancelled': '已取消',
+    };
+    return statusMap[status] || status;
   }
 }

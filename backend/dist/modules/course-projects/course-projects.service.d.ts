@@ -538,4 +538,5 @@ export declare class CourseProjectsService {
     }[]>;
     private updateStatusIfNeeded;
     private transformProject;
+    private getStatusLabel;
 }

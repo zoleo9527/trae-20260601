@@ -18,6 +18,7 @@ const auth_module_1 = require("./modules/auth/auth.module");
 const training_needs_module_1 = require("./modules/training-needs/training-needs.module");
 const course_projects_module_1 = require("./modules/course-projects/course-projects.module");
 const notifications_module_1 = require("./modules/notifications/notifications.module");
+const status_history_module_1 = require("./modules/status-history/status-history.module");
 let AppModule = class AppModule {
     constructor(dataSource) {
         this.dataSource = dataSource;
@@ -38,6 +39,7 @@ exports.AppModule = AppModule = __decorate([
             training_needs_module_1.TrainingNeedsModule,
             course_projects_module_1.CourseProjectsModule,
             notifications_module_1.NotificationsModule,
+            status_history_module_1.StatusHistoryModule,
         ],
     }),
     __metadata("design:paramtypes", [typeorm_2.DataSource])

@@ -345,4 +345,5 @@ export declare class TrainingNeedsService {
     }[]>;
     private createRemark;
     private transformNeed;
+    private getStatusLabel;
 }
