@@ -61,7 +61,8 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
   };
 
   const existingQuarantine = store.quarantineRecords.find(q => q.vetRecordId === record.id);
-  const hasPendingQuarantine = existingQuarantine && existingQuarantine.status !== 'completed';
+  const showQuarantineButton = !existingQuarantine || existingQuarantine.status !== 'completed';
+  const isUpdatingQuarantine = !!existingQuarantine;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -167,21 +168,13 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
                 驳回
               </button>
               
-              {hasPendingQuarantine ? (
+              {showQuarantineButton && (
                 <button
                   onClick={() => setShowQuarantineForm(!showQuarantineForm)}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
                 >
                   <ShieldCheck className="w-4 h-4" />
-                  更新隔离原因
-                </button>
-              ) : !existingQuarantine && (
-                <button
-                  onClick={() => setShowQuarantineForm(!showQuarantineForm)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  转隔离
+                  {isUpdatingQuarantine ? '更新隔离原因' : '转隔离'}
                 </button>
               )}
               
@@ -226,7 +219,7 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
           {showQuarantineForm && !existingQuarantine?.status === 'completed' && (
             <div className="mt-4 p-4 bg-orange-50 rounded-lg">
               <p className="text-sm text-orange-600 font-medium mb-2">
-                {hasPendingQuarantine ? '更新隔离原因' : '请填写隔离原因'}
+                {isUpdatingQuarantine ? '更新隔离原因' : '请填写隔离原因'}
               </p>
               <textarea
                 value={quarantineReason}

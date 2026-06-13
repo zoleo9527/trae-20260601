@@ -242,13 +242,13 @@ export default function Dashboard() {
     return matchesKeyword && matchesStatus;
   });
 
-  const blockedQuarStatuses = ['pending', 'processing', 'rejected'];
-  
   const filteredQuar = store.quarantineRecords.filter(r => {
     const matchesKeyword = searchKeyword === '' || r.reason.includes(searchKeyword);
-    const matchesStatus = filterStatus === 'all' || r.status === filterStatus;
-    const isBlocked = blockedQuarStatuses.includes(r.status);
-    return matchesKeyword && matchesStatus && isBlocked;
+    const matchesStatus = filterStatus === 'all' || 
+                         r.status === filterStatus ||
+                         (filterStatus === 'processing' && r.status === 'quarantining');
+    const isCompleted = r.status === 'completed';
+    return matchesKeyword && matchesStatus && !isCompleted;
   });
 
   return (
