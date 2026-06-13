@@ -6,8 +6,6 @@ import { AuthModule } from './modules/auth/auth.module';
 import { TrainingNeedsModule } from './modules/training-needs/training-needs.module';
 import { CourseProjectsModule } from './modules/course-projects/course-projects.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { UsersModule } from './modules/users/users.module';
-import { InstructorsModule } from './modules/instructors/instructors.module';
 
 @Module({
   imports: [
@@ -22,8 +20,6 @@ import { InstructorsModule } from './modules/instructors/instructors.module';
     TrainingNeedsModule,
     CourseProjectsModule,
     NotificationsModule,
-    UsersModule,
-    InstructorsModule,
   ],
 })
 export class AppModule {

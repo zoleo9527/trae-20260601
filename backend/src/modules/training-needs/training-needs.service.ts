@@ -260,6 +260,8 @@ export class TrainingNeedsService {
     }
 
     const fromStatus = trainingNeed.status;
+    await this.trainingNeedRepository.update(id, { status: TrainingNeedStatus.TRANSFERRED });
+    
     await this.statusHistoryService.recordStatusChange(
       EntityType.TRAINING_NEED,
       id,
@@ -275,7 +277,7 @@ export class TrainingNeedsService {
     }
 
     await this.notificationService.sendNotification(
-      NotificationType.TRAINING_NEED_APPROVED,
+      NotificationType.TRAINING_NEED_TRANSFERRED,
       targetManager.id,
       '培训需求已转派给您',
       `培训需求「${trainingNeed.title}」已转派给您，请及时处理。`,

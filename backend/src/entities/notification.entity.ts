@@ -11,6 +11,7 @@ import { User } from './user.entity';
 export enum NotificationType {
   TRAINING_NEED_APPROVED = 'training_need_approved',
   TRAINING_NEED_REJECTED = 'training_need_rejected',
+  TRAINING_NEED_TRANSFERRED = 'training_need_transferred',
   COURSE_PROJECT_APPROVED = 'course_project_approved',
   COURSE_PROJECT_REJECTED = 'course_project_rejected',
   COURSE_REMINDER = 'course_reminder',

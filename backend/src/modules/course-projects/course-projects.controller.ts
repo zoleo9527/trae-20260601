@@ -56,4 +56,124 @@ export class CourseProjectsController {
   @ApiOperation({ summary: '更新课程立项' })
   @ApiResponse({ status: 200, description: '更新成功' })
   @ApiResponse({ status: 401, description: '未授权' })
-  @ApiResponse({ status:
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  async update(@Param('id') id: string, @Body() updateDto: UpdateCourseProjectDto, @Request() req) {
+    return this.courseProjectsService.update(id, updateDto, req.user);
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '删除课程立项' })
+  @ApiResponse({ status: 200, description: '删除成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  async remove(@Param('id') id: string, @Request() req) {
+    return this.courseProjectsService.remove(id, req.user);
+  }
+
+  @Post(':id/approve')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '审批通过课程立项' })
+  @ApiResponse({ status: 200, description: '审批成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  @ApiResponse({ status: 400, description: '只能审批待审批状态的立项' })
+  async approve(@Param('id') id: string, @Request() req) {
+    return this.courseProjectsService.approve(id, req.user.id);
+  }
+
+  @Post(':id/reject')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '驳回课程立项' })
+  @ApiResponse({ status: 200, description: '驳回成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  @ApiResponse({ status: 400, description: '只能驳回待审批状态的立项' })
+  async reject(@Param('id') id: string, @Body('reason') reason: string, @Request() req) {
+    return this.courseProjectsService.reject(id, reason, req.user.id);
+  }
+
+  @Post(':id/publish')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '发布课程立项' })
+  @ApiResponse({ status: 200, description: '发布成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  @ApiResponse({ status: 400, description: '只能发布已审批通过的课程' })
+  async publish(@Param('id') id: string, @Request() req) {
+    return this.courseProjectsService.publish(id, req.user.id);
+  }
+
+  @Post(':id/cancel')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '取消课程立项' })
+  @ApiResponse({ status: 200, description: '取消成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  @ApiResponse({ status: 400, description: '已完成的课程不能取消' })
+  async cancel(@Param('id') id: string, @Request() req) {
+    return this.courseProjectsService.cancel(id, req.user.id);
+  }
+
+  @Get(':id/students')
+  @Roles(UserRole.TRAINING_MANAGER, UserRole.INSTRUCTOR)
+  @ApiOperation({ summary: '获取课程学员列表' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  async getStudents(@Param('id') id: string) {
+    return this.courseProjectsService.getStudents(id);
+  }
+
+  @Post(':id/students')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '添加学员（报名）' })
+  @ApiResponse({ status: 200, description: '添加成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  @ApiResponse({ status: 400, description: '课程人数已满或学员已报名' })
+  async addStudent(@Param('id') id: string, @Body() addStudentDto: AddStudentDto) {
+    return this.courseProjectsService.addStudent(id, addStudentDto);
+  }
+
+  @Delete(':id/students/:studentId')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '移除学员' })
+  @ApiResponse({ status: 200, description: '移除成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项或学员不存在' })
+  async removeStudent(@Param('id') id: string, @Param('studentId') studentId: string, @Request() req) {
+    return this.courseProjectsService.removeStudent(id, studentId, req.user);
+  }
+
+  @Post(':id/students/:studentId/absent')
+  @Roles(UserRole.TRAINING_MANAGER, UserRole.INSTRUCTOR)
+  @ApiOperation({ summary: '标记学员缺席' })
+  @ApiResponse({ status: 200, description: '标记成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项或学员不存在' })
+  async markStudentAbsent(@Param('id') id: string, @Param('studentId') studentId: string, @Body() markAbsentDto: MarkAbsentDto) {
+    return this.courseProjectsService.markStudentAbsent(id, studentId, markAbsentDto);
+  }
+
+  @Get(':id/remarks')
+  @Roles(UserRole.TRAINING_MANAGER, UserRole.INSTRUCTOR)
+  @ApiOperation({ summary: '获取关联的培训需求备注' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  @ApiResponse({ status: 404, description: '课程立项不存在' })
+  async getRemarks(@Param('id') id: string) {
+    return this.courseProjectsService.getRemarks(id);
+  }
+}

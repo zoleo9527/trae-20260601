@@ -14,6 +14,19 @@ import { NotificationType } from '../../entities/notification.entity';
 export class NotificationsController {
   constructor(private notificationService: NotificationService) {}
 
+  @Get('logs')
+  @Roles(UserRole.TRAINING_MANAGER)
+  @ApiOperation({ summary: '获取本地通知日志' })
+  @ApiResponse({ status: 200, description: '成功' })
+  @ApiResponse({ status: 401, description: '未授权' })
+  @ApiResponse({ status: 403, description: '无权限' })
+  async getLogs(
+    @Query('page') page: number = 1,
+    @Query('pageSize') pageSize: number = 10,
+  ) {
+    return this.notificationService.getLogs(page, pageSize);
+  }
+
   @Get()
   @Roles(UserRole.TRAINING_MANAGER)
   @ApiOperation({ summary: '获取通知记录列表' })
@@ -49,18 +62,5 @@ export class NotificationsController {
   async markAsRead(@Param('id') id: string) {
     await this.notificationService.markAsRead(id);
     return { message: '标记成功' };
-  }
-
-  @Get('logs')
-  @Roles(UserRole.TRAINING_MANAGER)
-  @ApiOperation({ summary: '获取本地通知日志' })
-  @ApiResponse({ status: 200, description: '成功' })
-  @ApiResponse({ status: 401, description: '未授权' })
-  @ApiResponse({ status: 403, description: '无权限' })
-  async getLogs(
-    @Query('page') page: number = 1,
-    @Query('pageSize') pageSize: number = 10,
-  ) {
-    return this.notificationService.getLogs(page, pageSize);
   }
 }
