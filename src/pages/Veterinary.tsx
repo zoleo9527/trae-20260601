@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useFarmStore } from '@/store';
-import { Search, Filter, Plus, Eye, CheckCircle, XCircle, Edit3, Calendar, User, Stethoscope, X } from 'lucide-react';
+import { Search, Filter, Plus, Eye, CheckCircle, XCircle, Edit3, Calendar, User, Stethoscope, X, ShieldCheck, RefreshCw } from 'lucide-react';
 import type { VeterinaryRecord } from '@/types';
 
 function StatusBadge({ status }: { status: VeterinaryRecord['status'] }) {
@@ -14,11 +14,25 @@ function StatusBadge({ status }: { status: VeterinaryRecord['status'] }) {
   return <span className={`px-2 py-1 rounded-full text-xs font-medium ${className}`}>{label}</span>;
 }
 
-function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: VeterinaryRecord; onClose: () => void; onUpdateStatus: (status: VeterinaryRecord['status'], reason?: string) => void }) {
+function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, onSupplement }: { 
+  record: VeterinaryRecord; 
+  onClose: () => void; 
+  onUpdateStatus: (status: VeterinaryRecord['status'], reason?: string) => void;
+  onCreateQuarantine: (reason: string) => void;
+  onSupplement: (updates: Partial<VeterinaryRecord>) => void;
+}) {
   const store = useFarmStore();
   const cattle = store.getCattleById(record.cattleId);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showQuarantineForm, setShowQuarantineForm] = useState(false);
+  const [quarantineReason, setQuarantineReason] = useState('');
+  const [showSupplementForm, setShowSupplementForm] = useState(false);
+  const [supplementData, setSupplementData] = useState({
+    symptoms: record.symptoms,
+    diagnosis: record.diagnosis,
+    treatment: record.treatment,
+  });
 
   const handleComplete = () => {
     onUpdateStatus('completed');
@@ -31,6 +45,22 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
       onClose();
     }
   };
+
+  const handleCreateQuarantine = () => {
+    if (quarantineReason.trim()) {
+      onCreateQuarantine(quarantineReason);
+      setShowQuarantineForm(false);
+    }
+  };
+
+  const handleSupplement = () => {
+    if (supplementData.symptoms.trim() && supplementData.diagnosis.trim()) {
+      onSupplement(supplementData);
+      setShowSupplementForm(false);
+    }
+  };
+
+  const hasExistingQuarantine = store.quarantineRecords.some(q => q.vetRecordId === record.id);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -89,6 +119,13 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
             </div>
           )}
 
+          {hasExistingQuarantine && (
+            <div className="bg-orange-50 rounded-lg p-4">
+              <p className="text-xs text-orange-600 font-medium mb-1">关联隔离记录</p>
+              <p className="text-sm text-orange-700">该巡诊单已创建隔离申请，可在隔离管理中查看</p>
+            </div>
+          )}
+
           <div className="flex items-center gap-4 text-xs text-gray-500 pt-4 border-t border-gray-200">
             <span className="flex items-center gap-1">
               <User className="w-3 h-3" />
@@ -101,9 +138,19 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 flex gap-3">
-          {record.status !== 'completed' && record.status !== 'rejected' && (
-            <>
+        <div className="p-6 border-t border-gray-200">
+          {record.status === 'rejected' ? (
+            <div className="space-y-3">
+              <button
+                onClick={() => setShowSupplementForm(true)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4" />
+                补录修改
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setShowRejectForm(!showRejectForm)}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 transition-colors"
@@ -112,6 +159,16 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
                 驳回
               </button>
               
+              {!hasExistingQuarantine && (
+                <button
+                  onClick={() => setShowQuarantineForm(!showQuarantineForm)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  转隔离
+                </button>
+              )}
+              
               <button
                 onClick={handleComplete}
                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-pasture-500 text-white rounded-lg hover:bg-pasture-600 transition-colors"
@@ -119,9 +176,9 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
                 <CheckCircle className="w-4 h-4" />
                 完成处理
               </button>
-            </>
+            </div>
           )}
-          
+
           {showRejectForm && record.status !== 'completed' && record.status !== 'rejected' && (
             <div className="mt-4 p-4 bg-red-50 rounded-lg">
               <p className="text-sm text-red-600 font-medium mb-2">请填写驳回原因</p>
@@ -149,6 +206,86 @@ function VeterinaryModal({ record, onClose, onUpdateStatus }: { record: Veterina
               </div>
             </div>
           )}
+
+          {showQuarantineForm && !hasExistingQuarantine && (
+            <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+              <p className="text-sm text-orange-600 font-medium mb-2">请填写隔离原因</p>
+              <textarea
+                value={quarantineReason}
+                onChange={(e) => setQuarantineReason(e.target.value)}
+                placeholder={`${cattle?.name}需要隔离的原因...`}
+                className="w-full px-3 py-2 border border-orange-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500"
+                rows={3}
+              />
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={() => setShowQuarantineForm(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleCreateQuarantine}
+                  disabled={!quarantineReason.trim()}
+                  className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  确认转隔离
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showSupplementForm && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg space-y-4">
+              <p className="text-sm text-blue-600 font-medium">补录修改</p>
+              
+              <div>
+                <label className="text-xs text-blue-600 mb-1 block">症状描述</label>
+                <textarea
+                  value={supplementData.symptoms}
+                  onChange={(e) => setSupplementData({ ...supplementData, symptoms: e.target.value })}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              
+              <div>
+                <label className="text-xs text-blue-600 mb-1 block">诊断结果</label>
+                <textarea
+                  value={supplementData.diagnosis}
+                  onChange={(e) => setSupplementData({ ...supplementData, diagnosis: e.target.value })}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              
+              <div>
+                <label className="text-xs text-blue-600 mb-1 block">处理方案</label>
+                <textarea
+                  value={supplementData.treatment}
+                  onChange={(e) => setSupplementData({ ...supplementData, treatment: e.target.value })}
+                  className="w-full px-3 py-2 border border-blue-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  rows={2}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowSupplementForm(false)}
+                  className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSupplement}
+                  disabled={!supplementData.symptoms.trim() || !supplementData.diagnosis.trim()}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  确认补录
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -172,6 +309,16 @@ export default function Veterinary() {
 
   const handleUpdateStatus = (id: number, status: VeterinaryRecord['status'], reason?: string) => {
     store.updateVeterinaryStatus(id, status, reason);
+  };
+
+  const handleCreateQuarantine = (vetRecordId: number, cattleId: number, reason: string) => {
+    store.createQuarantine(vetRecordId, cattleId, reason, '系统');
+    setSelectedRecord(null);
+  };
+
+  const handleSupplement = (id: number, updates: Partial<VeterinaryRecord>) => {
+    store.supplementVeterinary(id, updates);
+    setSelectedRecord(null);
   };
 
   const cattleMap = new Map(store.cattle.map(c => [c.id, c]));
@@ -289,6 +436,8 @@ export default function Veterinary() {
           record={selectedRecord}
           onClose={() => setSelectedRecord(null)}
           onUpdateStatus={(status, reason) => handleUpdateStatus(selectedRecord.id, status, reason)}
+          onCreateQuarantine={(reason) => handleCreateQuarantine(selectedRecord.id, selectedRecord.cattleId, reason)}
+          onSupplement={(updates) => handleSupplement(selectedRecord.id, updates)}
         />
       )}
     </div>
