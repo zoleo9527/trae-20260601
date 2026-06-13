@@ -146,6 +146,7 @@ async function initDatabase() {
       rework_reason TEXT NOT NULL,
       status TEXT DEFAULT 'pending',
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       completed_at TEXT,
       FOREIGN KEY (version_id) REFERENCES versions(id),
       FOREIGN KEY (rework_version_id) REFERENCES versions(id)

@@ -250,31 +250,63 @@ app.post('/api/versions/:id/decide', (req, res) => {
     return res.status(404).json({ error: '版本不存在' });
   }
   
-  if (decision === 'rejected') {
+  if (decision === 'approved') {
+    db.run(`
+      UPDATE rework_records 
+      SET status = 'completed', completed_at = CURRENT_TIMESTAMP 
+      WHERE version_id = ? AND status = 'pending'
+    `, [versionId]);
+  } else if (decision === 'rejected') {
     if (!rework_reason) {
       return res.status(400).json({ error: '退回时必须提供 rework_reason' });
     }
     
-    db.run(`
-      INSERT INTO rework_records (version_id, reviewer_id, reviewer_name, rework_reason, status)
-      VALUES (?, ?, ?, ?, 'pending')
-    `, [versionId, reviewer_id, reviewer_name, rework_reason]);
+    const pendingReworkResult = db.exec(`
+      SELECT COUNT(*) as count 
+      FROM rework_records 
+      WHERE version_id = ? AND status = 'pending'
+    `, [versionId]);
+    const pendingCount = prepareOne(pendingReworkResult)?.count || 0;
+    
+    if (pendingCount === 0) {
+      db.run(`
+        INSERT INTO rework_records (version_id, reviewer_id, reviewer_name, rework_reason, status, created_at)
+        VALUES (?, ?, ?, ?, 'pending', CURRENT_TIMESTAMP)
+      `, [versionId, reviewer_id, reviewer_name, rework_reason]);
+    } else {
+      db.run(`
+        UPDATE rework_records 
+        SET reviewer_id = ?, reviewer_name = ?, rework_reason = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE version_id = ? AND status = 'pending'
+      `, [reviewer_id, reviewer_name, rework_reason, versionId]);
+    }
   }
   
   db.run('UPDATE versions SET review_status = ? WHERE id = ?', [decision, versionId]);
   saveDatabase(db);
   
-  const updatedResult = db.exec('SELECT * FROM versions WHERE id = ?', [versionId]);
+  const updatedResult = db.exec(`
+    SELECT v.*, m.project_name, m.client_name 
+    FROM versions v 
+    LEFT JOIN manuscripts m ON v.manuscript_id = m.id 
+    WHERE v.id = ?
+  `, [versionId]);
   const updatedVersion = prepareOne(updatedResult);
+  
+  const reworkRecordsResult = db.exec(`
+    SELECT rr.*, rv.version_number as rework_version_number
+    FROM rework_records rr 
+    LEFT JOIN versions rv ON rr.rework_version_id = rv.id
+    WHERE rr.version_id = ? 
+    ORDER BY rr.created_at DESC
+    LIMIT 1
+  `, [versionId]);
+  const latestReworkRecord = prepareOne(reworkRecordsResult);
   
   res.json({
     message: `版本已${decision === 'approved' ? '通过审校' : '被退回'}`,
     version: updatedVersion,
-    rework_record: decision === 'rejected' ? {
-      version_id: versionId,
-      rework_reason,
-      status: 'pending'
-    } : null
+    rework_record: latestReworkRecord || null
   });
 });
 
@@ -388,12 +420,12 @@ app.put('/api/rework-records/:id', (req, res) => {
     completedAt = new Date().toISOString();
   }
   
-  db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ? WHERE id = ?', 
+  db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
     [status, rework_version_id, completedAt, recordId]);
   saveDatabase(db);
   
   const result = db.exec(`
-    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number
+    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number, rv.file_name as rework_file_name
     FROM rework_records rr 
     LEFT JOIN versions v ON rr.version_id = v.id
     LEFT JOIN versions rv ON rr.rework_version_id = rv.id
