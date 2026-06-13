@@ -76,6 +76,8 @@ interface SubmissionDetail {
     attachments: Array<{
       fileName: string;
       fileUrl: string;
+      fileSize?: number;
+      mimeType?: string;
     }>;
   }>;
   timeline: Array<{
@@ -86,6 +88,7 @@ interface SubmissionDetail {
       name: string;
     };
   }>;
+  expandedVersions?: number[];
 }
 
 export default function HomeworkSubmissions() {
@@ -499,33 +502,92 @@ export default function HomeworkSubmissions() {
                     {submissionDetail.history.map((item, index) => (
                       <div
                         key={index}
-                        className={`flex items-center justify-between p-3 rounded-lg ${
+                        className={`p-3 rounded-lg ${
                           item.version === submissionDetail.version
                             ? 'bg-primary-50 border border-primary-200'
                             : 'bg-gray-50'
                         }`}
                       >
-                        <div className="flex items-center">
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium mr-3 ${
-                              item.version === submissionDetail.version
-                                ? 'bg-primary-100 text-primary-700'
-                                : 'bg-gray-200 text-gray-700'
-                            }`}
-                          >
-                            v{item.version}
-                          </span>
-                          <div>
-                            <div className="text-sm text-gray-900">
-                              {dayjs(item.submittedAt).format('YYYY-MM-DD HH:mm')}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {item.attachments?.length || 0} 个附件
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            <span
+                              className={`px-2 py-1 rounded text-xs font-medium mr-3 ${
+                                item.version === submissionDetail.version
+                                  ? 'bg-primary-100 text-primary-700'
+                                  : 'bg-gray-200 text-gray-700'
+                              }`}
+                            >
+                              v{item.version}
+                            </span>
+                            <div>
+                              <div className="text-sm text-gray-900">
+                                {dayjs(item.submittedAt).format('YYYY-MM-DD HH:mm')}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                {item.attachments?.length || 0} 个附件
+                              </div>
                             </div>
                           </div>
+                          <div className="flex items-center space-x-2">
+                            {item.version === submissionDetail.version && (
+                              <span className="text-xs text-primary-600">当前版本</span>
+                            )}
+                            {item.attachments && item.attachments.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  const expandedVersion = submissionDetail.history?.find(h => h.version === item.version);
+                                  if (expandedVersion) {
+                                    const newExpanded = [...(submissionDetail.expandedVersions || [])];
+                                    if (newExpanded.includes(item.version)) {
+                                      setSubmissionDetail({
+                                        ...submissionDetail,
+                                        expandedVersions: newExpanded.filter(v => v !== item.version)
+                                      });
+                                    } else {
+                                      setSubmissionDetail({
+                                        ...submissionDetail,
+                                        expandedVersions: [...newExpanded, item.version]
+                                      });
+                                    }
+                                  }
+                                }}
+                                className="text-xs text-blue-600 hover:text-blue-700"
+                              >
+                                {submissionDetail.expandedVersions?.includes(item.version) ? '收起' : '查看附件'}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {item.version === submissionDetail.version && (
-                          <span className="text-xs text-primary-600">当前版本</span>
+                        {submissionDetail.expandedVersions?.includes(item.version) && item.attachments && item.attachments.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                            {item.attachments.map((file, fileIndex) => (
+                              <div
+                                key={fileIndex}
+                                className="flex items-center justify-between p-2 bg-white rounded border border-gray-200"
+                              >
+                                <div className="flex items-center">
+                                  <FileText className="w-4 h-4 text-gray-400 mr-2" />
+                                  <div>
+                                    <div className="text-sm font-medium text-gray-900">{file.fileName}</div>
+                                    <div className="text-xs text-gray-500">
+                                      {formatFileSize(file.fileSize || 0)} · {file.mimeType}
+                                    </div>
+                                  </div>
+                                </div>
+                                {file.fileUrl && (
+                                  <a
+                                    href={`http://localhost:3000${file.fileUrl}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-primary-600 hover:text-primary-700 flex items-center"
+                                  >
+                                    <Download className="w-3 h-3 mr-1" />
+                                    下载
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     ))}

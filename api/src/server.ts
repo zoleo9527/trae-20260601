@@ -571,6 +571,34 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
       orderBy: { createdAt: 'desc' },
     });
 
+    const formatAttachment = (attachment: any) => {
+      if (!attachment) return null;
+      if (attachment.fileName && attachment.fileUrl) {
+        return {
+          fileName: attachment.fileName,
+          fileUrl: attachment.fileUrl,
+          fileSize: attachment.fileSize || 0,
+          mimeType: attachment.mimeType || 'application/octet-stream',
+        };
+      }
+      return {
+        fileName: attachment.name || '未命名文件',
+        fileUrl: attachment.url || '',
+        fileSize: attachment.fileSize || attachment.size || 0,
+        mimeType: attachment.mimeType || attachment.type || 'application/octet-stream',
+      };
+    };
+
+    const parseAttachments = (attachmentsJson: string | null) => {
+      if (!attachmentsJson) return [];
+      try {
+        const parsed = JSON.parse(attachmentsJson);
+        return Array.isArray(parsed) ? parsed.map(formatAttachment) : [];
+      } catch {
+        return [];
+      }
+    };
+
     res.json({
       code: 200,
       data: {
@@ -580,7 +608,7 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
         status: submission.status,
         submittedAt: submission.submittedAt,
         version: submission.versionNumber,
-        attachments: submission.attachments ? JSON.parse(submission.attachments) : [],
+        attachments: parseAttachments(submission.attachments),
         notes: submission.notes,
         score: submission.score,
         gradeNotes: submission.gradeNotes,
@@ -589,7 +617,7 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
         history: allVersions.map((v) => ({
           version: v.versionNumber,
           submittedAt: v.submittedAt,
-          attachments: v.attachments ? JSON.parse(v.attachments) : [],
+          attachments: parseAttachments(v.attachments),
         })),
         timeline: logs,
       },
@@ -980,7 +1008,7 @@ app.post('/api/exams/:id/publish', authenticateToken, async (req, res) => {
       where: { examId: req.params.id },
     });
 
-    const ungradedCount = examScores.filter(s => s.status !== 'graded').length;
+    const ungradedCount = examScores.filter(s => s.status === 'pending').length;
     if (ungradedCount > 0) {
       return res.status(400).json({
         code: 400,
