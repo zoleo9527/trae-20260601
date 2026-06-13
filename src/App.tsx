@@ -7,16 +7,29 @@ import JobManagement from './pages/JobManagement'
 import InterviewManagement from './pages/InterviewManagement'
 import DataReset from './pages/DataReset'
 import { useAuthStore } from './store/authStore'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
   const { user, token, loadUser } = useAuthStore()
+  const [loading, setLoading] = useState(true)
   
   useEffect(() => {
-    if (token && !user) {
-      loadUser()
+    const init = async () => {
+      if (token && !user) {
+        await loadUser()
+      }
+      setLoading(false)
     }
+    init()
   }, [token, user, loadUser])
+  
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
   
   if (!token || !user) {
     return <Navigate to="/login" replace />

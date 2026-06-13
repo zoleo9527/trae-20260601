@@ -145,6 +145,34 @@ export default function JobManagement() {
           requirements: job.requirements
         }
       })
+    } else if (mode === 'republish' && job) {
+      setModal({
+        isOpen: true,
+        mode,
+        job,
+        form: {
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          salary: job.salary,
+          description: job.description,
+          requirements: job.requirements
+        }
+      })
+    } else if (mode === 'history' && job) {
+      setModal({
+        isOpen: true,
+        mode,
+        job,
+        form: {
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          salary: job.salary,
+          description: job.description,
+          requirements: job.requirements
+        }
+      })
     }
   }
 
@@ -429,52 +457,48 @@ export default function JobManagement() {
                   <div className="border-t border-gray-200 pt-4">
                     <p className="text-sm text-gray-500 mb-3">状态流转记录</p>
                     <div className="space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-3 h-3 mt-1.5 bg-yellow-500 rounded-full"></div>
-                        <div>
-                          <p className="font-medium text-gray-800">{statusLabels['pending'].label}</p>
-                          <p className="text-xs text-gray-500">{new Date(modal.job?.created_at).toLocaleString('zh-CN')}</p>
-                          <p className="text-xs text-gray-400 mt-1">HR提交审核</p>
-                        </div>
-                      </div>
-                      {modal.job?.status === 'approved' || modal.job?.status === 'published' || modal.job?.status === 'expired' || modal.job?.status === 'rejected' ? (
-                        <div className="flex items-start gap-3">
-                          <div className="w-3 h-3 mt-1.5 bg-blue-500 rounded-full"></div>
-                          <div>
-                            <p className="font-medium text-gray-800">{statusLabels['approved'].label}</p>
-                            <p className="text-xs text-gray-500">运营审核通过</p>
-                          </div>
-                        </div>
-                      ) : null}
-                      {modal.job?.status === 'published' || modal.job?.status === 'expired' ? (
-                        <div className="flex items-start gap-3">
-                          <div className="w-3 h-3 mt-1.5 bg-green-500 rounded-full"></div>
-                          <div>
-                            <p className="font-medium text-gray-800">{statusLabels['published'].label}</p>
-                            <p className="text-xs text-gray-500">顾问发布上线</p>
-                            <p className="text-xs text-gray-400 mt-1">{new Date(modal.job?.updated_at).toLocaleString('zh-CN')}</p>
-                          </div>
-                        </div>
-                      ) : null}
-                      {modal.job?.status === 'expired' ? (
-                        <div className="flex items-start gap-3">
-                          <div className="w-3 h-3 mt-1.5 bg-orange-500 rounded-full"></div>
-                          <div>
-                            <p className="font-medium text-gray-800">{statusLabels['expired'].label}</p>
-                            <p className="text-xs text-gray-500">岗位已过期</p>
-                            <p className="text-xs text-gray-400 mt-1">{new Date(modal.job?.updated_at).toLocaleString('zh-CN')}</p>
-                          </div>
-                        </div>
-                      ) : null}
-                      {modal.job?.status === 'rejected' ? (
-                        <div className="flex items-start gap-3">
-                          <div className="w-3 h-3 mt-1.5 bg-red-500 rounded-full"></div>
-                          <div>
-                            <p className="font-medium text-gray-800">{statusLabels['rejected'].label}</p>
-                            <p className="text-xs text-gray-500">退回原因：{modal.job?.reject_reason || '未填写'}</p>
-                          </div>
-                        </div>
-                      ) : null}
+                      {modal.job?.history && modal.job.history.length > 0 ? (
+                        [...modal.job.history].reverse().map((record, index) => {
+                          const colorMap: Record<string, string> = {
+                            pending: 'bg-yellow-500',
+                            approved: 'bg-blue-500',
+                            published: 'bg-green-500',
+                            expired: 'bg-orange-500',
+                            rejected: 'bg-red-500',
+                            closed: 'bg-gray-500',
+                            draft: 'bg-gray-400',
+                          }
+                          const actorRoleMap: Record<string, string> = {
+                            hr: '企业HR',
+                            operator: '运营',
+                            consultant: '招聘顾问',
+                          }
+                          const actionMap: Record<string, string> = {
+                            pending: '提交审核',
+                            approved: '审核通过',
+                            published: '发布岗位',
+                            expired: '标记过期',
+                            rejected: '审核退回',
+                            closed: '关闭岗位',
+                            draft: '保存草稿',
+                          }
+                          return (
+                            <div key={index} className="flex items-start gap-3">
+                              <div className={`w-3 h-3 mt-1.5 ${colorMap[record.status] || 'bg-gray-500'} rounded-full`}></div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-800">{statusLabels[record.status]?.label || record.status}</p>
+                                <p className="text-xs text-gray-500">{new Date(record.created_at).toLocaleString('zh-CN')}</p>
+                                <p className="text-xs text-gray-400 mt-1">{actorRoleMap[record.actor_name] || record.actor_name} · {actionMap[record.status] || '状态变更'}</p>
+                                {record.remark && (
+                                  <p className="text-xs text-red-500 mt-1">备注：{record.remark}</p>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <p className="text-center text-gray-400 py-4">暂无状态流转记录</p>
+                      )}
                     </div>
                   </div>
                 </div>

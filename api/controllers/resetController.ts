@@ -4,6 +4,7 @@ import { db } from '../database/db.js'
 export const resetData = (req: Request, res: Response) => {
   db.interviews.deleteAll()
   db.jobs.deleteAll()
+  db.jobStatusHistory.deleteAll()
   
   db.jobs.insertMany([
     { title: '电子厂普工', company: '深圳电子科技有限公司', location: '深圳宝安', salary: '5000-6000/月', description: '负责电子产品组装、检测', requirements: '18-45岁，身体健康', status: 'pending', reject_reason: null, created_by: 3 },
@@ -14,10 +15,22 @@ export const resetData = (req: Request, res: Response) => {
   ])
   
   db.interviews.insertMany([
-    { job_id: 1, candidate_name: '张三', phone: '13800138001', interview_time: '2024-01-15 09:00:00', status: 'scheduled', no_show: false },
-    { job_id: 1, candidate_name: '李四', phone: '13800138002', interview_time: '2024-01-15 10:00:00', status: 'completed', no_show: false },
-    { job_id: 1, candidate_name: '王五', phone: '13800138003', interview_time: '2024-01-14 09:00:00', status: 'noshow', no_show: true },
-    { job_id: 2, candidate_name: '赵六', phone: '13800138004', interview_time: '2024-01-16 14:00:00', status: 'scheduled', no_show: false },
+    { job_id: 4, candidate_name: '张三', phone: '13800138001', interview_time: '2024-01-15 09:00:00', status: 'scheduled', no_show: false },
+    { job_id: 4, candidate_name: '李四', phone: '13800138002', interview_time: '2024-01-15 10:00:00', status: 'completed', no_show: false },
+    { job_id: 4, candidate_name: '王五', phone: '13800138003', interview_time: '2024-01-14 09:00:00', status: 'noshow', no_show: true },
+    { job_id: 3, candidate_name: '赵六', phone: '13800138004', interview_time: '2024-01-16 14:00:00', status: 'scheduled', no_show: false },
+  ])
+  
+  db.jobStatusHistory.insertMany([
+    { job_id: 4, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { job_id: 4, status: 'approved', actor_id: 1, actor_name: 'operator', remark: null, created_at: new Date(Date.now() - 86400000).toISOString() },
+    { job_id: 4, status: 'published', actor_id: 2, actor_name: 'consultant', remark: null, created_at: new Date().toISOString() },
+    { job_id: 3, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 3).toISOString() },
+    { job_id: 3, status: 'approved', actor_id: 1, actor_name: 'operator', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { job_id: 5, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+    { job_id: 5, status: 'rejected', actor_id: 1, actor_name: 'operator', remark: '薪资低于市场标准', created_at: new Date(Date.now() - 86400000).toISOString() },
+    { job_id: 1, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date().toISOString() },
+    { job_id: 2, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date().toISOString() },
   ])
   
   res.json({ success: true, message: 'Data reset successfully' })

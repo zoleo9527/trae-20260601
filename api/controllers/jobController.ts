@@ -31,8 +31,9 @@ export const createJob = (req: Request & { user?: User }, res: Response) => {
 export const updateJob = (req: Request & { user?: User }, res: Response) => {
   const { id } = req.params
   const { title, company, location, salary, description, requirements } = req.body
+  const actorId = req.user?.id
   
-  const job = db.jobs.update(Number(id), { title, company, location, salary, description, requirements, status: 'pending' })
+  const job = db.jobs.update(Number(id), { title, company, location, salary, description, requirements, status: 'pending' }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })
@@ -44,13 +45,14 @@ export const updateJob = (req: Request & { user?: User }, res: Response) => {
 export const auditJob = (req: Request & { user?: User }, res: Response) => {
   const { id } = req.params
   const { action, remark } = req.body
+  const actorId = req.user?.id
   
   if (action !== 'approve' && action !== 'reject') {
     return res.status(400).json({ success: false, message: 'Invalid action' })
   }
   
   const status = action === 'approve' ? 'approved' : 'rejected'
-  const job = db.jobs.update(Number(id), { status, reject_reason: remark || null })
+  const job = db.jobs.update(Number(id), { status, reject_reason: remark || null }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })
@@ -61,8 +63,9 @@ export const auditJob = (req: Request & { user?: User }, res: Response) => {
 
 export const publishJob = (req: Request & { user?: User }, res: Response) => {
   const { id } = req.params
+  const actorId = req.user?.id
   
-  const job = db.jobs.update(Number(id), { status: 'published' })
+  const job = db.jobs.update(Number(id), { status: 'published' }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })
@@ -73,8 +76,9 @@ export const publishJob = (req: Request & { user?: User }, res: Response) => {
 
 export const expireJob = (req: Request & { user?: User }, res: Response) => {
   const { id } = req.params
+  const actorId = req.user?.id
   
-  const job = db.jobs.update(Number(id), { status: 'expired' })
+  const job = db.jobs.update(Number(id), { status: 'expired' }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })
@@ -85,8 +89,9 @@ export const expireJob = (req: Request & { user?: User }, res: Response) => {
 
 export const closeJob = (req: Request & { user?: User }, res: Response) => {
   const { id } = req.params
+  const actorId = req.user?.id
   
-  const job = db.jobs.update(Number(id), { status: 'closed' })
+  const job = db.jobs.update(Number(id), { status: 'closed' }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })

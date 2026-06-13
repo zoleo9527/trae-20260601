@@ -32,6 +32,16 @@ export type Interview = {
   created_at: string
 }
 
+export type JobStatusHistory = {
+  id: number
+  job_id: number
+  status: Job['status']
+  actor_id: number
+  actor_name: string
+  remark: string | null
+  created_at: string
+}
+
 let users: User[] = [
   { id: 1, username: 'operator', password: '123456', role: 'operator', created_at: new Date().toISOString() },
   { id: 2, username: 'consultant', password: '123456', role: 'consultant', created_at: new Date().toISOString() },
@@ -56,6 +66,19 @@ let interviews: Interview[] = [
 let nextUserId = 4
 let nextJobId = 6
 let nextInterviewId = 5
+let nextHistoryId = 1
+
+let jobStatusHistory: JobStatusHistory[] = [
+  { id: 1, job_id: 4, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: 2, job_id: 4, status: 'approved', actor_id: 1, actor_name: 'operator', remark: null, created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 3, job_id: 4, status: 'published', actor_id: 2, actor_name: 'consultant', remark: null, created_at: new Date().toISOString() },
+  { id: 4, job_id: 3, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 3).toISOString() },
+  { id: 5, job_id: 3, status: 'approved', actor_id: 1, actor_name: 'operator', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: 6, job_id: 5, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date(Date.now() - 86400000 * 2).toISOString() },
+  { id: 7, job_id: 5, status: 'rejected', actor_id: 1, actor_name: 'operator', remark: '薪资低于市场标准', created_at: new Date(Date.now() - 86400000).toISOString() },
+  { id: 8, job_id: 1, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date().toISOString() },
+  { id: 9, job_id: 2, status: 'pending', actor_id: 3, actor_name: 'hr', remark: null, created_at: new Date().toISOString() },
+]
 
 export const db = {
   users: {
@@ -70,7 +93,8 @@ export const db = {
     findAll: (status?: string) => {
       let result = jobs.map(job => {
         const user = users.find(u => u.id === job.created_by)
-        return { ...job, created_by_name: user?.username || '' }
+        const history = jobStatusHistory.filter(h => h.job_id === job.id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        return { ...job, created_by_name: user?.username || '', history }
       })
       if (status) {
         result = result.filter(j => j.status === status)
@@ -81,7 +105,8 @@ export const db = {
       const job = jobs.find(j => j.id === id)
       if (job) {
         const user = users.find(u => u.id === job.created_by)
-        return { ...job, created_by_name: user?.username || '' }
+        const history = jobStatusHistory.filter(h => h.job_id === job.id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        return { ...job, created_by_name: user?.username || '', history }
       }
       return undefined
     },
@@ -95,15 +120,42 @@ export const db = {
         updated_at: new Date().toISOString()
       }
       jobs.push(newJob)
-      const user = users.find(u => u.id === job.created_by)
-      return { ...newJob, created_by_name: user?.username || '' }
+      
+      const actor = users.find(u => u.id === job.created_by)
+      jobStatusHistory.push({
+        id: nextHistoryId++,
+        job_id: newJob.id,
+        status: 'pending',
+        actor_id: job.created_by,
+        actor_name: actor?.username || '',
+        remark: null,
+        created_at: newJob.created_at
+      })
+      
+      return { ...newJob, created_by_name: actor?.username || '', history: [{ job_id: newJob.id, status: 'pending', actor_id: job.created_by, actor_name: actor?.username || '', remark: null, created_at: newJob.created_at }] }
     },
-    update: (id: number, job: Partial<Job>) => {
+    update: (id: number, job: Partial<Job>, actor_id?: number) => {
       const index = jobs.findIndex(j => j.id === id)
       if (index !== -1) {
+        const prevStatus = jobs[index].status
         jobs[index] = { ...jobs[index], ...job, updated_at: new Date().toISOString() }
+        
+        if (job.status && job.status !== prevStatus) {
+          const actor = actor_id ? users.find(u => u.id === actor_id) : null
+          jobStatusHistory.push({
+            id: nextHistoryId++,
+            job_id: id,
+            status: job.status,
+            actor_id: actor_id || jobs[index].created_by,
+            actor_name: actor?.username || 'system',
+            remark: job.reject_reason || null,
+            created_at: jobs[index].updated_at
+          })
+        }
+        
         const user = users.find(u => u.id === jobs[index].created_by)
-        return { ...jobs[index], created_by_name: user?.username || '' }
+        const history = jobStatusHistory.filter(h => h.job_id === id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        return { ...jobs[index], created_by_name: user?.username || '', history }
       }
       return undefined
     },
@@ -118,6 +170,31 @@ export const db = {
           id: nextJobId++,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
+        })
+      })
+    }
+  },
+  jobStatusHistory: {
+    findByJobId: (job_id: number) => {
+      return jobStatusHistory.filter(h => h.job_id === job_id).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    },
+    create: (history: Omit<JobStatusHistory, 'id'>) => {
+      const newHistory: JobStatusHistory = {
+        ...history,
+        id: nextHistoryId++
+      }
+      jobStatusHistory.push(newHistory)
+      return newHistory
+    },
+    deleteAll: () => {
+      jobStatusHistory = []
+      nextHistoryId = 1
+    },
+    insertMany: (newHistory: Omit<JobStatusHistory, 'id'>[]) => {
+      newHistory.forEach(h => {
+        jobStatusHistory.push({
+          ...h,
+          id: nextHistoryId++
         })
       })
     }
