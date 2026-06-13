@@ -4,7 +4,7 @@ import type {
   Employee, StatusLog, TrainingRecord, DocumentItem, RiskFlag,
   CurrentUser, EmployeeStatus, UserRole, TrainingInput, DocumentType, RiskFlagType, Filters,
 } from '@/types';
-import { STATUS_OWNER_MAP, VALID_TRANSITIONS, USER_NAMES } from '@/constants';
+import { STATUS_OWNER_MAP, VALID_TRANSITIONS, USER_NAMES, GAP_THRESHOLD_HOURS } from '@/constants';
 import { buildInitialData } from '@/data/mockData';
 
 function uid(prefix = ''): string {
@@ -130,14 +130,37 @@ export const useStore = create<AppState>()(
           }));
 
           if (training.trainingResult === 'passed') {
-            get().updateEmployeeStatus(employeeId, 'pending_documents', remark ?? training.trainingRemark);
+            const finalRemark = remark ?? training.trainingRemark;
+            if (employee.currentStatus === 'pending_training') {
+              get().updateEmployeeStatus(employeeId, 'in_training', '培训开始：安全/制度/岗位/应急流程完成');
+              const refreshed = get().employees.find((e) => e.id === employeeId);
+              if (refreshed && refreshed.currentStatus === 'in_training') {
+                get().updateEmployeeStatus(employeeId, 'pending_documents', finalRemark);
+              }
+            } else {
+              get().updateEmployeeStatus(employeeId, 'pending_documents', finalRemark);
+            }
           } else if (training.trainingResult === 'failed') {
-            get().updateEmployeeStatus(employeeId, 'training_exception', remark ?? training.trainingRemark);
+            const finalRemark = remark ?? training.trainingRemark;
+            if (employee.currentStatus === 'pending_training') {
+              get().updateEmployeeStatus(employeeId, 'in_training', '培训开始（后判定未通过）');
+              const refreshed = get().employees.find((e) => e.id === employeeId);
+              if (refreshed && refreshed.currentStatus === 'in_training') {
+                get().updateEmployeeStatus(employeeId, 'training_exception', finalRemark);
+              }
+            } else {
+              get().updateEmployeeStatus(employeeId, 'training_exception', finalRemark);
+            }
           }
         },
 
         batchSubmitTraining: (employeeIds: string[], remark?: string) => {
-          employeeIds.forEach((id) => {
+          const validIds = employeeIds.filter((id) => {
+            const emp = get().employees.find((e) => e.id === id);
+            return emp && (emp.currentStatus === 'pending_training' || emp.currentStatus === 'in_training');
+          });
+
+          validIds.forEach((id) => {
             const existing = get().trainingRecords.find((t) => t.employeeId === id);
             const input: TrainingInput = {
               safetyTraining: existing?.safetyTraining ?? true,
@@ -299,3 +322,19 @@ export function getEmployeeAllRisks(employeeId: string): RiskFlag[] {
     .riskFlags.filter((f) => f.employeeId === employeeId)
     .sort((a, b) => new Date(b.flaggedAt).getTime() - new Date(a.flaggedAt).getTime());
 }
+
+export function detectGaps(): Employee[] {
+  const employees = useStore.getState().employees;
+  return employees.filter((emp) => {
+    const threshold = GAP_THRESHOLD_HOURS[emp.currentStatus];
+    if (!threshold) return false;
+    const staleMs = threshold * 60 * 60 * 1000;
+    return Date.now() - new Date(emp.updatedAt).getTime() > staleMs;
+  }).sort((a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime());
+}
+
+export function gapHours(updatedAt: string): number {
+  return Math.floor((Date.now() - new Date(updatedAt).getTime()) / 3600000);
+}
+
+export const BATCH_ELIGIBLE_STATUSES: EmployeeStatus[] = ['pending_training', 'in_training'];

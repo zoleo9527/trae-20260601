@@ -78,6 +78,14 @@ export const DOCUMENT_TYPES: DocumentType[] = [
   'background_check',
 ];
 
+export const GAP_THRESHOLD_HOURS: Partial<Record<EmployeeStatus, number>> = {
+  pending_training: 48,
+  in_training: 48,
+  training_exception: 24,
+  pending_documents: 48,
+  collecting_documents: 72,
+};
+
 export const USER_NAMES: Record<UserRole, string> = {
   recruiter: '林晓晴',
   site_supervisor: '陈志远',

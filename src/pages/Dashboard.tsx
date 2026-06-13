@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, X, ChevronRight, AlertTriangle, Clock, ShieldAlert } from 'lucide-react';
-import { useStore, timeAgo, getEmployeeActiveRisks, getEmployeeLogs } from '@/store';
-import { ROLE_LABEL, STATUS_LABEL } from '@/constants';
+import { useStore, timeAgo, getEmployeeActiveRisks, getEmployeeLogs, detectGaps, gapHours, BATCH_ELIGIBLE_STATUSES } from '@/store';
+import { ROLE_LABEL, STATUS_LABEL, GAP_THRESHOLD_HOURS } from '@/constants';
 import type { EmployeeStatus, RiskFlagType, UserRole } from '@/types';
 import AnimatedNumber from '@/components/AnimatedNumber';
 import StatusBadge from '@/components/StatusBadge';
@@ -64,11 +64,11 @@ export default function Dashboard() {
 
   const activeRiskCount = useMemo(() => riskFlags.filter((f) => f.active).length, [riskFlags]);
 
-  const gapEmployees = useMemo(() => {
-    return employees.filter((e) => e.currentStatus === 'pending_documents').sort(
-      (a, b) => new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()
-    );
-  }, [employees]);
+  const gapEmployees = useMemo(() => detectGaps(), [employees, riskFlags.length]);
+
+  const gapThreshSummary = Object.entries(GAP_THRESHOLD_HOURS)
+    .map(([k, v]) => `${STATUS_LABEL[k as EmployeeStatus]}${v}h`)
+    .join('、');
 
   const filteredEmployees = useMemo(() => {
     let result = [...employees];
@@ -345,27 +345,32 @@ export default function Dashboard() {
             <ShieldAlert size={20} className={gapEmployees.length > 0 ? 'text-rose mt-0.5' : 'text-emerald mt-0.5'} />
             <div className="flex-1">
               <div className="font-medium text-ink-800 text-sm">责任空档检测</div>
+              <div className="text-[11px] text-ink-400 mt-0.5">
+                阈值：{gapThreshSummary}
+              </div>
               {gapEmployees.length > 0 ? (
                 <>
                   <div className="text-xs text-rose mt-1">
-                    有 {gapEmployees.length} 名员工培训已完成但证件收集尚未开始，存在流程空档
+                    有 {gapEmployees.length} 名员工超过状态处理时限未流转，存在责任空档风险
                   </div>
                   <div className="mt-3 space-y-1.5">
                     {gapEmployees.slice(0, 4).map((emp) => {
-                      const logs = getEmployeeLogs(emp.id);
-                      const lastLog = logs[0];
+                      const threshold = GAP_THRESHOLD_HOURS[emp.currentStatus] ?? 0;
+                      const hours = gapHours(emp.updatedAt);
+                      const overtime = hours - threshold;
+                      const isTraining = BATCH_ELIGIBLE_STATUSES.includes(emp.currentStatus);
                       return (
                         <div key={emp.id} className="flex items-center justify-between text-xs">
                           <div className="flex items-center gap-2">
                             <StatusBadge status={emp.currentStatus} size="sm" />
                             <span className="text-ink-700 font-medium">{emp.name}</span>
-                            <span className="text-ink-400">{emp.dispatchCompany}</span>
+                            <span className="text-rose font-mono">超时 {overtime}h</span>
                           </div>
                           <Link
-                            to={`/documents/${emp.id}`}
+                            to={isTraining ? `/training/${emp.id}` : `/documents/${emp.id}`}
                             className="text-brand-600 hover:underline"
                           >
-                            前往收集
+                            前往处理
                           </Link>
                         </div>
                       );
@@ -374,7 +379,7 @@ export default function Dashboard() {
                 </>
               ) : (
                 <div className="text-xs text-emerald mt-1">
-                  所有员工流程衔接正常，无责任空档
+                  所有员工均在状态处理时限内，无责任空档
                 </div>
               )}
             </div>

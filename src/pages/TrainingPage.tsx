@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   CheckSquare, Square, ChevronRight, GraduationCap, Check, X, AlertTriangle, Clock, MessageSquare
 } from 'lucide-react';
-import { useStore, timeAgo, getEmployeeTraining, getEmployeeActiveRisks, getEmployeeLogs } from '@/store';
+import { useStore, timeAgo, getEmployeeTraining, getEmployeeActiveRisks, getEmployeeLogs, BATCH_ELIGIBLE_STATUSES } from '@/store';
 import type { Employee } from '@/types';
 import StatusBadge from '@/components/StatusBadge';
 import RiskBadge from '@/components/RiskBadge';
@@ -55,11 +55,20 @@ export default function TrainingPage() {
     selectedEmployeeIds.includes(e.id)
   );
 
+  const batchEligibleEmployees = trainingEmployees.filter((e) =>
+    BATCH_ELIGIBLE_STATUSES.includes(e.currentStatus)
+  );
+
+  const ineligibleSelected = selectedEmployees.filter(
+    (e) => !BATCH_ELIGIBLE_STATUSES.includes(e.currentStatus)
+  ).length;
+
   const handleSelectAll = () => {
-    if (selectedEmployeeIds.length === trainingEmployees.length) {
+    const allEligibleIds = batchEligibleEmployees.map((e) => e.id);
+    if (selectedEmployeeIds.length === allEligibleIds.length && allEligibleIds.length > 0) {
       clearSelection();
     } else {
-      setEmployeeSelection(trainingEmployees.map((e) => e.id));
+      setEmployeeSelection(allEligibleIds);
     }
   };
 
@@ -78,7 +87,7 @@ export default function TrainingPage() {
   const logs = getEmployeeLogs(emp.id);
   const latestLog = logs[0];
   const isSelected = selectedEmployeeIds.includes(emp.id);
-  const canSelect = emp.currentStatus !== 'training_exception' || true;
+  const canSelect = BATCH_ELIGIBLE_STATUSES.includes(emp.currentStatus);
 
   return (
     <tr
@@ -225,20 +234,20 @@ export default function TrainingPage() {
                 className="btn btn-secondary btn-sm"
                 onClick={handleSelectAll}
               >
-                {selectedEmployeeIds.length === trainingEmployees.length ? (
+                {selectedEmployeeIds.length === batchEligibleEmployees.length && batchEligibleEmployees.length > 0 ? (
                   <>
                     <X size={14} /> 取消全选
                   </>
                 ) : (
                   <>
-                    <CheckSquare size={14} /> 全选
+                    <CheckSquare size={14} /> 全选可批量人员
                   </>
                 )}
               </button>
               <button
                 className="btn btn-primary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleBatchSubmit}
-                disabled={selectedEmployeeIds.length === 0}
+                disabled={selectedEmployeeIds.length - ineligibleSelected === 0}
               >
                 <Check size={14} />
                 确认批量通过
@@ -251,24 +260,40 @@ export default function TrainingPage() {
               </button>
             </div>
           </div>
+          <div className="mt-2 text-[11px] text-ink-500">
+            批量仅作用于「待入场培训 / 培训中」人员，培训异常需个案处理。
+            可批量人员：<span className="text-brand-700 font-medium">{batchEligibleEmployees.length}</span> 人
+            {ineligibleSelected > 0 && (
+              <span className="text-rose ml-2">
+                已选择 {ineligibleSelected} 名异常人员，将自动跳过
+              </span>
+            )}
+          </div>
           {selectedEmployeeIds.length > 0 && (
             <div className="mt-3 pt-3 border-t border-ink-100">
               <div className="text-xs text-ink-500 mb-2">已选择 {selectedEmployeeIds.length} 人：</div>
               <div className="flex flex-wrap gap-2">
-                {selectedEmployees.map((e) => (
-                  <span
-                    key={e.id}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-brand-50 text-brand-700 rounded text-xs"
-                  >
-                    {e.name}
-                    <button
-                      className="ml-1 hover:text-rose"
-                      onClick={() => toggleEmployeeSelection(e.id)}
+                {selectedEmployees.map((e) => {
+                  const eligible = BATCH_ELIGIBLE_STATUSES.includes(e.currentStatus);
+                  return (
+                    <span
+                      key={e.id}
+                      className={cn(
+                        "inline-flex items-center gap-1 px-2 py-1 rounded text-xs",
+                        eligible ? "bg-brand-50 text-brand-700" : "bg-rose/10 text-rose line-through"
+                      )}
                     >
-                      <X size={12} />
-                    </button>
-                  </span>
-                ))}
+                      {e.name}
+                      {!eligible && <span className="text-[10px]">（不可批量）</span>}
+                      <button
+                        className="ml-1 hover:text-rose"
+                        onClick={() => toggleEmployeeSelection(e.id)}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  );
+                })}
               </div>
             </div>
           )}
