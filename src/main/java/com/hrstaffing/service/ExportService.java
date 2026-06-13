@@ -6,6 +6,8 @@ import com.hrstaffing.common.PageResult;
 import com.hrstaffing.common.auth.UserContext;
 import com.hrstaffing.common.exception.BizException;
 import com.hrstaffing.dto.ExportRequestDTO;
+import com.hrstaffing.dto.ExportTaskQueryDTO;
+import com.hrstaffing.dto.ExportTaskVO;
 import com.hrstaffing.entity.AttendanceException;
 import com.hrstaffing.entity.AttendanceSchedule;
 import com.hrstaffing.entity.ExportTask;
@@ -48,8 +50,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
+
+import jakarta.persistence.criteria.Predicate;
 
 @Slf4j
 @Service
@@ -179,17 +186,48 @@ public class ExportService {
         }
     }
 
-    public PageResult<ExportTask> myTasks(int page, int size) {
+    public PageResult<ExportTaskVO> myTasks(int page, int size, ExportTaskQueryDTO query) {
         Long uid = UserContext.getCurrent().getUserId();
         Pageable p = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ExportTask> pg = taskRepo.findByCreatedByOrderByCreatedAtDesc(uid, p);
-        return PageResult.of(pg.getTotalElements(), page, size, pg.getContent());
+        Page<ExportTask> pg = taskRepo.findAll(buildSpec(query, uid), p);
+        List<ExportTaskVO> voList = pg.getContent().stream().map(ExportTaskVO::of).collect(Collectors.toList());
+        return PageResult.of(pg.getTotalElements(), page, size, voList);
     }
 
-    public PageResult<ExportTask> allTasks(int page, int size) {
+    public PageResult<ExportTaskVO> allTasks(int page, int size, ExportTaskQueryDTO query) {
         Pageable p = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<ExportTask> pg = taskRepo.findByOrderByCreatedAtDesc(p);
-        return PageResult.of(pg.getTotalElements(), page, size, pg.getContent());
+        Page<ExportTask> pg = taskRepo.findAll(buildSpec(query, null), p);
+        List<ExportTaskVO> voList = pg.getContent().stream().map(ExportTaskVO::of).collect(Collectors.toList());
+        return PageResult.of(pg.getTotalElements(), page, size, voList);
+    }
+
+    private org.springframework.data.jpa.domain.Specification<ExportTask> buildSpec(ExportTaskQueryDTO query, Long createdBy) {
+        return (root, cb, cq) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (createdBy != null) {
+                predicates.add(cb.equal(root.get("createdBy"), createdBy));
+            }
+            if (query != null) {
+                if (query.getStatus() != null && !query.getStatus().isEmpty()) {
+                    predicates.add(cb.equal(root.get("status"), query.getStatus()));
+                }
+                if (query.getExportType() != null && !query.getExportType().isEmpty()) {
+                    predicates.add(cb.equal(root.get("exportType"), query.getExportType()));
+                }
+                if (query.getStartDate() != null) {
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("createdAt"),
+                            LocalDateTime.of(query.getStartDate(), LocalTime.MIN)));
+                }
+                if (query.getEndDate() != null) {
+                    predicates.add(cb.lessThanOrEqualTo(root.get("createdAt"),
+                            LocalDateTime.of(query.getEndDate(), LocalTime.MAX)));
+                }
+                if (query.getKeyword() != null && !query.getKeyword().isEmpty()) {
+                    predicates.add(cb.like(root.get("taskName"), "%" + query.getKeyword() + "%"));
+                }
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
     }
 
     public ExportTask detail(Long id) {

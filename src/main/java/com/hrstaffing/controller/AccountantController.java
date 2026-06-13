@@ -6,6 +6,8 @@ import com.hrstaffing.common.auth.RequireRole;
 import com.hrstaffing.common.auth.Role;
 import com.hrstaffing.dto.ExceptionQueryDTO;
 import com.hrstaffing.dto.ExportRequestDTO;
+import com.hrstaffing.dto.ExportTaskQueryDTO;
+import com.hrstaffing.dto.ExportTaskVO;
 import com.hrstaffing.dto.ScheduleQueryDTO;
 import com.hrstaffing.entity.AttendanceException;
 import com.hrstaffing.entity.AttendanceSchedule;
@@ -21,6 +23,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -120,17 +123,39 @@ public class AccountantController {
     }
 
     @GetMapping("/exports/mine")
-    public R<PageResult<ExportTask>> myExportTasks(
+    public R<PageResult<ExportTaskVO>> myExportTasks(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return R.ok(exportService.myTasks(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String exportType,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) String keyword) {
+        ExportTaskQueryDTO query = new ExportTaskQueryDTO();
+        query.setStatus(status);
+        query.setExportType(exportType);
+        query.setStartDate(startDate);
+        query.setEndDate(endDate);
+        query.setKeyword(keyword);
+        return R.ok(exportService.myTasks(page, size, query));
     }
 
     @GetMapping("/exports/all")
-    public R<PageResult<ExportTask>> allExportTasks(
+    public R<PageResult<ExportTaskVO>> allExportTasks(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return R.ok(exportService.allTasks(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String exportType,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
+            @RequestParam(required = false) String keyword) {
+        ExportTaskQueryDTO query = new ExportTaskQueryDTO();
+        query.setStatus(status);
+        query.setExportType(exportType);
+        query.setStartDate(startDate);
+        query.setEndDate(endDate);
+        query.setKeyword(keyword);
+        return R.ok(exportService.allTasks(page, size, query));
     }
 
     @GetMapping("/exports/{id}")
