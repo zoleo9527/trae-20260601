@@ -34,6 +34,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -85,15 +87,29 @@ public class ExportService {
         task.setCreatedBy(user.getUserId());
         task.setCreatedByName(user.getUserName());
         ExportTask saved = taskRepo.save(task);
-        applicationContext.getBean(ExportService.class).doExportAsync(saved.getId());
+
+        final Long taskId = saved.getId();
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    applicationContext.getBean(ExportService.class).doExportAsync(taskId);
+                }
+            });
+        } else {
+            applicationContext.getBean(ExportService.class).doExportAsync(taskId);
+        }
         return saved;
     }
 
     @Async
     @Transactional
     public void doExportAsync(Long taskId) {
-        ExportTask task = taskRepo.findById(taskId).orElse(null);
-        if (task == null) return;
+        ExportTask task = fetchTaskWithRetry(taskId);
+        if (task == null) {
+            log.error("Export task {} not found after retry, export aborted", taskId);
+            return;
+        }
         try {
             task.setStatus(ExportStatus.PROCESSING);
             task.setStartedAt(LocalDateTime.now());
@@ -129,6 +145,25 @@ public class ExportService {
             task.setFinishedAt(LocalDateTime.now());
         }
         taskRepo.save(task);
+    }
+
+    private ExportTask fetchTaskWithRetry(Long taskId) {
+        int maxRetries = 3;
+        long sleepMs = 500;
+        for (int i = 0; i < maxRetries; i++) {
+            ExportTask task = taskRepo.findById(taskId).orElse(null);
+            if (task != null) {
+                return task;
+            }
+            log.warn("Export task {} not found, retry {}/{}", taskId, i + 1, maxRetries);
+            try {
+                Thread.sleep(sleepMs);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        return null;
     }
 
     public PageResult<ExportTask> myTasks(int page, int size) {
