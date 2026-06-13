@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日待办 - 稿件接收与报价评估</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+      background: #f5f7fa;
+      color: #333;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+
+    .header {
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #1a1a1a;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 16px;
+      background: #f0f4ff;
+      border-radius: 8px;
+    }
+
+    .user-name {
+      font-weight: 500;
+      color: #333;
+    }
+
+    .user-role {
+      font-size: 12px;
+      color: #666;
+      background: white;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(102, 126, 234, 0.3);
+    }
+
+    .stat-card.received {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .stat-card.assessing {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .stat-card.translating {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .stat-card.reviewing {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .stat-number {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .stat-label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 24px;
+    }
+
+    .task-list {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::before {
+      content: '';
+      width: 4px;
+      height: 20px;
+      background: linear-gradient(180deg, #667eea, #764ba2);
+      border-radius: 2px;
+    }
+
+    .task-item {
+      border: 1px solid #e8ecf1;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .task-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+      transform: translateX(4px);
+    }
+
+    .task-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .task-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+
+    .task-meta {
+      font-size: 13px;
+      color: #666;
+    }
+
+    .task-status {
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-received {
+      background: #fff3e0;
+      color: #ff9800;
+    }
+
+    .status-assessing {
+      background: #e3f2fd;
+      color: #2196f3;
+    }
+
+    .status-translating {
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+
+    .status-reviewing {
+      background: #fce4ec;
+      color: #e91e63;
+    }
+
+    .task-body {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .task-info-item {
+      text-align: center;
+    }
+
+    .task-info-label {
+      font-size: 11px;
+      color: #999;
+      margin-bottom: 4px;
+    }
+
+    .task-info-value {
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .context-indicator {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .context-badge {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+
+    .context-badge.success {
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+
+    .context-badge.warning {
+      background: #fff3e0;
+      color: #ff9800;
+    }
+
+    .context-badge.missing {
+      background: #ffebee;
+      color: #f44336;
+    }
+
+    .next-action {
+      background: #f8f9ff;
+      border: 1px solid #e8ecf1;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    .action-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border-left: 4px solid #667eea;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .action-card:hover {
+      background: #f0f4ff;
+      transform: translateX(4px);
+    }
+
+    .action-card.urgent {
+      border-left-color: #f5576c;
+    }
+
+    .action-card-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+      color: #1a1a1a;
+    }
+
+    .action-card-desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .action-card-meta {
+      font-size: 12px;
+      color: #999;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .timeline {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #667eea;
+      margin-top: 6px;
+      flex-shrink: 0;
+    }
+
+    .timeline-content {
+      flex: 1;
+    }
+
+    .timeline-time {
+      color: #999;
+      font-size: 12px;
+    }
+
+    .timeline-text {
+      color: #333;
+      margin-top: 2px;
+    }
+
+    .urgency-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 500;
+      margin-left: 8px;
+    }
+
+    .urgency-urgent {
+      background: #ffebee;
+      color: #f44336;
+    }
+
+    .urgency-normal {
+      background: #e3f2fd;
+      color: #2196f3;
+    }
+
+    .urgency-low {
+      background: #e8f5e9;
+      color: #4caf50;
+    }
+
+    @media (max-width: 1200px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="header-top">
+        <h1>📋 今日待办</h1>
+        <div class="user-info">
+          <span class="user-name" id="userName">加载中...</span>
+          <span class="user-role" id="userRole">角色</span>
+        </div>
+      </div>
+      <div class="stats-grid" id="statsGrid"></div>
+    </div>
+
+    <div class="main-content">
+      <div class="task-list">
+        <div class="section-title">我的任务</div>
+        <div id="taskListContainer"></div>
+      </div>
+
+      <div class="next-action">
+        <div class="section-title">待处理事项</div>
+        <div id="actionList"></div>
+        
+        <div class="timeline">
+          <div class="section-title" style="font-size: 14px; margin-bottom: 16px;">最近操作</div>
+          <div id="recentActions"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = 'http://localhost:3000/api';
+    let currentUser = null;
+    let allData = null;
+
+    async function loadTodayTasks() {
+      try {
+        const response = await fetch(`${API_BASE}/today-tasks/U001`);
+        const data = await response.json();
+        currentUser = data.user;
+        allData = data;
+        
+        renderUserInfo(data.user);
+        renderStats(data.summary);
+        renderTasks(data.tasks);
+        renderActions(data.tasks);
+        renderRecentActions(data.tasks);
+      } catch (error) {
+        console.error('加载失败:', error);
+        document.getElementById('taskListContainer').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">⚠️</div>
+            <div>无法连接到服务器</div>
+            <div style="font-size: 13px; margin-top: 8px;">请确保后端服务已启动</div>
+          </div>
+        `;
+      }
+    }
+
+    function renderUserInfo(user) {
+      document.getElementById('userName').textContent = user.name;
+      document.getElementById('userRole').textContent = user.role;
+    }
+
+    function renderStats(summary) {
+      const stats = [
+        { key: 'received', label: '待评估', icon: '📥', class: 'received' },
+        { key: 'assessing', label: '评估中', icon: '📊', class: 'assessing' },
+        { key: 'translating', label: '翻译中', icon: '✍️', class: 'translating' },
+        { key: 'reviewing', label: '审校中', icon: '🔍', class: 'reviewing' }
+      ];
+
+      const statsGrid = document.getElementById('statsGrid');
+      statsGrid.innerHTML = stats.map(stat => `
+        <div class="stat-card ${stat.class}" onclick="filterTasks('${stat.key}')">
+          <div class="stat-number">${summary[stat.key] || 0}</div>
+          <div class="stat-label">${stat.icon} ${stat.label}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderTasks(tasks) {
+      const container = document.getElementById('taskListContainer');
+      
+      if (tasks.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">✨</div>
+            <div>暂无待处理任务</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = tasks.map(task => {
+        const statusMap = {
+          'received': { text: '待评估', class: 'status-received' },
+          'assessing': { text: '评估中', class: 'status-assessing' },
+          'translating': { text: '翻译中', class: 'status-translating' },
+          'reviewing': { text: '审校中', class: 'status-reviewing' }
+        };
+        const status = statusMap[task.status] || { text: task.status, class: '' };
+        
+        const urgencyMap = {
+          'urgent': { text: '紧急', class: 'urgency-urgent' },
+          'normal': { text: '普通', class: 'urgency-normal' },
+          'low': { text: '宽松', class: 'urgency-low' }
+        };
+        const urgency = urgencyMap[task.urgency] || { text: '', class: '' };
+
+        return `
+          <div class="task-item" onclick="goToDetail('${task.id}')">
+            <div class="task-header">
+              <div>
+                <div class="task-title">${task.title}</div>
+                <div class="task-meta">
+                  ${task.client} · ${task.source_language}→${task.target_language}
+                  <span class="urgency-badge ${urgency.class}">${urgency.text}</span>
+                </div>
+              </div>
+              <span class="task-status ${status.class}">${status.text}</span>
+            </div>
+            <div class="task-body">
+              <div class="task-info-item">
+                <div class="task-info-label">字数</div>
+                <div class="task-info-value">${task.word_count.toLocaleString()}</div>
+              </div>
+              <div class="task-info-item">
+                <div class="task-info-label">截止日期</div>
+                <div class="task-info-value">${task.deadline}</div>
+              </div>
+              <div class="task-info-item">
+                <div class="task-info-label">处理人</div>
+                <div class="task-info-value">${task.current_handler_role}</div>
+              </div>
+            </div>
+            <div class="context-indicator">
+              <span class="context-badge ${task.terms_connected ? 'success' : 'warning'}">
+                ${task.terms_connected ? '✓' : '⚠️'} 术语表
+              </span>
+              <span class="context-badge ${task.feedback_connected ? 'success' : 'warning'}">
+                ${task.feedback_connected ? '✓' : '⚠️'} 客户反馈
+              </span>
+              ${task.quote_id ? `<span class="context-badge success">✓ 已有报价</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderActions(tasks) {
+      const actions = [];
+      
+      tasks.forEach(task => {
+        if (task.status === 'received' && !task.quote_id) {
+          actions.push({
+            type: 'start_assessment',
+            title: '开始报价评估',
+            desc: `${task.title} - 稿件已接收，等待评估`,
+            meta: `${task.client} · ${task.word_count}字`,
+            urgent: task.urgency === 'urgent',
+            manuscriptId: task.id
+          });
+        }
+        
+        if (task.status === 'assessing' && task.quote && task.quote.status === 'pending_assessment') {
+          actions.push({
+            type: 'continue_assessment',
+            title: '继续报价评估',
+            desc: `${task.title} - 待完成评估`,
+            meta: `基础价: ¥${task.quote.base_price}/字`,
+            urgent: task.quote.pending_items && task.quote.pending_items.some(p => p.required && p.status === 'missing'),
+            manuscriptId: task.id
+          });
+        }
+      });
+
+      const container = document.getElementById('actionList');
+      
+      if (actions.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state" style="padding: 40px 20px;">
+            <div style="font-size: 32px; margin-bottom: 12px;">🎉</div>
+            <div>暂无待处理事项</div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = actions.map(action => `
+        <div class="action-card ${action.urgent ? 'urgent' : ''}" onclick="goToDetail('${action.manuscriptId}')">
+          <div class="action-card-title">${action.urgent ? '🔥 ' : ''}${action.title}</div>
+          <div class="action-card-desc">${action.desc}</div>
+          <div class="action-card-meta">${action.meta}</div>
+        </div>
+      `).join('');
+    }
+
+    function renderRecentActions(tasks) {
+      const recentHistory = [];
+      
+      tasks.forEach(task => {
+        if (task.recent_history) {
+          task.recent_history.forEach(h => {
+            recentHistory.push({
+              ...h,
+              manuscriptTitle: task.title
+            });
+          });
+        }
+      });
+
+      recentHistory.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      const top5 = recentHistory.slice(0, 5);
+
+      const container = document.getElementById('recentActions');
+      
+      if (top5.length === 0) {
+        container.innerHTML = '<div style="color: #999; text-align: center;">暂无最近操作</div>';
+        return;
+      }
+
+      container.innerHTML = top5.map(item => {
+        const actionText = {
+          'receive': '接收稿件',
+          'connect_glossary': '关联术语表',
+          'connect_feedback': '关联客户反馈',
+          'start_assessment': '开始评估',
+          'assess_quote': '完成报价',
+          'submit_quote': '提交报价'
+        };
+
+        return `
+          <div class="timeline-item">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-text">
+                <strong>${item.operator_name}</strong> ${actionText[item.action] || item.action}
+                ${item.notes ? `- ${item.notes}` : ''}
+              </div>
+              <div class="timeline-time">${formatTime(item.created_at)} · ${item.manuscriptTitle}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatTime(timestamp) {
+      const date = new Date(timestamp);
+      const now = new Date();
+      const diff = now - date;
+      
+      if (diff < 60000) return '刚刚';
+      if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`;
+      if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`;
+      return date.toLocaleDateString('zh-CN');
+    }
+
+    function goToDetail(manuscriptId) {
+      window.location.href = `detail.html?id=${manuscriptId}`;
+    }
+
+    function filterTasks(status) {
+      const tasks = allData?.tasks || [];
+      const filtered = status ? tasks.filter(t => t.status === status) : tasks;
+      renderTasks(filtered);
+    }
+
+    loadTodayTasks();
+  </script>
+</body>
+</html>

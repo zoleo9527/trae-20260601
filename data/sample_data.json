@@ -1,0 +1,587 @@
+{
+  "manuscripts": [
+    {
+      "id": "MS20240115A",
+      "title": "新能源汽车技术手册（中译英）",
+      "client": "比亚迪股份有限公司",
+      "client_id": "C001",
+      "source_language": "中文",
+      "target_language": "英文",
+      "word_count": 15000,
+      "urgency": "urgent",
+      "deadline": "2024-01-20",
+      "priority": 1,
+      "status": "received",
+      "current_handler_role": "项目经理",
+      "current_handler_id": "U001",
+      "received_at": "2024-01-15 09:30:00",
+      "received_by": "李明",
+      "reception_notes": "客户要求保持技术术语一致性，已提供参考术语表v2.1",
+      "glossary_id": "GL001",
+      "client_feedback_ids": ["CF001"],
+      "terms_connected": true,
+      "feedback_connected": true,
+      "quote_id": null,
+      "assignment_id": null,
+      "created_at": "2024-01-14 15:00:00",
+      "created_by": "张华"
+    },
+    {
+      "id": "MS20240115B",
+      "title": "医疗器械注册文档（英译中）",
+      "client": "迈瑞医疗",
+      "client_id": "C002",
+      "source_language": "英文",
+      "target_language": "中文",
+      "word_count": 8500,
+      "urgency": "normal",
+      "deadline": "2024-01-25",
+      "priority": 2,
+      "status": "assessing",
+      "current_handler_role": "项目经理",
+      "current_handler_id": "U001",
+      "received_at": "2024-01-15 10:15:00",
+      "received_by": "李明",
+      "reception_notes": "涉及FDA法规条款，需核对最新版本",
+      "glossary_id": null,
+      "client_feedback_ids": [],
+      "terms_connected": false,
+      "feedback_connected": false,
+      "quote_id": "QT001",
+      "quote_status": "assessing",
+      "assignment_id": null,
+      "created_at": "2024-01-15 09:00:00",
+      "created_by": "王芳"
+    },
+    {
+      "id": "MS20240114C",
+      "title": "跨境电商平台用户协议（中译英）",
+      "client": "阿里巴巴国际站",
+      "client_id": "C003",
+      "source_language": "中文",
+      "target_language": "英文",
+      "word_count": 12000,
+      "urgency": "normal",
+      "deadline": "2024-01-28",
+      "priority": 3,
+      "status": "translating",
+      "current_handler_role": "译员",
+      "current_handler_id": "U003",
+      "received_at": "2024-01-14 14:00:00",
+      "received_by": "李明",
+      "reception_notes": "法律文本，需严谨措辞",
+      "glossary_id": "GL002",
+      "client_feedback_ids": [],
+      "terms_connected": true,
+      "feedback_connected": false,
+      "quote_id": "QT002",
+      "quote_status": "approved",
+      "assignment_id": "AS001",
+      "translator_id": "U003",
+      "translator_name": "陈静",
+      "progress": 45,
+      "due_date": "2024-01-22",
+      "created_at": "2024-01-13 10:00:00",
+      "created_by": "张华"
+    },
+    {
+      "id": "MS20240113D",
+      "title": "酒店管理培训材料（英译日）",
+      "client": "万豪国际",
+      "client_id": "C004",
+      "source_language": "英文",
+      "target_language": "日文",
+      "word_count": 6800,
+      "urgency": "low",
+      "deadline": "2024-02-05",
+      "priority": 4,
+      "status": "reviewing",
+      "current_handler_role": "审校",
+      "current_handler_id": "U004",
+      "received_at": "2024-01-13 11:00:00",
+      "received_by": "李明",
+      "reception_notes": "酒店服务术语较多，注意文化适配",
+      "glossary_id": "GL003",
+      "client_feedback_ids": ["CF002"],
+      "terms_connected": true,
+      "feedback_connected": true,
+      "quote_id": "QT003",
+      "quote_status": "approved",
+      "assignment_id": "AS002",
+      "translator_id": "U005",
+      "translator_name": "刘洋",
+      "reviewer_id": "U004",
+      "reviewer_name": "赵雪",
+      "progress": 100,
+      "review_progress": 60,
+      "due_date": "2024-01-30",
+      "created_at": "2024-01-12 09:00:00",
+      "created_by": "王芳"
+    }
+  ],
+  "quotes": [
+    {
+      "id": "QT001",
+      "manuscript_id": "MS20240115B",
+      "status": "assessing",
+      "assessor_id": "U001",
+      "assessor_name": "李明",
+      "assessed_at": "2024-01-15 11:00:00",
+      "base_price": 0.12,
+      "calculated_price": 1020.00,
+      "final_price": null,
+      "discount": 0,
+      "delivery_days": 5,
+      "assessment_notes": "FDA法规文档需专业背景，加成15%",
+      "pending_items": [
+        {
+          "item": "术语表",
+          "status": "missing",
+          "required": true,
+          "message": "建议客户提供医疗器械术语表以确保准确性"
+        },
+        {
+          "item": "参考文档",
+          "status": "optional",
+          "required": false,
+          "message": "如有同类已翻译文档可提高一致性"
+        }
+      ],
+      "suggestions": [
+        "建议与客户确认是否需要母语审校",
+        "加急费用需单独计算"
+      ],
+      "created_at": "2024-01-15 10:30:00"
+    },
+    {
+      "id": "QT002",
+      "manuscript_id": "MS20240114C",
+      "status": "approved",
+      "assessor_id": "U001",
+      "assessor_name": "李明",
+      "assessed_at": "2024-01-14 15:00:00",
+      "base_price": 0.10,
+      "calculated_price": 1200.00,
+      "final_price": 1140.00,
+      "discount": 5,
+      "delivery_days": 7,
+      "assessment_notes": "法律文本质量要求高，报价含一轮审校",
+      "approved_by": "C003",
+      "approved_at": "2024-01-14 18:00:00",
+      "client_approval_notes": "同意报价，要求按时交付",
+      "pending_items": [],
+      "suggestions": [],
+      "created_at": "2024-01-14 14:30:00"
+    },
+    {
+      "id": "QT003",
+      "manuscript_id": "MS20240113D",
+      "status": "approved",
+      "assessor_id": "U002",
+      "assessor_name": "王芳",
+      "assessed_at": "2024-01-13 12:00:00",
+      "base_price": 0.15,
+      "calculated_price": 1020.00,
+      "final_price": 1020.00,
+      "discount": 0,
+      "delivery_days": 6,
+      "assessment_notes": "日文翻译涉及敬语使用，需高级译员",
+      "approved_by": "C004",
+      "approved_at": "2024-01-13 16:00:00",
+      "client_approval_notes": "确认",
+      "pending_items": [],
+      "suggestions": [],
+      "created_at": "2024-01-13 11:30:00"
+    }
+  ],
+  "workflow_history": [
+    {
+      "id": "WH001",
+      "manuscript_id": "MS20240115A",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "receive",
+      "from_status": "draft",
+      "to_status": "received",
+      "notes": "收到客户邮件提交的稿件，已核对基本信息和格式",
+      "context_passed": {
+        "to_module": "quote_assessment",
+        "required_items": ["术语表", "客户反馈"]
+      },
+      "created_at": "2024-01-15 09:30:00"
+    },
+    {
+      "id": "WH002",
+      "manuscript_id": "MS20240115A",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "connect_glossary",
+      "from_status": null,
+      "to_status": null,
+      "notes": "关联客户提供的术语表v2.1，共125条专业术语",
+      "context_passed": {
+        "glossary_id": "GL001",
+        "glossary_version": "v2.1",
+        "term_count": 125
+      },
+      "created_at": "2024-01-15 09:35:00"
+    },
+    {
+      "id": "WH003",
+      "manuscript_id": "MS20240115A",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "connect_feedback",
+      "from_status": null,
+      "to_status": null,
+      "notes": "关联客户历史反馈CF001，关于技术文档风格的偏好说明",
+      "context_passed": {
+        "feedback_id": "CF001",
+        "feedback_summary": "偏好简洁技术风格，避免过度翻译"
+      },
+      "created_at": "2024-01-15 09:40:00"
+    },
+    {
+      "id": "WH004",
+      "manuscript_id": "MS20240115A",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "start_assessment",
+      "from_status": "received",
+      "to_status": "assessing",
+      "notes": "稿件接收完成，开始报价评估",
+      "context_passed": {
+        "from_module": "reception",
+        "has_glossary": true,
+        "has_feedback": true,
+        "context_summary": "术语表已关联，客户风格偏好已记录，可开始准确报价"
+      },
+      "created_at": "2024-01-15 09:45:00"
+    },
+    {
+      "id": "WH005",
+      "manuscript_id": "MS20240115B",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "receive",
+      "from_status": "draft",
+      "to_status": "received",
+      "notes": "收到稿件，缺少术语表，已备注提醒客户",
+      "context_passed": {
+        "to_module": "quote_assessment",
+        "required_items": ["术语表"],
+        "warnings": ["术语表缺失，可能影响报价准确性"]
+      },
+      "created_at": "2024-01-15 10:15:00"
+    },
+    {
+      "id": "WH006",
+      "manuscript_id": "MS20240115B",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "start_assessment",
+      "from_status": "received",
+      "to_status": "assessing",
+      "notes": "开始评估，但术语表仍未到位",
+      "context_passed": {
+        "from_module": "reception",
+        "has_glossary": false,
+        "has_feedback": false,
+        "pending_items": ["术语表"]
+      },
+      "created_at": "2024-01-15 11:00:00"
+    },
+    {
+      "id": "WH007",
+      "manuscript_id": "MS20240114C",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "receive",
+      "from_status": "draft",
+      "to_status": "received",
+      "notes": "接收稿件",
+      "context_passed": {
+        "to_module": "quote_assessment"
+      },
+      "created_at": "2024-01-14 14:00:00"
+    },
+    {
+      "id": "WH008",
+      "manuscript_id": "MS20240114C",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "approve_quote",
+      "from_status": "assessing",
+      "to_status": "quoted",
+      "notes": "报价1140元，已发送给客户确认",
+      "context_passed": {
+        "quote_id": "QT002",
+        "final_price": 1140.00
+      },
+      "created_at": "2024-01-14 15:00:00"
+    },
+    {
+      "id": "WH009",
+      "manuscript_id": "MS20240114C",
+      "operator_id": "C003",
+      "operator_name": "阿里巴巴国际站",
+      "operator_role": "客户",
+      "action": "approve_quote",
+      "from_status": "quoted",
+      "to_status": "approved",
+      "notes": "客户确认报价",
+      "context_passed": {},
+      "created_at": "2024-01-14 18:00:00"
+    },
+    {
+      "id": "WH010",
+      "manuscript_id": "MS20240114C",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "assign_translator",
+      "from_status": "approved",
+      "to_status": "assigned",
+      "notes": "分配给译员陈静，要求7天内完成",
+      "context_passed": {
+        "translator_id": "U003",
+        "translator_name": "陈静",
+        "due_date": "2024-01-22",
+        "quote_context": "含一轮审校"
+      },
+      "created_at": "2024-01-14 18:30:00"
+    },
+    {
+      "id": "WH011",
+      "manuscript_id": "MS20240114C",
+      "operator_id": "U003",
+      "operator_name": "陈静",
+      "operator_role": "译员",
+      "action": "start_translation",
+      "from_status": "assigned",
+      "to_status": "translating",
+      "notes": "开始翻译，已加载术语表GL002",
+      "context_passed": {
+        "glossary_id": "GL002",
+        "client_style": "法律文本严谨措辞"
+      },
+      "created_at": "2024-01-15 09:00:00"
+    },
+    {
+      "id": "WH012",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "receive",
+      "from_status": "draft",
+      "to_status": "received",
+      "notes": "接收稿件",
+      "context_passed": {
+        "to_module": "quote_assessment"
+      },
+      "created_at": "2024-01-13 11:00:00"
+    },
+    {
+      "id": "WH013",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U002",
+      "operator_name": "王芳",
+      "operator_role": "项目经理",
+      "action": "approve_quote",
+      "from_status": "assessing",
+      "to_status": "quoted",
+      "notes": "报价1020元，已发送给客户",
+      "context_passed": {},
+      "created_at": "2024-01-13 12:00:00"
+    },
+    {
+      "id": "WH014",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "C004",
+      "operator_name": "万豪国际",
+      "operator_role": "客户",
+      "action": "approve_quote",
+      "from_status": "quoted",
+      "to_status": "approved",
+      "notes": "客户确认报价",
+      "context_passed": {},
+      "created_at": "2024-01-13 16:00:00"
+    },
+    {
+      "id": "WH015",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "assign_translator",
+      "from_status": "approved",
+      "to_status": "assigned",
+      "notes": "分配给译员刘洋",
+      "context_passed": {
+        "translator_id": "U005",
+        "translator_name": "刘洋"
+      },
+      "created_at": "2024-01-13 16:30:00"
+    },
+    {
+      "id": "WH016",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U005",
+      "operator_name": "刘洋",
+      "operator_role": "译员",
+      "action": "complete_translation",
+      "from_status": "translating",
+      "to_status": "translated",
+      "notes": "翻译完成，已自检一遍",
+      "context_passed": {},
+      "created_at": "2024-01-18 17:00:00"
+    },
+    {
+      "id": "WH017",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U001",
+      "operator_name": "李明",
+      "operator_role": "项目经理",
+      "action": "assign_reviewer",
+      "from_status": "translated",
+      "to_status": "reviewing",
+      "notes": "分配给审校赵雪",
+      "context_passed": {
+        "reviewer_id": "U004",
+        "reviewer_name": "赵雪",
+        "translation_notes": "酒店服务术语较多"
+      },
+      "created_at": "2024-01-18 17:30:00"
+    },
+    {
+      "id": "WH018",
+      "manuscript_id": "MS20240113D",
+      "operator_id": "U004",
+      "operator_name": "赵雪",
+      "operator_role": "审校",
+      "action": "start_review",
+      "from_status": "reviewing",
+      "to_status": "reviewing",
+      "notes": "开始审校，已加载客户风格偏好和术语表",
+      "context_passed": {
+        "glossary_id": "GL003",
+        "client_style": "酒店服务专业术语",
+        "client_feedback": "CF002"
+      },
+      "created_at": "2024-01-19 09:00:00"
+    }
+  ],
+  "users": [
+    {
+      "id": "U001",
+      "name": "李明",
+      "role": "项目经理",
+      "permissions": ["receive_manuscripts", "assess_quotes", "approve_quotes", "assign_tasks"],
+      "today_tasks": ["MS20240115A", "MS20240115B"],
+      "status": "available"
+    },
+    {
+      "id": "U002",
+      "name": "王芳",
+      "role": "项目经理",
+      "permissions": ["receive_manuscripts", "assess_quotes", "approve_quotes", "assign_tasks"],
+      "today_tasks": [],
+      "status": "available"
+    },
+    {
+      "id": "U003",
+      "name": "陈静",
+      "role": "译员",
+      "permissions": ["translate_manuscripts", "update_progress"],
+      "today_tasks": ["MS20240114C"],
+      "status": "translating"
+    },
+    {
+      "id": "U004",
+      "name": "赵雪",
+      "role": "审校",
+      "permissions": ["review_manuscripts", "update_review_progress"],
+      "today_tasks": ["MS20240113D"],
+      "status": "reviewing"
+    },
+    {
+      "id": "U005",
+      "name": "刘洋",
+      "role": "译员",
+      "permissions": ["translate_manuscripts", "update_progress"],
+      "today_tasks": [],
+      "status": "completed"
+    }
+  ],
+  "glossaries": [
+    {
+      "id": "GL001",
+      "client_id": "C001",
+      "client_name": "比亚迪股份有限公司",
+      "version": "v2.1",
+      "term_count": 125,
+      "last_updated": "2024-01-10",
+      "terms_sample": [
+        {"zh": "动力电池", "en": "power battery"},
+        {"zh": "电机控制器", "en": "motor controller"},
+        {"zh": "整车控制器", "en": "VCU"},
+        {"zh": "充电桩", "en": "charging station"}
+      ]
+    },
+    {
+      "id": "GL002",
+      "client_id": "C003",
+      "client_name": "阿里巴巴国际站",
+      "version": "v1.0",
+      "term_count": 89,
+      "last_updated": "2024-01-05",
+      "terms_sample": [
+        {"zh": "用户协议", "en": "Terms of Service"},
+        {"zh": "隐私政策", "en": "Privacy Policy"},
+        {"zh": "知识产权", "en": "intellectual property rights"}
+      ]
+    },
+    {
+      "id": "GL003",
+      "client_id": "C004",
+      "client_name": "万豪国际",
+      "version": "v1.2",
+      "term_count": 67,
+      "last_updated": "2024-01-08",
+      "terms_sample": [
+        {"zh": "入住", "en": "check-in"},
+        {"zh": "退房", "en": "check-out"},
+        {"zh": "礼宾服务", "en": "concierge service"}
+      ]
+    }
+  ],
+  "client_feedbacks": [
+    {
+      "id": "CF001",
+      "client_id": "C001",
+      "manuscript_id": null,
+      "type": "style_preference",
+      "summary": "偏好简洁技术风格，避免过度翻译",
+      "detailed_notes": "技术文档应以准确传达信息为主，不需要过于文学化的表达。对于专业术语，优先使用国际通用译法。",
+      "created_at": "2024-01-08"
+    },
+    {
+      "id": "CF002",
+      "client_id": "C004",
+      "manuscript_id": null,
+      "type": "quality_feedback",
+      "summary": "上次翻译在酒店服务敬语方面有改进空间",
+      "detailed_notes": "日文翻译需特别注意客人称呼和服务用语的敬语等级，建议使用更正式的商务日语风格。",
+      "created_at": "2024-01-05"
+    }
+  ]
+}
