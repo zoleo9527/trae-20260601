@@ -272,17 +272,36 @@ export default function JobManagement() {
               </div>
 
               {job.reject_reason && job.status === 'rejected' && (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">退回原因：{job.reject_reason}</p>
+                <div className="mb-4 p-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-300 rounded-lg flex items-start gap-3">
+                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <XCircle className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-red-200 text-red-800">
+                        待处理
+                      </span>
+                      <p className="text-sm font-semibold text-red-800">审核未通过</p>
+                    </div>
+                    <p className="text-xs text-red-600 mb-2">退回原因：{job.reject_reason}</p>
+                    <p className="text-xs text-red-500">请修改岗位信息后重新提交审核</p>
+                  </div>
                 </div>
               )}
 
               {job.status === 'expired' && (
-                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
-                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-orange-700 font-medium">岗位已过期</p>
-                    <p className="text-xs text-orange-600 mt-1">该岗位信息已超过有效期，请重新发布</p>
+                <div className="mb-4 p-4 bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300 rounded-lg flex items-start gap-3">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-200 text-orange-800">
+                        待处理
+                      </span>
+                      <p className="text-sm font-semibold text-orange-800">岗位已过期</p>
+                    </div>
+                    <p className="text-xs text-orange-600">该岗位信息已超过有效期，请重新发布以继续招聘</p>
                   </div>
                 </div>
               )}
@@ -308,8 +327,13 @@ export default function JobManagement() {
               )}
 
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <div className="text-xs text-gray-400">
-                  创建人：{job.created_by_name} | {new Date(job.created_at).toLocaleDateString('zh-CN')}
+                <div className="text-xs text-gray-400 space-y-1">
+                  <div>创建人：{job.created_by_name} | {new Date(job.created_at).toLocaleDateString('zh-CN')}</div>
+                  {job.history && job.history.length > 0 && (
+                    <div className="text-gray-500">
+                      最近更新：{job.history[0].actor_name} · {new Date(job.history[0].created_at).toLocaleString('zh-CN')}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -484,6 +508,15 @@ export default function JobManagement() {
                             closed: 'bg-gray-500',
                             draft: 'bg-gray-400',
                           }
+                          const bgColorMap: Record<string, string> = {
+                            pending: 'bg-yellow-50',
+                            approved: 'bg-blue-50',
+                            published: 'bg-green-50',
+                            expired: 'bg-orange-50',
+                            rejected: 'bg-red-50',
+                            closed: 'bg-gray-50',
+                            draft: 'bg-gray-50',
+                          }
                           const actorRoleMap: Record<string, string> = {
                             hr: '企业HR',
                             operator: '运营',
@@ -498,11 +531,19 @@ export default function JobManagement() {
                             closed: '关闭岗位',
                             draft: '保存草稿',
                           }
+                          const isCurrentStatus = record.status === modal.job?.status
                           return (
-                            <div key={index} className="flex items-start gap-3">
-                              <div className={`w-3 h-3 mt-1.5 ${colorMap[record.status] || 'bg-gray-500'} rounded-full`}></div>
+                            <div key={index} className={`flex items-start gap-3 p-3 rounded-lg transition-all ${isCurrentStatus ? `${bgColorMap[record.status]} border-2 border-current` : ''}`}>
+                              <div className={`w-3 h-3 mt-1.5 ${colorMap[record.status] || 'bg-gray-500'} rounded-full ${isCurrentStatus ? 'ring-2 ring-offset-1 ring-current' : ''}`}></div>
                               <div className="flex-1">
-                                <p className="font-medium text-gray-800">{statusLabels[record.status]?.label || record.status}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className={`font-medium ${isCurrentStatus ? 'text-gray-900' : 'text-gray-800'}`}>{statusLabels[record.status]?.label || record.status}</p>
+                                  {isCurrentStatus && (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                      当前状态
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs text-gray-500">{new Date(record.created_at).toLocaleString('zh-CN')}</p>
                                 <p className="text-xs text-gray-400 mt-1">{actorRoleMap[record.actor_name] || record.actor_name} · {actionMap[record.status] || '状态变更'}</p>
                                 {record.remark && (
