@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, message, Upload, Space } from 'antd';
-import { CheckCircle, Upload as UploadIcon, FileIcon } from 'lucide-react';
+import { Card, Button, Input, message, Upload } from 'antd';
+import { CheckCircle, Upload as UploadIcon } from 'lucide-react';
 import FlowProgress from '../../../components/common/FlowProgress';
 import EvidenceViewer from '../../../components/business/EvidenceViewer';
 import HistoryTimeline from '../../../components/common/HistoryTimeline';
@@ -13,11 +13,12 @@ import type { HistoryRecord, Evidence } from '../../../types';
 const RecruiterAppealDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { appeals, updateAppeal, addHistoryRecord } = useStore();
+  const { appeals, updateAppeal, addHistoryRecord, settlements } = useStore();
   const [remark, setRemark] = useState('');
   const [files, setFiles] = useState<string[]>([]);
 
   const appeal = appeals.find((a) => a.id === id);
+  const settlement = settlements.find((s) => s.id === appeal?.settlementId);
 
   if (!appeal) {
     return <div>申诉不存在</div>;
@@ -48,27 +49,39 @@ const RecruiterAppealDetail: React.FC = () => {
       return;
     }
 
+    const currentTime = getCurrentTime();
     const newEvidence: Evidence = {
       role: '招聘顾问',
       files: files.length > 0 ? files : ['补充说明材料.pdf'],
       description: remark,
     };
 
-    const record: HistoryRecord = {
-      time: getCurrentTime(),
+    const appealRecord: HistoryRecord = {
+      time: currentTime,
       role: '招聘顾问',
       operator: appeal.recruiterName,
       action: '补充说明',
       remark: remark,
     };
 
-    addHistoryRecord('appeal', appeal.id, record);
+    addHistoryRecord('appeal', appeal.id, appealRecord);
     updateAppeal({
       ...appeal,
       evidence: [...appeal.evidence, newEvidence],
       status: 'pending_operator_arbitration',
-      updatedAt: record.time,
+      updatedAt: currentTime,
     });
+
+    if (settlement) {
+      const settlementRecord: HistoryRecord = {
+        time: currentTime,
+        role: '招聘顾问',
+        operator: appeal.recruiterName,
+        action: '申诉补充说明',
+        remark: `针对申诉补充说明：${remark}`,
+      };
+      addHistoryRecord('settlement', settlement.id, settlementRecord);
+    }
 
     setRemark('');
     setFiles([]);
@@ -173,9 +186,22 @@ const RecruiterAppealDetail: React.FC = () => {
                 </Button>
               </div>
             )}
-            {appeal.status !== 'pending_recruiter_response' && (
+            {appeal.status === 'pending_operator_arbitration' && (
               <div className="text-center py-8 text-gray-500">
-                该申诉已处理完成
+                <p className="text-blue-500 mb-2">等待运营仲裁</p>
+                <p className="text-xs">补充说明已提交，等待运营仲裁</p>
+              </div>
+            )}
+            {appeal.status === 'resolved' && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-orange-500 mb-2">申诉已支持</p>
+                <p className="text-xs">结算已撤销，返费不予发放</p>
+              </div>
+            )}
+            {appeal.status === 'rejected' && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-green-500 mb-2">申诉已驳回</p>
+                <p className="text-xs">结算已恢复，返费正常发放</p>
               </div>
             )}
           </Card>

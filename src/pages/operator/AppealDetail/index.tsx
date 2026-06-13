@@ -54,33 +54,44 @@ const OperatorAppealDetail: React.FC = () => {
       return;
     }
 
+    const currentTime = getCurrentTime();
     const action = decision === 'support' ? '支持申诉' : '驳回申诉';
-    const newStatus = decision === 'support' ? 'resolved' : 'rejected';
+    const newAppealStatus = decision === 'support' ? 'resolved' : 'rejected';
 
-    const record: HistoryRecord = {
-      time: getCurrentTime(),
+    const appealRecord: HistoryRecord = {
+      time: currentTime,
       role: '运营',
       operator: '吴九',
       action: '仲裁结果',
       remark: `${action}：${remark}`,
     };
 
-    addHistoryRecord('appeal', appeal.id, record);
+    addHistoryRecord('appeal', appeal.id, appealRecord);
     updateAppeal({
       ...appeal,
-      status: newStatus,
-      updatedAt: record.time,
+      status: newAppealStatus,
+      updatedAt: currentTime,
     });
 
-    if (decision === 'support') {
-      const settlement = settlements.find((s) => s.id === appeal.settlementId);
-      if (settlement) {
-        updateSettlement({
-          ...settlement,
-          status: 'rejected',
-          updatedAt: record.time,
-        });
-      }
+    const settlement = settlements.find((s) => s.id === appeal.settlementId);
+    if (settlement) {
+      const newSettlementStatus = decision === 'support' ? 'rejected' : 'completed';
+      const settlementRecord: HistoryRecord = {
+        time: currentTime,
+        role: '运营',
+        operator: '吴九',
+        action: '仲裁结果',
+        remark: decision === 'support' 
+          ? `申诉已支持，撤销结算：${remark}` 
+          : `申诉已驳回，恢复结算：${remark}`,
+      };
+
+      addHistoryRecord('settlement', settlement.id, settlementRecord);
+      updateSettlement({
+        ...settlement,
+        status: newSettlementStatus,
+        updatedAt: currentTime,
+      });
     }
 
     setShowModal(false);
@@ -171,10 +182,10 @@ const OperatorAppealDetail: React.FC = () => {
                   >
                     <Space direction="vertical" className="w-full">
                       <Radio value="support" className="w-full p-2 border rounded hover:bg-orange-50">
-                        支持申诉（调整结算）
+                        支持申诉（撤销结算）
                       </Radio>
                       <Radio value="reject" className="w-full p-2 border rounded hover:bg-green-50">
-                        驳回申诉（维持原结算）
+                        驳回申诉（恢复结算）
                       </Radio>
                     </Space>
                   </Radio.Group>
@@ -201,7 +212,14 @@ const OperatorAppealDetail: React.FC = () => {
             )}
             {appeal.status !== 'pending_operator_arbitration' && (
               <div className="text-center py-8 text-gray-500">
-                该申诉已处理完成
+                <p className="mb-2">
+                  {appeal.status === 'resolved' ? '申诉已支持' : '申诉已驳回'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  {appeal.status === 'resolved' 
+                    ? '结算已撤销，返费不予发放' 
+                    : '结算已恢复，返费正常发放'}
+                </p>
               </div>
             )}
           </Card>
@@ -228,7 +246,7 @@ const OperatorAppealDetail: React.FC = () => {
         <div className="space-y-4">
           <p className="text-gray-600">仲裁决定：</p>
           <p className="text-gray-800 font-medium">
-            {decision === 'support' ? '支持申诉（调整结算）' : '驳回申诉（维持原结算）'}
+            {decision === 'support' ? '支持申诉（撤销结算）' : '驳回申诉（恢复结算）'}
           </p>
           <p className="text-gray-600">仲裁说明：</p>
           <p className="text-gray-800">{remark}</p>

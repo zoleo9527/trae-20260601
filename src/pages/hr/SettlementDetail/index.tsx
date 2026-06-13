@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Button, Input, message, Space, Modal } from 'antd';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { Card, Button, Input, message, Space, Modal, Tag } from 'antd';
+import { CheckCircle, AlertTriangle, FileText } from 'lucide-react';
 import FlowProgress from '../../../components/common/FlowProgress';
 import CandidateTable from '../../../components/business/CandidateTable';
 import HistoryTimeline from '../../../components/common/HistoryTimeline';
@@ -13,12 +13,13 @@ import type { HistoryRecord } from '../../../types';
 const HrSettlementDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { settlements, updateSettlement, addHistoryRecord, addAppeal } = useStore();
+  const { settlements, appeals, updateSettlement, addHistoryRecord, addAppeal } = useStore();
   const [remark, setRemark] = useState('');
   const [showAppealModal, setShowAppealModal] = useState(false);
   const [appealReason, setAppealReason] = useState('');
 
   const settlement = settlements.find((s) => s.id === id);
+  const relatedAppeal = appeals.find((a) => a.settlementId === id);
 
   if (!settlement) {
     return <div>结算单不存在</div>;
@@ -133,6 +134,14 @@ const HrSettlementDetail: React.FC = () => {
     navigate(`/hr/appeals/${appealId}`);
   };
 
+  const handleViewAppeal = () => {
+    if (relatedAppeal) {
+      navigate(`/hr/appeals/${relatedAppeal.id}`);
+    } else {
+      message.error('未找到相关申诉记录');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-20">
       <div className="mb-6">
@@ -232,9 +241,50 @@ const HrSettlementDetail: React.FC = () => {
                 </Space>
               </div>
             )}
-            {settlement.status !== 'pending_hr_confirm' && (
+            {settlement.status === 'completed' && (
+              <div className="space-y-4">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-green-600">结算已完成</p>
+                  <p className="text-xs text-gray-500 mt-1">如发现问题，可发起异常申诉</p>
+                </div>
+                <Button
+                  size="large"
+                  block
+                  icon={<AlertTriangle className="w-4 h-4" />}
+                  onClick={() => setShowAppealModal(true)}
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                >
+                  发起异常申诉
+                </Button>
+              </div>
+            )}
+            {settlement.status === 'appealing' && (
+              <div className="space-y-4">
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-orange-600">该结算单存在异常申诉</p>
+                  <p className="text-xs text-gray-500 mt-1">申诉状态：{relatedAppeal?.status === 'pending_recruiter_response' ? '待招聘顾问补充' : relatedAppeal?.status === 'pending_operator_arbitration' ? '待运营仲裁' : relatedAppeal?.status === 'resolved' ? '已解决' : relatedAppeal?.status === 'rejected' ? '已驳回' : '处理中'}</p>
+                </div>
+                <Button
+                  type="primary"
+                  block
+                  icon={<FileText className="w-4 h-4" />}
+                  onClick={handleViewAppeal}
+                  className="bg-orange-500 hover:bg-orange-600"
+                >
+                  查看申诉详情
+                </Button>
+              </div>
+            )}
+            {settlement.status === 'rejected' && (
               <div className="text-center py-8 text-gray-500">
-                该结算单已处理完成
+                <p className="text-red-500 mb-2">结算已驳回</p>
+                <p className="text-xs">该结算单已被驳回，无法继续处理</p>
+              </div>
+            )}
+            {settlement.status === 'pending_operator_review' && (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-blue-500 mb-2">等待运营审核</p>
+                <p className="text-xs">结算单已提交，等待运营审核</p>
               </div>
             )}
           </Card>
