@@ -96,35 +96,34 @@ export const useAppStore = create<AppState>((set, get) => ({
               new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
               lastLog.toStatus === TrainingNeedStatus.REJECTED;
 
+            const priority: 'high' | 'medium' | 'low' = deadline < todayStart ? 'high' : (deadline >= todayStart && deadline < todayEnd ? 'medium' : 'low');
+            const actions = ['查看详情', '审核通过', '退回'];
+            const baseTodo = {
+              id: `need-${need.id}`,
+              title: need.title,
+              description: need.description,
+              deadline: need.deadline,
+              category: 'training_need' as const,
+              entityId: need.id,
+              priority,
+              actions,
+              status: '待审核',
+            };
+
             if (isReturned) {
               returned.push({
-                id: `need-${need.id}`,
-                title: need.title,
-                description: need.description,
-                deadline: need.deadline,
+                ...baseTodo,
                 type: TodoType.RETURNED,
-                category: 'training_need',
-                entityId: need.id,
               });
             } else if (deadline >= todayStart && deadline < todayEnd) {
               today.push({
-                id: `need-${need.id}`,
-                title: need.title,
-                description: need.description,
-                deadline: need.deadline,
+                ...baseTodo,
                 type: TodoType.TODAY,
-                category: 'training_need',
-                entityId: need.id,
               });
             } else if (deadline < todayStart) {
               overdue.push({
-                id: `need-${need.id}`,
-                title: need.title,
-                description: need.description,
-                deadline: need.deadline,
+                ...baseTodo,
                 type: TodoType.OVERDUE,
-                category: 'training_need',
-                entityId: need.id,
               });
             }
           }
@@ -133,25 +132,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         schedules.forEach((schedule) => {
           if (schedule.status === ScheduleStatus.SCHEDULED) {
             const startTime = new Date(schedule.startTime);
+            const priority: 'high' | 'medium' | 'low' = startTime < todayStart ? 'high' : (startTime >= todayStart && startTime < todayEnd ? 'medium' : 'low');
+            const actions = ['查看详情'];
+            const baseTodo = {
+              id: `schedule-${schedule.id}`,
+              title: schedule.trainingNeedTitle,
+              description: `${schedule.instructorName} - ${schedule.location}`,
+              deadline: schedule.startTime,
+              category: 'schedule' as const,
+              entityId: schedule.id,
+              priority,
+              actions,
+              status: '待确认',
+            };
+
             if (startTime >= todayStart && startTime < todayEnd) {
               today.push({
-                id: `schedule-${schedule.id}`,
-                title: schedule.trainingNeedTitle,
-                description: `${schedule.instructorName} - ${schedule.location}`,
-                deadline: schedule.startTime,
+                ...baseTodo,
                 type: TodoType.TODAY,
-                category: 'schedule',
-                entityId: schedule.id,
               });
             } else if (startTime < todayStart) {
               overdue.push({
-                id: `schedule-${schedule.id}`,
-                title: schedule.trainingNeedTitle,
-                description: `${schedule.instructorName} - ${schedule.location}`,
-                deadline: schedule.startTime,
+                ...baseTodo,
                 type: TodoType.OVERDUE,
-                category: 'schedule',
-                entityId: schedule.id,
               });
             }
           }
@@ -160,25 +163,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         enrollments.forEach((enrollment) => {
           if (enrollment.status === EnrollmentStatus.PENDING) {
             const deadline = new Date(enrollment.deadline);
+            const priority: 'high' | 'medium' | 'low' = deadline < todayStart ? 'high' : (deadline >= todayStart && deadline < todayEnd ? 'medium' : 'low');
+            const actions = ['查看详情'];
+            const baseTodo = {
+              id: `enrollment-${enrollment.id}`,
+              title: enrollment.scheduleTitle,
+              description: `${enrollment.departmentName} 报名`,
+              deadline: enrollment.deadline,
+              category: 'enrollment' as const,
+              entityId: enrollment.id,
+              priority,
+              actions,
+              status: '待确认',
+            };
+
             if (deadline >= todayStart && deadline < todayEnd) {
               today.push({
-                id: `enrollment-${enrollment.id}`,
-                title: enrollment.scheduleTitle,
-                description: `${enrollment.departmentName} 报名`,
-                deadline: enrollment.deadline,
+                ...baseTodo,
                 type: TodoType.TODAY,
-                category: 'enrollment',
-                entityId: enrollment.id,
               });
             } else if (deadline < todayStart) {
               overdue.push({
-                id: `enrollment-${enrollment.id}`,
-                title: enrollment.scheduleTitle,
-                description: `${enrollment.departmentName} 报名`,
-                deadline: enrollment.deadline,
+                ...baseTodo,
                 type: TodoType.OVERDUE,
-                category: 'enrollment',
-                entityId: enrollment.id,
               });
             }
           }
@@ -196,40 +203,39 @@ export const useAppStore = create<AppState>((set, get) => ({
               new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
               lastLog.toStatus === EnrollmentStatus.REJECTED;
 
-            if (isReturned) {
-              returned.push({
-                id: `enrollment-${enrollment.id}`,
-                title: enrollment.scheduleTitle,
-                description: `${enrollment.departmentName} 报名`,
-                deadline: enrollment.deadline,
-                type: TodoType.RETURNED,
-                category: 'enrollment',
-                entityId: enrollment.id,
-              });
-            } else if (enrollment.status === EnrollmentStatus.PENDING) {
-              const deadline = new Date(enrollment.deadline);
-              if (deadline >= todayStart && deadline < todayEnd) {
-                today.push({
-                  id: `enrollment-${enrollment.id}`,
-                  title: enrollment.scheduleTitle,
-                  description: `${enrollment.departmentName} 报名`,
-                  deadline: enrollment.deadline,
-                  type: TodoType.TODAY,
-                  category: 'enrollment',
-                  entityId: enrollment.id,
-                });
-              } else if (deadline < todayStart) {
-                overdue.push({
-                  id: `enrollment-${enrollment.id}`,
-                  title: enrollment.scheduleTitle,
-                  description: `${enrollment.departmentName} 报名`,
-                  deadline: enrollment.deadline,
-                  type: TodoType.OVERDUE,
-                  category: 'enrollment',
-                  entityId: enrollment.id,
-                });
-              }
-            }
+            const deadline = new Date(enrollment.deadline);
+      const priority: 'high' | 'medium' | 'low' = deadline < todayStart ? 'high' : (deadline >= todayStart && deadline < todayEnd ? 'medium' : 'low');
+      const actions = ['编辑名单', '确认名单'];
+      const baseTodo = {
+        id: `enrollment-${enrollment.id}`,
+        title: enrollment.scheduleTitle,
+        description: `${enrollment.departmentName} 报名`,
+        deadline: enrollment.deadline,
+        category: 'enrollment' as const,
+        entityId: enrollment.id,
+        priority,
+        actions,
+        status: isReturned ? '已退回' : '待确认',
+      };
+
+      if (isReturned) {
+        returned.push({
+          ...baseTodo,
+          type: TodoType.RETURNED,
+        });
+      } else if (enrollment.status === EnrollmentStatus.PENDING) {
+        if (deadline >= todayStart && deadline < todayEnd) {
+          today.push({
+            ...baseTodo,
+            type: TodoType.TODAY,
+          });
+        } else if (deadline < todayStart) {
+          overdue.push({
+            ...baseTodo,
+            type: TodoType.OVERDUE,
+          });
+        }
+      }
           }
         });
       }
@@ -238,25 +244,29 @@ export const useAppStore = create<AppState>((set, get) => ({
         schedules.forEach((schedule) => {
           if (schedule.instructorId === currentUser.id && schedule.status === ScheduleStatus.SCHEDULED) {
             const startTime = new Date(schedule.startTime);
+            const priority: 'high' | 'medium' | 'low' = startTime < todayStart ? 'high' : (startTime >= todayStart && startTime < todayEnd ? 'medium' : 'low');
+            const actions = ['确认排期', '拒绝'];
+            const baseTodo = {
+              id: `schedule-${schedule.id}`,
+              title: schedule.trainingNeedTitle,
+              description: `${schedule.location}`,
+              deadline: schedule.startTime,
+              category: 'schedule' as const,
+              entityId: schedule.id,
+              priority,
+              actions,
+              status: '待确认',
+            };
+
             if (startTime >= todayStart && startTime < todayEnd) {
               today.push({
-                id: `schedule-${schedule.id}`,
-                title: schedule.trainingNeedTitle,
-                description: `${schedule.location}`,
-                deadline: schedule.startTime,
+                ...baseTodo,
                 type: TodoType.TODAY,
-                category: 'schedule',
-                entityId: schedule.id,
               });
             } else if (startTime < todayStart) {
               overdue.push({
-                id: `schedule-${schedule.id}`,
-                title: schedule.trainingNeedTitle,
-                description: `${schedule.location}`,
-                deadline: schedule.startTime,
+                ...baseTodo,
                 type: TodoType.OVERDUE,
-                category: 'schedule',
-                entityId: schedule.id,
               });
             }
           }
@@ -548,18 +558,45 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     saveEnrollmentStudents: (id, students) => {
-      const { enrollments } = get();
+      const { enrollments, currentUser, timelineLogs } = get();
       const enrollmentIndex = enrollments.findIndex((e) => e.id === id);
       if (enrollmentIndex === -1) return;
 
+      const now = new Date();
       const updatedEnrollments = [...enrollments];
+      const oldEnrollment = updatedEnrollments[enrollmentIndex];
+
+      const historyEntry: EnrollmentHistory = {
+        version: (oldEnrollment.history?.length || 0) + 1,
+        studentList: oldEnrollment.studentList,
+        updatedAt: now,
+        updatedBy: currentUser?.name || '',
+        status: oldEnrollment.status,
+      };
+
       updatedEnrollments[enrollmentIndex] = {
         ...updatedEnrollments[enrollmentIndex],
         studentList: students,
+        history: [...(oldEnrollment.history || []), historyEntry],
+      };
+
+      const newLog: TimelineLog = {
+        id: `log-${Date.now()}`,
+        entityType: 'enrollment',
+        entityId: id,
+        action: '部门更新学员名单',
+        fromStatus: EnrollmentStatus.PENDING,
+        toStatus: EnrollmentStatus.PENDING,
+        operatorId: currentUser?.id || '',
+        operatorName: currentUser?.name || '',
+        operatorRole: currentUser?.role || 'department',
+        createdAt: now,
+        details: { studentCount: students.length },
       };
 
       set({
         enrollments: updatedEnrollments,
+        timelineLogs: [...timelineLogs, newLog],
       });
     },
 

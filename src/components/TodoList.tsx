@@ -8,6 +8,7 @@ import { Clock, AlertCircle, RotateCcw, LayoutGrid } from 'lucide-react';
 interface TodoListProps {
   onViewSchedule?: (id: string) => void;
   onViewEnrollment?: (id: string) => void;
+  onViewTrainingNeed?: (id: string) => void;
   onConfirmSchedule?: (id: string) => void;
   onRejectSchedule?: (id: string) => void;
   onConfirmEnrollment?: (id: string) => void;
@@ -23,6 +24,7 @@ const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: 
 export function TodoList({
   onViewSchedule,
   onViewEnrollment,
+  onViewTrainingNeed,
   onConfirmSchedule,
   onRejectSchedule,
   onConfirmEnrollment,
@@ -71,11 +73,19 @@ export function TodoList({
                   onViewSchedule?.(todo.entityId);
                 } else if (todo.category === 'enrollment') {
                   onViewEnrollment?.(todo.entityId);
+                } else if (todo.category === 'training_need') {
+                  onViewTrainingNeed?.(todo.entityId);
                 }
+              } else if (action === '审核通过') {
+                onViewTrainingNeed?.(todo.entityId);
+              } else if (action === '退回') {
+                onViewTrainingNeed?.(todo.entityId);
               } else if (action === '确认排期') {
                 onConfirmSchedule?.(todo.entityId);
               } else if (action === '拒绝') {
                 onRejectSchedule?.(todo.entityId);
+              } else if (action === '编辑名单') {
+                onViewEnrollment?.(todo.entityId);
               } else if (action === '确认名单') {
                 onConfirmEnrollment?.(todo.entityId);
               } else if (action === '退回') {

@@ -129,6 +129,7 @@ export default function Home() {
               <TodoList
                 onViewSchedule={(id) => setSelectedSchedule(id)}
                 onViewEnrollment={(id) => setSelectedEnrollment(id)}
+                onViewTrainingNeed={(id) => setSelectedTrainingNeed(id)}
                 onConfirmSchedule={(id) => setSelectedSchedule(id)}
                 onRejectSchedule={(id) => setSelectedSchedule(id)}
                 onConfirmEnrollment={(id) => setSelectedEnrollment(id)}
