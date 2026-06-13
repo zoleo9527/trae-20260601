@@ -1,6 +1,24 @@
 import { create } from 'zustand'
-import type { OperationRecord, TodoItem, FilterState, Role } from '@/types'
+import type { OperationRecord, TodoItem, FilterState, Role, RecordStatus } from '@/types'
 import { mockRecords, mockTodos } from '@/data/mockData'
+
+function computeRecordStatus(record: OperationRecord): OperationRecord {
+  const { settlement, reconciliation } = record
+  let newStatus: RecordStatus = 'normal'
+
+  if (settlement.status === 'disputed' || reconciliation.status === 'disputed') {
+    newStatus = 'disputed'
+  } else if (settlement.status === 'returned' || reconciliation.status === 'discrepancy') {
+    newStatus = 'returned'
+  } else if (
+    record.recordStatus === 'overdue' &&
+    (settlement.status === 'pending' || reconciliation.status === 'pending')
+  ) {
+    newStatus = 'overdue'
+  }
+
+  return { ...record, recordStatus: newStatus }
+}
 
 interface WorkbenchStore {
   records: OperationRecord[]
@@ -18,6 +36,7 @@ interface WorkbenchStore {
   markTodoRead: (id: string) => void
   updateSettlementStatus: (recordId: string, status: OperationRecord['settlement']['status'], note?: string) => void
   updateReconciliationStatus: (recordId: string, status: OperationRecord['reconciliation']['status'], note?: string) => void
+  recomputeRecordStatus: (recordId: string) => void
   addSupplementNote: (recordId: string, note: string) => void
   addReturnReason: (recordId: string, reason: string) => void
 
@@ -54,37 +73,58 @@ export const useWorkbenchStore = create<WorkbenchStore>((set, get) => ({
     })),
 
   updateSettlementStatus: (recordId, status, note) =>
-    set((s) => ({
-      records: s.records.map((r) =>
-        r.id === recordId
-          ? {
-              ...r,
-              settlement: {
-                ...r.settlement,
-                status,
-                ...(note ? { supplementNote: note } : {}),
-              },
-              updatedAt: new Date().toISOString().slice(0, 10),
-            }
-          : r
-      ),
-    })),
+    set((s) => {
+      const records = s.records.map((r) => {
+        if (r.id !== recordId) return r
+        const isReturned = status === 'returned'
+        const isDisputed = status === 'disputed'
+        const newSettlement = {
+          ...r.settlement,
+          status,
+          ...(note && isReturned ? { returnedReason: note } : {}),
+          ...(note && !isReturned ? { supplementNote: note } : {}),
+          ...(status === 'processing' ? { processedAt: new Date().toISOString().slice(0, 10) } : {}),
+        }
+        const newRecord = {
+          ...r,
+          settlement: newSettlement,
+          returnedReason: isReturned && note ? note : r.returnedReason,
+          disputeDetail: isDisputed && note ? note : r.disputeDetail,
+          updatedAt: new Date().toISOString().slice(0, 10),
+        }
+        return computeRecordStatus(newRecord)
+      })
+      return { records }
+    }),
 
   updateReconciliationStatus: (recordId, status, note) =>
+    set((s) => {
+      const records = s.records.map((r) => {
+        if (r.id !== recordId) return r
+        const isDiscrepancy = status === 'discrepancy'
+        const isDisputed = status === 'disputed'
+        const newReconciliation = {
+          ...r.reconciliation,
+          status,
+          ...(note && isDiscrepancy ? { discrepancyNote: note } : {}),
+          ...(status === 'sent' ? { sentAt: new Date().toISOString().slice(0, 10) } : {}),
+          ...(status === 'confirmed' ? { confirmedAt: new Date().toISOString().slice(0, 10) } : {}),
+        }
+        const newRecord = {
+          ...r,
+          reconciliation: newReconciliation,
+          returnedReason: isDiscrepancy && note ? note : r.returnedReason,
+          disputeDetail: isDisputed && note ? note : r.disputeDetail,
+          updatedAt: new Date().toISOString().slice(0, 10),
+        }
+        return computeRecordStatus(newRecord)
+      })
+      return { records }
+    }),
+
+  recomputeRecordStatus: (recordId) =>
     set((s) => ({
-      records: s.records.map((r) =>
-        r.id === recordId
-          ? {
-              ...r,
-              reconciliation: {
-                ...r.reconciliation,
-                status,
-                ...(note ? { discrepancyNote: note } : {}),
-              },
-              updatedAt: new Date().toISOString().slice(0, 10),
-            }
-          : r
-      ),
+      records: s.records.map((r) => (r.id === recordId ? computeRecordStatus(r) : r)),
     })),
 
   addSupplementNote: (recordId, note) =>

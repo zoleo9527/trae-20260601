@@ -6,11 +6,20 @@ import {
   FileText,
   Scale,
   Eye,
+  ClipboardList,
+  Calculator,
+  Handshake,
 } from 'lucide-react'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import { ROLE_LABELS, STATUS_LABELS, SETTLEMENT_STATUS_LABELS, RECONCILIATION_STATUS_LABELS } from '@/types'
 import type { Role, TodoItem } from '@/types'
 import StatusTag from './StatusTag'
+
+const tabs = [
+  { key: 'todos' as const, label: '我的待办', icon: ClipboardList },
+  { key: 'settlement' as const, label: '工资结算', icon: Calculator },
+  { key: 'reconciliation' as const, label: '客户对账', icon: Handshake },
+]
 
 const roleIcons: Record<Role, string> = {
   recruiter: '👤',
@@ -45,12 +54,44 @@ const priorityLabels = {
 }
 
 export default function TodoPanel() {
-  const { currentRole, setCurrentRole, getRoleTodos, markTodoRead, selectRecord } = useWorkbenchStore()
-  const todos = getRoleTodos()
-  const stats = useWorkbenchStore.getState().getStatsByRole()
+  const todos = useWorkbenchStore((s) => s.todos)
+  const currentRole = useWorkbenchStore((s) => s.currentRole)
+  const activeTab = useWorkbenchStore((s) => s.activeTab)
+  const records = useWorkbenchStore((s) => s.records)
+  const setCurrentRole = useWorkbenchStore((s) => s.setCurrentRole)
+  const setActiveTab = useWorkbenchStore((s) => s.setActiveTab)
+  const markTodoRead = useWorkbenchStore((s) => s.markTodoRead)
+  const selectRecord = useWorkbenchStore((s) => s.selectRecord)
+
+  const allTodos = todos
+    .filter((t) => t.role === currentRole)
+    .sort((a, b) => {
+      const p = { high: 0, medium: 1, low: 2 }
+      return p[a.priority] - p[b.priority]
+    })
+
+  const stats = {
+    total: records.filter((r) => r.role === currentRole).length,
+    pending: records.filter((r) => r.role === currentRole && r.recordStatus === 'normal').length,
+    overdue: records.filter((r) => r.role === currentRole && r.recordStatus === 'overdue').length,
+    disputed: records.filter((r) => r.role === currentRole && r.recordStatus === 'disputed').length,
+  }
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const roles: Role[] = ['recruiter', 'onsite', 'payroll']
+
+  const filteredTodos = allTodos.filter((t) => {
+    if (activeTab === 'todos') return true
+    if (activeTab === 'settlement') return t.type === 'settlement' || t.type === 'supplement'
+    if (activeTab === 'reconciliation') return t.type === 'reconciliation' || t.type === 'dispute'
+    return true
+  })
+
+  const tabCount = {
+    todos: allTodos.length,
+    settlement: allTodos.filter((t) => t.type === 'settlement' || t.type === 'supplement').length,
+    reconciliation: allTodos.filter((t) => t.type === 'reconciliation' || t.type === 'dispute').length,
+  }
 
   const handleTodoClick = (todo: TodoItem) => {
     if (!todo.isRead) markTodoRead(todo.id)
@@ -74,7 +115,7 @@ export default function TodoPanel() {
             <span className="text-lg">{roleIcons[role]}</span>
             <span className="text-xs font-medium">{ROLE_LABELS[role]}</span>
             <span className="text-[10px] text-gray-400">
-              {role === currentRole ? `${todos.length} 待办` : ''}
+              {role === currentRole ? `${allTodos.length} 待办` : ''}
             </span>
           </button>
         ))}
@@ -94,14 +135,37 @@ export default function TodoPanel() {
         ))}
       </div>
 
-      <div className="space-y-2 max-h-[calc(100vh-420px)] overflow-y-auto pr-1">
-        {todos.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm">当前角色暂无待办事项</div>
+      <div className="flex border-b border-gray-200 mb-1">
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          return (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium border-b-2 transition-all ${
+                activeTab === tab.key
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {tab.label}
+              <span className={`text-[10px] px-1 rounded ${activeTab === tab.key ? 'bg-blue-100' : 'bg-gray-100 text-gray-500'}`}>
+                {tabCount[tab.key]}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="space-y-2 max-h-[calc(100vh-440px)] overflow-y-auto pr-1">
+        {filteredTodos.length === 0 && (
+          <div className="text-center py-8 text-gray-400 text-sm">当前分类暂无待办事项</div>
         )}
-        {todos.map((todo) => {
+        {filteredTodos.map((todo) => {
           const Icon = typeIcons[todo.type]
           const isExpanded = expandedId === todo.id
-          const record = useWorkbenchStore.getState().records.find((r) => r.id === todo.recordId)
+          const record = records.find((r) => r.id === todo.recordId)
           return (
             <div
               key={todo.id}

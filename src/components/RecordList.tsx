@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import {
   ChevronRight,
   AlertTriangle,
@@ -8,19 +9,35 @@ import StatusTag from './StatusTag'
 import { formatMoney } from '@/utils/cn'
 
 export default function RecordList() {
-  const { getFilteredRecords, selectRecord, selectedRecordId } = useWorkbenchStore()
-  const records = getFilteredRecords()
+  const records = useWorkbenchStore((s) => s.records)
+  const filters = useWorkbenchStore((s) => s.filters)
+  const selectedRecordId = useWorkbenchStore((s) => s.selectedRecordId)
+  const selectRecord = useWorkbenchStore((s) => s.selectRecord)
+
+  const filteredRecords = useMemo(() => {
+    return records.filter((r) => {
+      if (filters.status !== 'all' && r.recordStatus !== filters.status) return false
+      if (filters.period && r.settlement.period !== filters.period) return false
+      if (filters.clientName && !r.clientName.includes(filters.clientName)) return false
+      if (filters.search) {
+        const q = filters.search.toLowerCase()
+        const searchable = `${r.batchNo} ${r.employeeName} ${r.clientName} ${r.projectName} ${r.id}`.toLowerCase()
+        if (!searchable.includes(q)) return false
+      }
+      return true
+    })
+  }, [records, filters])
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-gray-500">共 {records.length} 条记录</span>
+        <span className="text-xs text-gray-500">共 {filteredRecords.length} 条记录</span>
       </div>
-      {records.length === 0 && (
+      {filteredRecords.length === 0 && (
         <div className="text-center py-12 text-gray-400 text-sm">暂无匹配记录</div>
       )}
       <div className="space-y-2 max-h-[calc(100vh-260px)] overflow-y-auto pr-1">
-        {records.map((r) => {
+        {filteredRecords.map((r) => {
           const isSelected = selectedRecordId === r.id
           const hasWarning = r.recordStatus === 'returned' || r.recordStatus === 'overdue' || r.recordStatus === 'disputed'
           return (

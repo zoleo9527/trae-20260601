@@ -1,8 +1,5 @@
 import { useState } from 'react'
 import {
-  ClipboardList,
-  Calculator,
-  Handshake,
   Users,
   Building2,
   DollarSign,
@@ -15,14 +12,8 @@ import FilterBar from '@/components/FilterBar'
 import RecordList from '@/components/RecordList'
 import RecordDetail from '@/components/RecordDetail'
 
-const tabs = [
-  { key: 'todos' as const, label: '我的待办', icon: ClipboardList },
-  { key: 'settlement' as const, label: '工资结算', icon: Calculator },
-  { key: 'reconciliation' as const, label: '客户对账', icon: Handshake },
-]
-
 export default function Workbench() {
-  const { activeTab, setActiveTab, currentRole, setCurrentRole } = useWorkbenchStore()
+  const { currentRole, setCurrentRole } = useWorkbenchStore()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const roles: { key: Role; label: string; icon: typeof Users }[] = [
@@ -73,7 +64,7 @@ export default function Workbench() {
           }`}
         >
           <div className="border-b border-gray-200 p-3">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="p-1 text-gray-400 hover:text-gray-600 rounded transition-colors"
@@ -84,27 +75,6 @@ export default function Workbench() {
               </button>
               {!sidebarCollapsed && <span className="text-sm font-semibold text-gray-700">待办面板</span>}
             </div>
-            {!sidebarCollapsed && (
-              <div className="flex border-b border-gray-200">
-                {tabs.map((tab) => {
-                  const Icon = tab.icon
-                  return (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-2 text-[11px] font-medium border-b-2 transition-all ${
-                        activeTab === tab.key
-                          ? 'border-blue-600 text-blue-700'
-                          : 'border-transparent text-gray-400 hover:text-gray-600'
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {tab.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
           </div>
           <div className="flex-1 overflow-y-auto p-3">
             {!sidebarCollapsed && <TodoPanel />}
