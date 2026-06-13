@@ -180,6 +180,7 @@ export const useAssignmentStore = defineStore('assignment', () => {
     statusCounts,
     getAssignmentById,
     getAssignmentsByStatus,
+    addHistoryRecord,
     createAssignment,
     assignTranslator,
     acceptAssignment,

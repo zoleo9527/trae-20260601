@@ -12,7 +12,6 @@
               <option value="pending">待审核</option>
               <option value="approved">已确认</option>
               <option value="rejected">已驳回</option>
-              <option value="updated">已更新</option>
             </select>
             <input
               v-model="searchTerm"

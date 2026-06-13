@@ -2,7 +2,7 @@ export type UserRole = 'project_manager' | 'translator' | 'reviewer'
 
 export type AssignmentStatus = 'pending' | 'assigned' | 'in_progress' | 'reviewing' | 'rejected' | 'completed'
 
-export type TerminologyStatus = 'pending' | 'approved' | 'rejected' | 'updated'
+export type TerminologyStatus = 'pending' | 'approved' | 'rejected'
 
 export interface User {
   id: string

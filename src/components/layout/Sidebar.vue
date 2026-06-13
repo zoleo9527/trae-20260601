@@ -29,6 +29,43 @@
       </nav>
 
       <div class="mt-8 pt-8 border-t border-gray-200">
+        <div class="px-3 mb-3">
+          <label class="text-xs text-gray-500 mb-2 block">切换角色</label>
+          <select
+            :value="currentUser.id"
+            @change="switchUser($event)"
+            class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+          >
+            <optgroup label="项目经理">
+              <option
+                v-for="user in projectManagers"
+                :key="user.id"
+                :value="user.id"
+              >
+                {{ user.name }}
+              </option>
+            </optgroup>
+            <optgroup label="译员">
+              <option
+                v-for="user in translators"
+                :key="user.id"
+                :value="user.id"
+              >
+                {{ user.name }}
+              </option>
+            </optgroup>
+            <optgroup label="审校">
+              <option
+                v-for="user in reviewers"
+                :key="user.id"
+                :value="user.id"
+              >
+                {{ user.name }}
+              </option>
+            </optgroup>
+          </select>
+        </div>
+        
         <div class="flex items-center gap-3 px-3">
           <div
             :class="[
@@ -53,12 +90,24 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { FileText, LayoutDashboard, Users, BookOpen } from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import type { UserRole } from '@/types'
+import type { UserRole, User } from '@/types'
 
 const route = useRoute()
 const userStore = useUserStore()
 
 const currentUser = computed(() => userStore.currentUser)
+
+const projectManagers = computed(() => userStore.getUsersByRole('project_manager'))
+const translators = computed(() => userStore.getUsersByRole('translator'))
+const reviewers = computed(() => userStore.getUsersByRole('reviewer'))
+
+const switchUser = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  const user = userStore.getUserById(target.value)
+  if (user) {
+    userStore.setCurrentUser(user)
+  }
+}
 
 const menuItems = [
   { path: '/dashboard', text: '工作台', icon: LayoutDashboard },

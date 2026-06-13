@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Terminology, TerminologyVersion, TerminologyStatus, HistoryRecord } from '@/types'
 import { terminologies as mockTerminologies } from '@/data/mockData'
+import { useAssignmentStore } from './assignment'
 
 const generateId = () => `term-${Date.now()}-${Math.random().toString(36).substr(2, 9)}}`
 const generateVersionId = () => `ver-${Date.now()}-${Math.random().toString(36).substr(2, 9)}}`
@@ -163,5 +164,3 @@ export const useTerminologyStore = defineStore('terminology', () => {
 }, {
   persist: true,
 })
-
-import { useAssignmentStore } from './assignment'

@@ -35,7 +35,6 @@ const statusConfig = computed(() => {
       pending: { text: '待审核', class: 'bg-gray-100 text-gray-700', icon: Clock },
       approved: { text: '已确认', class: 'bg-success-100 text-success-700', icon: CheckCircle },
       rejected: { text: '已驳回', class: 'bg-red-100 text-red-700', icon: XCircle },
-      updated: { text: '已更新', class: 'bg-blue-100 text-blue-700', icon: FileCheck },
     }
     return config[props.status as TerminologyStatus]
   }
