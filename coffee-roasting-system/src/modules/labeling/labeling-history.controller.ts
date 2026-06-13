@@ -1,5 +1,5 @@
 import { Controller, Get, Query, Param, UseGuards } from '@nestjs/common';
-import { LabelingHistoryService } from './labeling-history.service';
+import { LabelingHistoryService, LabelingHistoryItem } from './labeling-history.service';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('labeling-history')
@@ -14,17 +14,17 @@ export class LabelingHistoryController {
     @Query('customerName') customerName?: string,
     @Query('page') page: number = 1,
     @Query('limit') limit: number = 20,
-  ) {
+  ): Promise<{ data: LabelingHistoryItem[]; total: number }> {
     return this.historyService.getLabelingHistory(batchNo, productName, customerName, page, limit);
   }
 
   @Get('batch/:batchNo')
-  async getByBatchNo(@Param('batchNo') batchNo: string) {
+  async getByBatchNo(@Param('batchNo') batchNo: string): Promise<LabelingHistoryItem[] | null> {
     return this.historyService.getLabelingByBatchNo(batchNo);
   }
 
   @Get('completed')
-  async getCompleted() {
+  async getCompleted(): Promise<LabelingHistoryItem[]> {
     return this.historyService.getCompletedLabelingTasks();
   }
 }

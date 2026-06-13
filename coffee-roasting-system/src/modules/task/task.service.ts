@@ -69,33 +69,32 @@ export class TaskService {
   }
 
   async update(id: string, updateData: Partial<Task>): Promise<Task | null> {
-    const hasStatusOrBatchOrLabel = 
+    const needsWorkflowSync = 
       updateData.status !== undefined || 
       updateData.batchNo !== undefined || 
       updateData.labelContent !== undefined;
 
-    if (hasStatusOrBatchOrLabel) {
+    if (needsWorkflowSync) {
       try {
-        const task = await this.workflowService.updateTask(id, {
+        await this.workflowService.updateTask(id, {
           status: updateData.status,
           batchNo: updateData.batchNo,
           labelContent: updateData.labelContent,
         });
-        
-        if (updateData.assigneeId !== undefined || updateData.assignee !== undefined) {
-          await this.taskRepository.update(id, {
-            assigneeId: updateData.assigneeId,
-            assignee: updateData.assignee,
-          });
-        }
-        
-        return this.findOne(task.id);
       } catch {
         return null;
       }
     }
 
-    await this.taskRepository.update(id, updateData);
+    const otherFields: Partial<Task> = {};
+    if (updateData.assignee !== undefined) otherFields.assignee = updateData.assignee;
+    if (updateData.assigneeId !== undefined) otherFields.assigneeId = updateData.assigneeId;
+    if (updateData.completedAt !== undefined) otherFields.completedAt = updateData.completedAt;
+
+    if (Object.keys(otherFields).length > 0) {
+      await this.taskRepository.update(id, otherFields);
+    }
+
     return this.findOne(id);
   }
 

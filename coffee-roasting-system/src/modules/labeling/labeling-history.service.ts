@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Task, TaskType, TaskStatus } from '../../entities/task.entity';
 import { Order } from '../../entities/order.entity';
 import { Note } from '../../entities/note.entity';
 
-interface LabelingHistoryItem {
+export interface LabelingHistoryItem {
   id: string;
   orderId: string;
   orderNo: string;
@@ -70,7 +70,7 @@ export class LabelingHistoryService {
 
     const taskIds = tasks.map(t => t.id);
     const notes = await this.noteRepository.find({
-      where: { taskId: taskIds },
+      where: { taskId: In(taskIds) },
       relations: { author: true },
     });
 
@@ -111,7 +111,7 @@ export class LabelingHistoryService {
 
     const taskIds = tasks.map(t => t.id);
     const notes = await this.noteRepository.find({
-      where: { taskId: taskIds },
+      where: { taskId: In(taskIds) },
       relations: { author: true },
     });
 
@@ -149,7 +149,7 @@ export class LabelingHistoryService {
 
     const taskIds = tasks.map(t => t.id);
     const notes = await this.noteRepository.find({
-      where: { taskId: taskIds },
+      where: { taskId: In(taskIds) },
       relations: { author: true },
     });
 

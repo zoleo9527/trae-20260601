@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Task, TaskType, TaskStatus } from '../../entities/task.entity';
 import { Order } from '../../entities/order.entity';
 import { UserRole } from '../../entities/user.entity';
 
-interface TodoItem {
+export interface TodoItem {
   id: string;
   orderId: string;
   orderNo: string;
@@ -20,7 +20,7 @@ interface TodoItem {
   updatedAt: Date;
 }
 
-interface TodoAggregation {
+export interface TodoAggregation {
   pending: TodoItem[];
   inProgress: TodoItem[];
   completed: TodoItem[];
@@ -39,7 +39,10 @@ export class TodoService {
     const taskTypes = this.getTaskTypesByRole(role);
     
     const tasks = await this.taskRepository.find({
-      where: { type: taskTypes, status: [TaskStatus.PENDING, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED] },
+      where: { 
+        type: In(taskTypes), 
+        status: In([TaskStatus.PENDING, TaskStatus.IN_PROGRESS, TaskStatus.COMPLETED]) 
+      },
       relations: { order: true },
       order: { createdAt: 'DESC' },
     });
@@ -86,7 +89,7 @@ export class TodoService {
     const taskTypes = this.getTaskTypesByRole(role);
     
     const tasks = await this.taskRepository.find({
-      where: { type: taskTypes, status: TaskStatus.PENDING },
+      where: { type: In(taskTypes), status: TaskStatus.PENDING },
       relations: { order: true },
       order: { createdAt: 'ASC' },
     });

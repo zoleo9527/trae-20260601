@@ -1,6 +1,6 @@
 import { Controller, Get, Post, Body, Param, Put, Delete, UseGuards } from '@nestjs/common';
 import { TaskService } from './task.service';
-import { TaskType, TaskStatus } from '../../entities/task.entity';
+import { Task, TaskType, TaskStatus } from '../../entities/task.entity';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('tasks')
@@ -39,14 +39,8 @@ export class TaskController {
   }
 
   @Put(':id')
-  async update(@Param('id') id: string, @Body() body: Record<string, unknown>) {
-    const updateData: Partial<Task> = {};
-    if (body.status !== undefined) updateData.status = body.status as TaskStatus;
-    if (body.batchNo !== undefined) updateData.batchNo = body.batchNo as string;
-    if (body.labelContent !== undefined) updateData.labelContent = body.labelContent as string;
-    if (body.assigneeId !== undefined) updateData.assigneeId = body.assigneeId as string;
-    
-    return this.taskService.update(id, updateData);
+  async update(@Param('id') id: string, @Body() body: Partial<Task>) {
+    return this.taskService.update(id, body);
   }
 
   @Delete(':id')

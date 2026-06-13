@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Order, OrderStatus } from '../../entities/order.entity';
 import { Task, TaskType, TaskStatus } from '../../entities/task.entity';
 import { Note } from '../../entities/note.entity';
@@ -92,7 +92,7 @@ export class OrderDetailService {
     });
 
     const allNotes = await this.noteRepository.find({
-      where: { taskId: tasks.map(t => t.id) },
+      where: { taskId: In(tasks.map(t => t.id)) },
       relations: { author: true },
       order: { createdAt: 'ASC' },
     });
