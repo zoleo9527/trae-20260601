@@ -60,7 +60,8 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
     }
   };
 
-  const hasExistingQuarantine = store.quarantineRecords.some(q => q.vetRecordId === record.id);
+  const existingQuarantine = store.quarantineRecords.find(q => q.vetRecordId === record.id);
+  const hasPendingQuarantine = existingQuarantine && existingQuarantine.status !== 'completed';
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -119,10 +120,17 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
             </div>
           )}
 
-          {hasExistingQuarantine && (
+          {existingQuarantine && (
             <div className="bg-orange-50 rounded-lg p-4">
               <p className="text-xs text-orange-600 font-medium mb-1">关联隔离记录</p>
-              <p className="text-sm text-orange-700">该巡诊单已创建隔离申请，可在隔离管理中查看</p>
+              <p className="text-sm text-orange-700">
+                隔离单 #{existingQuarantine.id} | 状态: {
+                  existingQuarantine.status === 'pending' ? '待审核' :
+                  existingQuarantine.status === 'quarantining' ? '隔离中' :
+                  existingQuarantine.status === 'completed' ? '已解除' :
+                  existingQuarantine.status === 'rejected' ? '已驳回' : existingQuarantine.status
+                }
+              </p>
             </div>
           )}
 
@@ -159,7 +167,15 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
                 驳回
               </button>
               
-              {!hasExistingQuarantine && (
+              {hasPendingQuarantine ? (
+                <button
+                  onClick={() => setShowQuarantineForm(!showQuarantineForm)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  更新隔离原因
+                </button>
+              ) : !existingQuarantine && (
                 <button
                   onClick={() => setShowQuarantineForm(!showQuarantineForm)}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border border-orange-200 text-orange-600 rounded-lg hover:bg-orange-50 transition-colors"
@@ -207,9 +223,11 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
             </div>
           )}
 
-          {showQuarantineForm && !hasExistingQuarantine && (
+          {showQuarantineForm && !existingQuarantine?.status === 'completed' && (
             <div className="mt-4 p-4 bg-orange-50 rounded-lg">
-              <p className="text-sm text-orange-600 font-medium mb-2">请填写隔离原因</p>
+              <p className="text-sm text-orange-600 font-medium mb-2">
+                {hasPendingQuarantine ? '更新隔离原因' : '请填写隔离原因'}
+              </p>
               <textarea
                 value={quarantineReason}
                 onChange={(e) => setQuarantineReason(e.target.value)}

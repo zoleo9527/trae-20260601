@@ -32,12 +32,13 @@ interface FarmStore {
   updateVeterinaryStatus: (id: number, status: VeterinaryRecord['status'], rejectReason?: string) => void;
   updateQuarantineStatus: (id: number, status: QuarantineRecord['status'], rejectReason?: string) => void;
   addExceptionRecord: (record: Omit<ExceptionRecord, 'id'>) => void;
-  createQuarantine: (vetRecordId: number, cattleId: number, reason: string, operator: string) => void;
+  createQuarantine: (vetRecordId: number, cattleId: number, reason: string, operator: string) => number;
   updateQuarantine: (id: number, updates: Partial<QuarantineRecord>) => void;
   supplementVeterinary: (id: number, updates: Partial<VeterinaryRecord>) => void;
   getCattleById: (id: number) => Cattle | undefined;
   getVeterinaryById: (id: number) => VeterinaryRecord | undefined;
   getQuarantineById: (id: number) => QuarantineRecord | undefined;
+  getQuarantineByVetRecordId: (vetRecordId: number) => QuarantineRecord | undefined;
   getPendingVeterinary: () => VeterinaryRecord[];
   getPendingQuarantine: () => QuarantineRecord[];
   getRejectedRecords: () => (VeterinaryRecord | QuarantineRecord)[];
@@ -141,12 +142,36 @@ export const useFarmStore = create<FarmStore>((set, get) => ({
 
   createQuarantine: (vetRecordId, cattleId, reason, operator) => {
     const now = new Date().toISOString();
-    const vetRecord = get().getVeterinaryById(vetRecordId);
+    
+    const existingQuarantine = get().quarantineRecords.find(q => q.vetRecordId === vetRecordId);
+    
+    if (existingQuarantine) {
+      get().updateQuarantine(existingQuarantine.id, {
+        reason,
+        status: 'pending',
+        rejectReason: undefined,
+      });
+      
+      get().addExceptionRecord({
+        vetRecordId,
+        quarantineId: existingQuarantine.id,
+        type: 'info',
+        description: `巡诊单 #${vetRecordId} 补录后更新隔离申请 #${existingQuarantine.id}`,
+        action: `更新隔离原因: ${reason}`,
+        createdAt: now,
+        operator,
+      });
+      
+      get().updateVeterinaryStatus(vetRecordId, 'processing');
+      return existingQuarantine.id;
+    }
+    
+    const newId = get().quarantineRecords.length + 1;
     
     set((state) => ({
       quarantineRecords: [
         {
-          id: state.quarantineRecords.length + 1,
+          id: newId,
           vetRecordId,
           cattleId,
           startDate: now.split('T')[0],
@@ -163,13 +188,14 @@ export const useFarmStore = create<FarmStore>((set, get) => ({
     get().addExceptionRecord({
       vetRecordId,
       type: 'info',
-      description: `巡诊单 #${vetRecordId} 已转隔离申请`,
+      description: `巡诊单 #${vetRecordId} 已转隔离申请 #${newId}`,
       action: `创建隔离单，原因: ${reason}`,
       createdAt: now,
       operator,
     });
 
     get().updateVeterinaryStatus(vetRecordId, 'processing');
+    return newId;
   },
 
   updateQuarantine: (id, updates) => {
@@ -186,6 +212,7 @@ export const useFarmStore = create<FarmStore>((set, get) => ({
   supplementVeterinary: (id, updates) => {
     const now = new Date().toISOString();
     const originalRecord = get().getVeterinaryById(id);
+    const existingQuarantine = get().quarantineRecords.find(q => q.vetRecordId === id);
     
     set((state) => ({
       veterinaryRecords: state.veterinaryRecords.map((record) =>
@@ -194,6 +221,24 @@ export const useFarmStore = create<FarmStore>((set, get) => ({
           : record
       ),
     }));
+
+    if (existingQuarantine) {
+      get().updateQuarantine(existingQuarantine.id, {
+        reason: updates.diagnosis || existingQuarantine.reason,
+        status: 'pending',
+        rejectReason: undefined,
+      });
+      
+      get().addExceptionRecord({
+        vetRecordId: id,
+        quarantineId: existingQuarantine.id,
+        type: 'info',
+        description: `巡诊单 #${id} 补录后更新关联隔离申请 #${existingQuarantine.id}`,
+        action: `同步更新隔离原因: ${updates.diagnosis || '未变更诊断'}`,
+        createdAt: now,
+        operator: '系统',
+      });
+    }
 
     const updateSummary = Object.keys(updates).map(key => {
       const value = updates[key as keyof typeof updates];
@@ -227,6 +272,10 @@ export const useFarmStore = create<FarmStore>((set, get) => ({
 
   getQuarantineById: (id) => {
     return get().quarantineRecords.find((r) => r.id === id);
+  },
+
+  getQuarantineByVetRecordId: (vetRecordId) => {
+    return get().quarantineRecords.find((r) => r.vetRecordId === vetRecordId);
   },
 
   getPendingVeterinary: () => {
