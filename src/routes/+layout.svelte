@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 
 	let user: any = null;
 	let loading = true;
@@ -19,18 +20,22 @@
 	async function logout() {
 		await fetch('/api/auth/logout', { method: 'POST' });
 		user = null;
-		window.location.href = '/login';
+		if (typeof window !== 'undefined') {
+			window.location.href = '/login';
+		}
 	}
 
-	$: isLoginPage = window.location.pathname === '/login';
+	$: isLoginPage = $page.url.pathname === '/login';
 </script>
 
 {#if loading}
 	<div class="loading">加载中...</div>
 {:else if !user && !isLoginPage}
-	<script>
-		window.location.href = '/login';
-	</script>
+	{#if typeof window !== 'undefined'}
+		<script>
+			window.location.href = '/login';
+		</script>
+	{/if}
 {:else}
 	{#if user}
 		<nav class="nav">

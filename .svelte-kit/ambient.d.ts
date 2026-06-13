@@ -113,7 +113,6 @@ declare module '$env/static/private' {
 	export const npm_package_version: string;
 	export const TRAE_SANDBOX_LOG_DIR: string;
 	export const XPC_SERVICE_NAME: string;
-	export const VSCODE_INJECTION: string;
 	export const VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 	export const SAFE_RM_SOURCE_FLAG: string;
 	export const HOME: string;
@@ -300,7 +299,6 @@ declare module '$env/dynamic/private' {
 		npm_package_version: string;
 		TRAE_SANDBOX_LOG_DIR: string;
 		XPC_SERVICE_NAME: string;
-		VSCODE_INJECTION: string;
 		VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
 		SAFE_RM_SOURCE_FLAG: string;
 		HOME: string;

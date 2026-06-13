@@ -11,6 +11,8 @@
 	let followUpNote = '';
 	let followUpResult = 'pending';
 	let followUpDate = '';
+	let rejectReason = '';
+	let supplementNote = '';
 
 	onMount(async () => {
 		await loadDetail();
@@ -37,20 +39,34 @@
 			return;
 		}
 
+		if (processAction === '退回补充' && !rejectReason) {
+			alert('请填写退回原因');
+			return;
+		}
+
 		try {
 			const id = $page.params.id;
+			const payload: any = {
+				action: processAction,
+				description: processDescription
+			};
+
+			if (processAction === '退回补充') {
+				payload.reject_reason = rejectReason;
+				payload.supplement_note = supplementNote;
+			}
+
 			await fetch(`/api/risk-alerts/${id}/process`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					action: processAction,
-					description: processDescription
-				})
+				body: JSON.stringify(payload)
 			});
 
 			showProcessModal = false;
 			processAction = '';
 			processDescription = '';
+			rejectReason = '';
+			supplementNote = '';
 			await loadDetail();
 		} catch (e) {
 			alert('处理失败');
@@ -228,6 +244,25 @@
 		</div>
 
 		<div class="card">
+			<h2>我的待办</h2>
+			{#if detail.todos && detail.todos.length > 0}
+				<div class="todo-list">
+					{#each detail.todos as todo}
+						<div class="todo-item">
+							<div class="todo-info">
+								<span class="todo-type">{todo.todo_type === 'risk_process' ? '风险处理' : todo.todo_type === 'review_confirm' ? '审核确认' : todo.todo_type === 'sign_receive' ? '签收确认' : todo.todo_type === 'supplement_docs' ? '补充资料' : '后续跟踪'}</span>
+								<span class="status-badge status-{todo.status}">{todo.status === 'pending' ? '待处理' : todo.status === 'processing' ? '处理中' : '已完成'}</span>
+							</div>
+							<div class="todo-date">{formatDate(todo.created_at)}</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="empty-state">暂无待办事项</div>
+			{/if}
+		</div>
+
+		<div class="card">
 			<h2>操作日志</h2>
 			{#if detail.operationLogs && detail.operationLogs.length > 0}
 				<div class="timeline">
@@ -299,20 +334,39 @@
 						<label class="label">处理动作</label>
 						<select class="input" bind:value={processAction}>
 							<option value="">请选择</option>
-							<option value="开始处理">开始处理</option>
-							<option value="提出方案">提出方案</option>
-							<option value="组织讨论">组织讨论</option>
-							<option value="提供数据">提供数据</option>
-							<option value="确定方案">确定方案</option>
-							<option value="完成处理">完成处理</option>
-							<option value="确认完成">确认完成</option>
-							<option value="退回补充">退回补充</option>
+							{#if detail.riskAlert.status === 'pending'}
+								<option value="开始处理">开始处理</option>
+							{/if}
+							{#if detail.riskAlert.status === 'processing'}
+								<option value="提出方案">提出方案</option>
+								<option value="组织讨论">组织讨论</option>
+								<option value="提供数据">提供数据</option>
+								<option value="确定方案">确定方案</option>
+								<option value="完成处理">完成处理</option>
+							{/if}
+							{#if detail.riskAlert.status === 'confirming'}
+								<option value="确认完成">确认完成</option>
+								<option value="退回补充">退回补充</option>
+							{/if}
+							{#if detail.riskAlert.status === 'completed'}
+								<option value="重新处理">重新处理</option>
+							{/if}
 						</select>
 					</div>
 					<div class="form-group">
 						<label class="label">处理说明</label>
 						<textarea class="input textarea" bind:value={processDescription} placeholder="请详细描述处理内容..."></textarea>
 					</div>
+					{#if processAction === '退回补充'}
+						<div class="form-group">
+							<label class="label">退回原因 *</label>
+							<textarea class="input textarea" bind:value={rejectReason} placeholder="请说明退回原因..."></textarea>
+						</div>
+						<div class="form-group">
+							<label class="label">补充备注</label>
+							<textarea class="input textarea" bind:value={supplementNote} placeholder="请填写补充备注..."></textarea>
+						</div>
+					{/if}
 					<div class="modal-actions">
 						<button class="btn btn-secondary" on:click={() => showProcessModal = false}>取消</button>
 						<button class="btn btn-primary" on:click={handleProcess}>提交</button>
@@ -476,6 +530,37 @@
 		font-size: 0.875rem;
 	}
 
+	.todo-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.todo-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem;
+		background: #f9fafb;
+		border-radius: 0.375rem;
+	}
+
+	.todo-info {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.todo-type {
+		font-size: 0.875rem;
+		color: var(--text-primary);
+		font-weight: 500;
+	}
+
+	.todo-date {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
 	.timeline {
 		position: relative;
 		padding-left: 2rem;
@@ -588,6 +673,8 @@
 		max-width: 500px;
 		width: 90%;
 		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+		max-height: 80vh;
+		overflow-y: auto;
 	}
 
 	.form-group {
