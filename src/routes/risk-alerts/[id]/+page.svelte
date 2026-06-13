@@ -72,6 +72,10 @@
 				payload.supplement_note = supplementNote;
 			}
 
+			if (processAction === '补充资料') {
+				payload.supplement_note = supplementNote;
+			}
+
 			const res = await fetch(`/api/risk-alerts/${id}/process`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -109,7 +113,8 @@
 			});
 
 			if (!res.ok) {
-				alert('添加跟踪失败');
+				const error = await res.json();
+				alert(error.error || '添加跟踪失败');
 				return;
 			}
 
@@ -164,78 +169,78 @@
 		return labels[result] || result;
 	}
 
-	function canPerformAction(action: string): boolean {
-		if (!detail?.riskAlert) return false;
-		
-		const status = detail.riskAlert.status;
-		const isTaxAdvisor = currentUserRole === 'tax_advisor';
-		const isProjectManager = currentUserRole === 'project_manager';
-		const isClientFinance = currentUserRole === 'client_finance';
-		const isAssignee = currentUserId === detail.riskAlert.assignee_id?.toString();
-		const isCreator = currentUserId === detail.riskAlert.creator_id?.toString();
-
-		switch (action) {
-			case '开始处理':
-				return status === 'pending' && (isTaxAdvisor || isAssignee);
-			case '完成处理':
-				return status === 'processing' && (isTaxAdvisor || isAssignee);
-			case '确认完成':
-				return status === 'confirming' && (isProjectManager || isCreator);
-			case '退回补充':
-				return status === 'confirming' && (isProjectManager || isCreator);
-			case '补充资料':
-				return isClientFinance;
-			case '签收确认':
-				return isClientFinance;
-			case '重新处理':
-				return status === 'completed' && (isProjectManager || isTaxAdvisor);
-			case '添加跟踪':
-				return (isProjectManager || isTaxAdvisor) && status === 'completed';
-			default:
-				return true;
-		}
+	function getTodoTypeLabel(type: string): string {
+		const labels: Record<string, string> = {
+			risk_process: '风险处理',
+			review_confirm: '审核确认',
+			sign_receive: '签收确认',
+			supplement_docs: '补充资料',
+			follow_up: '后续跟踪'
+		};
+		return labels[type] || type;
 	}
 
 	function getAvailableActions() {
-		if (!detail?.riskAlert) return [];
+		if (!detail?.riskAlert || !detail.todos) return [];
 		
-		const baseActions: { value: string; label: string }[] = [];
+		const actions: { value: string; label: string; todoType?: string }[] = [];
 		const status = detail.riskAlert.status;
 
-		if (status === 'pending') {
-			if (canPerformAction('开始处理')) {
-				baseActions.push({ value: '开始处理', label: '开始处理' });
+		for (const todo of detail.todos) {
+			if (todo.status !== 'pending' && todo.status !== 'processing') continue;
+
+			switch (todo.todo_type) {
+				case 'risk_process':
+					if (status === 'pending') {
+						actions.push({ value: '开始处理', label: '开始处理', todoType: 'risk_process' });
+					} else if (status === 'processing') {
+						actions.push(
+							{ value: '提出方案', label: '提出方案', todoType: 'risk_process' },
+							{ value: '组织讨论', label: '组织讨论', todoType: 'risk_process' },
+							{ value: '提供数据', label: '提供数据', todoType: 'risk_process' },
+							{ value: '确定方案', label: '确定方案', todoType: 'risk_process' },
+							{ value: '完成处理', label: '完成处理', todoType: 'risk_process' }
+						);
+					}
+					break;
+				case 'review_confirm':
+					if (status === 'confirming') {
+						actions.push(
+							{ value: '确认完成', label: '确认完成', todoType: 'review_confirm' },
+							{ value: '退回补充', label: '退回补充', todoType: 'review_confirm' }
+						);
+					}
+					break;
+				case 'supplement_docs':
+					actions.push({ value: '补充资料', label: '补充资料', todoType: 'supplement_docs' });
+					break;
+				case 'sign_receive':
+					actions.push({ value: '签收确认', label: '签收确认', todoType: 'sign_receive' });
+					break;
+				case 'follow_up':
+					if (status === 'completed') {
+						actions.push({ value: '添加跟踪', label: '添加跟踪', todoType: 'follow_up' });
+					}
+					break;
 			}
 		}
 
-		if (status === 'processing') {
-			baseActions.push(
-				{ value: '提出方案', label: '提出方案' },
-				{ value: '组织讨论', label: '组织讨论' },
-				{ value: '提供数据', label: '提供数据' },
-				{ value: '确定方案', label: '确定方案' }
-			);
-			if (canPerformAction('完成处理')) {
-				baseActions.push({ value: '完成处理', label: '完成处理' });
+		if (status === 'completed' && currentUserRole === 'project_manager') {
+			const hasFollowUpTodo = detail.todos.some((t: any) => t.todo_type === 'follow_up');
+			if (!hasFollowUpTodo) {
+				const existingAction = actions.find(a => a.value === '重新处理');
+				if (!existingAction) {
+					actions.push({ value: '重新处理', label: '重新处理' });
+				}
 			}
 		}
 
-		if (status === 'confirming') {
-			if (canPerformAction('确认完成')) {
-				baseActions.push({ value: '确认完成', label: '确认完成' });
-			}
-			if (canPerformAction('退回补充')) {
-				baseActions.push({ value: '退回补充', label: '退回补充' });
-			}
-		}
+		return actions;
+	}
 
-		if (status === 'completed') {
-			if (canPerformAction('重新处理')) {
-				baseActions.push({ value: '重新处理', label: '重新处理' });
-			}
-		}
-
-		return baseActions;
+	function hasTodoType(todoType: string): boolean {
+		if (!detail?.todos) return false;
+		return detail.todos.some((t: any) => t.todo_type === todoType && (t.status === 'pending' || t.status === 'processing'));
 	}
 </script>
 
@@ -267,7 +272,7 @@
 					{#if getAvailableActions().length > 0}
 						<button class="btn btn-primary" on:click={() => showProcessModal = true}>处理</button>
 					{/if}
-					{#if canPerformAction('添加跟踪')}
+					{#if hasTodoType('follow_up')}
 						<button class="btn btn-secondary" on:click={() => showFollowUpModal = true}>添加跟踪</button>
 					{/if}
 				{/if}
@@ -353,7 +358,7 @@
 					{#each detail.todos as todo}
 						<div class="todo-item">
 							<div class="todo-info">
-								<span class="todo-type">{todo.todo_type === 'risk_process' ? '风险处理' : todo.todo_type === 'review_confirm' ? '审核确认' : todo.todo_type === 'sign_receive' ? '签收确认' : todo.todo_type === 'supplement_docs' ? '补充资料' : '后续跟踪'}</span>
+								<span class="todo-type">{getTodoTypeLabel(todo.todo_type)}</span>
 								<span class="status-badge status-{todo.status}">{todo.status === 'pending' ? '待处理' : todo.status === 'processing' ? '处理中' : '已完成'}</span>
 							</div>
 							<div class="todo-date">{formatDate(todo.created_at)}</div>
@@ -384,7 +389,7 @@
 								{#if log.old_value && log.new_value}
 									<div class="timeline-change">
 										<span class="old-value">{log.old_value}</span>
-										→
+										->
 										<span class="new-value">{log.new_value}</span>
 									</div>
 								{/if}
@@ -438,7 +443,7 @@
 						<select class="input" bind:value={processAction}>
 							<option value="">请选择</option>
 							{#each getAvailableActions() as action}
-								<option value={action.value}>{action.label}</option>
+								<option value={action.value}>{action.label} {action.todoType ? `(${getTodoTypeLabel(action.todoType)})` : ''}</option>
 							{/each}
 						</select>
 					</div>

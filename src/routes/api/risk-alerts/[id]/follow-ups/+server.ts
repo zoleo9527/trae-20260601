@@ -15,8 +15,24 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 	}
 
 	const session = JSON.parse(sessionCookie);
+	const userId = session.userId;
 	const id = parseInt(params.id);
 	const data = await request.json();
+
+	const user = db.prepare('SELECT role FROM users WHERE id = ?').get(userId) as any;
+	if (!['project_manager', 'tax_advisor'].includes(user?.role)) {
+		return json({ error: '只有项目经理或税务顾问可以添加跟踪' }, { status: 403 });
+	}
+
+	const userTodo = db.prepare(`
+		SELECT * FROM todo_items 
+		WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'follow_up' AND status IN ('pending', 'processing')
+		ORDER BY created_at DESC LIMIT 1
+	`).get(id, userId) as any;
+
+	if (!userTodo) {
+		return json({ error: '您没有后续跟踪的待办' }, { status: 403 });
+	}
 
 	const result = db.prepare(`
 		INSERT INTO follow_ups (risk_alert_id, follow_date, result, note)
@@ -26,14 +42,19 @@ export const POST: RequestHandler = async ({ params, request, cookies }) => {
 	db.prepare(`
 		INSERT INTO operation_logs (risk_alert_id, user_id, action, description)
 		VALUES (?, ?, '添加跟踪记录', ?)
-	`).run(id, session.userId, `跟踪结果：${data.result}，备注：${data.note || '无'}`);
+	`).run(id, userId, `跟踪结果：${data.result}，备注：${data.note || '无'}`);
+
+	db.prepare(`
+		UPDATE todo_items SET status = 'completed', updated_at = CURRENT_TIMESTAMP 
+		WHERE risk_alert_id = ? AND user_id = ? AND todo_type = 'follow_up' AND status IN ('pending', 'processing')
+	`).run(id, userId);
 
 	if (data.result === 'resolved') {
 		db.prepare('UPDATE risk_alerts SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run('closed', id);
 		db.prepare(`
 			INSERT INTO operation_logs (risk_alert_id, user_id, action, description, old_value, new_value)
 			VALUES (?, ?, '状态变更', ?, ?, ?)
-		`).run(id, session.userId, '状态从completed变更为closed', 'completed', 'closed');
+		`).run(id, userId, '状态从completed变更为closed', 'completed', 'closed');
 	}
 
 	return json({ id: result.lastInsertRowid });
