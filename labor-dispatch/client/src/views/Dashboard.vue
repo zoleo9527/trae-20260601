@@ -51,7 +51,7 @@
 
             <el-row :gutter="20" style="margin-bottom: 20px">
               <el-col :span="6">
-                <el-card>
+                <el-card shadow="hover" class="stat-card">
                   <template #header>
                     <div class="stat-header">
                       <span>用工需求</span>
@@ -61,14 +61,16 @@
                   <div class="stat-content">
                     <div class="stat-number">{{ stats.laborDemand?.total || 0 }}</div>
                     <div class="stat-detail">
-                      <span>待处理：{{ stats.laborDemand?.byStatus?.待处理 || 0 }}</span>
+                      <el-tag size="small" type="info">待处理：{{ stats.laborDemand?.byStatus?.待处理 || 0 }}</el-tag>
+                      <el-tag size="small" type="warning">匹配中：{{ stats.laborDemand?.byStatus?.匹配中 || 0 }}</el-tag>
+                      <el-tag size="small" type="success">已完成：{{ stats.laborDemand?.byStatus?.已完成 || 0 }}</el-tag>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
               <el-col :span="6">
-                <el-card>
+                <el-card shadow="hover" class="stat-card">
                   <template #header>
                     <div class="stat-header">
                       <span>候选人</span>
@@ -78,14 +80,16 @@
                   <div class="stat-content">
                     <div class="stat-number">{{ stats.candidate?.total || 0 }}</div>
                     <div class="stat-detail">
-                      <span>待匹配：{{ stats.candidate?.byStatus?.待匹配 || 0 }}</span>
+                      <el-tag size="small" type="info">待匹配：{{ stats.candidate?.byStatus?.待匹配 || 0 }}</el-tag>
+                      <el-tag size="small" type="warning">匹配中：{{ stats.candidate?.byStatus?.匹配中 || 0 }}</el-tag>
+                      <el-tag size="small" type="success">已入职：{{ stats.candidate?.byStatus?.已入职 || 0 }}</el-tag>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
               <el-col :span="6">
-                <el-card>
+                <el-card shadow="hover" class="stat-card">
                   <template #header>
                     <div class="stat-header">
                       <span>匹配记录</span>
@@ -95,14 +99,16 @@
                   <div class="stat-content">
                     <div class="stat-number">{{ stats.matching?.total || 0 }}</div>
                     <div class="stat-detail">
-                      <span>待确认：{{ stats.matching?.byStatus?.待确认 || 0 }}</span>
+                      <el-tag size="small" type="warning">待确认：{{ stats.matching?.byStatus?.待确认 || 0 }}</el-tag>
+                      <el-tag size="small" type="primary">面试中：{{ stats.matching?.byStatus?.面试中 || 0 }}</el-tag>
+                      <el-tag size="small" type="success">已入职：{{ stats.matching?.byStatus?.已入职 || 0 }}</el-tag>
                     </div>
                   </div>
                 </el-card>
               </el-col>
 
               <el-col :span="6">
-                <el-card>
+                <el-card shadow="hover" class="stat-card">
                   <template #header>
                     <div class="stat-header">
                       <span>异常处理</span>
@@ -112,7 +118,9 @@
                   <div class="stat-content">
                     <div class="stat-number">{{ stats.returnRecord?.total || 0 }}</div>
                     <div class="stat-detail">
-                      <span>本周退回/补录/复核</span>
+                      <el-tag size="small" type="danger">退回：{{ stats.returnRecord?.byType?.退回 || 0 }}</el-tag>
+                      <el-tag size="small" type="warning">补录：{{ stats.returnRecord?.byType?.补录 || 0 }}</el-tag>
+                      <el-tag size="small" type="primary">复核：{{ stats.returnRecord?.byType?.复核 || 0 }}</el-tag>
                     </div>
                   </div>
                 </el-card>
@@ -120,11 +128,12 @@
             </el-row>
 
             <el-row :gutter="20">
-              <el-col :span="12">
+              <el-col :span="16">
                 <el-card>
                   <template #header>
                     <div class="card-header">
                       <span>待办事项</span>
+                      <el-button type="primary" size="small" @click="refreshTodoList">刷新</el-button>
                     </div>
                   </template>
 
@@ -137,6 +146,7 @@
                             {{ item.demandNumber }}
                           </el-link>
                           <span style="margin-left: 10px">{{ item.companyName }} - {{ item.position }}</span>
+                          <el-tag size="small" type="info" style="margin-left: 10px">{{ item.status }}</el-tag>
                         </el-list-item>
                       </el-list>
                     </el-tab-pane>
@@ -148,16 +158,38 @@
                           <el-link type="primary" @click="$router.push(`/matchings/${item.id}`)">
                             {{ item.laborDemand?.companyName }} - {{ item.candidate?.name }}
                           </el-link>
+                          <el-tag size="small" type="warning" style="margin-left: 10px">
+                            {{ item.matchType }}
+                          </el-tag>
                         </el-list-item>
                       </el-list>
                     </el-tab-pane>
 
-                    <el-tab-pane label="异常处理" name="returns">
+                    <el-tab-pane label="待处理异常" name="returns">
                       <el-empty v-if="todoList.pendingReturns?.length === 0" description="暂无待处理" />
                       <el-list v-else>
                         <el-list-item v-for="item in todoList.pendingReturns" :key="item.id">
-                          <el-tag size="small" type="warning">{{ item.returnType }}</el-tag>
+                          <el-tag size="small" :type="getReturnTypeTag(item.returnType)">
+                            {{ item.returnType }}
+                          </el-tag>
                           <span style="margin-left: 10px">{{ item.returnReason }}</span>
+                          <el-button type="primary" link size="small" style="margin-left: 10px" @click="goToMatching(item)">
+                            查看
+                          </el-button>
+                        </el-list-item>
+                      </el-list>
+                    </el-tab-pane>
+
+                    <el-tab-pane v-if="user.role === '管理'" label="待复核" name="pendingReview">
+                      <el-empty v-if="todoList.pendingReview?.length === 0" description="暂无待复核" />
+                      <el-list v-else>
+                        <el-list-item v-for="item in todoList.pendingReview" :key="item.id">
+                          <el-link type="primary" @click="$router.push(`/matchings/${item.id}`)">
+                            {{ item.laborDemand?.companyName }} - {{ item.candidate?.name }}
+                          </el-link>
+                          <el-tag size="small" type="warning" style="margin-left: 10px">
+                            {{ item.status }}
+                          </el-tag>
                         </el-list-item>
                       </el-list>
                     </el-tab-pane>
@@ -165,11 +197,14 @@
                 </el-card>
               </el-col>
 
-              <el-col :span="12">
+              <el-col :span="8">
                 <el-card>
                   <template #header>
                     <div class="card-header">
                       <span>最近活动</span>
+                      <el-button type="primary" link size="small" @click="$router.push('/status-histories')">
+                        查看全部
+                      </el-button>
                     </div>
                   </template>
 
@@ -180,15 +215,20 @@
                       :timestamp="formatTime(activity.createdAt)"
                       placement="top"
                     >
-                      <el-card>
+                      <el-card shadow="hover">
                         <p>
-                          <el-tag size="small">{{ activity.actionType }}</el-tag>
+                          <el-tag size="small" :type="getActionTypeTag(activity.actionType)">
+                            {{ activity.actionType }}
+                          </el-tag>
                           <span style="margin-left: 10px">{{ activity.newStatus }}</span>
                         </p>
-                        <p style="margin-top: 5px; color: #666">
-                          操作人：{{ activity.operator?.name }} ({{ activity.operator?.role }})
+                        <p style="margin-top: 5px; color: #666; font-size: 13px">
+                          {{ activity.operator?.name }}
+                          <el-tag size="small" style="margin-left: 5px">
+                            {{ activity.operator?.role }}
+                          </el-tag>
                         </p>
-                        <p v-if="activity.remark" style="margin-top: 5px; color: #999">
+                        <p v-if="activity.remark" style="margin-top: 5px; color: #999; font-size: 12px">
                           {{ activity.remark }}
                         </p>
                       </el-card>
@@ -240,13 +280,56 @@ export default {
     const loadTodoList = async () => {
       try {
         todoList.value = await api.dashboard.getTodoList({ role: user.value.role })
+
+        if (user.value.role === '管理') {
+          const reviewResult = await api.matchings.list({
+            status: '已处理',
+            pageSize: 5
+          })
+          todoList.value.pendingReview = reviewResult.data
+        }
       } catch (error) {
         ElMessage.error('加载待办列表失败')
       }
     }
 
+    const refreshTodoList = () => {
+      loadTodoList()
+      ElMessage.success('已刷新')
+    }
+
+    const goToMatching = (item) => {
+      if (item.matchingRecordId) {
+        router.push(`/matchings/${item.matchingRecordId}`)
+      }
+    }
+
     const formatTime = (time) => {
       return new Date(time).toLocaleString('zh-CN')
+    }
+
+    const getReturnTypeTag = (type) => {
+      const types = {
+        '退回': 'danger',
+        '补录': 'warning',
+        '复核': 'primary'
+      }
+      return types[type] || 'info'
+    }
+
+    const getActionTypeTag = (type) => {
+      const types = {
+        '创建': 'primary',
+        '更新': 'info',
+        '状态更新': 'warning',
+        '退回': 'danger',
+        '补录': 'warning',
+        '复核': 'primary',
+        '确认': 'success',
+        '批量确认': 'success',
+        '批量退回': 'danger'
+      }
+      return types[type] || 'info'
     }
 
     const handleLogout = () => {
@@ -261,6 +344,10 @@ export default {
       todoList,
       activeTab,
       formatTime,
+      refreshTodoList,
+      goToMatching,
+      getReturnTypeTag,
+      getActionTypeTag,
       handleLogout
     }
   }
@@ -302,6 +389,15 @@ export default {
   border-right: 1px solid #e4e7ed;
 }
 
+.stat-card {
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-5px);
+}
+
 .stat-header {
   display: flex;
   justify-content: space-between;
@@ -316,11 +412,18 @@ export default {
   font-size: 32px;
   font-weight: bold;
   color: #409eff;
+  margin-bottom: 10px;
 }
 
 .stat-detail {
-  margin-top: 5px;
-  font-size: 14px;
-  color: #666;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>

@@ -68,7 +68,9 @@ export default {
     return: (id, data) => apiClient.post(`/matchings/${id}/return`, data),
     supplement: (id, data) => apiClient.post(`/matchings/${id}/supplement`, data),
     review: (id, data) => apiClient.post(`/matchings/${id}/review`, data),
-    delete: (id) => apiClient.delete(`/matchings/${id}`)
+    delete: (id) => apiClient.delete(`/matchings/${id}`),
+    batchConfirm: (data) => apiClient.post('/matchings/batch/confirm', data),
+    batchReturn: (data) => apiClient.post('/matchings/batch/return', data)
   },
 
   returnRecords: {

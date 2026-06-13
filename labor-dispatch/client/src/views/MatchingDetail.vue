@@ -10,8 +10,8 @@
           <div>
             <template v-if="detail?.status === '待确认'">
               <el-button type="success" @click="showConfirmDialog">确认</el-button>
-              <el-button type="warning" @click="showReturnDialog">退回</el-button>
-              <el-button @click="showSupplementDialog">补录</el-button>
+              <el-button type="warning" @click="showExceptionDrawer('退回')">退回</el-button>
+              <el-button @click="showExceptionDrawer('补录')">补录</el-button>
             </template>
             <el-button
               v-if="detail?.status === '已处理' && userRole === '管理'"
@@ -74,29 +74,124 @@
 
           <el-card style="margin-bottom: 20px">
             <template #header>
-              <span>状态流转（完整追溯链）</span>
+              <span>用工需求最新状态</span>
             </template>
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="状态">
+                <el-tag :type="getLaborDemandStatusType(detail?.laborDemand?.status)">
+                  {{ detail?.laborDemand?.status || '-' }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="最新操作">
+                <span v-if="detail?.laborDemand?.statusHistories?.[0]">
+                  {{ detail.laborDemand.statusHistories[0].operator?.name }} -
+                  {{ detail.laborDemand.statusHistories[0].actionType }}
+                </span>
+                <span v-else>-</span>
+              </el-descriptions-item>
+            </el-descriptions>
+          </el-card>
 
-            <el-steps :active="detail?.statusHistories?.length" align-center>
-              <el-step
-                v-for="(history, index) in detail?.statusHistories"
-                :key="history.id"
-                :title="history.newStatus"
-                :description="`${history.operator?.name} - ${formatTime(history.createdAt)}`"
-              />
-            </el-steps>
+          <el-card style="margin-bottom: 20px">
+            <template #header>
+              <span>候选人最新状态</span>
+            </template>
+            <el-descriptions :column="2" border>
+              <el-descriptions-item label="状态">
+                <el-tag :type="getCandidateStatusType(detail?.candidate?.status)">
+                  {{ detail?.candidate?.status || '-' }}
+                </el-tag>
+              </el-descriptions-item>
+              <el-descriptions-item label="最新操作">
+                <span v-if="detail?.candidate?.statusHistories?.[0]">
+                  {{ detail.candidate.statusHistories[0].operator?.name }} -
+                  {{ detail.candidate.statusHistories[0].actionType }}
+                </span>
+                <span v-else>-</span>
+              </el-descriptions-item>
+            </el-descriptions>
           </el-card>
 
           <el-tabs v-model="activeTab">
             <el-tab-pane label="状态历史详情" name="histories">
               <el-card>
                 <template #header>
-                  <span>状态历史（可追溯）</span>
+                  <span>匹配记录状态历史</span>
                 </template>
 
                 <el-timeline>
                   <el-timeline-item
                     v-for="history in detail?.statusHistories || []"
+                    :key="history.id"
+                    :timestamp="formatTime(history.createdAt)"
+                    placement="top"
+                  >
+                    <el-card>
+                      <p>
+                        <el-tag size="small" :type="getActionType(history.actionType)">
+                          {{ history.actionType }}
+                        </el-tag>
+                        <span style="margin-left: 10px">
+                          {{ history.previousStatus || '无' }} → {{ history.newStatus }}
+                        </span>
+                      </p>
+                      <p style="margin-top: 5px; color: #666">
+                        操作人：{{ history.operator?.name }}
+                        <el-tag size="small" style="margin-left: 5px">
+                          {{ history.operator?.role }}
+                        </el-tag>
+                      </p>
+                      <p v-if="history.remark" style="margin-top: 5px; color: #999">
+                        {{ history.remark }}
+                      </p>
+                    </el-card>
+                  </el-timeline-item>
+                </el-timeline>
+              </el-card>
+
+              <el-card style="margin-top: 20px">
+                <template #header>
+                  <span>用工需求状态历史</span>
+                </template>
+
+                <el-timeline>
+                  <el-timeline-item
+                    v-for="history in detail?.laborDemand?.statusHistories || []"
+                    :key="history.id"
+                    :timestamp="formatTime(history.createdAt)"
+                    placement="top"
+                  >
+                    <el-card>
+                      <p>
+                        <el-tag size="small" :type="getActionType(history.actionType)">
+                          {{ history.actionType }}
+                        </el-tag>
+                        <span style="margin-left: 10px">
+                          {{ history.previousStatus || '无' }} → {{ history.newStatus }}
+                        </span>
+                      </p>
+                      <p style="margin-top: 5px; color: #666">
+                        操作人：{{ history.operator?.name }}
+                        <el-tag size="small" style="margin-left: 5px">
+                          {{ history.operator?.role }}
+                        </el-tag>
+                      </p>
+                      <p v-if="history.remark" style="margin-top: 5px; color: #999">
+                        {{ history.remark }}
+                      </p>
+                    </el-card>
+                  </el-timeline-item>
+                </el-timeline>
+              </el-card>
+
+              <el-card style="margin-top: 20px">
+                <template #header>
+                  <span>候选人状态历史</span>
+                </template>
+
+                <el-timeline>
+                  <el-timeline-item
+                    v-for="history in detail?.candidate?.statusHistories || []"
                     :key="history.id"
                     :timestamp="formatTime(history.createdAt)"
                     placement="top"
@@ -234,54 +329,80 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="returnDialogVisible" title="退回" width="500px">
-      <el-form :model="returnForm" label-width="100px">
-        <el-form-item label="退回原因">
+    <el-drawer v-model="exceptionDrawerVisible" :title="exceptionTitle" size="500px">
+      <el-form :model="exceptionForm" label-width="100px">
+        <el-form-item label="异常类型">
+          <el-tag :type="exceptionForm.type === '退回' ? 'danger' : 'warning'">
+            {{ exceptionForm.type }}
+          </el-tag>
+        </el-form-item>
+        <el-form-item label="匹配信息">
+          <el-descriptions :column="1" size="small" border>
+            <el-descriptions-item label="用工单位">
+              {{ detail?.laborDemand?.companyName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="岗位">
+              {{ detail?.laborDemand?.position }}
+            </el-descriptions-item>
+            <el-descriptions-item label="候选人">
+              {{ detail?.candidate?.name }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-form-item>
+        <el-form-item :label="exceptionForm.type + '原因'" prop="reason">
           <el-input
-            v-model="returnForm.returnReason"
+            v-model="exceptionForm.reason"
             type="textarea"
-            :rows="3"
-            placeholder="请输入退回原因"
+            :rows="4"
+            :placeholder="`请输入${exceptionForm.type}原因`"
           />
         </el-form-item>
         <el-form-item label="备注">
-          <el-input v-model="returnForm.remark" type="textarea" :rows="2" />
+          <el-input v-model="exceptionForm.remark" type="textarea" :rows="2" />
+        </el-form-item>
+        <el-form-item label="上传附件">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="5"
+            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+          >
+            <el-button>选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持jpg、png、pdf、doc等格式</div>
+            </template>
+          </el-upload>
         </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="returnDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleReturnSubmit" :loading="submitLoading">
-          确定
-        </el-button>
+        <div style="text-align: right">
+          <el-button @click="exceptionDrawerVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleExceptionSubmit" :loading="submitLoading">
+            确定{{ exceptionForm.type }}
+          </el-button>
+        </div>
       </template>
-    </el-dialog>
-
-    <el-dialog v-model="supplementDialogVisible" title="补录" width="500px">
-      <el-form :model="supplementForm" label-width="100px">
-        <el-form-item label="补录原因">
-          <el-input
-            v-model="supplementForm.supplementReason"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入补录原因"
-          />
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="supplementForm.remark" type="textarea" :rows="2" />
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="supplementDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleSupplementSubmit" :loading="submitLoading">
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
+    </el-drawer>
 
     <el-dialog v-model="reviewDialogVisible" title="复核" width="500px">
       <el-form :model="reviewForm" label-width="100px">
+        <el-form-item label="匹配信息">
+          <el-descriptions :column="1" size="small" border>
+            <el-descriptions-item label="用工单位">
+              {{ detail?.laborDemand?.companyName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="岗位">
+              {{ detail?.laborDemand?.position }}
+            </el-descriptions-item>
+            <el-descriptions-item label="候选人">
+              {{ detail?.candidate?.name }}
+            </el-descriptions-item>
+            <el-descriptions-item label="当前状态">
+              <el-tag>{{ detail?.status }}</el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-form-item>
         <el-form-item label="复核结果">
           <el-radio-group v-model="reviewForm.reviewResult">
             <el-radio label="通过">通过</el-radio>
@@ -352,8 +473,7 @@ export default {
     const uploadRef = ref(null)
 
     const confirmDialogVisible = ref(false)
-    const returnDialogVisible = ref(false)
-    const supplementDialogVisible = ref(false)
+    const exceptionDrawerVisible = ref(false)
     const reviewDialogVisible = ref(false)
     const uploadDialogVisible = ref(false)
 
@@ -364,13 +484,9 @@ export default {
       remark: ''
     })
 
-    const returnForm = reactive({
-      returnReason: '',
-      remark: ''
-    })
-
-    const supplementForm = reactive({
-      supplementReason: '',
+    const exceptionForm = reactive({
+      type: '退回',
+      reason: '',
       remark: ''
     })
 
@@ -425,51 +541,38 @@ export default {
       }
     }
 
-    const showReturnDialog = () => {
-      Object.keys(returnForm).forEach(key => {
-        returnForm[key] = ''
-      })
-      returnDialogVisible.value = true
+    const showExceptionDrawer = (type) => {
+      exceptionForm.type = type
+      exceptionForm.reason = ''
+      exceptionForm.remark = ''
+      exceptionDrawerVisible.value = true
     }
 
-    const handleReturnSubmit = async () => {
+    const handleExceptionSubmit = async () => {
       try {
-        if (!returnForm.returnReason) {
-          ElMessage.warning('请输入退回原因')
+        if (!exceptionForm.reason) {
+          ElMessage.warning(`请输入${exceptionForm.type}原因`)
           return
         }
         submitLoading.value = true
-        await api.matchings.return(route.params.id, returnForm)
-        ElMessage.success('退回成功')
-        returnDialogVisible.value = false
-        loadDetail()
-      } catch (error) {
-        ElMessage.error(error.response?.data?.error || '退回失败')
-      } finally {
-        submitLoading.value = false
-      }
-    }
 
-    const showSupplementDialog = () => {
-      Object.keys(supplementForm).forEach(key => {
-        supplementForm[key] = ''
-      })
-      supplementDialogVisible.value = true
-    }
-
-    const handleSupplementSubmit = async () => {
-      try {
-        if (!supplementForm.supplementReason) {
-          ElMessage.warning('请输入补录原因')
-          return
+        const data = {
+          remark: exceptionForm.remark
         }
-        submitLoading.value = true
-        await api.matchings.supplement(route.params.id, supplementForm)
-        ElMessage.success('补录成功')
-        supplementDialogVisible.value = false
+
+        if (exceptionForm.type === '退回') {
+          data.returnReason = exceptionForm.reason
+          await api.matchings.return(route.params.id, data)
+        } else {
+          data.supplementReason = exceptionForm.reason
+          await api.matchings.supplement(route.params.id, data)
+        }
+
+        ElMessage.success(`${exceptionForm.type}成功`)
+        exceptionDrawerVisible.value = false
         loadDetail()
       } catch (error) {
-        ElMessage.error(error.response?.data?.error || '补录失败')
+        ElMessage.error(error.response?.data?.error || `${exceptionForm.type}失败`)
       } finally {
         submitLoading.value = false
       }
@@ -545,8 +648,31 @@ export default {
         '已入职': 'success',
         '已拒绝': 'danger',
         '已取消': 'info',
-        '已处理': 'info',
+        '已处理': 'success',
+        '待处理': 'warning',
         '已确认': 'success'
+      }
+      return types[status] || 'info'
+    }
+
+    const getLaborDemandStatusType = (status) => {
+      const types = {
+        '待处理': 'info',
+        '处理中': 'warning',
+        '匹配中': 'primary',
+        '已完成': 'success',
+        '已取消': 'danger'
+      }
+      return types[status] || 'info'
+    }
+
+    const getCandidateStatusType = (status) => {
+      const types = {
+        '待匹配': 'info',
+        '匹配中': 'warning',
+        '已推荐': 'primary',
+        '已入职': 'success',
+        '已离职': 'danger'
       }
       return types[status] || 'info'
     }
@@ -559,7 +685,9 @@ export default {
         '退回': 'danger',
         '补录': 'warning',
         '复核': 'primary',
-        '确认': 'success'
+        '确认': 'success',
+        '批量确认': 'success',
+        '批量退回': 'danger'
       }
       return types[actionType] || 'info'
     }
@@ -598,28 +726,26 @@ export default {
       userRole,
       uploadRef,
       confirmDialogVisible,
-      returnDialogVisible,
-      supplementDialogVisible,
+      exceptionDrawerVisible,
       reviewDialogVisible,
       uploadDialogVisible,
       confirmForm,
-      returnForm,
-      supplementForm,
+      exceptionForm,
       reviewForm,
       uploadForm,
       loadDetail,
       showConfirmDialog,
       handleConfirmSubmit,
-      showReturnDialog,
-      handleReturnSubmit,
-      showSupplementDialog,
-      handleSupplementSubmit,
+      showExceptionDrawer,
+      handleExceptionSubmit,
       showReviewDialog,
       handleReviewSubmit,
       showUploadDialog,
       handleUpload,
       handleDeleteAttachment,
       getStatusType,
+      getLaborDemandStatusType,
+      getCandidateStatusType,
       getActionType,
       getReturnTypeColor,
       getReturnStatusColor,
