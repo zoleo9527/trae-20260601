@@ -43,6 +43,7 @@ interface ExamDetailData {
     total: number;
     graded: number;
     pending: number;
+    absent: number;
     average: number;
     passRate: number;
   };
@@ -115,23 +116,23 @@ export default function ExamDetail() {
 
   const handleRegisterException = async (userId: string) => {
     if (!exceptionReason.trim()) {
-      alert('请填写异常原因');
+      alert('请填写缺考原因');
       return;
     }
 
     try {
-      await api.post('/exceptions', {
-        type: 'exam',
-        relatedType: 'exam',
-        relatedId: id,
+      await api.post(`/exams/${id}/absent`, {
+        scoreId: selectedScore?.scoreId,
         userId,
-        description: exceptionReason,
+        reason: exceptionReason,
       });
-      alert('异常登记成功');
+      alert('缺考登记成功');
       setShowExceptionModal(false);
       setExceptionReason('');
+      setSelectedScore(null);
+      if (id) fetchExamDetail(id);
     } catch (error) {
-      console.error('Failed to create exception:', error);
+      console.error('Failed to register absent:', error);
       alert('登记失败');
     }
   };
@@ -142,6 +143,7 @@ export default function ExamDetail() {
       grading: { label: '批改中', className: 'badge-info' },
       graded: { label: '已批改', className: 'badge-success' },
       published: { label: '已发布', className: 'bg-green-100 text-green-800' },
+      absent: { label: '缺考', className: 'badge-danger' },
     };
     const { label, className } = statusMap[status] || { label: status, className: 'badge-pending' };
     return <span className={`badge ${className}`}>{label}</span>;
@@ -190,7 +192,7 @@ export default function ExamDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="card text-center">
           <div className="text-3xl font-bold text-gray-900">{data.stats.total}</div>
           <div className="text-sm text-gray-500 mt-1">参考人数</div>
@@ -202,6 +204,10 @@ export default function ExamDetail() {
         <div className="card text-center">
           <div className="text-3xl font-bold text-yellow-600">{data.stats.pending}</div>
           <div className="text-sm text-gray-500 mt-1">待批改</div>
+        </div>
+        <div className="card text-center">
+          <div className="text-3xl font-bold text-red-600">{data.stats.absent || 0}</div>
+          <div className="text-sm text-gray-500 mt-1">缺考</div>
         </div>
         <div className="card text-center">
           <div className="text-3xl font-bold text-blue-600">{data.stats.average}</div>
@@ -282,7 +288,9 @@ export default function ExamDetail() {
                     {getStatusBadge(score.status)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {score.status !== 'published' && score.status !== 'graded' && score.score === null ? (
+                    {score.status === 'absent' ? (
+                      <span className="text-gray-400">已缺考</span>
+                    ) : score.status !== 'published' && score.status !== 'graded' && score.score === null ? (
                       <>
                         <button
                           onClick={() => setSelectedScore(score)}

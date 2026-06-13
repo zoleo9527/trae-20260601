@@ -310,7 +310,7 @@ async function main() {
       score: 95,
       status: 'graded',
       attachments: JSON.stringify([
-        { name: 'TableComponent.tsx', url: '/uploads/table-component.tsx' },
+        { fileName: 'TableComponent.tsx', fileUrl: '/uploads/table-component.tsx', fileSize: 2048, mimeType: 'text/plain' },
       ]),
       gradeNotes: '代码结构清晰，注释详细，功能完整',
       versionNumber: 1,
@@ -329,7 +329,7 @@ async function main() {
       score: 88,
       status: 'graded',
       attachments: JSON.stringify([
-        { name: 'data-table.vue', url: '/uploads/data-table.vue' },
+        { fileName: 'data-table.vue', fileUrl: '/uploads/data-table.vue', fileSize: 3072, mimeType: 'text/plain' },
       ]),
       gradeNotes: '使用了Vue实现，功能基本完整，但审题错误',
       versionNumber: 1,
@@ -348,7 +348,7 @@ async function main() {
       score: null,
       status: 'late',
       attachments: JSON.stringify([
-        { name: '迟交的作业.pdf', url: '/uploads/late-homework.pdf' },
+        { fileName: '迟交的作业.pdf', fileUrl: '/uploads/late-homework.pdf', fileSize: 5120, mimeType: 'application/pdf' },
       ]),
       gradeNotes: null,
       versionNumber: 1,

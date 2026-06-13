@@ -801,6 +801,7 @@ app.get('/api/exams/:id', authenticateToken, async (req, res) => {
       total: exam.examScores.length,
       graded: exam.examScores.filter((s) => s.status === 'graded' || s.status === 'published').length,
       pending: exam.examScores.filter((s) => s.status === 'pending').length,
+      absent: exam.examScores.filter((s) => s.status === 'absent').length,
       average: exam.examScores.filter((s) => s.score !== null).length > 0
         ? Math.round(
             exam.examScores
@@ -809,10 +810,10 @@ app.get('/api/exams/:id', authenticateToken, async (req, res) => {
               exam.examScores.filter((s) => s.score !== null).length
           )
         : 0,
-      passRate: exam.examScores.length > 0
+      passRate: exam.examScores.filter((s) => s.status !== 'absent').length > 0
         ? Math.round(
             (exam.examScores.filter((s) => (s.score || 0) >= exam.passingScore).length /
-              exam.examScores.length *
+              exam.examScores.filter((s) => s.status !== 'absent').length) *
               100
           )
         : 0,
@@ -913,8 +914,80 @@ app.post('/api/exams/:id/grade', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/api/exams/:id/absent', authenticateToken, async (req, res) => {
+  try {
+    const { scoreId, userId, reason } = req.body;
+
+    const examScore = await prisma.examScore.update({
+      where: { id: scoreId },
+      data: {
+        status: 'absent',
+        notes: `缺考：${reason}`,
+      },
+      include: {
+        user: {
+          select: { name: true },
+        },
+        exam: {
+          select: { id: true, title: true },
+        },
+      },
+    });
+
+    const exception = await prisma.exception.create({
+      data: {
+        type: 'exam',
+        relatedType: 'exam',
+        relatedId: examScore.exam.id,
+        userId,
+        description: `考试缺考：${reason}`,
+        status: 'pending',
+        operatedById: req.user.id,
+      },
+      include: {
+        user: {
+          select: { name: true },
+        },
+      },
+    });
+
+    await prisma.operationLog.create({
+      data: {
+        userId: req.user.id,
+        module: 'exam',
+        action: 'absent',
+        relatedType: 'exam',
+        relatedId: examScore.exam.id,
+        details: `登记${examScore.user.name}缺考：${reason}`,
+        ipAddress: req.ip,
+      },
+    });
+
+    res.json({
+      code: 200,
+      data: { examScore, exception },
+      message: '缺考登记成功'
+    });
+  } catch (error) {
+    console.error('Absent registration error:', error);
+    res.status(500).json({ code: 500, message: '服务器错误' });
+  }
+});
+
 app.post('/api/exams/:id/publish', authenticateToken, async (req, res) => {
   try {
+    const examScores = await prisma.examScore.findMany({
+      where: { examId: req.params.id },
+    });
+
+    const ungradedCount = examScores.filter(s => s.status !== 'graded').length;
+    if (ungradedCount > 0) {
+      return res.status(400).json({
+        code: 400,
+        message: `还有 ${ungradedCount} 名考生未批改，请先完成批改后再发布成绩`
+      });
+    }
+
     const exam = await prisma.exam.update({
       where: { id: req.params.id },
       data: {
@@ -923,7 +996,10 @@ app.post('/api/exams/:id/publish', authenticateToken, async (req, res) => {
     });
 
     await prisma.examScore.updateMany({
-      where: { examId: req.params.id },
+      where: {
+        examId: req.params.id,
+        status: 'graded'
+      },
       data: {
         status: 'published',
       },
