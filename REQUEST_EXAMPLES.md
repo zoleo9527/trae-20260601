@@ -196,7 +196,22 @@ curl -X POST http://localhost:8080/api/invitations \
       "candidateName": "张三",
       "judgmentNote": "候选人经验匹配，态度良好",
       "submittedByName": "招聘顾问"
-    }
+    },
+    "operationLogs": [
+      {
+        "id": 2,
+        "module": "interview_invitation",
+        "moduleDesc": "面试邀约",
+        "operationType": "UPDATE",
+        "operationTypeDesc": "更新",
+        "targetType": "interview",
+        "targetId": 1,
+        "operatorId": 5,
+        "operatorName": "候选人",
+        "content": "候选人确认参加面试",
+        "createdAt": "2024-01-16T09:30:00"
+      }
+    ]
   }
 }
 ```
@@ -294,6 +309,68 @@ curl -X GET http://localhost:8080/api/invitations/application/1
 
 ```bash
 curl -X GET http://localhost:8080/api/invitations/no-show
+```
+
+---
+
+## 16. 操作日志 - 按报名ID查询
+
+```bash
+curl -X GET http://localhost:8080/api/logs/application/1
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 1,
+      "module": "candidate_application",
+      "moduleDesc": "候选报名",
+      "operationType": "UPDATE",
+      "operationTypeDesc": "更新",
+      "targetType": "application",
+      "targetId": 1,
+      "operatorId": 2,
+      "operatorName": "运营",
+      "content": "审核通过，状态变更为已确认",
+      "createdAt": "2024-01-15T11:00:00"
+    }
+  ]
+}
+```
+
+---
+
+## 17. 操作日志 - 按邀约ID查询
+
+```bash
+curl -X GET http://localhost:8080/api/logs/interview/1
+```
+
+**响应示例:**
+```json
+{
+  "code": 200,
+  "message": "success",
+  "data": [
+    {
+      "id": 2,
+      "module": "interview_invitation",
+      "moduleDesc": "面试邀约",
+      "operationType": "UPDATE",
+      "operationTypeDesc": "更新",
+      "targetType": "interview",
+      "targetId": 1,
+      "operatorId": 5,
+      "operatorName": "候选人",
+      "content": "候选人确认参加面试",
+      "createdAt": "2024-01-16T09:30:00"
+    }
+  ]
+}
 ```
 
 ---

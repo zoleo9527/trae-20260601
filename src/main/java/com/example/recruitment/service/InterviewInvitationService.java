@@ -8,6 +8,7 @@ import com.example.recruitment.dto.request.InterviewInvitationQueryRequest;
 import com.example.recruitment.dto.request.InterviewInvitationStatusRequest;
 import com.example.recruitment.dto.response.CandidateApplicationResponse;
 import com.example.recruitment.dto.response.InterviewInvitationResponse;
+import com.example.recruitment.dto.response.SystemLogResponse;
 import com.example.recruitment.entity.CandidateApplication;
 import com.example.recruitment.entity.InterviewInvitation;
 import com.example.recruitment.entity.Position;
@@ -296,6 +297,9 @@ public class InterviewInvitationService {
                     .rejectedReason(application.getRejectedReason())
                     .build());
         }
+
+        List<SystemLogResponse> operationLogs = systemLogService.getLogsByInterviewId(invitation.getId());
+        response.setOperationLogs(operationLogs);
 
         return response;
     }

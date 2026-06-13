@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.recruitment.mapper.SystemLogMapper">
+
+    <select id="selectByTargetTypeAndId" resultType="com.example.recruitment.entity.SystemLog">
+        SELECT * FROM system_log
+        WHERE target_type = #{targetType}
+          AND target_id = #{targetId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByModule" resultType="com.example.recruitment.entity.SystemLog">
+        SELECT * FROM system_log
+        WHERE module = #{module}
+        ORDER BY created_at DESC
+        LIMIT 100
+    </select>
+
+    <select id="selectByApplicationId" resultType="com.example.recruitment.entity.SystemLog">
+        SELECT * FROM system_log
+        WHERE module = 'candidate_application'
+          AND target_id = #{applicationId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectByInterviewId" resultType="com.example.recruitment.entity.SystemLog">
+        SELECT * FROM system_log
+        WHERE module = 'interview_invitation'
+          AND target_id = #{interviewId}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

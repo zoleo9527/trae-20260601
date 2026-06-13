@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -59,4 +60,6 @@ public class InterviewInvitationResponse {
     private LocalDateTime updatedAt;
 
     private CandidateApplicationResponse application;
+
+    private List<SystemLogResponse> operationLogs;
 }
