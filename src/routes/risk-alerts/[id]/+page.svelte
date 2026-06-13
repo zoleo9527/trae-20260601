@@ -1,0 +1,611 @@
+<script lang="ts">
+	import { page } from '$app/stores';
+	import { onMount } from 'svelte';
+
+	let detail: any = null;
+	let loading = true;
+	let processAction = '';
+	let processDescription = '';
+	let showProcessModal = false;
+	let showFollowUpModal = false;
+	let followUpNote = '';
+	let followUpResult = 'pending';
+	let followUpDate = '';
+
+	onMount(async () => {
+		await loadDetail();
+	});
+
+	async function loadDetail() {
+		loading = true;
+		try {
+			const id = $page.params.id;
+			const res = await fetch(`/api/risk-alerts/${id}`);
+			detail = await res.json();
+			
+			const today = new Date();
+			followUpDate = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+		} catch (e) {
+			console.error(e);
+		}
+		loading = false;
+	}
+
+	async function handleProcess() {
+		if (!processAction) {
+			alert('请选择处理动作');
+			return;
+		}
+
+		try {
+			const id = $page.params.id;
+			await fetch(`/api/risk-alerts/${id}/process`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					action: processAction,
+					description: processDescription
+				})
+			});
+
+			showProcessModal = false;
+			processAction = '';
+			processDescription = '';
+			await loadDetail();
+		} catch (e) {
+			alert('处理失败');
+		}
+	}
+
+	async function handleFollowUp() {
+		try {
+			const id = $page.params.id;
+			await fetch(`/api/risk-alerts/${id}/follow-ups`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					follow_date: followUpDate,
+					result: followUpResult,
+					note: followUpNote
+				})
+			});
+
+			showFollowUpModal = false;
+			followUpNote = '';
+			followUpResult = 'pending';
+			await loadDetail();
+		} catch (e) {
+			alert('添加跟踪失败');
+		}
+	}
+
+	function getTypeLabel(type: string): string {
+		const labels = {
+			policy_dispute: '政策适用争议',
+			draft_version_chaos: '底稿版本混乱',
+			response_unsigned: '答复未签收',
+			missing_docs: '补充资料缺失',
+			deadline_risk: '申报期限风险',
+			system_error: '系统操作异常'
+		};
+		return labels[type] || type;
+	}
+
+	function getStatusLabel(status: string): string {
+		const labels = {
+			pending: '待处理',
+			processing: '处理中',
+			confirming: '待确认',
+			completed: '已完成',
+			closed: '已关闭'
+		};
+		return labels[status] || status;
+	}
+
+	function formatDate(dateStr: string): string {
+		return new Date(dateStr).toLocaleString('zh-CN', {
+			year: 'numeric',
+			month: '2-digit',
+			day: '2-digit',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
+	function getFollowUpResultLabel(result: string): string {
+		const labels = {
+			resolved: '已解决',
+			pending: '待处理',
+			escalated: '已升级'
+		};
+		return labels[result] || result;
+	}
+</script>
+
+<div class="container">
+	{#if loading}
+		<div class="loading">加载中...</div>
+	{:else if detail}
+		<div class="header">
+			<div class="header-left">
+				<h1>{detail.riskAlert.title}</h1>
+				<div class="meta">
+					<span class="code">{detail.riskAlert.code}</span>
+					<span class="badge badge-{detail.riskAlert.severity}">
+						{#if detail.riskAlert.severity === 'high'}
+							高风险
+						{:else if detail.riskAlert.severity === 'medium'}
+							中风险
+						{:else}
+							低风险
+						{/if}
+					</span>
+					<span class="status-badge status-{detail.riskAlert.status}">
+						{getStatusLabel(detail.riskAlert.status)}
+					</span>
+				</div>
+			</div>
+			<div class="header-right">
+				{#if detail.riskAlert.status !== 'closed'}
+					<button class="btn btn-primary" on:click={() => showProcessModal = true}>处理</button>
+					{#if detail.riskAlert.status === 'completed'}
+						<button class="btn btn-secondary" on:click={() => showFollowUpModal = true}>添加跟踪</button>
+					{/if}
+				{/if}
+				<a href="/risk-alerts" class="btn btn-secondary">返回列表</a>
+			</div>
+		</div>
+
+		<div class="grid grid-cols-2">
+			<div class="card">
+				<h2>基础信息</h2>
+				<div class="info-list">
+					<div class="info-item">
+						<div class="info-label">风险类型</div>
+						<div class="info-value">{getTypeLabel(detail.riskAlert.type)}</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">关联类型</div>
+						<div class="info-value">
+							{#if detail.riskAlert.related_type === 'consult'}
+								咨询工单
+							{:else if detail.riskAlert.related_type === 'policy'}
+								政策资料
+							{:else if detail.riskAlert.related_type === 'draft'}
+								申报底稿
+							{:else}
+								-
+							{/if}
+						</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">关联编号</div>
+						<div class="info-value">{detail.riskAlert.related_id || '-'}</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">责任人</div>
+						<div class="info-value">{detail.assignee?.name || '-'}</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">创建人</div>
+						<div class="info-value">{detail.creator?.name || '-'}</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">创建时间</div>
+						<div class="info-value">{formatDate(detail.riskAlert.created_at)}</div>
+					</div>
+					<div class="info-item">
+						<div class="info-label">截止时间</div>
+						<div class="info-value">
+							{#if detail.riskAlert.due_date}
+								{formatDate(detail.riskAlert.due_date)}
+							{:else}
+								-
+							{/if}
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="card">
+				<h2>退回原因与补充备注</h2>
+				{#if detail.riskAlert.reject_reason}
+					<div class="note-section">
+						<div class="note-title">退回原因</div>
+						<div class="note-content reject">{detail.riskAlert.reject_reason}</div>
+					</div>
+				{/if}
+				{#if detail.riskAlert.supplement_note}
+					<div class="note-section">
+						<div class="note-title">补充备注</div>
+						<div class="note-content supplement">{detail.riskAlert.supplement_note}</div>
+					</div>
+				{/if}
+				{#if !detail.riskAlert.reject_reason && !detail.riskAlert.supplement_note}
+					<div class="empty-note">暂无退回原因或补充备注</div>
+				{/if}
+			</div>
+		</div>
+
+		<div class="card">
+			<h2>操作日志</h2>
+			{#if detail.operationLogs && detail.operationLogs.length > 0}
+				<div class="timeline">
+					{#each detail.operationLogs as log}
+						<div class="timeline-item">
+							<div class="timeline-marker"></div>
+							<div class="timeline-content">
+								<div class="timeline-header">
+									<span class="timeline-action">{log.action}</span>
+									<span class="timeline-user">{log.user_name || '系统'}</span>
+									<span class="timeline-time">{formatDate(log.created_at)}</span>
+								</div>
+								{#if log.description}
+									<div class="timeline-desc">{log.description}</div>
+								{/if}
+								{#if log.old_value && log.new_value}
+									<div class="timeline-change">
+										<span class="old-value">{log.old_value}</span>
+										→
+										<span class="new-value">{log.new_value}</span>
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<div class="empty-state">暂无操作日志</div>
+			{/if}
+		</div>
+
+		<div class="card">
+			<h2>后续跟踪记录</h2>
+			{#if detail.followUps && detail.followUps.length > 0}
+				<table class="table">
+					<thead>
+						<tr>
+							<th>跟踪日期</th>
+							<th>结果</th>
+							<th>备注</th>
+							<th>记录时间</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each detail.followUps as followUp}
+							<tr>
+								<td>{formatDate(followUp.follow_date)}</td>
+								<td>
+									<span class="status-badge status-{followUp.result === 'resolved' ? 'completed' : followUp.result === 'pending' ? 'pending' : 'processing'}">
+										{getFollowUpResultLabel(followUp.result)}
+									</span>
+								</td>
+								<td>{followUp.note || '-'}</td>
+								<td>{formatDate(followUp.created_at)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{:else}
+				<div class="empty-state">暂无后续跟踪记录</div>
+			{/if}
+		</div>
+
+		{#if showProcessModal}
+			<div class="modal-overlay" on:click={() => showProcessModal = false}>
+				<div class="modal" on:click|stopPropagation>
+					<h3>处理风险提示</h3>
+					<div class="form-group">
+						<label class="label">处理动作</label>
+						<select class="input" bind:value={processAction}>
+							<option value="">请选择</option>
+							<option value="开始处理">开始处理</option>
+							<option value="提出方案">提出方案</option>
+							<option value="组织讨论">组织讨论</option>
+							<option value="提供数据">提供数据</option>
+							<option value="确定方案">确定方案</option>
+							<option value="完成处理">完成处理</option>
+							<option value="确认完成">确认完成</option>
+							<option value="退回补充">退回补充</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label class="label">处理说明</label>
+						<textarea class="input textarea" bind:value={processDescription} placeholder="请详细描述处理内容..."></textarea>
+					</div>
+					<div class="modal-actions">
+						<button class="btn btn-secondary" on:click={() => showProcessModal = false}>取消</button>
+						<button class="btn btn-primary" on:click={handleProcess}>提交</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+
+		{#if showFollowUpModal}
+			<div class="modal-overlay" on:click={() => showFollowUpModal = false}>
+				<div class="modal" on:click|stopPropagation>
+					<h3>添加后续跟踪</h3>
+					<div class="form-group">
+						<label class="label">跟踪日期</label>
+						<input type="date" class="input" bind:value={followUpDate} />
+					</div>
+					<div class="form-group">
+						<label class="label">跟踪结果</label>
+						<select class="input" bind:value={followUpResult}>
+							<option value="pending">待处理</option>
+							<option value="resolved">已解决</option>
+							<option value="escalated">已升级</option>
+						</select>
+					</div>
+					<div class="form-group">
+						<label class="label">跟踪备注</label>
+						<textarea class="input textarea" bind:value={followUpNote} placeholder="请描述跟踪情况..."></textarea>
+					</div>
+					<div class="modal-actions">
+						<button class="btn btn-secondary" on:click={() => showFollowUpModal = false}>取消</button>
+						<button class="btn btn-primary" on:click={handleFollowUp}>提交</button>
+					</div>
+				</div>
+			</div>
+		{/if}
+	{:else}
+		<div class="error-state">加载失败</div>
+	{/if}
+</div>
+
+<style>
+	h1 {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--text-primary);
+		margin: 0 0 0.75rem 0;
+	}
+
+	h2 {
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		margin: 0 0 1rem 0;
+	}
+
+	h3 {
+		font-size: 1.125rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		margin: 0 0 1.5rem 0;
+	}
+
+	.loading, .error-state {
+		text-align: center;
+		padding: 3rem;
+		color: var(--text-secondary);
+	}
+
+	.header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 1.5rem;
+		background: var(--card-bg);
+		padding: 1.5rem;
+		border-radius: 0.5rem;
+		box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+	}
+
+	.header-left {
+		flex: 1;
+	}
+
+	.meta {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.code {
+		font-size: 0.875rem;
+		color: var(--text-secondary);
+	}
+
+	.header-right {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	.grid-cols-2 {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.info-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.info-item {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid var(--border-color);
+	}
+
+	.info-label {
+		font-size: 0.875rem;
+		color: var(--text-secondary);
+		min-width: 120px;
+	}
+
+	.info-value {
+		font-size: 0.875rem;
+		color: var(--text-primary);
+		flex: 1;
+	}
+
+	.note-section {
+		margin-bottom: 1rem;
+	}
+
+	.note-title {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--text-primary);
+		margin-bottom: 0.5rem;
+	}
+
+	.note-content {
+		padding: 0.75rem;
+		border-radius: 0.375rem;
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
+
+	.note-content.reject {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+
+	.note-content.supplement {
+		background: #dbeafe;
+		color: #1e40af;
+	}
+
+	.empty-note {
+		text-align: center;
+		padding: 1rem;
+		color: var(--text-secondary);
+		font-size: 0.875rem;
+	}
+
+	.timeline {
+		position: relative;
+		padding-left: 2rem;
+	}
+
+	.timeline-item {
+		position: relative;
+		padding-bottom: 1.5rem;
+	}
+
+	.timeline-item:last-child {
+		padding-bottom: 0;
+	}
+
+	.timeline-marker {
+		position: absolute;
+		left: -2rem;
+		top: 0.25rem;
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
+		background: var(--primary-color);
+	}
+
+	.timeline-item::before {
+		content: '';
+		position: absolute;
+		left: -1.45rem;
+		top: 0.5rem;
+		width: 2px;
+		height: 100%;
+		background: var(--border-color);
+	}
+
+	.timeline-item:last-child::before {
+		display: none;
+	}
+
+	.timeline-header {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.timeline-action {
+		font-weight: 600;
+		color: var(--text-primary);
+		font-size: 0.875rem;
+	}
+
+	.timeline-user {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+		padding: 0.125rem 0.5rem;
+		background: #f3f4f6;
+		border-radius: 0.25rem;
+	}
+
+	.timeline-time {
+		font-size: 0.75rem;
+		color: var(--text-secondary);
+	}
+
+	.timeline-desc {
+		font-size: 0.875rem;
+		color: var(--text-secondary);
+		margin-bottom: 0.25rem;
+	}
+
+	.timeline-change {
+		font-size: 0.75rem;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.old-value {
+		color: #dc2626;
+	}
+
+	.new-value {
+		color: #10b981;
+	}
+
+	.empty-state {
+		text-align: center;
+		padding: 2rem;
+		color: var(--text-secondary);
+		font-size: 0.875rem;
+	}
+
+	.modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+	}
+
+	.modal {
+		background: var(--card-bg);
+		border-radius: 0.5rem;
+		padding: 2rem;
+		max-width: 500px;
+		width: 90%;
+		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+	}
+
+	.form-group {
+		margin-bottom: 1.5rem;
+	}
+
+	.textarea {
+		min-height: 100px;
+		resize: vertical;
+	}
+
+	.modal-actions {
+		display: flex;
+		justify-content: flex-end;
+		gap: 0.75rem;
+	}
+
+	a {
+		text-decoration: none;
+	}
+</style>

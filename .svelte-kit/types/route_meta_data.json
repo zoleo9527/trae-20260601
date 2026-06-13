@@ -1,0 +1,38 @@
+{
+	"/": [],
+	"/api/auth/current-user": [
+		"src/routes/api/auth/current-user/+server.ts"
+	],
+	"/api/auth/login": [
+		"src/routes/api/auth/login/+server.ts"
+	],
+	"/api/auth/logout": [
+		"src/routes/api/auth/logout/+server.ts"
+	],
+	"/api/dashboard/stats": [
+		"src/routes/api/dashboard/stats/+server.ts"
+	],
+	"/api/risk-alerts": [
+		"src/routes/api/risk-alerts/+server.ts"
+	],
+	"/api/risk-alerts/[id]": [
+		"src/routes/api/risk-alerts/[id]/+server.ts"
+	],
+	"/api/risk-alerts/[id]/follow-ups": [
+		"src/routes/api/risk-alerts/[id]/follow-ups/+server.ts"
+	],
+	"/api/risk-alerts/[id]/process": [
+		"src/routes/api/risk-alerts/[id]/process/+server.ts"
+	],
+	"/api/todos": [
+		"src/routes/api/todos/+server.ts"
+	],
+	"/api/todos/[id]/complete": [
+		"src/routes/api/todos/[id]/complete/+server.ts"
+	],
+	"/login": [],
+	"/risk-alerts": [],
+	"/risk-alerts/new": [],
+	"/risk-alerts/[id]": [],
+	"/todos": []
+}
