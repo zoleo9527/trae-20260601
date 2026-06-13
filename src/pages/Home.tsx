@@ -134,6 +134,15 @@ export default function Home() {
                 onRejectSchedule={(id) => setSelectedSchedule(id)}
                 onConfirmEnrollment={(id) => setSelectedEnrollment(id)}
                 onRejectEnrollment={(id) => setSelectedEnrollment(id)}
+                onApproveTrainingNeed={(id) => {
+                  actions.approveTrainingNeed(id);
+                }}
+                onRejectTrainingNeed={(id) => {
+                  const reason = prompt('请输入退回原因：');
+                  if (reason) {
+                    actions.rejectTrainingNeed(id, reason);
+                  }
+                }}
               />
             </div>
 

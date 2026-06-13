@@ -13,6 +13,8 @@ interface TodoListProps {
   onRejectSchedule?: (id: string) => void;
   onConfirmEnrollment?: (id: string) => void;
   onRejectEnrollment?: (id: string) => void;
+  onApproveTrainingNeed?: (id: string) => void;
+  onRejectTrainingNeed?: (id: string) => void;
 }
 
 const typeConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
@@ -29,6 +31,8 @@ export function TodoList({
   onRejectSchedule,
   onConfirmEnrollment,
   onRejectEnrollment,
+  onApproveTrainingNeed,
+  onRejectTrainingNeed,
 }: TodoListProps) {
   const { todos } = useAppStore();
 
@@ -77,18 +81,18 @@ export function TodoList({
                   onViewTrainingNeed?.(todo.entityId);
                 }
               } else if (action === '审核通过') {
-                onViewTrainingNeed?.(todo.entityId);
-              } else if (action === '退回') {
-                onViewTrainingNeed?.(todo.entityId);
+                onApproveTrainingNeed?.(todo.entityId);
+              } else if (action === '退回' && todo.category === 'training_need') {
+                onRejectTrainingNeed?.(todo.entityId);
               } else if (action === '确认排期') {
                 onConfirmSchedule?.(todo.entityId);
-              } else if (action === '拒绝') {
+              } else if (action === '拒绝' && todo.category === 'schedule') {
                 onRejectSchedule?.(todo.entityId);
               } else if (action === '编辑名单') {
                 onViewEnrollment?.(todo.entityId);
               } else if (action === '确认名单') {
                 onConfirmEnrollment?.(todo.entityId);
-              } else if (action === '退回') {
+              } else if (action === '退回' && todo.category === 'enrollment') {
                 onRejectEnrollment?.(todo.entityId);
               }
             }}

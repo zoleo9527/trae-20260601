@@ -87,15 +87,18 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (currentUser.role === 'manager') {
         trainingNeeds.forEach((need) => {
           const deadline = new Date(need.deadline);
-          if (need.status === TrainingNeedStatus.PENDING_REVIEW) {
-            const lastLog = timelineLogs
-              .filter((log) => log.entityType === 'training_need' && log.entityId === need.id)
-              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+          const lastLog = timelineLogs
+            .filter((log) => log.entityType === 'training_need' && log.entityId === need.id)
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
 
-            const isReturned = lastLog && 
-              new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
-              lastLog.toStatus === TrainingNeedStatus.REJECTED;
+          const isReturned = lastLog && 
+            new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
+            lastLog.toStatus === TrainingNeedStatus.REJECTED;
 
+          const isPending = need.status === TrainingNeedStatus.PENDING_REVIEW;
+          const isRejected = need.status === TrainingNeedStatus.REJECTED;
+
+          if (isPending || (isRejected && isReturned)) {
             const priority: 'high' | 'medium' | 'low' = deadline < todayStart ? 'high' : (deadline >= todayStart && deadline < todayEnd ? 'medium' : 'low');
             const actions = ['查看详情', '审核通过', '退回'];
             const baseTodo = {
@@ -107,7 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
               entityId: need.id,
               priority,
               actions,
-              status: '待审核',
+              status: isRejected ? '已退回' : '待审核',
             };
 
             if (isReturned) {
@@ -568,7 +571,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
       const historyEntry: EnrollmentHistory = {
         version: (oldEnrollment.history?.length || 0) + 1,
-        studentList: oldEnrollment.studentList,
+        studentList: students,
         updatedAt: now,
         updatedBy: currentUser?.name || '',
         status: oldEnrollment.status,
