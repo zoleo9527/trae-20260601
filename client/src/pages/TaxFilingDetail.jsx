@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Card,
   Descriptions,
@@ -35,10 +35,21 @@ import dayjs from 'dayjs'
 function TaxFilingDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editingRemark, setEditingRemark] = useState(false)
   const [remarkForm] = Form.useForm()
+
+  const fromPath = searchParams.get('from') || '/tax-filings'
+
+  const goBack = () => {
+    navigate(fromPath)
+  }
+
+  const navigateToException = (exceptionId) => {
+    navigate(`/exceptions/${exceptionId}?from=${encodeURIComponent(fromPath)}`)
+  }
 
   useEffect(() => {
     fetchDetail()
@@ -192,7 +203,7 @@ function TaxFilingDetail() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/tax-filings')}>
+        <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
           返回列表
         </Button>
       </div>
@@ -314,7 +325,7 @@ function TaxFilingDetail() {
                 renderItem={item => (
                   <List.Item
                     style={{ cursor: 'pointer', padding: '12px 0' }}
-                    onClick={() => navigate(`/exceptions/${item.id}`)}
+                    onClick={() => navigateToException(item.id)}
                   >
                     <List.Item.Meta
                       title={

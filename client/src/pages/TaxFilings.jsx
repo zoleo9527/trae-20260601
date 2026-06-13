@@ -11,12 +11,13 @@ import {
   SearchOutlined,
   ClearOutlined,
 } from '@ant-design/icons'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { api } from '../api'
 import dayjs from 'dayjs'
 
 function TaxFilings() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState({ list: [], total: 0 })
   const [loading, setLoading] = useState(false)
@@ -34,6 +35,12 @@ function TaxFilings() {
   const pageSize = parseInt(searchParams.get('pageSize') || '20')
 
   const hasActiveFilter = statusFilter || taxTypeFilter || keyword
+
+  const currentListPath = `${location.pathname}${location.search}`
+
+  const navigateToDetail = (id) => {
+    navigate(`/tax-filings/${id}?from=${encodeURIComponent(currentListPath)}`)
+  }
 
   useEffect(() => {
     api.getCustomers({ pageSize: 100 }).then(res => setCustomers(res.list))
@@ -229,7 +236,7 @@ function TaxFilings() {
     }
     actions.push(
       <Button key="view" size="small" icon={<EyeOutlined />}
-        onClick={() => navigate(`/tax-filings/${record.id}`)}>
+        onClick={() => navigateToDetail(record.id)}>
         详情
       </Button>
     )

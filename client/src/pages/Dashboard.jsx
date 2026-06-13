@@ -162,7 +162,7 @@ function Dashboard() {
               renderItem={item => (
                 <List.Item
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/exceptions/${item.id}`)}
+                  onClick={() => navigate(`/exceptions/${item.id}?from=${encodeURIComponent('/dashboard')}`)}
                 >
                   <List.Item.Meta
                     title={
@@ -203,7 +203,7 @@ function Dashboard() {
               renderItem={item => (
                 <List.Item
                   style={{ cursor: 'pointer' }}
-                  onClick={() => navigate(`/tax-filings/${item.id}`)}
+                  onClick={() => navigate(`/tax-filings/${item.id}?from=${encodeURIComponent('/dashboard')}`)}
                 >
                   <List.Item.Meta
                     title={

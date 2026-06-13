@@ -13,12 +13,13 @@ import {
   SyncOutlined,
   ClearOutlined,
 } from '@ant-design/icons'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
 import { api } from '../api'
 import dayjs from 'dayjs'
 
 function Exceptions() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const [data, setData] = useState({ list: [], total: 0 })
   const [stats, setStats] = useState({})
@@ -40,6 +41,12 @@ function Exceptions() {
   const activeTypeCard = typeFilter || 'all'
 
   const hasActiveFilter = (typeFilter) || priorityFilter || keyword || (statusTab !== 'all')
+
+  const currentListPath = `${location.pathname}${location.search}`
+
+  const navigateToDetail = (id) => {
+    navigate(`/exceptions/${id}?from=${encodeURIComponent(currentListPath)}`)
+  }
 
   useEffect(() => {
     fetchStats()
@@ -248,7 +255,7 @@ function Exceptions() {
     }
     actions.push(
       <Button key="view" size="small" icon={<EyeOutlined />}
-        onClick={(e) => { stop(e); navigate(`/exceptions/${record.id}`) }}>
+        onClick={(e) => { stop(e); navigateToDetail(record.id) }}>
         详情
       </Button>
     )
@@ -461,7 +468,7 @@ function Exceptions() {
           loading={loading}
           scroll={{ x: 1100 }}
           onRow={(record) => ({
-            onClick: () => navigate(`/exceptions/${record.id}`),
+            onClick: () => navigateToDetail(record.id),
             style: { cursor: 'pointer' },
           })}
           pagination={{

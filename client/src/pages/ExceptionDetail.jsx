@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   Card,
   Descriptions,
@@ -32,10 +32,21 @@ import dayjs from 'dayjs'
 function ExceptionDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [editingDesc, setEditingDesc] = useState(false)
   const [descForm] = Form.useForm()
+
+  const fromPath = searchParams.get('from') || '/exceptions'
+
+  const goBack = () => {
+    navigate(fromPath)
+  }
+
+  const navigateToFiling = (filingId) => {
+    navigate(`/tax-filings/${filingId}?from=${encodeURIComponent(fromPath)}`)
+  }
 
   useEffect(() => {
     fetchDetail()
@@ -178,7 +189,7 @@ function ExceptionDetail() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/exceptions')}>
+        <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
           返回列表
         </Button>
       </div>
@@ -227,7 +238,7 @@ function ExceptionDetail() {
                 <Descriptions.Item label="关联申报" span={2}>
                   <Button
                     type="link"
-                    onClick={() => navigate(`/tax-filings/${detail.tax_filing_id}`)}
+                    onClick={() => navigateToFiling(detail.tax_filing_id)}
                     style={{ padding: 0 }}
                   >
                     {detail?.filing_period} {taxTypeMap[detail?.filing_tax_type] || detail?.filing_tax_type}
