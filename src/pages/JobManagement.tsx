@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { api } from '../utils/api'
-import { Rocket, Eye, Edit3, Plus, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Rocket, Eye, Edit3, Plus, CheckCircle, AlertTriangle, Clock, RefreshCw, XCircle } from 'lucide-react'
 
 const statusLabels: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: '草稿', color: 'text-gray-600', bg: 'bg-gray-100' },
@@ -15,7 +15,7 @@ const statusLabels: Record<string, { label: string; color: string; bg: string }>
 
 interface ModalState {
   isOpen: boolean
-  mode: 'create' | 'edit' | 'view' | 'publish'
+  mode: 'create' | 'edit' | 'view' | 'publish' | 'republish' | 'history'
   job: any | null
   form: {
     title: string
@@ -25,6 +25,12 @@ interface ModalState {
     description: string
     requirements: string
   }
+}
+
+interface StatusHistory {
+  status: string
+  timestamp: string
+  actor?: string
 }
 
 export default function JobManagement() {
@@ -73,6 +79,13 @@ export default function JobManagement() {
     await api.jobs.publish(jobId)
     loadJobs()
     closeModal()
+  }
+
+  const handleClose = async (jobId: number) => {
+    if (confirm('确定要关闭该岗位吗？关闭后将不再对外展示。')) {
+      await api.jobs.close(jobId)
+      loadJobs()
+    }
   }
 
   const openModal = (mode: ModalState['mode'], job?: any) => {
@@ -144,7 +157,9 @@ export default function JobManagement() {
     { id: 'pending', label: '待审核' },
     { id: 'approved', label: '已通过' },
     { id: 'published', label: '已发布' },
+    { id: 'expired', label: '已过期' },
     { id: 'rejected', label: '已退回' },
+    { id: 'closed', label: '已关闭' },
   ]
 
   const filteredJobs = activeTab === 'all' ? jobs : jobs.filter(j => j.status === activeTab)
@@ -227,6 +242,36 @@ export default function JobManagement() {
                 </div>
               )}
 
+              {job.status === 'expired' && (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-lg flex items-start gap-2">
+                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-orange-700 font-medium">岗位已过期</p>
+                    <p className="text-xs text-orange-600 mt-1">该岗位信息已超过有效期，请重新发布</p>
+                  </div>
+                </div>
+              )}
+
+              {job.status === 'published' && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-start gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-green-700 font-medium">岗位正在招聘中</p>
+                    <p className="text-xs text-green-600 mt-1">最后更新：{new Date(job.updated_at).toLocaleString('zh-CN')}</p>
+                  </div>
+                </div>
+              )}
+
+              {job.status === 'closed' && (
+                <div className="mb-4 p-3 bg-gray-100 border border-gray-300 rounded-lg flex items-start gap-2">
+                  <XCircle className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-700 font-medium">岗位已关闭</p>
+                    <p className="text-xs text-gray-600 mt-1">该岗位已停止招聘</p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                 <div className="text-xs text-gray-400">
                   创建人：{job.created_by_name} | {new Date(job.created_at).toLocaleDateString('zh-CN')}
@@ -238,6 +283,13 @@ export default function JobManagement() {
                     title="查看详情"
                   >
                     <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => openModal('history', job)}
+                    className="p-2 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                    title="状态历史"
+                  >
+                    <Clock className="w-4 h-4" />
                   </button>
                   {canEdit && job.status === 'rejected' && (
                     <button
@@ -257,6 +309,24 @@ export default function JobManagement() {
                       <Rocket className="w-4 h-4" />
                     </button>
                   )}
+                  {canPublish && job.status === 'expired' && (
+                    <button
+                      onClick={() => openModal('republish', job)}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      title="重新发布"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                    </button>
+                  )}
+                  {(canPublish || canEdit) && job.status === 'published' && (
+                    <button
+                      onClick={() => handleClose(job.id)}
+                      className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="关闭岗位"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -273,6 +343,8 @@ export default function JobManagement() {
                 {modal.mode === 'edit' && '修改岗位信息'}
                 {modal.mode === 'view' && '岗位详情'}
                 {modal.mode === 'publish' && '确认发布'}
+                {modal.mode === 'republish' && '重新发布岗位'}
+                {modal.mode === 'history' && '状态流转历史'}
               </h2>
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -347,6 +419,65 @@ export default function JobManagement() {
                     />
                   </div>
                 </>
+              ) : modal.mode === 'history' ? (
+                <div className="space-y-3">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <p className="text-sm text-gray-500 mb-2">岗位信息</p>
+                    <p className="font-medium text-gray-800">{modal.form.title}</p>
+                    <p className="text-sm text-gray-600">{modal.form.company} · {modal.form.location}</p>
+                  </div>
+                  <div className="border-t border-gray-200 pt-4">
+                    <p className="text-sm text-gray-500 mb-3">状态流转记录</p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="w-3 h-3 mt-1.5 bg-yellow-500 rounded-full"></div>
+                        <div>
+                          <p className="font-medium text-gray-800">{statusLabels['pending'].label}</p>
+                          <p className="text-xs text-gray-500">{new Date(modal.job?.created_at).toLocaleString('zh-CN')}</p>
+                          <p className="text-xs text-gray-400 mt-1">HR提交审核</p>
+                        </div>
+                      </div>
+                      {modal.job?.status === 'approved' || modal.job?.status === 'published' || modal.job?.status === 'expired' || modal.job?.status === 'rejected' ? (
+                        <div className="flex items-start gap-3">
+                          <div className="w-3 h-3 mt-1.5 bg-blue-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-gray-800">{statusLabels['approved'].label}</p>
+                            <p className="text-xs text-gray-500">运营审核通过</p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {modal.job?.status === 'published' || modal.job?.status === 'expired' ? (
+                        <div className="flex items-start gap-3">
+                          <div className="w-3 h-3 mt-1.5 bg-green-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-gray-800">{statusLabels['published'].label}</p>
+                            <p className="text-xs text-gray-500">顾问发布上线</p>
+                            <p className="text-xs text-gray-400 mt-1">{new Date(modal.job?.updated_at).toLocaleString('zh-CN')}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {modal.job?.status === 'expired' ? (
+                        <div className="flex items-start gap-3">
+                          <div className="w-3 h-3 mt-1.5 bg-orange-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-gray-800">{statusLabels['expired'].label}</p>
+                            <p className="text-xs text-gray-500">岗位已过期</p>
+                            <p className="text-xs text-gray-400 mt-1">{new Date(modal.job?.updated_at).toLocaleString('zh-CN')}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                      {modal.job?.status === 'rejected' ? (
+                        <div className="flex items-start gap-3">
+                          <div className="w-3 h-3 mt-1.5 bg-red-500 rounded-full"></div>
+                          <div>
+                            <p className="font-medium text-gray-800">{statusLabels['rejected'].label}</p>
+                            <p className="text-xs text-gray-500">退回原因：{modal.job?.reject_reason || '未填写'}</p>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-4">
@@ -402,6 +533,15 @@ export default function JobManagement() {
                 >
                   <CheckCircle className="w-4 h-4" />
                   确认发布
+                </button>
+              )}
+              {modal.mode === 'republish' && (
+                <button
+                  onClick={() => modal.job && handlePublish(modal.job.id)}
+                  className="px-6 py-2 text-white bg-orange-600 rounded-lg hover:bg-orange-700 transition-colors flex items-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  重新发布
                 </button>
               )}
             </div>

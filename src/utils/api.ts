@@ -97,6 +97,24 @@ export const api = {
       })
       const data = await response.json()
       return data.job
+    },
+    
+    expire: async (id: number): Promise<Job> => {
+      const response = await fetch(`/api/jobs/${id}/expire`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` }
+      })
+      const data = await response.json()
+      return data.job
+    },
+    
+    close: async (id: number): Promise<Job> => {
+      const response = await fetch(`/api/jobs/${id}/close`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` }
+      })
+      const data = await response.json()
+      return data.job
     }
   },
   

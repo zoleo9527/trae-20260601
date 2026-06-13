@@ -70,3 +70,27 @@ export const publishJob = (req: Request & { user?: User }, res: Response) => {
   
   res.json({ success: true, job })
 }
+
+export const expireJob = (req: Request & { user?: User }, res: Response) => {
+  const { id } = req.params
+  
+  const job = db.jobs.update(Number(id), { status: 'expired' })
+  
+  if (!job) {
+    return res.status(404).json({ success: false, message: 'Job not found' })
+  }
+  
+  res.json({ success: true, job })
+}
+
+export const closeJob = (req: Request & { user?: User }, res: Response) => {
+  const { id } = req.params
+  
+  const job = db.jobs.update(Number(id), { status: 'closed' })
+  
+  if (!job) {
+    return res.status(404).json({ success: false, message: 'Job not found' })
+  }
+  
+  res.json({ success: true, job })
+}

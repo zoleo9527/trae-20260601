@@ -1,5 +1,5 @@
 import express from 'express'
-import { getJobs, getJobById, createJob, updateJob, auditJob, publishJob } from '../controllers/jobController.js'
+import { getJobs, getJobById, createJob, updateJob, auditJob, publishJob, expireJob, closeJob } from '../controllers/jobController.js'
 import { authMiddleware, roleMiddleware } from '../middleware/authMiddleware.js'
 
 const router = express.Router()
@@ -10,5 +10,7 @@ router.post('/', authMiddleware, roleMiddleware(['hr']), createJob)
 router.put('/:id', authMiddleware, roleMiddleware(['hr']), updateJob)
 router.post('/:id/audit', authMiddleware, roleMiddleware(['operator']), auditJob)
 router.post('/:id/publish', authMiddleware, roleMiddleware(['consultant']), publishJob)
+router.post('/:id/expire', authMiddleware, roleMiddleware(['consultant']), expireJob)
+router.post('/:id/close', authMiddleware, roleMiddleware(['hr', 'consultant']), closeJob)
 
 export default router
