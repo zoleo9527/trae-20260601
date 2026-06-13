@@ -216,7 +216,7 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
             </div>
           )}
 
-          {showQuarantineForm && !existingQuarantine?.status === 'completed' && (
+          {showQuarantineForm && (existingQuarantine ? existingQuarantine.status !== 'completed' : true) && (
             <div className="mt-4 p-4 bg-orange-50 rounded-lg">
               <p className="text-sm text-orange-600 font-medium mb-2">
                 {isUpdatingQuarantine ? '更新隔离原因' : '请填写隔离原因'}
@@ -240,7 +240,7 @@ function VeterinaryModal({ record, onClose, onUpdateStatus, onCreateQuarantine, 
                   disabled={!quarantineReason.trim()}
                   className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  确认转隔离
+                  {isUpdatingQuarantine ? '确认更新' : '确认转隔离'}
                 </button>
               </div>
             </div>
