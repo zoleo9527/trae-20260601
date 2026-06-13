@@ -17,6 +17,7 @@ interface AppState {
   logout: () => void;
   updateSettlement: (settlement: Settlement) => void;
   updateAppeal: (appeal: Appeal) => void;
+  addAppeal: (appeal: Appeal) => void;
   addHistoryRecord: (type: 'settlement' | 'appeal', id: string, record: HistoryRecord) => void;
 }
 
@@ -39,6 +40,10 @@ const useStore = create<AppState>((set) => ({
       appeals: state.appeals.map((a) =>
         a.id === appeal.id ? appeal : a
       ),
+    })),
+  addAppeal: (appeal) =>
+    set((state) => ({
+      appeals: [...state.appeals, appeal],
     })),
   addHistoryRecord: (type, id, record) =>
     set((state) => {
@@ -72,6 +77,7 @@ const AppContext = createContext<{
   logout: () => void;
   updateSettlement: (settlement: Settlement) => void;
   updateAppeal: (appeal: Appeal) => void;
+  addAppeal: (appeal: Appeal) => void;
   addHistoryRecord: (type: 'settlement' | 'appeal', id: string, record: HistoryRecord) => void;
 } | null>(null);
 

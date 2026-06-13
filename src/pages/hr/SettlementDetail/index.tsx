@@ -13,7 +13,7 @@ import type { HistoryRecord } from '../../../types';
 const HrSettlementDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { settlements, updateSettlement, addHistoryRecord } = useStore();
+  const { settlements, updateSettlement, addHistoryRecord, addAppeal } = useStore();
   const [remark, setRemark] = useState('');
   const [showAppealModal, setShowAppealModal] = useState(false);
   const [appealReason, setAppealReason] = useState('');
@@ -84,9 +84,53 @@ const HrSettlementDetail: React.FC = () => {
       return;
     }
 
+    const currentTime = getCurrentTime();
+    const appealId = `AP${currentTime.replace(/[-: ]/g, '').slice(0, 12)}`;
+
+    const historyRecord: HistoryRecord = {
+      time: currentTime,
+      role: '企业HR',
+      operator: settlement.hrName,
+      action: '发起异常申诉',
+      remark: appealReason,
+    };
+
+    const newAppeal = {
+      id: appealId,
+      settlementId: settlement.id,
+      position: settlement.position,
+      company: settlement.company,
+      recruiterId: settlement.recruiterId,
+      recruiterName: settlement.recruiterName,
+      hrId: settlement.hrId,
+      hrName: settlement.hrName,
+      appealReason: appealReason,
+      status: 'pending_recruiter_response',
+      evidence: [
+        {
+          role: '企业HR',
+          files: [],
+          description: appealReason,
+        },
+      ],
+      history: [historyRecord],
+      createdAt: currentTime,
+      updatedAt: currentTime,
+    };
+
+    updateSettlement({
+      ...settlement,
+      status: 'appealing',
+      updatedAt: currentTime,
+    });
+
+    addHistoryRecord('settlement', settlement.id, historyRecord);
+    addAppeal(newAppeal);
+
     message.success('申诉已发起，等待招聘顾问补充说明');
     setShowAppealModal(false);
-    navigate('/hr/appeals');
+    setAppealReason('');
+    navigate(`/hr/appeals/${appealId}`);
   };
 
   return (

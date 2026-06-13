@@ -13,7 +13,7 @@ import type { HistoryRecord } from '../../../types';
 const RecruiterSettlementDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { settlements, updateSettlement, addHistoryRecord } = useStore();
+  const { settlements, appeals, updateSettlement, addHistoryRecord } = useStore();
   const [remark, setRemark] = useState('');
 
   const settlement = settlements.find((s) => s.id === id);
@@ -76,7 +76,12 @@ const RecruiterSettlementDetail: React.FC = () => {
   };
 
   const handleViewAppeal = () => {
-    navigate(`/recruiter/appeals`);
+    const relatedAppeal = appeals.find(a => a.settlementId === settlement.id);
+    if (relatedAppeal) {
+      navigate(`/recruiter/appeals/${relatedAppeal.id}`);
+    } else {
+      message.error('未找到相关申诉记录');
+    }
   };
 
   return (
