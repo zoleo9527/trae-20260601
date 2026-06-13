@@ -11,13 +11,17 @@ import {
   User,
   FileText,
   Download,
+  ClipboardCheck,
+  PenTool,
+  AlertCircle,
 } from 'lucide-react';
 import dayjs from 'dayjs';
+import { useAuthStore } from '../store/auth';
 
 interface TimelineItem {
   id: string;
-  timestamp: string;
-  operator: {
+  createdAt: string;
+  user: {
     id: string;
     name: string;
     role: string;
@@ -56,11 +60,26 @@ interface CourseDetail {
       avatar?: string;
     };
   }>;
+  homeworks: Array<{
+    id: string;
+    title: string;
+    deadline: string;
+    totalScore: number;
+  }>;
+  exams: Array<{
+    id: string;
+    title: string;
+    startTime: string;
+    totalScore: number;
+    passingScore: number;
+    status: string;
+  }>;
   timeline: TimelineItem[];
 }
 
 export default function CourseDetail() {
   const { id } = useParams();
+  const { user } = useAuthStore();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -105,6 +124,19 @@ export default function CourseDetail() {
     return <span className={`badge ${className}`}>{label}</span>;
   };
 
+  const getExamStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; className: string }> = {
+      draft: { label: '草稿', className: 'badge-pending' },
+      published: { label: '已发布', className: 'badge-info' },
+      ongoing: { label: '进行中', className: 'badge-success' },
+      grading: { label: '批改中', className: 'badge-warning' },
+      graded: { label: '已批改', className: 'bg-blue-100 text-blue-800' },
+      published: { label: '已发布', className: 'bg-green-100 text-green-800' },
+    };
+    const { label, className } = statusMap[status] || { label: status, className: 'badge-pending' };
+    return <span className={`badge ${className}`}>{label}</span>;
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -123,6 +155,8 @@ export default function CourseDetail() {
       </div>
     );
   }
+
+  const isInstructor = user?.role === 'instructor' && user.id === course.instructor.id;
 
   return (
     <div className="space-y-6">
@@ -181,11 +215,81 @@ export default function CourseDetail() {
             </div>
           </div>
 
+          {(course.homeworks?.length > 0 || course.exams?.length > 0) && (
+            <div className="card">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">课程任务</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {course.homeworks?.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm font-medium text-gray-700">
+                      <PenTool className="w-4 h-4 mr-2 text-blue-500" />
+                      作业任务 ({course.homeworks.length})
+                    </div>
+                    <div className="space-y-2">
+                      {course.homeworks.map((homework) => (
+                        <Link
+                          key={homework.id}
+                          to={`/homework/${homework.id}/submissions`}
+                          className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium text-gray-900">{homework.title}</div>
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs text-gray-500">
+                              截止：{dayjs(homework.deadline).format('MM-DD HH:mm')}
+                            </span>
+                            <span className="text-xs text-gray-500">满分 {homework.totalScore} 分</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {course.exams?.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm font-medium text-gray-700">
+                      <ClipboardCheck className="w-4 h-4 mr-2 text-green-500" />
+                      考试安排 ({course.exams.length})
+                    </div>
+                    <div className="space-y-2">
+                      {course.exams.map((exam) => (
+                        <Link
+                          key={exam.id}
+                          to={`/exams/${exam.id}`}
+                          className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm font-medium text-gray-900">{exam.title}</div>
+                            {getExamStatusBadge(exam.status)}
+                          </div>
+                          <div className="flex items-center justify-between mt-1">
+                            <span className="text-xs text-gray-500">
+                              {dayjs(exam.startTime).format('MM-DD HH:mm')}
+                            </span>
+                            <span className="text-xs text-gray-500">满分 {exam.totalScore} 分</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">
                 学员名单（{course.enrollments?.length || 0} 人）
               </h2>
+              {isInstructor && course.status === 'ongoing' && (
+                <Link to={`/attendance/${course.id}`} className="text-sm text-primary-600 hover:text-primary-700 flex items-center">
+                  <ClipboardCheck className="w-4 h-4 mr-1" />
+                  进入签到
+                </Link>
+              )}
             </div>
             {course.enrollments && course.enrollments.length > 0 ? (
               <div className="overflow-x-auto">
@@ -244,6 +348,47 @@ export default function CourseDetail() {
         </div>
 
         <div className="space-y-6">
+          {isInstructor && course.status === 'ongoing' && (
+            <div className="card bg-gradient-to-br from-primary-500 to-primary-600 text-white">
+              <div className="p-6">
+                <h3 className="text-lg font-semibold mb-4">快捷操作</h3>
+                <div className="space-y-3">
+                  <Link
+                    to={`/attendance/${course.id}`}
+                    className="block p-3 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors"
+                  >
+                    <div className="flex items-center">
+                      <ClipboardCheck className="w-5 h-5 mr-3" />
+                      <span>开始签到</span>
+                    </div>
+                  </Link>
+                  {course.exams?.length > 0 && (
+                    <Link
+                      to={`/exams/${course.exams[0].id}`}
+                      className="block p-3 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors"
+                    >
+                      <div className="flex items-center">
+                        <FileText className="w-5 h-5 mr-3" />
+                        <span>处理考试成绩</span>
+                      </div>
+                    </Link>
+                  )}
+                  {course.homeworks?.length > 0 && (
+                    <Link
+                      to={`/homework/${course.homeworks[0].id}/submissions`}
+                      className="block p-3 bg-white bg-opacity-20 rounded-lg hover:bg-opacity-30 transition-colors"
+                    >
+                      <div className="flex items-center">
+                        <PenTool className="w-5 h-5 mr-3" />
+                        <span>批改作业</span>
+                      </div>
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">操作时间线</h2>
@@ -257,10 +402,10 @@ export default function CourseDetail() {
                       <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
                       <div className="w-px h-full bg-gray-200 my-1"></div>
                     </div>
-                    <div className="pb-4">
+                    <div className="pb-4 flex-1">
                       <div className="text-sm text-gray-900">{item.details}</div>
                       <div className="text-xs text-gray-500 mt-1">
-                        {dayjs(item.timestamp).format('YYYY-MM-DD HH:mm')} · {item.operator.name}
+                        {dayjs(item.createdAt).format('YYYY-MM-DD HH:mm')} · {item.user?.name || item.user?.name}
                       </div>
                     </div>
                   </div>
@@ -269,6 +414,49 @@ export default function CourseDetail() {
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <p>暂无操作记录</p>
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">签到统计</h2>
+              <AlertCircle className="w-5 h-5 text-gray-400" />
+            </div>
+            {course.enrollments && course.enrollments.length > 0 ? (
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">应到人数</span>
+                  <span className="text-sm font-medium text-gray-900">{course.enrollments.length}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">已签到</span>
+                  <span className="text-sm font-medium text-green-600">
+                    {course.enrollments.filter((e) => e.attendanceStatus === 'signed').length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">迟到</span>
+                  <span className="text-sm font-medium text-yellow-600">
+                    {course.enrollments.filter((e) => e.attendanceStatus === 'late').length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">请假</span>
+                  <span className="text-sm font-medium text-blue-600">
+                    {course.enrollments.filter((e) => e.attendanceStatus === 'leave').length}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">缺席</span>
+                  <span className="text-sm font-medium text-red-600">
+                    {course.enrollments.filter((e) => e.attendanceStatus === 'absent').length}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-4 text-gray-500">
+                <p>暂无统计数据</p>
               </div>
             )}
           </div>

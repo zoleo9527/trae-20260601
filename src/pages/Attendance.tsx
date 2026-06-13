@@ -188,86 +188,91 @@ export default function Attendance() {
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">签到处理</h2>
-        <div className="space-y-3">
-          {data.attendees.map((attendee) => (
-            <div
-              key={attendee.enrollmentId}
-              className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-            >
-              <div className="flex items-center space-x-4">
-                {getStatusIcon(attendee.status)}
-                <div>
-                  <div className="font-medium text-gray-900">{attendee.name}</div>
-                  <div className="text-sm text-gray-500">
-                    {attendee.employeeId} · {attendee.department}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">签到处理</h2>
+            <Link to={`/attendance/${courseId}/detail`} className="text-sm text-primary-600 hover:text-primary-700">
+              查看详情 →
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {data.attendees.map((attendee) => (
+              <div
+                key={attendee.enrollmentId}
+                className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div className="flex items-center space-x-4">
+                  {getStatusIcon(attendee.status)}
+                  <div>
+                    <div className="font-medium text-gray-900">{attendee.name}</div>
+                    <div className="text-sm text-gray-500">
+                      {attendee.employeeId} · {attendee.department}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-4">
-                {getStatusBadge(attendee.status)}
-                {attendee.signInTime && (
-                  <div className="text-sm text-gray-500">
-                    {dayjs(attendee.signInTime).format('HH:mm')}
-                  </div>
-                )}
-                {attendee.status === 'pending' && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleSignIn(attendee.enrollmentId, 'signed')}
-                      disabled={processing}
-                      className="btn-primary text-sm py-1 px-3"
-                    >
-                      签到
-                    </button>
-                    <button
-                      onClick={() => handleSignIn(attendee.enrollmentId, 'late')}
-                      disabled={processing}
-                      className="btn-secondary text-sm py-1 px-3"
-                    >
-                      迟到
-                    </button>
-                    <button
-                      onClick={() => handleSignIn(attendee.enrollmentId, 'leave')}
-                      disabled={processing}
-                      className="btn-secondary text-sm py-1 px-3"
-                    >
-                      请假
-                    </button>
-                  </div>
-                )}
-                {attendee.status !== 'pending' && (
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleSignIn(attendee.enrollmentId, 'signed')}
-                      disabled={processing}
-                      className="text-sm text-primary-600 hover:text-primary-700"
-                    >
-                      改签到
-                    </button>
-                    {attendee.hasException ? (
-                      <Link
-                        to="/exceptions"
-                        className="text-sm text-orange-600 hover:text-orange-700"
-                      >
-                        查看异常
-                      </Link>
-                    ) : (
+                <div className="flex items-center space-x-4">
+                  {getStatusBadge(attendee.status)}
+                  {attendee.signInTime && (
+                    <div className="text-sm text-gray-500">
+                      {dayjs(attendee.signInTime).format('HH:mm')}
+                    </div>
+                  )}
+                  {attendee.status === 'pending' && (
+                    <div className="flex space-x-2">
                       <button
-                        onClick={() => handleSignIn(attendee.enrollmentId, 'absent')}
+                        onClick={() => handleSignIn(attendee.enrollmentId, 'signed')}
                         disabled={processing}
-                        className="text-sm text-red-600 hover:text-red-700"
+                        className="btn-primary text-sm py-1 px-3"
                       >
-                        标记缺席
+                        签到
                       </button>
-                    )}
-                  </div>
-                )}
+                      <button
+                        onClick={() => handleSignIn(attendee.enrollmentId, 'late')}
+                        disabled={processing}
+                        className="btn-secondary text-sm py-1 px-3"
+                      >
+                        迟到
+                      </button>
+                      <button
+                        onClick={() => handleSignIn(attendee.enrollmentId, 'leave')}
+                        disabled={processing}
+                        className="btn-secondary text-sm py-1 px-3"
+                      >
+                        请假
+                      </button>
+                    </div>
+                  )}
+                  {attendee.status !== 'pending' && (
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleSignIn(attendee.enrollmentId, 'signed')}
+                        disabled={processing}
+                        className="text-sm text-primary-600 hover:text-primary-700"
+                      >
+                        改签到
+                      </button>
+                      {attendee.hasException ? (
+                        <Link
+                          to="/exceptions"
+                          className="text-sm text-orange-600 hover:text-orange-700"
+                        >
+                          查看异常
+                        </Link>
+                      ) : (
+                        <button
+                          onClick={() => handleSignIn(attendee.enrollmentId, 'absent')}
+                          disabled={processing}
+                          className="text-sm text-red-600 hover:text-red-700"
+                        >
+                          标记缺席
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
 
       {data.timeline && data.timeline.length > 0 && (
         <div className="card">

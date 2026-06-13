@@ -4,11 +4,14 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CourseList from './pages/CourseList';
 import CourseDetail from './pages/CourseDetail';
+import AttendanceList from './pages/AttendanceList';
 import Attendance from './pages/Attendance';
 import AttendanceDetail from './pages/AttendanceDetail';
 import ExceptionCenter from './pages/ExceptionCenter';
 import HomeworkSubmissions from './pages/HomeworkSubmissions';
 import NotificationList from './pages/NotificationList';
+import ExamList from './pages/ExamList';
+import ExamDetail from './pages/ExamDetail';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,10 +40,12 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="courses" element={<CourseList />} />
           <Route path="courses/:id" element={<CourseDetail />} />
-          <Route path="attendance" element={<Attendance />} />
+          <Route path="attendance" element={<AttendanceList />} />
           <Route path="attendance/:courseId" element={<Attendance />} />
           <Route path="attendance/:courseId/detail" element={<AttendanceDetail />} />
           <Route path="exceptions" element={<ExceptionCenter />} />
+          <Route path="exams" element={<ExamList />} />
+          <Route path="exams/:id" element={<ExamDetail />} />
           <Route path="homework/:id/submissions" element={<HomeworkSubmissions />} />
           <Route path="notifications" element={<NotificationList />} />
         </Route>

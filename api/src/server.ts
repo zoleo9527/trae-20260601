@@ -746,6 +746,207 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
   }
 });
 
+app.get('/api/exams', authenticateToken, async (req, res) => {
+  try {
+    const exams = await prisma.exam.findMany({
+      include: {
+        course: {
+          select: { id: true, title: true },
+        },
+        _count: {
+          select: { examScores: true },
+        },
+      },
+      orderBy: { startTime: 'desc' },
+    });
+
+    res.json({ code: 200, data: exams });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '服务器错误' });
+  }
+});
+
+app.get('/api/exams/:id', authenticateToken, async (req, res) => {
+  try {
+    const exam = await prisma.exam.findUnique({
+      where: { id: req.params.id },
+      include: {
+        course: {
+          select: { id: true, title: true, location: true },
+        },
+        examScores: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                employeeId: true,
+                department: true,
+                avatar: true,
+              },
+            },
+            gradedBy: {
+              select: { name: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!exam) {
+      return res.status(404).json({ code: 404, message: '考试不存在' });
+    }
+
+    const stats = {
+      total: exam.examScores.length,
+      graded: exam.examScores.filter((s) => s.status === 'graded' || s.status === 'published').length,
+      pending: exam.examScores.filter((s) => s.status === 'pending').length,
+      average: exam.examScores.filter((s) => s.score !== null).length > 0
+        ? Math.round(
+            exam.examScores
+              .filter((s) => s.score !== null)
+              .reduce((sum, s) => sum + (s.score || 0), 0) /
+              exam.examScores.filter((s) => s.score !== null).length
+          )
+        : 0,
+      passRate: exam.examScores.length > 0
+        ? Math.round(
+            (exam.examScores.filter((s) => (s.score || 0) >= exam.passingScore).length /
+              exam.examScores.length *
+              100
+          )
+        : 0,
+    };
+
+    const scores = exam.examScores.map((score) => ({
+      scoreId: score.id,
+      userId: score.userId,
+      name: score.user.name,
+      employeeId: score.user.employeeId,
+      department: score.user.department,
+      avatar: score.user.avatar,
+      score: score.score,
+      status: score.status,
+      notes: score.notes,
+      gradedAt: score.gradedAt,
+      gradedBy: score.gradedBy?.name,
+    }));
+
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        module: 'exam',
+        relatedType: 'exam',
+        relatedId: req.params.id,
+      },
+      include: {
+        user: {
+          select: { id: true, name: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    res.json({
+      code: 200,
+      data: {
+        examId: exam.id,
+        title: exam.title,
+        courseId: exam.course.id,
+        courseName: exam.course.title,
+        location: exam.course.location,
+        duration: exam.duration,
+        passingScore: exam.passingScore,
+        totalScore: exam.totalScore,
+        startTime: exam.startTime,
+        endTime: exam.endTime,
+        status: exam.status,
+        stats,
+        scores,
+        timeline: logs,
+      },
+    });
+  } catch (error) {
+    console.error('Exam detail error:', error);
+    res.status(500).json({ code: 500, message: '服务器错误' });
+  }
+});
+
+app.post('/api/exams/:id/grade', authenticateToken, async (req, res) => {
+  try {
+    const { scoreId, score, notes } = req.body;
+
+    const examScore = await prisma.examScore.update({
+      where: { id: scoreId },
+      data: {
+        score,
+        notes,
+        status: 'graded',
+        gradedById: req.user.id,
+        gradedAt: new Date(),
+      },
+      include: {
+        user: {
+          select: { name: true },
+        },
+        exam: {
+          select: { id: true, title: true },
+        },
+      },
+    });
+
+    await prisma.operationLog.create({
+      data: {
+        userId: req.user.id,
+        module: 'exam',
+        action: 'grade',
+        relatedType: 'exam',
+        relatedId: examScore.exam.id,
+        details: `批改${examScore.user.name}的考试成绩：${score}分`,
+        ipAddress: req.ip,
+      },
+    });
+
+    res.json({ code: 200, data: examScore, message: '批改成功' });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '服务器错误' });
+  }
+});
+
+app.post('/api/exams/:id/publish', authenticateToken, async (req, res) => {
+  try {
+    const exam = await prisma.exam.update({
+      where: { id: req.params.id },
+      data: {
+        status: 'published',
+      },
+    });
+
+    await prisma.examScore.updateMany({
+      where: { examId: req.params.id },
+      data: {
+        status: 'published',
+      },
+    });
+
+    await prisma.operationLog.create({
+      data: {
+        userId: req.user.id,
+        module: 'exam',
+        action: 'publish',
+        relatedType: 'exam',
+        relatedId: req.params.id,
+        details: `发布考试成绩：${exam.title}`,
+        ipAddress: req.ip,
+      },
+    });
+
+    res.json({ code: 200, data: exam, message: '成绩发布成功' });
+  } catch (error) {
+    res.status(500).json({ code: 500, message: '服务器错误' });
+  }
+});
+
 app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
   try {
     const [

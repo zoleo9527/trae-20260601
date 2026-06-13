@@ -9,6 +9,9 @@ import {
   AlertCircle,
   Download,
   Eye,
+  History,
+  Paperclip,
+  MessageSquare,
 } from 'lucide-react';
 import dayjs from 'dayjs';
 
@@ -44,13 +47,56 @@ interface HomeworkSubmissionsData {
   submissions: Submission[];
 }
 
+interface SubmissionDetail {
+  submissionId: string;
+  homeworkId: string;
+  user: {
+    id: string;
+    name: string;
+    employeeId: string;
+    department: string;
+  };
+  status: string;
+  submittedAt: string;
+  version: number;
+  attachments: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileSize: number;
+    mimeType: string;
+  }>;
+  notes: string;
+  score: number | null;
+  gradeNotes: string;
+  gradedAt: string | null;
+  gradedBy: string | null;
+  history: Array<{
+    version: number;
+    submittedAt: string;
+    attachments: Array<{
+      fileName: string;
+      fileUrl: string;
+    }>;
+  }>;
+  timeline: Array<{
+    id: string;
+    details: string;
+    createdAt: string;
+    user: {
+      name: string;
+    };
+  }>;
+}
+
 export default function HomeworkSubmissions() {
   const { id } = useParams();
   const [data, setData] = useState<HomeworkSubmissionsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
+  const [submissionDetail, setSubmissionDetail] = useState<SubmissionDetail | null>(null);
   const [grading, setGrading] = useState(false);
   const [gradeForm, setGradeForm] = useState({ score: '', notes: '' });
+  const [viewingDetail, setViewingDetail] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -66,6 +112,16 @@ export default function HomeworkSubmissions() {
       console.error('Failed to fetch submissions:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSubmissionDetail = async (submissionId: string) => {
+    try {
+      const response = await api.get(`/homework/${id}/submissions/${submissionId}`);
+      setSubmissionDetail(response.data.data);
+      setViewingDetail(true);
+    } catch (error) {
+      console.error('Failed to fetch submission detail:', error);
     }
   };
 
@@ -103,6 +159,12 @@ export default function HomeworkSubmissions() {
     };
     const { label, className } = statusMap[status] || { label: status, className: 'badge-pending' };
     return <span className={`badge ${className}`}>{label}</span>;
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   if (loading) {
@@ -231,18 +293,26 @@ export default function HomeworkSubmissions() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     {submission.status !== 'graded' && submission.status !== 'pending' ? (
-                      <button
-                        onClick={() => setSelectedSubmission(submission)}
-                        className="text-primary-600 hover:text-primary-700"
-                      >
-                        批改
-                      </button>
+                      <>
+                        <button
+                          onClick={() => fetchSubmissionDetail(submission.submissionId)}
+                          className="text-blue-600 hover:text-blue-700 mr-2"
+                        >
+                          <Eye className="w-4 h-4 inline mr-1" />查看
+                        </button>
+                        <button
+                          onClick={() => setSelectedSubmission(submission)}
+                          className="text-primary-600 hover:text-primary-700"
+                        >
+                          批改
+                        </button>
+                      </>
                     ) : submission.status === 'graded' ? (
                       <button
-                        onClick={() => setSelectedSubmission(submission)}
+                        onClick={() => fetchSubmissionDetail(submission.submissionId)}
                         className="text-blue-600 hover:text-blue-700"
                       >
-                        查看
+                        <Eye className="w-4 h-4 inline mr-1" />查看详情
                       </button>
                     ) : (
                       <span className="text-gray-400">-</span>
@@ -255,7 +325,7 @@ export default function HomeworkSubmissions() {
         </div>
       </div>
 
-      {selectedSubmission && (
+      {selectedSubmission && !viewingDetail && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -338,6 +408,218 @@ export default function HomeworkSubmissions() {
                   disabled={grading}
                 >
                   {grading ? '提交中...' : '提交成绩'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingDetail && submissionDetail && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">作业提交详情</h3>
+              <button
+                onClick={() => {
+                  setViewingDetail(false);
+                  setSubmissionDetail(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">学员</div>
+                  <div className="font-medium text-gray-900">{submissionDetail.user.name}</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">部门</div>
+                  <div className="font-medium text-gray-900">{submissionDetail.user.department}</div>
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">提交状态</div>
+                  {getStatusBadge(submissionDetail.status)}
+                </div>
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <div className="text-sm text-gray-500 mb-1">提交版本</div>
+                  <div className="font-medium text-gray-900">第 {submissionDetail.version} 版</div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                  <Paperclip className="w-4 h-4 mr-2" />
+                  附件文件
+                </h4>
+                {submissionDetail.attachments && submissionDetail.attachments.length > 0 ? (
+                  <div className="space-y-2">
+                    {submissionDetail.attachments.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex items-center">
+                          <FileText className="w-5 h-5 text-gray-400 mr-3" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{file.fileName}</div>
+                            <div className="text-xs text-gray-500">
+                              {formatFileSize(file.fileSize)} · {file.mimeType}
+                            </div>
+                          </div>
+                        </div>
+                        <a
+                          href={`http://localhost:3000${file.fileUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary-600 hover:text-primary-700 flex items-center"
+                        >
+                          <Download className="w-4 h-4 mr-1" />
+                          下载
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-500 py-4 text-center">暂无附件</div>
+                )}
+              </div>
+
+              {submissionDetail.history && submissionDetail.history.length > 1 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                    <History className="w-4 h-4 mr-2" />
+                    版本历史
+                  </h4>
+                  <div className="space-y-2">
+                    {submissionDetail.history.map((item, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center justify-between p-3 rounded-lg ${
+                          item.version === submissionDetail.version
+                            ? 'bg-primary-50 border border-primary-200'
+                            : 'bg-gray-50'
+                        }`}
+                      >
+                        <div className="flex items-center">
+                          <span
+                            className={`px-2 py-1 rounded text-xs font-medium mr-3 ${
+                              item.version === submissionDetail.version
+                                ? 'bg-primary-100 text-primary-700'
+                                : 'bg-gray-200 text-gray-700'
+                            }`}
+                          >
+                            v{item.version}
+                          </span>
+                          <div>
+                            <div className="text-sm text-gray-900">
+                              {dayjs(item.submittedAt).format('YYYY-MM-DD HH:mm')}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.attachments?.length || 0} 个附件
+                            </div>
+                          </div>
+                        </div>
+                        {item.version === submissionDetail.version && (
+                          <span className="text-xs text-primary-600">当前版本</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {submissionDetail.score !== null && submissionDetail.score !== undefined && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                    <MessageSquare className="w-4 h-4 mr-2" />
+                    批改记录
+                  </h4>
+                  <div className="p-4 bg-green-50 rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-3xl font-bold text-green-600">
+                        {submissionDetail.score}/{data.totalScore}
+                      </span>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-500">批改人</div>
+                        <div className="font-medium text-gray-900">
+                          {submissionDetail.gradedBy || '未知'}
+                        </div>
+                      </div>
+                    </div>
+                    {submissionDetail.gradeNotes && (
+                      <div>
+                        <div className="text-sm text-gray-500 mb-1">评语</div>
+                        <div className="text-gray-900">{submissionDetail.gradeNotes}</div>
+                      </div>
+                    )}
+                    {submissionDetail.gradedAt && (
+                      <div className="text-xs text-gray-500 mt-3">
+                        批改时间：{dayjs(submissionDetail.gradedAt).format('YYYY-MM-DD HH:mm')}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {submissionDetail.timeline && submissionDetail.timeline.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">操作记录</h4>
+                  <div className="space-y-3">
+                    {submissionDetail.timeline.map((item) => (
+                      <div key={item.id} className="flex">
+                        <div className="flex flex-col items-center mr-3">
+                          <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
+                          <div className="w-px h-full bg-gray-200 my-1"></div>
+                        </div>
+                        <div className="pb-4">
+                          <div className="text-sm text-gray-900">{item.details}</div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {dayjs(item.createdAt).format('YYYY-MM-DD HH:mm')} · {item.user?.name}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  setViewingDetail(false);
+                  setSubmissionDetail(null);
+                }}
+                className="btn-secondary"
+              >
+                关闭
+              </button>
+              {submissionDetail.status !== 'graded' && (
+                <button
+                  onClick={() => {
+                    setSelectedSubmission({
+                      submissionId: submissionDetail.submissionId,
+                      userId: submissionDetail.user.id,
+                      name: submissionDetail.user.name,
+                      employeeId: submissionDetail.user.employeeId,
+                      department: submissionDetail.user.department,
+                      status: submissionDetail.status,
+                      submittedAt: submissionDetail.submittedAt,
+                      score: submissionDetail.score || undefined,
+                      isLatest: true,
+                      gradedAt: submissionDetail.gradedAt || undefined,
+                      gradedBy: submissionDetail.gradedBy || undefined,
+                    });
+                    setViewingDetail(false);
+                  }}
+                  className="btn-primary"
+                >
+                  批改作业
                 </button>
               )}
             </div>

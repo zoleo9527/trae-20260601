@@ -9,13 +9,15 @@ import {
   LogOut,
   Menu,
   X,
+  FileText,
 } from 'lucide-react';
 import { useState } from 'react';
 
 const menuItems = [
   { path: '/', icon: LayoutDashboard, label: '工作台', roles: ['trainer_manager', 'department_head', 'instructor', 'trainee'] },
   { path: '/courses', icon: BookOpen, label: '课程管理', roles: ['trainer_manager', 'department_head', 'instructor', 'trainee'] },
-  { path: '/attendance', icon: ClipboardCheck, label: '签到管理', roles: ['instructor'] },
+  { path: '/attendance', icon: ClipboardCheck, label: '签到任务', roles: ['instructor'] },
+  { path: '/exams', icon: FileText, label: '考试管理', roles: ['instructor'] },
   { path: '/exceptions', icon: AlertTriangle, label: '异常处理', roles: ['trainer_manager'] },
   { path: '/notifications', icon: Bell, label: '消息通知', roles: ['trainer_manager', 'department_head', 'instructor', 'trainee'] },
 ];
