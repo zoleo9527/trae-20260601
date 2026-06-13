@@ -1,6 +1,7 @@
 package com.hrstaffing.service;
 
 import com.hrstaffing.common.PageResult;
+import com.hrstaffing.common.auth.Role;
 import com.hrstaffing.common.auth.UserContext;
 import com.hrstaffing.common.exception.BizException;
 import com.hrstaffing.dto.ScheduleCreateDTO;
@@ -34,12 +35,16 @@ public class ScheduleService {
         Employee emp = employeeRepo.findById(dto.getEmployeeId())
                 .orElseThrow(() -> new BizException("员工不存在"));
 
+        UserContext.CurrentUser user = UserContext.getCurrent();
+        if (user.getRole() == Role.RECRUITER && !emp.getRecruiterId().equals(user.getUserId())) {
+            throw new BizException("仅可对自己名下的员工创建排班");
+        }
+
         scheduleRepo.findByEmployeeIdAndScheduleDate(emp.getId(), dto.getScheduleDate())
                 .ifPresent(s -> {
                     throw new BizException("该员工当日已存在排班");
                 });
 
-        UserContext.CurrentUser user = UserContext.getCurrent();
         AttendanceSchedule s = new AttendanceSchedule();
         s.setEmployeeId(emp.getId());
         s.setEmployeeNo(emp.getEmployeeNo());
@@ -114,8 +119,16 @@ public class ScheduleService {
     }
 
     public AttendanceSchedule detail(Long id) {
-        return scheduleRepo.findById(id)
+        AttendanceSchedule s = scheduleRepo.findById(id)
                 .orElseThrow(() -> new BizException("排班记录不存在"));
+        UserContext.CurrentUser user = UserContext.getCurrent();
+        if (user.getRole() == Role.RECRUITER && !s.getRecruiterId().equals(user.getUserId())) {
+            throw new BizException("无权查看该排班记录");
+        }
+        if (user.getRole() == Role.SUPERVISOR && !s.getSupervisorId().equals(user.getUserId())) {
+            throw new BizException("无权查看该排班记录");
+        }
+        return s;
     }
 
     public PageResult<AttendanceSchedule> recruiterPage(ScheduleQueryDTO dto) {
@@ -166,6 +179,9 @@ public class ScheduleService {
         Long current = UserContext.getCurrent().getUserId();
         if (!s.getSupervisorId().equals(current)) {
             throw new BizException("仅对应驻场主管可确认此排班");
+        }
+        if (s.getStatus() == ScheduleStatus.EXCEPTION) {
+            throw new BizException("该排班存在异常，请通过异常确认流程处理，不可直接确认排班");
         }
         stateMachine.transitionSchedule(s, ScheduleStatus.CONFIRMED, UserContext.getCurrent().getUserName());
         s.setConfirmedAt(LocalDateTime.now());

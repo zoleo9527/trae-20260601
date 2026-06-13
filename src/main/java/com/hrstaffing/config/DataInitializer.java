@@ -53,7 +53,7 @@ public class DataInitializer implements CommandLineRunner {
                 {"EMP007", "孙磊", "13800000007", "110101199001011117", "立讯精密", "昆山厂区", "SMT操作员"},
                 {"EMP008", "周婷", "13800000008", "110101199001011118", "立讯精密", "昆山厂区", "包装员"},
         };
-        Long[][] ownership = {
+        Object[][] ownership = {
                 {101L, "招聘专员-张敏", 201L, "驻场主管-李强"},
                 {102L, "招聘专员-王芳", 201L, "驻场主管-李强"},
                 {101L, "招聘专员-张敏", 202L, "驻场主管-赵刚"},
@@ -72,9 +72,9 @@ public class DataInitializer implements CommandLineRunner {
             e.setClientCompany(empData[i][4]);
             e.setSiteLocation(empData[i][5]);
             e.setPosition(empData[i][6]);
-            e.setRecruiterId(ownership[i][0]);
+            e.setRecruiterId((Long) ownership[i][0]);
             e.setRecruiterName((String) ownership[i][1]);
-            e.setSupervisorId(ownership[i][2]);
+            e.setSupervisorId((Long) ownership[i][2]);
             e.setSupervisorName((String) ownership[i][3]);
             e.setStatus("ACTIVE");
             employeeRepo.save(e);

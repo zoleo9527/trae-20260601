@@ -21,6 +21,7 @@ import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.streaming.SXSSFSheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
@@ -56,6 +57,7 @@ public class ExportService {
     private final AttendanceScheduleRepository scheduleRepo;
     private final AttendanceExceptionRepository excRepo;
     private final ObjectMapper objectMapper;
+    private final ApplicationContext applicationContext;
 
     @Value("${export.base-dir:/tmp/hrstaffing-exports}")
     private String exportBaseDir;
@@ -83,7 +85,7 @@ public class ExportService {
         task.setCreatedBy(user.getUserId());
         task.setCreatedByName(user.getUserName());
         ExportTask saved = taskRepo.save(task);
-        doExportAsync(saved.getId());
+        applicationContext.getBean(ExportService.class).doExportAsync(saved.getId());
         return saved;
     }
 

@@ -1,6 +1,7 @@
 package com.hrstaffing.service;
 
 import com.hrstaffing.common.PageResult;
+import com.hrstaffing.common.auth.Role;
 import com.hrstaffing.common.auth.UserContext;
 import com.hrstaffing.common.exception.BizException;
 import com.hrstaffing.dto.ExceptionCreateDTO;
@@ -114,6 +115,13 @@ public class ExceptionService {
     public Map<String, Object> detail(Long id) {
         AttendanceException e = excRepo.findById(id)
                 .orElseThrow(() -> new BizException("异常记录不存在"));
+        UserContext.CurrentUser user = UserContext.getCurrent();
+        if (user.getRole() == Role.RECRUITER && !e.getRecruiterId().equals(user.getUserId())) {
+            throw new BizException("无权查看该异常记录");
+        }
+        if (user.getRole() == Role.SUPERVISOR && !e.getSupervisorId().equals(user.getUserId())) {
+            throw new BizException("无权查看该异常记录");
+        }
         List<RejectRecord> rejects = rejectRepo.findByExceptionIdOrderByCreatedAtDesc(id);
         List<SupplementRecord> supplements = supplementRepo.findByExceptionIdOrderByCreatedAtDesc(id);
         AttendanceSchedule schedule = scheduleRepo.findById(e.getScheduleId()).orElse(null);
