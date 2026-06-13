@@ -259,11 +259,12 @@ class Database:
         cursor = conn.cursor()
         now = datetime.now().isoformat()
         cursor.execute('''
-            UPDATE onboarding_receipts SET candidate_name=?, onboarding_date=?,
-                receipt_photo=?, receipt_number=?, status=?, return_fee_due_date=?,
-                return_fee_amount=?, notes=?, updated_at=?
+            UPDATE onboarding_receipts SET interview_id=?, candidate_name=?, job_id=?,
+                company=?, onboarding_date=?, receipt_photo=?, receipt_number=?, 
+                status=?, return_fee_due_date=?, return_fee_amount=?, notes=?, updated_at=?
             WHERE id=?
-        ''', (receipt.candidate_name, receipt.onboarding_date.isoformat(),
+        ''', (receipt.interview_id, receipt.candidate_name, receipt.job_id,
+              receipt.company, receipt.onboarding_date.isoformat(),
               receipt.receipt_photo, receipt.receipt_number, receipt.status.value,
               receipt.return_fee_due_date.isoformat() if receipt.return_fee_due_date else None,
               receipt.return_fee_amount, receipt.notes, now, receipt.id))

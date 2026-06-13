@@ -307,15 +307,12 @@ class ReceiptHandlerWidget(QWidget):
     def verify_receipt(self, receipt: OnboardingReceipt):
         from models import StabilityTracking, StabilityStatus, ChangeLog
         
-        trackings = self.db.get_stability_trackings()
-        existing = [t for t in trackings if t.receipt_id == receipt.id]
-        if existing:
-            QMessageBox.warning(self, '提示', '该回执已存在稳定期跟踪记录')
-            return
-        
         old_status = receipt.status.value
         receipt.status = ReceiptStatus.VERIFIED
         self.db.update_receipt(receipt)
+        
+        trackings = self.db.get_stability_trackings()
+        existing = [t for t in trackings if t.receipt_id == receipt.id]
         
         job = self.db.get_job(receipt.job_id)
         stability_days_str = job.return_fee_condition if job else '30天'
@@ -324,24 +321,37 @@ class ReceiptHandlerWidget(QWidget):
         except:
             days = 30
             
-        tracking = StabilityTracking(
-            id=None,
-            receipt_id=receipt.id,
-            candidate_name=receipt.candidate_name,
-            company=receipt.company,
-            onboarding_date=receipt.onboarding_date,
-            stability_period_days=days,
-            current_work_days=0,
-            status=StabilityStatus.IN_PROGRESS,
-            last_check_date=None,
-            next_check_date=receipt.onboarding_date + timedelta(days=7),
-            risk_notes='',
-            return_fee_paid=False,
-            return_fee_date=None,
-            created_at=datetime.now(),
-            updated_at=datetime.now()
-        )
-        self.db.add_stability_tracking(tracking)
+        if existing:
+            tracking = existing[0]
+            tracking.candidate_name = receipt.candidate_name
+            tracking.company = receipt.company
+            tracking.onboarding_date = receipt.onboarding_date
+            tracking.stability_period_days = days
+            tracking.status = StabilityStatus.IN_PROGRESS
+            tracking.next_check_date = receipt.onboarding_date + timedelta(days=7)
+            tracking.updated_at = datetime.now()
+            self.db.update_stability_tracking(tracking)
+            message = '回执已核实，稳定期跟踪已更新'
+        else:
+            tracking = StabilityTracking(
+                id=None,
+                receipt_id=receipt.id,
+                candidate_name=receipt.candidate_name,
+                company=receipt.company,
+                onboarding_date=receipt.onboarding_date,
+                stability_period_days=days,
+                current_work_days=0,
+                status=StabilityStatus.IN_PROGRESS,
+                last_check_date=None,
+                next_check_date=receipt.onboarding_date + timedelta(days=7),
+                risk_notes='',
+                return_fee_paid=False,
+                return_fee_date=None,
+                created_at=datetime.now(),
+                updated_at=datetime.now()
+            )
+            self.db.add_stability_tracking(tracking)
+            message = '回执已核实，稳定期跟踪已自动创建'
         
         change_log = ChangeLog(
             id=None,
@@ -355,7 +365,7 @@ class ReceiptHandlerWidget(QWidget):
         )
         self.db.add_change_log(change_log)
         
-        QMessageBox.information(self, '成功', '回执已核实，稳定期跟踪已自动创建')
+        QMessageBox.information(self, '成功', message)
         self.refresh()
         
     def reject_receipt(self, receipt: OnboardingReceipt):
