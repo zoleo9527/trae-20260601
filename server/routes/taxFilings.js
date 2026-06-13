@@ -10,21 +10,38 @@ function addLog(refType, refId, action, oldStatus, newStatus, remark, operatorId
 }
 
 router.get('/', (req, res) => {
-  const { status, period, tax_type, customer_id, page = 1, pageSize = 20 } = req.query;
+  const { status, period, tax_type, customer_id, keyword, page = 1, pageSize = 20 } = req.query;
   const offset = (page - 1) * pageSize;
 
   let where = [];
   let params = [];
 
-  if (status) { where.push('tf.status = ?'); params.push(status); }
+  if (status) {
+    const statusList = status.split(',').filter(Boolean);
+    if (statusList.length > 1) {
+      const placeholders = statusList.map(() => '?').join(',');
+      where.push(`tf.status IN (${placeholders})`);
+      params.push(...statusList);
+    } else {
+      where.push('tf.status = ?');
+      params.push(status);
+    }
+  }
   if (period) { where.push('tf.period = ?'); params.push(period); }
   if (tax_type) { where.push('tf.tax_type = ?'); params.push(tax_type); }
   if (customer_id) { where.push('tf.customer_id = ?'); params.push(customer_id); }
+  if (keyword) {
+    where.push('(c.name LIKE ? OR c.company_name LIKE ? OR tf.current_remark LIKE ?)');
+    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+  }
 
   const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
   const total = db.prepare(`
-    SELECT COUNT(*) as count FROM tax_filings tf ${whereSql}
+    SELECT COUNT(*) as count FROM tax_filings tf
+    LEFT JOIN customers c ON tf.customer_id = c.id
+    LEFT JOIN users u ON c.accountant_id = u.id
+    ${whereSql}
   `).get(...params).count;
 
   const list = db.prepare(`

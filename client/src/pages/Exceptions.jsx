@@ -24,19 +24,17 @@ function Exceptions() {
   const [stats, setStats] = useState({})
   const [loading, setLoading] = useState(false)
   const [pagination, setPagination] = useState({ current: 1, pageSize: 20 })
-  const [filters, setFilters] = useState({
-    status: undefined,
-    type: searchParams.get('type') || undefined,
-    priority: undefined,
-    keyword: '',
-  })
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState(searchParams.get('type') || undefined)
+  const [priorityFilter, setPriorityFilter] = useState(undefined)
+  const [keyword, setKeyword] = useState('')
   const [createModal, setCreateModal] = useState(false)
   const [remarkModal, setRemarkModal] = useState(false)
   const [currentRecord, setCurrentRecord] = useState(null)
   const [form] = Form.useForm()
   const [remarkForm] = Form.useForm()
   const [customers, setCustomers] = useState([])
-  const [activeTab, setActiveTab] = useState('all')
+  const [activeTypeCard, setActiveTypeCard] = useState('all')
 
   useEffect(() => {
     fetchData()
@@ -53,11 +51,26 @@ function Exceptions() {
     const params = {
       page: pagination.current,
       pageSize: pagination.pageSize,
-      ...filters,
     }
-    if (activeTab === 'open') {
+
+    if (statusFilter === 'open') {
       params.status = 'open,processing'
+    } else if (statusFilter !== 'all') {
+      params.status = statusFilter
     }
+
+    if (typeFilter) {
+      params.type = typeFilter
+    }
+
+    if (priorityFilter) {
+      params.priority = priorityFilter
+    }
+
+    if (keyword && keyword.trim()) {
+      params.keyword = keyword.trim()
+    }
+
     Object.keys(params).forEach(key => {
       if (params[key] === undefined || params[key] === '' || params[key] === null) delete params[key]
     })
@@ -69,7 +82,22 @@ function Exceptions() {
 
   useEffect(() => {
     fetchData()
-  }, [pagination.current, pagination.pageSize, filters, activeTab])
+  }, [pagination.current, pagination.pageSize, statusFilter, typeFilter, priorityFilter, keyword])
+
+  const handleTypeCardClick = (typeKey) => {
+    setActiveTypeCard(typeKey)
+    if (typeKey === 'all') {
+      setTypeFilter(undefined)
+    } else {
+      setTypeFilter(typeKey)
+    }
+    setPagination({ ...pagination, current: 1 })
+  }
+
+  const handleStatusChange = (value) => {
+    setStatusFilter(value)
+    setPagination({ ...pagination, current: 1 })
+  }
 
   const typeMap = {
     urge: { label: '催收提醒', color: 'orange', icon: <BellOutlined /> },
@@ -163,11 +191,13 @@ function Exceptions() {
 
   const getActionButtons = (record) => {
     const actions = []
+    const stop = (e) => e.stopPropagation()
+
     switch (record.status) {
       case 'open':
         actions.push(
           <Button key="start" type="primary" size="small" icon={<PlayCircleOutlined />}
-            onClick={() => handleAction(record, 'start', '开始处理')}>
+            onClick={(e) => { stop(e); handleAction(record, 'start', '开始处理') }}>
             开始处理
           </Button>
         )
@@ -175,7 +205,7 @@ function Exceptions() {
       case 'processing':
         actions.push(
           <Button key="resolve" type="primary" size="small" icon={<CheckCircleOutlined />}
-            onClick={() => handleAction(record, 'resolve', '标记解决')}>
+            onClick={(e) => { stop(e); handleAction(record, 'resolve', '标记解决') }}>
             标记解决
           </Button>
         )
@@ -183,7 +213,7 @@ function Exceptions() {
       case 'resolved':
         actions.push(
           <Button key="close" size="small" icon={<CloseCircleOutlined />}
-            onClick={() => handleAction(record, 'close', '关闭')}>
+            onClick={(e) => { stop(e); handleAction(record, 'close', '关闭') }}>
             关闭
           </Button>
         )
@@ -191,7 +221,7 @@ function Exceptions() {
       case 'closed':
         actions.push(
           <Button key="reopen" size="small" icon={<RollbackOutlined />}
-            onClick={() => handleAction(record, 'reopen', '重新打开')}>
+            onClick={(e) => { stop(e); handleAction(record, 'reopen', '重新打开') }}>
             重新打开
           </Button>
         )
@@ -199,7 +229,7 @@ function Exceptions() {
     }
     actions.push(
       <Button key="view" size="small" icon={<EyeOutlined />}
-        onClick={() => navigate(`/exceptions/${record.id}`)}>
+        onClick={(e) => { stop(e); navigate(`/exceptions/${record.id}`) }}>
         详情
       </Button>
     )
@@ -296,19 +326,11 @@ function Exceptions() {
           <Col span={6} key={card.key}>
             <Card
               hoverable
-              onClick={() => {
-                setActiveTab(card.key)
-                if (card.key === 'all') {
-                  setFilters({ ...filters, type: undefined })
-                } else if (card.key !== 'all') {
-                  setFilters({ ...filters, type: card.key })
-                }
-                setPagination({ ...pagination, current: 1 })
-              }}
+              onClick={() => handleTypeCardClick(card.key)}
               style={{
                 cursor: 'pointer',
                 borderLeft: `4px solid ${card.color}`,
-                background: activeTab === card.key ? '#e6f7ff' : '#fff',
+                background: activeTypeCard === card.key ? '#e6f7ff' : '#fff',
               }}
               bodyStyle={{ padding: '16px 20px' }}
             >
@@ -323,13 +345,7 @@ function Exceptions() {
 
       <div className="action-bar">
         <Space wrap>
-          <Radio.Group value={activeTab} onChange={e => {
-            setActiveTab(e.target.value)
-            if (e.target.value === 'all') {
-              setFilters({ ...filters, type: undefined })
-            }
-            setPagination({ ...pagination, current: 1 })
-          }}>
+          <Radio.Group value={statusFilter} onChange={e => handleStatusChange(e.target.value)}>
             <Radio.Button value="all">全部</Radio.Button>
             <Radio.Button value="open">待处理</Radio.Button>
             <Radio.Button value="resolved">已解决</Radio.Button>
@@ -339,8 +355,8 @@ function Exceptions() {
             placeholder="类型筛选"
             style={{ width: 130 }}
             allowClear
-            value={filters.type}
-            onChange={v => setFilters({ ...filters, type: v })}
+            value={typeFilter}
+            onChange={v => { setTypeFilter(v); setPagination({ ...pagination, current: 1 }) }}
           >
             {Object.entries(typeMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val.label}</Select.Option>
@@ -350,8 +366,8 @@ function Exceptions() {
             placeholder="优先级"
             style={{ width: 110 }}
             allowClear
-            value={filters.priority}
-            onChange={v => setFilters({ ...filters, priority: v })}
+            value={priorityFilter}
+            onChange={v => { setPriorityFilter(v); setPagination({ ...pagination, current: 1 }) }}
           >
             {Object.entries(priorityMap).map(([key, val]) => (
               <Select.Option key={key} value={key}>{val.label}</Select.Option>
@@ -362,11 +378,10 @@ function Exceptions() {
             style={{ width: 200 }}
             prefix={<SearchOutlined />}
             allowClear
-            value={filters.keyword}
-            onChange={e => setFilters({ ...filters, keyword: e.target.value })}
+            value={keyword}
+            onChange={e => setKeyword(e.target.value)}
             onPressEnter={() => {
               setPagination({ ...pagination, current: 1 })
-              fetchData()
             }}
           />
           <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreateModal(true)}>

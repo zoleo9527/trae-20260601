@@ -10,21 +10,50 @@ function addLog(refType, refId, action, oldStatus, newStatus, remark, operatorId
 }
 
 router.get('/', (req, res) => {
-  const { status, type, priority, customer_id, page = 1, pageSize = 20 } = req.query;
+  const { status, type, priority, customer_id, keyword, page = 1, pageSize = 20 } = req.query;
   const offset = (page - 1) * pageSize;
 
   let where = [];
   let params = [];
 
-  if (status) { where.push('e.status = ?'); params.push(status); }
-  if (type) { where.push('e.type = ?'); params.push(type); }
+  if (status) {
+    const statusList = status.split(',').filter(Boolean);
+    if (statusList.length > 1) {
+      const placeholders = statusList.map(() => '?').join(',');
+      where.push(`e.status IN (${placeholders})`);
+      params.push(...statusList);
+    } else {
+      where.push('e.status = ?');
+      params.push(status);
+    }
+  }
+  if (type) {
+    const typeList = type.split(',').filter(Boolean);
+    if (typeList.length > 1) {
+      const placeholders = typeList.map(() => '?').join(',');
+      where.push(`e.type IN (${placeholders})`);
+      params.push(...typeList);
+    } else {
+      where.push('e.type = ?');
+      params.push(type);
+    }
+  }
   if (priority) { where.push('e.priority = ?'); params.push(priority); }
   if (customer_id) { where.push('e.customer_id = ?'); params.push(customer_id); }
+  if (keyword) {
+    where.push('(e.title LIKE ? OR e.description LIKE ? OR c.name LIKE ? OR c.company_name LIKE ?)');
+    params.push(`%${keyword}%`, `%${keyword}%`, `%${keyword}%`, `%${keyword}%`);
+  }
 
   const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
   const total = db.prepare(`
-    SELECT COUNT(*) as count FROM exceptions e ${whereSql}
+    SELECT COUNT(*) as count FROM exceptions e
+    LEFT JOIN customers c ON e.customer_id = c.id
+    LEFT JOIN users u ON e.assigned_to = u.id
+    LEFT JOIN users u2 ON e.created_by = u2.id
+    LEFT JOIN tax_filings tf ON e.tax_filing_id = tf.id
+    ${whereSql}
   `).get(...params).count;
 
   const list = db.prepare(`
