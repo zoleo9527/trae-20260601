@@ -199,6 +199,11 @@ let TrainingNeedsService = class TrainingNeedsService {
             trainingNeed.status !== training_need_entity_1.TrainingNeedStatus.TRANSFERRED) {
             throw new common_1.ForbiddenException('只能转派待审批或已转派状态的需求');
         }
+        if (trainingNeed.currentHandlerId) {
+            if (trainingNeed.currentHandlerId !== handlerId) {
+                throw new common_1.ForbiddenException('只有当前处理人才能转派此需求');
+            }
+        }
         const fromStatus = trainingNeed.status;
         const previousHandlerId = trainingNeed.currentHandlerId || handlerId;
         await this.trainingNeedRepository.update(id, {

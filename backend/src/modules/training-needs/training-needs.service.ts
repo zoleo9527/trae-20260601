@@ -277,6 +277,12 @@ export class TrainingNeedsService {
       throw new ForbiddenException('只能转派待审批或已转派状态的需求');
     }
 
+    if (trainingNeed.currentHandlerId) {
+      if (trainingNeed.currentHandlerId !== handlerId) {
+        throw new ForbiddenException('只有当前处理人才能转派此需求');
+      }
+    }
+
     const fromStatus = trainingNeed.status;
     const previousHandlerId = trainingNeed.currentHandlerId || handlerId;
     
