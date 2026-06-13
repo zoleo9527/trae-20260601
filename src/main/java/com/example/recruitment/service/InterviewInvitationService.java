@@ -190,11 +190,23 @@ public class InterviewInvitationService {
     }
 
     private void validateStatusTransition(InterviewStatusEnum current, InterviewStatusEnum target) {
-        if (current == InterviewStatusEnum.COMPLETED || 
-            current == InterviewStatusEnum.REJECTED || 
+        if (current == InterviewStatusEnum.COMPLETED ||
+            current == InterviewStatusEnum.REJECTED ||
             current == InterviewStatusEnum.EXPIRED ||
             current == InterviewStatusEnum.NO_SHOW) {
             throw new BusinessException(400, "该面试邀约已终结，无法修改状态");
+        }
+
+        if (current == InterviewStatusEnum.PENDING) {
+            if (target != InterviewStatusEnum.CONFIRMED && target != InterviewStatusEnum.REJECTED) {
+                throw new BusinessException(400, "待确认状态只能变更为已确认或已拒绝");
+            }
+        }
+
+        if (current == InterviewStatusEnum.CONFIRMED) {
+            if (target != InterviewStatusEnum.COMPLETED && target != InterviewStatusEnum.NO_SHOW) {
+                throw new BusinessException(400, "已确认状态只能变更为已完成或爽约");
+            }
         }
     }
 

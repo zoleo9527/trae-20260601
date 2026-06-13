@@ -192,6 +192,24 @@ public class CandidateApplicationService {
         if (current == ApplicationStatusEnum.REJECTED && target != ApplicationStatusEnum.PENDING) {
             throw new BusinessException(400, "已拒绝的记录只能重新改为待审核");
         }
+
+        if (current == ApplicationStatusEnum.PENDING) {
+            if (target != ApplicationStatusEnum.CONFIRMED && target != ApplicationStatusEnum.REJECTED) {
+                throw new BusinessException(400, "待审核状态只能变更为已确认或已拒绝");
+            }
+        }
+
+        if (current == ApplicationStatusEnum.CONFIRMED) {
+            if (target != ApplicationStatusEnum.INTERVIEWING && target != ApplicationStatusEnum.ABANDONED) {
+                throw new BusinessException(400, "已确认状态只能变更为面试中或已放弃");
+            }
+        }
+
+        if (current == ApplicationStatusEnum.INTERVIEWING) {
+            if (target != ApplicationStatusEnum.HIRED && target != ApplicationStatusEnum.ABANDONED) {
+                throw new BusinessException(400, "面试中状态只能变更为已入职或已放弃");
+            }
+        }
     }
 
     public List<CandidateApplicationResponse> getTodayPending() {

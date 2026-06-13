@@ -7,6 +7,7 @@ import com.example.recruitment.mapper.PositionMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +31,12 @@ public class PositionService {
     }
 
     private PositionResponse convertToResponse(Position position) {
+        LocalDateTime now = LocalDateTime.now();
+        boolean isExpired = position.getExpireTime() != null && position.getExpireTime().isBefore(now);
+        String statusDesc = isExpired ? PositionStatusEnum.EXPIRED.getDesc() :
+                (PositionStatusEnum.fromCode(position.getStatus()) != null ?
+                        PositionStatusEnum.fromCode(position.getStatus()).getDesc() : null);
+
         return PositionResponse.builder()
                 .id(position.getId())
                 .positionName(position.getPositionName())
@@ -47,8 +54,8 @@ public class PositionService {
                 .rebateAmount(position.getRebateAmount())
                 .rebateCondition(position.getRebateCondition())
                 .status(position.getStatus())
-                .statusDesc(PositionStatusEnum.fromCode(position.getStatus()) != null ?
-                        PositionStatusEnum.fromCode(position.getStatus()).getDesc() : null)
+                .statusDesc(statusDesc)
+                .isExpired(isExpired)
                 .expireTime(position.getExpireTime())
                 .createdAt(position.getCreatedAt())
                 .build();
