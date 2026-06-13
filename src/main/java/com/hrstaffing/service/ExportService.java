@@ -33,6 +33,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -103,11 +104,12 @@ public class ExportService {
     }
 
     @Async
-    @Transactional
     public void doExportAsync(Long taskId) {
-        ExportTask task = fetchTaskWithRetry(taskId);
+        ExportTask task = applicationContext.getBean(ExportService.class).fetchTaskWithRetryInNewTx(taskId);
         if (task == null) {
-            log.error("Export task {} not found after retry, export aborted", taskId);
+            log.error("Export task {} not found after retry, marking as FAILED directly", taskId);
+            applicationContext.getBean(ExportService.class).markTaskFailedDirectly(taskId,
+                    "任务记录在重试后仍无法读取，导出已中止");
             return;
         }
         try {
@@ -147,7 +149,8 @@ public class ExportService {
         taskRepo.save(task);
     }
 
-    private ExportTask fetchTaskWithRetry(Long taskId) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public ExportTask fetchTaskWithRetryInNewTx(Long taskId) {
         int maxRetries = 3;
         long sleepMs = 500;
         for (int i = 0; i < maxRetries; i++) {
@@ -164,6 +167,16 @@ public class ExportService {
             }
         }
         return null;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markTaskFailedDirectly(Long taskId, String failReason) {
+        int updated = taskRepo.updateFailedById(taskId, ExportStatus.FAILED, failReason, LocalDateTime.now());
+        if (updated > 0) {
+            log.info("Export task {} marked as FAILED directly, reason: {}", taskId, failReason);
+        } else {
+            log.error("Failed to mark task {} as FAILED, no rows updated", taskId);
+        }
     }
 
     public PageResult<ExportTask> myTasks(int page, int size) {
