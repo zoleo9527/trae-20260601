@@ -33,9 +33,10 @@ public class PositionService {
     private PositionResponse convertToResponse(Position position) {
         LocalDateTime now = LocalDateTime.now();
         boolean isExpired = position.getExpireTime() != null && position.getExpireTime().isBefore(now);
-        String statusDesc = isExpired ? PositionStatusEnum.EXPIRED.getDesc() :
-                (PositionStatusEnum.fromCode(position.getStatus()) != null ?
-                        PositionStatusEnum.fromCode(position.getStatus()).getDesc() : null);
+        
+        Integer displayStatus = isExpired ? PositionStatusEnum.EXPIRED.getCode() : position.getStatus();
+        String statusDesc = PositionStatusEnum.fromCode(displayStatus) != null ?
+                PositionStatusEnum.fromCode(displayStatus).getDesc() : null;
 
         return PositionResponse.builder()
                 .id(position.getId())
@@ -53,8 +54,9 @@ public class PositionService {
                 .benefits(position.getBenefits())
                 .rebateAmount(position.getRebateAmount())
                 .rebateCondition(position.getRebateCondition())
-                .status(position.getStatus())
+                .status(displayStatus)
                 .statusDesc(statusDesc)
+                .originalStatus(position.getStatus())
                 .isExpired(isExpired)
                 .expireTime(position.getExpireTime())
                 .createdAt(position.getCreatedAt())

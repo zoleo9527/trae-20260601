@@ -45,8 +45,13 @@ curl -X GET http://localhost:8080/api/dashboard
 | todayPendingInvitations | 今日待确认的面试邀约 |
 | timeoutInvitations | 已过面试时间但未处理的邀约 |
 | noShowInvitations | 爽约记录 |
-| expiredPositions | 已过期的岗位 |
+| expiredPositions | 已过期的岗位（status=3，originalStatus保留原始状态） |
 | expiringSoonPositions | 7天内即将过期的岗位 |
+
+**过期岗位字段说明:**
+- `status`: 实际显示状态（过期岗位为3）
+- `originalStatus`: 数据库原始状态值
+- `isExpired`: 是否已过期（true/false）
 
 ---
 
@@ -87,7 +92,7 @@ curl -X POST http://localhost:8080/api/applications \
     "statusDesc": "待审核",
     "submittedBy": 3,
     "submittedByName": "招聘顾问",
-    "submittedAt": "2024-01-15 10:30:00"
+    "submittedAt": "2024-01-15T10:30:00"
   }
 }
 ```
@@ -180,7 +185,7 @@ curl -X POST http://localhost:8080/api/invitations \
     "applicationId": 1,
     "positionId": 1,
     "candidateName": "张三",
-    "interviewTime": "2024-01-18 14:00:00",
+    "interviewTime": "2024-01-18T14:00:00",
     "interviewLocation": "上海市浦东新区张江高科技园区测试公司办公楼3楼会议室",
     "status": 1,
     "statusDesc": "待确认",

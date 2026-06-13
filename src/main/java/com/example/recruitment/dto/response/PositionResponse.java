@@ -47,6 +47,8 @@ public class PositionResponse {
 
     private String statusDesc;
 
+    private Integer originalStatus;
+
     private Boolean isExpired;
 
     private LocalDateTime expireTime;
