@@ -9,6 +9,8 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 		return json({ error: '未登录' }, { status: 401 });
 	}
 
+	const session = JSON.parse(sessionCookie);
+	const userId = session.userId;
 	const id = parseInt(params.id);
 
 	const riskAlert = db.prepare('SELECT * FROM risk_alerts WHERE id = ?').get(id) as any;
@@ -16,7 +18,11 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 		return json({ error: '风险提示不存在' }, { status: 404 });
 	}
 
-	const todos = db.prepare('SELECT * FROM todo_items WHERE risk_alert_id = ?').all(id) as any[];
+	const todos = db.prepare(`
+		SELECT * FROM todo_items 
+		WHERE risk_alert_id = ? AND user_id = ? AND status IN ('pending', 'processing')
+	`).all(id, userId) as any[];
+
 	const followUps = db.prepare('SELECT * FROM follow_ups WHERE risk_alert_id = ? ORDER BY follow_date DESC').all(id) as any[];
 	const operationLogs = db.prepare('SELECT ol.*, u.name as user_name FROM operation_logs ol LEFT JOIN users u ON ol.user_id = u.id WHERE ol.risk_alert_id = ? ORDER BY ol.created_at DESC').all(id) as any[];
 

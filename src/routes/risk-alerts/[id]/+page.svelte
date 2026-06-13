@@ -13,10 +13,26 @@
 	let followUpDate = '';
 	let rejectReason = '';
 	let supplementNote = '';
+	let currentUserRole = '';
+	let currentUserId = '';
 
 	onMount(async () => {
+		await loadCurrentUser();
 		await loadDetail();
 	});
+
+	async function loadCurrentUser() {
+		try {
+			const res = await fetch('/api/auth/current-user');
+			const data = await res.json();
+			if (data.user) {
+				currentUserRole = data.user.role;
+				currentUserId = data.user.id.toString();
+			}
+		} catch (e) {
+			console.error(e);
+		}
+	}
 
 	async function loadDetail() {
 		loading = true;
@@ -56,11 +72,17 @@
 				payload.supplement_note = supplementNote;
 			}
 
-			await fetch(`/api/risk-alerts/${id}/process`, {
+			const res = await fetch(`/api/risk-alerts/${id}/process`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(payload)
 			});
+
+			if (!res.ok) {
+				const error = await res.json();
+				alert(error.error || '处理失败');
+				return;
+			}
 
 			showProcessModal = false;
 			processAction = '';
@@ -76,7 +98,7 @@
 	async function handleFollowUp() {
 		try {
 			const id = $page.params.id;
-			await fetch(`/api/risk-alerts/${id}/follow-ups`, {
+			const res = await fetch(`/api/risk-alerts/${id}/follow-ups`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -85,6 +107,11 @@
 					note: followUpNote
 				})
 			});
+
+			if (!res.ok) {
+				alert('添加跟踪失败');
+				return;
+			}
 
 			showFollowUpModal = false;
 			followUpNote = '';
@@ -136,6 +163,80 @@
 		};
 		return labels[result] || result;
 	}
+
+	function canPerformAction(action: string): boolean {
+		if (!detail?.riskAlert) return false;
+		
+		const status = detail.riskAlert.status;
+		const isTaxAdvisor = currentUserRole === 'tax_advisor';
+		const isProjectManager = currentUserRole === 'project_manager';
+		const isClientFinance = currentUserRole === 'client_finance';
+		const isAssignee = currentUserId === detail.riskAlert.assignee_id?.toString();
+		const isCreator = currentUserId === detail.riskAlert.creator_id?.toString();
+
+		switch (action) {
+			case '开始处理':
+				return status === 'pending' && (isTaxAdvisor || isAssignee);
+			case '完成处理':
+				return status === 'processing' && (isTaxAdvisor || isAssignee);
+			case '确认完成':
+				return status === 'confirming' && (isProjectManager || isCreator);
+			case '退回补充':
+				return status === 'confirming' && (isProjectManager || isCreator);
+			case '补充资料':
+				return isClientFinance;
+			case '签收确认':
+				return isClientFinance;
+			case '重新处理':
+				return status === 'completed' && (isProjectManager || isTaxAdvisor);
+			case '添加跟踪':
+				return (isProjectManager || isTaxAdvisor) && status === 'completed';
+			default:
+				return true;
+		}
+	}
+
+	function getAvailableActions() {
+		if (!detail?.riskAlert) return [];
+		
+		const baseActions: { value: string; label: string }[] = [];
+		const status = detail.riskAlert.status;
+
+		if (status === 'pending') {
+			if (canPerformAction('开始处理')) {
+				baseActions.push({ value: '开始处理', label: '开始处理' });
+			}
+		}
+
+		if (status === 'processing') {
+			baseActions.push(
+				{ value: '提出方案', label: '提出方案' },
+				{ value: '组织讨论', label: '组织讨论' },
+				{ value: '提供数据', label: '提供数据' },
+				{ value: '确定方案', label: '确定方案' }
+			);
+			if (canPerformAction('完成处理')) {
+				baseActions.push({ value: '完成处理', label: '完成处理' });
+			}
+		}
+
+		if (status === 'confirming') {
+			if (canPerformAction('确认完成')) {
+				baseActions.push({ value: '确认完成', label: '确认完成' });
+			}
+			if (canPerformAction('退回补充')) {
+				baseActions.push({ value: '退回补充', label: '退回补充' });
+			}
+		}
+
+		if (status === 'completed') {
+			if (canPerformAction('重新处理')) {
+				baseActions.push({ value: '重新处理', label: '重新处理' });
+			}
+		}
+
+		return baseActions;
+	}
 </script>
 
 <div class="container">
@@ -163,8 +264,10 @@
 			</div>
 			<div class="header-right">
 				{#if detail.riskAlert.status !== 'closed'}
-					<button class="btn btn-primary" on:click={() => showProcessModal = true}>处理</button>
-					{#if detail.riskAlert.status === 'completed'}
+					{#if getAvailableActions().length > 0}
+						<button class="btn btn-primary" on:click={() => showProcessModal = true}>处理</button>
+					{/if}
+					{#if canPerformAction('添加跟踪')}
 						<button class="btn btn-secondary" on:click={() => showFollowUpModal = true}>添加跟踪</button>
 					{/if}
 				{/if}
@@ -334,23 +437,9 @@
 						<label class="label">处理动作</label>
 						<select class="input" bind:value={processAction}>
 							<option value="">请选择</option>
-							{#if detail.riskAlert.status === 'pending'}
-								<option value="开始处理">开始处理</option>
-							{/if}
-							{#if detail.riskAlert.status === 'processing'}
-								<option value="提出方案">提出方案</option>
-								<option value="组织讨论">组织讨论</option>
-								<option value="提供数据">提供数据</option>
-								<option value="确定方案">确定方案</option>
-								<option value="完成处理">完成处理</option>
-							{/if}
-							{#if detail.riskAlert.status === 'confirming'}
-								<option value="确认完成">确认完成</option>
-								<option value="退回补充">退回补充</option>
-							{/if}
-							{#if detail.riskAlert.status === 'completed'}
-								<option value="重新处理">重新处理</option>
-							{/if}
+							{#each getAvailableActions() as action}
+								<option value={action.value}>{action.label}</option>
+							{/each}
 						</select>
 					</div>
 					<div class="form-group">
@@ -365,6 +454,12 @@
 						<div class="form-group">
 							<label class="label">补充备注</label>
 							<textarea class="input textarea" bind:value={supplementNote} placeholder="请填写补充备注..."></textarea>
+						</div>
+					{/if}
+					{#if processAction === '补充资料'}
+						<div class="form-group">
+							<label class="label">补充备注</label>
+							<textarea class="input textarea" bind:value={supplementNote} placeholder="请填写补充资料内容..."></textarea>
 						</div>
 					{/if}
 					<div class="modal-actions">
