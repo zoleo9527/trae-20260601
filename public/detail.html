@@ -527,6 +527,8 @@
               <h3 class="context-title">📎 上下文交接</h3>
               <div class="context-badges" id="contextBadges"></div>
             </div>
+            <div id="glossarySection" style="margin-bottom: 16px;"></div>
+            <div id="feedbackSection"></div>
             <div class="action-buttons" id="actionButtons"></div>
           </div>
         </div>
@@ -673,6 +675,8 @@
     const API_BASE = 'http://localhost:3000/api';
     let currentManuscript = null;
     let currentQuote = null;
+    let currentGlossary = null;
+    let currentFeedbacks = [];
     let allUsers = [];
     let data = {};
 
@@ -697,8 +701,12 @@
         allUsers = (await usersRes.json()).users;
         currentManuscript = data.manuscript;
         currentQuote = data.quote;
+        currentGlossary = data.glossary;
+        currentFeedbacks = data.feedbacks;
 
         renderManuscript();
+        renderGlossary();
+        renderFeedbacks();
         renderQuote();
         renderAssignmentSection();
         renderTranslationSection();
@@ -762,6 +770,70 @@
       badges.push(`<span class="badge ${m.feedback_connected ? 'badge-success' : 'badge-warning'}">${m.feedback_connected ? '✓' : '⚠️'} 客户反馈</span>`);
       if (m.quote_id) badges.push(`<span class="badge ${m.quote_status === 'approved' ? 'badge-success' : m.quote_status === 'quoted' ? 'badge-info' : 'badge-warning'}">${m.quote_status === 'approved' ? '✓' : '⏳'} 报价</span>`);
       document.getElementById('contextBadges').innerHTML = badges.join('');
+    }
+
+    function renderGlossary() {
+      const container = document.getElementById('glossarySection');
+      const glossary = currentGlossary;
+
+      if (!glossary) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="padding: 16px; background: #e8f5e9; border-radius: 8px; border-left: 4px solid #4caf50;">
+          <div style="font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <span>📚</span>关联术语表
+          </div>
+          <div style="font-size: 13px; color: #666; margin-bottom: 8px;">
+            <div>客户：${glossary.client_name}</div>
+            <div>版本：${glossary.version} | 术语数：${glossary.term_count}条 | 更新：${glossary.last_updated}</div>
+          </div>
+          ${glossary.terms_sample && glossary.terms_sample.length > 0 ? `
+          <div style="margin-top: 8px; padding-top: 8px; border-top: 1px dashed #c8e6c9;">
+            <div style="font-size: 12px; color: #888; margin-bottom: 6px;">术语示例：</div>
+            <div style="display: flex; flex-wrap: gap: 8px;">
+              ${glossary.terms_sample.map(t => `
+                <div style="display: inline-block; padding: 4px 10px; background: white; border-radius: 4px; margin-right: 8px; margin-bottom: 4px; font-size: 13px;">
+                  <strong>${t.zh}</strong> → ${t.en}
+                </div>
+              `).join('')}
+            </div>
+          </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    function renderFeedbacks() {
+      const container = document.getElementById('feedbackSection');
+      const feedbacks = currentFeedbacks || [];
+
+      if (!feedbacks || feedbacks.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = `
+        <div style="padding: 16px; background: #e3f2fd; border-radius: 8px; border-left: 4px solid #2196f3;">
+          <div style="font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+            <span>💬</span>客户反馈 (${feedbacks.length}条)
+          </div>
+          <div style="space-y: 8px;">
+            ${feedbacks.map(f => `
+              <div style="padding: 12px; background: white; border-radius: 6px; margin-bottom: 8px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-weight: 500;">${f.type === 'style_preference' ? '风格偏好' : f.type === 'quality_feedback' ? '质量反馈' : f.type}</span>
+                  <span style="font-size: 12px; color: #999;">${f.created_at}</span>
+                </div>
+                <div style="font-size: 13px; color: #666;">${f.summary}</div>
+                ${f.detailed_notes ? `<div style="font-size: 12px; color: #888; margin-top: 4px; padding-top: 4px; border-top: 1px dashed #e8ecf1;">${f.detailed_notes}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
     }
 
     function renderActionButtons() {
