@@ -70,7 +70,7 @@ const HrSettlementDetail: React.FC = () => {
 
     addHistoryRecord('settlement', settlement.id, record);
     updateSettlement({
-      ...settlement,
+      id: settlement.id,
       status: 'pending_operator_review',
       updatedAt: record.time,
     });
@@ -120,7 +120,7 @@ const HrSettlementDetail: React.FC = () => {
     };
 
     updateSettlement({
-      ...settlement,
+      id: settlement.id,
       status: 'appealing',
       updatedAt: currentTime,
     });
@@ -256,6 +256,17 @@ const HrSettlementDetail: React.FC = () => {
                 >
                   发起异常申诉
                 </Button>
+                {relatedAppeal && (
+                  <Button
+                    type="primary"
+                    block
+                    icon={<FileText className="w-4 h-4" />}
+                    onClick={handleViewAppeal}
+                    className="bg-blue-500 hover:bg-blue-600"
+                  >
+                    查看关联申诉
+                  </Button>
+                )}
               </div>
             )}
             {settlement.status === 'appealing' && (
@@ -276,9 +287,22 @@ const HrSettlementDetail: React.FC = () => {
               </div>
             )}
             {settlement.status === 'rejected' && (
-              <div className="text-center py-8 text-gray-500">
-                <p className="text-red-500 mb-2">结算已驳回</p>
-                <p className="text-xs">该结算单已被驳回，无法继续处理</p>
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-red-600">结算已驳回</p>
+                  <p className="text-xs text-gray-500 mt-1">该结算单已被驳回</p>
+                </div>
+                {relatedAppeal && (
+                  <Button
+                    type="primary"
+                    block
+                    icon={<FileText className="w-4 h-4" />}
+                    onClick={handleViewAppeal}
+                    className="bg-red-500 hover:bg-red-600"
+                  >
+                    查看关联申诉
+                  </Button>
+                )}
               </div>
             )}
             {settlement.status === 'pending_operator_review' && (

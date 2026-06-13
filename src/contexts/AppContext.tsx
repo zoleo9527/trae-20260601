@@ -15,8 +15,8 @@ interface AppState {
   candidates: Candidate[];
   setUser: (user: User) => void;
   logout: () => void;
-  updateSettlement: (settlement: Settlement) => void;
-  updateAppeal: (appeal: Appeal) => void;
+  updateSettlement: (settlement: Partial<Settlement>) => void;
+  updateAppeal: (appeal: Partial<Appeal>) => void;
   addAppeal: (appeal: Appeal) => void;
   addHistoryRecord: (type: 'settlement' | 'appeal', id: string, record: HistoryRecord) => void;
 }
@@ -29,16 +29,20 @@ const useStore = create<AppState>((set) => ({
   candidates: mockCandidates,
   setUser: (user) => set({ user }),
   logout: () => set({ user: null }),
-  updateSettlement: (settlement) =>
+  updateSettlement: (partialSettlement) =>
     set((state) => ({
       settlements: state.settlements.map((s) =>
-        s.id === settlement.id ? settlement : s
+        s.id === partialSettlement.id
+          ? { ...s, ...partialSettlement }
+          : s
       ),
     })),
-  updateAppeal: (appeal) =>
+  updateAppeal: (partialAppeal) =>
     set((state) => ({
       appeals: state.appeals.map((a) =>
-        a.id === appeal.id ? appeal : a
+        a.id === partialAppeal.id
+          ? { ...a, ...partialAppeal }
+          : a
       ),
     })),
   addAppeal: (appeal) =>
@@ -75,8 +79,8 @@ const AppContext = createContext<{
   candidates: Candidate[];
   setUser: (user: User) => void;
   logout: () => void;
-  updateSettlement: (settlement: Settlement) => void;
-  updateAppeal: (appeal: Appeal) => void;
+  updateSettlement: (settlement: Partial<Settlement>) => void;
+  updateAppeal: (appeal: Partial<Appeal>) => void;
   addAppeal: (appeal: Appeal) => void;
   addHistoryRecord: (type: 'settlement' | 'appeal', id: string, record: HistoryRecord) => void;
 } | null>(null);
