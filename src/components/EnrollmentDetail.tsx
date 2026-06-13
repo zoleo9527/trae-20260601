@@ -87,9 +87,8 @@ export function EnrollmentDetail({ enrollmentId, onClose, onShowTimeline, onActi
   };
 
   const handleSaveStudents = () => {
-    actions.confirmEnrollment(enrollmentId, editedStudents);
+    actions.saveEnrollmentStudents(enrollmentId, editedStudents);
     setShowStudentModal(false);
-    onActionComplete?.();
   };
 
   const handleRemoveStudent = (studentId: string) => {

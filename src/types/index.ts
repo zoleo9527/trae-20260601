@@ -131,14 +131,14 @@ export interface TimelineLog {
 export interface TodoItem {
   id: string;
   type: TodoType;
-  category: 'need' | 'schedule' | 'enrollment';
+  category: 'need' | 'schedule' | 'enrollment' | 'training_need';
   title: string;
   description: string;
   deadline: Date;
-  priority: 'high' | 'medium' | 'low';
-  status: string;
-  actions: string[];
-  createdAt: Date;
+  priority?: 'high' | 'medium' | 'low';
+  status?: string;
+  actions?: string[];
+  createdAt?: Date;
   returnedAt?: Date;
   entityId: string;
 }

@@ -46,6 +46,7 @@ interface AppState {
     createSchedule: (schedule: Omit<Schedule, 'id' | 'createdAt'>) => void;
     confirmSchedule: (id: string, confirmed: boolean, reason?: string) => void;
     confirmEnrollment: (id: string, students: Student[]) => void;
+    saveEnrollmentStudents: (id: string, students: Student[]) => void;
     rejectEnrollment: (id: string, reason: string) => void;
     resetEnrollment: (id: string, reason: string) => void;
     addTimelineLog: (log: Omit<TimelineLog, 'id' | 'createdAt'>) => void;
@@ -71,24 +72,204 @@ export const useAppStore = create<AppState>((set, get) => ({
     },
 
     fetchTodos: () => {
-      const { currentUser } = get();
+      const { currentUser, trainingNeeds, schedules, enrollments, timelineLogs } = get();
       if (!currentUser) return;
 
-      let todos;
-      switch (currentUser.role) {
-        case 'manager':
-          todos = getTodosForManager();
-          break;
-        case 'department':
-          todos = getTodosForDepartment(currentUser.departmentId || '');
-          break;
-        case 'instructor':
-          todos = getTodosForInstructor(currentUser.id);
-          break;
-        default:
-          todos = { today: [], overdue: [], returned: [] };
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+      const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+      const today: TodoItem[] = [];
+      const overdue: TodoItem[] = [];
+      const returned: TodoItem[] = [];
+
+      if (currentUser.role === 'manager') {
+        trainingNeeds.forEach((need) => {
+          const deadline = new Date(need.deadline);
+          if (need.status === TrainingNeedStatus.PENDING_REVIEW) {
+            const lastLog = timelineLogs
+              .filter((log) => log.entityType === 'training_need' && log.entityId === need.id)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+            const isReturned = lastLog && 
+              new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
+              lastLog.toStatus === TrainingNeedStatus.REJECTED;
+
+            if (isReturned) {
+              returned.push({
+                id: `need-${need.id}`,
+                title: need.title,
+                description: need.description,
+                deadline: need.deadline,
+                type: TodoType.RETURNED,
+                category: 'training_need',
+                entityId: need.id,
+              });
+            } else if (deadline >= todayStart && deadline < todayEnd) {
+              today.push({
+                id: `need-${need.id}`,
+                title: need.title,
+                description: need.description,
+                deadline: need.deadline,
+                type: TodoType.TODAY,
+                category: 'training_need',
+                entityId: need.id,
+              });
+            } else if (deadline < todayStart) {
+              overdue.push({
+                id: `need-${need.id}`,
+                title: need.title,
+                description: need.description,
+                deadline: need.deadline,
+                type: TodoType.OVERDUE,
+                category: 'training_need',
+                entityId: need.id,
+              });
+            }
+          }
+        });
+
+        schedules.forEach((schedule) => {
+          if (schedule.status === ScheduleStatus.SCHEDULED) {
+            const startTime = new Date(schedule.startTime);
+            if (startTime >= todayStart && startTime < todayEnd) {
+              today.push({
+                id: `schedule-${schedule.id}`,
+                title: schedule.trainingNeedTitle,
+                description: `${schedule.instructorName} - ${schedule.location}`,
+                deadline: schedule.startTime,
+                type: TodoType.TODAY,
+                category: 'schedule',
+                entityId: schedule.id,
+              });
+            } else if (startTime < todayStart) {
+              overdue.push({
+                id: `schedule-${schedule.id}`,
+                title: schedule.trainingNeedTitle,
+                description: `${schedule.instructorName} - ${schedule.location}`,
+                deadline: schedule.startTime,
+                type: TodoType.OVERDUE,
+                category: 'schedule',
+                entityId: schedule.id,
+              });
+            }
+          }
+        });
+
+        enrollments.forEach((enrollment) => {
+          if (enrollment.status === EnrollmentStatus.PENDING) {
+            const deadline = new Date(enrollment.deadline);
+            if (deadline >= todayStart && deadline < todayEnd) {
+              today.push({
+                id: `enrollment-${enrollment.id}`,
+                title: enrollment.scheduleTitle,
+                description: `${enrollment.departmentName} 报名`,
+                deadline: enrollment.deadline,
+                type: TodoType.TODAY,
+                category: 'enrollment',
+                entityId: enrollment.id,
+              });
+            } else if (deadline < todayStart) {
+              overdue.push({
+                id: `enrollment-${enrollment.id}`,
+                title: enrollment.scheduleTitle,
+                description: `${enrollment.departmentName} 报名`,
+                deadline: enrollment.deadline,
+                type: TodoType.OVERDUE,
+                category: 'enrollment',
+                entityId: enrollment.id,
+              });
+            }
+          }
+        });
       }
-      set({ todos });
+
+      if (currentUser.role === 'department') {
+        enrollments.forEach((enrollment) => {
+          if (enrollment.departmentId === currentUser.departmentId) {
+            const lastLog = timelineLogs
+              .filter((log) => log.entityType === 'enrollment' && log.entityId === enrollment.id)
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
+            const isReturned = lastLog && 
+              new Date(lastLog.createdAt) >= twentyFourHoursAgo && 
+              lastLog.toStatus === EnrollmentStatus.REJECTED;
+
+            if (isReturned) {
+              returned.push({
+                id: `enrollment-${enrollment.id}`,
+                title: enrollment.scheduleTitle,
+                description: `${enrollment.departmentName} 报名`,
+                deadline: enrollment.deadline,
+                type: TodoType.RETURNED,
+                category: 'enrollment',
+                entityId: enrollment.id,
+              });
+            } else if (enrollment.status === EnrollmentStatus.PENDING) {
+              const deadline = new Date(enrollment.deadline);
+              if (deadline >= todayStart && deadline < todayEnd) {
+                today.push({
+                  id: `enrollment-${enrollment.id}`,
+                  title: enrollment.scheduleTitle,
+                  description: `${enrollment.departmentName} 报名`,
+                  deadline: enrollment.deadline,
+                  type: TodoType.TODAY,
+                  category: 'enrollment',
+                  entityId: enrollment.id,
+                });
+              } else if (deadline < todayStart) {
+                overdue.push({
+                  id: `enrollment-${enrollment.id}`,
+                  title: enrollment.scheduleTitle,
+                  description: `${enrollment.departmentName} 报名`,
+                  deadline: enrollment.deadline,
+                  type: TodoType.OVERDUE,
+                  category: 'enrollment',
+                  entityId: enrollment.id,
+                });
+              }
+            }
+          }
+        });
+      }
+
+      if (currentUser.role === 'instructor') {
+        schedules.forEach((schedule) => {
+          if (schedule.instructorId === currentUser.id && schedule.status === ScheduleStatus.SCHEDULED) {
+            const startTime = new Date(schedule.startTime);
+            if (startTime >= todayStart && startTime < todayEnd) {
+              today.push({
+                id: `schedule-${schedule.id}`,
+                title: schedule.trainingNeedTitle,
+                description: `${schedule.location}`,
+                deadline: schedule.startTime,
+                type: TodoType.TODAY,
+                category: 'schedule',
+                entityId: schedule.id,
+              });
+            } else if (startTime < todayStart) {
+              overdue.push({
+                id: `schedule-${schedule.id}`,
+                title: schedule.trainingNeedTitle,
+                description: `${schedule.location}`,
+                deadline: schedule.startTime,
+                type: TodoType.OVERDUE,
+                category: 'schedule',
+                entityId: schedule.id,
+              });
+            }
+          }
+        });
+      }
+
+      set({
+        todos: {
+          today,
+          overdue,
+          returned,
+        },
+      });
     },
 
     submitTrainingNeed: (id) => {
@@ -364,6 +545,22 @@ export const useAppStore = create<AppState>((set, get) => ({
         timelineLogs: [...timelineLogs, newLog],
       });
       get().actions.fetchTodos();
+    },
+
+    saveEnrollmentStudents: (id, students) => {
+      const { enrollments } = get();
+      const enrollmentIndex = enrollments.findIndex((e) => e.id === id);
+      if (enrollmentIndex === -1) return;
+
+      const updatedEnrollments = [...enrollments];
+      updatedEnrollments[enrollmentIndex] = {
+        ...updatedEnrollments[enrollmentIndex],
+        studentList: students,
+      };
+
+      set({
+        enrollments: updatedEnrollments,
+      });
     },
 
     rejectEnrollment: (id, reason) => {

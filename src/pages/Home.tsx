@@ -9,6 +9,7 @@ import { TrainingNeedList } from '@/components/TrainingNeedList';
 import { ScheduleList } from '@/components/ScheduleList';
 import { EnrollmentTaskList } from '@/components/EnrollmentTaskList';
 import { CreateScheduleModal } from '@/components/CreateScheduleModal';
+import { InstructorScheduleList } from '@/components/InstructorScheduleList';
 import { ConfirmEnrollmentModal } from '@/components/ConfirmEnrollmentModal';
 import { 
   Calendar, 
@@ -74,12 +75,7 @@ export default function Home() {
     <div className="space-y-6">
       <EnrollmentTaskList 
         onViewDetail={(id) => {
-          const enrollment = useAppStore.getState().enrollments.find(e => e.id === id);
-          if (enrollment && enrollment.status === '待确认') {
-            setShowEnrollmentModal(id);
-          } else {
-            setSelectedEnrollment(id);
-          }
+          setSelectedEnrollment(id);
         }}
       />
     </div>
@@ -87,12 +83,9 @@ export default function Home() {
 
   const renderInstructorDashboard = () => (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">我的排期</h3>
-        <p className="text-sm text-gray-500">
-          切换到刘讲师、孙讲师或周讲师账号查看待确认的排期任务
-        </p>
-      </div>
+      <InstructorScheduleList 
+        onViewDetail={(id) => setSelectedSchedule(id)}
+      />
     </div>
   );
 
