@@ -75,7 +75,7 @@ export const useAssignmentStore = defineStore('assignment', () => {
     addHistoryRecord(assignmentId, '状态变更', operator, operatorRole, remark, oldStatus, newStatus)
   }
 
-  const createAssignment = (data: Partial<Assignment>, operator: string) => {
+  const createAssignment = (data: Partial<Assignment>, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer') => {
     const assignment: Assignment = {
       id: generateId(),
       projectName: data.projectName || '',
@@ -95,7 +95,7 @@ export const useAssignmentStore = defineStore('assignment', () => {
       description: data.description,
     }
 
-    addHistoryRecord(assignment.id, '创建分配', operator, 'project_manager', `创建${assignment.projectName}翻译项目`)
+    addHistoryRecord(assignment.id, '创建分配', operator, operatorRole, `创建${assignment.projectName}翻译项目`)
     assignments.value.push(assignment)
     return assignment
   }
@@ -104,49 +104,59 @@ export const useAssignmentStore = defineStore('assignment', () => {
     assignmentId: string,
     translatorId: string,
     translatorName: string,
-    operator: string
+    operator: string,
+    operatorRole: 'project_manager' | 'translator' | 'reviewer'
   ) => {
     const assignment = getAssignmentById(assignmentId)
     if (!assignment) return
 
     assignment.translatorId = translatorId
     assignment.translatorName = translatorName
-    updateStatus(assignmentId, 'assigned', operator, 'project_manager', `分配给${translatorName}`)
+    updateStatus(assignmentId, 'assigned', operator, operatorRole, `分配给${translatorName}`)
   }
 
-  const acceptAssignment = (assignmentId: string, operator: string, remark: string) => {
-    updateStatus(assignmentId, 'in_progress', operator, 'translator', remark)
+  const acceptAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    updateStatus(assignmentId, 'in_progress', operator, operatorRole, remark)
   }
 
-  const submitForReview = (assignmentId: string, operator: string, remark: string) => {
-    updateStatus(assignmentId, 'reviewing', operator, 'translator', remark)
+  const submitForReview = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    updateStatus(assignmentId, 'reviewing', operator, operatorRole, remark)
   }
 
-  const rejectAssignment = (assignmentId: string, operator: string, reason: string) => {
-    updateStatus(assignmentId, 'rejected', operator, 'reviewer', `驳回：${reason}`)
+  const rejectAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
+    updateStatus(assignmentId, 'rejected', operator, operatorRole, `驳回：${reason}`)
   }
 
-  const approveAssignment = (assignmentId: string, operator: string, remark: string) => {
-    updateStatus(assignmentId, 'completed', operator, 'reviewer', remark)
+  const approveAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    updateStatus(assignmentId, 'completed', operator, operatorRole, remark)
   }
 
-  const batchAssign = (ids: string[], translatorId: string, translatorName: string, operator: string) => {
+  const batchAssign = (ids: string[], translatorId: string, translatorName: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer') => {
     ids.forEach(id => {
-      assignTranslator(id, translatorId, translatorName, operator)
+      const assignment = getAssignmentById(id)
+      if (assignment && assignment.status === 'pending') {
+        assignTranslator(id, translatorId, translatorName, operator, operatorRole)
+      }
     })
     selectedIds.value = []
   }
 
-  const batchReject = (ids: string[], operator: string, reason: string) => {
+  const batchReject = (ids: string[], operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
     ids.forEach(id => {
-      rejectAssignment(id, operator, reason)
+      const assignment = getAssignmentById(id)
+      if (assignment && assignment.status === 'reviewing') {
+        rejectAssignment(id, operator, operatorRole, reason)
+      }
     })
     selectedIds.value = []
   }
 
-  const batchApprove = (ids: string[], operator: string, remark: string) => {
+  const batchApprove = (ids: string[], operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
     ids.forEach(id => {
-      approveAssignment(id, operator, remark)
+      const assignment = getAssignmentById(id)
+      if (assignment && assignment.status === 'reviewing') {
+        approveAssignment(id, operator, operatorRole, remark)
+      }
     })
     selectedIds.value = []
   }

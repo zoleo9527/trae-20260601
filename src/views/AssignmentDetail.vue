@@ -436,6 +436,7 @@ const acceptTask = () => {
   assignmentStore.acceptAssignment(
     assignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     '已接收任务，开始翻译工作'
   )
 }
@@ -450,7 +451,8 @@ const assignTranslator = () => {
     assignment.value.id,
     translator.id,
     translator.name,
-    userStore.currentUser.name
+    userStore.currentUser.name,
+    userStore.currentUser.role
   )
   
   showAssignModal.value = false
@@ -462,6 +464,7 @@ const submitForReview = () => {
   assignmentStore.submitForReview(
     assignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     submitRemark.value || '已完成翻译，提交审核'
   )
   
@@ -474,6 +477,7 @@ const rejectAssignment = () => {
   assignmentStore.rejectAssignment(
     assignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     rejectReason.value
   )
   
@@ -486,6 +490,7 @@ const approveAssignment = () => {
   assignmentStore.approveAssignment(
     assignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     approveRemark.value || '审核通过'
   )
   
@@ -498,6 +503,7 @@ const resubmitForReview = () => {
   assignmentStore.submitForReview(
     assignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     resubmitRemark.value || '已完成修改，重新提交'
   )
   

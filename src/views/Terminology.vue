@@ -295,6 +295,7 @@ const approveTerm = (term: Terminology) => {
   terminologyStore.approveTerminology(
     term.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     '术语翻译准确，确认通过'
   )
 }
@@ -311,6 +312,7 @@ const rejectTerm = () => {
   terminologyStore.rejectTerminology(
     currentTerm.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     rejectReason.value
   )
   

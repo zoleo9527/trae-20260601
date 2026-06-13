@@ -106,24 +106,48 @@ export const useTerminologyStore = defineStore('terminology', () => {
 
     terminology.versions.push(version)
     terminology.targetTerm = newTargetTerm
-    terminology.status = 'updated'
+    terminology.status = 'pending'
     addHistoryRecord(terminologyId, '更新术语', operator, 'translator', `修改为：${terminology.sourceTerm} -> ${newTargetTerm}`)
   }
 
-  const approveTerminology = (terminologyId: string, operator: string, remark: string) => {
+  const approveTerminology = (terminologyId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
     const terminology = getTerminologyById(terminologyId)
     if (!terminology) return
 
     terminology.status = 'approved'
-    addHistoryRecord(terminologyId, '确认术语', operator, 'reviewer', remark)
+    addHistoryRecord(terminologyId, '确认术语', operator, operatorRole, remark)
+
+    const assignmentStore = useAssignmentStore()
+    const assignment = assignmentStore.getAssignmentById(terminology.assignmentId)
+    if (assignment) {
+      assignmentStore.addHistoryRecord(
+        assignment.id,
+        '术语确认',
+        operator,
+        operatorRole,
+        `确认术语：${terminology.sourceTerm} -> ${terminology.targetTerm}`
+      )
+    }
   }
 
-  const rejectTerminology = (terminologyId: string, operator: string, reason: string) => {
+  const rejectTerminology = (terminologyId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
     const terminology = getTerminologyById(terminologyId)
     if (!terminology) return
 
     terminology.status = 'rejected'
-    addHistoryRecord(terminologyId, '驳回术语', operator, 'reviewer', `驳回：${reason}`)
+    addHistoryRecord(terminologyId, '驳回术语', operator, operatorRole, `驳回：${reason}`)
+
+    const assignmentStore = useAssignmentStore()
+    const assignment = assignmentStore.getAssignmentById(terminology.assignmentId)
+    if (assignment) {
+      assignmentStore.addHistoryRecord(
+        assignment.id,
+        '术语驳回',
+        operator,
+        operatorRole,
+        `驳回术语：${terminology.sourceTerm}，原因：${reason}`
+      )
+    }
   }
 
   return {

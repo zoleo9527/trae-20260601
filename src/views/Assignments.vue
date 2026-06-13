@@ -506,7 +506,8 @@ const createAssignment = () => {
   
   assignmentStore.createAssignment(
     newAssignment.value,
-    userStore.currentUser.name
+    userStore.currentUser.name,
+    userStore.currentUser.role
   )
   
   showCreateModal.value = false
@@ -530,7 +531,8 @@ const assignTranslator = () => {
     currentAssignment.value.id,
     translator.id,
     translator.name,
-    userStore.currentUser.name
+    userStore.currentUser.name,
+    userStore.currentUser.role
   )
   
   showAssignModal.value = false
@@ -542,6 +544,7 @@ const rejectAssignment = () => {
   assignmentStore.rejectAssignment(
     currentAssignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     rejectReason.value
   )
   
@@ -554,6 +557,7 @@ const approveAssignment = () => {
   assignmentStore.approveAssignment(
     currentAssignment.value.id,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     approveRemark.value || '审核通过'
   )
   
@@ -570,7 +574,8 @@ const batchAssign = () => {
     assignmentStore.selectedIds,
     translator.id,
     translator.name,
-    userStore.currentUser.name
+    userStore.currentUser.name,
+    userStore.currentUser.role
   )
   
   showBatchAssignModal.value = false
@@ -582,6 +587,7 @@ const batchReject = () => {
   assignmentStore.batchReject(
     assignmentStore.selectedIds,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     batchRejectReason.value
   )
   
@@ -592,6 +598,7 @@ const batchApprove = () => {
   assignmentStore.batchApprove(
     assignmentStore.selectedIds,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     batchApproveRemark.value || '批量审核通过'
   )
   
