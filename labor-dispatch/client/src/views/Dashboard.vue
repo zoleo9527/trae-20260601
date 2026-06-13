@@ -51,7 +51,7 @@
 
             <el-row :gutter="20" style="margin-bottom: 20px">
               <el-col :span="6">
-                <el-card shadow="hover" class="stat-card">
+                <el-card shadow="hover" class="stat-card" @click="$router.push('/labor-demands?status=待处理')">
                   <template #header>
                     <div class="stat-header">
                       <span>用工需求</span>
@@ -70,7 +70,7 @@
               </el-col>
 
               <el-col :span="6">
-                <el-card shadow="hover" class="stat-card">
+                <el-card shadow="hover" class="stat-card" @click="$router.push('/candidates?status=待匹配')">
                   <template #header>
                     <div class="stat-header">
                       <span>候选人</span>
@@ -89,7 +89,7 @@
               </el-col>
 
               <el-col :span="6">
-                <el-card shadow="hover" class="stat-card">
+                <el-card shadow="hover" class="stat-card" @click="$router.push('/matchings?status=待确认')">
                   <template #header>
                     <div class="stat-header">
                       <span>匹配记录</span>
@@ -108,7 +108,7 @@
               </el-col>
 
               <el-col :span="6">
-                <el-card shadow="hover" class="stat-card">
+                <el-card shadow="hover" class="stat-card" @click="$router.push('/return-records?status=待处理')">
                   <template #header>
                     <div class="stat-header">
                       <span>异常处理</span>
@@ -173,8 +173,8 @@
                             {{ item.returnType }}
                           </el-tag>
                           <span style="margin-left: 10px">{{ item.returnReason }}</span>
-                          <el-button type="primary" link size="small" style="margin-left: 10px" @click="goToMatching(item)">
-                            查看
+                          <el-button type="primary" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id)">
+                            一线处理
                           </el-button>
                         </el-list-item>
                       </el-list>
@@ -187,9 +187,30 @@
                           <el-link type="primary" @click="$router.push(`/matchings/${item.id}`)">
                             {{ item.laborDemand?.companyName }} - {{ item.candidate?.name }}
                           </el-link>
-                          <el-tag size="small" type="warning" style="margin-left: 10px">
+                          <el-tag size="small" type="success" style="margin-left: 10px">
                             {{ item.status }}
                           </el-tag>
+                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.returnRecordId)">
+                            复核
+                          </el-button>
+                        </el-list-item>
+                      </el-list>
+                    </el-tab-pane>
+
+                    <el-tab-pane v-if="user.role === '管理'" label="已处理待确认" name="processedRecords">
+                      <el-empty v-if="todoList.processedRecords?.length === 0" description="暂无已处理待确认" />
+                      <el-list v-else>
+                        <el-list-item v-for="item in todoList.processedRecords" :key="item.id">
+                          <el-tag size="small" :type="getReturnTypeTag(item.returnType)">
+                            {{ item.returnType }}
+                          </el-tag>
+                          <span style="margin-left: 10px">{{ item.returnReason }}</span>
+                          <el-tag size="small" type="success" style="margin-left: 10px">
+                            已处理
+                          </el-tag>
+                          <el-button type="warning" link size="small" style="margin-left: 10px" @click="goToReturnRecord(item.id)">
+                            复核
+                          </el-button>
                         </el-list-item>
                       </el-list>
                     </el-tab-pane>
@@ -287,6 +308,12 @@ export default {
             pageSize: 5
           })
           todoList.value.pendingReview = reviewResult.data
+
+          const processedResult = await api.returnRecords.list({
+            status: '已处理',
+            pageSize: 5
+          })
+          todoList.value.processedRecords = processedResult.data
         }
       } catch (error) {
         ElMessage.error('加载待办列表失败')
@@ -295,6 +322,7 @@ export default {
 
     const refreshTodoList = () => {
       loadTodoList()
+      loadStats()
       ElMessage.success('已刷新')
     }
 
@@ -302,6 +330,10 @@ export default {
       if (item.matchingRecordId) {
         router.push(`/matchings/${item.matchingRecordId}`)
       }
+    }
+
+    const goToReturnRecord = (id) => {
+      router.push(`/return-records`)
     }
 
     const formatTime = (time) => {
@@ -327,7 +359,9 @@ export default {
         '复核': 'primary',
         '确认': 'success',
         '批量确认': 'success',
-        '批量退回': 'danger'
+        '批量退回': 'danger',
+        '一线处理': 'success',
+        '重新处理': 'info'
       }
       return types[type] || 'info'
     }
@@ -346,6 +380,7 @@ export default {
       formatTime,
       refreshTodoList,
       goToMatching,
+      goToReturnRecord,
       getReturnTypeTag,
       getActionTypeTag,
       handleLogout

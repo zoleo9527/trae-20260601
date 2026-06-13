@@ -108,6 +108,225 @@ router.post('/', authenticate, async (req, res) => {
   }
 });
 
+router.post('/batch/confirm', authenticate, async (req, res) => {
+  try {
+    const { ids, matchResult, remark, interviewDate, entryDate } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '请选择要处理的记录' });
+    }
+
+    const results = [];
+
+    for (const id of ids) {
+      try {
+        const existing = await req.prisma.matchingRecord.findUnique({
+          where: { id },
+          include: { laborDemand: true, candidate: true }
+        });
+
+        if (!existing || existing.status !== '待确认') {
+          continue;
+        }
+
+        let newStatus = existing.status;
+        let laborDemandNewStatus = existing.laborDemand.status;
+        let candidateNewStatus = existing.candidate.status;
+
+        if (matchResult === '同意') {
+          if (entryDate) {
+            newStatus = '已入职';
+            laborDemandNewStatus = '已完成';
+            candidateNewStatus = '已入职';
+          } else if (interviewDate) {
+            newStatus = '面试中';
+          }
+        } else if (matchResult === '拒绝') {
+          newStatus = '已拒绝';
+          laborDemandNewStatus = '处理中';
+          candidateNewStatus = '待匹配';
+        }
+
+        const matching = await req.prisma.matchingRecord.update({
+          where: { id },
+          data: {
+            matchResult,
+            status: newStatus,
+            interviewDate: interviewDate ? new Date(interviewDate) : undefined,
+            entryDate: entryDate ? new Date(entryDate) : undefined
+          },
+          include: {
+            laborDemand: {
+              select: { id: true, demandNumber: true, companyName: true, position: true }
+            },
+            candidate: {
+              select: { id: true, name: true, phone: true, skills: true }
+            },
+            createdBy: {
+              select: { id: true, name: true, role: true }
+            }
+          }
+        });
+
+        await Promise.all([
+          req.prisma.laborDemand.update({
+            where: { id: existing.laborDemandId },
+            data: { status: laborDemandNewStatus }
+          }),
+          req.prisma.candidate.update({
+            where: { id: existing.candidateId },
+            data: { status: candidateNewStatus }
+          })
+        ]);
+
+        await Promise.all([
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'MatchingRecord',
+              entityId: matching.id,
+              previousStatus: existing.status,
+              newStatus,
+              actionType: '批量确认',
+              operatorId: req.userId,
+              remark: remark || `批量确认：${matchResult}`
+            }
+          }),
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'LaborDemand',
+              entityId: existing.laborDemandId,
+              previousStatus: existing.laborDemand.status,
+              newStatus: laborDemandNewStatus,
+              actionType: '批量确认',
+              operatorId: req.userId,
+              remark: `批量确认匹配${matchResult}`
+            }
+          }),
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'Candidate',
+              entityId: existing.candidateId,
+              previousStatus: existing.candidate.status,
+              newStatus: candidateNewStatus,
+              actionType: '批量确认',
+              operatorId: req.userId,
+              remark: `批量确认匹配${matchResult}`
+            }
+          })
+        ]);
+
+        results.push(matching);
+      } catch (err) {
+        console.error(`处理记录 ${id} 失败:`, err);
+      }
+    }
+
+    res.json({
+      message: `成功处理 ${results.length} 条记录`,
+      data: results
+    });
+  } catch (error) {
+    console.error('批量确认错误:', error);
+    res.status(500).json({ error: '批量确认失败' });
+  }
+});
+
+router.post('/batch/return', authenticate, async (req, res) => {
+  try {
+    const { ids, returnReason, remark } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ error: '请选择要退回的记录' });
+    }
+
+    if (!returnReason) {
+      return res.status(400).json({ error: '请输入退回原因' });
+    }
+
+    const results = [];
+
+    for (const id of ids) {
+      try {
+        const existing = await req.prisma.matchingRecord.findUnique({
+          where: { id },
+          include: { laborDemand: true, candidate: true }
+        });
+
+        if (!existing) {
+          continue;
+        }
+
+        const returnRecord = await req.prisma.returnRecord.create({
+          data: {
+            entityType: 'MatchingRecord',
+            entityId: existing.id,
+            matchingRecordId: existing.id,
+            laborDemandId: existing.laborDemandId,
+            candidateId: existing.candidateId,
+            returnType: '退回',
+            returnReason,
+            operatorId: req.userId,
+            status: '待处理'
+          }
+        });
+
+        await req.prisma.matchingRecord.update({
+          where: { id },
+          data: { status: '待处理' }
+        });
+
+        await Promise.all([
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'MatchingRecord',
+              entityId: existing.id,
+              previousStatus: existing.status,
+              newStatus: '待处理',
+              actionType: '批量退回',
+              operatorId: req.userId,
+              remark: remark || `批量退回：${returnReason}`
+            }
+          }),
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'LaborDemand',
+              entityId: existing.laborDemandId,
+              previousStatus: existing.laborDemand.status,
+              newStatus: existing.laborDemand.status,
+              actionType: '批量退回',
+              operatorId: req.userId,
+              remark: `批量退回匹配：${returnReason}`
+            }
+          }),
+          req.prisma.statusHistory.create({
+            data: {
+              entityType: 'Candidate',
+              entityId: existing.candidateId,
+              previousStatus: existing.candidate.status,
+              newStatus: existing.candidate.status,
+              actionType: '批量退回',
+              operatorId: req.userId,
+              remark: `批量退回匹配：${returnReason}`
+            }
+          })
+        ]);
+
+        results.push({ matchingId: existing.id, returnRecordId: returnRecord.id });
+      } catch (err) {
+        console.error(`处理记录 ${id} 失败:`, err);
+      }
+    }
+
+    res.json({
+      message: `成功退回 ${results.length} 条记录`,
+      data: results
+    });
+  } catch (error) {
+    console.error('批量退回错误:', error);
+    res.status(500).json({ error: '批量退回失败' });
+  }
+});
+
 router.get('/', authenticate, async (req, res) => {
   try {
     const { status, matchType, laborDemandId, candidateId, startDate, endDate, page = 1, pageSize = 20 } = req.query;
@@ -376,40 +595,32 @@ router.post('/:id/return', authenticate, async (req, res) => {
       return res.status(404).json({ error: '未找到' });
     }
 
-    const matching = await req.prisma.matchingRecord.update({
-      where: { id },
-      data: { status: '待确认' },
-      include: {
-        laborDemand: {
-          select: { id: true, demandNumber: true, companyName: true, position: true }
-        },
-        candidate: {
-          select: { id: true, name: true, phone: true, skills: true }
-        },
-        createdBy: {
-          select: { id: true, name: true, role: true }
-        }
+    const returnRecord = await req.prisma.returnRecord.create({
+      data: {
+        entityType: 'MatchingRecord',
+        entityId: existing.id,
+        matchingRecordId: existing.id,
+        laborDemandId: existing.laborDemandId,
+        candidateId: existing.candidateId,
+        returnType: '退回',
+        returnReason,
+        operatorId: req.userId,
+        status: '待处理'
       }
     });
 
-    await req.prisma.returnRecord.create({
-      data: {
-        entityType: 'MatchingRecord',
-        entityId: matching.id,
-        matchingRecordId: matching.id,
-        returnType: '退回',
-        returnReason,
-        operatorId: req.userId
-      }
+    await req.prisma.matchingRecord.update({
+      where: { id },
+      data: { status: '待处理' }
     });
 
     await Promise.all([
       req.prisma.statusHistory.create({
         data: {
           entityType: 'MatchingRecord',
-          entityId: matching.id,
+          entityId: existing.id,
           previousStatus: existing.status,
-          newStatus: '待确认',
+          newStatus: '待处理',
           actionType: '退回',
           operatorId: req.userId,
           remark: remark || `退回原因：${returnReason}`
@@ -439,7 +650,11 @@ router.post('/:id/return', authenticate, async (req, res) => {
       })
     ]);
 
-    res.json(matching);
+    res.json({
+      matchingId: existing.id,
+      returnRecordId: returnRecord.id,
+      message: '退回成功，等待一线处理'
+    });
   } catch (error) {
     console.error('退回匹配记录错误:', error);
     res.status(500).json({ error: '退回失败' });
@@ -460,40 +675,32 @@ router.post('/:id/supplement', authenticate, async (req, res) => {
       return res.status(404).json({ error: '未找到' });
     }
 
-    const matching = await req.prisma.matchingRecord.update({
-      where: { id },
-      data: { status: '待确认' },
-      include: {
-        laborDemand: {
-          select: { id: true, demandNumber: true, companyName: true, position: true }
-        },
-        candidate: {
-          select: { id: true, name: true, phone: true, skills: true }
-        },
-        createdBy: {
-          select: { id: true, name: true, role: true }
-        }
+    const returnRecord = await req.prisma.returnRecord.create({
+      data: {
+        entityType: 'MatchingRecord',
+        entityId: existing.id,
+        matchingRecordId: existing.id,
+        laborDemandId: existing.laborDemandId,
+        candidateId: existing.candidateId,
+        returnType: '补录',
+        returnReason: supplementReason,
+        operatorId: req.userId,
+        status: '待处理'
       }
     });
 
-    await req.prisma.returnRecord.create({
-      data: {
-        entityType: 'MatchingRecord',
-        entityId: matching.id,
-        matchingRecordId: matching.id,
-        returnType: '补录',
-        returnReason: supplementReason,
-        operatorId: req.userId
-      }
+    await req.prisma.matchingRecord.update({
+      where: { id },
+      data: { status: '待处理' }
     });
 
     await Promise.all([
       req.prisma.statusHistory.create({
         data: {
           entityType: 'MatchingRecord',
-          entityId: matching.id,
+          entityId: existing.id,
           previousStatus: existing.status,
-          newStatus: '待确认',
+          newStatus: '待处理',
           actionType: '补录',
           operatorId: req.userId,
           remark: remark || `补录原因：${supplementReason}`
@@ -523,7 +730,11 @@ router.post('/:id/supplement', authenticate, async (req, res) => {
       })
     ]);
 
-    res.json(matching);
+    res.json({
+      matchingId: existing.id,
+      returnRecordId: returnRecord.id,
+      message: '补录成功，等待一线处理'
+    });
   } catch (error) {
     console.error('补录匹配记录错误:', error);
     res.status(500).json({ error: '补录失败' });
@@ -541,7 +752,7 @@ router.post('/:id/review', authenticate, async (req, res) => {
 
     const existing = await req.prisma.matchingRecord.findUnique({
       where: { id },
-      include: { laborDemand: true, candidate: true }
+      include: { laborDemand: true, candidate: true, returnRecords: { where: { status: '已处理' }, orderBy: { createdAt: 'desc' }, take: 1 } }
     });
 
     if (!existing) {
@@ -554,7 +765,7 @@ router.post('/:id/review', authenticate, async (req, res) => {
 
     if (reviewResult === '通过') {
       newStatus = '已确认';
-      if (existing.status === '已入职') {
+      if (existing.matchResult === '同意' && existing.entryDate) {
         laborDemandNewStatus = '已完成';
         candidateNewStatus = '已入职';
       }
@@ -591,17 +802,34 @@ router.post('/:id/review', authenticate, async (req, res) => {
       })
     ]);
 
-    await req.prisma.returnRecord.create({
-      data: {
-        entityType: 'MatchingRecord',
-        entityId: matching.id,
-        matchingRecordId: matching.id,
-        returnType: '复核',
-        returnReason: `复核结果：${reviewResult}`,
-        operatorId: req.userId,
-        status: '已确认'
-      }
-    });
+    if (existing.returnRecords.length > 0) {
+      await req.prisma.returnRecord.update({
+        where: { id: existing.returnRecords[0].id },
+        data: {
+          status: '已确认',
+          handledById: req.userId,
+          handledAt: new Date(),
+          handleRemark: remark || `复核结果：${reviewResult}`
+        }
+      });
+    } else {
+      await req.prisma.returnRecord.create({
+        data: {
+          entityType: 'MatchingRecord',
+          entityId: matching.id,
+          matchingRecordId: matching.id,
+          laborDemandId: existing.laborDemandId,
+          candidateId: existing.candidateId,
+          returnType: '复核',
+          returnReason: `复核结果：${reviewResult}`,
+          operatorId: req.userId,
+          status: '已确认',
+          handledById: req.userId,
+          handledAt: new Date(),
+          handleRemark: remark || `复核结果：${reviewResult}`
+        }
+      });
+    }
 
     await Promise.all([
       req.prisma.statusHistory.create({
@@ -643,233 +871,6 @@ router.post('/:id/review', authenticate, async (req, res) => {
   } catch (error) {
     console.error('复核匹配记录错误:', error);
     res.status(500).json({ error: '复核失败' });
-  }
-});
-
-router.post('/batch/confirm', authenticate, async (req, res) => {
-  try {
-    const { ids, matchResult, remark, interviewDate, entryDate } = req.body;
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: '请选择要处理的记录' });
-    }
-
-    const results = [];
-
-    for (const id of ids) {
-      try {
-        const existing = await req.prisma.matchingRecord.findUnique({
-          where: { id },
-          include: { laborDemand: true, candidate: true }
-        });
-
-        if (!existing || existing.status !== '待确认') {
-          continue;
-        }
-
-        let newStatus = existing.status;
-        let laborDemandNewStatus = existing.laborDemand.status;
-        let candidateNewStatus = existing.candidate.status;
-
-        if (matchResult === '同意') {
-          if (entryDate) {
-            newStatus = '已入职';
-            laborDemandNewStatus = '已完成';
-            candidateNewStatus = '已入职';
-          } else if (interviewDate) {
-            newStatus = '面试中';
-          }
-        } else if (matchResult === '拒绝') {
-          newStatus = '已拒绝';
-          laborDemandNewStatus = '处理中';
-          candidateNewStatus = '待匹配';
-        }
-
-        const matching = await req.prisma.matchingRecord.update({
-          where: { id },
-          data: {
-            matchResult,
-            status: newStatus,
-            interviewDate: interviewDate ? new Date(interviewDate) : undefined,
-            entryDate: entryDate ? new Date(entryDate) : undefined
-          },
-          include: {
-            laborDemand: {
-              select: { id: true, demandNumber: true, companyName: true, position: true }
-            },
-            candidate: {
-              select: { id: true, name: true, phone: true, skills: true }
-            },
-            createdBy: {
-              select: { id: true, name: true, role: true }
-            }
-          }
-        });
-
-        await Promise.all([
-          req.prisma.laborDemand.update({
-            where: { id: existing.laborDemandId },
-            data: { status: laborDemandNewStatus }
-          }),
-          req.prisma.candidate.update({
-            where: { id: existing.candidateId },
-            data: { status: candidateNewStatus }
-          })
-        ]);
-
-        await Promise.all([
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'MatchingRecord',
-              entityId: matching.id,
-              previousStatus: existing.status,
-              newStatus,
-              actionType: '批量确认',
-              operatorId: req.userId,
-              remark: remark || `批量确认：${matchResult}`
-            }
-          }),
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'LaborDemand',
-              entityId: existing.laborDemandId,
-              previousStatus: existing.laborDemand.status,
-              newStatus: laborDemandNewStatus,
-              actionType: '批量确认',
-              operatorId: req.userId,
-              remark: `批量确认匹配${matchResult}`
-            }
-          }),
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'Candidate',
-              entityId: existing.candidateId,
-              previousStatus: existing.candidate.status,
-              newStatus: candidateNewStatus,
-              actionType: '批量确认',
-              operatorId: req.userId,
-              remark: `批量确认匹配${matchResult}`
-            }
-          })
-        ]);
-
-        results.push(matching);
-      } catch (err) {
-        console.error(`处理记录 ${id} 失败:`, err);
-      }
-    }
-
-    res.json({
-      message: `成功处理 ${results.length} 条记录`,
-      data: results
-    });
-  } catch (error) {
-    console.error('批量确认错误:', error);
-    res.status(500).json({ error: '批量确认失败' });
-  }
-});
-
-router.post('/batch/return', authenticate, async (req, res) => {
-  try {
-    const { ids, returnReason, remark } = req.body;
-
-    if (!ids || !Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: '请选择要退回的记录' });
-    }
-
-    if (!returnReason) {
-      return res.status(400).json({ error: '请输入退回原因' });
-    }
-
-    const results = [];
-
-    for (const id of ids) {
-      try {
-        const existing = await req.prisma.matchingRecord.findUnique({
-          where: { id },
-          include: { laborDemand: true, candidate: true }
-        });
-
-        if (!existing || existing.status === '待确认') {
-          continue;
-        }
-
-        const matching = await req.prisma.matchingRecord.update({
-          where: { id },
-          data: { status: '待确认' },
-          include: {
-            laborDemand: {
-              select: { id: true, demandNumber: true, companyName: true, position: true }
-            },
-            candidate: {
-              select: { id: true, name: true, phone: true, skills: true }
-            },
-            createdBy: {
-              select: { id: true, name: true, role: true }
-            }
-          }
-        });
-
-        await req.prisma.returnRecord.create({
-          data: {
-            entityType: 'MatchingRecord',
-            entityId: matching.id,
-            matchingRecordId: matching.id,
-            returnType: '退回',
-            returnReason,
-            operatorId: req.userId
-          }
-        });
-
-        await Promise.all([
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'MatchingRecord',
-              entityId: matching.id,
-              previousStatus: existing.status,
-              newStatus: '待确认',
-              actionType: '批量退回',
-              operatorId: req.userId,
-              remark: remark || `批量退回：${returnReason}`
-            }
-          }),
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'LaborDemand',
-              entityId: existing.laborDemandId,
-              previousStatus: existing.laborDemand.status,
-              newStatus: existing.laborDemand.status,
-              actionType: '批量退回',
-              operatorId: req.userId,
-              remark: `批量退回匹配：${returnReason}`
-            }
-          }),
-          req.prisma.statusHistory.create({
-            data: {
-              entityType: 'Candidate',
-              entityId: existing.candidateId,
-              previousStatus: existing.candidate.status,
-              newStatus: existing.candidate.status,
-              actionType: '批量退回',
-              operatorId: req.userId,
-              remark: `批量退回匹配：${returnReason}`
-            }
-          })
-        ]);
-
-        results.push(matching);
-      } catch (err) {
-        console.error(`处理记录 ${id} 失败:`, err);
-      }
-    }
-
-    res.json({
-      message: `成功退回 ${results.length} 条记录`,
-      data: results
-    });
-  } catch (error) {
-    console.error('批量退回错误:', error);
-    res.status(500).json({ error: '批量退回失败' });
   }
 });
 

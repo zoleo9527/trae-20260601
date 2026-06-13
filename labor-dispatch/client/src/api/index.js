@@ -76,7 +76,8 @@ export default {
   returnRecords: {
     list: (params) => apiClient.get('/return-records', { params }),
     getById: (id) => apiClient.get(`/return-records/${id}`),
-    handle: (id, data) => apiClient.put(`/return-records/${id}/handle`, data)
+    handle: (id, data) => apiClient.put(`/return-records/${id}/handle`, data),
+    rehandle: (id, data) => apiClient.post(`/return-records/${id}/rehandle`, data)
   },
 
   statusHistories: {

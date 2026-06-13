@@ -4,6 +4,11 @@
       <el-header height="60px">
         <div class="header-content">
           <h2>退回/补录/复核记录</h2>
+          <div>
+            <el-tag type="warning">待处理：{{ pendingCount }}</el-tag>
+            <el-tag type="success">已处理：{{ processedCount }}</el-tag>
+            <el-tag type="primary">已确认：{{ confirmedCount }}</el-tag>
+          </div>
         </div>
       </el-header>
 
@@ -52,11 +57,21 @@
             </el-table-column>
             <el-table-column label="关联信息">
               <template #default="{ row }">
-                <span v-if="row.laborDemand">
-                  {{ row.laborDemand.companyName }} - {{ row.laborDemand.position }}
+                <span v-if="row.matchingRecord">
+                  <el-link type="primary" @click="goToMatching(row.matchingRecord.id)">
+                    {{ row.matchingRecord.laborDemand?.companyName || '-' }} - 
+                    {{ row.matchingRecord.candidate?.name || '-' }}
+                  </el-link>
+                </span>
+                <span v-else-if="row.laborDemand">
+                  <el-link type="primary" @click="goToLaborDemand(row.laborDemand.id)">
+                    {{ row.laborDemand.companyName }} - {{ row.laborDemand.position }}
+                  </el-link>
                 </span>
                 <span v-else-if="row.candidate">
-                  {{ row.candidate.name }} - {{ row.candidate.phone }}
+                  <el-link type="primary" @click="goToCandidate(row.candidate.id)">
+                    {{ row.candidate.name }} - {{ row.candidate.phone }}
+                  </el-link>
                 </span>
                 <span v-else>-</span>
               </template>
@@ -78,7 +93,7 @@
                 {{ formatTime(row.createdAt) }}
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="150" fixed="right">
+            <el-table-column label="操作" width="200" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" link @click="handleView(row)">查看</el-button>
                 <el-button
@@ -87,7 +102,23 @@
                   link
                   @click="handleProcess(row)"
                 >
-                  处理
+                  一线处理
+                </el-button>
+                <el-button
+                  v-if="row.status === '已处理' && userRole === '管理'"
+                  type="warning"
+                  link
+                  @click="handleReview(row)"
+                >
+                  复核
+                </el-button>
+                <el-button
+                  v-if="row.status === '已处理' && userRole !== '管理'"
+                  type="info"
+                  link
+                  @click="handleRehandle(row)"
+                >
+                  重新处理
                 </el-button>
               </template>
             </el-table-column>
@@ -108,8 +139,39 @@
       </el-main>
     </el-container>
 
-    <el-dialog v-model="processDialogVisible" title="处理" width="500px">
-      <el-form :model="processForm" label-width="100px">
+    <el-drawer v-model="processDrawerVisible" title="一线处理" size="600px">
+      <el-form :model="processForm" label-width="120px">
+        <el-form-item label="异常类型">
+          <el-tag :type="getTypeColor(currentRecord?.returnType)">
+            {{ currentRecord?.returnType }}
+          </el-tag>
+        </el-form-item>
+        <el-form-item label="原因">
+          {{ currentRecord?.returnReason }}
+        </el-form-item>
+        <el-form-item label="关联匹配">
+          <el-descriptions :column="1" size="small" border>
+            <el-descriptions-item label="用工单位">
+              {{ currentRecord?.matchingRecord?.laborDemand?.companyName }}
+            </el-descriptions-item>
+            <el-descriptions-item label="岗位">
+              {{ currentRecord?.matchingRecord?.laborDemand?.position }}
+            </el-descriptions-item>
+            <el-descriptions-item label="候选人">
+              {{ currentRecord?.matchingRecord?.candidate?.name }}
+            </el-descriptions-item>
+            <el-descriptions-item label="当前状态">
+              <el-tag>{{ currentRecord?.matchingRecord?.status }}</el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-form-item>
+        <el-form-item label="处理结果">
+          <el-radio-group v-model="processForm.handleResult">
+            <el-radio label="继续处理">继续处理（状态改为已处理）</el-radio>
+            <el-radio label="重新匹配">重新匹配（状态改为待确认）</el-radio>
+            <el-radio label="取消匹配">取消匹配（状态改为已取消）</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="处理说明">
           <el-input
             v-model="processForm.handleRemark"
@@ -118,12 +180,66 @@
             placeholder="请输入处理说明"
           />
         </el-form-item>
+        <el-form-item label="上传附件">
+          <el-upload
+            ref="uploadRef"
+            :auto-upload="false"
+            :limit="5"
+            accept=".jpg,.jpeg,.png,.pdf,.doc,.docx,.xls,.xlsx"
+          >
+            <el-button>选择文件</el-button>
+            <template #tip>
+              <div class="el-upload__tip">支持jpg、png、pdf、doc等格式</div>
+            </template>
+          </el-upload>
+        </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="processDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="handleProcessSubmit" :loading="submitLoading">
-          确定
+        <div style="text-align: right">
+          <el-button @click="processDrawerVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleProcessSubmit" :loading="submitLoading">
+            确定处理
+          </el-button>
+        </div>
+      </template>
+    </el-drawer>
+
+    <el-dialog v-model="reviewDialogVisible" title="管理复核" width="500px">
+      <el-form :model="reviewForm" label-width="100px">
+        <el-form-item label="异常类型">
+          <el-tag :type="getTypeColor(currentRecord?.returnType)">
+            {{ currentRecord?.returnType }}
+          </el-tag>
+        </el-form-item>
+        <el-form-item label="一线处理">
+          <el-descriptions :column="1" size="small" border>
+            <el-descriptions-item label="处理人">
+              {{ currentRecord?.handledBy?.name || '-' }}
+            </el-descriptions-item>
+            <el-descriptions-item label="处理时间">
+              {{ formatTime(currentRecord?.handledAt) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="处理说明">
+              {{ currentRecord?.handleRemark }}
+            </el-descriptions-item>
+          </el-descriptions>
+        </el-form-item>
+        <el-form-item label="复核结果">
+          <el-radio-group v-model="reviewForm.reviewResult">
+            <el-radio label="通过">通过</el-radio>
+            <el-radio label="不通过">不通过</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="reviewForm.remark" type="textarea" :rows="3" />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="reviewDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleReviewSubmit" :loading="submitLoading">
+          确定复核
         </el-button>
       </template>
     </el-dialog>
@@ -144,6 +260,7 @@
         </el-descriptions-item>
         <el-descriptions-item label="操作人">
           {{ currentRecord.operator?.name }}
+          <el-tag size="small" style="margin-left: 5px">{{ currentRecord.operator?.role }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="创建时间">
           {{ formatTime(currentRecord.createdAt) }}
@@ -151,11 +268,14 @@
         <el-descriptions-item v-if="currentRecord.handleRemark" label="处理说明" :span="2">
           {{ currentRecord.handleRemark }}
         </el-descriptions-item>
+        <el-descriptions-item v-if="currentRecord.handledAt" label="处理时间">
+          {{ formatTime(currentRecord.handledAt) }}
+        </el-descriptions-item>
         <el-descriptions-item v-if="currentRecord.matchingRecord" label="关联匹配" :span="2">
           <el-button
             type="primary"
             link
-            @click="goToMatching(currentRecord.matchingRecord.id)"
+            @click="goToMatching(currentRecord.matchingRecord.id); viewDialogVisible = false"
           >
             查看匹配记录
           </el-button>
@@ -181,9 +301,16 @@ export default {
     const router = useRouter()
     const loading = ref(false)
     const submitLoading = ref(false)
-    const processDialogVisible = ref(false)
+    const processDrawerVisible = ref(false)
+    const reviewDialogVisible = ref(false)
     const viewDialogVisible = ref(false)
     const currentRecord = ref(null)
+    const userRole = ref('')
+    const uploadRef = ref(null)
+
+    const pendingCount = ref(0)
+    const processedCount = ref(0)
+    const confirmedCount = ref(0)
 
     const filterForm = reactive({
       returnType: '',
@@ -200,13 +327,23 @@ export default {
     const tableData = ref([])
 
     const processForm = reactive({
+      handleResult: '继续处理',
       handleRemark: ''
     })
 
-    let currentRecordId = null
+    const reviewForm = reactive({
+      reviewResult: '通过',
+      remark: ''
+    })
 
     onMounted(() => {
+      const userStr = localStorage.getItem('user')
+      if (userStr) {
+        const user = JSON.parse(userStr)
+        userRole.value = user.role
+      }
       loadData()
+      loadCounts()
     })
 
     const loadData = async () => {
@@ -237,6 +374,21 @@ export default {
       }
     }
 
+    const loadCounts = async () => {
+      try {
+        const [pending, processed, confirmed] = await Promise.all([
+          api.returnRecords.list({ status: '待处理', pageSize: 1 }),
+          api.returnRecords.list({ status: '已处理', pageSize: 1 }),
+          api.returnRecords.list({ status: '已确认', pageSize: 1 })
+        ])
+        pendingCount.value = pending.total
+        processedCount.value = processed.total
+        confirmedCount.value = confirmed.total
+      } catch (error) {
+        console.error('加载统计失败')
+      }
+    }
+
     const handleSearch = () => {
       pagination.page = 1
       loadData()
@@ -259,29 +411,80 @@ export default {
       }
     }
 
-    const handleProcess = (row) => {
-      currentRecordId = row.id
-      processForm.handleRemark = ''
-      processDialogVisible.value = true
+    const handleProcess = async (row) => {
+      try {
+        currentRecord.value = await api.returnRecords.getById(row.id)
+        processForm.handleResult = '继续处理'
+        processForm.handleRemark = ''
+        processDrawerVisible.value = true
+      } catch (error) {
+        ElMessage.error('加载详情失败')
+      }
     }
 
     const handleProcessSubmit = async () => {
       try {
         submitLoading.value = true
-        await api.returnRecords.handle(currentRecordId, processForm)
-        ElMessage.success('处理成功')
-        processDialogVisible.value = false
+        await api.returnRecords.handle(currentRecord.value.id, processForm)
+        ElMessage.success('处理成功，等待管理复核')
+        processDrawerVisible.value = false
         loadData()
+        loadCounts()
       } catch (error) {
-        ElMessage.error('处理失败')
+        ElMessage.error(error.response?.data?.error || '处理失败')
+      } finally {
+        submitLoading.value = false
+      }
+    }
+
+    const handleRehandle = async (row) => {
+      try {
+        currentRecord.value = await api.returnRecords.getById(row.id)
+        processForm.handleResult = '继续处理'
+        processForm.handleRemark = ''
+        processDrawerVisible.value = true
+      } catch (error) {
+        ElMessage.error('加载详情失败')
+      }
+    }
+
+    const handleReview = (row) => {
+      currentRecord.value = row
+      reviewForm.reviewResult = '通过'
+      reviewForm.remark = ''
+      reviewDialogVisible.value = true
+    }
+
+    const handleReviewSubmit = async () => {
+      try {
+        submitLoading.value = true
+        if (currentRecord.value.matchingRecord?.id) {
+          await api.matchings.review(currentRecord.value.matchingRecord.id, {
+            reviewResult: reviewForm.reviewResult,
+            remark: reviewForm.remark
+          })
+        }
+        ElMessage.success('复核成功')
+        reviewDialogVisible.value = false
+        loadData()
+        loadCounts()
+      } catch (error) {
+        ElMessage.error(error.response?.data?.error || '复核失败')
       } finally {
         submitLoading.value = false
       }
     }
 
     const goToMatching = (id) => {
-      viewDialogVisible.value = false
       router.push(`/matchings/${id}`)
+    }
+
+    const goToLaborDemand = (id) => {
+      router.push(`/labor-demands/${id}`)
+    }
+
+    const goToCandidate = (id) => {
+      router.push(`/candidates/${id}`)
     }
 
     const getTypeColor = (type) => {
@@ -312,26 +515,40 @@ export default {
     }
 
     const formatTime = (time) => {
+      if (!time) return '-'
       return new Date(time).toLocaleString('zh-CN')
     }
 
     return {
       loading,
       submitLoading,
-      processDialogVisible,
+      processDrawerVisible,
+      reviewDialogVisible,
       viewDialogVisible,
       currentRecord,
+      userRole,
+      uploadRef,
+      pendingCount,
+      processedCount,
+      confirmedCount,
       filterForm,
       pagination,
       tableData,
       processForm,
+      reviewForm,
       loadData,
+      loadCounts,
       handleSearch,
       handleReset,
       handleView,
       handleProcess,
       handleProcessSubmit,
+      handleRehandle,
+      handleReview,
+      handleReviewSubmit,
       goToMatching,
+      goToLaborDemand,
+      goToCandidate,
       getTypeColor,
       getStatusColor,
       getEntityTypeName,
