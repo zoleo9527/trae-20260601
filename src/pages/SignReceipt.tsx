@@ -90,8 +90,9 @@ export const SignReceiptPage: React.FC = () => {
     );
   }
   
-  const nextWorkOrder = getNextWorkOrder(workOrder.id);
-  const prevWorkOrder = getPrevWorkOrder(workOrder.id);
+  const canViewStatuses = ['审批通过', '已签收', '处理完成'];
+  const nextWorkOrder = getNextWorkOrder(workOrder.id, canViewStatuses);
+  const prevWorkOrder = getPrevWorkOrder(workOrder.id, canViewStatuses);
 
   const handleSubmit = () => {
     if (!formData.receiptConfirm) {

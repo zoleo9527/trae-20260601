@@ -7,14 +7,54 @@ import {
   XCircle,
   Building2,
   FileText,
-  AlertTriangle
+  AlertTriangle,
+  ClipboardCheck
 } from 'lucide-react';
 import { useWorkOrderStore } from '../stores/workOrderStore';
 import { useAuthStore } from '../stores/authStore';
 import { StatusTag } from '../components/business/StatusTag';
 import { HistoryTimeline } from '../components/business/HistoryTimeline';
 import { formatDate } from '../lib/utils';
-import type { Approval } from '../types';
+import type { Approval, WorkOrder } from '../types';
+
+const ApprovalReadOnly: React.FC<{ workOrder: WorkOrder }> = ({ workOrder }) => {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <CheckCircle className="w-5 h-5 text-green-600" />
+        <h2 className="text-lg font-semibold text-gray-900">方案审批（已提交）</h2>
+      </div>
+      
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 mb-2 block">审批意见</label>
+          <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-700 whitespace-pre-wrap">
+            {workOrder.approval?.approvalOpinion}
+          </div>
+        </div>
+        
+        {workOrder.approval?.rejectReason && (
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-2 block flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-red-600" />
+              驳回原因
+            </label>
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-sm text-red-800">
+              {workOrder.approval?.rejectReason}
+            </div>
+          </div>
+        )}
+        
+        <div className="pt-4 border-t border-gray-200 flex items-center justify-between">
+          <StatusTag status={workOrder.approval?.approvalResult === '通过' ? '审批通过' : '审批驳回'} />
+          <div className="text-sm text-gray-600">
+            {workOrder.approval?.approvedBy} · {formatDate(workOrder.approval?.approvedAt || '')}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export const ApprovalPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -53,17 +93,9 @@ export const ApprovalPage: React.FC = () => {
     );
   }
   
-  if (!workOrder.policyJudgment) {
-    return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-        <AlertTriangle className="w-16 h-16 mx-auto mb-4 text-yellow-300" />
-        <p className="text-gray-500">该工单尚未完成政策判断，无法审批</p>
-      </div>
-    );
-  }
-  
-  const nextWorkOrder = getNextWorkOrder(workOrder.id);
-  const prevWorkOrder = getPrevWorkOrder(workOrder.id);
+  const canProcessStatuses = ['待审批'];
+  const nextWorkOrder = getNextWorkOrder(workOrder.id, canProcessStatuses);
+  const prevWorkOrder = getPrevWorkOrder(workOrder.id, canProcessStatuses);
   
   const handleSubmit = () => {
     if (!formData.approvalOpinion) {
@@ -99,6 +131,9 @@ export const ApprovalPage: React.FC = () => {
     navigate(`/approval/${targetId}`);
   };
   
+  const isReadOnly = workOrder.approval !== undefined;
+  const canEdit = canProcessStatuses.includes(workOrder.status) && !isReadOnly;
+  
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -120,6 +155,27 @@ export const ApprovalPage: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-2">
+            {isReadOnly ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg">
+                <CheckCircle className="w-4 h-4" />
+                已完成
+              </div>
+            ) : (
+              <button
+                onClick={handleSubmit}
+                disabled={!canEdit}
+                className={`px-6 py-2.5 text-white rounded-lg transition-colors flex items-center gap-2 ${
+                  formData.approvalResult === '通过' 
+                    ? 'bg-green-600 hover:bg-green-700' 
+                    : formData.approvalResult === '驳回'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-gray-400 cursor-not-allowed'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                提交审批
+              </button>
+            )}
+            
             <button
               onClick={() => prevWorkOrder && handleNavigate(prevWorkOrder.id)}
               disabled={!prevWorkOrder}
@@ -200,90 +256,87 @@ export const ApprovalPage: React.FC = () => {
         </div>
       </div>
       
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">审批意见</h2>
-        
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              审批意见 <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={formData.approvalOpinion}
-              onChange={(e) => setFormData({ ...formData, approvalOpinion: e.target.value })}
-              rows={4}
-              className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="请输入审批意见..."
-            />
-          </div>
+      {isReadOnly ? (
+        <ApprovalReadOnly workOrder={workOrder} />
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <ClipboardCheck className="w-5 h-5 text-yellow-600" />
+            审批意见
+          </h2>
           
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              审批结论 <span className="text-red-500">*</span>
-            </label>
-            <div className="flex gap-4">
-              <button
-                onClick={() => setFormData({ ...formData, approvalResult: '通过' })}
-                className={`flex-1 py-4 rounded-lg border-2 transition-all ${
-                  formData.approvalResult === '通过'
-                    ? 'border-green-500 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-green-300'
-                }`}
-              >
-                <CheckCircle className="w-6 h-6 mx-auto mb-2" />
-                <p className="font-medium">通过</p>
-              </button>
-              <button
-                onClick={() => setFormData({ ...formData, approvalResult: '驳回' })}
-                className={`flex-1 py-4 rounded-lg border-2 transition-all ${
-                  formData.approvalResult === '驳回'
-                    ? 'border-red-500 bg-red-50 text-red-700'
-                    : 'border-gray-200 hover:border-red-300'
-                }`}
-              >
-                <XCircle className="w-6 h-6 mx-auto mb-2" />
-                <p className="font-medium">驳回</p>
-              </button>
-            </div>
-          </div>
-          
-          {formData.approvalResult === '驳回' && (
+          <div className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                驳回原因 <span className="text-red-500">*</span>
+                审批意见 <span className="text-red-500">*</span>
               </label>
               <textarea
-                value={formData.rejectReason}
-                onChange={(e) => setFormData({ ...formData, rejectReason: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
-                placeholder="请输入驳回原因和修改建议..."
+                value={formData.approvalOpinion}
+                onChange={(e) => setFormData({ ...formData, approvalOpinion: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="请输入审批意见..."
               />
             </div>
-          )}
-          
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={handleSubmit}
-              className={`px-6 py-2.5 text-white rounded-lg transition-colors flex items-center gap-2 ${
-                formData.approvalResult === '通过' 
-                  ? 'bg-green-600 hover:bg-green-700' 
-                  : formData.approvalResult === '驳回'
-                  ? 'bg-red-600 hover:bg-red-700'
-                  : 'bg-gray-400 cursor-not-allowed'
-              }`}
-            >
-              提交审批
-            </button>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                审批结论 <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => setFormData({ ...formData, approvalResult: '通过' })}
+                  disabled={!canEdit}
+                  className={`flex-1 py-4 rounded-lg border-2 transition-all ${
+                    formData.approvalResult === '通过'
+                      ? 'border-green-500 bg-green-50 text-green-700'
+                      : 'border-gray-200 hover:border-green-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  <CheckCircle className="w-6 h-6 mx-auto mb-2" />
+                  <p className="font-medium">通过</p>
+                </button>
+                <button
+                  onClick={() => setFormData({ ...formData, approvalResult: '驳回' })}
+                  disabled={!canEdit}
+                  className={`flex-1 py-4 rounded-lg border-2 transition-all ${
+                    formData.approvalResult === '驳回'
+                      ? 'border-red-500 bg-red-50 text-red-700'
+                      : 'border-gray-200 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
+                >
+                  <XCircle className="w-6 h-6 mx-auto mb-2" />
+                  <p className="font-medium">驳回</p>
+                </button>
+              </div>
+            </div>
+            
+            {formData.approvalResult === '驳回' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  驳回原因 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.rejectReason}
+                  onChange={(e) => setFormData({ ...formData, rejectReason: e.target.value })}
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 bg-red-50"
+                  placeholder="请输入驳回原因和修改建议..."
+                />
+              </div>
+            )}
+            
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                取消
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
       
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <HistoryTimeline remarks={workOrder.historyRemarks} />

@@ -23,8 +23,9 @@ interface WorkOrderState {
   completeProcess: (id: string) => void;
   setFilters: (filters: FilterParams) => void;
   getFilteredWorkOrders: () => WorkOrder[];
-  getNextWorkOrder: (currentId: string) => WorkOrder | null;
-  getPrevWorkOrder: (currentId: string) => WorkOrder | null;
+  getWorkOrdersByStatus: (statuses: string[]) => WorkOrder[];
+  getNextWorkOrder: (currentId: string, statuses?: string[]) => WorkOrder | null;
+  getPrevWorkOrder: (currentId: string, statuses?: string[]) => WorkOrder | null;
 }
 
 export const useWorkOrderStore = create<WorkOrderState>()(
@@ -239,8 +240,15 @@ export const useWorkOrderStore = create<WorkOrderState>()(
         return filtered;
       },
       
-      getNextWorkOrder: (currentId: string) => {
-        const filtered = get().getFilteredWorkOrders();
+      getWorkOrdersByStatus: (statuses: string[]) => {
+        const { workOrders } = get();
+        return workOrders.filter(wo => statuses.includes(wo.status));
+      },
+      
+      getNextWorkOrder: (currentId: string, statuses?: string[]) => {
+        const filtered = statuses 
+          ? get().getWorkOrdersByStatus(statuses)
+          : get().getFilteredWorkOrders();
         const currentIndex = filtered.findIndex(wo => wo.id === currentId);
         if (currentIndex < filtered.length - 1) {
           return filtered[currentIndex + 1];
@@ -248,8 +256,10 @@ export const useWorkOrderStore = create<WorkOrderState>()(
         return null;
       },
       
-      getPrevWorkOrder: (currentId: string) => {
-        const filtered = get().getFilteredWorkOrders();
+      getPrevWorkOrder: (currentId: string, statuses?: string[]) => {
+        const filtered = statuses 
+          ? get().getWorkOrdersByStatus(statuses)
+          : get().getFilteredWorkOrders();
         const currentIndex = filtered.findIndex(wo => wo.id === currentId);
         if (currentIndex > 0) {
           return filtered[currentIndex - 1];
