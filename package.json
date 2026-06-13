@@ -1,0 +1,40 @@
+{
+  "name": "enterprise-training-system",
+  "version": "1.0.0",
+  "description": "企业内训部-签到考试与作业回收系统",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "vite",
+    "dev:backend": "cd api && npm run dev",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "setup": "npm install && cd api && npm install && npx prisma generate && npx prisma db push && tsx prisma/seed.ts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "axios": "^1.6.2",
+    "recharts": "^2.10.3",
+    "lucide-react": "^0.294.0",
+    "dayjs": "^1.11.10",
+    "zustand": "^4.4.7",
+    "@headlessui/react": "^1.7.17",
+    "react-hook-form": "^7.48.2",
+    "zod": "^3.22.4",
+    "@hookform/resolvers": "^3.3.2"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
+  }
+}

@@ -1,0 +1,263 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id           String    @id @default(uuid())
+  name         String
+  email        String    @unique
+  employeeId   String    @unique
+  phone        String?
+  department   String
+  role         String    @default("trainee")
+  passwordHash String    @map("password_hash")
+  avatar       String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  enrollments      Enrollment[]
+  attendances     Attendance[]    @relation("AttendanceUser")
+  attendanceOps   Attendance[]    @relation("AttendanceOperator")
+  exceptions      Exception[]     @relation("ExceptionUser")
+  exceptionOps   Exception[]     @relation("ExceptionOperator")
+  createdCourses  Course[]      @relation("CourseCreator")
+  instructedCourses Course[]     @relation("CourseInstructor")
+  examScores      ExamScore[]     @relation("ExamScoreUser")
+  examScoreGrades ExamScore[]     @relation("ExamScoreGrader")
+  homeworkSubmissions HomeworkSubmission[] @relation("HomeworkSubmissionUser")
+  homeworkSubGrades   HomeworkSubmission[] @relation("HomeworkSubmissionGrader")
+  certificates    Certificate[]
+  notifications   Notification[]
+  operationLogs   OperationLog[]
+  createdExams    Exam[]
+  createdHomeworks Homework[]
+
+  @@map("users")
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  startTime   DateTime @map("start_time")
+  endTime     DateTime @map("end_time")
+  location    String?
+  status      String   @default("draft")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  instructorId String  @map("instructor_id")
+  instructor   User   @relation("CourseInstructor", fields: [instructorId], references: [id])
+  createdById  String @map("created_by")
+  createdBy    User   @relation("CourseCreator", fields: [createdById], references: [id])
+
+  enrollments   Enrollment[]
+  attendances   Attendance[]
+  exams         Exam[]
+  homeworks     Homework[]
+  certificates  Certificate[]
+
+  @@map("courses")
+}
+
+model Enrollment {
+  id               String   @id @default(uuid())
+  attendanceStatus String   @default("pending") @map("attendance_status")
+  certificateStatus String  @default("none") @map("certificate_status")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  attendances  Attendance[]
+  certificates Certificate[]
+
+  @@unique([courseId, userId])
+  @@map("enrollments")
+}
+
+model Attendance {
+  id           String   @id @default(uuid())
+  signInTime   DateTime? @map("sign_in_time")
+  status       String
+  notes        String?
+  operatedAt   DateTime @default(now()) @map("operated_at")
+
+  enrollmentId String
+  enrollment  Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  courseId    String
+  course      Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User       @relation("AttendanceUser", fields: [userId], references: [id], onDelete: Cascade)
+  exceptionId String?   @unique @map("exception_id")
+  exception   Exception? @relation(fields: [exceptionId], references: [id])
+  operatedById String   @map("operated_by")
+  operatedBy   User      @relation("AttendanceOperator", fields: [operatedById], references: [id])
+
+  @@map("attendances")
+}
+
+model Exception {
+  id           String    @id @default(uuid())
+  type         String
+  relatedType  String    @map("related_type")
+  relatedId    String    @map("related_id")
+  description  String
+  adminNotes   String?   @map("admin_notes")
+  status       String    @default("pending")
+  solution     String?
+  attachments  String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  processedAt  DateTime? @map("processed_at")
+  archivedAt   DateTime? @map("archived_at")
+
+  userId     String
+  user       User        @relation("ExceptionUser", fields: [userId], references: [id], onDelete: Cascade)
+  operatedById String?   @map("operated_by")
+  operatedBy   User?      @relation("ExceptionOperator", fields: [operatedById], references: [id])
+
+  attendance Attendance?
+
+  @@map("exceptions")
+}
+
+model Exam {
+  id           String   @id @default(uuid())
+  title        String
+  duration     Int
+  passingScore Int      @map("passing_score")
+  totalScore   Int      @map("total_score")
+  startTime    DateTime @map("start_time")
+  endTime      DateTime @map("end_time")
+  questionIds  String?  @map("question_ids")
+  status       String   @default("draft")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  courseId   String
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById String @map("created_by")
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  examScores ExamScore[]
+
+  @@map("exams")
+}
+
+model ExamScore {
+  id             String    @id @default(uuid())
+  score          Int?
+  status         String    @default("pending")
+  answerSheetUrl String?   @map("answer_sheet_url")
+  notes          String?
+  gradedAt       DateTime? @map("graded_at")
+
+  examId    String
+  exam      Exam  @relation(fields: [examId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User  @relation("ExamScoreUser", fields: [userId], references: [id], onDelete: Cascade)
+  gradedById String? @map("graded_by")
+  gradedBy   User?   @relation("ExamScoreGrader", fields: [gradedById], references: [id])
+
+  @@unique([examId, userId])
+  @@map("exam_scores")
+}
+
+model Homework {
+  id           String   @id @default(uuid())
+  title        String
+  description  String?
+  deadline     DateTime
+  attachments  String?
+  totalScore   Int      @map("total_score")
+  status       String   @default("draft")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  courseId   String
+  course     Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  createdById String @map("created_by")
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  submissions HomeworkSubmission[]
+
+  @@map("homeworks")
+}
+
+model HomeworkSubmission {
+  id          String    @id @default(uuid())
+  submittedAt DateTime  @default(now()) @map("submitted_at")
+  score       Int?
+  status      String    @default("pending")
+  attachments String?
+  gradeNotes  String?   @map("grade_notes")
+  versionNumber Int      @default(1) @map("version_number")
+  isLatest    Boolean   @default(true) @map("is_latest")
+  gradedAt    DateTime? @map("graded_at")
+
+  homeworkId   String
+  homework     Homework @relation(fields: [homeworkId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation("HomeworkSubmissionUser", fields: [userId], references: [id], onDelete: Cascade)
+  gradedById   String?  @map("graded_by")
+  gradedBy     User?    @relation("HomeworkSubmissionGrader", fields: [gradedById], references: [id])
+
+  @@map("homework_submissions")
+}
+
+model Certificate {
+  id                 String    @id @default(uuid())
+  certificateNumber  String    @unique @map("certificate_number")
+  issueDate          DateTime  @default(now()) @map("issue_date")
+  status             String    @default("generated")
+  pdfUrl             String?   @map("pdf_url")
+
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  courseId     String
+  course       Course     @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("certificates")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  type      String
+  title     String
+  content   String?
+  channel   String    @default("in_app")
+  status    String    @default("pending")
+  sentAt    DateTime? @map("sent_at")
+  readAt    DateTime? @map("read_at")
+  metadata  String?
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model OperationLog {
+  id          String   @id @default(uuid())
+  module      String
+  action      String
+  relatedType String?  @map("related_type")
+  relatedId   String?  @map("related_id")
+  details     String?
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("operation_logs")
+}
