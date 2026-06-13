@@ -81,6 +81,13 @@ export default function JobManagement() {
     closeModal()
   }
 
+  const handleExpire = async (jobId: number) => {
+    if (confirm('确定要标记该岗位为过期吗？过期后可重新发布。')) {
+      await api.jobs.expire(jobId)
+      loadJobs()
+    }
+  }
+
   const handleClose = async (jobId: number) => {
     if (confirm('确定要关闭该岗位吗？关闭后将不再对外展示。')) {
       await api.jobs.close(jobId)
@@ -264,7 +271,7 @@ export default function JobManagement() {
                 </div>
               </div>
 
-              {job.reject_reason && (
+              {job.reject_reason && job.status === 'rejected' && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-600">退回原因：{job.reject_reason}</p>
                 </div>
@@ -344,6 +351,15 @@ export default function JobManagement() {
                       title="重新发布"
                     >
                       <RefreshCw className="w-4 h-4" />
+                    </button>
+                  )}
+                  {canPublish && job.status === 'published' && (
+                    <button
+                      onClick={() => handleExpire(job.id)}
+                      className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                      title="标记过期"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
                     </button>
                   )}
                   {(canPublish || canEdit) && job.status === 'published' && (

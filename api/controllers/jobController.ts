@@ -33,7 +33,7 @@ export const updateJob = (req: Request & { user?: User }, res: Response) => {
   const { title, company, location, salary, description, requirements } = req.body
   const actorId = req.user?.id
   
-  const job = db.jobs.update(Number(id), { title, company, location, salary, description, requirements, status: 'pending' }, actorId)
+  const job = db.jobs.update(Number(id), { title, company, location, salary, description, requirements, status: 'pending', reject_reason: null }, actorId)
   
   if (!job) {
     return res.status(404).json({ success: false, message: 'Job not found' })
