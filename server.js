@@ -119,6 +119,7 @@ app.get('/api/today-tasks/:userId', (req, res) => {
       quoting: taskDetails.filter(t => t.status === 'quoted').length,
       approved: taskDetails.filter(t => t.status === 'approved').length,
       assigned: taskDetails.filter(t => t.status === 'assigned').length,
+      translated: taskDetails.filter(t => t.status === 'translated').length,
       translating: taskDetails.filter(t => t.status === 'translating').length,
       reviewing: taskDetails.filter(t => t.status === 'reviewing').length
     }
@@ -575,6 +576,10 @@ app.post('/api/quotes/:id/approve', (req, res) => {
   if (!operator || !hasPermission(operator.role, 'approve_quotes')) {
     return res.status(403).json({ error: '无确认报价权限' });
   }
+
+  const projectManager = data.users.find(u => u.role === '项目经理' && u.status === 'available');
+  const pmId = projectManager?.id || 'U001';
+  const pmName = projectManager?.name || '李明';
   
   quote.status = 'approved';
   quote.approved_at = new Date().toISOString();
@@ -583,7 +588,7 @@ app.post('/api/quotes/:id/approve', (req, res) => {
 
   manuscript.status = 'approved';
   manuscript.quote_status = 'approved';
-  manuscript.current_handler_id = 'U001';
+  manuscript.current_handler_id = pmId;
   manuscript.current_handler_role = '项目经理';
 
   const historyEntry = {
@@ -750,6 +755,14 @@ app.post('/api/manuscripts/:id/update-progress', (req, res) => {
     return res.status(404).json({ error: '稿件不存在' });
   }
 
+  if (manuscript.status !== 'translating') {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_status: 'translating'
+    });
+  }
+
   const operator = data.users.find(u => u.id === operator_id);
   if (!operator || !hasPermission(operator.role, 'update_translation_progress')) {
     return res.status(403).json({ error: '无更新进度权限' });
@@ -806,10 +819,14 @@ app.post('/api/manuscripts/:id/submit-translation', (req, res) => {
     return res.status(403).json({ error: '无提交翻译权限' });
   }
 
+  const projectManager = data.users.find(u => u.role === '项目经理' && u.status === 'available');
+  const pmId = projectManager?.id || 'U001';
+  const pmName = projectManager?.name || '李明';
+
   const oldStatus = manuscript.status;
   manuscript.status = 'translated';
   manuscript.progress = 100;
-  manuscript.current_handler_id = 'U001';
+  manuscript.current_handler_id = pmId;
   manuscript.current_handler_role = '项目经理';
 
   const historyEntry = {
@@ -895,6 +912,8 @@ app.post('/api/manuscripts/:id/assign-reviewer', (req, res) => {
       translator_notes: manuscript.reception_notes,
       quote_id: quote?.id || null,
       quote_price: quote?.final_price || 0,
+      quote_delivery_days: quote?.delivery_days || 0,
+      due_date: manuscript.due_date,
       word_count: manuscript.word_count
     },
     created_at: new Date().toISOString()
@@ -919,6 +938,14 @@ app.post('/api/manuscripts/:id/update-review-progress', (req, res) => {
   const manuscript = data.manuscripts.find(m => m.id === id);
   if (!manuscript) {
     return res.status(404).json({ error: '稿件不存在' });
+  }
+
+  if (manuscript.status !== 'reviewing') {
+    return res.status(400).json({ 
+      error: '状态流转不合规',
+      current_status: manuscript.status,
+      allowed_status: 'reviewing'
+    });
   }
 
   const operator = data.users.find(u => u.id === operator_id);

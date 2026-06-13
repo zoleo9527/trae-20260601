@@ -962,6 +962,8 @@
           update_review_progress: '更新审校进度', submit_review: '完成审校'
         };
 
+        const contextHtml = renderContextPassed(item.context_passed);
+
         return `
           <div class="history-item">
             <div class="history-icon">${actionIcons[item.action] || '📋'}</div>
@@ -971,11 +973,38 @@
                 <span class="history-time">${formatDateTime(item.created_at)}</span>
               </div>
               <div class="history-action">${actionText[item.action] || item.action}</div>
+              ${item.from_status && item.to_status ? `<div style="font-size: 13px; color: #888; margin-top: 4px;">状态: ${getStatusText(item.from_status)} → ${getStatusText(item.to_status)}</div>` : ''}
               ${item.notes ? `<div class="history-notes">${item.notes}</div>` : ''}
+              ${contextHtml}
             </div>
           </div>
         `;
       }).join('');
+    }
+
+    function renderContextPassed(context) {
+      if (!context) return '';
+
+      let html = '<div class="history-context">';
+      const items = [];
+
+      if (context.translator_name) items.push(`<span class="context-tag">译员: ${context.translator_name}</span>`);
+      if (context.reviewer_name) items.push(`<span class="context-tag">审校: ${context.reviewer_name}</span>`);
+      if (context.quote_price) items.push(`<span class="context-tag">报价: ¥${context.quote_price.toFixed(2)}</span>`);
+      if (context.quote_delivery_days) items.push(`<span class="context-tag">交付: ${context.quote_delivery_days}天</span>`);
+      if (context.due_date) items.push(`<span class="context-tag">截止: ${context.due_date}</span>`);
+      if (context.word_count) items.push(`<span class="context-tag">字数: ${context.word_count.toLocaleString()}</span>`);
+      if (context.progress !== undefined) items.push(`<span class="context-tag">进度: ${context.progress}%</span>`);
+      if (context.review_progress !== undefined) items.push(`<span class="context-tag">审校进度: ${context.review_progress}%</span>`);
+      if (context.has_glossary !== undefined) items.push(`<span class="context-tag">${context.has_glossary ? '✓ 术语表' : '⚠ 术语表缺失'}</span>`);
+      if (context.has_feedback !== undefined) items.push(`<span class="context-tag">${context.has_feedback ? '✓ 客户反馈' : '⚠ 反馈缺失'}</span>`);
+      if (context.glossary_version) items.push(`<span class="context-tag">术语表版本: ${context.glossary_version}</span>`);
+      if (context.context_summary) items.push(`<span class="context-tag">${context.context_summary}</span>`);
+
+      html += items.join('');
+      html += '</div>';
+
+      return items.length > 0 ? html : '';
     }
 
     function formatDateTime(timestamp) {
