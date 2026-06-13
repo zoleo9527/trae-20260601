@@ -1,0 +1,152 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @default(cuid())
+  username    String   @unique
+  password    String
+  name        String
+  role        String   @default("一线") // 一线, 管理
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  laborDemands        LaborDemand[]
+  candidates          Candidate[]
+  matchingRecords     MatchingRecord[]
+  statusHistories     StatusHistory[]
+  returnRecords       ReturnRecord[]
+  attachments         Attachment[]
+}
+
+model LaborDemand {
+  id              String    @id @default(cuid())
+  demandNumber    String    @unique
+  companyName     String    // 用工单位
+  position        String    // 岗位
+  demandCount     Int       // 需求人数
+  salaryRange     String    // 薪资范围
+  workLocation    String    // 工作地点
+  workPeriod      String    // 用工周期
+  requirements    String?   // 具体要求
+  status          String    @default("待处理") // 待处理, 处理中, 匹配中, 已完成, 已取消
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  matchingRecords MatchingRecord[]
+  statusHistories StatusHistory[]
+  returnRecords   ReturnRecord[]
+  attachments     Attachment[]
+}
+
+model Candidate {
+  id              String    @id @default(cuid())
+  candidateNumber String    @unique
+  name            String
+  phone           String
+  email           String?
+  skills          String    // 技能，多个用逗号分隔
+  experience      String    // 工作经验
+  education       String?   // 学历
+  expectedSalary String?   // 期望薪资
+  status          String    @default("待匹配") // 待匹配, 匹配中, 已推荐, 已入职, 已离职
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  matchingRecords MatchingRecord[]
+  statusHistories StatusHistory[]
+  returnRecords   ReturnRecord[]
+  attachments     Attachment[]
+}
+
+model MatchingRecord {
+  id              String    @id @default(cuid())
+  laborDemandId   String
+  laborDemand     LaborDemand @relation(fields: [laborDemandId], references: [id])
+  candidateId     String
+  candidate       Candidate @relation(fields: [candidateId], references: [id])
+  matchType       String    // 首次推荐, 退回重配, 补录
+  matchResult     String?   // 待确认, 同意, 拒绝
+  matchReason     String?   // 匹配说明
+  interviewDate   DateTime?
+  entryDate       DateTime?
+  status          String    @default("待确认") // 待确认, 面试中, 已入职, 已拒绝, 已取消
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  statusHistories StatusHistory[]
+  returnRecords   ReturnRecord[]
+  attachments     Attachment[]
+}
+
+model StatusHistory {
+  id              String    @id @default(cuid())
+  entityType      String    // LaborDemand, Candidate, MatchingRecord
+  entityId        String
+  previousStatus  String?
+  newStatus       String
+  actionType      String    // 创建, 更新, 退回, 补录, 复核, 确认, 拒绝
+  operatorId      String
+  operator        User      @relation(fields: [operatorId], references: [id])
+  remark          String?   // 备注/说明
+  attachments     Attachment[]
+  createdAt       DateTime  @default(now())
+
+  laborDemand     LaborDemand?     @relation(fields: [entityId], references: [id], map: "StatusHistory_laborDemand")
+  candidate       Candidate?       @relation(fields: [entityId], references: [id], map: "StatusHistory_candidate")
+  matchingRecord  MatchingRecord?  @relation(fields: [entityId], references: [id], map: "StatusHistory_matchingRecord")
+}
+
+model ReturnRecord {
+  id              String    @id @default(cuid())
+  entityType      String    // LaborDemand, Candidate, MatchingRecord
+  entityId        String
+  laborDemandId   String?
+  candidateId     String?
+  matchingRecordId String?
+  returnType      String    // 退回, 补录, 复核
+  returnReason    String
+  operatorId      String
+  operator        User      @relation(fields: [operatorId], references: [id])
+  handledById     String?
+  handledAt       DateTime?
+  handleRemark    String?
+  status          String    @default("待处理") // 待处理, 已处理, 已确认
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  laborDemand     LaborDemand?    @relation(fields: [laborDemandId], references: [id])
+  candidate       Candidate?      @relation(fields: [candidateId], references: [id])
+  matchingRecord  MatchingRecord? @relation(fields: [matchingRecordId], references: [id])
+}
+
+model Attachment {
+  id              String    @id @default(cuid())
+  entityType      String    // LaborDemand, Candidate, MatchingRecord, StatusHistory
+  entityId        String
+  statusHistoryId String?
+  attachmentType  String    // 旧台账, 现场记录, 沟通截图, 其他
+  fileName        String
+  filePath        String
+  fileSize        Int?
+  mimeType        String?
+  uploadedById    String
+  uploadedBy      User      @relation(fields: [uploadedById], references: [id])
+  createdAt       DateTime  @default(now())
+
+  laborDemand     LaborDemand?    @relation(fields: [entityId], references: [id])
+  candidate       Candidate?      @relation(fields: [entityId], references: [id])
+  matchingRecord  MatchingRecord? @relation(fields: [entityId], references: [id])
+  statusHistory   StatusHistory?  @relation(fields: [statusHistoryId], references: [id])
+}

@@ -1,0 +1,67 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.page-container {
+  padding: 20px;
+  height: calc(100vh - 60px);
+  overflow-y: auto;
+}
+
+.filter-section {
+  background: #f5f7fa;
+  padding: 20px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.filter-section .el-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.table-section {
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
+}
+
+.pagination-section {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.detail-section {
+  padding: 20px;
+}
+
+.detail-section .el-descriptions {
+  margin-bottom: 20px;
+}
+
+.history-timeline {
+  padding: 20px;
+}
+
+.status-tag {
+  margin-right: 5px;
+}
+
+.action-button {
+  margin-right: 5px;
+}

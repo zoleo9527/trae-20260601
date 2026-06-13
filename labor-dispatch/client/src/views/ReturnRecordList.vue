@@ -1,0 +1,359 @@
+<template>
+  <div class="page-wrapper">
+    <el-container>
+      <el-header height="60px">
+        <div class="header-content">
+          <h2>退回/补录/复核记录</h2>
+        </div>
+      </el-header>
+
+      <el-main>
+        <div class="filter-section">
+          <el-form :model="filterForm" inline>
+            <el-form-item label="类型">
+              <el-select v-model="filterForm.returnType" placeholder="请选择" clearable>
+                <el-option label="退回" value="退回" />
+                <el-option label="补录" value="补录" />
+                <el-option label="复核" value="复核" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="状态">
+              <el-select v-model="filterForm.status" placeholder="请选择" clearable>
+                <el-option label="待处理" value="待处理" />
+                <el-option label="已处理" value="已处理" />
+                <el-option label="已确认" value="已确认" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="实体类型">
+              <el-select v-model="filterForm.entityType" placeholder="请选择" clearable>
+                <el-option label="用工需求" value="LaborDemand" />
+                <el-option label="候选人" value="Candidate" />
+                <el-option label="匹配记录" value="MatchingRecord" />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="handleSearch">查询</el-button>
+              <el-button @click="handleReset">重置</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+
+        <div class="table-section">
+          <el-table :data="tableData" v-loading="loading" stripe>
+            <el-table-column prop="returnType" label="类型" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getTypeColor(row.returnType)">{{ row.returnType }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="entityType" label="实体类型" width="120">
+              <template #default="{ row }">
+                {{ getEntityTypeName(row.entityType) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="关联信息">
+              <template #default="{ row }">
+                <span v-if="row.laborDemand">
+                  {{ row.laborDemand.companyName }} - {{ row.laborDemand.position }}
+                </span>
+                <span v-else-if="row.candidate">
+                  {{ row.candidate.name }} - {{ row.candidate.phone }}
+                </span>
+                <span v-else>-</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="returnReason" label="原因" />
+            <el-table-column prop="operator.name" label="操作人" width="100" />
+            <el-table-column prop="status" label="状态" width="100">
+              <template #default="{ row }">
+                <el-tag :type="getStatusColor(row.status)">{{ row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="handleRemark" label="处理说明">
+              <template #default="{ row }">
+                {{ row.handleRemark || '-' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="createdAt" label="创建时间" width="160">
+              <template #default="{ row }">
+                {{ formatTime(row.createdAt) }}
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="150" fixed="right">
+              <template #default="{ row }">
+                <el-button type="primary" link @click="handleView(row)">查看</el-button>
+                <el-button
+                  v-if="row.status === '待处理'"
+                  type="success"
+                  link
+                  @click="handleProcess(row)"
+                >
+                  处理
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pagination-section">
+            <el-pagination
+              v-model:current-page="pagination.page"
+              v-model:page-size="pagination.pageSize"
+              :total="pagination.total"
+              :page-sizes="[10, 20, 50, 100]"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="loadData"
+              @current-change="loadData"
+            />
+          </div>
+        </div>
+      </el-main>
+    </el-container>
+
+    <el-dialog v-model="processDialogVisible" title="处理" width="500px">
+      <el-form :model="processForm" label-width="100px">
+        <el-form-item label="处理说明">
+          <el-input
+            v-model="processForm.handleRemark"
+            type="textarea"
+            :rows="4"
+            placeholder="请输入处理说明"
+          />
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="processDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleProcessSubmit" :loading="submitLoading">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="viewDialogVisible" title="详情" width="700px">
+      <el-descriptions v-if="currentRecord" :column="2" border>
+        <el-descriptions-item label="类型">
+          <el-tag :type="getTypeColor(currentRecord.returnType)">{{ currentRecord.returnType }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="状态">
+          <el-tag :type="getStatusColor(currentRecord.status)">{{ currentRecord.status }}</el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="实体类型">
+          {{ getEntityTypeName(currentRecord.entityType) }}
+        </el-descriptions-item>
+        <el-descriptions-item label="原因" :span="2">
+          {{ currentRecord.returnReason }}
+        </el-descriptions-item>
+        <el-descriptions-item label="操作人">
+          {{ currentRecord.operator?.name }}
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">
+          {{ formatTime(currentRecord.createdAt) }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="currentRecord.handleRemark" label="处理说明" :span="2">
+          {{ currentRecord.handleRemark }}
+        </el-descriptions-item>
+        <el-descriptions-item v-if="currentRecord.matchingRecord" label="关联匹配" :span="2">
+          <el-button
+            type="primary"
+            link
+            @click="goToMatching(currentRecord.matchingRecord.id)"
+          >
+            查看匹配记录
+          </el-button>
+        </el-descriptions-item>
+      </el-descriptions>
+
+      <template #footer>
+        <el-button @click="viewDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+  </div>
+</template>
+
+<script>
+import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import api from '../api'
+
+export default {
+  name: 'ReturnRecordList',
+  setup() {
+    const router = useRouter()
+    const loading = ref(false)
+    const submitLoading = ref(false)
+    const processDialogVisible = ref(false)
+    const viewDialogVisible = ref(false)
+    const currentRecord = ref(null)
+
+    const filterForm = reactive({
+      returnType: '',
+      status: '',
+      entityType: ''
+    })
+
+    const pagination = reactive({
+      page: 1,
+      pageSize: 20,
+      total: 0
+    })
+
+    const tableData = ref([])
+
+    const processForm = reactive({
+      handleRemark: ''
+    })
+
+    let currentRecordId = null
+
+    onMounted(() => {
+      loadData()
+    })
+
+    const loadData = async () => {
+      try {
+        loading.value = true
+        const params = {
+          page: pagination.page,
+          pageSize: pagination.pageSize
+        }
+
+        if (filterForm.returnType) {
+          params.returnType = filterForm.returnType
+        }
+        if (filterForm.status) {
+          params.status = filterForm.status
+        }
+        if (filterForm.entityType) {
+          params.entityType = filterForm.entityType
+        }
+
+        const result = await api.returnRecords.list(params)
+        tableData.value = result.data
+        pagination.total = result.total
+      } catch (error) {
+        ElMessage.error('加载数据失败')
+      } finally {
+        loading.value = false
+      }
+    }
+
+    const handleSearch = () => {
+      pagination.page = 1
+      loadData()
+    }
+
+    const handleReset = () => {
+      filterForm.returnType = ''
+      filterForm.status = ''
+      filterForm.entityType = ''
+      pagination.page = 1
+      loadData()
+    }
+
+    const handleView = async (row) => {
+      try {
+        currentRecord.value = await api.returnRecords.getById(row.id)
+        viewDialogVisible.value = true
+      } catch (error) {
+        ElMessage.error('加载详情失败')
+      }
+    }
+
+    const handleProcess = (row) => {
+      currentRecordId = row.id
+      processForm.handleRemark = ''
+      processDialogVisible.value = true
+    }
+
+    const handleProcessSubmit = async () => {
+      try {
+        submitLoading.value = true
+        await api.returnRecords.handle(currentRecordId, processForm)
+        ElMessage.success('处理成功')
+        processDialogVisible.value = false
+        loadData()
+      } catch (error) {
+        ElMessage.error('处理失败')
+      } finally {
+        submitLoading.value = false
+      }
+    }
+
+    const goToMatching = (id) => {
+      viewDialogVisible.value = false
+      router.push(`/matchings/${id}`)
+    }
+
+    const getTypeColor = (type) => {
+      const colors = {
+        '退回': 'danger',
+        '补录': 'warning',
+        '复核': 'primary'
+      }
+      return colors[type] || 'info'
+    }
+
+    const getStatusColor = (status) => {
+      const colors = {
+        '待处理': 'warning',
+        '已处理': 'success',
+        '已确认': 'primary'
+      }
+      return colors[status] || 'info'
+    }
+
+    const getEntityTypeName = (type) => {
+      const names = {
+        'LaborDemand': '用工需求',
+        'Candidate': '候选人',
+        'MatchingRecord': '匹配记录'
+      }
+      return names[type] || type
+    }
+
+    const formatTime = (time) => {
+      return new Date(time).toLocaleString('zh-CN')
+    }
+
+    return {
+      loading,
+      submitLoading,
+      processDialogVisible,
+      viewDialogVisible,
+      currentRecord,
+      filterForm,
+      pagination,
+      tableData,
+      processForm,
+      loadData,
+      handleSearch,
+      handleReset,
+      handleView,
+      handleProcess,
+      handleProcessSubmit,
+      goToMatching,
+      getTypeColor,
+      getStatusColor,
+      getEntityTypeName,
+      formatTime
+    }
+  }
+}
+</script>
+
+<style scoped>
+.page-wrapper {
+  height: 100vh;
+}
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 100%;
+}
+
+.header-content h2 {
+  margin: 0;
+}
+</style>
