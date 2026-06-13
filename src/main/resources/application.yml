@@ -1,0 +1,25 @@
+
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:sqlite:./example_db.sqlite
+    driver-class-name: org.sqlite.JDBC
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html

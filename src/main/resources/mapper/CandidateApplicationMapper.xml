@@ -1,0 +1,39 @@
+
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.recruitment.mapper.CandidateApplicationMapper">
+
+    <select id="selectPageWithFilters" resultType="com.example.recruitment.entity.CandidateApplication">
+        SELECT * FROM candidate_application
+        WHERE 1=1
+        <if test="positionId != null">AND position_id = #{positionId}</if>
+        <if test="status != null">AND status = #{status}</if>
+        <if test="candidateName != null and candidateName != ''">AND candidate_name LIKE CONCAT('%', #{candidateName}, '%')</if>
+        <if test="candidatePhone != null and candidatePhone != ''">AND candidate_phone LIKE CONCAT('%', #{candidatePhone}, '%')</if>
+        <if test="startTime != null">AND submitted_at >= #{startTime}</if>
+        <if test="endTime != null">AND submitted_at <= #{endTime}</if>
+        ORDER BY submitted_at DESC
+    </select>
+
+    <select id="selectTodayPending" resultType="com.example.recruitment.entity.CandidateApplication">
+        SELECT * FROM candidate_application
+        WHERE status = 1
+          AND DATE(submitted_at) = DATE('now')
+        ORDER BY submitted_at DESC
+    </select>
+
+    <select id="selectTimeoutApplications" resultType="com.example.recruitment.entity.CandidateApplication">
+        SELECT * FROM candidate_application
+        WHERE status = 1
+          AND submitted_at < DATETIME('now', '-2 hours')
+        ORDER BY submitted_at DESC
+    </select>
+
+    <select id="selectRecentlyRejected" resultType="com.example.recruitment.entity.CandidateApplication">
+        SELECT * FROM candidate_application
+        WHERE status = 3
+          AND updated_at >= DATETIME('now', '-24 hours')
+        ORDER BY updated_at DESC
+    </select>
+
+</mapper>
