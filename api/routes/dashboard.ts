@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from 'express'
 import {
-  getExam, getAVRecords, getSPRecords, getAuditLogs, getCandidates,
+  getExam, getAVRecords, getSPRecords, getAuditLogs, getCandidates, getRooms, getSubjects,
   getRegistrationInfo, getRoomArrangementInfo, getInvigilatorInfo,
   getStageProgress, getStageStatus, setStageStatus, addAuditLog, nextId, assertPermission
 } from '../data/repository.js'
@@ -8,14 +8,18 @@ import type { StageName, Role } from '../../shared/types.js'
 
 const router = Router()
 
-router.get('/', (_req: Request, res: Response): void => {
+router.get('/', (req: Request, res: Response): void => {
   const exam = getExam()
   const avRecords = getAVRecords()
   const spRecords = getSPRecords()
+  const candidates = getCandidates()
+  const rooms = getRooms()
+  const subjects = getSubjects()
   const recentLogs = getAuditLogs().slice(0, 10)
   const pendingAV = avRecords.filter(r => r.status === 'pending' || r.status === 'resubmitted').length
   const pendingSP = spRecords.filter(r => r.status === 'initiated' || r.status === 'approved').length
   const progress = getStageProgress()
+  const role = (req.query.role as string) || 'admin'
 
   const stageNameMap: Record<StageName, string> = {
     'registration': '报名数据',
@@ -54,6 +58,62 @@ router.get('/', (_req: Request, res: Response): void => {
     total: spRecords.length,
   }
 
+  const avPendingAll = avRecords.filter(r => r.status === 'pending' || r.status === 'resubmitted')
+  const invigilatorNames = ['王建国', '李秀英', '张志强', '刘美玲', '陈海涛', '赵丽华']
+  let avPendingFiltered = avPendingAll
+  if (role === 'invigilator') {
+    avPendingFiltered = avPendingAll.filter(r => invigilatorNames.includes(r.submittedBy))
+  } else if (role === 'tech') {
+    avPendingFiltered = []
+  }
+  const avPendingSummary = avPendingFiltered
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .slice(0, 3)
+    .map(r => {
+      const cand = candidates.find(c => c.id === r.candidateId)
+      const room = rooms.find(rm => rm.id === r.roomId)
+      const subj = subjects.find(s => s.id === r.subjectId)
+      return {
+        id: r.id,
+        candidateName: cand?.name || '未知考生',
+        type: r.type,
+        violationType: r.violationType,
+        status: r.status,
+        roomName: room?.name || '未知考场',
+        subjectName: subj?.name || '未知科目',
+        submittedBy: r.submittedBy,
+        version: r.version,
+        createdAt: r.createdAt,
+      }
+    })
+
+  let spPendingFiltered = spRecords
+  if (role === 'admin') {
+    spPendingFiltered = spRecords.filter(r => r.status === 'initiated')
+  } else if (role === 'tech') {
+    spPendingFiltered = spRecords.filter(r => r.status === 'approved')
+  } else {
+    spPendingFiltered = []
+  }
+  const spPendingSummary = spPendingFiltered
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    .slice(0, 3)
+    .map(r => {
+      const subj = subjects.find(s => s.id === r.subjectId)
+      return {
+        id: r.id,
+        subjectName: subj?.name || '未知科目',
+        status: r.status,
+        submittedBy: r.initiatedBy,
+        version: r.version,
+        totalCandidates: r.summary.total,
+        passCount: r.summary.pass,
+        failCount: r.summary.fail,
+        avgScore: r.summary.avg,
+        createdAt: r.createdAt,
+      }
+    })
+
   res.json({
     examName: exam.name,
     examDate: exam.date,
@@ -67,6 +127,8 @@ router.get('/', (_req: Request, res: Response): void => {
     stageProgress: progress,
     avStats,
     spStats,
+    avPendingSummary,
+    spPendingSummary,
   })
 })
 

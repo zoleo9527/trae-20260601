@@ -6,7 +6,7 @@ import {
   UserCheck, ListChecks, PlayCircle
 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import type { StageProgress, AVStats, SPStats } from '../../shared/types'
+import type { StageProgress, AVStats, SPStats, AVPendingItem, SPPendingItem } from '../../shared/types'
 
 const stageIcons = [Calendar, Users, DoorOpen, AlertCircle, GraduationCap]
 const stageKeys = ['registration', 'room-arrangement', 'invigilator-assignment', 'absence-violation', 'score-publish'] as const
@@ -51,7 +51,7 @@ function Skeleton() {
 }
 
 function StageCard({
-  stage, progress, onClick, onComplete, role, avStats, spStats
+  stage, progress, onClick, onComplete, role, avStats, spStats, avPending, spPending
 }: {
   stage: any
   progress: StageProgress | undefined
@@ -60,6 +60,8 @@ function StageCard({
   role: string | null
   avStats: AVStats | undefined
   spStats: SPStats | undefined
+  avPending: AVPendingItem[]
+  spPending: SPPendingItem[]
 }) {
   const [expanded, setExpanded] = useState(false)
   const idx = stageKeys.indexOf(stage.key)
@@ -155,7 +157,7 @@ function StageCard({
             </div>
           )}
 
-          <StageDetail stage={stage} avStats={avStats} spStats={spStats} />
+          <StageDetail stage={stage} avStats={avStats} spStats={spStats} avPending={avPending} spPending={spPending} />
 
           <div className="flex items-center justify-between pt-1">
             <button
@@ -181,8 +183,9 @@ function StageCard({
   )
 }
 
-function StageDetail({ stage, avStats, spStats }: { stage: any; avStats: AVStats | undefined; spStats: SPStats | undefined }) {
+function StageDetail({ stage, avStats, spStats, avPending, spPending }: { stage: any; avStats: AVStats | undefined; spStats: SPStats | undefined; avPending: AVPendingItem[]; spPending: SPPendingItem[] }) {
   const { registration, roomArrangement, invigilatorAssignment } = useAppStore()
+  const navigate = useNavigate()
 
   if (stage.key === 'registration') {
     if (!registration) return null
@@ -363,6 +366,40 @@ function StageDetail({ stage, avStats, spStats }: { stage: any; avStats: AVStats
             ))}
           </div>
         </div>
+        {avPending.length > 0 && (
+          <div className="col-span-4 bg-white rounded-lg p-3 border border-amber-100">
+            <div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1">
+              <AlertCircle size={12} /> 待我处理
+              <span className="ml-auto text-[10px] text-amber-500">最近 {avPending.length} 条</span>
+            </div>
+            <div className="space-y-1.5">
+              {avPending.map(item => (
+                <div key={item.id} className="flex items-center gap-2 text-xs bg-amber-50/60 rounded-md px-2.5 py-1.5">
+                  <div className="font-medium text-gray-800 flex-shrink-0 min-w-0">
+                    <span className="truncate max-w-[70px] inline-block align-bottom">{item.candidateName}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 flex-shrink-0">
+                    {item.type === 'absence' ? '缺考' : '违纪'}
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${
+                    item.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-orange-100 text-orange-700'
+                  }`}>
+                    {item.status === 'pending' ? '待审核' : '重提待审'}
+                  </span>
+                  <div className="text-[10px] text-gray-400 ml-auto flex-shrink-0">
+                    {item.submittedBy} 提交
+                  </div>
+                  <button
+                    onClick={() => navigate('/absence-violation')}
+                    className="text-[10px] text-amber-600 hover:text-amber-800 flex-shrink-0 flex items-center gap-0.5"
+                  >
+                    去处理 <ArrowRight size={9} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -426,6 +463,40 @@ function StageDetail({ stage, avStats, spStats }: { stage: any; avStats: AVStats
             })}
           </div>
         </div>
+        {spPending.length > 0 && (
+          <div className="col-span-5 bg-white rounded-lg p-3 border border-amber-100">
+            <div className="text-xs font-medium text-amber-700 mb-2 flex items-center gap-1">
+              <AlertCircle size={12} /> 待我处理
+              <span className="ml-auto text-[10px] text-amber-500">最近 {spPending.length} 条</span>
+            </div>
+            <div className="space-y-1.5">
+              {spPending.map(item => (
+                <div key={item.id} className="flex items-center gap-2 text-xs bg-amber-50/60 rounded-md px-2.5 py-1.5">
+                  <div className="font-medium text-gray-800 flex-shrink-0 min-w-0">
+                    <span className="truncate max-w-[80px] inline-block align-bottom">{item.subjectName}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-500 flex-shrink-0">
+                    {item.totalCandidates}人 · 及格{item.passCount}
+                  </div>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded flex-shrink-0 ${
+                    item.status === 'initiated' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {item.status === 'initiated' ? '待审批' : '待确认'}
+                  </span>
+                  <div className="text-[10px] text-gray-400 ml-auto flex-shrink-0">
+                    {item.submittedBy} 发起
+                  </div>
+                  <button
+                    onClick={() => navigate('/score-publish')}
+                    className="text-[10px] text-amber-600 hover:text-amber-800 flex-shrink-0 flex items-center gap-0.5"
+                  >
+                    去处理 <ArrowRight size={9} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
@@ -534,6 +605,8 @@ export default function Dashboard() {
                 role={role}
                 avStats={dashboard.avStats}
                 spStats={dashboard.spStats}
+                avPending={dashboard.avPendingSummary || []}
+                spPending={dashboard.spPendingSummary || []}
               />
             )
           })}

@@ -97,7 +97,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchDashboard: async () => {
     set({ loading: true })
     try {
-      const data = await api('/api/dashboard')
+      const role = get().role || 'admin'
+      const data = await api(`/api/dashboard?role=${role}`)
       set({
         dashboard: data,
         stageProgress: data.stageProgress || [],

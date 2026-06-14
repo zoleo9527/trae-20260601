@@ -167,6 +167,32 @@ export interface SPStats {
   total: number
 }
 
+export interface AVPendingItem {
+  id: string
+  candidateName: string
+  type: AVType
+  violationType?: ViolationCategory | null
+  status: AVStatus
+  roomName: string
+  subjectName: string
+  submittedBy: string
+  version: number
+  createdAt: string
+}
+
+export interface SPPendingItem {
+  id: string
+  subjectName: string
+  status: SPStatus
+  submittedBy: string
+  version: number
+  totalCandidates: number
+  passCount: number
+  failCount: number
+  avgScore: number
+  createdAt: string
+}
+
 export interface DashboardData {
   examName: string
   examDate: string
@@ -179,6 +205,8 @@ export interface DashboardData {
   invigilatorAssignment: InvigilatorInfo
   avStats: AVStats
   spStats: SPStats
+  avPendingSummary: AVPendingItem[]
+  spPendingSummary: SPPendingItem[]
 }
 
 export interface CandidateDetail {
