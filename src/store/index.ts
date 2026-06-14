@@ -60,45 +60,50 @@ interface PersistedState {
 }
 
 function reconcilePersistedState(state: PersistedState): PersistedState {
-  const candidateRoomMap = new Map<string, string>()
-  const candidateSeatCount = new Map<string, string[]>()
+  const candidateAllSeats = new Map<string, { roomId: string; seatId: string; row: number; col: number }[]>()
 
   for (const room of state.examRooms) {
     for (const seat of room.seats) {
-      if (seat.candidateId && seat.status !== "empty") {
-        candidateRoomMap.set(seat.candidateId, room.id)
-        const rooms = candidateSeatCount.get(seat.candidateId) ?? []
-        rooms.push(room.id)
-        candidateSeatCount.set(seat.candidateId, rooms)
+      if (seat.candidateId && seat.status === "assigned") {
+        const list = candidateAllSeats.get(seat.candidateId) ?? []
+        list.push({ roomId: room.id, seatId: seat.id, row: seat.row, col: seat.col })
+        candidateAllSeats.set(seat.candidateId, list)
       }
     }
   }
 
-  const duplicates = new Map<string, { keepRoomId: string; clearRoomIds: Set<string> }>()
-  for (const [cid, rooms] of candidateSeatCount) {
-    const uniqueRooms = [...new Set(rooms)]
-    if (uniqueRooms.length > 1) {
-      const keepRoomId = candidateRoomMap.get(cid) ?? uniqueRooms[0]
-      duplicates.set(cid, { keepRoomId, clearRoomIds: new Set(uniqueRooms.filter((r) => r !== keepRoomId)) })
+  const keepSeats = new Map<string, string>()
+  for (const [cid, seats] of candidateAllSeats) {
+    if (seats.length > 1) {
+      const sorted = [...seats].sort((a, b) => {
+        const roomCmp = a.roomId.localeCompare(b.roomId)
+        if (roomCmp !== 0) return roomCmp
+        const rowCmp = a.row - b.row
+        if (rowCmp !== 0) return rowCmp
+        return a.col - b.col
+      })
+      keepSeats.set(cid, sorted[0].seatId)
     }
   }
 
+  const seatRoomsAfter = new Map<string, string>()
   const examRooms = state.examRooms.map((room) => {
     let seatsChanged = false
     const seats = room.seats.map((seat) => {
-      if (!seat.candidateId || seat.status === "empty") return seat
-      const dup = duplicates.get(seat.candidateId)
-      if (dup && dup.clearRoomIds.has(room.id)) {
+      if (!seat.candidateId || seat.status !== "assigned") return seat
+      const keepSeatId = keepSeats.get(seat.candidateId)
+      if (keepSeatId && keepSeatId !== seat.id) {
         seatsChanged = true
         return { ...seat, candidateId: undefined, candidateName: undefined, status: "empty" as const }
       }
+      seatRoomsAfter.set(seat.candidateId, room.id)
       return seat
     })
     return seatsChanged ? { ...room, seats } : room
   })
 
   const candidates = state.candidates.map((c) => {
-    const actualRoomId = candidateRoomMap.get(c.id)
+    const actualRoomId = seatRoomsAfter.get(c.id)
     if (actualRoomId !== c.examRoomId) {
       return { ...c, examRoomId: actualRoomId }
     }
@@ -251,25 +256,71 @@ export const useExamStore = create<ExamStore>()(
       },
 
       assignSeat: (roomId, seatId, candidateId, candidateName) => {
-        const { currentOperatorId, currentOperatorName, examRooms } = get()
+        const { currentOperatorId, currentOperatorName, examRooms, candidates } = get()
+        const prevCandidate = candidates.find((c) => c.id === candidateId)
+        const prevRoomId = prevCandidate?.examRoomId
+        const prevRoom = prevRoomId ? examRooms.find((r) => r.id === prevRoomId) : undefined
+        const prevSeat = prevRoom?.seats.find((s) => s.candidateId === candidateId)
+
         const room = examRooms.find((r) => r.id === roomId)
-        const newSeats = room
+        let newSeats = room
           ? room.seats.map((seat) =>
               seat.id === seatId
                 ? { ...seat, candidateId, candidateName, status: "assigned" as const }
                 : seat
             )
           : []
-        set((s) => ({
-          examRooms: s.examRooms.map((r) =>
-            r.id === roomId
-              ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((seat) => seat.id === seatId ? { ...seat, candidateId, candidateName, status: "assigned" as const } : seat) }
-              : r
-          ),
-          candidates: s.candidates.map((c) =>
-            c.id === candidateId ? { ...c, examRoomId: roomId } : c
-          ),
-        }))
+
+        if (prevRoomId && prevRoomId !== roomId && prevSeat) {
+          set((s) => ({
+            examRooms: s.examRooms.map((r) =>
+              r.id === prevRoomId
+                ? {
+                    ...r,
+                    seats: r.seats.map((st) =>
+                      st.id === prevSeat.id
+                        ? { ...st, candidateId: undefined, candidateName: undefined, status: "empty" as const }
+                        : st
+                    ),
+                  }
+                : r.id === roomId
+                  ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((seat) => seat.id === seatId ? { ...seat, candidateId, candidateName, status: "assigned" as const } : seat) }
+                  : r
+            ),
+            candidates: s.candidates.map((c) =>
+              c.id === candidateId ? { ...c, examRoomId: roomId } : c
+            ),
+          }))
+        } else if (prevRoomId === roomId && prevSeat && prevSeat.id !== seatId) {
+          const clearedSeats = newSeats.map((st) =>
+            st.id === prevSeat.id
+              ? { ...st, candidateId: undefined, candidateName: undefined, status: "empty" as const }
+              : st
+          )
+          newSeats = clearedSeats
+          set((s) => ({
+            examRooms: s.examRooms.map((r) =>
+              r.id === roomId
+                ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((seat) => seat.id === seatId ? { ...seat, candidateId, candidateName, status: "assigned" as const } : seat) }
+                : r
+            ),
+            candidates: s.candidates.map((c) =>
+              c.id === candidateId ? { ...c, examRoomId: roomId } : c
+            ),
+          }))
+        } else {
+          set((s) => ({
+            examRooms: s.examRooms.map((r) =>
+              r.id === roomId
+                ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((seat) => seat.id === seatId ? { ...seat, candidateId, candidateName, status: "assigned" as const } : seat) }
+                : r
+            ),
+            candidates: s.candidates.map((c) =>
+              c.id === candidateId ? { ...c, examRoomId: roomId } : c
+            ),
+          }))
+        }
+
         get().addSnapshot(roomId, newSeats, `手动分配 ${candidateName}`)
         get().addAuditLog({
           operatorId: currentOperatorId,
@@ -403,13 +454,10 @@ export const useExamStore = create<ExamStore>()(
     }),
     {
       name: "exam-center-store",
-      version: 1,
-      migrate: (persistedState: unknown, version: number) => {
+      version: 2,
+      migrate: (persistedState) => {
         const state = persistedState as PersistedState
         if (!state.examRooms || !state.candidates) return state
-        if (version < 1) {
-          return reconcilePersistedState(state)
-        }
         return reconcilePersistedState(state)
       },
     }
