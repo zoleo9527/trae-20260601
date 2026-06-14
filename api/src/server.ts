@@ -1,13 +1,13 @@
-import express from 'express';
-import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import cors from 'cors';
+import dayjs from 'dayjs';
+import ExcelJS from 'exceljs';
+import express from 'express';
 import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import ExcelJS from 'exceljs';
-import dayjs from 'dayjs';
 
 const app = express();
 const prisma = new PrismaClient();
@@ -557,11 +557,13 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
       orderBy: { versionNumber: 'desc' },
     });
 
+    const allVersionIds = allVersions.map(v => v.id);
+
     const logs = await prisma.operationLog.findMany({
       where: {
         module: 'homework',
         relatedType: 'submission',
-        relatedId: req.params.submissionId,
+        relatedId: { in: allVersionIds },
       },
       include: {
         user: {
@@ -599,6 +601,15 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
       }
     };
 
+    const timelineWithVersions = logs.map(log => {
+      const relatedSubmission = allVersions.find(v => v.id === log.relatedId);
+      return {
+        ...log,
+        version: relatedSubmission?.versionNumber || null,
+        submissionId: relatedSubmission?.id || null,
+      };
+    });
+
     res.json({
       code: 200,
       data: {
@@ -618,8 +629,10 @@ app.get('/api/homework/:id/submissions/:submissionId', authenticateToken, async 
           version: v.versionNumber,
           submittedAt: v.submittedAt,
           attachments: parseAttachments(v.attachments),
+          score: v.score,
+          status: v.status,
         })),
-        timeline: logs,
+        timeline: timelineWithVersions,
       },
     });
   } catch (error) {

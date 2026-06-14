@@ -630,22 +630,72 @@ export default function HomeworkSubmissions() {
 
               {submissionDetail.timeline && submissionDetail.timeline.length > 0 && (
                 <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">操作记录</h4>
+                  <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center">
+                    <History className="w-4 h-4 mr-2" />
+                    操作记录（{submissionDetail.timeline.length}条）
+                  </h4>
                   <div className="space-y-3">
-                    {submissionDetail.timeline.map((item) => (
-                      <div key={item.id} className="flex">
-                        <div className="flex flex-col items-center mr-3">
-                          <div className="w-2 h-2 bg-primary-500 rounded-full"></div>
-                          <div className="w-px h-full bg-gray-200 my-1"></div>
-                        </div>
-                        <div className="pb-4">
-                          <div className="text-sm text-gray-900">{item.details}</div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {dayjs(item.createdAt).format('YYYY-MM-DD HH:mm')} · {item.user?.name}
+                    {submissionDetail.timeline.map((item, index) => {
+                      const isCurrentVersion = item.version === submissionDetail.version;
+                      const historyItem = submissionDetail.history?.find(h => h.version === item.version);
+                      return (
+                        <div key={item.id} className={`p-3 rounded-lg ${isCurrentVersion ? 'bg-primary-50 border border-primary-200' : 'bg-gray-50'}`}>
+                          <div className="flex items-start">
+                            <div className="flex flex-col items-center mr-3">
+                              <div className={`w-2 h-2 rounded-full ${item.action === 'submit' ? 'bg-blue-500' : item.action === 'grade' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center mb-2">
+                                <span className={`px-2 py-1 rounded text-xs font-medium mr-2 ${
+                                  item.action === 'submit' ? 'bg-blue-100 text-blue-700' : item.action === 'grade' ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-700'
+                                }`}>
+                                  v{item.version} · {item.action === 'submit' ? '提交' : item.action === 'grade' ? '批改' : '其他'}
+                                </span>
+                                {!isCurrentVersion && (
+                                  <span className="text-xs text-gray-500">历史版本</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-gray-900 mb-1">{item.details}</div>
+                              <div className="text-xs text-gray-500">
+                                {dayjs(item.createdAt).format('YYYY-MM-DD HH:mm')} · {item.user?.name}
+                              </div>
+                              {item.action === 'submit' && historyItem && historyItem.attachments && historyItem.attachments.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <div className="text-xs text-gray-500 mb-1">该版本附件：</div>
+                                  <div className="space-y-1">
+                                    {historyItem.attachments.map((file, fileIndex) => (
+                                      <div key={fileIndex} className="flex items-center justify-between text-xs">
+                                        <span className="text-gray-600 truncate flex-1">{file.fileName}</span>
+                                        {file.fileUrl && (
+                                          <a
+                                            href={`http://localhost:3000${file.fileUrl}`}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="ml-2 text-primary-600 hover:text-primary-700 flex-shrink-0"
+                                          >
+                                            <Download className="w-3 h-3 inline mr-1" />
+                                            下载
+                                          </a>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {item.action === 'grade' && historyItem && (
+                                <div className="mt-2 pt-2 border-t border-gray-200">
+                                  <div className="text-xs">
+                                    <span className="text-gray-500">得分：</span>
+                                    <span className="font-medium text-green-600 ml-1">{historyItem.score}分</span>
+                                    <span className="text-gray-500 ml-2">/ {data.totalScore}分</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

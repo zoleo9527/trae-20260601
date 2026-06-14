@@ -307,16 +307,88 @@ async function main() {
       homeworkId: 'homework-001',
       userId: 'user-004',
       submittedAt: new Date('2024-01-19 15:30:00'),
+      score: 75,
+      status: 'graded',
+      attachments: JSON.stringify([
+        { name: 'homework-v1.zip', url: '/uploads/homework-v1.zip' },
+      ]),
+      gradeNotes: '初稿完成度不错，但缺少单元测试，需要补充',
+      versionNumber: 1,
+      isLatest: false,
+      gradedById: 'user-003',
+      gradedAt: new Date('2024-01-19 18:00:00'),
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: 'user-004',
+      module: 'homework',
+      action: 'submit',
+      relatedType: 'submission',
+      relatedId: 'submission-001',
+      details: '提交作业初稿',
+      ipAddress: '127.0.0.1',
+      createdAt: new Date('2024-01-19 15:30:00'),
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: 'user-003',
+      module: 'homework',
+      action: 'grade',
+      relatedType: 'submission',
+      relatedId: 'submission-001',
+      details: '批改作业初稿：75分（缺少单元测试）',
+      ipAddress: '127.0.0.1',
+      createdAt: new Date('2024-01-19 18:00:00'),
+    },
+  });
+
+  await prisma.homeworkSubmission.create({
+    data: {
+      id: 'submission-001-v2',
+      homeworkId: 'homework-001',
+      userId: 'user-004',
+      submittedAt: new Date('2024-01-21 10:00:00'),
       score: 95,
       status: 'graded',
       attachments: JSON.stringify([
         { fileName: 'TableComponent.tsx', fileUrl: '/uploads/table-component.tsx', fileSize: 2048, mimeType: 'text/plain' },
+        { fileName: '单元测试.spec.tsx', fileUrl: '/uploads/unit-test.spec.tsx', fileSize: 1536, mimeType: 'text/plain' },
       ]),
-      gradeNotes: '代码结构清晰，注释详细，功能完整',
-      versionNumber: 1,
+      gradeNotes: '代码结构清晰，注释详细，功能完整，已补充单元测试',
+      versionNumber: 2,
       isLatest: true,
       gradedById: 'user-003',
-      gradedAt: new Date('2024-01-20 10:00:00'),
+      gradedAt: new Date('2024-01-21 14:00:00'),
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: 'user-004',
+      module: 'homework',
+      action: 'submit',
+      relatedType: 'submission',
+      relatedId: 'submission-001-v2',
+      details: '提交作业终稿（补充单元测试）',
+      ipAddress: '127.0.0.1',
+      createdAt: new Date('2024-01-21 10:00:00'),
+    },
+  });
+
+  await prisma.operationLog.create({
+    data: {
+      userId: 'user-003',
+      module: 'homework',
+      action: 'grade',
+      relatedType: 'submission',
+      relatedId: 'submission-001-v2',
+      details: '批改作业终稿：95分（优秀）',
+      ipAddress: '127.0.0.1',
+      createdAt: new Date('2024-01-21 14:00:00'),
     },
   });
 
