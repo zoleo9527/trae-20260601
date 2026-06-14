@@ -1,19 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Calendar, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle, Clock, X, Save } from 'lucide-react';
 import { useStore } from '@/stores/appStore';
 import { DataTable } from '@/components/common/DataTable';
-import { EXAM_SUBJECT_LABELS, type ExamSubject } from '@/types';
+import { EXAM_SUBJECT_LABELS, type ExamSubject, STUDENT_STATUS_LABELS, type StudentStatus } from '@/types';
 import { maskIdCard, formatDate } from '@/utils/formatters';
 
 export function ExamPage() {
-  const { students, users, loadStudents, loadUsers, getExams, scheduleExam, currentUser } = useStore();
+  const { students, users, loadStudents, loadUsers, getExams, scheduleExam, recordExamResult, currentUser, updateStudent, getExamsByStudentId } = useStore();
   const [filter, setFilter] = useState<'all' | 'pending' | 'scheduled' | 'taken'>('all');
   const [showForm, setShowForm] = useState(false);
+  const [showResultForm, setShowResultForm] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     studentId: '',
     examSubject: 'THEORY' as ExamSubject,
     examDate: '',
     examVenue: '',
+  });
+  const [resultData, setResultData] = useState({
+    examResult: 'PASSED' as 'PASSED' | 'FAILED',
+    absenceReason: '',
   });
 
   useEffect(() => {
@@ -57,6 +62,39 @@ export function ExamPage() {
     setShowForm(false);
   };
 
+  const handleRecordResult = (examId: string) => {
+    recordExamResult(examId, resultData.examResult, resultData.absenceReason);
+
+    const exam = exams.find((e) => e.id === examId);
+    if (exam && exam.student && resultData.examResult === 'PASSED') {
+      const studentExams = getExamsByStudentId(exam.studentId);
+      const passedExams = studentExams.filter((e) => e.examResult === 'PASSED');
+      const allSubjectsPassed = ['THEORY', 'SUBJECT2', 'SUBJECT3', 'SUBJECT4'].every((subject) =>
+        passedExams.some((e) => e.examSubject === subject)
+      );
+
+      if (allSubjectsPassed) {
+        updateStudent(exam.studentId, {
+          status: 'EXAM_PASSED_FINAL',
+        }, '所有科目考试通过');
+      } else if (exam.examSubject === 'SUBJECT4') {
+        updateStudent(exam.studentId, {
+          status: 'EXAM_PASSED_FINAL',
+        }, '科目四考试通过');
+      }
+    }
+
+    setShowResultForm(null);
+    setResultData({
+      examResult: 'PASSED',
+      absenceReason: '',
+    });
+  };
+
+  const openResultForm = (examId: string) => {
+    setShowResultForm(examId);
+  };
+
   const columns = [
     {
       key: 'student',
@@ -66,6 +104,9 @@ export function ExamPage() {
           <div className="font-medium">{item.student?.name || '-'}</div>
           <div className="text-xs text-gray-500">
             {item.student ? maskIdCard(item.student.idCard) : '-'}
+          </div>
+          <div className="text-xs text-gray-400">
+            {item.student ? STUDENT_STATUS_LABELS[item.student.status as StudentStatus] : '-'}
           </div>
         </div>
       ),
@@ -157,7 +198,10 @@ export function ExamPage() {
       render: (item: any) => (
         <div className="flex gap-2">
           {item.examStatus === 'SCHEDULED' && (
-            <button className="text-sm text-primary-600 hover:text-primary-700">
+            <button
+              onClick={() => openResultForm(item.id)}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
               录入成绩
             </button>
           )}
@@ -257,7 +301,12 @@ export function ExamPage() {
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl w-full max-w-lg p-6">
-            <h2 className="text-xl font-bold text-gray-800 mb-4">预约考试</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">预约考试</h2>
+              <button onClick={() => setShowForm(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -270,9 +319,9 @@ export function ExamPage() {
                   className="input-field"
                 >
                   <option value="">请选择学员</option>
-                  {students.map((s) => (
+                  {students.filter((s) => ['PENDING_EXAM_BOOKING', 'TRAINING'].includes(s.status)).map((s) => (
                     <option key={s.id} value={s.id}>
-                      {s.name} ({s.studentNo})
+                      {s.name} ({s.studentNo}) - {STUDENT_STATUS_LABELS[s.status as StudentStatus]}
                     </option>
                   ))}
                 </select>
@@ -334,6 +383,64 @@ export function ExamPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showResultForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">录入考试成绩</h2>
+              <button onClick={() => setShowResultForm(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  考试结果 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={resultData.examResult}
+                  onChange={(e) => setResultData({ ...resultData, examResult: e.target.value as 'PASSED' | 'FAILED' })}
+                  className="input-field"
+                >
+                  <option value="PASSED">合格</option>
+                  <option value="FAILED">不合格</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  备注（缺考原因等）
+                </label>
+                <input
+                  type="text"
+                  value={resultData.absenceReason}
+                  onChange={(e) => setResultData({ ...resultData, absenceReason: e.target.value })}
+                  className="input-field"
+                  placeholder="如有缺考或其他情况请填写"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => setShowResultForm(null)}
+                  className="btn-secondary"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => handleRecordResult(showResultForm)}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  保存
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

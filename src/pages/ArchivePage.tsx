@@ -6,7 +6,7 @@ import { STUDENT_STATUS_LABELS, type StudentStatus } from '@/types';
 import { maskIdCard, formatDateTime, getRelativeTime } from '@/utils/formatters';
 
 export function ArchivePage() {
-  const { students, users, loadStudents, loadUsers, notifications, getArchiveByStudentId, getLogsByStudentId, updateStudent } = useStore();
+  const { students, users, loadStudents, loadUsers, notifications, getArchiveByStudentId, getLogsByStudentId, updateStudent, updateArchive } = useStore();
   const [filter, setFilter] = useState<'all' | 'pending' | 'complete'>('all');
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null);
   const [editingArchive, setEditingArchive] = useState<string | null>(null);
@@ -54,15 +54,22 @@ export function ArchivePage() {
     if (!archive) return;
 
     const newArchiveStatus = missingDocs.length === 0 ? 'COMPLETE' : 'PENDING';
-    const newStudentStatus = newArchiveStatus === 'COMPLETE' && student.status === 'PENDING_REVIEW'
-      ? 'REVIEW_PASSED'
-      : student.status;
+    const newDocumentStatus = missingDocs.length === 0 ? 'COMPLETE' : archive.documentStatus;
 
-    updateStudent(studentId, {
-      status: newStudentStatus,
+    updateArchive(studentId, {
+      archiveStatus: newArchiveStatus,
+      documentStatus: newDocumentStatus,
+      missingDocuments: missingDocs,
     }, `档案${newArchiveStatus === 'COMPLETE' ? '完善完成' : '更新缺件清单'}`);
 
+    if (newArchiveStatus === 'COMPLETE' && student.status === 'PENDING_REVIEW') {
+      updateStudent(studentId, {
+        status: 'REVIEW_PASSED',
+      }, '档案完善完成，审核通过');
+    }
+
     setEditingArchive(null);
+    setSelectedStudent(null);
   };
 
   const handleAddMissingDoc = () => {

@@ -66,6 +66,15 @@ const INITIAL_USERS: User[] = [
     phone: '13800138000',
     status: 'ACTIVE',
   },
+  {
+    id: 'u7',
+    username: 'archiver001',
+    name: '孙八',
+    role: 'ARCHIVER',
+    department: '档案部',
+    phone: '13800138006',
+    status: 'ACTIVE',
+  },
 ];
 
 const INITIAL_STUDENTS: Student[] = [
@@ -901,6 +910,44 @@ class DatabaseService {
 
   getArchiveByStudentId(studentId: string): Archive | undefined {
     return this.archives.find((a) => a.studentId === studentId);
+  }
+
+  updateArchive(
+    studentId: string,
+    updates: Partial<Archive>,
+    changeReason?: string
+  ): Archive {
+    const archive = this.archives.find((a) => a.studentId === studentId);
+    if (!archive) throw new Error('Archive not found');
+
+    const beforeValue: Record<string, any> = {};
+    Object.entries(updates).forEach(([key, value]) => {
+      if (archive[key as keyof Archive] !== value) {
+        beforeValue[key] = archive[key as keyof Archive];
+      }
+    });
+
+    Object.assign(archive, updates, {
+      lastUpdateBy: this.currentUser.id,
+      lastUpdateAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+    });
+
+    if (Object.keys(beforeValue).length > 0) {
+      const log: OperationLog = {
+        id: `log${Date.now()}`,
+        studentId,
+        operatorId: this.currentUser.id,
+        operatorRole: this.currentUser.role,
+        operationType: 'ARCHIVE_UPDATE',
+        beforeValue,
+        afterValue: updates,
+        changeReason,
+        operatedAt: archive.lastUpdateAt,
+      };
+      this.logs.push(log);
+    }
+
+    return archive;
   }
 
   getTrainingByStudentId(studentId: string): Training | undefined {

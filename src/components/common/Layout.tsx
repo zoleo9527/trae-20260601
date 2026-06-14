@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/utils/formatters';
 import { useStore } from '@/stores/appStore';
+import { USER_ROLE_LABELS } from '@/types';
 
 
 const navItems = [
@@ -133,7 +134,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="text-left">
                   <div className="text-sm font-medium text-gray-700">{currentUser?.name}</div>
-                  <div className="text-xs text-gray-500">{currentUser?.role === 'CONSULTANT' ? '招生顾问' : currentUser?.role}</div>
+                  <div className="text-xs text-gray-500">{USER_ROLE_LABELS[currentUser?.role as keyof typeof USER_ROLE_LABELS] || currentUser?.role}</div>
                 </div>
                 <ChevronDown size={16} className="text-gray-400" />
               </button>
@@ -154,7 +155,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                           currentUser?.id === user.id && 'bg-primary-50 text-primary-700'
                         )}
                       >
-                        {user.name} ({user.role === 'CONSULTANT' ? '顾问' : user.role})
+                        {user.name} ({USER_ROLE_LABELS[user.role as keyof typeof USER_ROLE_LABELS] || user.role})
                       </button>
                     ))}
                   </div>

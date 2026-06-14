@@ -1,12 +1,19 @@
-import { useEffect } from 'react';
-import { User, Clock, TrendingUp, Bell } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { User, Clock, TrendingUp, Bell, X, Save } from 'lucide-react';
 import { useStore } from '@/stores/appStore';
 import { DataTable } from '@/components/common/DataTable';
-
+import { TRAINING_PROGRESS_LABELS, type TrainingProgress, STUDENT_STATUS_LABELS, type StudentStatus } from '@/types';
 import { maskIdCard, getRelativeTime } from '@/utils/formatters';
 
 export function CoachPage() {
-  const { currentUser, students, loadStudents, notifications, getAssignedStudents, confirmNotification } = useStore();
+  const { currentUser, students, loadStudents, notifications, getAssignedStudents, confirmNotification, updateTrainingProgress, updateStudent } = useStore();
+  const [showProgressForm, setShowProgressForm] = useState<string | null>(null);
+  const [progressData, setProgressData] = useState({
+    progress: 'THEORY' as TrainingProgress,
+    theoryCompleted: false,
+    practiceHours: 0,
+    notes: '',
+  });
 
   useEffect(() => {
     loadStudents();
@@ -19,6 +26,42 @@ export function CoachPage() {
   const pendingNotifications = notifications.filter(
     (n) => n.recipientRole === 'COACH' && !n.isConfirmed
   );
+
+  const handleUpdateProgress = (studentId: string) => {
+    updateTrainingProgress(studentId, {
+      progress: progressData.progress,
+      theoryCompleted: progressData.theoryCompleted,
+      practiceHours: progressData.practiceHours,
+    }, progressData.notes);
+
+    const student = students.find((s) => s.id === studentId);
+    if (student && progressData.progress === 'READY_FOR_EXAM' && student.status === 'TRAINING') {
+      updateStudent(studentId, {
+        status: 'PENDING_EXAM_BOOKING',
+      }, '训练完成，准备预约考试');
+    }
+
+    setShowProgressForm(null);
+    setProgressData({
+      progress: 'THEORY',
+      theoryCompleted: false,
+      practiceHours: 0,
+      notes: '',
+    });
+  };
+
+  const openProgressForm = (studentId: string) => {
+    const student = myStudents.find((s) => s.id === studentId);
+    if (student?.training) {
+      setProgressData({
+        progress: student.training.progress,
+        theoryCompleted: student.training.theoryCompleted,
+        practiceHours: student.training.practiceHours,
+        notes: '',
+      });
+    }
+    setShowProgressForm(studentId);
+  };
 
   const columns = [
     {
@@ -88,18 +131,11 @@ export function CoachPage() {
       key: 'status',
       title: '报名状态',
       width: '100px',
-      render: (_item: any) => {
-        const statusLabels: Record<string, string> = {
-          TRAINING: '培训中',
-          COACH_ASSIGNED: '已分配',
-          READY_FOR_EXAM: '准备考试',
-        };
-        return (
-          <span className="text-sm text-gray-600">
-            {statusLabels[_item.status] || _item.status}
-          </span>
-        );
-      },
+      render: (item: any) => (
+        <span className="text-sm text-gray-600">
+          {STUDENT_STATUS_LABELS[item.status as StudentStatus] || item.status}
+        </span>
+      ),
     },
     {
       key: 'lastUpdate',
@@ -115,9 +151,12 @@ export function CoachPage() {
       key: 'actions',
       title: '操作',
       width: '150px',
-      render: (_item: any) => (
+      render: (item: any) => (
         <div className="flex gap-2">
-          <button className="text-sm text-primary-600 hover:text-primary-700">
+          <button
+            onClick={() => openProgressForm(item.id)}
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
             记录进度
           </button>
         </div>
@@ -213,6 +252,91 @@ export function CoachPage() {
 
         <DataTable columns={columns} data={myStudents} />
       </div>
+
+      {showProgressForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">记录训练进度</h2>
+              <button onClick={() => setShowProgressForm(null)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  训练进度 <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={progressData.progress}
+                  onChange={(e) => setProgressData({ ...progressData, progress: e.target.value as TrainingProgress })}
+                  className="input-field"
+                >
+                  {Object.entries(TRAINING_PROGRESS_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={progressData.theoryCompleted}
+                    onChange={(e) => setProgressData({ ...progressData, theoryCompleted: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">理论考试已通过</span>
+                </label>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  练车学时
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={progressData.practiceHours}
+                  onChange={(e) => setProgressData({ ...progressData, practiceHours: parseInt(e.target.value) || 0 })}
+                  className="input-field"
+                  placeholder="请输入练车学时"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  备注
+                </label>
+                <input
+                  type="text"
+                  value={progressData.notes}
+                  onChange={(e) => setProgressData({ ...progressData, notes: e.target.value })}
+                  className="input-field"
+                  placeholder="请输入备注信息"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  onClick={() => setShowProgressForm(null)}
+                  className="btn-secondary"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => handleUpdateProgress(showProgressForm)}
+                  className="btn-primary flex items-center gap-2"
+                >
+                  <Save size={16} />
+                  保存
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

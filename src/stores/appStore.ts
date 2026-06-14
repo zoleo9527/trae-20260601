@@ -16,6 +16,7 @@ interface AppState {
 
   getStudentById: (id: string) => Student | undefined;
   getArchiveByStudentId: (studentId: string) => Archive | undefined;
+  updateArchive: (studentId: string, updates: Partial<Archive>, reason?: string) => Archive;
   getTrainingByStudentId: (studentId: string) => Training | undefined;
   getExamsByStudentId: (studentId: string) => Exam[];
   getLogsByStudentId: (studentId: string) => OperationLog[];
@@ -68,6 +69,13 @@ export const useStore = create<AppState>((set, get) => ({
 
   getArchiveByStudentId: (studentId: string) => {
     return db.getArchiveByStudentId(studentId);
+  },
+
+  updateArchive: (studentId, updates, reason) => {
+    const archive = db.updateArchive(studentId, updates, reason);
+    get().loadStudents();
+    get().loadNotifications();
+    return archive;
   },
 
   getTrainingByStudentId: (studentId: string) => {
