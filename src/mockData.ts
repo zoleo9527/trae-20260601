@@ -156,7 +156,8 @@ export const mockRecords: PawnRecord[] = [
     photoTime: '2026-06-13 16:15:00',
     photoRemark: '四方照片齐全，已上传系统',
     financeConfirmed: false,
-    status: 'pending_review',
+    status: 'pending_photo_review',
+    photoReviewStatus: 'pending',
     currentHandler: 'counter',
     operationLogs: [
       {
@@ -561,8 +562,12 @@ export const mockRecords: PawnRecord[] = [
     photoTakenBy: '钱库管',
     photoTime: '2026-06-14 15:15:00',
     photoRemark: '细节照片齐全',
+    photoReviewStatus: 'approved',
+    photoReviewedBy: '王评估师',
+    photoReviewTime: '2026-06-14 15:40:00',
+    photoReviewRemark: '照片清晰，内标编码可辨，审核通过',
     financeConfirmed: false,
-    status: 'pending_review',
+    status: 'pending_finance',
     currentHandler: 'finance',
     operationLogs: [
       {
@@ -597,6 +602,15 @@ export const mockRecords: PawnRecord[] = [
         operatorRole: 'warehouse',
         operateTime: '2026-06-14 15:15:00',
         remark: '照片已审核通过'
+      },
+      {
+        id: 'LOG031',
+        operation: '照片审核通过',
+        operator: '王评估师',
+        operatorRole: 'counter',
+        operateTime: '2026-06-14 15:40:00',
+        reason: '照片清晰，信息完整',
+        remark: '照片清晰，内标编码可辨，审核通过'
       }
     ],
     createdAt: '2026-06-14 14:00:00',
@@ -636,21 +650,21 @@ export function getTodosByRole(role: UserRole, records: PawnRecord[]): TodoItem[
       });
     }
     
-    if (record.status === 'pending_review' && role === 'counter') {
+    if (record.status === 'pending_photo_review' && role === 'counter') {
       todos.push({
         id: `TODO-${record.id}`,
         pawnRecordId: record.id,
         pawnNo: record.pawnNo,
         itemName: record.itemName,
-        type: 'review',
+        type: 'photo_review',
         title: '待审核照片',
-        description: `${record.itemName} 照片已上传，等待审核`,
+        description: `${record.itemName} 照片已上传，等待柜台审核`,
         priority: 'medium',
         createdAt: record.updatedAt
       });
     }
     
-    if (record.status === 'pending_review' && role === 'finance' && record.photoStatus === 'taken') {
+    if (record.status === 'pending_finance' && role === 'finance') {
       todos.push({
         id: `TODO-${record.id}`,
         pawnRecordId: record.id,
@@ -658,7 +672,7 @@ export function getTodosByRole(role: UserRole, records: PawnRecord[]): TodoItem[
         itemName: record.itemName,
         type: 'finance_confirm',
         title: '待财务确认放款',
-        description: `${record.itemName} 手续齐全，等待财务确认放款 ${record.pawnAmount}元`,
+        description: `${record.itemName} 照片审核通过，等待财务确认放款 ¥${record.pawnAmount.toLocaleString()}`,
         priority: 'high',
         createdAt: record.updatedAt
       });
@@ -672,7 +686,7 @@ export function getTodosByRole(role: UserRole, records: PawnRecord[]): TodoItem[
           pawnRecordId: record.id,
           pawnNo: record.pawnNo,
           itemName: record.itemName,
-          type: 'assessment',
+          type: 'abnormal_resolve',
           title: '异常处理',
           description: record.abnormalReason || '需要处理异常',
           priority,
@@ -698,7 +712,8 @@ export const statusNames: Record<string, string> = {
   pending_assessment: '待评估',
   pending_storage: '待入库',
   pending_photo: '待拍照',
-  pending_review: '待审核',
+  pending_photo_review: '照片待审核',
+  pending_finance: '待放款',
   abnormal: '异常',
   completed: '已完成',
   rejected: '已拒绝'
@@ -708,7 +723,8 @@ export const statusColors: Record<string, string> = {
   pending_assessment: '#f59e0b',
   pending_storage: '#3b82f6',
   pending_photo: '#8b5cf6',
-  pending_review: '#ec4899',
+  pending_photo_review: '#ec4899',
+  pending_finance: '#06b6d4',
   abnormal: '#ef4444',
   completed: '#10b981',
   rejected: '#6b7280'

@@ -1,8 +1,10 @@
 export type UserRole = 'counter' | 'warehouse' | 'finance';
 
-export type RecordStatus = 'pending_assessment' | 'pending_storage' | 'pending_photo' | 'pending_review' | 'abnormal' | 'completed' | 'rejected';
+export type RecordStatus = 'pending_assessment' | 'pending_storage' | 'pending_photo' | 'pending_photo_review' | 'pending_finance' | 'abnormal' | 'completed' | 'rejected';
 
-export type TodoType = 'assessment' | 'storage' | 'photo' | 'review' | 'finance_confirm';
+export type TodoType = 'assessment' | 'storage' | 'photo' | 'photo_review' | 'finance_confirm' | 'abnormal_resolve';
+
+export type PhotoReviewStatus = 'pending' | 'approved' | 'rejected';
 
 export interface PhotoItem {
   id: string;
@@ -53,6 +55,11 @@ export interface PawnRecord {
   photoTime?: string;
   photoRemark?: string;
   photoRejectReason?: string;
+  photoReviewStatus?: PhotoReviewStatus;
+  photoReviewedBy?: string;
+  photoReviewTime?: string;
+  photoReviewRemark?: string;
+  photoReviewRejectReason?: string;
   
   financeConfirmed: boolean;
   financeConfirmedBy?: string;
