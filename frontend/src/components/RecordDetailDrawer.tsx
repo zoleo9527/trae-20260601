@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Play, CheckCircle, XCircle, Edit3, FileText, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { ExamTrackRecord, ExamTrackStatus, UserRole, OperationLog, OperationType, PracticePlan } from '../types';
+import { ExamTrackRecord, ExamTrackStatus, UserRole, OperationLog, PracticePlan } from '../types';
 import { getStatusLabel, getStatusColor, formatDate, getTrackTypeLabel, getDayOfWeekLabel, getRoleLabel, getOperationLabel } from '../utils';
 import { api } from '../api';
 
@@ -14,28 +14,40 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [supplementNotes, setSupplementNotes] = useState('');
+  const [supplementNotes, setSupplementNotes] = useState(record.supplementNotes || '');
   const [supplementPlan, setSupplementPlan] = useState<PracticePlan>(record.practicePlan);
   const [progressValue, setProgressValue] = useState(record.practicePlan.progress);
-  const [isRejecting, setIsRejecting] = useState(false);
   const [isEditingSupplement, setIsEditingSupplement] = useState(false);
   const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
+  const [currentRecord, setCurrentRecord] = useState<ExamTrackRecord>(record);
 
   useEffect(() => {
     fetchLogs();
-  }, [record.id]);
+  }, [currentRecord.id]);
 
   useEffect(() => {
+    setCurrentRecord(record);
     setSupplementPlan(record.practicePlan);
+    setSupplementNotes(record.supplementNotes || '');
     setProgressValue(record.practicePlan.progress);
-  }, [record.practicePlan]);
+  }, [record]);
 
   const fetchLogs = async () => {
     try {
-      const data = await api.examTracks.logs(record.id);
+      const data = await api.examTracks.logs(currentRecord.id);
       setLogs(data);
     } catch (error) {
       console.error('Failed to fetch logs:', error);
+    }
+  };
+
+  const refreshRecord = async () => {
+    try {
+      const data = await api.examTracks.get(currentRecord.id);
+      setCurrentRecord(data.record);
+      setLogs(data.logs);
+    } catch (error) {
+      console.error('Failed to refresh record:', error);
     }
   };
 
@@ -56,11 +68,76 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     setSupplementPlan(newPlan);
   };
 
+  const handleSupplement = async () => {
+    try {
+      setLoading(true);
+      await api.examTracks.supplement(currentRecord.id, { 
+        supplementNotes,
+        practicePlan: supplementPlan 
+      });
+      setIsEditingSupplement(false);
+      await refreshRecord();
+    } catch (error) {
+      console.error('Failed to supplement:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartPractice = async () => {
+    try {
+      setLoading(true);
+      await api.examTracks.startPractice(currentRecord.id);
+      await refreshRecord();
+    } catch (error) {
+      console.error('Failed to start practice:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateProgress = async () => {
+    try {
+      setLoading(true);
+      await api.examTracks.updateProgress(currentRecord.id, progressValue);
+      setIsUpdatingProgress(false);
+      await refreshRecord();
+    } catch (error) {
+      console.error('Failed to update progress:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    try {
+      setLoading(true);
+      await api.examTracks.complete(currentRecord.id);
+      onClose();
+    } catch (error) {
+      console.error('Failed to complete:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleConfirmExam = async (passed: boolean) => {
+    try {
+      setLoading(true);
+      await api.examTracks.confirmExam(currentRecord.id, passed);
+      onClose();
+    } catch (error) {
+      console.error('Failed to confirm exam:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     try {
       setLoading(true);
-      await api.examTracks.submit(record.id);
-      onClose();
+      await api.examTracks.submit(currentRecord.id);
+      await refreshRecord();
     } catch (error) {
       console.error('Failed to submit:', error);
     } finally {
@@ -71,7 +148,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
   const handleApprove = async () => {
     try {
       setLoading(true);
-      await api.examTracks.approve(record.id);
+      await api.examTracks.approve(currentRecord.id);
       onClose();
     } catch (error) {
       console.error('Failed to approve:', error);
@@ -84,8 +161,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     if (!rejectReason.trim()) return;
     try {
       setLoading(true);
-      await api.examTracks.reject(record.id, rejectReason);
-      setIsRejecting(false);
+      await api.examTracks.reject(currentRecord.id, rejectReason);
       setRejectReason('');
       onClose();
     } catch (error) {
@@ -95,92 +171,26 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     }
   };
 
-  const handleSupplement = async () => {
-    try {
-      setLoading(true);
-      await api.examTracks.supplement(record.id, { 
-        supplementNotes,
-        practicePlan: supplementPlan 
-      });
-      setIsEditingSupplement(false);
-      setSupplementNotes('');
-      onClose();
-    } catch (error) {
-      console.error('Failed to supplement:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleStartPractice = async () => {
-    try {
-      setLoading(true);
-      await api.examTracks.startPractice(record.id);
-      onClose();
-    } catch (error) {
-      console.error('Failed to start practice:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpdateProgress = async () => {
-    try {
-      setLoading(true);
-      await api.examTracks.updateProgress(record.id, progressValue);
-      setIsUpdatingProgress(false);
-      onClose();
-    } catch (error) {
-      console.error('Failed to update progress:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleComplete = async () => {
-    try {
-      setLoading(true);
-      await api.examTracks.complete(record.id);
-      onClose();
-    } catch (error) {
-      console.error('Failed to complete:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleConfirmExam = async (passed: boolean) => {
-    try {
-      setLoading(true);
-      await api.examTracks.confirmExam(record.id, passed);
-      onClose();
-    } catch (error) {
-      console.error('Failed to confirm exam:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const canEditSupplement = currentRole === UserRole.TEACHER && 
-    (record.status === ExamTrackStatus.REJECTED || record.status === ExamTrackStatus.SUPPLEMENTED);
+    (currentRecord.status === ExamTrackStatus.REJECTED || currentRecord.status === ExamTrackStatus.SUPPLEMENTED);
   
   const canReject = currentRole === UserRole.ADMIN && 
-    (record.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || record.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
+    (currentRecord.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || currentRecord.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
   
-  const canUpdateProgress = currentRole === UserRole.TEACHER && record.status === ExamTrackStatus.IN_PRACTICE;
+  const canUpdateProgress = currentRole === UserRole.TEACHER && currentRecord.status === ExamTrackStatus.IN_PRACTICE;
   
   const canStartPractice = currentRole === UserRole.TEACHER && 
-    (record.status === ExamTrackStatus.APPROVED || record.status === ExamTrackStatus.SUPPLEMENTED);
+    (currentRecord.status === ExamTrackStatus.APPROVED || currentRecord.status === ExamTrackStatus.SUPPLEMENTED);
   
   const canSubmit = currentRole === UserRole.TEACHER && 
-    (record.status === ExamTrackStatus.DRAFT || record.status === ExamTrackStatus.SUPPLEMENTED);
+    (currentRecord.status === ExamTrackStatus.DRAFT || currentRecord.status === ExamTrackStatus.SUPPLEMENTED);
   
   const canApprove = currentRole === UserRole.ADMIN && 
-    (record.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || record.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
+    (currentRecord.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || currentRecord.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
   
-  const canComplete = currentRole === UserRole.TEACHER && record.status === ExamTrackStatus.IN_PRACTICE;
+  const canComplete = currentRole === UserRole.TEACHER && currentRecord.status === ExamTrackStatus.IN_PRACTICE;
   
-  const canConfirmExam = currentRole === UserRole.ADMIN && record.status === ExamTrackStatus.COMPLETED;
+  const canConfirmExam = currentRole === UserRole.ADMIN && currentRecord.status === ExamTrackStatus.COMPLETED;
 
   return (
     <>
@@ -200,9 +210,9 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
         <div className="p-6 space-y-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <span className="text-2xl font-bold text-gray-900">{record.studentName}</span>
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(record.status)}`}>
-                {getStatusLabel(record.status)}
+              <span className="text-2xl font-bold text-gray-900">{currentRecord.studentName}</span>
+              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(currentRecord.status)}`}>
+                {getStatusLabel(currentRecord.status)}
               </span>
             </div>
           </div>
@@ -210,41 +220,41 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="text-sm text-gray-500 mb-1">乐器</div>
-              <div className="font-medium text-gray-900">{record.instrument}</div>
+              <div className="font-medium text-gray-900">{currentRecord.instrument}</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="text-sm text-gray-500 mb-1">考级级别</div>
-              <div className="font-medium text-gray-900">{record.examLevel}</div>
+              <div className="font-medium text-gray-900">{currentRecord.examLevel}</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="text-sm text-gray-500 mb-1">曲目名称</div>
-              <div className="font-medium text-gray-900">{record.trackName}</div>
+              <div className="font-medium text-gray-900">{currentRecord.trackName}</div>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <div className="text-sm text-gray-500 mb-1">曲目类型</div>
-              <div className={`font-medium ${record.trackType === 'required' ? 'text-green-700' : 'text-gray-700'}`}>
-                {getTrackTypeLabel(record.trackType)}
+              <div className={`font-medium ${currentRecord.trackType === 'required' ? 'text-green-700' : 'text-gray-700'}`}>
+                {getTrackTypeLabel(currentRecord.trackType)}
               </div>
             </div>
           </div>
 
-          {record.rejectReason && (
+          {currentRecord.rejectReason && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <AlertCircle className="h-4 w-4 text-red-500" />
                 <span className="text-sm font-medium text-red-700">退回原因</span>
               </div>
-              <p className="text-gray-700">{record.rejectReason}</p>
+              <p className="text-gray-700">{currentRecord.rejectReason}</p>
             </div>
           )}
 
-          {record.supplementNotes && (
+          {currentRecord.supplementNotes && (
             <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <FileText className="h-4 w-4 text-purple-500" />
                 <span className="text-sm font-medium text-purple-700">补充备注</span>
               </div>
-              <p className="text-gray-700">{record.supplementNotes}</p>
+              <p className="text-gray-700">{currentRecord.supplementNotes}</p>
             </div>
           )}
 
@@ -380,25 +390,25 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
               <div className="flex items-center justify-between">
                 <div>
                   <div className="text-sm text-gray-500">计划周期</div>
-                  <div className="font-medium text-gray-900">{record.practicePlan.durationWeeks} 周</div>
+                  <div className="font-medium text-gray-900">{currentRecord.practicePlan.durationWeeks} 周</div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-500">时间范围</div>
                   <div className="font-medium text-gray-900">
-                    {formatDate(record.practicePlan.startDate)} - {formatDate(record.practicePlan.endDate)}
+                    {formatDate(currentRecord.practicePlan.startDate)} - {formatDate(currentRecord.practicePlan.endDate)}
                   </div>
                 </div>
               </div>
               
               <div>
                 <div className="text-sm text-gray-500 mb-1">本周重点</div>
-                <div className="font-medium text-gray-900">{record.practicePlan.weeklyFocus}</div>
+                <div className="font-medium text-gray-900">{currentRecord.practicePlan.weeklyFocus}</div>
               </div>
 
               <div>
                 <div className="text-sm text-gray-500 mb-2">每日练习目标</div>
                 <div className="grid grid-cols-7 gap-2">
-                  {record.practicePlan.dailyGoals.map((goal) => (
+                  {currentRecord.practicePlan.dailyGoals.map((goal) => (
                     <div key={goal.dayOfWeek} className="bg-white rounded-lg p-2 text-center">
                       <div className="text-xs font-medium text-gray-700 mb-1">周{getDayOfWeekLabel(goal.dayOfWeek)}</div>
                       <div className="text-sm font-semibold text-blue-600">{goal.durationMinutes}分钟</div>
@@ -415,7 +425,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                   >
                     <div className="flex items-center justify-between flex-1">
                       <span className="text-sm text-gray-500">练习进度</span>
-                      <span className="text-sm font-medium text-gray-700">{record.practicePlan.progress}%</span>
+                      <span className="text-sm font-medium text-gray-700">{currentRecord.practicePlan.progress}%</span>
                     </div>
                     {isUpdatingProgress ? (
                       <ChevronUp className="h-4 w-4 text-gray-500" />
@@ -426,7 +436,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                   <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
-                      style={{ width: `${record.practicePlan.progress}%` }}
+                      style={{ width: `${currentRecord.practicePlan.progress}%` }}
                     />
                   </div>
                   
@@ -460,12 +470,12 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm text-gray-500">练习进度</span>
-                    <span className="text-sm font-medium text-gray-700">{record.practicePlan.progress}%</span>
+                    <span className="text-sm font-medium text-gray-700">{currentRecord.practicePlan.progress}%</span>
                   </div>
                   <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
-                      style={{ width: `${record.practicePlan.progress}%` }}
+                      style={{ width: `${currentRecord.practicePlan.progress}%` }}
                     />
                   </div>
                 </div>
