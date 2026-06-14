@@ -2,7 +2,6 @@
   import { onMount } from 'svelte';
   import { getSamples, statusLabels, acknowledgeReminder } from '$lib/api.js';
   import { user, currentView, selectedSample, showNotification } from '$lib/stores.js';
-  import Navbar from '$lib/components/Navbar.svelte';
   import StatisticsBar from '$lib/components/StatisticsBar.svelte';
   import SampleCard from '$lib/components/SampleCard.svelte';
   import SampleDetail from '$lib/components/SampleDetail.svelte';
@@ -64,7 +63,12 @@
     selectedSample.set(null);
     currentView.set('list');
     loadSamples();
-    if (roleDashboardRef) roleDashboardRef.loadRoleData();
+    if (statsRef) {
+      statsRef.refresh();
+    }
+    if (roleDashboardRef) {
+      roleDashboardRef.loadRoleData();
+    }
   }
 
   function handleCreateSuccess(event) {
@@ -75,14 +79,22 @@
       type: 'success'
     });
     loadSamples();
-    if (statsRef) statsRef.refresh();
-    if (roleDashboardRef) roleDashboardRef.loadRoleData();
+    if (statsRef) {
+      statsRef.refresh();
+    }
+    if (roleDashboardRef) {
+      roleDashboardRef.loadRoleData();
+    }
   }
 
   function handleDetailRefresh() {
     loadSamples();
-    if (statsRef) statsRef.refresh();
-    if (roleDashboardRef) roleDashboardRef.loadRoleData();
+    if (statsRef) {
+      statsRef.refresh();
+    }
+    if (roleDashboardRef) {
+      roleDashboardRef.loadRoleData();
+    }
   }
 
   async function handleAcknowledgeReminder(event) {
@@ -94,7 +106,9 @@
         message: '催办提醒已确认',
         type: 'success'
       });
-      if (roleDashboardRef) roleDashboardRef.loadRoleData();
+      if (roleDashboardRef) {
+        roleDashboardRef.loadRoleData();
+      }
     } catch (err) {
       showNotification({
         id: Date.now(),
@@ -105,98 +119,103 @@
     }
   }
 
+  function refreshDashboard() {
+    if (roleDashboardRef) {
+      roleDashboardRef.loadRoleData();
+    }
+    if (statsRef) {
+      statsRef.refresh();
+    }
+  }
+
   $: canCreate = $user && ($user.role === 'acceptor' || $user.role === 'admin');
 </script>
 
-<div class="app-container">
-  <Navbar />
-  
-  <main class="main-content">
-    {#if $currentView === 'list'}
-      <div class="list-view">
-        {#if showRoleDashboard && $user}
-          <RoleDashboard 
-            bind:this={roleDashboardRef}
-            on:selectSample={handleRoleSampleSelect}
-            on:acknowledgeReminder={handleAcknowledgeReminder}
+<main class="main-content">
+  {#if $currentView === 'list'}
+    <div class="list-view">
+      {#if showRoleDashboard && $user}
+        <RoleDashboard 
+          bind:this={roleDashboardRef}
+          on:selectSample={handleRoleSampleSelect}
+          on:acknowledgeReminder={handleAcknowledgeReminder}
+        />
+      {/if}
+
+      <StatisticsBar bind:this={statsRef} />
+
+      <div class="toolbar">
+        <div class="filters">
+          <select bind:value={filters.status} on:change={handleFilterChange}>
+            <option value="">全部状态</option>
+            {#each Object.entries(statusLabels) as [value, label]}
+              <option {value}>{label}</option>
+            {/each}
+          </select>
+
+          <select bind:value={filters.priority} on:change={handleFilterChange}>
+            <option value="">全部优先级</option>
+            <option value="urgent">特急</option>
+            <option value="high">紧急</option>
+            <option value="normal">普通</option>
+            <option value="low">低</option>
+          </select>
+
+          <input
+            type="text"
+            placeholder="搜索案号、案件名称..."
+            bind:value={filters.keyword}
+            on:input={handleFilterChange}
           />
-        {/if}
-
-        <StatisticsBar bind:this={statsRef} />
-
-        <div class="toolbar">
-          <div class="filters">
-            <select bind:value={filters.status} on:change={handleFilterChange}>
-              <option value="">全部状态</option>
-              {#each Object.entries(statusLabels) as [value, label]}
-                <option {value}>{label}</option>
-              {/each}
-            </select>
-
-            <select bind:value={filters.priority} on:change={handleFilterChange}>
-              <option value="">全部优先级</option>
-              <option value="urgent">特急</option>
-              <option value="high">紧急</option>
-              <option value="normal">普通</option>
-              <option value="low">低</option>
-            </select>
-
-            <input
-              type="text"
-              placeholder="搜索案号、案件名称..."
-              bind:value={filters.keyword}
-              on:input={handleFilterChange}
-            />
-          </div>
-
-          <div class="toolbar-actions">
-            <button class="toggle-dashboard-btn" on:click={() => showRoleDashboard = !showRoleDashboard}>
-              {showRoleDashboard ? '隐藏工作台' : '显示工作台'}
-            </button>
-            {#if canCreate}
-              <button class="create-btn" on:click={() => showCreateModal = true}>
-                ➕ 新建样本登记
-              </button>
-            {/if}
-          </div>
         </div>
 
-        {#if loading}
-          <div class="loading-state">
-            <div class="spinner"></div>
-            <p>加载样本数据...</p>
-          </div>
-        {:else if error}
-          <div class="error-state">
-            <p>⚠️ {error}</p>
-            <button on:click={loadSamples}>重试</button>
-          </div>
-        {:else if samples.length === 0}
-          <div class="empty-state">
-            <p>📭 暂无样本数据</p>
-            {#if canCreate}
-              <button class="create-btn" on:click={() => showCreateModal = true}>
-                创建第一个样本
-              </button>
-            {/if}
-          </div>
-        {:else}
-          <div class="samples-grid">
-            {#each samples as sample (sample.id)}
-              <SampleCard {sample} on:select={handleSampleSelect} />
-            {/each}
-          </div>
-        {/if}
+        <div class="toolbar-actions">
+          <button class="toggle-dashboard-btn" on:click={() => showRoleDashboard = !showRoleDashboard}>
+            {showRoleDashboard ? '隐藏工作台' : '显示工作台'}
+          </button>
+          {#if canCreate}
+            <button class="create-btn" on:click={() => showCreateModal = true}>
+              ➕ 新建样本登记
+            </button>
+          {/if}
+        </div>
       </div>
-    {:else if $currentView === 'detail' && $selectedSample}
-      <SampleDetail 
-        sampleId={$selectedSample.id} 
-        on:close={handleCloseDetail}
-        on:refresh={handleDetailRefresh}
-      />
-    {/if}
-  </main>
-</div>
+
+      {#if loading}
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>加载样本数据...</p>
+        </div>
+      {:else if error}
+        <div class="error-state">
+          <p>⚠️ {error}</p>
+          <button on:click={loadSamples}>重试</button>
+        </div>
+      {:else if samples.length === 0}
+        <div class="empty-state">
+          <p>📭 暂无样本数据</p>
+          {#if canCreate}
+            <button class="create-btn" on:click={() => showCreateModal = true}>
+              创建第一个样本
+            </button>
+          {/if}
+        </div>
+      {:else}
+        <div class="samples-grid">
+          {#each samples as sample (sample.id)}
+            <SampleCard {sample} on:select={handleSampleSelect} />
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {:else if $currentView === 'detail' && $selectedSample}
+    <SampleDetail 
+      sampleId={$selectedSample.id} 
+      on:close={handleCloseDetail}
+      on:refresh={handleDetailRefresh}
+    />
+  {/if}
+</main>
 
 {#if showCreateModal}
   <CreateSampleModal 
@@ -211,12 +230,6 @@
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     background: #f5f7fa;
     color: #333;
-  }
-
-  .app-container {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
   }
 
   .main-content {

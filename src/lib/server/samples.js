@@ -100,8 +100,18 @@ export function updateSampleStatus(sampleId, newStatus, operatorId, operatorName
 
   const oldStatus = sample.reception_status;
   
-  db.prepare('UPDATE samples SET reception_status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?')
-    .run(newStatus, sampleId);
+  let updateFields = 'reception_status = ?, updated_at = CURRENT_TIMESTAMP';
+  let updateParams = [newStatus];
+  
+  if (actionType === 'receive') {
+    updateFields += ', accepted_by = ?, accepted_at = CURRENT_TIMESTAMP';
+    updateParams.push(operatorId);
+  }
+  
+  updateParams.push(sampleId);
+  
+  db.prepare(`UPDATE samples SET ${updateFields} WHERE id = ?`)
+    .run(...updateParams);
 
   addFlowRecord(sampleId, oldStatus, newStatus, actionType, operatorId, operatorName, operatorRole, remarks);
 

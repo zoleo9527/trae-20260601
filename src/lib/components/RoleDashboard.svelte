@@ -11,10 +11,18 @@
   let error = '';
 
   onMount(async () => {
-    await loadRoleData();
+    if ($user) {
+      await loadRoleData();
+    }
   });
 
-  async function loadRoleData() {
+  $: if ($user && !roleData) {
+    loadRoleData();
+  }
+
+  export async function loadRoleData() {
+    if (!$user) return;
+    
     loading = true;
     error = '';
     try {
@@ -22,6 +30,7 @@
       roleData = result;
     } catch (err) {
       error = err.message;
+      console.error('Failed to load role data:', err);
     } finally {
       loading = false;
     }
