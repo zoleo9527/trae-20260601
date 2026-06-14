@@ -128,8 +128,10 @@ func scanShift(row interface{ Scan(dest ...interface{}) error }) (ShiftSettlemen
 }
 
 func ListShiftSettlements(c *gin.Context) {
+	u := getUserFromHeader(c)
 	status := c.Query("status")
 	storeID := c.Query("store_id")
+	view := c.Query("view") // my/pending/all
 	query := `SELECT s.id, s.store_id, st.name, s.shift_no, s.clerk_id, u.name, 
 		s.shift_date, s.shift_type, s.ticket_sales, s.scratch_sales, s.total_sales,
 		s.cash_expected, s.cash_actual, s.status, s.reject_reason, s.created_by, s.approved_by,
@@ -139,6 +141,24 @@ func ListShiftSettlements(c *gin.Context) {
 		LEFT JOIN users u ON s.clerk_id = u.id
 		LEFT JOIN users au ON s.approved_by = au.id WHERE 1=1`
 	args := []interface{}{}
+
+	// 角色权限过滤
+	switch u.Role {
+	case "clerk":
+		query += " AND s.clerk_id = ?"
+		args = append(args, u.ID)
+	case "store_manager":
+		if u.StoreID != nil {
+			query += " AND s.store_id = ?"
+			args = append(args, *u.StoreID)
+		}
+	case "area_manager":
+		if u.AreaID != nil {
+			query += " AND st.area_id = ?"
+			args = append(args, *u.AreaID)
+		}
+	}
+
 	if status != "" {
 		query += " AND s.status = ?"
 		args = append(args, status)
@@ -146,6 +166,17 @@ func ListShiftSettlements(c *gin.Context) {
 	if storeID != "" {
 		query += " AND s.store_id = ?"
 		args = append(args, storeID)
+	}
+	// 视图快捷过滤
+	if view == "pending" {
+		switch u.Role {
+		case "clerk":
+			query += " AND s.status IN ('draft','rejected')"
+		case "store_manager":
+			query += " AND s.status = 'submitted'"
+		case "area_manager":
+			query += " AND s.status IN ('submitted','pending_cash')"
+		}
 	}
 	query += " ORDER BY s.created_at DESC LIMIT 100"
 	rows, err := database.Query(query, args...)
@@ -370,8 +401,10 @@ func scanCash(row interface{ Scan(dest ...interface{}) error }) (CashVerificatio
 }
 
 func ListCashVerifications(c *gin.Context) {
+	u := getUserFromHeader(c)
 	status := c.Query("status")
 	storeID := c.Query("store_id")
+	view := c.Query("view")
 	query := `SELECT cv.id, cv.shift_settlement_id, cv.store_id, st.name, cv.store_manager_id, sm.name,
 		cv.area_manager_id, am.name, cv.cash_declared, cv.cash_counted, cv.difference, cv.status,
 		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at
@@ -380,6 +413,23 @@ func ListCashVerifications(c *gin.Context) {
 		LEFT JOIN users sm ON cv.store_manager_id = sm.id
 		LEFT JOIN users am ON cv.area_manager_id = am.id WHERE 1=1`
 	args := []interface{}{}
+
+	switch u.Role {
+	case "clerk":
+		query += " AND EXISTS (SELECT 1 FROM shift_settlements s WHERE s.id = cv.shift_settlement_id AND s.clerk_id = ?)"
+		args = append(args, u.ID)
+	case "store_manager":
+		if u.StoreID != nil {
+			query += " AND cv.store_id = ?"
+			args = append(args, *u.StoreID)
+		}
+	case "area_manager":
+		if u.AreaID != nil {
+			query += " AND st.area_id = ?"
+			args = append(args, *u.AreaID)
+		}
+	}
+
 	if status != "" {
 		query += " AND cv.status = ?"
 		args = append(args, status)
@@ -387,6 +437,16 @@ func ListCashVerifications(c *gin.Context) {
 	if storeID != "" {
 		query += " AND cv.store_id = ?"
 		args = append(args, storeID)
+	}
+	if view == "pending" {
+		switch u.Role {
+		case "store_manager":
+			query += " AND cv.status IN ('pending','counting','mismatched')"
+		case "area_manager":
+			query += " AND cv.status IN ('escalated','mismatched')"
+		case "clerk":
+			query += " AND cv.status IN ('pending','counting','mismatched','escalated')"
+		}
 	}
 	query += " ORDER BY cv.created_at DESC LIMIT 100"
 	rows, err := database.Query(query, args...)
@@ -552,13 +612,25 @@ func UpdateCashVerification(c *gin.Context) {
 			fmt.Sprintf("现金差异提醒：%.2f元待处理", diff),
 			detail)
 	}
-	if action == "resolve" || (action == "submit_count" && newStatus == "matched") {
+	if action == "resolve" || action == "match" || (action == "submit_count" && newStatus == "matched") {
 		var sid int
 		database.QueryRow("SELECT shift_settlement_id FROM cash_verifications WHERE id=?", id).Scan(&sid)
 		if sid > 0 {
-			database.Exec("UPDATE shift_settlements SET status='approved', updated_at=? WHERE id=?", time.Now(), sid)
-			logOperation("shift_settlement", sid, "auto_close", "pending_cash", "approved", u,
-				"现金核对完成，自动关闭班结")
+			var sStatus string
+			database.QueryRow("SELECT status FROM shift_settlements WHERE id=?", sid).Scan(&sStatus)
+			if sStatus == "pending_cash" || sStatus == "submitted" {
+				database.Exec("UPDATE shift_settlements SET status='approved', approved_by=?, updated_at=? WHERE id=?", u.ID, time.Now(), sid)
+				reason := ""
+				if action == "resolve" {
+					reason = req.Resolution
+				} else if action == "match" {
+					reason = "手工确认为账实相符"
+				} else {
+					reason = "现金盘点账实相符"
+				}
+				logOperation("shift_settlement", sid, "auto_close", sStatus, "approved", u,
+					"现金核对完成（"+reason+"），班结自动闭环")
+			}
 		}
 	}
 	c.JSON(http.StatusOK, OK(gin.H{"status": newStatus}))

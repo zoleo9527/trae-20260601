@@ -7,6 +7,7 @@ const SHIFT_TEXT = { morning: '早班', afternoon: '下午班', night: '夜班' 
 const ROLE_TEXT = { clerk: '店员', store_manager: '店长', area_manager: '片区管理员' };
 const TYPE_TEXT = { redeem_register: '兑奖登记单', fault_ticket: '设备故障单', bank_slip: '银行回执', receipt: '收据', other: '其他' };
 const NOTIF_TYPE_TEXT = { approval: '审批', review: '待处理', escalation: '升级', mismatch: '差异', overdue: '超期' };
+const MATERIAL_ICON = { redeem_register: '🎟️', fault_ticket: '🛠️', bank_slip: '🏦', receipt: '🧾', other: '📄' };
 
 let currentUser = { id: 3, name: '张店长', role: 'store_manager', store_id: 1, area_id: 1 };
 let currentPage = 'dashboard';
@@ -41,6 +42,7 @@ async function api(url, method='GET', body) {
   return res.json();
 }
 
+// ===== Init & nav =====
 async function init() {
   const r = await api('/users');
   const users = r.data || [];
@@ -52,7 +54,6 @@ async function init() {
   sel.value = currentUser.id;
   updateUserInfo();
   updateUnreadCount();
-  recentLogsPreview();
   loadPage('dashboard');
 }
 
@@ -102,53 +103,79 @@ async function loadPage(page) {
   window.scrollTo(0, 0);
 }
 
-// ===== Dashboard =====
+// ===== Dashboard (role-based workspace) =====
 async function renderDashboard() {
-  const [shifts, cashs, notifs] = await Promise.all([
-    api('/shifts'), api('/cash'), api('/notifications?unread=1')
+  const [shifts, cashs, notifs, logs] = await Promise.all([
+    api('/shifts?view=pending'),
+    api('/cash?view=pending'),
+    api('/notifications?unread=1'),
+    api('/logs')
   ]);
   const ss = shifts.data || [];
   const cs = cashs.data || [];
   const unread = notifs.data || [];
+  const recentLogs = (logs.data || []).slice(0, 8);
 
-  const total = ss.length;
-  const pendingApproval = ss.filter(s => s.status === 'submitted').length;
-  const pendingCash = ss.filter(s => s.status === 'pending_cash').length + cs.filter(c => ['pending','counting'].includes(c.status)).length;
-  const mismatch = cs.filter(c => ['mismatched','escalated'].includes(c.status)).length;
-  const completed = ss.filter(s => s.status === 'approved').length;
+  const shiftBadge = document.getElementById('shiftBadge');
+  const shiftPending = ss.length;
+  if (shiftPending > 0) { shiftBadge.style.display = 'block'; shiftBadge.textContent = shiftPending; }
+  else shiftBadge.style.display = 'none';
+  const cashBadge = document.getElementById('cashBadge');
+  const cashPending = cs.length;
+  if (cashPending > 0) { cashBadge.style.display = 'block'; cashBadge.textContent = cashPending; }
+  else cashBadge.style.display = 'none';
 
-  const sb = document.getElementById('shiftBadge');
-  if (pendingApproval > 0) { sb.style.display = 'block'; sb.textContent = pendingApproval; }
-  else sb.style.display = 'none';
-  const cb = document.getElementById('cashBadge');
-  if (mismatch + pendingCash > 0) { cb.style.display = 'block'; cb.textContent = mismatch + pendingCash; }
-  else cb.style.display = 'none';
-
-  const recentLogsEl = document.createElement('div');
-  setTimeout(recentLogsPreview, 50);
+  const g = roleGreeting();
+  let statsHtml = '';
+  if (currentUser.role === 'clerk') {
+    const draft = ss.filter(s => s.status === 'draft').length;
+    const rejected = ss.filter(s => s.status === 'rejected').length;
+    const myCash = cs.filter(c => ['pending','counting','mismatched','escalated'].includes(c.status)).length;
+    statsHtml = `
+      <div class="stat-card purple"><div class="stat-label">我的班结</div><div class="stat-value">${ss.length}</div><div class="stat-desc">全部历史班结</div></div>
+      <div class="stat-card orange"><div class="stat-label">待我处理</div><div class="stat-value">${draft + rejected}</div><div class="stat-desc">草稿 / 被驳回重提</div></div>
+      <div class="stat-card blue"><div class="stat-label">现金核对中</div><div class="stat-value">${myCash}</div><div class="stat-desc">我的班结正在核现金</div></div>
+      <div class="stat-card green"><div class="stat-label">已完成</div><div class="stat-value">0</div><div class="stat-desc">闭环班结+现金全通过</div></div>`;
+  } else if (currentUser.role === 'store_manager') {
+    const pendingApproval = ss.filter(s => s.status === 'submitted').length;
+    const pendingCash = cs.filter(c => ['pending','counting'].includes(c.status)).length;
+    const mismatch = cs.filter(c => c.status === 'mismatched').length;
+    const matched = cs.filter(c => c.status === 'matched').length;
+    statsHtml = `
+      <div class="stat-card orange"><div class="stat-label">待我审核班结</div><div class="stat-value">${pendingApproval}</div><div class="stat-desc">店员提交待审核</div></div>
+      <div class="stat-card blue"><div class="stat-label">待现金盘点</div><div class="stat-value">${pendingCash}</div><div class="stat-desc">审核通过待盘点</div></div>
+      <div class="stat-card red"><div class="stat-label">账实不符</div><div class="stat-value">${mismatch}</div><div class="stat-desc">差异待处理</div></div>
+      <div class="stat-card green"><div class="stat-label">已核对完成</div><div class="stat-value">${matched}</div><div class="stat-desc">本月账实相符</div></div>`;
+  } else {
+    const escalated = cs.filter(c => c.status === 'escalated').length;
+    const mismatchedAll = cs.filter(c => c.status === 'mismatched').length;
+    const allShifts = ss.length;
+    const approved = ss.filter(s => s.status === 'approved').length;
+    statsHtml = `
+      <div class="stat-card red"><div class="stat-label">待我裁定</div><div class="stat-value">${escalated}</div><div class="stat-desc">升级至片区的差异</div></div>
+      <div class="stat-card orange"><div class="stat-label">门店差异关注</div><div class="stat-value">${mismatchedAll + ss.filter(s => s.status === 'submitted').length}</div><div class="stat-desc">未解决差异+未审核班结</div></div>
+      <div class="stat-card blue"><div class="stat-label">在途班结</div><div class="stat-value">${allShifts}</div><div class="stat-desc">全片区班结总数</div></div>
+      <div class="stat-card green"><div class="stat-label">已完成闭环</div><div class="stat-value">${approved}</div><div class="stat-desc">班结+现金全通过</div></div>`;
+  }
 
   return `
     <div class="page-header">
       <div>
-        <div class="page-title">📊 总览仪表盘</div>
-        <div class="page-subtitle">责任到人 · 时间留痕 · 账实清晰</div>
+        <div class="page-title">👋 ${g.greet}，${g.name}
+          <span class="type-badge role-${currentUser.role}" style="font-size:12px;margin-left:8px;vertical-align:middle;">${g.roleLabel} · ${g.store}</span>
+        </div>
+        <div class="page-subtitle">这是您的工作台，处理您职责范围内的待办事项与关注项</div>
       </div>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card purple"><div class="stat-label">销售班结总数</div><div class="stat-value">${total}</div><div class="stat-desc">系统全部班结单</div></div>
-      <div class="stat-card orange"><div class="stat-label">待审核班结</div><div class="stat-value">${pendingApproval}</div><div class="stat-desc">店长待审核</div></div>
-      <div class="stat-card blue"><div class="stat-label">待现金核对</div><div class="stat-value">${pendingCash}</div><div class="stat-desc">待盘点/盘点中</div></div>
-      <div class="stat-card red"><div class="stat-label">差异/升级中</div><div class="stat-value">${mismatch}</div><div class="stat-desc">需重点关注</div></div>
-      <div class="stat-card green"><div class="stat-label">已完成闭环</div><div class="stat-value">${completed}</div><div class="stat-desc">班结+现金全通过</div></div>
-    </div>
+    <div class="stats-grid">${statsHtml}</div>
 
     <div class="detail-grid">
       <div>
         <div class="card" style="margin-bottom:20px;">
           <div class="card-header">
-            <div class="card-title">⏰ 待处理事项（按责任人）</div>
-            <button class="btn btn-sm btn-primary" onclick="navTo('shifts')">查看全部</button>
+            <div class="card-title">⏰ 我的待办（按责任到人）</div>
+            <button class="btn btn-sm btn-primary" onclick="navTo('${currentUser.role==='clerk'?'shifts':'cash'}')">去处理 →</button>
           </div>
           <div class="card-body" style="padding:0;">
             ${renderTodoList(ss, cs)}
@@ -156,7 +183,7 @@ async function renderDashboard() {
         </div>
 
         <div class="card">
-          <div class="card-header"><div class="card-title">🚨 有缺口的状态（未闭环）</div></div>
+          <div class="card-header"><div class="card-title">👀 我关注的未闭环项</div></div>
           <div class="card-body" style="padding:0;">
             ${renderOpenIssues(ss, cs)}
           </div>
@@ -166,117 +193,147 @@ async function renderDashboard() {
       <div>
         <div class="card" style="margin-bottom:20px;">
           <div class="card-header">
-            <div class="card-title">🔔 最近通知</div>
+            <div class="card-title">🔔 未读通知</div>
             <button class="btn btn-sm btn-outline" onclick="navTo('notifications')">全部</button>
           </div>
-          <div class="notif-list" style="max-height:280px;">
-            ${unread.length ? unread.slice(0,5).map(n => renderNotifItem(n, true, true)).join('') : '<div class="empty-state"><div class="empty-icon">✉️</div><div class="empty-text">暂无未读通知</div></div>'}
+          <div class="notif-list" style="max-height:240px;">
+            ${unreadNotifs(unread)}
           </div>
         </div>
 
         <div class="card">
-          <div class="card-header"><div class="card-title">📜 最近操作</div><button class="btn btn-sm btn-outline" onclick="navTo('logs')">全部日志</button></div>
-          <div class="card-body" id="recentLogs"></div>
+          <div class="card-header"><div class="card-title">📜 最近动态</div></div>
+          <div class="card-body">
+            <div class="timeline" style="max-height:320px;">
+              ${recentLogs.length ? recentLogs.map(l => renderTimelineItem(l)).join('') : '<div class="empty-state" style="padding:20px 0;"><div class="empty-icon">📜</div></div>'}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   `;
 }
 
+function roleGreeting() {
+  const name = currentUser.name;
+  const store = currentUser.store_id ? (currentUser.store_id===1?'朝阳路旗舰店':currentUser.store_id===2?'海淀中关村店':'西城金融街店') : '全片区';
+  const roleLabel = ROLE_TEXT[currentUser.role];
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? '早上好' : hour < 14 ? '中午好' : hour < 18 ? '下午好' : '晚上好';
+  return { name, store, roleLabel, greet };
+}
+
 function renderTodoList(ss, cs) {
-  const todos = [];
+  const items = [];
   if (currentUser.role === 'clerk') {
-    ss.filter(s => s.clerk_id === currentUser.id && ['draft','rejected'].includes(s.status))
-      .forEach(s => todos.push({ type:'班结', data:s, title:`${s.shift_no} ${s.status==='rejected'?'被驳回需重提':'草稿未提交'}`, level:s.status==='rejected'?'danger':'info', action:`viewShift(${s.id})` }));
+    ss.filter(s => s.status === 'draft').forEach(s =>
+      items.push({ tag:'待提交', level:'warn', title:`${s.shift_no} 还在草稿中`, desc:'', action:`viewShift(${s.id})` }));
+    ss.filter(s => s.status === 'rejected').forEach(s =>
+      items.push({ tag:'被驳回', level:'danger', title:`${s.shift_no} 被驳回需重提`, desc: s.reject_reason||'', action:`viewShift(${s.id})` }));
+    cs.filter(c => ['pending','counting'].includes(c.status)).forEach(c =>
+      items.push({ tag:'现金核对中', level:'info', title:`CV${String(c.id).padStart(4,'0')} 现金${STATUS_TEXT[c.status]}`, desc:c.difference!==null&&c.difference!==undefined?`差异 ${diffText(c.difference)}`:'', action:`viewCash(${c.id})` }));
+  } else if (currentUser.role === 'store_manager') {
+    ss.filter(s => s.status === 'submitted').forEach(s => {
+      const diff = (s.cash_actual !== null && s.cash_actual !== undefined) ? (s.cash_actual - s.cash_expected) : 0;
+      items.push({ tag:'待审核', level:'warn', title:`${s.shift_no} 待审核 · ${s.clerk_name||''}`,
+        desc: diff !== 0 ? `现金自报${diffText(diff)}，需重点关注` : '请尽快审核',
+        action:`viewShift(${s.id})` });
+    });
+    cs.filter(c => c.status === 'pending').forEach(c =>
+      items.push({ tag:'待盘点', level:'warn', title:`CV${String(c.id).padStart(4,'0')} 待现金盘点`, desc:`申报${fmtMoney(c.cash_declared)}`, action:`viewCash(${c.id})` }));
+    cs.filter(c => c.status === 'counting').forEach(c =>
+      items.push({ tag:'盘点中', level:'info', title:`CV${String(c.id).padStart(4,'0')} 正在盘点`, desc:'', action:`viewCash(${c.id})` }));
+    cs.filter(c => c.status === 'mismatched').forEach(c =>
+      items.push({ tag:'差异', level:'danger', title:`CV${String(c.id).padStart(4,'0')} 账实不符 ${diffText(c.difference)}`, desc:c.notes||'请尽快处理或升级', action:`viewCash(${c.id})` }));
+  } else {
+    cs.filter(c => c.status === 'escalated').forEach(c =>
+      items.push({ tag:'待裁定', level:'danger', title:`${c.store_name||''} 现金差异${diffText(c.difference)}`, desc:c.notes||'店长与店员无法达成一致', action:`viewCash(${c.id})` }));
+    ss.filter(s => s.status === 'submitted').forEach(s =>
+      items.push({ tag:'待关注', level:'warn', title:`${s.store_name||''} ${s.shift_no} 长时间未审核`, desc:`${s.clerk_name||''} 提交于${fmtTime(s.created_at).slice(5)}`, action:`viewShift(${s.id})` }));
+    cs.filter(c => c.status === 'mismatched').forEach(c =>
+      items.push({ tag:'差异待处理', level:'warn', title:`${c.store_name||''} 差异${diffText(c.difference)} 门店处理中`, desc:'门店店长处理中，关注进展', action:`viewCash(${c.id})` }));
   }
-  if (currentUser.role === 'store_manager') {
-    ss.filter(s => s.store_id === currentUser.store_id && s.status === 'submitted')
-      .forEach(s => todos.push({ type:'审核班结', data:s, title:`${s.shift_no} 待审核 · ${s.clerk_name}`, level:'warn', action:`viewShift(${s.id})` }));
-    cs.filter(c => c.store_id === currentUser.store_id && ['pending','counting','mismatched'].includes(c.status))
-      .forEach(c => {
-        const lvl = c.status === 'mismatched' ? 'danger' : (c.status === 'pending' ? 'warn' : 'info');
-        todos.push({ type:'现金核对', data:c, title:`CV${String(c.id).padStart(4,'0')} ${STATUS_TEXT[c.status]}${c.difference!==null&&c.difference!==undefined?` (${diffText(c.difference)})`:''}`, level:lvl, action:`viewCash(${c.id})` });
-      });
-  }
-  if (currentUser.role === 'area_manager') {
-    cs.filter(c => c.status === 'escalated')
-      .forEach(c => todos.push({ type:'片区处理', data:c, title:`${c.store_name} 现金差异${diffText(c.difference)}待裁定`, level:'danger', action:`viewCash(${c.id})` }));
-    ss.filter(s => s.status === 'submitted')
-      .forEach(s => todos.push({ type:'片区关注', data:s, title:`${s.store_name||''} ${s.shift_no} 长时间未审核`, level:'warn', action:`viewShift(${s.id})` }));
-  }
-  if (!todos.length) return `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">当前没有待处理事项</div></div>`;
-  return `<table style="border:none;">
-    ${todos.slice(0,8).map(t => `<tr>
-      <td style="width:90px;"><span class="tag ${t.level==='danger'?'tag-danger':'tag-warning'}">${t.type}</span></td>
-      <td><a class="link-btn" onclick="${t.action}" style="font-size:13px;">${t.title}</a></td>
-      <td style="width:140px;color:#9ca3af;font-size:12px;">${fmtTime((t.data.created_at||t.data.updated_at))}</td>
-    </tr>`).join('')}
-  </table>`;
+  if (!items.length) return `<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">太棒了，当前没有待办！</div></div>`;
+  return items.slice(0, 8).map(it => `
+    <div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;display:flex;gap:12px;align-items:flex-start;cursor:pointer;" onclick="${it.action}">
+      <span class="tag ${it.level==='danger'?'tag-danger':'tag-warning'}">${it.tag}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-weight:500;font-size:13px;color:#111827;">${it.title}</div>
+        ${it.desc ? `<div style="font-size:12px;color:#6b7280;margin-top:3px;line-height:1.5;">${it.desc}</div>` : ''}
+      </div>
+      <span style="color:#6d28d9;font-size:12px;flex-shrink:0;">查看 →</span>
+    </div>
+  `).join('');
 }
 
 function renderOpenIssues(ss, cs) {
   const issues = [];
-  ss.filter(s => s.status === 'rejected').forEach(s => {
-    issues.push({ icon:'❌', title:`${s.shift_no} 被驳回 · ${s.clerk_name}`, desc:s.reject_reason||'无说明', tag:'班结问题', action:`viewShift(${s.id})` });
-  });
-  ss.filter(s => s.status === 'submitted').forEach(s => {
-    const diff = s.cash_actual !== null && s.cash_actual !== undefined && s.cash_actual !== s.cash_expected;
-    issues.push({ icon:'⏳', title:`${s.shift_no} 待店长审核${diff?`（现金申报差${fmtMoney((s.cash_actual||0)-s.cash_expected)}）`:''}`, desc:`${s.clerk_name}提交于${fmtTime(s.created_at)}，建议重点关注`, tag:diff?'现金差异预警':'待审核', action:`viewShift(${s.id})` });
-  });
-  cs.filter(c => c.status === 'escalated').forEach(c => {
-    issues.push({ icon:'🚨', title:`${c.store_name} 现金差异升级 · ${diffText(c.difference)}`, desc:c.notes||'店长与店员无法达成一致，片区需介入', tag:'片区处理', action:`viewCash(${c.id})` });
-  });
-  cs.filter(c => c.status === 'mismatched').forEach(c => {
-    issues.push({ icon:'⚠️', title:`${c.store_name} 现金${diffText(c.difference)} 待店长处理`, desc:c.material_notes||'尚未说明差异原因', tag:'待处理', action:`viewCash(${c.id})` });
-  });
-  cs.filter(c => c.status === 'pending').forEach(c => {
-    issues.push({ icon:'💰', title:`${c.store_name} CV${String(c.id).padStart(4,'0')} 待现金盘点`, desc:`申报金额${fmtMoney(c.cash_declared)}尚未清点`, tag:'待盘点', action:`viewCash(${c.id})` });
-  });
-  if (!issues.length) return `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">太棒了，全部闭环！</div></div>`;
-  return `<div style="padding:8px 0;">
-    ${issues.slice(0,6).map(i => `
-      <div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;display:flex;gap:12px;align-items:flex-start;">
-        <div style="font-size:20px;">${i.icon}</div>
-        <div style="flex:1;min-width:0;">
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="tag tag-warning">${i.tag}</span>
-            <a class="link-btn" style="font-size:13px;font-weight:500;" onclick="${i.action}">${i.title}</a>
-          </div>
-          <div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.5;">${i.desc}</div>
+  ss.filter(s => s.status === 'rejected').forEach(s =>
+    issues.push({ icon:'❌', title:`${s.shift_no} 被驳回`, desc:`${s.clerk_name||'店员'}提交的班结被店长驳回`,
+      tag:'班结驳回', action:`viewShift(${s.id})` }));
+  ss.filter(s => s.status === 'submitted' && s.cash_actual !== null && s.cash_actual !== undefined && s.cash_actual !== s.cash_expected).forEach(s =>
+    issues.push({ icon:'⚠️', title:`${s.shift_no} 现金申报差异${diffText((s.cash_actual||0) - s.cash_expected)}`,
+      desc:'店员自报与系统应收有差异，待核实',
+      tag:'现金差异预警', action:`viewShift(${s.id})` }));
+  cs.filter(c => c.status === 'escalated').forEach(c =>
+    issues.push({ icon:'🚨', title:`${c.store_name||''} 现金${diffText(c.difference)} 已升级`,
+      desc:c.notes||'店长与店员无法达成一致，片区介入',
+      tag:'升级待裁定', action:`viewCash(${c.id})` }));
+  cs.filter(c => c.status === 'mismatched').forEach(c =>
+    issues.push({ icon:'💸', title:`${c.store_name||''} 现金${diffText(c.difference)} 不符`,
+      desc:c.material_notes||'差异原因待说明',
+      tag:'差异处理中', action:`viewCash(${c.id})` }));
+  cs.filter(c => c.status === 'pending').forEach(c =>
+    issues.push({ icon:'💰', title:`${c.store_name||''} CV${String(c.id).padStart(4,'0')} 待盘点`,
+      desc:`申报${fmtMoney(c.cash_declared)}`,
+      tag:'待盘点', action:`viewCash(${c.id})` }));
+  ss.filter(s => s.status === 'submitted' && (s.cash_actual === null || s.cash_actual === undefined || s.cash_actual === s.cash_expected)).forEach(s =>
+    issues.push({ icon:'⏳', title:`${s.shift_no} 待店长审核`,
+      desc:`${s.clerk_name||''}提交，销售${fmtMoney(s.total_sales)}`,
+      tag:'待审核', action:`viewShift(${s.id})` }));
+
+  if (!issues.length) return `<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-text">全部闭环，没问题！</div></div>`;
+  return issues.slice(0, 6).map(i => `
+    <div style="padding:12px 20px;border-bottom:1px solid #f3f4f6;display:flex;gap:12px;align-items:flex-start;">
+      <div style="font-size:18px;flex-shrink:0;">${i.icon}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+          <span class="tag tag-warning">${i.tag}</span>
+          <a class="link-btn" style="font-size:13px;font-weight:500;" onclick="${i.action}">${i.title}</a>
         </div>
-      </div>`).join('')}
-  </div>`;
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.5;">${i.desc}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
-async function recentLogsPreview() {
-  const el = document.getElementById('recentLogs');
-  if (!el) return;
-  const r = await api('/logs');
-  const list = (r.data || []).slice(0, 6);
-  if (!list.length) { el.innerHTML = '<div class="empty-state" style="padding:20px 0;"><div class="empty-icon">📜</div></div>'; return; }
-  el.innerHTML = list.map(l => renderTimelineItem(l)).join('');
-  el.classList.add('timeline');
-  el.style.paddingLeft = '28px';
+function unreadNotifs(list) {
+  if (!list.length) return '<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">✉️</div><div class="empty-text">暂无未读通知</div></div>';
+  return list.slice(0, 6).map(n => renderNotifItem(n, true, true)).join('');
 }
 
 // ===== Shifts =====
 async function renderShifts() {
   const status = pageCache.shiftStatus || '';
-  const store = pageCache.shiftStore || '';
   let url = '/shifts';
-  const qs = [];
-  if (status) qs.push('status=' + status);
-  if (store) qs.push('store_id=' + store);
-  if (qs.length) url += '?' + qs.join('&');
+  if (status) url += '?status=' + status;
   const r = await api(url);
   const list = r.data || [];
-  const stores = (await api('/stores')).data || [];
+
+  const pageTitle = currentUser.role === 'clerk' ? '我的班结' : '销售班结';
+  const subtitle = currentUser.role === 'clerk'
+    ? '您创建的所有班结：草稿→提交→店长审核→现金核对'
+    : (currentUser.role === 'store_manager' ? '本店全部销售班结（仅本店范围内审核）' : '全片区班结总览（关注异常项）');
+
+  const showClerkCol = currentUser.role !== 'clerk';
+  const showStoreCol = currentUser.role === 'area_manager';
+  const colCount = 9 - (showClerkCol?0:1) - (showStoreCol?0:0);
 
   return `
     <div class="page-header">
       <div>
-        <div class="page-title">📝 销售班结</div>
-        <div class="page-subtitle">店员填写 → 店长审核 → 现金核对（两模块通过班结编号串联）</div>
+        <div class="page-title">📝 ${pageTitle}</div>
+        <div class="page-subtitle">${subtitle}</div>
       </div>
       ${currentUser.role === 'clerk' ? `<button class="btn btn-primary" onclick="openShiftCreate()">+ 新建班结</button>` : ''}
     </div>
@@ -292,35 +349,43 @@ async function renderShifts() {
             <option value="pending_cash" ${status==='pending_cash'?'selected':''}>待现金核对</option>
             <option value="approved" ${status==='approved'?'selected':''}>已完成</option>
           </select>
-          ${currentUser.role === 'area_manager' ? `<select onchange="filterShift('store', this.value)">
-            <option value="">全部门店</option>
-            ${stores.map(s=>`<option value="${s.id}" ${store==s.id?'selected':''}>${s.name}</option>`).join('')}
-          </select>` : ''}
+          <span style="font-size:12px;color:#6b7280;margin-left:auto;">
+            共 <b style="color:#111827;">${list.length}</b> 条 · 
+            ${currentUser.role==='clerk'?'我的':(currentUser.role==='store_manager'?'本店':'片区')}
+          </span>
         </div>
 
         <table>
           <thead><tr>
-            <th>班结编号</th><th>门店</th><th>班次</th><th>日期</th><th>店员</th>
-            <th style="text-align:right;">销售总额</th><th style="text-align:right;">应收现金</th><th style="text-align:right;">自报现金</th>
-            <th>状态</th><th>提交时间</th><th>操作</th>
+            <th>班结编号</th>
+            ${showClerkCol ? '<th>店员</th>' : ''}
+            ${showStoreCol ? '<th>门店</th>' : ''}
+            <th>班次</th>
+            <th>日期</th>
+            <th style="text-align:right;">销售总额</th>
+            <th style="text-align:right;">应收现金</th>
+            <th>责任链</th>
+            <th>状态</th>
+            <th>操作</th>
           </tr></thead>
           <tbody>
             ${list.length ? list.map(s => {
-              const diff = (s.cash_actual !== null && s.cash_actual !== undefined) ? (s.cash_actual - s.cash_expected) : null;
+              const owner = s.clerk_name || '-';
               return `<tr>
                 <td><a class="link-btn" onclick="viewShift(${s.id})"><b>${s.shift_no}</b></a></td>
-                <td>${s.store_name||'-'}</td>
+                ${showClerkCol ? `<td><span class="type-badge role-clerk">${s.clerk_name||'-'}</span></td>` : ''}
+                ${showStoreCol ? `<td>${s.store_name||'-'}</td>` : ''}
                 <td><span class="type-badge shift-${s.shift_type}">${SHIFT_TEXT[s.shift_type]}</span></td>
-                <td>${s.shift_date}</td>
-                <td>${s.clerk_name||'-'}</td>
+                <td>${s.shift_date ? s.shift_date.slice(0,10) : '-'}</td>
                 <td style="text-align:right;" class="info-value money">${fmtMoney(s.total_sales)}</td>
                 <td style="text-align:right;" class="info-value money">${fmtMoney(s.cash_expected)}</td>
-                <td style="text-align:right;" class="info-value money ${diffClass(diff)}">${s.cash_actual!==null&&s.cash_actual!==undefined?fmtMoney(s.cash_actual)+(diff!==0?` <span style="font-size:10px;">(${diffText(diff)})</span>`:''):'—'}</td>
+                <td><span class="type-badge role-clerk">${owner}</span>
+                  ${s.approved_by_name ? ` <span class="type-badge role-store_manager" style="margin-left:4px;">${s.approved_by_name}</span>` : ''}
+                </td>
                 <td><span class="status-badge status-${s.status}">${STATUS_TEXT[s.status]}</span></td>
-                <td style="color:#6b7280;font-size:12px;">${fmtTime(s.created_at)}</td>
-                <td><button class="btn btn-sm btn-outline" onclick="viewShift(${s.id})">详情/处理</button></td>
+                <td><button class="btn btn-sm btn-outline" onclick="viewShift(${s.id})">详情</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无班结数据</div></div></td></tr>`}
+            }).join('') : `<tr><td colspan="${colCount}"><div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无数据</div></div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -350,25 +415,32 @@ async function viewShift(id) {
 
     <div class="page-header">
       <div>
-        <div class="page-title">${s.shift_no} <span class="status-badge status-${s.status}" style="font-size:12px;margin-left:8px;">${STATUS_TEXT[s.status]}</span></div>
-        <div class="page-subtitle">${s.store_name||''} · ${SHIFT_TEXT[s.shift_type]} · ${s.shift_date} · 责任人: <b>${s.clerk_name||'-'}</b></div>
+        <div class="page-title">${s.shift_no}
+          <span class="status-badge status-${s.status}" style="font-size:12px;margin-left:8px;">${STATUS_TEXT[s.status]}</span>
+        </div>
+        <div class="page-subtitle">
+          ${s.store_name||''} · ${SHIFT_TEXT[s.shift_type]} · ${(s.shift_date||'').slice(0,10)}
+        </div>
       </div>
       <div class="action-bar">
         ${isClerk && s.status === 'draft' ? `<button class="btn btn-warning" onclick="shiftAction(${s.id},'submit')">提交审核</button>` : ''}
         ${isClerk && s.status === 'rejected' ? `<button class="btn btn-primary" onclick="shiftAction(${s.id},'submit')">重新提交</button>
           <button class="btn btn-outline" onclick="openCashUpdate(${s.id})">修改申报现金</button>` : ''}
-        ${isMgr && s.status === 'submitted' ? `<button class="btn btn-success" onclick="shiftAction(${s.id},'approve')">审核通过（转现金核对）</button>
+        ${isMgr && s.status === 'submitted' ? `<button class="btn btn-success" onclick="shiftAction(${s.id},'approve')">审核通过 → 转现金核对</button>
           <button class="btn btn-danger" onclick="openShiftReject(${s.id})">驳回</button>` : ''}
-        ${(isMgr||isArea) && s.status === 'pending_cash' ? `<button class="btn btn-success" onclick="gotoCashByShift(${s.shift_no},${s.id})">去做现金核对 →</button>` : ''}
+        ${(isMgr||isArea) && s.status === 'pending_cash' ? `<button class="btn btn-success" onclick="gotoCashByShift('${s.shift_no}',${s.id})">去做现金核对 →</button>` : ''}
         ${isArea && s.status === 'submitted' ? `<button class="btn btn-warning" onclick="alert('已督促店长尽快处理')">督促店长</button>` : ''}
       </div>
     </div>
 
     <div class="detail-grid">
       <div>
-        ${s.status === 'rejected' ? `<div class="alert alert-danger"><span class="alert-icon">❌</span><div><b>驳回原因：</b>${s.reject_reason||'未填写'}</div></div>` : ''}
-        ${s.status === 'pending_cash' ? `<div class="alert alert-info"><span class="alert-icon">💡</span><div>数据审核已通过，请前往现金核对模块完成实际现金盘点。<br>责任链：<b>${s.clerk_name||'店员'}</b> → <b>${s.approved_by_name||'店长'}</b> → 现金核对环节</div></div>` : ''}
-        ${s.status === 'submitted' && (s.cash_actual !== null && s.cash_actual !== s.cash_expected) ? `<div class="alert alert-warn"><span class="alert-icon">⚠️</span><div><b>现金申报差异预警：</b>系统应收 ${fmtMoney(s.cash_expected)}，店员自报 ${fmtMoney(s.cash_actual)}，差异 ${diffText((s.cash_actual||0)-s.cash_expected)}。请重点询问原因！</div></div>` : ''}
+        ${s.status === 'rejected' && s.reject_reason ? `<div class="alert alert-danger"><span class="alert-icon">❌</span><div><b>驳回原因：</b>${s.reject_reason}</div></div>` : ''}
+        ${s.status === 'pending_cash' ? `<div class="alert alert-info"><span class="alert-icon">💡</span><div>
+          <b>上一环节结论：</b>数据审核已通过，审核人：${s.approved_by_name||'店长'}
+          <br>责任链：<b>${s.clerk_name||'店员'}</b> → <b>${s.approved_by_name||'店长'}</b> → 现金核对环节
+        </div></div>` : ''}
+        ${s.status === 'submitted' && s.cash_actual !== null && s.cash_actual !== undefined && s.cash_actual !== s.cash_expected ? `<div class="alert alert-warn"><span class="alert-icon">⚠️</span><div><b>现金申报差异预警：</b>系统应收 ${fmtMoney(s.cash_expected)}，店员自报 ${fmtMoney(s.cash_actual)}，差异 ${diffText(s.cash_actual - s.cash_expected)}。请重点询问原因！</div></div>` : ''}
         ${s.status === 'approved' ? `<div class="alert alert-info" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46;"><span class="alert-icon">✅</span><div><b>已完成闭环。</b>数据+现金核对均已通过，责任链完整。</div></div>` : ''}
 
         <div class="card" style="margin-bottom:20px;">
@@ -383,16 +455,19 @@ async function viewShift(id) {
         </div>
 
         <div class="card">
-          <div class="card-header"><div class="card-title">👤 基础信息</div></div>
+          <div class="card-header"><div class="card-title">👤 责任链摘要 · 上一环节入口</div></div>
           <div class="card-body">
             <div class="info-grid">
               <div class="info-item"><div class="info-label">门店</div><div class="info-value">${s.store_name||'-'}</div></div>
               <div class="info-item"><div class="info-label">班次类型</div><div class="info-value"><span class="type-badge shift-${s.shift_type}">${SHIFT_TEXT[s.shift_type]}</span></div></div>
-              <div class="info-item"><div class="info-label">值班店员</div><div class="info-value">${s.clerk_name||'-'} <span class="type-badge role-clerk">店员</span></div></div>
+              <div class="info-item"><div class="info-label">值班店员（第一责任人）</div><div class="info-value">${s.clerk_name||'-'} <span class="type-badge role-clerk">店员</span></div></div>
+              <div class="info-item"><div class="info-label">审核人（第二责任人）</div><div class="info-value">${s.approved_by_name||'<span style="color:#9ca3af;">(尚未审核)</span>'} ${s.approved_by_name?'<span class="type-badge role-store_manager">店长</span>':''}</div></div>
               <div class="info-item"><div class="info-label">创建时间</div><div class="info-value">${fmtTime(s.created_at)}</div></div>
-              <div class="info-item"><div class="info-label">审核人</div><div class="info-value">${s.approved_by_name||'<span style="color:#9ca3af;">(尚未审核)</span>'} ${s.approved_by_name?'<span class="type-badge role-store_manager">店长</span>':''}</div></div>
               <div class="info-item"><div class="info-label">最后更新</div><div class="info-value">${fmtTime(s.updated_at)}</div></div>
             </div>
+            ${renderNextStep(s.status)}
+            ${renderPrevStep(s)}
+            ${s.status === 'pending_cash' || s.status === 'approved' ? `<div style="margin-top:12px;"><button class="btn btn-sm btn-outline" onclick="gotoCashByShift('${s.shift_no}',${s.id})">→ 前往下一环节：现金核对</button></div>` : ''}
           </div>
         </div>
       </div>
@@ -412,8 +487,33 @@ async function viewShift(id) {
   recentLogsPreview();
 }
 
+function renderNextStep(status) {
+  const map = {
+    draft: { label:'下一步：店员提交审核', role:'clerk' },
+    submitted: { label:'下一步：店长审核', role:'store_manager' },
+    rejected: { label:'下一步：店员修改重提', role:'clerk' },
+    pending_cash: { label:'下一步：店长现金盘点', role:'store_manager' },
+    approved: { label:'已完成闭环', role:'' }
+  };
+  const step = map[status];
+  if (!step) return '';
+  return `<div style="margin-top:12px;padding:10px 12px;background:#ede9fe;border-radius:6px;font-size:12px;color:#6d28d9;">
+    👉 <b>${step.label}</b>${step.role ? `（责任角色：${ROLE_TEXT[step.role]}` : ''}</div>`;
+}
+
+function renderPrevStep(s) {
+  let text = '';
+  if (s.status === 'rejected') text = '上一环节：店长审核（驳回）';
+  else if (s.status === 'submitted') text = '上一环节：店员创建并提交';
+  else if (s.status === 'pending_cash' || s.status === 'approved') text = '上一环节：店长数据审核通过';
+  if (!text) return '';
+  return `<div style="margin-top:8px;padding:10px 12px;background:#f0fdf4;border-radius:6px;font-size:12px;color:#065f46;">⬅ <b>${text}</b></div>`;
+}
+
 function renderTimelineItem(l) {
-  const dotClass = { create:'create', submit:'submit', approve:'approve', reject:'reject', escalate:'escalate', auto_close:'approve', count_result:'escalate' }[l.action] || '';
+  const dotClass = { create:'create', submit:'submit', approve:'approve', reject:'reject', escalate:'escalate',
+    auto_close:'approve', count_result:'escalate', start_count:'create', submit_count:'approve',
+    upload_material:'', match:'approve', resolve:'approve' }[l.action] || '';
   const actionText = {
     create:'📝 创建', submit:'📤 提交', approve:'✅ 批准', reject:'❌ 驳回', escalate:'⬆️ 升级',
     start_count:'🔢 开始盘点', submit_count:'📊 盘点完成', upload_material:'📎 上传材料',
@@ -499,32 +599,30 @@ async function gotoCashByShift(shiftNo, sid) {
   else alert('未找到对应的现金核对单');
 }
 
-// ===== Cash =====
+// ===== Cash Verifications =====
 async function renderCash() {
   const status = pageCache.cashStatus || '';
-  const store = pageCache.cashStore || '';
   let url = '/cash';
-  const qs = [];
-  if (status) qs.push('status=' + status);
-  if (store) qs.push('store_id=' + store);
-  if (qs.length) url += '?' + qs.join('&');
+  if (status) url += '?status=' + status;
   const r = await api(url);
   const list = r.data || [];
-  const stores = (await api('/stores')).data || [];
 
-  const shiftMap = {};
-  for (const c of list) {
-    try {
-      const s = (await api('/shifts/' + c.shift_settlement_id)).data;
-      if (s) shiftMap[c.id] = s;
-    } catch(e){}
-  }
+  const pageTitle = currentUser.role === 'clerk' ? '我的现金核对'
+    : currentUser.role === 'store_manager' ? '本店现金核对'
+    : '片区现金核对';
+  const subtitle = currentUser.role === 'clerk'
+    ? '关联您班结的现金核对进度（仅查看）'
+    : (currentUser.role === 'store_manager' ? '本店现金核对全流程：盘点→差异说明→升级或匹配' : '全片区现金核对总览（关注升级与差异）');
+
+  const showClerkCol = currentUser.role !== 'clerk';
+  const showStoreCol = currentUser.role === 'area_manager';
+  const colCount = 9 - (showClerkCol?0:1) - (showStoreCol?0:0);
 
   return `
     <div class="page-header">
       <div>
-        <div class="page-title">💰 现金核对</div>
-        <div class="page-subtitle">店长盘点 · 差异说明 · 片区升级裁定 · 所有材料/备注/结论同屏</div>
+        <div class="page-title">💰 ${pageTitle}</div>
+        <div class="page-subtitle">${subtitle}</div>
       </div>
     </div>
 
@@ -540,37 +638,40 @@ async function renderCash() {
             <option value="escalated" ${status==='escalated'?'selected':''}>已升级片区</option>
             <option value="resolved" ${status==='resolved'?'selected':''}>已解决</option>
           </select>
-          ${currentUser.role === 'area_manager' ? `<select onchange="filterCash('store', this.value)">
-            <option value="">全部门店</option>
-            ${stores.map(s=>`<option value="${s.id}" ${store==s.id?'selected':''}>${s.name}</option>`).join('')}
-          </select>` : ''}
+          <span style="font-size:12px;color:#6b7280;margin-left:auto;">共 <b style="color:#111827;">${list.length}</b> 条</span>
         </div>
 
         <table>
           <thead><tr>
-            <th>核对编号</th><th>关联班结</th><th>门店</th><th>班次</th>
-            <th style="text-align:right;">申报现金</th><th style="text-align:right;">实盘现金</th><th style="text-align:right;">差异</th>
-            <th>责任人</th><th>状态</th><th>创建时间</th><th>操作</th>
+            <th>核对编号</th>
+            <th>关联班结</th>
+            ${showClerkCol ? '<th>责任人（店员）</th>' : ''}
+            ${showStoreCol ? '<th>门店</th>' : ''}
+            <th style="text-align:right;">申报现金</th>
+            <th style="text-align:right;">实盘现金</th>
+            <th style="text-align:right;">差异</th>
+            <th>当前责任人</th>
+            <th>状态</th>
+            <th>操作</th>
           </tr></thead>
           <tbody>
             ${list.length ? list.map(c => {
-              const s = shiftMap[c.id];
+              const clerk = c.clerk_name || (c.shift_settlement_id ? '关联班结' : '-');
               const handler = c.area_manager_name || c.store_manager_name || '待分配';
               const handlerRole = c.area_manager_id ? 'role-area_manager' : 'role-store_manager';
               return `<tr>
                 <td><a class="link-btn" onclick="viewCash(${c.id})"><b>CV${String(c.id).padStart(4,'0')}</b></a></td>
-                <td>${s?`<a class="link-btn" onclick="viewShift(${s.id})">${s.shift_no}</a>`:c.shift_settlement_id}</td>
-                <td>${c.store_name||'-'}</td>
-                <td>${s?`<span class="type-badge shift-${s.shift_type}">${SHIFT_TEXT[s.shift_type]}</span>`:'-'}</td>
+                <td>${c.shift_settlement_id?`<a class="link-btn" onclick="viewShift(${c.shift_settlement_id})">${c.shift_no||('班结#'+c.shift_settlement_id)}</a>`:'-'}</td>
+                ${showClerkCol ? `<td><span class="type-badge role-clerk">${clerk}</span></td>` : ''}
+                ${showStoreCol ? `<td>${c.store_name||'-'}</td>` : ''}
                 <td style="text-align:right;" class="info-value money">${fmtMoney(c.cash_declared)}</td>
                 <td style="text-align:right;" class="info-value money">${c.cash_counted!==null&&c.cash_counted!==undefined?fmtMoney(c.cash_counted):'—'}</td>
                 <td style="text-align:right;" class="${diffClass(c.difference)}">${c.difference!==null&&c.difference!==undefined?diffText(c.difference):'—'}</td>
-                <td>${handler} <span class="type-badge ${handlerRole}">${c.area_manager_id?'片区':'店长'}</span></td>
+                <td><span class="type-badge ${handlerRole}">${handler}</span></td>
                 <td><span class="status-badge status-${c.status}">${STATUS_TEXT[c.status]}</span></td>
-                <td style="color:#6b7280;font-size:12px;">${fmtTime(c.created_at)}</td>
                 <td><button class="btn btn-sm btn-primary" onclick="viewCash(${c.id})">工作面</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无核对数据</div></div></td></tr>`}
+            }).join('') : `<tr><td colspan="${colCount}"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无数据</div></div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -598,6 +699,24 @@ async function viewCash(id) {
   const canActArea = isArea && c.status === 'escalated';
   const diff = c.difference;
 
+  const clerkName = s ? s.clerk_name : (c.clerk_name || '-');
+  const storeMgrName = c.store_manager_name || '-';
+  const areaMgrName = c.area_manager_name || '';
+
+  // 上一环节
+  let prevStep = '';
+  if (s) {
+    prevStep = `上一环节：班结 ${s.shift_no}（${s.approved_by_name ? s.approved_by_name + ' 已审核通过' : '已审核通过'}）`;
+  }
+
+  // 下一步
+  let nextStep = '';
+  if (c.status === 'pending') nextStep = '下一步：店长开始现场盘点';
+  else if (c.status === 'counting') nextStep = '下一步：提交盘点结果';
+  else if (c.status === 'mismatched') nextStep = '下一步：说明原因 / 升级片区';
+  else if (c.status === 'escalated') nextStep = '下一步：片区管理员裁定';
+  else if (c.status === 'matched' || c.status === 'resolved') nextStep = '已完成';
+
   document.getElementById('pageContent').innerHTML = `
     <a class="back-link" onclick="navTo('cash')">← 返回现金核对列表</a>
 
@@ -609,7 +728,7 @@ async function viewCash(id) {
         </div>
         <div class="page-subtitle">
           ${s?`<a class="link-btn" onclick="viewShift(${s.id})">关联班结: ${s.shift_no}</a> · `:''}
-          ${c.store_name||''}${s?` · ${SHIFT_TEXT[s.shift_type]} · ${s.clerk_name||''} 值班`:''}
+          ${c.store_name||''}${s?` · ${SHIFT_TEXT[s.shift_type]} · ${clerkName} 值班`:''}
         </div>
       </div>
       <div class="action-bar">
@@ -618,8 +737,8 @@ async function viewCash(id) {
         ${isMgr && c.status === 'mismatched' ? `<button class="btn btn-warning" onclick="openEscalate(${c.id})">升级至片区管理员</button>
           <button class="btn btn-success" onclick="cashAction(${c.id},'match')">确认为相符（特殊情况）</button>` : ''}
         ${isArea && c.status === 'escalated' ? `<button class="btn btn-success" onclick="openResolve(${c.id})">裁定并解决</button>` : ''}
-        ${(isMgr && ['pending','counting','mismatched'].includes(c.status)) ? `<button class="btn btn-outline" onclick="openAddMaterial(${c.id})">+ 上传材料</button>` : ''}
-        ${(canActMgr || canActArea) ? `<button class="btn btn-outline" onclick="openEditNotes(${c.id}, ${JSON.stringify(c).replace(/"/g,'&quot;')})">更新备注/结论</button>` : ''}
+        ${(canActMgr || canActArea) ? `<button class="btn btn-outline" onclick="openAddMaterial(${c.id})">+ 上传材料</button>` : ''}
+        ${(canActMgr || canActArea) ? `<button class="btn btn-outline" onclick="openEditNotes(${c.id})">更新备注/结论</button>` : ''}
       </div>
     </div>
 
@@ -628,7 +747,7 @@ async function viewCash(id) {
     ${(c.status === 'matched' || c.status === 'resolved') ? `<div class="alert alert-info" style="background:#ecfdf5;border-color:#a7f3d0;color:#065f46;"><span class="alert-icon">✅</span><div><b>现金核对已完成：</b>${c.resolution || '账实相符，责任链完整'}</div></div>` : ''}
 
     <div class="three-col">
-      <!-- Column 1: 金额 + 上环节 -->
+      <!-- Column 1: 金额 + 上环节 + 责任链 -->
       <div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-header"><div class="card-title">💵 金额核对（同一工作面）</div></div>
@@ -641,19 +760,40 @@ async function viewCash(id) {
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><div class="card-title">🔗 上一环节结论（销售班结）</div></div>
+          <div class="card-header"><div class="card-title">🔗 上一环节（销售班结）入口</div></div>
           <div class="card-body">
             ${s ? `
               <div style="font-size:12px;color:#6b7280;margin-bottom:6px;">班结编号</div>
-              <div style="font-weight:600;margin-bottom:10px;"><a class="link-btn" onclick="viewShift(${s.id})">${s.shift_no}</a> · <span class="status-badge status-${s.status}">${STATUS_TEXT[s.status]}</span></div>
+              <div style="font-weight:600;margin-bottom:10px;">
+                <a class="link-btn" onclick="viewShift(${s.id})">${s.shift_no}</a>
+                <span class="status-badge status-${s.status}" style="margin-left:6px;">${STATUS_TEXT[s.status]}</span>
+              </div>
               <div class="info-grid">
-                <div class="info-item"><div class="info-label">店员</div><div class="info-value">${s.clerk_name||'-'}</div></div>
-                <div class="info-item"><div class="info-label">审核人</div><div class="info-value">${s.approved_by_name||'-'}</div></div>
+                <div class="info-item"><div class="info-label">店员（第一责任人）</div><div class="info-value">${s.clerk_name||'-'}</div></div>
+                <div class="info-item"><div class="info-label">审核店长</div><div class="info-value">${s.approved_by_name||'-'}</div></div>
                 <div class="info-item"><div class="info-label">销售合计</div><div class="info-value money">${fmtMoney(s.total_sales)}</div></div>
                 <div class="info-item"><div class="info-label">创建时间</div><div class="info-value" style="font-size:12px;">${fmtTime(s.created_at)}</div></div>
               </div>
               ${s.reject_reason ? `<div style="margin-top:10px;padding:8px;background:#fef2f2;border-radius:4px;font-size:12px;color:#991b1b;"><b>上次驳回：</b>${s.reject_reason}</div>` : ''}
+              ${nextStep ? `<div style="margin-top:12px;padding:10px 12px;background:#ede9fe;border-radius:6px;font-size:12px;color:#6d28d9;">👉 <b>${nextStep}</b></div>` : ''}
             ` : '<div style="color:#9ca3af;font-size:12px;">未找到关联班结信息</div>'}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">👥 责任链摘要</div></div>
+          <div class="card-body" style="padding-top:12px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+              <span class="type-badge role-clerk">店员</span>
+              <span style="font-weight:500;">${clerkName}</span>
+              <span style="color:#9ca3af;">→</span>
+              <span class="type-badge role-store_manager">店长</span>
+              <span style="font-weight:500;">${storeMgrName}</span>
+              ${areaMgrName ? `<span style="color:#9ca3af;">→</span><span class="type-badge role-area_manager">片区</span><span style="font-weight:500;">${areaMgrName}</span>` : ''}
+            </div>
+            <div style="font-size:12px;color:#6b7280;line-height:1.6;">
+              ${c.status === 'escalated' ? '当前处于片区裁定阶段，最终责任：店员对差异负主要责任，店长负审核责任，片区负最终裁定责任。' : '当前处于门店核对阶段，店员负主要责任，店长负盘点责任。'}
+            </div>
           </div>
         </div>
       </div>
@@ -668,7 +808,7 @@ async function viewCash(id) {
             ${(c.materials||[]).length ? `<div class="material-list">
               ${c.materials.map(m => `
                 <div class="material-item">
-                  <div class="material-icon">${ {redeem_register:'🎟️',fault_ticket:'🛠️',bank_slip:'🏦',receipt:'🧾',other:'📄'}[m.type] || '📄'}</div>
+                  <div class="material-icon">${MATERIAL_ICON[m.type] || '📄'}</div>
                   <div class="material-body">
                     <div class="material-name">${m.name}</div>
                     <div class="material-meta">${TYPE_TEXT[m.type]||m.type}${m.reference_no?` · 编号:${m.reference_no}`:''}${m.uploaded_by_name?` · ${m.uploaded_by_name}上传`:''} · ${fmtTime(m.created_at)}</div>
@@ -681,7 +821,7 @@ async function viewCash(id) {
         </div>
 
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-header"><div class="card-title">📝 备注 & 结论</div></div>
+          <div class="card-header"><div class="card-title">📝 备注 & 结论（同屏展示）</div></div>
           <div class="card-body" style="padding-top:12px;">
             <div class="form-group" style="margin-bottom:10px;"><label style="color:#6b7280;">上一环节/历史说明</label>
               <div style="background:#f9fafb;padding:10px;border-radius:6px;font-size:13px;border:1px solid #f3f4f6;white-space:pre-wrap;line-height:1.6;">${c.previous_conclusion || '<span style="color:#9ca3af;">暂无</span>'}</div>
@@ -750,7 +890,7 @@ function openEscalate(id) {
 function openResolve(id) {
   showModal('片区裁定 · 最终解决', `
     <div class="form-group"><label>解决结论（必填，存入历史档案）</label>
-    <textarea id="res_val" style="min-height:100px;" placeholder="例如：经与隔壁店店长核实，500元确实为临时兑款，店员王小明工作疏忽未记录。片区裁定由两店对账调平，对王小明记口头警告一次。本次短款纳入两店内部往来，现金核对单按'已解决'归档。"></textarea></div>
+    <textarea id="res_val" style="min-height:100px;" placeholder="请输入最终裁定结论..."></textarea></div>
   `, () => {
     const v = document.getElementById('res_val').value.trim();
     if (!v) { alert('请填写结论'); return false; }
@@ -761,92 +901,61 @@ function openResolve(id) {
 
 function openAddMaterial(id) {
   showModal('上传核对材料', `
+    <div class="form-group"><label>材料类型</label>
+      <select id="am_type">
+        <option value="redeem_register">兑奖登记单</option>
+        <option value="fault_ticket">设备故障单</option>
+        <option value="bank_slip">银行回执</option>
+        <option value="receipt">收据</option>
+        <option value="other">其他</option>
+      </select></div>
+    <div class="form-group"><label>材料名称/标题</label>
+      <input type="text" id="am_name" placeholder="例如：6月12日兑奖登记表"></div>
     <div class="form-row">
-      <div class="form-group"><label>材料类型</label>
-        <select id="am_type">
-          <option value="redeem_register">兑奖登记单</option>
-          <option value="fault_ticket">设备故障单</option>
-          <option value="bank_slip">银行回执</option>
-          <option value="receipt">收据</option>
-          <option value="other">其他</option>
-        </select>
-      </div>
-      <div class="form-group"><label>参考编号</label><input type="text" id="am_ref" placeholder="RD.../FT..."></div>
+      <div class="form-group"><label>参考编号</label><input type="text" id="am_ref" placeholder="可选"></div>
+      <div class="form-group"><label>涉及金额</label><input type="number" id="am_amt" step="0.01" placeholder="可选"></div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label>材料名称</label><input type="text" id="am_name" placeholder="如：兑奖登记单-20260614-001"></div>
-      <div class="form-group"><label>涉及金额（可选）</label><input type="number" id="am_amt" step="0.01" value="0"></div>
-    </div>
-  `, async () => {
-    const payload = {
+  `, () => {
+    const name = document.getElementById('am_name').value.trim();
+    if (!name) { alert('请填写材料名称'); return false; }
+    const body = {
       type: document.getElementById('am_type').value,
-      name: document.getElementById('am_name').value.trim(),
-      reference_no: document.getElementById('am_ref').value.trim(),
-      amount: parseFloat(document.getElementById('am_amt').value) || 0
+      name,
+      reference_no: document.getElementById('am_ref').value.trim() || null,
+      amount: parseFloat(document.getElementById('am_amt').value) || null
     };
-    if (!payload.name) { alert('请填写材料名称'); return false; }
-    const r = await api(`/cash/${id}/materials`, 'POST', payload);
-    if (r.code === 0) { viewCash(id); return true; }
-    else { alert(r.message); return false; }
+    api(`/cash/${id}/materials`, 'POST', body).then(r => {
+      if (r.code === 0) { closeModal(); viewCash(id); }
+      else alert(r.message);
+    });
+    return false;
   });
 }
 
-function openEditNotes(id, c) {
-  showModal('更新备注信息', `
-    <div class="form-group"><label>上一环节/历史说明（可编辑，追加历史）</label>
-    <textarea id="nt_prev" style="min-height:60px;">${c.previous_conclusion||''}</textarea></div>
-    <div class="form-group"><label>材料说明（本单材料汇总）</label>
-    <textarea id="nt_mat" style="min-height:60px;">${c.material_notes||''}</textarea></div>
-    <div class="form-group"><label>当前备注（差异原因/沟通）</label>
-    <textarea id="nt_notes" style="min-height:70px;">${c.notes||''}</textarea></div>
-  `, () => {
-    cashAction(id, 'update_notes', {
-      previous_conclusion: document.getElementById('nt_prev').value,
-      material_notes: document.getElementById('nt_mat').value,
-      notes: document.getElementById('nt_notes').value
+function openEditNotes(id) {
+  api('/cash/' + id).then(r => {
+    const c = r.data;
+    if (!c) return;
+    showModal('更新备注 / 结论', `
+      <div class="form-group"><label>上一环节/历史说明</label>
+        <textarea id="en_prev" style="min-height:60px;">${c.previous_conclusion||''}</textarea></div>
+      <div class="form-group"><label>材料说明</label>
+        <textarea id="en_mat" style="min-height:60px;">${c.material_notes||''}</textarea></div>
+      <div class="form-group"><label>当前备注（差异原因/沟通记录）</label>
+        <textarea id="en_notes" style="min-height:80px;">${c.notes||''}</textarea></div>
+    `, () => {
+      const body = {
+        previous_conclusion: document.getElementById('en_prev').value.trim(),
+        material_notes: document.getElementById('en_mat').value.trim(),
+        notes: document.getElementById('en_notes').value.trim()
+      };
+      cashAction(id, 'update_notes', body);
+      return true;
     });
-    return true;
   });
 }
 
 // ===== Notifications =====
-function renderNotifItem(n, panel=false, onClickRead=false) {
-  return `<div class="notif-item ${n.is_read==0?'unread':''}" onclick="handleNotifClick(${n.id}, '${n.ref_type}', ${n.ref_id}, ${onClickRead})">
-    <div class="notif-header">
-      <span class="notif-type-badge type-${n.type}">${NOTIF_TYPE_TEXT[n.type]||n.type}</span>
-      <div class="notif-title">${n.title}</div>
-      ${n.is_read==0 && panel ? '<span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>' : ''}
-    </div>
-    ${n.content ? `<div class="notif-content">${n.content}</div>` : ''}
-    <div class="notif-time">${fmtTime(n.created_at)}</div>
-  </div>`;
-}
-
-async function handleNotifClick(id, refType, refId, readAll) {
-  await api(`/notifications/${id}/read`, 'POST');
-  updateUnreadCount();
-  if (refType === 'shift_settlement') viewShift(refId);
-  else if (refType === 'cash_verification') viewCash(refId);
-}
-
-async function toggleNotifications() {
-  const el = document.getElementById('notifPanel');
-  if (el.style.display === 'none' || !el.style.display) {
-    const r = await api('/notifications');
-    const list = r.data || [];
-    document.getElementById('notifListPanel').innerHTML = list.length ?
-      list.slice(0, 15).map(n => renderNotifItem(n, true, true)).join('') :
-      '<div class="empty-state" style="padding:40px 0;"><div class="empty-icon">✉️</div><div class="empty-text">暂无通知</div></div>';
-    el.style.display = 'block';
-  } else el.style.display = 'none';
-}
-
-async function readAllNotif() {
-  await api('/notifications/0/read?all=1', 'POST');
-  updateUnreadCount();
-  toggleNotifications();
-}
-
 async function renderNotifications() {
   const r = await api('/notifications');
   const list = r.data || [];
@@ -854,51 +963,55 @@ async function renderNotifications() {
     <div class="page-header">
       <div>
         <div class="page-title">🔔 通知中心</div>
-        <div class="page-subtitle">待处理提醒 · 差异预警 · 升级通知 · 审批结果</div>
-      </div>
-      <div class="action-bar">
-        <button class="btn btn-outline btn-sm" onclick="api('/notifications/0/read?all=1','POST').then(()=>{updateUnreadCount();loadPage('notifications');})">全部标为已读</button>
+        <div class="page-subtitle">所有与您相关的审批、差异、升级等提醒</div>
       </div>
     </div>
     <div class="card">
-      <div class="card-body" style="padding:0;">
-        ${list.length ? list.map(n => renderNotifItem(n, false, true)).join('') :
-        '<div class="empty-state"><div class="empty-icon">✉️</div><div class="empty-text">暂无通知</div></div>'}
+      <div class="card-body">
+        ${list.length ? `<div class="notif-list">${list.map(n => renderNotifItem(n, false)).join('')}</div>`
+          : '<div class="empty-state"><div class="empty-icon">✉️</div><div class="empty-text">暂无通知</div></div>'}
       </div>
     </div>
   `;
 }
 
+function renderNotifItem(n, hideUnread, short) {
+  const typeClass = { approval:'tag-info', review:'tag-warning', escalation:'tag-danger', mismatch:'tag-danger', overdue:'tag-danger' }[n.type] || 'tag-info';
+  return `<div class="notif-item ${!n.is_read && !hideUnread ? 'unread' : ''}" onclick="goNotif(${n.id}, '${n.ref_type}', ${n.ref_id})">
+    <div class="notif-icon">${n.type==='approval'?'✅':n.type==='escalation'?'⬆️':n.type==='mismatch'?'💸':n.type==='overdue'?'⏰':'📢'}</div>
+    <div class="notif-body">
+      <div class="notif-title">${n.title} ${!n.is_read && !hideUnread ? '<span class="dot-red"></span>' : ''}</div>
+      <div class="notif-desc">${n.content||''}</div>
+      <div class="notif-time">${fmtTime(n.created_at)}</div>
+    </div>
+    <div class="notif-tag">
+      <span class="tag ${typeClass}">${NOTIF_TYPE_TEXT[n.type]||n.type}</span>
+    </div>
+  </div>`;
+}
+
+async function goNotif(notifId, refType, refId) {
+  api(`/notifications/${notifId}/read`, 'POST');
+  updateUnreadCount();
+  if (refType === 'shift_settlement') viewShift(refId);
+  else if (refType === 'cash_verification') viewCash(refId);
+}
+
 // ===== Operation Logs =====
 async function renderLogs() {
-  const r = await api('/logs');
+  const r = await api('/logs?limit=100');
   const list = r.data || [];
   return `
     <div class="page-header">
       <div>
-        <div class="page-title">📜 全局操作日志</div>
-        <div class="page-subtitle">全系统责任追溯 · 时间留痕 · 角色不可抵赖</div>
+        <div class="page-title">📜 操作日志总览</div>
+        <div class="page-subtitle">全系统操作留痕 · 时间线完整可追溯</div>
       </div>
     </div>
     <div class="card">
       <div class="card-body">
-        <div class="timeline" style="max-height:none;">
-          ${list.length ? list.map(l => {
-            const extraLink = l.ref_type === 'shift_settlement' ? `<span class="link-btn" style="margin-left:8px;" onclick="viewShift(${l.ref_id})">[查看${l.ref_type==='shift_settlement'?'班结':'核对'}]</span>` : (l.ref_type==='cash_verification'?`<span class="link-btn" style="margin-left:8px;" onclick="viewCash(${l.ref_id})">[查看核对]</span>`:'');
-            return `<div class="timeline-item">
-              <div class="timeline-dot ${ {create:'create',submit:'submit',approve:'approve',reject:'reject',escalate:'escalate'}[l.action] || ''}"></div>
-              <div style="display:flex;gap:8px;align-items:center;">
-                <div class="timeline-time">${fmtTime(l.created_at)}</div>
-                <span class="tag tag-warning">${l.ref_type==='shift_settlement'?'班结':'现金核对'}#${l.ref_id}</span>
-                ${extraLink}
-              </div>
-              <div class="timeline-title">${ ({create:'📝 创建',submit:'📤 提交',approve:'✅ 批准',reject:'❌ 驳回',escalate:'⬆️ 升级',start_count:'🔢 开始盘点',submit_count:'📊 盘点完成',upload_material:'📎 上传材料',match:'🤝 确认匹配',resolve:'🎉 解决',update_notes:'📝 更新备注',update_cash:'✏️ 修改',count_result:'📊 盘点结果',auto_close:'🔒 自动闭环'}[l.action] || l.action)}
-                ${l.old_status && l.new_status ? `<span class="status-change"><span class="status-badge status-${l.old_status}">${STATUS_TEXT[l.old_status]}</span> → <span class="status-badge status-${l.new_status}">${STATUS_TEXT[l.new_status]}</span></span>` : ''}
-              </div>
-              <div class="timeline-detail">${l.detail||'-'}</div>
-              <span class="timeline-operator role-${l.operator_role}">${l.operator_name} · ${ROLE_TEXT[l.operator_role]}</span>
-            </div>`;
-          }).join('') : '<div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">暂无日志</div></div>'}
+        <div class="timeline history-list">
+          ${list.length ? list.map(l => renderTimelineItem(l)).join('') : '<div class="empty-state"><div class="empty-icon">📜</div><div class="empty-text">暂无日志</div></div>'}
         </div>
       </div>
     </div>
@@ -907,34 +1020,45 @@ async function renderLogs() {
 
 // ===== Modal =====
 function showModal(title, bodyHtml, onOk) {
-  const html = `
-    <div class="modal-mask" onclick="if(event.target===this)closeModal()">
-      <div class="modal">
-        <div class="modal-header">
-          <div class="modal-title">${title}</div>
-          <button class="modal-close" onclick="closeModal()">×</button>
-        </div>
-        <div class="modal-body">${bodyHtml}</div>
-        <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeModal()">取消</button>
-          <button class="btn btn-primary" id="modalOkBtn">确定</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById('modalContainer').innerHTML = html;
-  document.getElementById('modalOkBtn').onclick = async () => {
-    const result = await onOk();
-    if (result !== false) closeModal();
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  const okBtn = document.getElementById('modalOkBtn');
+  okBtn.onclick = () => {
+    if (onOk) {
+      const result = onOk();
+      if (result !== false) closeModal();
+    } else closeModal();
   };
+  document.getElementById('modalOverlay').style.display = 'flex';
+  setTimeout(() => {
+    const firstInput = document.querySelector('#modalBody input, #modalBody textarea, #modalBody select');
+    if (firstInput) firstInput.focus();
+  }, 50);
 }
-function closeModal() { document.getElementById('modalContainer').innerHTML = ''; }
 
-// 点击外部关闭通知面板
-document.addEventListener('click', e => {
+function closeModal() {
+  document.getElementById('modalOverlay').style.display = 'none';
+}
+
+// ===== Notif panel =====
+async function toggleNotifPanel() {
+  const p = document.getElementById('notifPanel');
+  if (p.style.display === 'block') { p.style.display = 'none'; return; }
+  const r = await api('/notifications?unread=1');
+  const list = r.data || [];
+  document.getElementById('notifList').innerHTML = list.length
+    ? list.slice(0,8).map(n => renderNotifItem(n, false)).join('')
+    : '<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">✉️</div><div class="empty-text">暂无未读通知</div></div>';
+  p.style.display = 'block';
+}
+
+// Utils
+function recentLogsPreview() {}
+
+document.addEventListener('click', (e) => {
   const panel = document.getElementById('notifPanel');
-  if (panel && panel.style.display === 'block' && !panel.contains(e.target) && !e.target.closest('.bell-btn')) {
+  const bell = document.getElementById('notifBell');
+  if (panel.style.display === 'block' && !panel.contains(e.target) && !bell.contains(e.target)) {
     panel.style.display = 'none';
   }
 });
-
-init();
