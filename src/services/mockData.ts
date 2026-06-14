@@ -99,7 +99,7 @@ export const mockVehicles: Vehicle[] = [
     vinCode: 'LHGCM4620E8044444',
     registerDate: '2020-09-05',
     inspectionType: '复检',
-    status: '待发放',
+    status: '发放异常',
     createdAt: twoDaysAgo.toISOString(),
     updatedAt: now.toISOString(),
   },
@@ -504,7 +504,9 @@ export const mockDistributions: ReportDistribution[] = [
     id: 'D006',
     reportId: 'R006',
     vehicleId: 'V006',
-    status: '待发放',
+    status: '发放异常',
+    sentAt: yesterday.toISOString(),
+    remark: '车主联系方式无效，报告发放失败',
     createdAt: twoDaysAgo.toISOString(),
   },
   {
@@ -516,15 +518,6 @@ export const mockDistributions: ReportDistribution[] = [
     confirmedAt: threeDaysAgo.toISOString(),
     followupTaskId: 'F003',
     createdAt: threeDaysAgo.toISOString(),
-  },
-  {
-    id: 'D008',
-    reportId: 'R006',
-    vehicleId: 'V006',
-    status: '发放异常',
-    sentAt: yesterday.toISOString(),
-    remark: '车主联系方式无效，报告发放失败',
-    createdAt: twoDaysAgo.toISOString(),
   },
 ];
 

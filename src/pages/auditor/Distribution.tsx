@@ -19,9 +19,9 @@ export function AuditorDistribution() {
     d.status === '待发放' || d.status === '发放中'
   );
   
-  const completedDistributions = distributions.filter(d => 
-    d.status === '已发放' || d.status === '发放异常'
-  );
+  const completedDistributions = distributions.filter(d => d.status === '已发放');
+  
+  const failedDistributions = distributions.filter(d => d.status === '发放异常');
 
   const getVehicle = (vehicleId: string) => {
     return vehicles.find(v => v.id === vehicleId);
@@ -33,7 +33,7 @@ export function AuditorDistribution() {
 
   const getDistributionTag = (dist: ReportDistribution) => {
     if (dist.status === '发放异常') {
-      return '发放异常';
+      return null;
     }
     if (dist.status === '待发放') {
       const auditTime = getReport(dist.reportId)?.auditedAt;
@@ -60,7 +60,7 @@ export function AuditorDistribution() {
     }
   };
 
-  const allDistributions = [...pendingDistributions, ...completedDistributions];
+  const allDistributions = [...pendingDistributions, ...completedDistributions, ...failedDistributions];
 
   const filteredDistributions = allDistributions.filter(dist => {
     const report = getReport(dist.reportId);
@@ -99,6 +99,11 @@ export function AuditorDistribution() {
               <span className="text-gray-600">
                 已发放：<span className="font-bold text-green-600">{completedDistributions.length}</span> 份
               </span>
+              {failedDistributions.length > 0 && (
+                <span className="text-gray-600">
+                  发放异常：<span className="font-bold text-red-600">{failedDistributions.length}</span> 份
+                </span>
+              )}
             </div>
           </div>
         </div>

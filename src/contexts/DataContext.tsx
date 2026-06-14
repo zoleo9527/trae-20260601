@@ -237,6 +237,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     updateDistribution(distributionId, {
       status: '发放中',
       sentAt: new Date().toISOString(),
+      remark: undefined,
     });
     updateVehicle(report.vehicleId, { status: '发放中' });
     
@@ -250,8 +251,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
       updateVehicle(report.vehicleId, { status: '已发放' });
       
       if (vehicle) {
-        const followup = createFollowup(distributionId, distribution.reportId, report.vehicleId, vehicle.ownerName, vehicle.ownerPhone);
-        updateDistribution(distributionId, { followupTaskId: followup.id });
+        if (distribution.followupTaskId) {
+          setFollowups(prev => prev.map(f => {
+            if (f.id === distribution.followupTaskId) {
+              return {
+                ...f,
+                status: '待回访' as FollowupStatus,
+                attempts: 0,
+                deadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+              };
+            }
+            return f;
+          }));
+        } else {
+          const followup = createFollowup(distributionId, distribution.reportId, report.vehicleId, vehicle.ownerName, vehicle.ownerPhone);
+          updateDistribution(distributionId, { followupTaskId: followup.id });
+        }
       }
     }, 2000);
     
