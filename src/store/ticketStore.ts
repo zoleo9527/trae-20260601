@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { FaultTicket, User, TicketStatus, CreateTicketForm, TicketPriority, UserRole } from '../types'
+import { FaultTicket, User, TicketStatus, CreateTicketForm, TicketPriority, UserRole, HandoverType } from '../types'
 import { mockTickets, mockUsers } from '../data/mockData'
 
 interface TicketStore {
@@ -24,6 +24,41 @@ const generateId = () => Math.random().toString(36).substring(2, 11)
 
 const getCurrentTimestamp = () => new Date().toISOString()
 
+const getHandoverLabel = (handoverType?: HandoverType): string => {
+  if (!handoverType || handoverType === 'normal_fault') return ''
+  return handoverType === 'shift_close' ? '销售班结' : '兑奖登记'
+}
+
+const buildHandoverRemark = (form: CreateTicketForm): string => {
+  if (!form.handoverType || form.handoverType === 'normal_fault') return form.remarks || ''
+  
+  let remark = ''
+  
+  if (form.handoverType === 'shift_close' && form.shiftCloseInfo) {
+    remark = `【班结交接】单号: ${form.shiftCloseInfo.shiftId}, 日期: ${form.shiftCloseInfo.shiftDate}, 班次: ${
+      form.shiftCloseInfo.shiftPeriod === 'morning' ? '早班' :
+      form.shiftCloseInfo.shiftPeriod === 'afternoon' ? '中班' :
+      form.shiftCloseInfo.shiftPeriod === 'evening' ? '晚班' : '夜班'
+    }, 销售额: ¥${form.shiftCloseInfo.salesAmount.toLocaleString()}`
+    if (form.shiftCloseInfo.remark) {
+      remark += `, 异常说明: ${form.shiftCloseInfo.remark}`
+    }
+  }
+  
+  if (form.handoverType === 'prize_claim' && form.prizeClaimInfo) {
+    remark = `【兑奖交接】单号: ${form.prizeClaimInfo.claimId}, 日期: ${form.prizeClaimInfo.claimDate}, 中奖等级: ${form.prizeClaimInfo.prizeLevel}, 中奖金额: ¥${form.prizeClaimInfo.prizeAmount.toLocaleString()}, 彩票编号: ${form.prizeClaimInfo.ticketId}`
+    if (form.prizeClaimInfo.remark) {
+      remark += `, 异常说明: ${form.prizeClaimInfo.remark}`
+    }
+  }
+  
+  if (form.remarks) {
+    remark += `\n${form.remarks}`
+  }
+  
+  return remark
+}
+
 export const useTicketStore = create<TicketStore>((set, get) => ({
   tickets: mockTickets,
   currentUser: mockUsers[0],
@@ -41,6 +76,18 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
 
   createTicket: (form) => {
     const { currentUser, tickets } = get()
+    
+    const handoverLabel = getHandoverLabel(form.handoverType)
+    const actionText = handoverLabel ? `提交故障单（${handoverLabel}交接）` : '提交故障单'
+    const fullRemark = buildHandoverRemark(form)
+    
+    const isAlert = form.handoverType && form.handoverType !== 'normal_fault'
+    const alertMessage = isAlert 
+      ? (form.handoverType === 'shift_close' 
+        ? '班结交接故障单，请优先处理' 
+        : '兑奖交接故障单，请优先处理')
+      : undefined
+    
     const newTicket: FaultTicket = {
       id: generateId(),
       deviceId: form.deviceId,
@@ -51,17 +98,22 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
       priority: form.priority,
       category: 'other',
       description: form.description,
-      remarks: form.remarks || '',
+      remarks: fullRemark,
       createdAt: getCurrentTimestamp(),
       updatedAt: getCurrentTimestamp(),
       createdBy: currentUser.name,
+      handoverType: form.handoverType,
+      shiftCloseInfo: form.shiftCloseInfo,
+      prizeClaimInfo: form.prizeClaimInfo,
+      isAlert,
+      alertMessage,
       processHistory: [
         {
           id: generateId(),
-          action: '提交故障单',
+          action: actionText,
           operator: currentUser.name,
           timestamp: getCurrentTimestamp(),
-          remark: form.remarks,
+          remark: fullRemark,
           role: currentUser.role,
         },
       ],
