@@ -43,6 +43,10 @@ export interface Communication {
   responsibleRole: 'teaching' | 'consultant' | 'admin';
   responsibleName: string;
   lastContactAt?: string;
+  nextFollowUpAt?: string;
+  exceptionReason?: string;
+  exceptionDescription?: string;
+  result?: string;
   createdAt: string;
   updatedAt: string;
 }

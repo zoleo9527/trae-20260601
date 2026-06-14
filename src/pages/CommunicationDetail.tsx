@@ -70,10 +70,38 @@ export function CommunicationDetail() {
   const handleComplete = async () => {
     if (!id || !resultText.trim()) return;
     const result = await updateCommunicationStatus(id, 'completed', resultText);
-    setCommunication(result);
-    updateCommunication(result);
+    setCommunication(result.communication);
+    setHistory(result.history);
+    updateCommunication(result.communication);
     setShowResultModal(false);
     setResultText('');
+  };
+
+  const handleQuickAction = async (action: string) => {
+    if (!id) return;
+    const typeMap: Record<string, 'call' | 'message' | 'meeting'> = {
+      call: 'call',
+      message: 'message',
+      meeting: 'meeting',
+    };
+    const actionLabels: Record<string, string> = {
+      call: '电话沟通',
+      message: '消息沟通',
+      meeting: '面谈沟通',
+    };
+    const actionDescriptions: Record<string, string> = {
+      call: '拨打',
+      message: '发送',
+      meeting: '预约',
+    };
+    
+    const type = typeMap[action];
+    if (type) {
+      const result = await addCommunicationHistory(id, type, `${actionLabels[action]} - 已${actionDescriptions[action]}`);
+      setCommunication(result.communication);
+      setHistory(result.history);
+      updateCommunication(result.communication);
+    }
   };
 
   const getRoleLabel = (role: string) => {
@@ -255,15 +283,24 @@ export function CommunicationDetail() {
               <h2 className="font-semibold text-gray-800">快捷操作</h2>
             </div>
             <div className="p-6 space-y-3">
-              <button className="w-full py-3 bg-green-100 text-green-700 font-medium rounded-xl hover:bg-green-200 transition-colors flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleQuickAction('call')}
+                className="w-full py-3 bg-green-100 text-green-700 font-medium rounded-xl hover:bg-green-200 transition-colors flex items-center justify-center gap-2"
+              >
                 <Phone className="w-4 h-4" />
                 拨打电话
               </button>
-              <button className="w-full py-3 bg-blue-100 text-blue-700 font-medium rounded-xl hover:bg-blue-200 transition-colors flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleQuickAction('message')}
+                className="w-full py-3 bg-blue-100 text-blue-700 font-medium rounded-xl hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
+              >
                 <Mail className="w-4 h-4" />
                 发送消息
               </button>
-              <button className="w-full py-3 bg-purple-100 text-purple-700 font-medium rounded-xl hover:bg-purple-200 transition-colors flex items-center justify-center gap-2">
+              <button 
+                onClick={() => handleQuickAction('meeting')}
+                className="w-full py-3 bg-purple-100 text-purple-700 font-medium rounded-xl hover:bg-purple-200 transition-colors flex items-center justify-center gap-2"
+              >
                 <Video className="w-4 h-4" />
                 预约面谈
               </button>

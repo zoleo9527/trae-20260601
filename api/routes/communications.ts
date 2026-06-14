@@ -86,6 +86,20 @@ router.put('/:id/status', (req, res) => {
     return res.status(404).json({ error: 'Communication not found' });
   }
   
+  const newHistory = {
+    id: `ch${Date.now()}`,
+    communicationId: id,
+    type: 'message',
+    content: status === 'completed' 
+      ? `【状态变更】完成沟通: ${result || '已完成'}` 
+      : `【状态变更】${status === 'pending' ? '待处理' : status === 'ongoing' ? '进行中' : status}`,
+    operator: '当前用户',
+    operatorRole: 'consultant',
+    createdAt: new Date().toLocaleString('zh-CN')
+  };
+  
+  communicationHistory.push(newHistory);
+  
   communications[communicationIndex] = {
     ...communications[communicationIndex],
     status,
@@ -94,7 +108,10 @@ router.put('/:id/status', (req, res) => {
     updatedAt: new Date().toISOString().split('T')[0]
   };
   
-  res.json(communications[communicationIndex]);
+  res.json({
+    communication: communications[communicationIndex],
+    history: [...communicationHistory.filter(h => h.communicationId === id)]
+  });
 });
 
 router.post('/:id/exception', (req, res) => {

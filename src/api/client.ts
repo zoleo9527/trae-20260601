@@ -53,13 +53,14 @@ export async function addCommunicationHistory(id: string, type: CommunicationHis
   return { communication: data, history: data.history };
 }
 
-export async function updateCommunicationStatus(id: string, status: Communication['status'], result?: string): Promise<Communication> {
+export async function updateCommunicationStatus(id: string, status: Communication['status'], result?: string): Promise<{ communication: Communication; history: CommunicationHistory[] }> {
   const response = await fetch(`${BASE_URL}/communications/${id}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ status, result })
   });
-  return response.json();
+  const data = await response.json();
+  return { communication: data.communication, history: data.history };
 }
 
 export async function handleCommunicationException(id: string, reason: string, description: string, nextFollowUp: string): Promise<{ communication: Communication; history: CommunicationHistory[] }> {
