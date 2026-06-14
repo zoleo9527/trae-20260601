@@ -99,32 +99,33 @@ class TestNormalOrder(unittest.TestCase):
             feedback_content="客户反馈：翻译质量不错，但有一个术语需要修正"
         )
 
-        handled_feedback = FeedbackService.handle_feedback(
+        result = FeedbackService.handle_feedback(
             feedback_id=feedback.id,
             handler_id=self.pm.id,
             handler_type=RoleType.PROJECT_MANAGER,
             internal_notes="已与译员沟通，术语已修正",
             responsibility_analysis="属于译员理解偏差，但已及时修正",
-            processing_result="问题已解决"
+            processing_result="问题已解决",
+            auto_create_fee=True,
+            estimated_amount=5000.00,
+            fee_type="翻译费"
         )
 
-        self.assertEqual(handled_feedback.status, FeedbackStatus.HANDLED)
-        self.assertIsNotNone(handled_feedback.internal_notes)
+        self.assertIn("fee", result)
+        self.assertIn("feedback", result)
+        self.assertEqual(result["feedback"].status, FeedbackStatus.HANDLED)
+        self.assertIsNotNone(result["feedback"].internal_notes)
 
-        fee = FeeService.create_fee_from_feedback(
-            project_id=project.id,
-            amount=5000.00,
-            fee_type="翻译费",
-            feedback_id=feedback.id
-        )
-
+        fee = result["fee"]
+        self.assertIsNotNone(fee)
         self.assertIsNotNone(fee.inherited_notes)
         self.assertIn("已与译员沟通", fee.inherited_notes)
         self.assertEqual(fee.feedback_id, feedback.id)
+        self.assertEqual(fee.related_fee_id, fee.id)
 
         retrieved_fee = FeeService.get_fee(fee.id)
         self.assertEqual(retrieved_fee.inherited_notes, fee.inherited_notes)
-        print(f"✓ 客户反馈备注自动继承到费用确认")
+        print(f"✓ 客户反馈备注自动沉淀为待确认费用")
 
     def test_4_fee_confirmation_workflow(self):
         """测试4: 费用确认完整流程"""
@@ -291,36 +292,45 @@ class TestProblemOrder(unittest.TestCase):
             feedback_content="客户投诉：术语翻译错误"
         )
 
-        handled_feedback = FeedbackService.handle_feedback(
+        result = FeedbackService.handle_feedback(
             feedback_id=feedback.id,
             handler_id=self.pm.id,
             handler_type=RoleType.PROJECT_MANAGER,
             internal_notes="经核实，确实存在错误",
             responsibility_analysis="译员责任，已安排修正",
-            processing_result="需要重新翻译相关章节"
+            processing_result="需要重新翻译相关章节",
+            auto_create_fee=False
         )
 
-        fee = FeeService.create_fee_from_feedback(
+        handled_feedback = result["feedback"]
+
+        problem_result = ProblemService.create_problem(
             project_id=project.id,
-            amount=10000.00,
-            fee_type="翻译费",
-            feedback_id=feedback.id
+            feedback_id=feedback.id,
+            problem_type=ProblemType.REJECT,
+            reason="驳回原费用：计算有误",
+            created_by=self.pm.id,
+            auto_create_fee=True,
+            estimated_amount=8500.00,
+            fee_type="重新计算翻译费"
         )
 
-        rejected_fee = FeeService.reject_fee(
-            fee_id=fee.id,
-            rejected_by=self.reviewer.id,
-            reject_reason="驳回：费用计算有误，应为8500元"
-        )
+        self.assertIn("fee", problem_result)
+        problem = problem_result["problem"]
+        fee = problem_result["fee"]
 
-        self.assertEqual(rejected_fee.status, FeeStatus.REJECTED)
+        self.assertEqual(fee.problem_id, problem.id)
+        self.assertEqual(fee.feedback_id, feedback.id)
+        self.assertIsNotNone(fee.inherited_notes)
+        self.assertIn("驳回原费用", fee.inherited_notes)
+        self.assertIn("译员责任", fee.inherited_notes)
 
-        status_changes = StatusChangeService.get_changes_by_entity("fee", fee.id)
-        rejected_changes = [c for c in status_changes if c.new_value == FeeStatus.REJECTED.value]
-        self.assertEqual(len(rejected_changes), 1)
-        self.assertEqual(rejected_changes[0].details.get("change_reason") or rejected_fee.confirmation_notes,
-                        "驳回：费用计算有误，应为8500元")
-        print(f"✓ 驳回问题单处理成功")
+        status_changes = StatusChangeService.get_changes_by_entity("problem", problem.id)
+        self.assertGreater(len(status_changes), 0)
+
+        fee_status_changes = StatusChangeService.get_changes_by_entity("fee", fee.id)
+        self.assertGreater(len(fee_status_changes), 0)
+        print(f"✓ 驳回问题单自动创建费用并关联历史")
 
     def test_4_resolve_problem(self):
         """测试4: 问题单解决"""

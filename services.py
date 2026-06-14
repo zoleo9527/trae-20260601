@@ -165,7 +165,10 @@ class FeedbackService:
     @staticmethod
     def handle_feedback(feedback_id: str, handler_id: str, handler_type: RoleType,
                        internal_notes: str, responsibility_analysis: str,
-                       processing_result: str) -> CustomerFeedback:
+                       processing_result: str,
+                       auto_create_fee: bool = True,
+                       estimated_amount: float = None,
+                       fee_type: str = None) -> dict:
         StateMachine.validate_role_permission(handler_type, "handle_feedback")
 
         feedback = db.get("feedback", feedback_id)
@@ -203,7 +206,33 @@ class FeedbackService:
                 handler_id, "客户反馈导致项目标记为问题单"
             )
 
-        return feedback
+        result = {"feedback": feedback}
+
+        if auto_create_fee and estimated_amount and fee_type:
+            inherited_notes = f"【来自客户反馈 #{feedback_id[:8]}】\n" \
+                            f"内部备注: {internal_notes}\n" \
+                            f"责任分析: {responsibility_analysis}\n" \
+                            f"处理结果: {processing_result}"
+
+            fee = FeeService.create_fee_from_feedback(
+                project_id=feedback.project_id,
+                amount=estimated_amount,
+                fee_type=fee_type,
+                feedback_id=feedback_id,
+                inherited_notes=inherited_notes
+            )
+
+            feedback.related_fee_id = fee.id
+            result["fee"] = fee
+            result["message"] = "反馈处理完成，已自动创建待确认费用"
+
+            StatusChangeService.record_change(
+                "fee", fee.id, "status",
+                None, FeeStatus.PENDING.value,
+                handler_id, f"由反馈处理自动创建"
+            )
+
+        return result
 
     @staticmethod
     def get_feedback(feedback_id: str) -> Optional[CustomerFeedback]:
@@ -217,22 +246,30 @@ class FeedbackService:
 class FeeService:
     @staticmethod
     def create_fee_from_feedback(project_id: str, amount: float,
-                                 fee_type: str, feedback_id: str = None) -> FeeConfirmation:
-        if feedback_id:
+                                 fee_type: str, feedback_id: str = None,
+                                 problem_id: str = None,
+                                 inherited_notes: str = None) -> FeeConfirmation:
+        if feedback_id and not inherited_notes:
             feedback = db.get("feedback", feedback_id)
             if feedback and feedback.status == FeedbackStatus.HANDLED:
-                inherited_notes = f"原反馈处理备注: {feedback.internal_notes or ''} " \
-                                f"责任分析: {feedback.responsibility_analysis or ''} " \
+                inherited_notes = f"【来自客户反馈 #{feedback_id[:8]}】\n" \
+                                f"内部备注: {feedback.internal_notes or ''}\n" \
+                                f"责任分析: {feedback.responsibility_analysis or ''}\n" \
                                 f"处理结果: {feedback.processing_result or ''}"
-            else:
-                inherited_notes = None
-        else:
-            inherited_notes = None
-            feedback_id = None
+
+        if problem_id and not inherited_notes:
+            problem = db.get("problem", problem_id)
+            if problem:
+                inherited_notes = f"【来自问题单 #{problem_id[:8]}】\n" \
+                                f"问题类型: {problem.problem_type.value}\n" \
+                                f"问题原因: {problem.reason}\n" \
+                                f"原始数据: {problem.original_data or '无'}\n" \
+                                f"新数据: {problem.new_data or '无'}"
 
         fee = FeeConfirmation(
             project_id=project_id,
             feedback_id=feedback_id,
+            problem_id=problem_id,
             amount=amount,
             fee_type=fee_type,
             inherited_notes=inherited_notes
@@ -304,12 +341,49 @@ class FeeService:
     def get_fees_pending_confirmation() -> List[FeeConfirmation]:
         return db.filter("fee", status=FeeStatus.PENDING)
 
+    @staticmethod
+    def get_fee_with_full_context(fee_id: str) -> dict:
+        fee = db.get("fee", fee_id)
+        if not fee:
+            raise StateTransitionError(ErrorCode.FEE_NOT_FOUND, f"费用记录 {fee_id} 不存在")
+
+        feedback = None
+        if fee.feedback_id:
+            feedback = db.get("feedback", fee.feedback_id)
+
+        problem = None
+        if fee.problem_id:
+            problem = db.get("problem", fee.problem_id)
+
+        project = db.get("project", fee.project_id)
+
+        fee_status_changes = StatusChangeService.get_changes_by_entity("fee", fee_id)
+        feedback_status_changes = []
+        if fee.feedback_id:
+            feedback_status_changes = StatusChangeService.get_changes_by_entity("feedback", fee.feedback_id)
+        problem_status_changes = []
+        if fee.problem_id:
+            problem_status_changes = StatusChangeService.get_changes_by_entity("problem", fee.problem_id)
+
+        return {
+            "fee": fee,
+            "feedback": feedback,
+            "problem": problem,
+            "project": project,
+            "fee_status_changes": sorted(fee_status_changes, key=lambda x: x.created_at),
+            "feedback_status_changes": sorted(feedback_status_changes, key=lambda x: x.created_at),
+            "problem_status_changes": sorted(problem_status_changes, key=lambda x: x.created_at)
+        }
+
 
 class ProblemService:
     @staticmethod
     def create_problem(project_id: str, feedback_id: str, problem_type: ProblemType,
                       reason: str, created_by: str,
-                      original_data: str = None, new_data: str = None) -> ProblemRecord:
+                      original_data: str = None, new_data: str = None,
+                      auto_create_fee: bool = True,
+                      estimated_amount: float = None,
+                      fee_type: str = None) -> dict:
         project = db.get("project", project_id)
         if not project:
             raise StateTransitionError(ErrorCode.PROJECT_NOT_FOUND, f"项目 {project_id} 不存在")
@@ -337,6 +411,12 @@ class ProblemService:
         )
         db.add("problem", problem)
 
+        StatusChangeService.record_change(
+            "problem", problem.id, "status",
+            None, "open",
+            created_by, f"创建{problem_type.value}问题单: {reason}"
+        )
+
         if project.status != OrderStatus.PROBLEM:
             project.status = OrderStatus.PROBLEM
             StatusChangeService.record_change(
@@ -345,7 +425,42 @@ class ProblemService:
                 created_by, f"创建问题单: {problem_type.value}"
             )
 
-        return problem
+        result = {"problem": problem}
+
+        if auto_create_fee and estimated_amount and fee_type:
+            inherited_notes = f"【来自问题单 #{problem.id[:8]}】\n" \
+                            f"问题类型: {problem_type.value}\n" \
+                            f"问题原因: {reason}\n" \
+                            f"原始数据: {original_data or '无'}\n" \
+                            f"新数据: {new_data or '无'}"
+
+            if feedback_id:
+                feedback = db.get("feedback", feedback_id)
+                if feedback:
+                    inherited_notes += f"\n\n【关联反馈备注】\n" \
+                                      f"内部备注: {feedback.internal_notes or ''}\n" \
+                                      f"责任分析: {feedback.responsibility_analysis or ''}\n" \
+                                      f"处理结果: {feedback.processing_result or ''}"
+
+            fee = FeeService.create_fee_from_feedback(
+                project_id=project_id,
+                amount=estimated_amount,
+                fee_type=fee_type,
+                feedback_id=feedback_id,
+                problem_id=problem.id,
+                inherited_notes=inherited_notes
+            )
+
+            result["fee"] = fee
+            result["message"] = f"问题单创建成功，已自动创建关联的待确认费用"
+
+            StatusChangeService.record_change(
+                "fee", fee.id, "status",
+                None, FeeStatus.PENDING.value,
+                created_by, f"由问题单自动创建"
+            )
+
+        return result
 
     @staticmethod
     def get_problems_by_project(project_id: str) -> List[ProblemRecord]:

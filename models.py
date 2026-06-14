@@ -78,6 +78,7 @@ class FeeConfirmation(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
     project_id: str
     feedback_id: Optional[str] = None
+    problem_id: Optional[str] = None
     amount: float
     currency: str = "CNY"
     fee_type: str
