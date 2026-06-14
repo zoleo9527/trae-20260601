@@ -6,11 +6,16 @@ const props = defineProps({
 })
 import {
   APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS,
-  SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS
+  SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS,
+  EXAM_STATUS_LABELS, EXAM_STATUS_COLORS
 } from '@/data/mock.js'
 
-const labels = props.type === 'appointment' ? APPOINTMENT_STATUS_LABELS : SCHEDULE_STATUS_LABELS
-const colors = props.type === 'appointment' ? APPOINTMENT_STATUS_COLORS : SCHEDULE_STATUS_COLORS
+const labels = props.type === 'appointment' ? APPOINTMENT_STATUS_LABELS
+  : props.type === 'schedule' ? SCHEDULE_STATUS_LABELS
+  : EXAM_STATUS_LABELS
+const colors = props.type === 'appointment' ? APPOINTMENT_STATUS_COLORS
+  : props.type === 'schedule' ? SCHEDULE_STATUS_COLORS
+  : EXAM_STATUS_COLORS
 
 const colorClass = (c) => ({
   gray: 'tag-gray', blue: 'tag-blue', green: 'tag-green',

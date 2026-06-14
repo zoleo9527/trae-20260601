@@ -265,3 +265,90 @@ export const INITIAL_SCHEDULES = [
 ]
 
 export { pad, genId }
+
+export const EXAM_STATUS = {
+  PENDING_REVIEW: 'pending_review',
+  READY_TO_BOOK: 'ready_to_book',
+  BOOKED: 'booked',
+  STUDENT_CONFIRMED: 'student_confirmed',
+  EXAM_PASSED: 'exam_passed',
+  EXAM_FAILED: 'exam_failed',
+  CLOSED: 'closed'
+}
+
+export const EXAM_STATUS_LABELS = {
+  [EXAM_STATUS.PENDING_REVIEW]: '待考试专员审核',
+  [EXAM_STATUS.READY_TO_BOOK]: '可约考',
+  [EXAM_STATUS.BOOKED]: '已预约待学员确认',
+  [EXAM_STATUS.STUDENT_CONFIRMED]: '学员已确认考试',
+  [EXAM_STATUS.EXAM_PASSED]: '考试通过',
+  [EXAM_STATUS.EXAM_FAILED]: '考试未通过',
+  [EXAM_STATUS.CLOSED]: '已结案'
+}
+
+export const EXAM_STATUS_COLORS = {
+  [EXAM_STATUS.PENDING_REVIEW]: 'yellow',
+  [EXAM_STATUS.READY_TO_BOOK]: 'blue',
+  [EXAM_STATUS.BOOKED]: 'cyan',
+  [EXAM_STATUS.STUDENT_CONFIRMED]: 'green',
+  [EXAM_STATUS.EXAM_PASSED]: 'gray',
+  [EXAM_STATUS.EXAM_FAILED]: 'red',
+  [EXAM_STATUS.CLOSED]: 'gray'
+}
+
+export const EXAM_SITES = [
+  '市区第一考场（新华大道）',
+  '北区第二考场（科技路）',
+  '南区综合考场（滨江路）'
+]
+
+export const INITIAL_EXAM_FOLLOW_UPS = [
+  {
+    id: 'EX-9P2X7K', scheduleId: 'SC-G7H8I9', appointmentId: 'SC-LEGACY-02',
+    studentId: 'S20260105', subject: '科目三',
+    status: EXAM_STATUS.PENDING_REVIEW,
+    coachId: 'C001',
+    coachAssessment: '操作平稳，建议 3 天后约考。',
+    coachCompletionNote: '操作平稳，建议 3 天后约考。',
+    completedAt: today.subtract(1, 'day').add(2, 'hour').format('YYYY-MM-DD HH:mm'),
+    handler: null,
+    handlerName: null,
+    bookedDate: null,
+    bookedSite: null,
+    bookedSlot: null,
+    examinerNote: '',
+    exception: { type: 'coach_suggested_delay', severity: 'info', message: '教练建议再练习 3 天' }
+  },
+  {
+    id: 'EX-3M8Q2Z', scheduleId: 'SC-LEGACY-05', appointmentId: 'SC-LEGACY-05',
+    studentId: 'S20260107', subject: '科目三',
+    status: EXAM_STATUS.READY_TO_BOOK,
+    coachId: 'C005',
+    coachAssessment: '各项考核已达标，可直接约考。',
+    coachCompletionNote: '各项考核已达标，可直接约考。',
+    completedAt: today.subtract(2, 'day').format('YYYY-MM-DD HH:mm'),
+    handler: 'E001',
+    handlerName: '孙伟峰',
+    bookedDate: null,
+    bookedSite: null,
+    bookedSlot: null,
+    examinerNote: '学员希望尽快安排，优先本周。',
+    exception: null
+  },
+  {
+    id: 'EX-7H5J4R', scheduleId: 'SC-LEGACY-06', appointmentId: 'SC-LEGACY-06',
+    studentId: 'S20260103', subject: '科目三',
+    status: EXAM_STATUS.BOOKED,
+    coachId: 'C005',
+    coachAssessment: '线路已熟悉，明天可进行模拟考。',
+    coachCompletionNote: '线路已熟悉，明天可进行模拟考。',
+    completedAt: today.subtract(3, 'day').format('YYYY-MM-DD HH:mm'),
+    handler: 'E001',
+    handlerName: '孙伟峰',
+    bookedDate: today.add(4, 'day').format('YYYY-MM-DD'),
+    bookedSite: '北区第二考场（科技路）',
+    bookedSlot: '上午场 09:00',
+    examinerNote: '已帮学员约考，等回复。',
+    exception: null
+  }
+]

@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useRouter, useRoute, RouterView } from 'vue-router'
 import { useAppStore } from '@/stores/app.js'
-import { ROLES, ROLE_LABELS, APPOINTMENT_STATUS, SCHEDULE_STATUS } from '@/data/mock.js'
+import { ROLES, ROLE_LABELS, APPOINTMENT_STATUS, SCHEDULE_STATUS, EXAM_STATUS } from '@/data/mock.js'
 import RoleSwitcher from '@/components/RoleSwitcher.vue'
 
 const router = useRouter()
@@ -26,6 +26,15 @@ const navItems = computed(() => [
       store.schedules.filter(s =>
         s.status === SCHEDULE_STATUS.UNASSIGNED ||
         s.status === SCHEDULE_STATUS.REJECTED
+      ).length || null
+    ).value
+  },
+  {
+    name: '考试跟进', path: '/exams', icon: '✎',
+    badge: computed(() =>
+      store.examFollowUps.filter(e =>
+        e.status === EXAM_STATUS.PENDING_REVIEW ||
+        e.status === EXAM_STATUS.READY_TO_BOOK
       ).length || null
     ).value
   }

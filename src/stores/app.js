@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import dayjs from 'dayjs'
 import {
-  ROLES, APPOINTMENT_STATUS, SCHEDULE_STATUS,
-  INITIAL_APPOINTMENTS, INITIAL_SCHEDULES,
+  ROLES, APPOINTMENT_STATUS, SCHEDULE_STATUS, EXAM_STATUS,
+  INITIAL_APPOINTMENTS, INITIAL_SCHEDULES, INITIAL_EXAM_FOLLOW_UPS,
   STUDENTS, COACHES, STAFF, genId
 } from '@/data/mock.js'
 
@@ -11,6 +11,8 @@ export const useAppStore = defineStore('app', {
     currentRole: ROLES.ADVISOR,
     appointments: JSON.parse(JSON.stringify(INITIAL_APPOINTMENTS)),
     schedules: JSON.parse(JSON.stringify(INITIAL_SCHEDULES)),
+    examFollowUps: JSON.parse(JSON.stringify(INITIAL_EXAM_FOLLOW_UPS)),
+    selectedExamFollowUpIds: new Set(),
     toasts: [],
     _toastId: 0,
     selectedAppointmentIds: new Set(),
@@ -77,14 +79,36 @@ export const useAppStore = defineStore('app', {
     },
 
     handlerStats(state) {
-      const advisorCount = state.appointments.filter(a => a.handler && a.handler.startsWith('A')).length
+      const advisorCount = state.appointments.filter(a => a.handler && a.handler.startsWith('A') && a.status !== APPOINTMENT_STATUS.COMPLETED).length
       const coachCount = state.schedules.filter(s => s.coachId && s.status !== SCHEDULE_STATUS.COMPLETED).length
-      const examinerCount = 0
+      const examinerCount = state.examFollowUps.filter(e => e.handler && e.handler.startsWith('E') && e.status !== EXAM_STATUS.CLOSED && e.status !== EXAM_STATUS.EXAM_PASSED).length
       return { advisorCount, coachCount, examinerCount }
     },
 
     getSchedulesByAppointment: (state) => (appointmentId) => {
       return state.schedules.filter(s => s.appointmentId === appointmentId)
+    },
+
+    pendingExamFollowUps(state) {
+      return state.examFollowUps.filter(e =>
+        e.status === EXAM_STATUS.PENDING_REVIEW || e.status === EXAM_STATUS.READY_TO_BOOK
+      )
+    },
+    blockedExamFollowUps(state) {
+      return state.examFollowUps.filter(e =>
+        (e.status === EXAM_STATUS.PENDING_REVIEW && dayjs(e.completedAt).isBefore(dayjs().subtract(12, 'hour'))) ||
+        (e.status === EXAM_STATUS.BOOKED && dayjs(e.bookedDate).diff(dayjs(), 'day') >= 0 && dayjs(e.bookedDate).diff(dayjs(), 'day') <= 3 && !e.studentConfirmed) ||
+        e.exception
+      ).filter(Boolean)
+    },
+    getExamBySchedule: (state) => (scheduleId) => {
+      return state.examFollowUps.find(e => e.scheduleId === scheduleId)
+    },
+    getExamsByAppointment: (state) => (appointmentId) => {
+      return state.examFollowUps.filter(e => e.appointmentId === appointmentId)
+    },
+    getExamsByStudent: (state) => (studentId) => {
+      return state.examFollowUps.filter(e => e.studentId === studentId)
     }
   },
   actions: {
@@ -184,6 +208,39 @@ export const useAppStore = defineStore('app', {
         if (a) a.status = APPOINTMENT_STATUS.COMPLETED
       }
       this.pushToast('已完成本次练车', 'success')
+
+      const finalNote = note || s.coachNote || ''
+      const exists = this.examFollowUps.find(e => e.scheduleId === s.id)
+      if (!exists) {
+        const assessment = finalNote.split('\n').slice(-1)[0] || '教练未给出特殊建议，建议考试专员复核。'
+        const isReady = !/需加强|推迟|未通过|再练|不建议|加强/i.test(finalNote)
+        const examFollowUp = {
+          id: genId('EX'),
+          scheduleId: s.id,
+          appointmentId: s.appointmentId,
+          studentId: s.studentId,
+          subject: s.subject,
+          status: isReady ? EXAM_STATUS.READY_TO_BOOK : EXAM_STATUS.PENDING_REVIEW,
+          coachId: s.coachId,
+          coachAssessment: assessment,
+          coachCompletionNote: finalNote,
+          completedAt: s.completedAt,
+          handler: isReady ? STAFF.examiners[0].id : null,
+          handlerName: isReady ? STAFF.examiners[0].name : null,
+          bookedDate: null,
+          bookedSite: null,
+          bookedSlot: null,
+          examinerNote: '',
+          exception: isReady ? null : { type: 'coach_not_ready', severity: 'warning', message: '教练认为仍需加强练习，请复核' }
+        }
+        this.examFollowUps.unshift(examFollowUp)
+        this.pushToast(isReady
+          ? `已生成考试跟进卡片，分配给 ${STAFF.examiners[0].name}`
+          : '教练建议加强练习，已生成待复核的考试跟进卡', 'info')
+      } else {
+        exists.coachCompletionNote = (exists.coachCompletionNote ? exists.coachCompletionNote + '\n' : '') + finalNote
+        this.pushToast('已追加教练备注到考试跟进', 'info')
+      }
     },
 
     reassignSchedule(id, { coachId, date, slot }) {
@@ -263,6 +320,97 @@ export const useAppStore = defineStore('app', {
     },
     clearScheduleSelection() {
       this.selectedScheduleIds.clear()
+    },
+
+    toggleExamFollowUpSelection(id) {
+      if (this.selectedExamFollowUpIds.has(id)) {
+        this.selectedExamFollowUpIds.delete(id)
+      } else {
+        this.selectedExamFollowUpIds.add(id)
+      }
+    },
+    clearExamFollowUpSelection() {
+      this.selectedExamFollowUpIds.clear()
+    },
+
+    claimExamFollowUp(id) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.handler = STAFF.examiners[0].id
+      e.handlerName = STAFF.examiners[0].name
+      if (e.status === EXAM_STATUS.PENDING_REVIEW) e.status = EXAM_STATUS.READY_TO_BOOK
+      this.pushToast(`已认领，责任人：${STAFF.examiners[0].name}`, 'success')
+    },
+
+    markExamReady(id, note) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.status = EXAM_STATUS.READY_TO_BOOK
+      e.handler = STAFF.examiners[0].id
+      e.handlerName = STAFF.examiners[0].name
+      e.exception = null
+      if (note) e.examinerNote = (e.examinerNote ? e.examinerNote + '\n' : '') + note
+      this.pushToast('已设为可约考状态', 'success')
+    },
+
+    bookExam(id, { date, site, slot, note }) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.status = EXAM_STATUS.BOOKED
+      e.bookedDate = date
+      e.bookedSite = site
+      e.bookedSlot = slot
+      e.handler = STAFF.examiners[0].id
+      e.handlerName = STAFF.examiners[0].name
+      if (note) e.examinerNote = (e.examinerNote ? e.examinerNote + '\n' : '') + note
+      this.pushToast(`已约考 ${date} ${site || ''}，等待学员确认`, 'success')
+    },
+
+    confirmStudentExam(id) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.status = EXAM_STATUS.STUDENT_CONFIRMED
+      this.pushToast('学员已确认考试安排', 'success')
+    },
+
+    finishExam(id, { passed, note }) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.status = passed ? EXAM_STATUS.EXAM_PASSED : EXAM_STATUS.EXAM_FAILED
+      if (note) e.examinerNote = (e.examinerNote ? e.examinerNote + '\n' : '') + note
+      if (passed) {
+        this.pushToast('🎉 学员已通过考试，考试跟进结案', 'success')
+      } else {
+        this.pushToast('考试未通过，建议安排补训后重新约考', 'warning')
+      }
+    },
+
+    markExamException(id, exception, note) {
+      const e = this.examFollowUps.find(x => x.id === id)
+      if (!e) return
+      e.exception = exception
+      if (note) e.examinerNote = (e.examinerNote ? e.examinerNote + '\n' : '') + note
+      this.pushToast(`已标记异常：${exception.message}`, 'warning')
+    },
+
+    batchClaimExam(ids) {
+      let count = 0
+      ids.forEach(id => {
+        const e = this.examFollowUps.find(x => x.id === id)
+        if (e && (!e.handler || e.status === EXAM_STATUS.PENDING_REVIEW)) {
+          e.handler = STAFF.examiners[0].id
+          e.handlerName = STAFF.examiners[0].name
+          if (e.status === EXAM_STATUS.PENDING_REVIEW) e.status = EXAM_STATUS.READY_TO_BOOK
+          count++
+        }
+      })
+      this.clearExamFollowUpSelection()
+      this.pushToast(`批量认领 ${count} 条考试跟进`, count ? 'success' : 'warning')
+    },
+
+    batchNotifyExamStudents(ids) {
+      this.clearExamFollowUpSelection()
+      this.pushToast(`已向 ${ids.length} 位学员发送约考提醒`, 'info')
     }
   }
 })
