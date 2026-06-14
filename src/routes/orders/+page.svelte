@@ -45,6 +45,14 @@
 
   onMount(load);
 
+  $: if (filterAbnormal === 'NORMAL') {
+    filterAbnormalType = 'ALL';
+    filterSeverity = 'ALL';
+  }
+
+  $: effectiveSeverity = (filterAbnormal === 'ABNORMAL') ? filterSeverity : 'ALL';
+  $: effectiveAbnormalType = (filterAbnormal === 'ABNORMAL') ? filterAbnormalType : 'ALL';
+
   $: filtered = orders.filter(o => {
     if (filterStatus === 'ALL') return true;
     if (filterStatus === 'ACTIVE') return !['CLOSED', 'NORMAL'].includes(o.current_status);
@@ -55,13 +63,13 @@
     if (filterAbnormal === 'NORMAL') return !o.last_abnormal;
     return true;
   }).filter(o => {
-    if (filterSeverity === 'ALL') return true;
+    if (effectiveSeverity === 'ALL') return true;
     if (!o.last_abnormal) return false;
-    return o.last_abnormal.abnormal_severity === filterSeverity;
+    return o.last_abnormal.abnormal_severity === effectiveSeverity;
   }).filter(o => {
-    if (filterAbnormalType === 'ALL') return true;
+    if (effectiveAbnormalType === 'ALL') return true;
     if (!o.last_abnormal) return false;
-    return o.last_abnormal.abnormal_type === filterAbnormalType;
+    return o.last_abnormal.abnormal_type === effectiveAbnormalType;
   }).filter(o => {
     if (!search) return true;
     const s = search.toLowerCase();
@@ -73,6 +81,13 @@
 
   $: abnormalCount = orders.filter(o => o.last_abnormal).length;
   $: filteredAbnormalCount = filtered.filter(o => o.last_abnormal).length;
+  $: normalCount = orders.length - abnormalCount;
+  $: filteredNormalCount = filtered.filter(o => !o.last_abnormal).length;
+
+  $: showAbnormalStatBar = filterAbnormal !== 'ALL' || filterAbnormalType !== 'ALL' || filterSeverity !== 'ALL';
+
+  $: isAbnormalEmpty = filterAbnormal === 'ABNORMAL' && filtered.length === 0;
+  $: isNormalEmpty = filterAbnormal === 'NORMAL' && filtered.length === 0;
 
   function overdueDays(dueDate) {
     const now = new Date();
@@ -129,13 +144,26 @@
         <button on:click={() => { search = ''; filterStatus = 'ALL'; filterAbnormal = 'ALL'; filterAbnormalType = 'ALL'; filterSeverity = 'ALL'; }} class="btn btn-secondary btn-sm">重置</button>
       </div>
     </div>
-    {#if filterAbnormal !== 'ALL' || filterAbnormalType !== 'ALL' || filterSeverity !== 'ALL'}
+    {#if showAbnormalStatBar}
       <div class="mt-3 flex items-center gap-2 text-xs text-slate-500">
-        <span>异常筛选结果：</span>
-        <span class="font-semibold text-rose-600">{filteredAbnormalCount}</span>
-        <span>/ {abnormalCount} 单异常</span>
-        <span class="text-slate-400 mx-1">·</span>
-        <span>共 {filtered.length} 单</span>
+        {#if filterAbnormal === 'ABNORMAL'}
+          <span>异常筛选结果：</span>
+          <span class="font-semibold text-rose-600">{filteredAbnormalCount}</span>
+          <span>/ {abnormalCount} 单异常</span>
+          <span class="text-slate-400 mx-1">·</span>
+          <span>共 {filtered.length} 单</span>
+        {:else if filterAbnormal === 'NORMAL'}
+          <span>正常筛选结果：</span>
+          <span class="font-semibold text-emerald-600">{filteredNormalCount}</span>
+          <span>/ {normalCount} 单正常</span>
+          <span class="text-slate-400 mx-1">·</span>
+          <span>共 {filtered.length} 单</span>
+        {:else}
+          <span>当前共 <b class="text-slate-700">{filtered.length}</b> 单（含 <span class="text-rose-600 font-medium">{filteredAbnormalCount}</span> 单异常）</span>
+        {/if}
+        {#if filterAbnormal === 'ABNORMAL' && (filterAbnormalType !== 'ALL' || filterSeverity !== 'ALL')}
+          <span class="text-slate-400 ml-auto">提示：切换异常类型或等级可缩小范围</span>
+        {/if}
       </div>
     {/if}
   </div>
@@ -144,9 +172,35 @@
     {#if loading}
       <div class="p-16 text-center text-slate-400">加载中...</div>
     {:else if filtered.length === 0}
-      <div class="p-16 text-center text-slate-400">
-        <div class="text-5xl mb-3">📭</div>
-        <div>没有符合条件的典当单</div>
+      <div class="p-16 text-center">
+        {#if isAbnormalEmpty}
+          <div class="text-5xl mb-3">🔍</div>
+          <div class="text-slate-600 font-medium mb-1">没有符合条件的异常单</div>
+          <div class="text-sm text-slate-400 mb-4">
+            {#if filterAbnormalType !== 'ALL' || filterSeverity !== 'ALL'}
+              当前异常类型/等级组合下暂无单据
+            {:else}
+              当前还没有异常退回单据
+            {/if}
+          </div>
+          <button on:click={() => { filterAbnormal = 'ALL'; filterAbnormalType = 'ALL'; filterSeverity = 'ALL'; }} class="btn btn-primary btn-sm">
+            查看全部单据
+          </button>
+        {:else if isNormalEmpty}
+          <div class="text-5xl mb-3">✅</div>
+          <div class="text-slate-600 font-medium mb-1">没有符合条件的正常单</div>
+          <div class="text-sm text-slate-400 mb-4">当前筛选下所有单据都是异常退回单</div>
+          <button on:click={() => { filterAbnormal = 'ALL'; }} class="btn btn-primary btn-sm">
+            查看全部单据
+          </button>
+        {:else}
+          <div class="text-5xl mb-3">📭</div>
+          <div class="text-slate-600 font-medium mb-1">没有符合条件的典当单</div>
+          <div class="text-sm text-slate-400 mb-4">试试调整筛选条件或搜索关键字</div>
+          <button on:click={() => { search = ''; filterStatus = 'ALL'; filterAbnormal = 'ALL'; filterAbnormalType = 'ALL'; filterSeverity = 'ALL'; }} class="btn btn-primary btn-sm">
+            重置筛选
+          </button>
+        {/if}
       </div>
     {:else}
       <table class="w-full text-sm">
