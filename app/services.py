@@ -390,6 +390,7 @@ class ResponsibilityChainService:
             "stuck_at": None,
             "reason_not_completed": None,
             "escalation_path": [],
+            "latest_processing_note": None,
         }
 
         if material_id:
@@ -433,6 +434,17 @@ class ResponsibilityChainService:
                     }
                 )
             result["escalation_path"] = escalation_path
+
+            if processing_records:
+                latest_record = processing_records[0]
+                latest_handler = db.query(User).filter(User.id == latest_record.handler_id).first()
+                result["latest_processing_note"] = {
+                    "handler_name": latest_handler.real_name if latest_handler else "未知",
+                    "handler_role": latest_handler.role.value if latest_handler else "未知",
+                    "action": latest_record.action,
+                    "notes": latest_record.notes,
+                    "processed_at": latest_record.created_at.isoformat(),
+                }
 
         elif feedback_id:
             feedback = FeedbackService.get_feedback(db, feedback_id)
