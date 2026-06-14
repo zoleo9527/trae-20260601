@@ -171,6 +171,7 @@ const FeedbackList: React.FC = () => {
       <AddFeedbackModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+        onSuccess={(newId) => navigate(`/feedback/${newId}`)}
       />
     </div>
   );

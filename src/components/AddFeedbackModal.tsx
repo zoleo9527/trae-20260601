@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, User, Calendar, Tag, Send } from 'lucide-react';
 import { PerformanceLevel } from '@/types';
 import { useStudentStore } from '@/store/useStudentStore';
@@ -12,6 +12,7 @@ interface AddFeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultStudentId?: string;
+  onSuccess?: (newFeedbackId: string) => void;
 }
 
 const performanceOptions: { value: PerformanceLevel; label: string }[] = [
@@ -40,6 +41,7 @@ export const AddFeedbackModal: React.FC<AddFeedbackModalProps> = ({
   isOpen,
   onClose,
   defaultStudentId,
+  onSuccess,
 }) => {
   const { students } = useStudentStore();
   const { addFeedback } = useFeedbackStore();
@@ -52,6 +54,16 @@ export const AddFeedbackModal: React.FC<AddFeedbackModalProps> = ({
   const [performance, setPerformance] = useState<PerformanceLevel>('good');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
+
+  useEffect(() => {
+    if (isOpen && defaultStudentId) {
+      setStudentId(defaultStudentId);
+      const student = students.find(s => s.id === defaultStudentId);
+      if (student) {
+        setClassName(student.className);
+      }
+    }
+  }, [isOpen, defaultStudentId, students]);
 
   const selectedStudent = students.find(s => s.id === studentId);
 
@@ -102,11 +114,18 @@ export const AddFeedbackModal: React.FC<AddFeedbackModalProps> = ({
 
     onClose();
     resetForm();
+    onSuccess?.(newFeedbackId);
   };
 
   const resetForm = () => {
-    setStudentId('');
-    setClassName('');
+    if (defaultStudentId) {
+      setStudentId(defaultStudentId);
+      const student = students.find(s => s.id === defaultStudentId);
+      setClassName(student?.className || '');
+    } else {
+      setStudentId('');
+      setClassName('');
+    }
     setTeacher('');
     setDate(new Date().toISOString().split('T')[0]);
     setContent('');

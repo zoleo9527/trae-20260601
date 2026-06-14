@@ -210,6 +210,7 @@ const ExceptionList: React.FC = () => {
       <AddExceptionModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
+        onSuccess={(newId) => navigate(`/exception/${newId}`)}
       />
     </div>
   );

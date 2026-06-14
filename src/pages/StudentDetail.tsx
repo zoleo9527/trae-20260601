@@ -133,10 +133,6 @@ const StudentDetail: React.FC = () => {
     },
   }));
 
-  const allTimelineItems = [...feedbackTimeline, ...logItems].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
-
   return (
     <div className="space-y-6 animate-fade-in">
       {/* 返回按钮 */}
@@ -477,15 +473,15 @@ const StudentDetail: React.FC = () => {
             <RefreshCw className="w-5 h-5 text-sky-500" />
             最近变更摘要
           </h3>
-          {allTimelineItems.length > 5 && (
+          {logItems.length > 5 && (
             <span className="text-xs text-ink-400">
-              共 {allTimelineItems.length} 条记录
+              共 {logItems.length} 条记录
             </span>
           )}
         </div>
-        {allTimelineItems.length > 0 ? (
+        {logItems.length > 0 ? (
           <div className="space-y-3">
-            {allTimelineItems.slice(0, 5).map((item) => {
+            {logItems.slice(0, 5).map((item) => {
               const typeLabel =
                 item.type === 'feedback' ? '课堂反馈' :
                 item.type === 'renewal' ? '续费跟进' :
@@ -544,8 +540,8 @@ const StudentDetail: React.FC = () => {
           <Clock className="w-5 h-5 text-ink-400" />
           完整操作轨迹
         </h3>
-        {allTimelineItems.length > 0 ? (
-          <Timeline items={allTimelineItems.slice(0, 15)} />
+        {logItems.length > 0 ? (
+          <Timeline items={logItems.slice(0, 15)} />
         ) : (
           <p className="text-sm text-ink-400 text-center py-8">
             暂无操作记录
@@ -558,11 +554,13 @@ const StudentDetail: React.FC = () => {
         isOpen={showAddFeedback}
         onClose={() => setShowAddFeedback(false)}
         defaultStudentId={id}
+        onSuccess={(newId) => navigate(`/feedback/${newId}`)}
       />
       <AddExceptionModal
         isOpen={showAddException}
         onClose={() => setShowAddException(false)}
         defaultStudentId={id}
+        onSuccess={(newId) => navigate(`/exception/${newId}`)}
       />
     </div>
   );

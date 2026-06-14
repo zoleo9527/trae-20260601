@@ -11,6 +11,7 @@ interface AddExceptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   defaultStudentId?: string;
+  onSuccess?: (newExceptionId: string) => void;
 }
 
 const typeOptions: { value: ExceptionType; label: string }[] = [
@@ -30,6 +31,7 @@ export const AddExceptionModal: React.FC<AddExceptionModalProps> = ({
   isOpen,
   onClose,
   defaultStudentId,
+  onSuccess,
 }) => {
   const { students } = useStudentStore();
   const { addException } = useExceptionStore();
@@ -85,6 +87,7 @@ export const AddExceptionModal: React.FC<AddExceptionModalProps> = ({
 
     onClose();
     resetForm();
+    onSuccess?.(newExceptionId);
   };
 
   const resetForm = () => {
@@ -92,8 +95,14 @@ export const AddExceptionModal: React.FC<AddExceptionModalProps> = ({
     setPriority('medium');
     setTitle('');
     setDescription('');
-    setStudentId('');
-    setClassName('');
+    if (defaultStudentId) {
+      setStudentId(defaultStudentId);
+      const student = students.find(s => s.id === defaultStudentId);
+      setClassName(student?.className || '');
+    } else {
+      setStudentId('');
+      setClassName('');
+    }
     setReportedBy('前台教务-小王');
   };
 
