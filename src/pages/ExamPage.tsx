@@ -18,7 +18,9 @@ export function ExamPage() {
   });
   const [resultData, setResultData] = useState({
     examResult: 'PASSED' as 'PASSED' | 'FAILED',
+    isAbsent: false,
     absenceReason: '',
+    notes: '',
   });
 
   useEffect(() => {
@@ -63,8 +65,8 @@ export function ExamPage() {
   };
 
   const handleRecordResult = (examId: string) => {
-    const isAbsent = resultData.absenceReason.trim() !== '';
-    recordExamResult(examId, resultData.examResult, isAbsent ? resultData.absenceReason : undefined);
+    const absenceReason = resultData.isAbsent ? resultData.absenceReason : undefined;
+    recordExamResult(examId, resultData.examResult, absenceReason);
 
     const exam = exams.find((e) => e.id === examId);
     if (exam && exam.student) {
@@ -81,16 +83,21 @@ export function ExamPage() {
           }, '所有科目考试通过');
         }
       } else {
+        const reason = resultData.isAbsent 
+          ? `考试缺考${resultData.absenceReason ? `: ${resultData.absenceReason}` : ''}，需要补考`
+          : `考试不合格${resultData.notes ? `: ${resultData.notes}` : ''}，需要补考`;
         updateStudent(exam.studentId, {
           status: 'PENDING_EXAM_BOOKING',
-        }, `考试${isAbsent ? '缺考' : '不合格'}，需要补考`);
+        }, reason);
       }
     }
 
     setShowResultForm(null);
     setResultData({
       examResult: 'PASSED',
+      isAbsent: false,
       absenceReason: '',
+      notes: '',
     });
   };
 
@@ -415,16 +422,43 @@ export function ExamPage() {
                 </select>
               </div>
 
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={resultData.isAbsent}
+                    onChange={(e) => setResultData({ ...resultData, isAbsent: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300"
+                  />
+                  <span className="text-sm text-gray-700">缺考</span>
+                </label>
+              </div>
+
+              {resultData.isAbsent && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    缺考原因
+                  </label>
+                  <input
+                    type="text"
+                    value={resultData.absenceReason}
+                    onChange={(e) => setResultData({ ...resultData, absenceReason: e.target.value })}
+                    className="input-field"
+                    placeholder="请输入缺考原因"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  备注（缺考原因等）
+                  备注
                 </label>
                 <input
                   type="text"
-                  value={resultData.absenceReason}
-                  onChange={(e) => setResultData({ ...resultData, absenceReason: e.target.value })}
+                  value={resultData.notes}
+                  onChange={(e) => setResultData({ ...resultData, notes: e.target.value })}
                   className="input-field"
-                  placeholder="如有缺考或其他情况请填写"
+                  placeholder="请输入备注信息（如考试表现等）"
                 />
               </div>
 

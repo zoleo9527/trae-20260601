@@ -115,7 +115,6 @@ export function EnrollmentPage() {
       ],
       ARCHIVED: [
         { value: 'ARCHIVED', label: '已建档' },
-        { value: 'COACH_ASSIGNED', label: '分配教练' },
       ],
       COACH_ASSIGNED: [
         { value: 'COACH_ASSIGNED', label: '已分配教练' },
