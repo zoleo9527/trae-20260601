@@ -175,7 +175,12 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
       photoTakenBy: operatorName,
       photoTime: now,
       photoRemark: photoRemark.trim(),
+      photoRejectReason: undefined,
       photoReviewStatus: 'pending',
+      photoReviewRejectReason: undefined,
+      photoReviewRemark: undefined,
+      photoReviewedBy: undefined,
+      photoReviewTime: undefined,
       status: 'pending_photo_review',
       currentHandler: 'counter',
       operationLogs: [
@@ -218,6 +223,8 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
       photoReviewedBy: operatorName,
       photoReviewTime: now,
       photoReviewRemark: photoReviewRemark.trim() || '照片清晰，信息完整，审核通过',
+      photoRejectReason: undefined,
+      photoReviewRejectReason: undefined,
       status: 'pending_finance',
       currentHandler: 'finance',
       operationLogs: [
@@ -314,22 +321,30 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
       };
       onUpdate(updated);
     } else if (record.photoStatus === 'rejected') {
+      const prevRejectReason = record.photoRejectReason;
       const updated: PawnRecord = {
         ...record,
         photoStatus: 'pending',
+        photos: [],
+        photoTakenBy: undefined,
+        photoTime: undefined,
+        photoRemark: undefined,
+        photoRejectReason: undefined,
         photoReviewStatus: undefined,
         photoReviewRejectReason: undefined,
         photoReviewTime: undefined,
         photoReviewedBy: undefined,
+        photoReviewRemark: undefined,
         status: 'pending_photo',
         abnormalReason: undefined,
         currentHandler: 'warehouse',
         operationLogs: [
           ...record.operationLogs,
-          addOperationLog('异常处理完成', '已进入重拍流程', `原退回原因：${record.photoRejectReason}`)
+          addOperationLog('进入重拍流程', '已清空旧照片，需重新拍摄提交', `原退回原因：${prevRejectReason}`)
         ],
         updatedAt: now
       };
+      setPhotoRemark('');
       onUpdate(updated);
     }
   };
@@ -342,8 +357,8 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
   const photoReviewDone = record.photoReviewStatus === 'approved' || record.photoReviewStatus === 'rejected';
 
   const canHandleStorage = currentRole === 'warehouse' && record.storageStatus === 'pending';
-  const canHandlePhoto = currentRole === 'warehouse' && record.photoStatus === 'pending';
-  const canAddPhoto = currentRole === 'warehouse' && record.photoStatus === 'pending';
+  const canHandlePhoto = currentRole === 'warehouse' && record.photoStatus === 'pending' && record.status === 'pending_photo';
+  const canAddPhoto = currentRole === 'warehouse' && record.photoStatus === 'pending' && record.status === 'pending_photo';
   const canApprovePhoto = currentRole === 'counter' && record.status === 'pending_photo_review' && record.photoReviewStatus === 'pending';
   const canConfirmFinance = currentRole === 'finance' && record.status === 'pending_finance' && record.photoReviewStatus === 'approved' && !record.financeConfirmed;
   const canResolveAbnormal = currentRole === record.currentHandler && record.status === 'abnormal';
