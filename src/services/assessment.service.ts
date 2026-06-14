@@ -105,7 +105,7 @@ export class AssessmentService extends BaseService<DamageAssessment> {
       totalAmount,
       repairMethod: params.repairMethod,
       repairPlan: params.repairPlan,
-      status: AssessmentStatus.PENDING_REVIEW,
+      status: AssessmentStatus.DRAFT,
       createdBy: currentUser.userId,
       createdByName: currentUser.realName,
       createdTime: this.getCurrentTime(),
@@ -141,7 +141,7 @@ export class AssessmentService extends BaseService<DamageAssessment> {
       operatorId: currentUser.userId,
       operatorName: currentUser.realName,
       operatorRole: currentUser.role,
-      afterStatus: AssessmentStatus.PENDING_REVIEW,
+      afterStatus: AssessmentStatus.DRAFT,
       remark: `定损金额：${totalAmount}元`
     });
 

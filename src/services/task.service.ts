@@ -244,6 +244,11 @@ export class TaskService extends BaseService<SurveyTask> {
     }
 
     const task = tasks[taskIndex];
+    
+    if (!task.surveyStartTime) {
+      throw new Error('查勘尚未开始，不能完成查勘');
+    }
+
     this.validateStatusTransition(task.status, TaskStatus.PENDING_ASSESSMENT);
 
     const currentUser = this.userService.getCurrentUser();

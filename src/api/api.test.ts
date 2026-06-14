@@ -1,12 +1,6 @@
 import { API } from './API';
 import { DamageType, DamageLevel, RepairMethod } from '../types/assessment.types';
 
-interface ApiResponse {
-  success: boolean;
-  data: Record<string, unknown>;
-  message: string;
-}
-
 interface TaskResponse {
   success: boolean;
   data: {
@@ -22,6 +16,7 @@ interface AssessmentResponse {
   success: boolean;
   data: {
     assessmentId?: string;
+    status?: string;
     [key: string]: unknown;
   };
   message: string;
@@ -102,7 +97,7 @@ async function runAPITests() {
   console.log('状态:', completeResult.status);
   console.log('响应:', JSON.stringify(completeResult.body, null, 2));
 
-  console.log('\n--- 6. 创建定损意见 ---');
+  console.log('\n--- 6. 创建定损意见（草稿）---');
   const createAssessmentResult = await API.createAssessment({
     taskId: createdTaskId,
     partsFee: 10000,
@@ -135,38 +130,44 @@ async function runAPITests() {
   console.log('响应:', JSON.stringify(createAssessmentResult.body, null, 2));
   const assessResponse = createAssessmentResult.body as AssessmentResponse;
   createdAssessmentId = assessResponse.data?.assessmentId as string;
+  console.log('定损状态:', assessResponse.data?.status);
 
-  console.log('\n--- 7. 审核定损意见 ---');
+  console.log('\n--- 7. 提交定损审核 ---');
+  const submitResult = await API.submitAssessment(createdAssessmentId, '提交审核');
+  console.log('状态:', submitResult.status);
+  console.log('响应:', JSON.stringify(submitResult.body, null, 2));
+
+  console.log('\n--- 8. 审核定损意见 ---');
   const reviewResult = await API.reviewAssessment(createdAssessmentId, 'approve', '定损金额合理，同意核赔', '审核通过');
   console.log('状态:', reviewResult.status);
   console.log('响应:', JSON.stringify(reviewResult.body, null, 2));
 
-  console.log('\n--- 8. 查询任务详情 ---');
+  console.log('\n--- 9. 查询任务详情 ---');
   const taskDetailResult = await API.getTaskDetail(createdTaskId);
   console.log('状态:', taskDetailResult.status);
   const taskDetailResponse = taskDetailResult.body as TaskResponse;
   console.log('任务状态:', taskDetailResponse.data?.status);
   console.log('任务编号:', taskDetailResponse.data?.taskNo);
 
-  console.log('\n--- 9. 查询任务时间线 ---');
+  console.log('\n--- 10. 查询任务时间线 ---');
   const timelineResult = await API.getTaskTimeline(createdTaskId);
   console.log('状态:', timelineResult.status);
   const timelineResponse = timelineResult.body as TimelineResponse;
   console.log('时间线记录数:', timelineResponse.data?.timeline?.length || 0);
 
-  console.log('\n--- 10. 查询任务列表 ---');
+  console.log('\n--- 11. 查询任务列表 ---');
   const taskListResult = await API.getTaskList({ page: '1', pageSize: '10' });
   console.log('状态:', taskListResult.status);
   const taskListResponse = taskListResult.body as ListResponse;
   console.log('任务总数:', taskListResponse.data?.total);
 
-  console.log('\n--- 11. 查询定损列表 ---');
+  console.log('\n--- 12. 查询定损列表 ---');
   const assessmentListResult = await API.getAssessmentList({ page: '1', pageSize: '10' });
   console.log('状态:', assessmentListResult.status);
   const assessmentListResponse = assessmentListResult.body as ListResponse;
   console.log('定损总数:', assessmentListResponse.data?.total);
 
-  console.log('\n--- 12. 查询操作日志 ---');
+  console.log('\n--- 13. 查询操作日志 ---');
   const logsResult = await API.getTaskLogs(createdTaskId);
   console.log('状态:', logsResult.status);
   const logsResponse = logsResult.body as LogsResponse;

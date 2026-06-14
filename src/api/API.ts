@@ -9,11 +9,12 @@ const routes: Router[] = [
   ...logRoutes
 ];
 
-function parsePath(path: string): { path: string; params: Record<string, string> } {
-  return { path, params: {} };
+interface RouteMatch {
+  route: Router;
+  params: Record<string, string>;
 }
 
-function matchRoute(method: string, path: string): Router | undefined {
+function matchRoute(method: string, path: string): RouteMatch | undefined {
   const parsedPath = path.split('?')[0];
   
   for (const route of routes) {
@@ -40,7 +41,7 @@ function matchRoute(method: string, path: string): Router | undefined {
     }
     
     if (match) {
-      return { ...route, path: parsedPath };
+      return { route, params };
     }
   }
   
@@ -82,9 +83,9 @@ export class API {
       const { method, url, body } = request;
       const [pathname, queryString] = url.split('?');
       
-      const route = matchRoute(method.toUpperCase(), pathname);
+      const match = matchRoute(method.toUpperCase(), pathname);
       
-      if (!route) {
+      if (!match) {
         resolve({
           status: 404,
           body: {
@@ -96,15 +97,7 @@ export class API {
         return;
       }
       
-      const params: Record<string, string> = {};
-      const routeParts = route.path.split('/');
-      const pathParts = pathname.split('/');
-      
-      for (let i = 0; i < routeParts.length; i++) {
-        if (routeParts[i].startsWith(':')) {
-          params[routeParts[i].slice(1)] = pathParts[i];
-        }
-      }
+      const { route, params } = match;
       
       const req: Request = {
         method: method.toUpperCase(),
