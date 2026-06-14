@@ -186,36 +186,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     return reports.find(r => r.id === id);
   }, [reports]);
 
-  const distributeReport = useCallback((distributionId: string): ReportDistribution => {
-    const distribution = distributions.find(d => d.id === distributionId);
-    if (!distribution) throw new Error('Distribution not found');
-    
-    const report = reports.find(r => r.id === distribution.reportId);
-    if (!report) throw new Error('Report not found');
-
-    updateDistribution(distributionId, {
-      status: '发放中',
-      sentAt: new Date().toISOString(),
-    });
-    updateVehicle(report.vehicleId, { status: '发放中' });
-    
-    setTimeout(() => {
-      updateDistribution(distributionId, {
-        status: '已发放',
-        confirmedAt: new Date().toISOString(),
-      });
-      updateVehicle(report.vehicleId, { status: '已发放' });
-      
-      const vehicle = vehicles.find(v => v.id === report.vehicleId);
-      if (vehicle) {
-        const followup = createFollowup(distributionId, distribution.reportId, report.vehicleId, vehicle.ownerName, vehicle.ownerPhone);
-        updateDistribution(distributionId, { followupTaskId: followup.id });
-      }
-    }, 2000);
-    
-    return distribution;
-  }, [distributions, reports, vehicles, updateDistribution, updateVehicle]);
-
   const updateDistribution = useCallback((id: string, updates: Partial<ReportDistribution>) => {
     setDistributions(prev => prev.map(d => 
       d.id === id ? { ...d, ...updates } : d
@@ -259,6 +229,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     
     return followup;
   }, []);
+
+  const distributeReport = useCallback((distributionId: string): ReportDistribution => {
+    const distribution = distributions.find(d => d.id === distributionId);
+    if (!distribution) throw new Error('Distribution not found');
+    
+    const report = reports.find(r => r.id === distribution.reportId);
+    if (!report) throw new Error('Report not found');
+
+    updateDistribution(distributionId, {
+      status: '发放中',
+      sentAt: new Date().toISOString(),
+    });
+    updateVehicle(report.vehicleId, { status: '发放中' });
+    
+    const vehicle = vehicles.find(v => v.id === report.vehicleId);
+    
+    setTimeout(() => {
+      updateDistribution(distributionId, {
+        status: '已发放',
+        confirmedAt: new Date().toISOString(),
+      });
+      updateVehicle(report.vehicleId, { status: '已发放' });
+      
+      if (vehicle) {
+        const followup = createFollowup(distributionId, distribution.reportId, report.vehicleId, vehicle.ownerName, vehicle.ownerPhone);
+        updateDistribution(distributionId, { followupTaskId: followup.id });
+      }
+    }, 2000);
+    
+    return distribution;
+  }, [distributions, reports, vehicles, updateDistribution, updateVehicle]);
 
   const updateFollowup = useCallback((id: string, updates: Partial<FollowupTask>) => {
     setFollowups(prev => prev.map(f => 
