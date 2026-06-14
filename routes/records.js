@@ -2,12 +2,13 @@ const express = require('express')
 const router = express.Router()
 const prisma = require('../prisma/client')
 const { success, error } = require('../utils/response')
+const { formatRecordSummary } = require('../utils/recordFormatter')
 
 router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 20, status, licensePlate, lineId } = req.query
     const skip = (page - 1) * limit
-    
+
     const where = {}
     if (status) where.status = status
     if (licensePlate) where.vehicle = { licensePlate: { contains: licensePlate } }
@@ -28,7 +29,12 @@ router.get('/', async (req, res) => {
 
     const total = await prisma.inspectionRecord.count({ where })
 
-    res.json(success({ records, total, page: parseInt(page), limit: parseInt(limit) }))
+    res.json(success({
+      records: records.map(formatRecordSummary),
+      total,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    }))
   } catch (e) {
     res.json(error('INTERNAL_ERROR', e.message))
   }
