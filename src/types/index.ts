@@ -71,6 +71,14 @@ export interface TimelineEntry {
   timestamp: string
 }
 
+export interface ResponsibilityInfo {
+  pendingRole: Role | 'none'
+  responsibilityText: string
+  isUnclear: boolean
+  involvedRoles: Role[]
+  pendingAction: string
+}
+
 export interface OperationRecord {
   id: string
   batchNo: string
@@ -106,6 +114,7 @@ export interface FilterState {
   search: string
   status: RecordStatus | 'all'
   role: Role | 'all'
+  pendingRole: Role | 'all' | 'unclear'
   period: string
   clientName: string
 }

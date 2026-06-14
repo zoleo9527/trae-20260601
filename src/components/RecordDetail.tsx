@@ -11,6 +11,10 @@ import {
   RotateCcw,
   Scale,
   History,
+  User,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import {
@@ -206,9 +210,10 @@ function ReconciliationPanel({ record }: { record: OperationRecord }) {
 }
 
 export default function RecordDetail() {
-  const { selectedRecordId, records, selectRecord, addSupplementNote } = useWorkbenchStore()
+  const { selectedRecordId, records, selectRecord, addSupplementNote, currentRole } = useWorkbenchStore()
   const [supplementInput, setSupplementInput] = useState('')
   const record = records.find((r) => r.id === selectedRecordId)
+  const getResponsibility = useWorkbenchStore((s) => s.getResponsibility)
 
   if (!record) {
     return (
@@ -270,6 +275,75 @@ export default function RecordDetail() {
           </div>
         </div>
       </div>
+
+      {(() => {
+        const resp = getResponsibility(record)
+        const isUnclear = resp.isUnclear
+        const isMine = resp.pendingRole === currentRole
+        const icon = resp.pendingRole === 'none'
+          ? <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+          : isUnclear
+          ? <XCircle className="w-4 h-4 text-purple-500" />
+          : <User className="w-4 h-4 text-blue-500" />
+        const bgClass = resp.pendingRole === 'none'
+          ? 'bg-emerald-50 border-emerald-200'
+          : isUnclear
+          ? 'bg-purple-50 border-purple-200'
+          : isMine
+          ? 'bg-blue-50 border-blue-200'
+          : 'bg-gray-50 border-gray-200'
+        const textClass = resp.pendingRole === 'none'
+          ? 'text-emerald-800'
+          : isUnclear
+          ? 'text-purple-800'
+          : isMine
+          ? 'text-blue-800'
+          : 'text-gray-800'
+
+        return (
+          <div className={`${bgClass} border rounded-lg p-4`}>
+            <div className="flex items-start gap-2">
+              <div className={`p-1.5 rounded-full ${isUnclear ? 'bg-purple-100' : resp.pendingRole === 'none' ? 'bg-emerald-100' : 'bg-blue-100'}`}>
+                {icon}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-sm font-semibold ${textClass}`}>
+                    {resp.pendingRole === 'none'
+                      ? '流程已完成'
+                      : isUnclear
+                      ? '责任不清，待多方确认'
+                      : isMine
+                      ? '待我处理'
+                      : `待 ${ROLE_LABELS[resp.pendingRole]} 处理`}
+                  </span>
+                  {resp.involvedRoles.length > 0 && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] text-gray-500">涉及：</span>
+                      {resp.involvedRoles.map((ir) => (
+                        <span key={ir} className="text-[10px] px-1.5 py-0.5 bg-white/60 rounded text-gray-600">
+                          {ROLE_LABELS[ir]}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <p className={`text-xs ${isUnclear ? 'text-purple-700' : 'text-gray-600'} leading-relaxed`}>
+                  {resp.responsibilityText}
+                </p>
+                {resp.pendingRole !== 'none' && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-[10px] text-gray-500">待执行动作：</span>
+                    <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${isUnclear ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                      {resp.pendingAction}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {record.disputeDetail && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">

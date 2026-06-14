@@ -5,10 +5,14 @@ import {
   RotateCcw,
   Scale,
   Clock,
+  User,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react'
 import { useWorkbenchStore } from '@/store/useWorkbenchStore'
 import { STATUS_LABELS, SETTLEMENT_STATUS_LABELS, RECONCILIATION_STATUS_LABELS, ROLE_LABELS } from '@/types'
-import type { RecordStatus } from '@/types'
+import type { RecordStatus, OperationRecord } from '@/types'
 import StatusTag from './StatusTag'
 import { formatMoney } from '@/utils/cn'
 
@@ -18,6 +22,13 @@ const quickFilters: { status: RecordStatus; label: string; icon: typeof RotateCc
   { status: 'overdue', label: '逾期未处理', icon: Clock, color: 'border-red-200 text-red-700 bg-red-50 hover:bg-red-100', activeColor: 'border-red-500 bg-red-100 text-red-800 ring-1 ring-red-300' },
 ]
 
+function getPendingRoleIcon(record: OperationRecord, getResponsibility: (r: OperationRecord) => any) {
+  const resp = getResponsibility(record)
+  if (resp.pendingRole === 'none') return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+  if (resp.isUnclear) return <XCircle className="w-3.5 h-3.5 text-purple-500" />
+  return <User className="w-3.5 h-3.5 text-blue-500" />
+}
+
 export default function RecordList() {
   const records = useWorkbenchStore((s) => s.records)
   const filters = useWorkbenchStore((s) => s.filters)
@@ -26,6 +37,7 @@ export default function RecordList() {
   const selectedRecordId = useWorkbenchStore((s) => s.selectedRecordId)
   const selectRecord = useWorkbenchStore((s) => s.selectRecord)
   const setFilters = useWorkbenchStore((s) => s.setFilters)
+  const getResponsibility = useWorkbenchStore((s) => s.getResponsibility)
 
   const roleRecordIds = useMemo(() => {
     const fromRole = new Set(records.filter((r) => r.role === currentRole).map((r) => r.id))
@@ -39,6 +51,12 @@ export default function RecordList() {
       if (filters.status !== 'all' && r.recordStatus !== filters.status) return false
       if (filters.period && r.settlement.period !== filters.period) return false
       if (filters.clientName && !r.clientName.includes(filters.clientName)) return false
+      if (filters.pendingRole !== 'all') {
+        const resp = getResponsibility(r)
+        if (filters.pendingRole === 'unclear') {
+          if (!resp.isUnclear) return false
+        } else if (resp.pendingRole !== filters.pendingRole) return false
+      }
       if (filters.search) {
         const q = filters.search.toLowerCase()
         const searchable = `${r.batchNo} ${r.employeeName} ${r.clientName} ${r.projectName} ${r.id}`.toLowerCase()
@@ -46,13 +64,25 @@ export default function RecordList() {
       }
       return true
     })
-  }, [records, filters, roleRecordIds])
+  }, [records, filters, roleRecordIds, getResponsibility])
 
   const quickCounts = useMemo(() => ({
     returned: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'returned').length,
     disputed: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'disputed').length,
     overdue: records.filter((r) => roleRecordIds.has(r.id) && r.recordStatus === 'overdue').length,
   }), [records, roleRecordIds])
+
+  const pendingRoleCounts = useMemo(() => {
+    const counts = { recruiter: 0, onsite: 0, payroll: 0, unclear: 0 }
+    records.filter((r) => roleRecordIds.has(r.id)).forEach((r) => {
+      const resp = getResponsibility(r)
+      if (resp.isUnclear) counts.unclear++
+      else if (resp.pendingRole === 'recruiter') counts.recruiter++
+      else if (resp.pendingRole === 'onsite') counts.onsite++
+      else if (resp.pendingRole === 'payroll') counts.payroll++
+    })
+    return counts
+  }, [records, roleRecordIds, getResponsibility])
 
   const handleQuickFilter = (status: RecordStatus) => {
     if (filters.status === status) {
@@ -70,7 +100,7 @@ export default function RecordList() {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-center gap-2 mb-1.5">
         {quickFilters.map((qf) => {
           const Icon = qf.icon
           const isActive = filters.status === qf.status
@@ -99,6 +129,34 @@ export default function RecordList() {
             清除筛选
           </button>
         )}
+      </div>
+
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-[10px] text-gray-400 px-1">待处理角色：</span>
+        {(['unclear', 'recruiter', 'onsite', 'payroll'] as const).map((pr) => {
+          const isActive = filters.pendingRole === pr
+          const count = pendingRoleCounts[pr]
+          const label = pr === 'unclear' ? '责任不清' : ROLE_LABELS[pr]
+          const colorClass = isActive
+            ? pr === 'unclear'
+              ? 'border-purple-500 bg-purple-100 text-purple-800 ring-1 ring-purple-300'
+              : 'border-blue-500 bg-blue-100 text-blue-800 ring-1 ring-blue-300'
+            : pr === 'unclear'
+            ? 'border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100'
+            : 'border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100'
+          return (
+            <button
+              key={pr}
+              onClick={() => setFilters({ pendingRole: isActive ? 'all' : pr })}
+              className={`flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-medium transition-all ${colorClass}`}
+            >
+              {label}
+              <span className={`text-[9px] px-1 rounded ${isActive ? 'bg-white/60' : 'bg-black/5'}`}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
       {filteredRecords.length === 0 && (
@@ -149,7 +207,39 @@ export default function RecordList() {
               <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100">
                 <StatusTag type="settlement" status={r.settlement.status} label={`结算: ${SETTLEMENT_STATUS_LABELS[r.settlement.status]}`} />
                 <StatusTag type="reconciliation" status={r.reconciliation.status} label={`对账: ${RECONCILIATION_STATUS_LABELS[r.reconciliation.status]}`} />
-                <span className="ml-auto text-[10px] text-gray-400">{ROLE_LABELS[r.role]} · {r.updatedAt}</span>
+                <span className="ml-auto text-[10px] text-gray-400">{r.updatedAt}</span>
+              </div>
+              <div className={`mt-2 pt-2 border-t ${(() => {
+                const resp = getResponsibility(r)
+                if (resp.isUnclear) return 'border-purple-100 bg-purple-50/50 -mx-3 -mb-3 px-3 pb-2 rounded-b-lg'
+                if (resp.pendingRole === currentRole) return 'border-blue-100 bg-blue-50/30 -mx-3 -mb-3 px-3 pb-2 rounded-b-lg'
+                return 'border-gray-100'
+              })()}`}>
+                <div className="flex items-start gap-1.5">
+                  {getPendingRoleIcon(r, getResponsibility)}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1">
+                      <span className="text-[10px] font-medium text-gray-500">待处理：</span>
+                      <span className={`text-[10px] font-semibold ${(() => {
+                        const resp = getResponsibility(r)
+                        if (resp.isUnclear) return 'text-purple-700'
+                        if (resp.pendingRole === currentRole) return 'text-blue-700'
+                        return 'text-gray-600'
+                      })()}`}>
+                        {(() => {
+                          const resp = getResponsibility(r)
+                          if (resp.pendingRole === 'none') return '已完成'
+                          return resp.isUnclear
+                            ? `责任不清 · ${resp.involvedRoles.map((rr) => ROLE_LABELS[rr]).join('、')}`
+                            : ROLE_LABELS[resp.pendingRole]
+                        })()}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-gray-600 mt-0.5 truncate">
+                      {getResponsibility(r).responsibilityText}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )

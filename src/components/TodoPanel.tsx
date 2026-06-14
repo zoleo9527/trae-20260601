@@ -64,6 +64,7 @@ export default function TodoPanel() {
   const setFilters = useWorkbenchStore((s) => s.setFilters)
   const markTodoRead = useWorkbenchStore((s) => s.markTodoRead)
   const selectRecord = useWorkbenchStore((s) => s.selectRecord)
+  const getResponsibility = useWorkbenchStore((s) => s.getResponsibility)
 
   const roleRecordIds = useMemo(() => {
     const fromRole = new Set(records.filter((r) => r.role === currentRole).map((r) => r.id))
@@ -226,6 +227,27 @@ export default function TodoPanel() {
               </div>
               {isExpanded && record && (
                 <div className="border-t border-gray-100 px-3 pb-3 pt-2 bg-gray-50/50 rounded-b-lg">
+                  {(() => {
+                    const resp = getResponsibility(record)
+                    return (
+                      <div className={`mb-2 p-2 rounded-md ${resp.isUnclear ? 'bg-purple-50 border border-purple-100' : resp.pendingRole === currentRole ? 'bg-blue-50 border border-blue-100' : 'bg-white border border-gray-100'}`}>
+                        <div className="text-[10px] text-gray-500 mb-1">
+                          {resp.isUnclear ? '⚠️ 责任不清' : resp.pendingRole === currentRole ? '👉 待我处理' : '📋 责任归属'}
+                        </div>
+                        <p className="text-[11px] text-gray-700 leading-relaxed">{resp.responsibilityText}</p>
+                        {resp.involvedRoles.length > 0 && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <span className="text-[9px] text-gray-400">涉及：</span>
+                            {resp.involvedRoles.map((ir) => (
+                              <span key={ir} className="text-[9px] px-1.5 py-0.5 bg-white/70 rounded text-gray-600 border border-gray-100">
+                                {ROLE_LABELS[ir]}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div>
                       <span className="text-gray-400">批次号</span>

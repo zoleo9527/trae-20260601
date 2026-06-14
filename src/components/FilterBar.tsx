@@ -43,7 +43,7 @@ export default function FilterBar() {
           重置
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input
@@ -54,6 +54,17 @@ export default function FilterBar() {
             className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
+        <select
+          value={filters.pendingRole}
+          onChange={(e) => setFilters({ pendingRole: e.target.value as any })}
+          className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="all">全部待处理</option>
+          <option value="unclear">⚠️ 责任不清</option>
+          <option value="recruiter">待招聘专员</option>
+          <option value="onsite">待驻场主管</option>
+          <option value="payroll">待薪酬会计</option>
+        </select>
         <select
           value={filters.period}
           onChange={(e) => setFilters({ period: e.target.value })}
