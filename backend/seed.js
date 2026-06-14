@@ -250,8 +250,7 @@ delegations.forEach((delegation, index) => {
 
   const materialIdMap = {};
   delegation.materials.forEach((material, index) => {
-    const materialResult = db.prepare('SELECT last_insert_rowid() as id').get();
-    insertMaterial.run(
+    const materialResult = insertMaterial.run(
       delegationId, 
       material.name, 
       material.type, 
@@ -262,7 +261,7 @@ delegations.forEach((delegation, index) => {
       material.verified_by || null,
       material.verified_at || null
     );
-    materialIdMap[material.name] = materialResult.id;
+    materialIdMap[material.name] = materialResult.lastInsertRowid;
   });
 
   const logs = [
@@ -277,7 +276,7 @@ delegations.forEach((delegation, index) => {
     }
   ];
 
-  if (['MATERIAL_VERIFICATION', 'VERIFICATION_PASSED', 'VERIFICATION_FAILED', 'MATERIAL_INCOMPLETE', 'QC_REVIEW_PENDING', 'QC_APPROVED', 'QC_REJECTED', 'COMPLETED'].includes(delegation.status)) {
+  if (['MATERIAL_VERIFICATION', 'VERIFICATION_PASSED', 'VERIFICATION_FAILED', 'MATERIAL_INCOMPLETE', 'QC_REVIEW_PENDING', 'QC_APPROVED', 'QC_REJECTED', 'COMPLETED', 'ON_HOLD'].includes(delegation.status)) {
     logs.push({
       action: 'STATUS_CHANGE',
       from: 'PENDING_ACCEPTANCE',
@@ -299,29 +298,7 @@ delegations.forEach((delegation, index) => {
     });
 
     if (['VERIFICATION_PASSED', 'QC_REVIEW_PENDING', 'QC_APPROVED', 'QC_REJECTED', 'COMPLETED'].includes(delegation.status)) {
-      logs.push({
-        action: 'VERIFY',
-        from: 'MATERIAL_VERIFICATION',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'appraiser01',
-        role: 'appraiser',
-        name: '李鉴定',
-        remark: '核验材料：委托书 - 通过',
-        details: JSON.stringify({ materialId: materialIdMap['委托书'], materialName: '委托书', status: 'passed', notes: '材料完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:00:00' })
-      });
-
-      logs.push({
-        action: 'VERIFY',
-        from: 'MATERIAL_VERIFICATION',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'appraiser01',
-        role: 'appraiser',
-        name: '李鉴定',
-        remark: '核验材料：身份证明 - 通过',
-        details: JSON.stringify({ materialId: materialIdMap['身份证明'], materialName: '身份证明', status: 'passed', notes: '身份证明真实有效', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:05:00' })
-      });
-
-      delegation.materials.slice(2).forEach((material) => {
+      delegation.materials.forEach((material) => {
         if (material.verification_status === 'passed') {
           logs.push({
             action: 'VERIFY',
@@ -331,13 +308,13 @@ delegations.forEach((delegation, index) => {
             role: 'appraiser',
             name: '李鉴定',
             remark: `核验材料：${material.name} - 通过`,
-            details: JSON.stringify({ 
-              materialId: materialIdMap[material.name], 
-              materialName: material.name, 
-              status: 'passed', 
-              notes: material.verification_notes, 
-              verifiedBy: 'appraiser01', 
-              verifiedAt: material.verified_at 
+            details: JSON.stringify({
+              materialId: materialIdMap[material.name],
+              materialName: material.name,
+              status: 'passed',
+              notes: material.verification_notes,
+              verifiedBy: 'appraiser01',
+              verifiedAt: material.verified_at
             })
           });
         }
@@ -369,57 +346,26 @@ delegations.forEach((delegation, index) => {
     }
 
     if (delegation.status === 'ON_HOLD') {
-      logs.push({
-        action: 'STATUS_CHANGE',
-        from: 'PENDING_ACCEPTANCE',
-        to: 'ACCEPTANCE_IN_PROGRESS',
-        user: 'acceptor01',
-        role: 'acceptor',
-        name: '张受理',
-        remark: '受理员接收委托'
-      });
-
-      logs.push({
-        action: 'STATUS_CHANGE',
-        from: 'ACCEPTANCE_IN_PROGRESS',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'acceptor01',
-        role: 'acceptor',
-        name: '张受理',
-        remark: '提交材料核验'
-      });
-
-      logs.push({
-        action: 'VERIFY',
-        from: 'MATERIAL_VERIFICATION',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'appraiser01',
-        role: 'appraiser',
-        name: '李鉴定',
-        remark: '核验材料：委托书 - 通过',
-        details: JSON.stringify({ materialId: materialIdMap['委托书'], materialName: '委托书', status: 'passed', notes: '委托书完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:30:00' })
-      });
-
-      logs.push({
-        action: 'VERIFY',
-        from: 'MATERIAL_VERIFICATION',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'appraiser01',
-        role: 'appraiser',
-        name: '李鉴定',
-        remark: '核验材料：身份证明 - 通过',
-        details: JSON.stringify({ materialId: materialIdMap['身份证明'], materialName: '身份证明', status: 'passed', notes: '身份证复印件清晰可辨', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:35:00' })
-      });
-
-      logs.push({
-        action: 'VERIFY',
-        from: 'MATERIAL_VERIFICATION',
-        to: 'MATERIAL_VERIFICATION',
-        user: 'appraiser01',
-        role: 'appraiser',
-        name: '李鉴定',
-        remark: '核验材料：物证样本 - 通过',
-        details: JSON.stringify({ materialId: materialIdMap['物证样本'], materialName: '物证样本', status: 'passed', notes: '物证样本包装完好，符合鉴定要求', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:40:00' })
+      delegation.materials.forEach((material) => {
+        if (material.verification_status === 'passed') {
+          logs.push({
+            action: 'VERIFY',
+            from: 'MATERIAL_VERIFICATION',
+            to: 'MATERIAL_VERIFICATION',
+            user: 'appraiser01',
+            role: 'appraiser',
+            name: '李鉴定',
+            remark: `核验材料：${material.name} - 通过`,
+            details: JSON.stringify({
+              materialId: materialIdMap[material.name],
+              materialName: material.name,
+              status: 'passed',
+              notes: material.verification_notes,
+              verifiedBy: 'appraiser01',
+              verifiedAt: material.verified_at
+            })
+          });
+        }
       });
 
       logs.push({

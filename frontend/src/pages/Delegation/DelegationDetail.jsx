@@ -315,7 +315,9 @@ function DelegationDetail() {
                         )}
                       </span>
                       <span className="timeline-time">
-                        {new Date(log.operate_time).toLocaleString('zh-CN')}
+                        {log.action_type === 'VERIFY' && log.details?.verifiedAt 
+                          ? new Date(log.details.verifiedAt).toLocaleString('zh-CN')
+                          : new Date(log.operate_time).toLocaleString('zh-CN')}
                       </span>
                     </div>
                     <div className="timeline-details">
