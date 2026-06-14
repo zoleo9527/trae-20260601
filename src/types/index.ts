@@ -36,6 +36,10 @@ export interface Communication {
   responsibleRole: UserRole;
   responsibleName: string;
   lastContactAt?: string;
+  nextFollowUpAt?: string;
+  exceptionReason?: string;
+  exceptionDescription?: string;
+  result?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -53,11 +53,21 @@ export async function addCommunicationHistory(id: string, type: CommunicationHis
   return { communication: data, history: data.history };
 }
 
-export async function updateCommunicationStatus(id: string, status: Communication['status']): Promise<Communication> {
+export async function updateCommunicationStatus(id: string, status: Communication['status'], result?: string): Promise<Communication> {
   const response = await fetch(`${BASE_URL}/communications/${id}/status`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status })
+    body: JSON.stringify({ status, result })
   });
   return response.json();
+}
+
+export async function handleCommunicationException(id: string, reason: string, description: string, nextFollowUp: string): Promise<{ communication: Communication; history: CommunicationHistory[] }> {
+  const response = await fetch(`${BASE_URL}/communications/${id}/exception`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reason, description, nextFollowUp })
+  });
+  const data = await response.json();
+  return { communication: data, history: data.history };
 }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Calendar, FileText, AlertTriangle, CheckCircle, Clock, Edit3 } from 'lucide-react';
+import { ArrowLeft, User, Calendar, FileText, AlertTriangle, CheckCircle, Clock, Edit3, AlertCircle, TrendingUp, TrendingDown } from 'lucide-react';
 import { fetchRenewalDetail, updateRenewalStatus } from '../api/client';
 import { useRenewalStore } from '../store';
 import { StatusBadge } from '../components/StatusBadge';
 import { ActionDrawer } from '../components/ActionDrawer';
+import { RenewalRiskDrawer } from '../components/RenewalRiskDrawer';
 import type { Renewal, RenewalHistory } from '../types';
 
 const statusOptions = [
@@ -13,6 +14,15 @@ const statusOptions = [
   { value: 'completed', label: '已完成' },
   { value: 'risk', label: '风险' },
 ];
+
+const riskReasons: Record<string, string> = {
+  price: '价格异议',
+  budget: '预算不足',
+  competitor: '竞品对比',
+  schedule: '时间冲突',
+  satisfaction: '服务不满',
+  other: '其他原因',
+};
 
 export function RenewalDetail() {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +33,7 @@ export function RenewalDetail() {
   const [history, setHistory] = useState<RenewalHistory[]>([]);
   const [newStatus, setNewStatus] = useState<Renewal['status']>('pending');
   const [note, setNote] = useState('');
+  const [riskDrawerOpen, setRiskDrawerOpen] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -47,6 +58,17 @@ export function RenewalDetail() {
     setNote('');
   };
 
+  const handleRiskSubmit = async (riskLevel: string, reason: string, description: string, solution: string) => {
+    if (!id || !renewal) return;
+    const status = riskLevel === 'high' ? 'risk' : 'processing';
+    const riskNote = `风险等级: ${riskLevel === 'high' ? '高' : riskLevel === 'medium' ? '中' : '低'}, 原因: ${riskReasons[reason]}, 说明: ${description}, 解决方案: ${solution}`;
+    const result = await updateRenewalStatus(id, status as Renewal['status'], riskNote);
+    setRenewal(result.renewal);
+    setHistory(result.history);
+    updateRenewal(result.renewal);
+    setRiskDrawerOpen(false);
+  };
+
   const getRoleLabel = (role: string) => {
     const roles: Record<string, string> = {
       teaching: '任课老师',
@@ -55,6 +77,14 @@ export function RenewalDetail() {
       system: '系统',
     };
     return roles[role] || role;
+  };
+
+  const getDaysUntilExpire = () => {
+    if (!renewal) return 0;
+    const expireDate = new Date(renewal.expireDate);
+    const today = new Date();
+    const diff = expireDate.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
   if (loading) {
@@ -78,6 +108,10 @@ export function RenewalDetail() {
       </div>
     );
   }
+
+  const daysUntilExpire = getDaysUntilExpire();
+  const isUrgent = daysUntilExpire <= 7 && daysUntilExpire > 0;
+  const isExpired = daysUntilExpire < 0;
 
   return (
     <div className="p-6">
@@ -110,19 +144,46 @@ export function RenewalDetail() {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-800">{renewal.studentName}</h3>
                   <p className="text-gray-500 mt-1">{renewal.packageName}</p>
-                  <div className="flex items-center gap-4 mt-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center gap-4 mt-4">
+                    <div className={`flex items-center gap-2 text-sm ${
+                      isExpired ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-gray-600'
+                    }`}>
                       <Calendar className="w-4 h-4" />
                       <span>到期日期: {renewal.expireDate}</span>
+                      {isExpired && <span className="px-2 py-0.5 bg-red-100 rounded-full text-xs">已过期</span>}
+                      {isUrgent && !isExpired && <span className="px-2 py-0.5 bg-amber-100 rounded-full text-xs">即将到期</span>}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <User className="w-4 h-4" />
                       <span>负责人: {renewal.responsibleName}</span>
+                      <span className="px-2 py-0.5 bg-gray-100 rounded-full text-gray-500">
+                        {getRoleLabel(renewal.responsibleRole)}
+                      </span>
                     </div>
                   </div>
                 </div>
-                <StatusBadge status={renewal.status} />
+                <div className="flex flex-col items-end gap-2">
+                  <StatusBadge status={renewal.status} />
+                  {renewal.status === 'risk' && (
+                    <div className="flex items-center gap-1 text-sm text-red-600">
+                      <AlertTriangle className="w-4 h-4" />
+                      风险预警
+                    </div>
+                  )}
+                </div>
               </div>
+
+              {renewal.status === 'risk' && (
+                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-red-800">风险标记</p>
+                      <p className="text-sm text-red-700 mt-1">{renewal.notes}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -141,12 +202,15 @@ export function RenewalDetail() {
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                         item.action === '完成续费' ? 'bg-green-100' :
                         item.action === '标记风险' ? 'bg-red-100' :
+                        item.action === '开始处理' ? 'bg-blue-100' :
                         'bg-gray-100'
                       }`}>
                         {item.action === '完成续费' ? (
                           <CheckCircle className="w-5 h-5 text-green-600" />
                         ) : item.action === '标记风险' ? (
-                          <AlertTriangle className="w-5 h-5 text-red-600" />
+                          <TrendingDown className="w-5 h-5 text-red-600" />
+                        ) : item.action === '开始处理' ? (
+                          <TrendingUp className="w-5 h-5 text-blue-600" />
                         ) : (
                           <FileText className="w-5 h-5 text-gray-600" />
                         )}
@@ -193,13 +257,13 @@ export function RenewalDetail() {
                   ))}
                 </select>
               </div>
-              {newStatus === 'risk' && (
+              {(newStatus === 'risk' || newStatus === 'completed') && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">备注说明</label>
                   <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
-                    placeholder="请输入风险原因..."
+                    placeholder={newStatus === 'risk' ? '请输入风险原因...' : '请输入完成说明...'}
                     rows={3}
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
                   />
@@ -212,6 +276,32 @@ export function RenewalDetail() {
                 <Edit3 className="w-4 h-4" />
                 更新状态
               </button>
+              {renewal.status !== 'risk' && renewal.status !== 'completed' && (
+                <button
+                  onClick={() => setRiskDrawerOpen(true)}
+                  className="w-full py-3 bg-red-100 text-red-700 font-medium rounded-xl hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  标记风险
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="font-semibold text-gray-800">责任归属</h2>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                  <User className="w-5 h-5 text-primary-600" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-800">{renewal.responsibleName}</p>
+                  <p className="text-sm text-gray-500">{getRoleLabel(renewal.responsibleRole)}</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -229,8 +319,12 @@ export function RenewalDetail() {
                 <span className="text-sm text-gray-800">{renewal.updatedAt}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">负责人角色</span>
-                <span className="text-sm text-gray-800">{getRoleLabel(renewal.responsibleRole)}</span>
+                <span className="text-sm text-gray-500">到期倒计时</span>
+                <span className={`text-sm font-medium ${
+                  isExpired ? 'text-red-600' : isUrgent ? 'text-amber-600' : 'text-green-600'
+                }`}>
+                  {isExpired ? `已过期 ${Math.abs(daysUntilExpire)} 天` : `${daysUntilExpire} 天`}
+                </span>
               </div>
               {renewal.notes && (
                 <div>
@@ -283,6 +377,14 @@ export function RenewalDetail() {
           </div>
         </div>
       </ActionDrawer>
+
+      <RenewalRiskDrawer
+        isOpen={riskDrawerOpen}
+        onClose={() => setRiskDrawerOpen(false)}
+        onSubmit={handleRiskSubmit}
+        studentName={renewal.studentName}
+        packageName={renewal.packageName}
+      />
     </div>
   );
 }

@@ -2,9 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, Filter, Calendar, User, ChevronRight, MessageSquare } from 'lucide-react';
 import { useCommunicationStore, useUserStore } from '../store';
-import { fetchCommunications } from '../api/client';
+import { fetchCommunications, addCommunicationHistory, updateCommunicationStatus } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
 import { PriorityBadge } from '../components/PriorityBadge';
+import { CommunicationQuickActions } from '../components/CommunicationQuickActions';
 import type { Communication, CommunicationFilter } from '../types';
 
 const statusOptions = [
@@ -22,7 +23,7 @@ const priorityOptions = [
 ];
 
 export function CommunicationsList() {
-  const { communications, setCommunications, filter, setFilter } = useCommunicationStore();
+  const { communications, setCommunications, filter, setFilter, updateCommunication } = useCommunicationStore();
   const { currentRole } = useUserStore();
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -65,6 +66,29 @@ export function CommunicationsList() {
 
   const handlePriorityChange = (priority: string) => {
     setFilter({ ...filter, priority: priority ? priority as Communication['priority'] : undefined });
+  };
+
+  const handleQuickAction = async (action: string, communication: Communication) => {
+    if (action === 'complete') {
+      const result = await updateCommunicationStatus(communication.id, 'completed');
+      updateCommunication(result.communication);
+    } else {
+      const typeMap: Record<string, 'call' | 'message' | 'meeting'> = {
+        call: 'call',
+        message: 'message',
+        meeting: 'meeting',
+      };
+      const type = typeMap[action];
+      if (type) {
+        const actionLabels: Record<string, string> = {
+          call: '电话沟通',
+          message: '消息沟通',
+          meeting: '面谈沟通',
+        };
+        const result = await addCommunicationHistory(communication.id, type, `${actionLabels[action]} - 已${action === 'call' ? '拨打' : action === 'message' ? '发送' : '预约'}`);
+        updateCommunication(result.communication);
+      }
+    }
   };
 
   return (
@@ -140,40 +164,45 @@ export function CommunicationsList() {
             </div>
           ) : (
             filteredCommunications.map(communication => (
-              <Link
+              <div
                 key={communication.id}
-                to={`/communications/${communication.id}`}
                 className="px-6 py-4 hover:bg-gray-50 transition-colors flex items-center gap-4 group"
               >
-                <img
-                  src={communication.studentAvatar}
-                  alt={communication.studentName}
-                  className="w-14 h-14 rounded-full bg-gray-100"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-gray-800">{communication.studentName}</span>
-                    <PriorityBadge priority={communication.priority} />
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">{communication.subject}</p>
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="text-xs text-gray-400 flex items-center gap-1">
-                      <User className="w-3 h-3" />
-                      {communication.responsibleName}
-                    </span>
-                    {communication.lastContactAt && (
+                <Link
+                  to={`/communications/${communication.id}`}
+                  className="flex items-center gap-4 flex-1 min-w-0"
+                >
+                  <img
+                    src={communication.studentAvatar}
+                    alt={communication.studentName}
+                    className="w-14 h-14 rounded-full bg-gray-100"
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-800">{communication.studentName}</span>
+                      <PriorityBadge priority={communication.priority} />
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{communication.subject}</p>
+                    <div className="flex items-center gap-4 mt-2">
                       <span className="text-xs text-gray-400 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        {communication.lastContactAt}
+                        <User className="w-3 h-3" />
+                        {communication.responsibleName}
                       </span>
-                    )}
+                      {communication.lastContactAt && (
+                        <span className="text-xs text-gray-400 flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {communication.lastContactAt}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={communication.status} type="communication" />
-                  <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500 transition-colors" />
-                </div>
-              </Link>
+                  <div className="flex items-center gap-3">
+                    <StatusBadge status={communication.status} type="communication" />
+                    <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500 transition-colors" />
+                  </div>
+                </Link>
+                <CommunicationQuickActions communication={communication} onAction={handleQuickAction} />
+              </div>
             ))
           )}
         </div>
