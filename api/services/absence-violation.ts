@@ -101,73 +101,97 @@ export function reviewAVRecord(
   if (!opinion.trim()) throw new Error('[校验失败] 审核意见不能为空')
 
   const now = new Date().toISOString()
-  const statusMap: Record<string, AVStatus> = { approve: 'approved', reject: 'rejected', supplement: 'supplemented' }
-  const newStatus = statusMap[action]
   const candidate = getCandidate(record.candidateId)
 
   if (action === 'supplement') {
     if (!supplementData) {
-      console.warn('[警告] 补录操作未提供 supplementData，仅更新原记录状态')
-    } else {
-      const suppCandidate = getCandidate(supplementData.candidateId)
-      if (!suppCandidate) throw new Error('[校验失败] 补录考生不存在')
-      const suppRoom = getRoom(supplementData.roomId)
-      if (!suppRoom) throw new Error('[校验失败] 补录考场不存在')
-      const suppSubject = getSubject(supplementData.subjectId)
-      if (!suppSubject) throw new Error('[校验失败] 补录科目不存在')
-      if (!supplementData.remark.trim()) throw new Error('[校验失败] 补录备注不能为空')
-      if (supplementData.type === 'violation' && !supplementData.violationType) throw new Error('[校验失败] 补录违纪类型不能为空')
-
-      const supplementRecord: AbsenceViolationRecord = {
-        id: nextId('av'),
-        candidateId: supplementData.candidateId,
-        type: supplementData.type,
-        violationType: supplementData.type === 'violation' ? (supplementData.violationType || 'other') : null,
-        roomId: supplementData.roomId,
-        subjectId: supplementData.subjectId,
-        status: 'supplemented',
-        submittedBy: operatorName,
-        reviewedBy: operatorName,
-        opinion: opinion,
-        remark: supplementData.remark,
-        createdAt: now,
-        reviewedAt: now,
-        version: 1,
-        parentId: id,
-      }
-      addAVRecord(supplementRecord)
-
-      const suppTypeLabel = supplementData.type === 'absence' ? '缺考' : '违纪'
-      const suppViolationLabel = supplementData.type === 'violation' && supplementData.violationType
-        ? `(${getViolationLabel(supplementData.violationType)})` : ''
-
-      addAuditLog({
-        id: nextId('log'),
-        targetType: 'absence-violation',
-        targetId: supplementRecord.id,
-        action: 'supplement-create',
-        operatorRole,
-        operatorName,
-        detail: `补录新增${suppTypeLabel}记录${suppViolationLabel}：${suppCandidate.name}-${suppSubject.name}-${supplementData.remark}`,
-        createdAt: now,
-        fromStatus: undefined,
-        toStatus: 'supplemented',
-      })
-
-      addAuditLog({
-        id: nextId('log'),
-        targetType: 'absence-violation',
-        targetId: id,
-        action: 'supplement-link',
-        operatorRole,
-        operatorName,
-        detail: `关联补录记录 ${supplementRecord.id}：${suppCandidate.name}-${suppSubject.name}`,
-        createdAt: now,
-        fromStatus: record.status,
-        toStatus: 'supplemented',
-      })
+      throw new Error('[校验失败] 补录操作必须提供 supplementData（关联补录记录的完整信息），不允许无关联补录数据时将原记录标记为 supplemented')
     }
+
+    const suppCandidate = getCandidate(supplementData.candidateId)
+    if (!suppCandidate) throw new Error('[校验失败] 补录考生不存在')
+    const suppRoom = getRoom(supplementData.roomId)
+    if (!suppRoom) throw new Error('[校验失败] 补录考场不存在')
+    const suppSubject = getSubject(supplementData.subjectId)
+    if (!suppSubject) throw new Error('[校验失败] 补录科目不存在')
+    if (!supplementData.remark.trim()) throw new Error('[校验失败] 补录备注不能为空')
+    if (supplementData.type === 'violation' && !supplementData.violationType) throw new Error('[校验失败] 补录违纪类型不能为空')
+
+    const supplementRecord: AbsenceViolationRecord = {
+      id: nextId('av'),
+      candidateId: supplementData.candidateId,
+      type: supplementData.type,
+      violationType: supplementData.type === 'violation' ? (supplementData.violationType || 'other') : null,
+      roomId: supplementData.roomId,
+      subjectId: supplementData.subjectId,
+      status: 'supplemented',
+      submittedBy: operatorName,
+      reviewedBy: operatorName,
+      opinion: opinion,
+      remark: supplementData.remark,
+      createdAt: now,
+      reviewedAt: now,
+      version: 1,
+      parentId: id,
+    }
+    addAVRecord(supplementRecord)
+
+    const suppTypeLabel = supplementData.type === 'absence' ? '缺考' : '违纪'
+    const suppViolationLabel = supplementData.type === 'violation' && supplementData.violationType
+      ? `(${getViolationLabel(supplementData.violationType)})` : ''
+
+    addAuditLog({
+      id: nextId('log'),
+      targetType: 'absence-violation',
+      targetId: supplementRecord.id,
+      action: 'supplement-create',
+      operatorRole,
+      operatorName,
+      detail: `补录新增${suppTypeLabel}记录${suppViolationLabel}：${suppCandidate.name}-${suppSubject.name}-${supplementData.remark}`,
+      createdAt: now,
+      fromStatus: undefined,
+      toStatus: 'supplemented',
+    })
+
+    addAuditLog({
+      id: nextId('log'),
+      targetType: 'absence-violation',
+      targetId: id,
+      action: 'supplement-link',
+      operatorRole,
+      operatorName,
+      detail: `关联补录记录 ${supplementRecord.id}：${suppCandidate.name}-${suppSubject.name}`,
+      createdAt: now,
+      fromStatus: record.status,
+      toStatus: 'supplemented',
+    })
+
+    updateAVRecord(id, {
+      status: 'supplemented',
+      reviewedBy: operatorName,
+      opinion,
+      reviewedAt: now,
+    })
+
+    addAuditLog({
+      id: nextId('log'),
+      targetType: 'absence-violation',
+      targetId: id,
+      action: 'supplement',
+      operatorRole,
+      operatorName,
+      detail: `补录完成：${candidate?.name || '未知考生'}-${opinion}`,
+      createdAt: now,
+      fromStatus: record.status,
+      toStatus: 'supplemented',
+    })
+
+    updateStagesAfterChange()
+    return getAVRecord(id)!
   }
+
+  const statusMap: Record<string, AVStatus> = { approve: 'approved', reject: 'rejected' }
+  const newStatus = statusMap[action]
 
   updateAVRecord(id, {
     status: newStatus,
@@ -176,7 +200,7 @@ export function reviewAVRecord(
     reviewedAt: now,
   })
 
-  const actionLabels: Record<string, string> = { approve: '审核通过', reject: '审核驳回', supplement: '补录完成' }
+  const actionLabels: Record<string, string> = { approve: '审核通过', reject: '审核驳回' }
   addAuditLog({
     id: nextId('log'),
     targetType: 'absence-violation',

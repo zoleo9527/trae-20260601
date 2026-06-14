@@ -150,6 +150,23 @@ export interface StageInfo {
   operatorName?: string
 }
 
+export interface AVStats {
+  pending: number
+  resubmitted: number
+  approved: number
+  rejected: number
+  supplemented: number
+  total: number
+}
+
+export interface SPStats {
+  initiated: number
+  approved: number
+  confirmed: number
+  rejected: number
+  total: number
+}
+
 export interface DashboardData {
   examName: string
   examDate: string
@@ -160,6 +177,8 @@ export interface DashboardData {
   registration: RegistrationInfo
   roomArrangement: RoomArrangementInfo
   invigilatorAssignment: InvigilatorInfo
+  avStats: AVStats
+  spStats: SPStats
 }
 
 export interface CandidateDetail {

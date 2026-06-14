@@ -37,6 +37,23 @@ router.get('/', (_req: Request, res: Response): void => {
     }
   })
 
+  const avStats = {
+    pending: avRecords.filter(r => r.status === 'pending').length,
+    resubmitted: avRecords.filter(r => r.status === 'resubmitted').length,
+    approved: avRecords.filter(r => r.status === 'approved').length,
+    rejected: avRecords.filter(r => r.status === 'rejected').length,
+    supplemented: avRecords.filter(r => r.status === 'supplemented').length,
+    total: avRecords.length,
+  }
+
+  const spStats = {
+    initiated: spRecords.filter(r => r.status === 'initiated').length,
+    approved: spRecords.filter(r => r.status === 'approved').length,
+    confirmed: spRecords.filter(r => r.status === 'confirmed').length,
+    rejected: spRecords.filter(r => r.status === 'rejected').length,
+    total: spRecords.length,
+  }
+
   res.json({
     examName: exam.name,
     examDate: exam.date,
@@ -48,6 +65,8 @@ router.get('/', (_req: Request, res: Response): void => {
     roomArrangement: getRoomArrangementInfo(),
     invigilatorAssignment: getInvigilatorInfo(),
     stageProgress: progress,
+    avStats,
+    spStats,
   })
 })
 

@@ -107,10 +107,6 @@ export const useAppStore = create<AppState>((set, get) => ({
         loading: false,
         error: null,
       })
-      await Promise.all([
-        get().fetchAVRecords(),
-        get().fetchSPRecords(),
-      ])
     } catch (e: any) {
       set({ loading: false, error: e.message })
     }

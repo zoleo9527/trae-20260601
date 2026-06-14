@@ -6,7 +6,7 @@ import {
   UserCheck, ListChecks, PlayCircle
 } from 'lucide-react'
 import { useAppStore } from '@/store/useAppStore'
-import type { StageProgress } from '../../shared/types'
+import type { StageProgress, AVStats, SPStats } from '../../shared/types'
 
 const stageIcons = [Calendar, Users, DoorOpen, AlertCircle, GraduationCap]
 const stageKeys = ['registration', 'room-arrangement', 'invigilator-assignment', 'absence-violation', 'score-publish'] as const
@@ -51,13 +51,15 @@ function Skeleton() {
 }
 
 function StageCard({
-  stage, progress, onClick, onComplete, role
+  stage, progress, onClick, onComplete, role, avStats, spStats
 }: {
   stage: any
   progress: StageProgress | undefined
   onClick: () => void
   onComplete: () => void
   role: string | null
+  avStats: AVStats | undefined
+  spStats: SPStats | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   const idx = stageKeys.indexOf(stage.key)
@@ -153,7 +155,7 @@ function StageCard({
             </div>
           )}
 
-          <StageDetail stage={stage} />
+          <StageDetail stage={stage} avStats={avStats} spStats={spStats} />
 
           <div className="flex items-center justify-between pt-1">
             <button
@@ -179,8 +181,8 @@ function StageCard({
   )
 }
 
-function StageDetail({ stage }: { stage: any }) {
-  const { registration, roomArrangement, invigilatorAssignment, avRecords, spRecords, rooms, subjects, candidates } = useAppStore()
+function StageDetail({ stage, avStats, spStats }: { stage: any; avStats: AVStats | undefined; spStats: SPStats | undefined }) {
+  const { registration, roomArrangement, invigilatorAssignment } = useAppStore()
 
   if (stage.key === 'registration') {
     if (!registration) return null
@@ -316,10 +318,8 @@ function StageDetail({ stage }: { stage: any }) {
   }
 
   if (stage.key === 'absence-violation') {
-    const pending = avRecords.filter(r => r.status === 'pending' || r.status === 'resubmitted').length
-    const approved = avRecords.filter(r => r.status === 'approved').length
-    const rejected = avRecords.filter(r => r.status === 'rejected').length
-    const supplemented = avRecords.filter(r => r.status === 'supplemented').length
+    const s = avStats || { pending: 0, resubmitted: 0, approved: 0, rejected: 0, supplemented: 0, total: 0 }
+    const pending = s.pending + s.resubmitted
     return (
       <div className="grid grid-cols-4 gap-3">
         <div className="bg-white rounded-lg p-3 border border-amber-200 bg-amber-50/30">
@@ -328,15 +328,15 @@ function StageDetail({ stage }: { stage: any }) {
         </div>
         <div className="bg-white rounded-lg p-3 border border-green-200 bg-green-50/30">
           <div className="text-xs text-green-600 mb-1 flex items-center gap-1"><Check size={11} /> 已通过</div>
-          <div className="text-xl font-bold text-green-700">{approved} 条</div>
+          <div className="text-xl font-bold text-green-700">{s.approved} 条</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-red-200 bg-red-50/30">
           <div className="text-xs text-red-600 mb-1 flex items-center gap-1"><AlertCircle size={11} /> 已驳回</div>
-          <div className="text-xl font-bold text-red-700">{rejected} 条</div>
+          <div className="text-xl font-bold text-red-700">{s.rejected} 条</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-blue-200 bg-blue-50/30">
           <div className="text-xs text-blue-600 mb-1 flex items-center gap-1"><FileText size={11} /> 已补录</div>
-          <div className="text-xl font-bold text-blue-700">{supplemented} 条</div>
+          <div className="text-xl font-bold text-blue-700">{s.supplemented} 条</div>
         </div>
         <div className="col-span-4 bg-white rounded-lg p-3 border border-gray-100">
           <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
@@ -346,7 +346,7 @@ function StageDetail({ stage }: { stage: any }) {
             {[
               { label: '监考老师提交', status: 'done' },
               { label: '考务专员审核', status: pending > 0 ? 'current' : 'done' },
-              { label: '通过/驳回/补录', status: rejected > 0 || supplemented > 0 ? 'done' : 'pending' },
+              { label: '通过/驳回/补录', status: s.rejected > 0 || s.supplemented > 0 ? 'done' : 'pending' },
               { label: '数据归档', status: pending === 0 ? 'done' : 'pending' },
             ].map((step, i, arr) => (
               <div key={i} className="flex items-center flex-1 last:flex-none">
@@ -368,31 +368,28 @@ function StageDetail({ stage }: { stage: any }) {
   }
 
   if (stage.key === 'score-publish') {
-    const initiated = spRecords.filter(r => r.status === 'initiated').length
-    const approved = spRecords.filter(r => r.status === 'approved').length
-    const confirmed = spRecords.filter(r => r.status === 'confirmed').length
-    const rejected = spRecords.filter(r => r.status === 'rejected').length
+    const s = spStats || { initiated: 0, approved: 0, confirmed: 0, rejected: 0, total: 0 }
     return (
       <div className="grid grid-cols-5 gap-3">
         <div className="bg-white rounded-lg p-3 border border-gray-200">
           <div className="text-xs text-gray-500 mb-1 flex items-center gap-1"><FileText size={11} /> 总申请</div>
-          <div className="text-xl font-bold text-gray-900">{spRecords.length} 次</div>
+          <div className="text-xl font-bold text-gray-900">{s.total} 次</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-amber-200 bg-amber-50/30">
           <div className="text-xs text-amber-600 mb-1 flex items-center gap-1"><Clock size={11} /> 待审批</div>
-          <div className="text-xl font-bold text-amber-700">{initiated} 科</div>
+          <div className="text-xl font-bold text-amber-700">{s.initiated} 科</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-blue-200 bg-blue-50/30">
           <div className="text-xs text-blue-600 mb-1 flex items-center gap-1"><ClipboardCheck size={11} /> 已审批</div>
-          <div className="text-xl font-bold text-blue-700">{approved} 科</div>
+          <div className="text-xl font-bold text-blue-700">{s.approved} 科</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-green-200 bg-green-50/30">
           <div className="text-xs text-green-600 mb-1 flex items-center gap-1"><CheckCircle2 size={11} /> 已发布</div>
-          <div className="text-xl font-bold text-green-700">{confirmed} 科</div>
+          <div className="text-xl font-bold text-green-700">{s.confirmed} 科</div>
         </div>
         <div className="bg-white rounded-lg p-3 border border-red-200 bg-red-50/30">
           <div className="text-xs text-red-600 mb-1 flex items-center gap-1"><AlertCircle size={11} /> 已驳回</div>
-          <div className="text-xl font-bold text-red-700">{rejected} 科</div>
+          <div className="text-xl font-bold text-red-700">{s.rejected} 科</div>
         </div>
         <div className="col-span-5 bg-white rounded-lg p-3 border border-gray-100">
           <div className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-1">
@@ -406,10 +403,10 @@ function StageDetail({ stage }: { stage: any }) {
               { label: '成绩同步发布', role: '系统自动' },
             ].map((step, i, arr) => {
               let status: 'done' | 'current' | 'pending' = 'pending'
-              if (i === 0) status = spRecords.length > 0 ? 'done' : 'pending'
-              if (i === 1) status = approved + confirmed > 0 ? 'done' : initiated > 0 ? 'current' : 'pending'
-              if (i === 2) status = confirmed > 0 ? 'done' : approved > 0 ? 'current' : 'pending'
-              if (i === 3) status = confirmed >= subjects.length && confirmed > 0 ? 'done' : confirmed > 0 ? 'current' : 'pending'
+              if (i === 0) status = s.total > 0 ? 'done' : 'pending'
+              if (i === 1) status = s.approved + s.confirmed > 0 ? 'done' : s.initiated > 0 ? 'current' : 'pending'
+              if (i === 2) status = s.confirmed > 0 ? 'done' : s.approved > 0 ? 'current' : 'pending'
+              if (i === 3) status = s.confirmed > 0 ? 'current' : 'pending'
               return (
                 <div key={i} className="flex items-center flex-1 last:flex-none">
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${
@@ -535,6 +532,8 @@ export default function Dashboard() {
                 onClick={() => handleStageClick(stage.key)}
                 onComplete={() => handleCompleteStage(stage.key)}
                 role={role}
+                avStats={dashboard.avStats}
+                spStats={dashboard.spStats}
               />
             )
           })}
