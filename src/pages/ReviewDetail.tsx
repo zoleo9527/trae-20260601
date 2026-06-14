@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -15,12 +15,15 @@ import {
   Info,
   Save,
   StickyNote,
+  Edit3,
+  Clock,
 } from 'lucide-react';
 import { useApplicationStore } from '../store/useApplicationStore';
 import { Sidebar } from '../components/Sidebar';
 import { StatusBadge } from '../components/StatusBadge';
 import { MATERIAL_STATUS_LABELS } from '../types';
 import type { MaterialStatus } from '../types';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { cn } from '../lib/utils';
 
 type ActionType = 'approve' | 'correction' | 'reject' | null;
@@ -30,6 +33,15 @@ interface CorrectionItem {
   materialName: string;
   reason: string;
   priority: 'high' | 'medium' | 'low';
+}
+
+type PendingNavAction = { type: 'navigate'; path: string } | null;
+
+interface DirtyFields {
+  exceptionNote: boolean;
+  remark: boolean;
+  correctionItems: boolean;
+  selectedAction: boolean;
 }
 
 export function ReviewDetail() {
@@ -48,6 +60,8 @@ export function ReviewDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [exceptionNote, setExceptionNote] = useState<string>(application?.exceptionNote || '');
   const [isNoteSaving, setIsNoteSaving] = useState(false);
+  const [pendingNav, setPendingNav] = useState<PendingNavAction>(null);
+  const [lastSavedExceptionNote, setLastSavedExceptionNote] = useState<string>(application?.exceptionNote || '');
 
   useEffect(() => {
     setSelectedAction(null);
@@ -56,7 +70,61 @@ export function ReviewDetail() {
     setIsSubmitting(false);
     setExceptionNote(application?.exceptionNote || '');
     setIsNoteSaving(false);
+    setLastSavedExceptionNote(application?.exceptionNote || '');
   }, [id]);
+
+  const dirtyFields: DirtyFields = useMemo(() => ({
+    exceptionNote: exceptionNote.trim() !== lastSavedExceptionNote.trim(),
+    remark: remark.trim().length > 0,
+    correctionItems: correctionItems.some((item) => item.materialName.trim().length > 0 || item.reason.trim().length > 0),
+    selectedAction: selectedAction !== null,
+  }), [exceptionNote, lastSavedExceptionNote, remark, correctionItems, selectedAction]);
+
+  const isDirty = useMemo(
+    () => Object.values(dirtyFields).some(Boolean),
+    [dirtyFields]
+  );
+
+  const dirtyCount = useMemo(
+    () => Object.values(dirtyFields).filter(Boolean).length,
+    [dirtyFields]
+  );
+
+  const isReadonly =
+    (application?.status === 'archived' || application?.status === 'rejected') ?? false;
+
+  const pendingNavRef = useRef<PendingNavAction>(null);
+  pendingNavRef.current = pendingNav;
+
+  useEffect(() => {
+    if (isReadonly || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty, isReadonly]);
+
+  const confirmNav = useCallback((path: string) => {
+    if (isReadonly || !isDirty) {
+      navigate(path);
+      return;
+    }
+    setPendingNav({ type: 'navigate', path });
+  }, [isDirty, isReadonly, navigate]);
+
+  const handleConfirmLeave = useCallback(() => {
+    const action = pendingNavRef.current;
+    setPendingNav(null);
+    if (action?.type === 'navigate') {
+      navigate(action.path);
+    }
+  }, [navigate]);
+
+  const handleCancelLeave = useCallback(() => {
+    setPendingNav(null);
+  }, []);
 
   if (!application) {
     return (
@@ -136,6 +204,7 @@ export function ReviewDetail() {
     setIsNoteSaving(true);
     await new Promise((resolve) => setTimeout(resolve, 300));
     saveExceptionNote(id, exceptionNote);
+    setLastSavedExceptionNote(exceptionNote);
     setIsNoteSaving(false);
   };
 
@@ -176,15 +245,12 @@ export function ReviewDetail() {
     (selectedAction !== 'correction' || correctionItems.length > 0) &&
     !isSubmitting;
 
-  const isReadonly =
-    application.status === 'archived' || application.status === 'rejected';
-
   return (
     <div className="h-full flex flex-col" style={{ background: 'var(--surface-ground)' }}>
       <header className="flex items-center justify-between px-6 py-3.5 bg-white border-b shadow-nav" style={{ borderColor: 'var(--border-subtle)' }}>
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/')}
+            onClick={() => confirmNav('/')}
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-sm text-slate-500 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -197,6 +263,12 @@ export function ReviewDetail() {
                 {application.appointmentNo}
               </h1>
               <StatusBadge status={application.status} size="sm" />
+              {isDirty && !isReadonly && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded animate-pulse-soft">
+                  <Edit3 className="w-2.5 h-2.5" />
+                  {dirtyCount} 处草稿未保存
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
               {application.applicantName} · {application.applicationType}
@@ -206,7 +278,7 @@ export function ReviewDetail() {
 
         {!isReadonly && nextPendingId && (
           <button
-            onClick={() => navigate(`/review/${nextPendingId}`)}
+            onClick={() => confirmNav(`/review/${nextPendingId}`)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-navy-600 bg-navy-50 hover:bg-navy-100 border border-navy-100 rounded-lg transition-colors"
           >
             <SkipForward className="w-3.5 h-3.5" />
@@ -214,6 +286,46 @@ export function ReviewDetail() {
           </button>
         )}
       </header>
+
+      {isDirty && !isReadonly && (
+        <div className="flex items-center justify-between px-6 py-2.5 bg-gradient-to-r from-amber-50 via-amber-50 to-amber-50 border-b border-amber-200 animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-[12px] font-semibold text-amber-800">
+                当前存在未保存的草稿内容
+              </p>
+              <p className="text-[10px] text-amber-600 mt-0.5">
+                切换申请、返回或跳过前请确认内容已保存或提交
+              </p>
+            </div>
+            <div className="flex items-center gap-1 ml-2">
+              {dirtyFields.exceptionNote && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 font-medium">
+                  异常说明未保存
+                </span>
+              )}
+              {dirtyFields.selectedAction && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 font-medium">
+                  已选审核动作
+                </span>
+              )}
+              {dirtyFields.remark && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 font-medium">
+                  审核备注
+                </span>
+              )}
+              {dirtyFields.correctionItems && (
+                <span className="text-[10px] px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded border border-amber-200 font-medium">
+                  补正项
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden">
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -307,7 +419,7 @@ export function ReviewDetail() {
               </div>
             </section>
 
-            <section className="card-base p-5">
+            <section className="card-base p-5 relative">
               <div className="flex items-center justify-between mb-3">
                 <h2 className="section-title">
                   <StickyNote className="w-4 h-4" />
@@ -315,22 +427,33 @@ export function ReviewDetail() {
                   <span className="text-[11px] text-slate-400 font-normal tracking-normal normal-case ml-1">
                     一线处理与管理回看共享记录
                   </span>
+                  {dirtyFields.exceptionNote && (
+                    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-1">
+                      <Edit3 className="w-2.5 h-2.5" />
+                      草稿未保存
+                    </span>
+                  )}
                 </h2>
                 {!isReadonly && (
                   <button
                     onClick={handleSaveExceptionNote}
-                    disabled={isNoteSaving}
-                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-600 bg-navy-50 hover:bg-navy-100 border border-navy-200 rounded-md transition-colors"
+                    disabled={isNoteSaving || !dirtyFields.exceptionNote}
+                    className={cn(
+                      'flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-md transition-colors border',
+                      dirtyFields.exceptionNote
+                        ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 border-amber-300 animate-border-glow'
+                        : 'text-slate-400 bg-slate-50 border-slate-200 cursor-not-allowed'
+                    )}
                   >
                     {isNoteSaving ? (
                       <>
-                        <div className="w-3 h-3 border-2 border-navy-600/30 border-t-navy-600 rounded-full animate-spin" />
+                        <div className="w-3 h-3 border-2 border-amber-600/30 border-t-amber-600 rounded-full animate-spin" />
                         保存中
                       </>
                     ) : (
                       <>
                         <Save className="w-3 h-3" />
-                        立即保存
+                        {dirtyFields.exceptionNote ? '立即保存' : '已保存'}
                       </>
                     )}
                   </button>
@@ -344,7 +467,12 @@ export function ReviewDetail() {
                     onChange={(e) => setExceptionNote(e.target.value)}
                     placeholder="录入异常情况、特殊处理、需特别说明的事项...例如：申请人行动不便由代办人处理、材料真实性经上门核实等"
                     rows={3}
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all resize-none"
+                    className={cn(
+                      'w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all resize-none',
+                      dirtyFields.exceptionNote
+                        ? 'border-amber-300 focus:ring-amber-500/20 focus:border-amber-500 bg-amber-50/30'
+                        : 'border-slate-200 focus:ring-navy-200 focus:border-navy-400'
+                    )}
                   />
                   <div className="flex items-center justify-between mt-2">
                     <div className="flex items-start gap-1.5">
@@ -379,11 +507,19 @@ export function ReviewDetail() {
             </section>
 
             {!isReadonly && (
-              <section className="card-base p-5">
-                <h2 className="section-title mb-4">
-                  <AlertTriangle className="w-4 h-4" />
-                  审核操作
-                </h2>
+              <section className="card-base p-5 relative">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="section-title">
+                    <AlertTriangle className="w-4 h-4" />
+                    审核操作
+                    {(dirtyFields.selectedAction || dirtyFields.remark || dirtyFields.correctionItems) && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 ml-1">
+                        <Edit3 className="w-2.5 h-2.5" />
+                        有未提交的操作
+                      </span>
+                    )}
+                  </h2>
+                </div>
 
                 <div className="grid grid-cols-3 gap-3 mb-5">
                   <ActionButton
@@ -421,7 +557,13 @@ export function ReviewDetail() {
                 </div>
 
                 {selectedAction === 'correction' && (
-                  <div className="mb-5 p-4 bg-amber-50/80 border border-amber-200 rounded-xl">
+                  <div className="mb-5 p-4 bg-amber-50/80 border border-amber-200 rounded-xl relative">
+                    {dirtyFields.correctionItems && (
+                      <span className="absolute -top-2 right-3 inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-100 border border-amber-300 rounded px-1.5 py-0.5">
+                        <Edit3 className="w-2.5 h-2.5" />
+                        草稿中
+                      </span>
+                    )}
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-sm font-semibold text-amber-800 flex items-center gap-2">
                         <Send className="w-4 h-4" />
@@ -531,23 +673,34 @@ export function ReviewDetail() {
                   </div>
                 )}
 
-                <div className="mb-5">
-                  <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+                <div className="mb-5 relative">
+                  <label className="text-xs font-medium text-slate-500 mb-1.5 block flex items-center gap-1.5">
                     审核备注
                     <span className="text-slate-400 font-normal ml-1">（可选）</span>
+                    {dirtyFields.remark && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                        <Edit3 className="w-2.5 h-2.5" />
+                        草稿
+                      </span>
+                    )}
                   </label>
                   <textarea
                     value={remark}
                     onChange={(e) => setRemark(e.target.value)}
                     placeholder="请输入审核备注..."
                     rows={2}
-                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-navy-200 focus:border-navy-400 transition-all resize-none"
+                    className={cn(
+                      'w-full px-3 py-2 text-sm border rounded-lg focus:outline-none focus:ring-2 transition-all resize-none',
+                      dirtyFields.remark
+                        ? 'border-amber-300 focus:ring-amber-500/20 focus:border-amber-500 bg-amber-50/30'
+                        : 'border-slate-200 focus:ring-navy-200 focus:border-navy-400'
+                    )}
                   />
                 </div>
 
                 <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                   <button
-                    onClick={() => navigate('/')}
+                    onClick={() => confirmNav('/')}
                     className="px-4 py-2 text-sm font-medium text-slate-500 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors"
                   >
                     取消
@@ -590,6 +743,20 @@ export function ReviewDetail() {
           <Sidebar application={application} mode={isReadonly ? 'archive' : 'review'} />
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingNav !== null}
+        title="确定要离开当前申请吗？"
+        description={
+          dirtyCount > 0
+            ? `您有 ${dirtyCount} 处未保存的草稿内容，离开后将全部丢失。建议先保存或提交。`
+            : '确定离开当前申请？'
+        }
+        confirmText="确认离开"
+        cancelText="继续编辑"
+        onConfirm={handleConfirmLeave}
+        onCancel={handleCancelLeave}
+      />
     </div>
   );
 }
