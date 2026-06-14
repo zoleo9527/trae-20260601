@@ -46,6 +46,82 @@ func recordDetail(id uint) (*AppraisalRecord, error) {
 	return &r, err
 }
 
+func buildResponsibilitySummary(r *AppraisalRecord) ResponsibilitySummary {
+	rule := GetResponsibilityRule(r.Status)
+	summary := ResponsibilitySummary{}
+
+	if rule != nil {
+		summary.CurrentResponsibleRole = string(rule.ResponsibleRole)
+		summary.CurrentResponsibleRoleText = rule.ResponsibleRoleText
+		summary.NextAction = rule.NextAction
+	}
+
+	switch rule.ResponsibleRole {
+	case RoleClerk:
+		if r.AcceptClerk != nil {
+			summary.CurrentResponsibleName = r.AcceptClerk.Name
+		}
+	case RoleExpert:
+		if r.Expert != nil {
+			summary.CurrentResponsibleName = r.Expert.Name
+		}
+	case RoleQC:
+		if r.QC != nil {
+			summary.CurrentResponsibleName = r.QC.Name
+		}
+	}
+
+	var lastRejectLog StatusLog
+	DB.Where("record_id = ? AND to_status IN ?", r.ID, []CaseStatus{StatusRejectedQC, StatusNeedSupplement}).
+		Order("id DESC").
+		Preload("Operator").
+		First(&lastRejectLog)
+	if lastRejectLog.ID > 0 {
+		summary.LatestRejectReason = lastRejectLog.Reason
+		summary.LatestRejectAt = lastRejectLog.CreatedAt.Format("2006-01-02 15:04")
+		if lastRejectLog.Operator != nil {
+			summary.LatestRejectOperator = fmt.Sprintf("%s(%s)", lastRejectLog.Operator.Name, roleText(lastRejectLog.Operator.Role))
+		}
+	} else if strings.TrimSpace(r.RejectReason) != "" {
+		summary.LatestRejectReason = r.RejectReason
+	}
+
+	var latestNotice SupplementNotice
+	DB.Where("record_id = ?", r.ID).Order("id DESC").Preload("Issuer").First(&latestNotice)
+	if latestNotice.ID > 0 {
+		summary.LatestSupplementNoticeNo = latestNotice.NoticeNo
+		summary.LatestSupplementDeadline = latestNotice.Deadline
+		summary.LatestSupplementStatus = latestNotice.Status
+		items := strings.Split(strings.TrimSpace(latestNotice.MissingItems), "\n")
+		shortItems := items
+		if len(items) > 2 {
+			shortItems = items[:2]
+		}
+		issuerName := ""
+		if latestNotice.Issuer != nil {
+			issuerName = latestNotice.Issuer.Name
+		}
+		summary.LatestSupplementSummary = fmt.Sprintf("%s 发起，缺%s项：%s",
+			issuerName,
+			ifElse(len(items) > 2, fmt.Sprintf("%d", len(items)), fmt.Sprintf("%d", len(shortItems))),
+			strings.Join(shortItems, "；"))
+	}
+
+	return summary
+}
+
+func roleText(r Role) string {
+	m := map[Role]string{
+		RoleClerk:  "受理员",
+		RoleExpert: "鉴定人",
+		RoleQC:     "质控",
+	}
+	if v, ok := m[r]; ok {
+		return v
+	}
+	return string(r)
+}
+
 // ----------------- 1. 按角色待办列表 -----------------
 
 type TodoItem struct {
@@ -59,6 +135,7 @@ type TodoItem struct {
 	CurrentComment string `json:"current_comment"`
 	CarryComment string  `json:"carry_comment"`
 	UpdatedAt  time.Time  `json:"updated_at"`
+	Responsibility ResponsibilitySummary `json:"responsibility"`
 }
 
 func statusText(s CaseStatus) string {
@@ -97,7 +174,12 @@ func GetTodoList(c *fiber.Ctx) error {
 	}
 
 	var records []AppraisalRecord
-	err := DB.Where("status IN ?", matchStatuses).
+	err := DB.Preload("AcceptClerk").
+		Preload("Expert").
+		Preload("QC").
+		Preload("SupplementNotices.Issuer").
+		Preload("StatusLogs.Operator").
+		Where("status IN ?", matchStatuses).
 		Order("updated_at DESC").
 		Find(&records).Error
 	if err != nil {
@@ -106,6 +188,7 @@ func GetTodoList(c *fiber.Ctx) error {
 
 	out := make([]TodoItem, 0, len(records))
 	for _, r := range records {
+		resp := buildResponsibilitySummary(&r)
 		out = append(out, TodoItem{
 			RecordID:       r.ID,
 			CaseNo:         r.CaseNo,
@@ -117,6 +200,7 @@ func GetTodoList(c *fiber.Ctx) error {
 			CurrentComment: r.CurrentComment,
 			CarryComment:   collectCarryComment(r.ID),
 			UpdatedAt:      r.UpdatedAt,
+			Responsibility: resp,
 		})
 	}
 	return ok(c, fiber.Map{
@@ -496,6 +580,7 @@ func GetRecordDetail(c *fiber.Ctx) error {
 	if err != nil {
 		return fail(c, 404, "not found")
 	}
+	resp := buildResponsibilitySummary(r)
 	return ok(c, fiber.Map{
 		"basic": fiber.Map{
 			"case_no":        r.CaseNo,
@@ -514,6 +599,7 @@ func GetRecordDetail(c *fiber.Ctx) error {
 			"accept_clerk":   r.AcceptClerk,
 			"expert":         r.Expert,
 			"qc":             r.QC,
+			"responsibility": resp,
 		},
 		"schedules":          r.Schedules,
 		"supplement_notices": r.SupplementNotices,
@@ -530,7 +616,13 @@ func GetRecordDetail(c *fiber.Ctx) error {
 func ListRecords(c *fiber.Ctx) error {
 	status := c.Query("status")
 	caseNo := c.Query("case_no")
-	q := DB.Model(&AppraisalRecord{}).Order("id DESC")
+	q := DB.Model(&AppraisalRecord{}).
+		Preload("AcceptClerk").
+		Preload("Expert").
+		Preload("QC").
+		Preload("SupplementNotices.Issuer").
+		Preload("StatusLogs.Operator").
+		Order("id DESC")
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
@@ -539,7 +631,27 @@ func ListRecords(c *fiber.Ctx) error {
 	}
 	var list []AppraisalRecord
 	q.Find(&list)
-	return ok(c, list)
+
+	out := make([]fiber.Map, 0, len(list))
+	for _, r := range list {
+		resp := buildResponsibilitySummary(&r)
+		out = append(out, fiber.Map{
+			"id":               r.ID,
+			"case_no":          r.CaseNo,
+			"entrust_dept":     r.EntrustDept,
+			"entrust_item":     r.EntrustItem,
+			"client_name":      r.ClientName,
+			"status":           r.Status,
+			"status_text":      statusText(r.Status),
+			"current_comment":  r.CurrentComment,
+			"sample_received":  r.SampleReceived,
+			"archive_no":       r.ArchiveNo,
+			"created_at":       r.CreatedAt,
+			"updated_at":       r.UpdatedAt,
+			"responsibility":   resp,
+		})
+	}
+	return ok(c, out)
 }
 
 // ----------------- 6. 工具接口：获取用户列表 -----------------

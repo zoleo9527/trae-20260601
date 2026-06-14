@@ -48,6 +48,87 @@ var TodoRules = []TodoRoleRule{
 	{StatusRejectedQC,      []Role{RoleExpert}, "质控退回待修改"},
 }
 
+type ResponsibilityRule struct {
+	Status              CaseStatus
+	ResponsibleRole     Role
+	ResponsibleRoleText string
+	NextAction          string
+}
+
+var ResponsibilityRules = []ResponsibilityRule{
+	{
+		Status:              StatusPendingAccept,
+		ResponsibleRole:     RoleClerk,
+		ResponsibleRoleText: "受理员",
+		NextAction:          "完成受理排期，指定鉴定人并排定鉴定日期",
+	},
+	{
+		Status:              StatusScheduled,
+		ResponsibleRole:     RoleExpert,
+		ResponsibleRoleText: "鉴定人",
+		NextAction:          "按排期开始鉴定，重点关注承接备注中提示的注意事项",
+	},
+	{
+		Status:              StatusInProgress,
+		ResponsibleRole:     RoleExpert,
+		ResponsibleRoleText: "鉴定人",
+		NextAction:          "完成鉴定并提交质控审核；如遇材料/样本不足，发起补样通知退回受理端",
+	},
+	{
+		Status:              StatusNeedSupplement,
+		ResponsibleRole:     RoleClerk,
+		ResponsibleRoleText: "受理员",
+		NextAction:          "查看补样通知，联系委托方在期限内补充缺少的材料/样本",
+	},
+	{
+		Status:              StatusSupplied,
+		ResponsibleRole:     RoleClerk,
+		ResponsibleRoleText: "受理员",
+		NextAction:          "补样已收齐，进行重排期并重新指定鉴定人",
+	},
+	{
+		Status:              StatusPendingQC,
+		ResponsibleRole:     RoleQC,
+		ResponsibleRoleText: "质控审核",
+		NextAction:          "审核鉴定意见书与鉴定过程，通过则归档，不通过则注明退回原因",
+	},
+	{
+		Status:              StatusRejectedQC,
+		ResponsibleRole:     RoleExpert,
+		ResponsibleRoleText: "鉴定人",
+		NextAction:          "根据质控退回原因修改鉴定意见书，修改完成后重新提交质控",
+	},
+	{
+		Status:              StatusArchived,
+		ResponsibleRole:     "",
+		ResponsibleRoleText: "已归档",
+		NextAction:          "案件已完成归档，可查看详情与意见书",
+	},
+}
+
+type ResponsibilitySummary struct {
+	CurrentResponsibleRole     string `json:"current_responsible_role"`
+	CurrentResponsibleRoleText string `json:"current_responsible_role_text"`
+	CurrentResponsibleName     string `json:"current_responsible_name"`
+	NextAction                 string `json:"next_action"`
+	LatestRejectReason         string `json:"latest_reject_reason"`
+	LatestRejectAt             string `json:"latest_reject_at"`
+	LatestRejectOperator       string `json:"latest_reject_operator"`
+	LatestSupplementSummary    string `json:"latest_supplement_summary"`
+	LatestSupplementNoticeNo   string `json:"latest_supplement_notice_no"`
+	LatestSupplementDeadline   string `json:"latest_supplement_deadline"`
+	LatestSupplementStatus     string `json:"latest_supplement_status"`
+}
+
+func GetResponsibilityRule(status CaseStatus) *ResponsibilityRule {
+	for _, r := range ResponsibilityRules {
+		if r.Status == status {
+			return &r
+		}
+	}
+	return nil
+}
+
 type AppraisalRecord struct {
 	ID              uint       `gorm:"primaryKey" json:"id"`
 	CaseNo          string     `gorm:"unique" json:"case_no"`            // 案件编号：如 SFJD-2026-001
