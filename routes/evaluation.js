@@ -25,9 +25,9 @@ router.get('/', (req, res) => {
 
   const stats = {
     total: db.prepare('SELECT COUNT(*) as count FROM effect_evaluations').get().count,
-    published: db.prepare('SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = "published"').get().count,
-    draft: db.prepare('SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = "draft"').get().count,
-    frozen: db.prepare('SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = "frozen"').get().count
+    published: db.prepare("SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = 'published'").get().count,
+    draft: db.prepare("SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = 'draft'").get().count,
+    frozen: db.prepare("SELECT COUNT(*) as count FROM effect_evaluations WHERE report_status = 'frozen'").get().count
   };
 
   const avgScores = db.prepare(`

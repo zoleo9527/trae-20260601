@@ -1,17 +1,10 @@
+数据库状态:
+  - 用户: 38
+  - 培训项目: 3
+  - 证书: 55
+  - 异常: 8
+  - 作业: 44
+  - 效果评估: 3
+  - 报名记录: 62
+数据库数据完整，无需初始化
 后端服务运行在 http://localhost:3001
-当前用户数量: 0
-开始初始化示例数据...
-seedData 函数被调用
-示例数据初始化完成
-示例数据初始化完成
-<anonymous_script>:0
-
-
-[Error: SQLITE_ERROR: 14 values for 15 columns
-Emitted 'error' event on Statement instance at:
-] {
-  errno: 1,
-  code: 'SQLITE_ERROR'
-}
-
-Node.js v22.20.0

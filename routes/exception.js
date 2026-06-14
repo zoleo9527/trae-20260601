@@ -47,10 +47,10 @@ router.get('/', (req, res) => {
 
   const stats = {
     total: db.prepare('SELECT COUNT(*) as count FROM exceptions').get().count,
-    discovered: db.prepare('SELECT COUNT(*) as count FROM exceptions WHERE status = "discovered"').get().count,
-    assigned: db.prepare('SELECT COUNT(*) as count FROM exceptions WHERE status = "assigned"').get().count,
-    processing: db.prepare('SELECT COUNT(*) as count FROM exceptions WHERE status = "processing"').get().count,
-    resolved: db.prepare('SELECT COUNT(*) as count FROM exceptions WHERE status = "resolved"').get().count
+    discovered: db.prepare("SELECT COUNT(*) as count FROM exceptions WHERE status = 'discovered'").get().count,
+    assigned: db.prepare("SELECT COUNT(*) as count FROM exceptions WHERE status = 'assigned'").get().count,
+    processing: db.prepare("SELECT COUNT(*) as count FROM exceptions WHERE status = 'processing'").get().count,
+    resolved: db.prepare("SELECT COUNT(*) as count FROM exceptions WHERE status = 'resolved'").get().count
   };
 
   res.json({

@@ -9,11 +9,11 @@ router.get('/', (req, res) => {
 
   if (status) {
     if (status === 'pending') {
-      query += ' AND status IN ("pending", "creating", "pending_review")';
+      query += " AND status IN ('pending', 'creating', 'pending_review')";
     } else if (status === 'issued') {
-      query += ' AND status = "issued"';
+      query += " AND status = 'issued'";
     } else if (status === 'abnormal') {
-      query += ' AND status IN ("needs_correction", "cancelled", "revoked")';
+      query += " AND status IN ('needs_correction', 'cancelled', 'revoked')";
     } else {
       query += ' AND status = ?';
       params.push(status);
@@ -40,9 +40,9 @@ router.get('/', (req, res) => {
   const certificates = db.prepare(query).all(...params);
 
   const countQuery = 'SELECT COUNT(*) as total FROM certificates WHERE 1=1' +
-    (status ? (status === 'pending' ? ' AND status IN ("pending", "creating", "pending_review")' :
-               status === 'issued' ? ' AND status = "issued"' :
-               status === 'abnormal' ? ' AND status IN ("needs_correction", "cancelled", "revoked")' :
+    (status ? (status === 'pending' ? " AND status IN ('pending', 'creating', 'pending_review')" :
+               status === 'issued' ? " AND status = 'issued'" :
+               status === 'abnormal' ? " AND status IN ('needs_correction', 'cancelled', 'revoked')" :
                ' AND status = ?') : '');
 
   const countParams = status && !['pending', 'issued', 'abnormal'].includes(status) ? [status] : [];
@@ -50,9 +50,9 @@ router.get('/', (req, res) => {
 
   const stats = {
     total: db.prepare('SELECT COUNT(*) as count FROM certificates').get().count,
-    pending: db.prepare('SELECT COUNT(*) as count FROM certificates WHERE status IN ("pending", "creating", "pending_review")').get().count,
-    issued: db.prepare('SELECT COUNT(*) as count FROM certificates WHERE status = "issued"').get().count,
-    abnormal: db.prepare('SELECT COUNT(*) as count FROM certificates WHERE status IN ("needs_correction", "cancelled", "revoked")').get().count
+    pending: db.prepare("SELECT COUNT(*) as count FROM certificates WHERE status IN ('pending', 'creating', 'pending_review')").get().count,
+    issued: db.prepare("SELECT COUNT(*) as count FROM certificates WHERE status = 'issued'").get().count,
+    abnormal: db.prepare("SELECT COUNT(*) as count FROM certificates WHERE status IN ('needs_correction', 'cancelled', 'revoked')").get().count
   };
 
   res.json({
