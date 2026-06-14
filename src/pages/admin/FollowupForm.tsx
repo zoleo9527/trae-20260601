@@ -13,7 +13,7 @@ import { ContactResult, FollowupResult } from '../../types';
 export function FollowupForm() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { vehicles, reports, followups, updateFollowup, completeFollowup } = useData();
+  const { vehicles, reports, followups, addFollowupRecord, completeFollowup } = useData();
   const [submitting, setSubmitting] = useState(false);
 
   const followup = followups.find(f => f.id === id);
@@ -47,12 +47,17 @@ export function FollowupForm() {
   const handleContactResult = (result: ContactResult) => {
     setContactResult(result);
     
-    if (result !== '成功') {
-      updateFollowup(followup.id, {
-        attempts: followup.attempts + 1,
-        status: result === '号码错误' ? '无法联系' : '待回访',
-      });
-    }
+    const recordType = followup.attempts === 0 ? '首次联系' : '催促';
+    
+    addFollowupRecord(followup.id, {
+      type: recordType,
+      contactResult: result,
+      reportReceived: false,
+      serviceSatisfaction: '一般',
+      processSatisfaction: '基本满意',
+      feedback: result === '号码错误' ? '电话号码可能有误' : result === '拒绝回访' ? '车主拒绝回访' : '',
+      operator: '管理员',
+    });
   };
 
   const handleSubmit = async () => {

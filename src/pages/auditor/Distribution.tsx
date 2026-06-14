@@ -34,7 +34,7 @@ export function AuditorDistribution() {
   const handleDistribute = (dist: ReportDistribution) => {
     setDistributing(dist.id);
     try {
-      distributeReport(dist.reportId);
+      distributeReport(dist.id);
       setTimeout(() => {
         setDistributing(null);
       }, 2500);
