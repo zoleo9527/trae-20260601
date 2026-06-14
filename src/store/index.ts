@@ -338,3 +338,57 @@ export function gapHours(updatedAt: string): number {
 }
 
 export const BATCH_ELIGIBLE_STATUSES: EmployeeStatus[] = ['pending_training', 'in_training'];
+
+export function getTrainingHandover(employeeId: string): StatusLog | undefined {
+  const logs = getEmployeeLogs(employeeId);
+  return logs.find((l) => l.toStatus === 'pending_documents' || l.toStatus === 'training_exception');
+}
+
+export function getMissingDocuments(employeeId: string): {
+  docId: string;
+  documentType: DocumentType;
+  documentName: string;
+  remark?: string;
+}[] {
+  const docs = getEmployeeDocuments(employeeId);
+  return docs
+    .filter((d) => !d.collected)
+    .map((d) => ({
+      docId: d.id,
+      documentType: d.documentType,
+      documentName: d.documentName,
+      remark: d.remark,
+    }));
+}
+
+export function getMissingReasons(employeeId: string): {
+  documentType: DocumentType;
+  documentName: string;
+  reason: string;
+}[] {
+  return getMissingDocuments(employeeId)
+    .filter((m) => m.remark)
+    .map((m) => ({
+      documentType: m.documentType,
+      documentName: m.documentName,
+      reason: m.remark!,
+    }));
+}
+
+export function sortForPayrollAccountant(employees: Employee[]): Employee[] {
+  const riskFlags = useStore.getState().riskFlags;
+  const getRiskScore = (emp: Employee) => {
+    const empRisks = riskFlags.filter((f) => f.employeeId === emp.id && f.active);
+    let score = 0;
+    empRisks.forEach((r) => {
+      if (r.flagType === 'salary_deduction') score += 100;
+      else if (r.flagType === 'attendance_dispute') score += 50;
+      else score += 10;
+    });
+    if (emp.currentStatus === 'completed') score += 5;
+    return score;
+  };
+  return [...employees].sort(
+    (a, b) => getRiskScore(b) - getRiskScore(a) || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+}
