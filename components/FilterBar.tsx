@@ -7,36 +7,39 @@ interface FilterBarProps {
   onFilterChange: (filters: {
     studentName?: string;
     instrument?: string;
-    status?: PracticeStatus | ReviewStatus;
+    practiceStatus?: PracticeStatus;
+    reviewStatus?: ReviewStatus;
   }) => void;
 }
 
-const practiceStatuses: PracticeStatus[] = ['待处理', '已确认', '已退回', '已完成'];
+const practiceStatuses: PracticeStatus[] = ['待处理', '已确认', '已退回', '已完成', '超时'];
 const reviewStatuses: ReviewStatus[] = ['待点评', '已点评', '待确认', '已完成'];
 
 export function FilterBar({ role, onFilterChange }: FilterBarProps) {
   const [studentName, setStudentName] = useState('');
   const [instrument, setInstrument] = useState('全部');
-  const [status, setStatus] = useState<PracticeStatus | ReviewStatus | ''>('');
+  const [practiceStatus, setPracticeStatus] = useState<PracticeStatus | ''>('');
+  const [reviewStatus, setReviewStatus] = useState<ReviewStatus | ''>('');
 
   const handleSubmit = () => {
     onFilterChange({
       studentName: studentName || undefined,
       instrument: instrument === '全部' ? undefined : instrument,
-      status: status || undefined,
+      practiceStatus: practiceStatus || undefined,
+      reviewStatus: reviewStatus || undefined,
     });
   };
 
   const handleReset = () => {
     setStudentName('');
     setInstrument('全部');
-    setStatus('');
+    setPracticeStatus('');
+    setReviewStatus('');
     onFilterChange({});
   };
 
-  const statuses = role === '教务老师' ? [...practiceStatuses, ...reviewStatuses] :
-                  role === '任课老师' ? [...practiceStatuses, ...reviewStatuses] :
-                  reviewStatuses;
+  const showPracticeFilter = role === '教务老师' || role === '任课老师';
+  const showReviewFilter = role === '任课老师' || role === '家长顾问';
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -63,19 +66,36 @@ export function FilterBar({ role, onFilterChange }: FilterBarProps) {
             ))}
           </select>
         </div>
-        <div className="w-36">
-          <label className="block text-sm font-medium text-gray-700 mb-1">状态</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as PracticeStatus | ReviewStatus | '')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
-          >
-            <option value="">全部</option>
-            {statuses.map((item) => (
-              <option key={item} value={item}>{item}</option>
-            ))}
-          </select>
-        </div>
+        {showPracticeFilter && (
+          <div className="w-36">
+            <label className="block text-sm font-medium text-gray-700 mb-1">陪练状态</label>
+            <select
+              value={practiceStatus}
+              onChange={(e) => setPracticeStatus(e.target.value as PracticeStatus | '')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            >
+              <option value="">全部</option>
+              {practiceStatuses.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {showReviewFilter && (
+          <div className="w-36">
+            <label className="block text-sm font-medium text-gray-700 mb-1">点评状态</label>
+            <select
+              value={reviewStatus}
+              onChange={(e) => setReviewStatus(e.target.value as ReviewStatus | '')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 outline-none"
+            >
+              <option value="">全部</option>
+              {reviewStatuses.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <button
             onClick={handleSubmit}

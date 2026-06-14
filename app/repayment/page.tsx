@@ -64,7 +64,8 @@ function WorkbenchContent() {
   const [filters, setFilters] = useState<{
     studentName?: string;
     instrument?: string;
-    status?: PracticeStatus | ReviewStatus;
+    practiceStatus?: PracticeStatus;
+    reviewStatus?: ReviewStatus;
   }>({});
   
   const [modalOpen, setModalOpen] = useState(false);
@@ -117,7 +118,7 @@ function WorkbenchContent() {
   };
 
   const filteredPracticeRecords = useMemo(() => {
-    let records = practiceRecords;
+    let records = [...practiceRecords];
     
     if (currentRole === '教务老师') {
       records = records.filter(r => r.status === '待处理' || r.status === '已退回' || r.status === '超时');
@@ -133,20 +134,25 @@ function WorkbenchContent() {
     if (filters.instrument) {
       records = records.filter(r => r.instrument === filters.instrument);
     }
-    if (filters.status) {
-      records = records.filter(r => r.status === filters.status);
+    if (filters.practiceStatus) {
+      records = records.filter(r => r.status === filters.practiceStatus);
     }
     
     return records;
   }, [practiceRecords, filters, currentRole]);
 
   const filteredStageReviews = useMemo(() => {
-    let reviews = stageReviews;
+    let reviews = [...stageReviews];
     
     if (currentRole === '教务老师') {
       reviews = reviews.filter(r => r.status === '已完成');
     } else if (currentRole === '任课老师') {
-      reviews = reviews.filter(r => r.status === '待点评' || r.status === '已点评');
+      reviews = reviews.filter(r => {
+        const hasConfirmedPractice = practiceRecords.some(
+          p => p.studentId === r.studentId && p.status === '已确认'
+        );
+        return (r.status === '待点评' && hasConfirmedPractice) || r.status === '已点评';
+      });
     } else {
       reviews = reviews.filter(r => r.status === '待确认' || r.status === '已完成');
     }
@@ -157,12 +163,12 @@ function WorkbenchContent() {
     if (filters.instrument) {
       reviews = reviews.filter(r => r.instrument === filters.instrument);
     }
-    if (filters.status) {
-      reviews = reviews.filter(r => r.status === filters.status);
+    if (filters.reviewStatus) {
+      reviews = reviews.filter(r => r.status === filters.reviewStatus);
     }
     
     return reviews;
-  }, [stageReviews, filters, currentRole]);
+  }, [stageReviews, practiceRecords, filters, currentRole]);
 
   const handleViewPracticeDetail = (record: PracticeRecord) => {
     setSelectedPractice(record);

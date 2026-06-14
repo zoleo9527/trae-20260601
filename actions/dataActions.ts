@@ -122,13 +122,58 @@ export async function handlePracticeRecord(
     return { success: false, message: '记录不存在' };
   }
   
+  const practiceRecord = data.practiceRecords[index];
+  const isConfirming = status === '已确认' && practiceRecord.status !== '已确认';
+  
   data.practiceRecords[index] = {
-    ...data.practiceRecords[index],
+    ...practiceRecord,
     note,
     status,
     updatedAt: new Date().toLocaleString('zh-CN'),
     handledBy: handlerRole,
   };
+  
+  if (isConfirming) {
+    const existingReview = data.stageReviews.find(
+      r => r.studentId === practiceRecord.studentId && r.status === '待点评'
+    );
+    
+    if (!existingReview) {
+      const stages = ['第一阶段', '第二阶段', '第三阶段', '第四阶段', '第五阶段'];
+      const currentStageIndex = Math.min(
+        data.stageReviews.filter(r => r.studentId === practiceRecord.studentId).length,
+        stages.length - 1
+      );
+      
+      const newReview: StageReview = {
+        id: `r${Date.now()}`,
+        studentId: practiceRecord.studentId,
+        studentName: practiceRecord.studentName,
+        instrument: practiceRecord.instrument,
+        stage: stages[currentStageIndex],
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        overallEvaluation: '',
+        skillsEvaluation: { technique: 0, expression: 0, rhythm: 0, progress: 0 },
+        improvementSuggestions: '',
+        nextStageGoals: '',
+        status: '待点评',
+        createdAt: new Date().toLocaleString('zh-CN'),
+        updatedAt: new Date().toLocaleString('zh-CN'),
+        relatedPracticeNotes: [note] || [],
+        reviewedBy: null,
+        confirmedBy: null,
+      };
+      
+      data.stageReviews.push(newReview);
+      data.practiceRecords[index].reviewId = newReview.id;
+    } else {
+      if (note && !existingReview.relatedPracticeNotes.includes(note)) {
+        existingReview.relatedPracticeNotes.push(note);
+      }
+      data.practiceRecords[index].reviewId = existingReview.id;
+    }
+  }
   
   await writeData(data);
   return { success: true, message: '处理成功' };
@@ -174,12 +219,21 @@ export async function confirmStageReview(
     return { success: false, message: '点评不存在' };
   }
   
+  const review = data.stageReviews[index];
+  
   data.stageReviews[index] = {
-    ...data.stageReviews[index],
+    ...review,
     status: '已完成',
     updatedAt: new Date().toLocaleString('zh-CN'),
     confirmedBy: confirmerRole,
   };
+  
+  data.practiceRecords.forEach(record => {
+    if (record.reviewId === reviewId) {
+      record.status = '已完成';
+      record.updatedAt = new Date().toLocaleString('zh-CN');
+    }
+  });
   
   await writeData(data);
   return { success: true, message: '确认成功' };
