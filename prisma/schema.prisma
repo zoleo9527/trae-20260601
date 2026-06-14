@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model CaseReport {
+  id           String         @id @default(uuid())
+  reportNo     String         @unique
+  policyNo     String
+  policyHolder String
+  accidentDesc String
+  reporterId   String
+  status       String         @default("PENDING_SUBMIT")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  materials    MaterialList[]
+  logs         OperationLog[]
+}
+
+model MaterialList {
+  id            String     @id @default(uuid())
+  caseId        String
+  case          CaseReport @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  materialName  String
+  materialType  String
+  attachmentUrl String?
+  uploadStatus  String     @default("NOT_UPLOADED")
+  verifiedBy    String?
+  verifiedAt    DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model OperationLog {
+  id            String   @id @default(uuid())
+  caseId        String
+  case          CaseReport @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  materialId    String?
+  operatorId    String
+  operatorRole  String
+  actionType    String
+  beforeStatus  String?
+  afterStatus   String?
+  remark        String?
+  createdAt     DateTime @default(now())
+}
