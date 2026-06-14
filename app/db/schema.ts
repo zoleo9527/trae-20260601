@@ -14,7 +14,7 @@ export const createTables = `
     id_card VARCHAR(18) UNIQUE NOT NULL,
     phone VARCHAR(20),
     enrollment_date DATE NOT NULL,
-    status VARCHAR(20) DEFAULT 'enrolled' CHECK (status IN ('enrolled', 'training', 'gear_issued', 'completed')),
+    status VARCHAR(20) DEFAULT 'enrolled' CHECK (status IN ('enrolled', 'training', 'training_done', 'gear_issued', 'completed')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 

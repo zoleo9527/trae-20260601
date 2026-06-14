@@ -1,9 +1,9 @@
 import { LoaderFunctionArgs, json } from "@remix-run/node";
 import { useLoaderData } from "@remix-run/react";
 import { requireUser } from "../auth/session";
-import { getStudents, getTrainingRecords, getGearIssues, getOperationLogs } from "../db/queries";
+import { getStudents, getTrainingRecords, getGearIssues, getOperationLogs, getPendingGearStudents } from "../db/queries";
 import Layout from "../components/Layout";
-import { statusNames, roleNames } from "../utils/roles";
+import { statusNames, roleNames, studentStatusColors } from "../utils/roles";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId, role } = await requireUser(request);
@@ -15,23 +15,25 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const users = userResult.rows;
   const userName = users.length > 0 ? users[0].name : "";
   
-  const [students, trainingRecords, gearIssues, logs] = await Promise.all([
+  const [students, trainingRecords, gearIssues, logs, pendingGearStudents] = await Promise.all([
     getStudents(),
     getTrainingRecords(),
     getGearIssues(),
     getOperationLogs(),
+    getPendingGearStudents(),
   ]);
   
   const pendingTraining = trainingRecords.filter(r => r.status === "pending").length;
   const inProgressTraining = trainingRecords.filter(r => r.status === "in_progress").length;
   const issuedGear = gearIssues.filter(g => g.status === "issued").length;
-  const pendingGear = gearIssues.filter(g => g.status === "pending").length;
+  const pendingGear = pendingGearStudents.length;
   
   return json({
     user: { userId, role, name: userName },
     students,
     trainingRecords: trainingRecords.slice(0, 5),
     gearIssues: gearIssues.slice(0, 5),
+    pendingGearStudents,
     logs: logs.slice(0, 10),
     stats: {
       totalStudents: students.length,
@@ -44,9 +46,12 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function DashboardPage() {
-  const { user, students, trainingRecords, gearIssues, logs, stats } = useLoaderData<typeof loader>();
+  const { user, students, trainingRecords, gearIssues, pendingGearStudents, logs, stats } = useLoaderData<typeof loader>();
   
   const getStatusColor = (status: string) => {
+    if (studentStatusColors[status]) {
+      return studentStatusColors[status];
+    }
     switch (status) {
       case "pending": return { bg: "#fff3cd", text: "#856404" };
       case "in_progress": return { bg: "#d1ecf1", text: "#0c5460" };
@@ -77,6 +82,10 @@ export default function DashboardPage() {
           <div style={styles.statCard}>
             <div style={styles.statNumber}>{stats.inProgressTraining}</div>
             <div style={styles.statLabel}>训练中</div>
+          </div>
+          <div style={styles.statCard}>
+            <div style={styles.statNumber}>{stats.pendingGear}</div>
+            <div style={styles.statLabel}>待发放护具</div>
           </div>
           <div style={styles.statCard}>
             <div style={styles.statNumber}>{stats.issuedGear}</div>
@@ -114,6 +123,46 @@ export default function DashboardPage() {
                       <td>{record.trainer_name || "-"}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div style={styles.section}>
+            <h2 style={styles.sectionTitle}>待发放护具</h2>
+            <div style={styles.tableContainer}>
+              <table style={styles.table}>
+                <thead>
+                  <tr>
+                    <th>学员</th>
+                    <th>训练日期</th>
+                    <th>教练</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingGearStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} style={styles.emptyCell}>暂无待发放护具的学员</td>
+                    </tr>
+                  ) : (
+                    pendingGearStudents.map(student => (
+                      <tr key={student.id}>
+                        <td>{student.name}</td>
+                        <td>{student.training_date}</td>
+                        <td>{student.trainer_name || "-"}</td>
+                        <td>
+                          <span style={{ 
+                            ...styles.statusBadge, 
+                            background: getStatusColor(student.status).bg,
+                            color: getStatusColor(student.status).text 
+                          }}>
+                            {statusNames[student.status]}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
@@ -202,7 +251,7 @@ const styles = {
   },
   statsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(4, 1fr)",
+    gridTemplateColumns: "repeat(5, 1fr)",
     gap: "20px",
     marginBottom: "24px",
   },
@@ -225,7 +274,7 @@ const styles = {
   },
   sections: {
     display: "grid",
-    gridTemplateColumns: "1fr 1fr",
+    gridTemplateColumns: "1fr 1fr 1fr",
     gap: "24px",
     marginBottom: "24px",
   },
@@ -248,6 +297,11 @@ const styles = {
     width: "100%",
     borderCollapse: "collapse",
     fontSize: "14px",
+  },
+  emptyCell: {
+    textAlign: "center",
+    padding: "20px",
+    color: "#999",
   },
   statusBadge: {
     padding: "4px 12px",

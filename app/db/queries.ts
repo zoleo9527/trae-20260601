@@ -109,19 +109,9 @@ export async function updateTrainingRecord(id: number, status: string, notes?: s
           UPDATE students SET status = 'gear_issued' WHERE id = $1
         `, [record.student_id]);
       } else {
-        const hasCompletedTraining = await pool.query(`
-          SELECT * FROM training_records WHERE student_id = $1 AND status = 'completed'
+        await pool.query(`
+          UPDATE students SET status = 'training_done' WHERE id = $1
         `, [record.student_id]);
-        
-        const hasNoGear = await pool.query(`
-          SELECT * FROM gear_issues WHERE student_id = $1 AND status = 'issued'
-        `, [record.student_id]);
-        
-        if (hasCompletedTraining.rows.length > 0 && hasNoGear.rows.length === 0) {
-          await pool.query(`
-            UPDATE students SET status = 'training_done' WHERE id = $1
-          `, [record.student_id]);
-        }
       }
     }
   }
@@ -195,4 +185,16 @@ export async function getTrainingRecordById(id: number) {
     WHERE tr.id = $1
   `, [id]);
   return result.rows[0];
+}
+
+export async function getPendingGearStudents() {
+  const result = await pool.query(`
+    SELECT s.*, tr.id as training_id, tr.date as training_date, tr.trainer_id, u.name as trainer_name
+    FROM students s
+    JOIN training_records tr ON s.id = tr.student_id AND tr.status = 'completed'
+    LEFT JOIN users u ON tr.trainer_id = u.id
+    WHERE s.status = 'training_done'
+    ORDER BY tr.date DESC
+  `);
+  return result.rows;
 }
