@@ -449,6 +449,7 @@ function addBatchRow() {
   row.innerHTML = `
     <div class="form-group"><label>姓名</label><input class="bf-name" type="text" placeholder="申请人" /></div>
     <div class="form-group"><label>证件号</label><input class="bf-idno" type="text" placeholder="证件号码" /></div>
+    <div class="form-group"><label>联系电话</label><input class="bf-phone" type="text" placeholder="选填" /></div>
     <div class="form-group"><label>公证事项</label>
       <select class="bf-type">
         <option value="">选择</option>

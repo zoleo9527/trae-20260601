@@ -418,10 +418,10 @@ pub fn resolve_correction(
         "archivist" => "档案员",
         _ => "窗口人员",
     };
-    let comment = format!("补正完成，恢复至{}审核", role_label);
+    let comment = format!("补正完成，窗口转回{}审核", role_label);
     conn.execute(
         "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-        params![flow_id, notice.appointment_id, &notice.issued_by_role, return_role, "resolve_correction", comment, "窗口人员", now],
+        params![flow_id, notice.appointment_id, "window", return_role, "resolve_correction", comment, "窗口人员", now],
     ).map_err(|e| e.to_string())?;
 
     Ok(notice)
