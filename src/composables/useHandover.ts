@@ -74,7 +74,7 @@ export function useHandover() {
       evaluating: ['pending_pricing'],
       pending_pricing: ['pricing_pending'],
       pricing_pending: [],
-      listed: ['following'],
+      listed: [],
       following: [],
       sold: [],
       unlisted: []

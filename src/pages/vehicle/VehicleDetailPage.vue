@@ -240,14 +240,39 @@ const nextActionLabel = computed(() => {
   return getAction(vehicle.value.status)
 })
 
+const isCurrentResponsible = computed(() => {
+  if (!vehicle.value) return false
+  const user = currentUser.value
+  const v = vehicle.value
+  
+  switch (v.status) {
+    case 'pending_evaluation':
+      return v.collector.id === user.id
+    case 'evaluating':
+      return v.evaluator?.id === user.id
+    case 'pending_pricing':
+      return v.collector.id === user.id
+    case 'pricing_pending':
+      return v.financeStaff?.id === user.id
+    case 'listed':
+      return v.salesRep?.id === user.id
+    case 'following':
+      return v.salesRep?.id === user.id
+    default:
+      return false
+  }
+})
+
 const canChangeStatus = computed(() => {
   if (!vehicle.value) return false
+  if (!isCurrentResponsible.value) return false
   const transitions = getAvailableTransitions(vehicle.value.status, currentUser.value.role)
   return transitions.length > 0
 })
 
 const shouldShowHandover = computed(() => {
   if (!vehicle.value) return false
+  if (!isCurrentResponsible.value) return false
   const nextStatus = getAvailableTransitions(vehicle.value.status, currentUser.value.role)[0]?.status
   return nextStatus && shouldTriggerHandover(vehicle.value.status, nextStatus)
 })
