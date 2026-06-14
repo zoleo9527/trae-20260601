@@ -14,6 +14,7 @@ import {
   Form,
   message,
   Modal,
+  Alert,
 } from 'antd'
 import {
   ArrowLeftOutlined,
@@ -28,6 +29,7 @@ import {
 } from '@ant-design/icons'
 import { api } from '../api'
 import dayjs from 'dayjs'
+import { parseExceptionFromUrl } from '../utils/fromUrl'
 
 function ExceptionDetail() {
   const { id } = useParams()
@@ -39,9 +41,14 @@ function ExceptionDetail() {
   const [descForm] = Form.useForm()
 
   const fromPath = searchParams.get('from') || '/exceptions'
+  const fromInfo = parseExceptionFromUrl(searchParams.get('from') || '')
 
   const goBack = () => {
     navigate(fromPath)
+  }
+
+  const goToCleanList = () => {
+    navigate('/exceptions')
   }
 
   const navigateToFiling = (filingId) => {
@@ -189,10 +196,33 @@ function ExceptionDetail() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
-          返回列表
-        </Button>
+        <Space>
+          <Button icon={<ArrowLeftOutlined />} onClick={goBack}>
+            {fromInfo?.isFromDashboard ? '返回工作台' : '返回原队列'}
+          </Button>
+          {fromInfo?.isFromList && fromInfo?.hasFilter && (
+            <Button type="link" onClick={goToCleanList}>
+              清空筛选，查看全列表
+            </Button>
+          )}
+        </Space>
       </div>
+
+      {fromInfo?.isFromList && fromInfo?.hasFilter && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={
+            <Space size="small" wrap>
+              <span style={{ color: '#666' }}>来源队列：</span>
+              {fromInfo.labels.map(item => (
+                <Tag key={item.key}>{item.label}</Tag>
+              ))}
+            </Space>
+          }
+        />
+      )}
 
       <Row gutter={24}>
         <Col span={16}>
