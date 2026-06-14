@@ -36,30 +36,56 @@ export const useStore = create<Store>((set) => ({
     attendances: state.attendances.map((a) => (a.id === id ? { ...a, ...updates } : a)),
   })),
   
-  addMakeupTraining: (training) => set((state) => ({
-    makeupTrainings: [...state.makeupTrainings, { ...training, id: `m${Date.now()}` }],
-  })),
+  addMakeupTraining: (training) => set((state) => {
+    const newTraining = { ...training, id: `m${Date.now()}` };
+    let updatedAttendances = state.attendances;
+    
+    if (newTraining.attendanceId && newTraining.completed) {
+      updatedAttendances = state.attendances.map((a) => 
+        a.id === newTraining.attendanceId 
+          ? { ...a, makeupCompleted: true }
+          : a
+      );
+    }
+    
+    return {
+      makeupTrainings: [...state.makeupTrainings, newTraining],
+      attendances: updatedAttendances,
+    };
+  }),
   
   updateMakeupTraining: (id, updates) => set((state) => {
+    const existingTraining = state.makeupTrainings.find((m) => m.id === id);
+    const oldAttendanceId = existingTraining?.attendanceId;
+    const newAttendanceId = updates.attendanceId !== undefined ? updates.attendanceId : oldAttendanceId;
+    const newCompleted = updates.completed !== undefined ? updates.completed : (existingTraining?.completed || false);
+    
     const updatedTrainings = state.makeupTrainings.map((m) => 
       m.id === id ? { ...m, ...updates } : m
     );
     
-    if (updates.completed === true) {
-      const training = updatedTrainings.find((m) => m.id === id);
-      if (training?.attendanceId) {
-        return {
-          makeupTrainings: updatedTrainings,
-          attendances: state.attendances.map((a) => 
-            a.id === training.attendanceId 
-              ? { ...a, makeupCompleted: true }
-              : a
-          ),
-        };
-      }
+    let updatedAttendances = state.attendances;
+    
+    if (oldAttendanceId && oldAttendanceId !== newAttendanceId) {
+      updatedAttendances = updatedAttendances.map((a) => 
+        a.id === oldAttendanceId 
+          ? { ...a, makeupCompleted: false }
+          : a
+      );
     }
     
-    return { makeupTrainings: updatedTrainings };
+    if (newAttendanceId) {
+      updatedAttendances = updatedAttendances.map((a) => 
+        a.id === newAttendanceId 
+          ? { ...a, makeupCompleted: newCompleted }
+          : a
+      );
+    }
+    
+    return {
+      makeupTrainings: updatedTrainings,
+      attendances: updatedAttendances,
+    };
   }),
   
   updateProgram: (id, updates) => set((state) => ({

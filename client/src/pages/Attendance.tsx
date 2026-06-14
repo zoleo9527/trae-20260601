@@ -45,7 +45,6 @@ export default function Attendance() {
         present: values.present,
         reason: values.reason || '',
         actionCompletion: values.actionCompletion || 0,
-        makeupCompleted: values.makeupCompleted || false,
         costumeCollected: values.costumeCollected || false,
         parentConfirmed: values.parentConfirmed || false,
       };
@@ -137,9 +136,6 @@ export default function Attendance() {
           </Form.Item>
           <Form.Item label="动作完成度" name="actionCompletion">
             <Slider min={0} max={100} />
-          </Form.Item>
-          <Form.Item label="已补训" name="makeupCompleted" valuePropName="checked">
-            <Checkbox>已完成补训</Checkbox>
           </Form.Item>
           <Form.Item label="已领服装" name="costumeCollected" valuePropName="checked">
             <Checkbox>已领取服装</Checkbox>

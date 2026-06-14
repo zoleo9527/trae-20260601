@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useStore } from '../store';
 
 export default function Dashboard() {
-  const { programs, attendances, students, rehearsals, makeupTrainings, userRole } = useStore();
+  const { programs, attendances, students, rehearsals, userRole } = useStore();
 
   const stats = useMemo(() => {
     const totalStudents = students.length;
@@ -13,8 +13,9 @@ export default function Dashboard() {
     const pendingRehearsals = rehearsals.filter((r) => r.status === 'pending').length;
     
     const absentStudents = attendances.filter((a) => !a.present).length;
-    const makeupCompleted = makeupTrainings.filter((m) => m.completed).length;
-    const makeupPending = makeupTrainings.filter((m) => !m.completed).length;
+    const absentAttendances = attendances.filter((a) => !a.present);
+    const makeupCompleted = absentAttendances.filter((a) => a.makeupCompleted).length;
+    const makeupPending = absentAttendances.filter((a) => !a.makeupCompleted).length;
     
     const noCostume = attendances.filter((a) => !a.costumeCollected).length;
     const noParentConfirm = attendances.filter((a) => !a.parentConfirmed).length;
@@ -35,7 +36,7 @@ export default function Dashboard() {
       noParentConfirm,
       avgCompletion,
     };
-  }, [students, programs, rehearsals, attendances, makeupTrainings]);
+  }, [students, programs, rehearsals, attendances]);
 
   const highRiskPrograms = programs.filter((p) => p.riskLevel === 'high');
   const mediumRiskPrograms = programs.filter((p) => p.riskLevel === 'medium');
