@@ -298,6 +298,7 @@ function showCorrectionModal(appointmentId) {
           notice_content: content,
           deadline,
           issued_by: ROLE_LABELS[currentRole],
+          from_role: currentRole,
         }
       });
       overlay.remove();
@@ -657,18 +658,22 @@ function renderCorrectionsTab(container, detail) {
   }
   container.innerHTML = `
     <div>
-      ${detail.correction_notices.map(c => `
+      ${detail.correction_notices.map(c => {
+        const issuerRole = ROLE_LABELS[c.issued_by_role] || c.issued_by_role;
+        const returnHint = c.issued_by_role === 'notary' ? '（补正后将恢复至公证员审核）' : c.issued_by_role === 'archivist' ? '（补正后将恢复至档案员归档）' : '';
+        return `
         <div class="correction-card ${c.status}">
           <div class="corr-content">${c.notice_content}</div>
           <div class="corr-meta">
             ${c.status === 'issued' ? '待补正' : '已补正'} &nbsp;|&nbsp;
+            发出人：${c.issued_by || '-'}（${issuerRole}） &nbsp;|&nbsp;
             发出时间：${c.issued_at}${c.deadline ? ' &nbsp;|&nbsp; 截止：' + c.deadline : ''}
-            ${c.issued_by ? ' &nbsp;|&nbsp; 发出人：' + c.issued_by : ''}
             ${c.resolved_at ? ' &nbsp;|&nbsp; 补正时间：' + c.resolved_at : ''}
+            ${c.status === 'issued' && returnHint ? ' &nbsp;|&nbsp; ' + returnHint : ''}
           </div>
           ${c.status === 'issued' && currentRole === 'window' ? `<button class="btn btn-sm btn-success" data-resolve-corr="${c.id}" style="margin-top:8px">标记补正完成</button>` : ''}
         </div>
-      `).join("")}
+      `}).join("")}
     </div>
   `;
 

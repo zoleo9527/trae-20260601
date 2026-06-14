@@ -5,7 +5,30 @@ use models::AppState;
 
 fn init_db(conn: &rusqlite::Connection) -> Result<(), String> {
     conn.execute_batch(include_str!("../migrations/init.sql"))
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    let has_col: bool = conn
+        .prepare("SELECT issued_by_role FROM correction_notices LIMIT 1")
+        .is_ok();
+    if !has_col {
+        conn.execute_batch(
+            "ALTER TABLE correction_notices ADD COLUMN issued_by_role TEXT NOT NULL DEFAULT 'window';",
+        )
+        .map_err(|e| e.to_string())?;
+    }
+
+    let count: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM appointments",
+        [],
+        |row| row.get(0),
+    ).unwrap_or(0);
+
+    if count == 0 {
+        conn.execute_batch(include_str!("../migrations/seed.sql"))
+            .map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

@@ -54,6 +54,7 @@ pub struct CorrectionNotice {
     pub deadline: Option<String>,
     pub status: String,
     pub issued_by: Option<String>,
+    pub issued_by_role: String,
     pub issued_at: String,
     pub resolved_at: Option<String>,
 }
@@ -131,6 +132,7 @@ pub struct IssueCorrectionPayload {
     pub notice_content: String,
     pub deadline: Option<String>,
     pub issued_by: Option<String>,
+    pub from_role: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

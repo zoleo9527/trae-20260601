@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS correction_notices (
     deadline TEXT,
     status TEXT NOT NULL DEFAULT 'issued',
     issued_by TEXT,
+    issued_by_role TEXT NOT NULL DEFAULT 'window',
     issued_at TEXT NOT NULL DEFAULT (datetime('now','localtime')),
     resolved_at TEXT,
     FOREIGN KEY (appointment_id) REFERENCES appointments(id),

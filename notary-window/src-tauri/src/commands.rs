@@ -73,8 +73,9 @@ fn row_to_correction_notice(row: &rusqlite::Row) -> rusqlite::Result<CorrectionN
         deadline: row.get(4)?,
         status: row.get(5)?,
         issued_by: row.get(6)?,
-        issued_at: row.get(7)?,
-        resolved_at: row.get(8)?,
+        issued_by_role: row.get(7)?,
+        issued_at: row.get(8)?,
+        resolved_at: row.get(9)?,
     })
 }
 
@@ -91,6 +92,12 @@ pub fn create_appointment(
     conn.execute(
         "INSERT INTO appointments (id, appointment_no, applicant_name, applicant_id_no, applicant_phone, notary_type, appointment_time, status, current_handler_role, created_at, updated_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
         params![id, appointment_no, payload.applicant_name, payload.applicant_id_no, payload.applicant_phone, payload.notary_type, payload.appointment_time, "pending_accept", "window", now, now],
+    ).map_err(|e| e.to_string())?;
+
+    let flow_id = generate_id();
+    conn.execute(
+        "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![flow_id, id, "system", "window", "create", "新建预约单，等待窗口受理", "系统", now],
     ).map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare("SELECT * FROM appointments WHERE id = ?1").map_err(|e| e.to_string())?;
@@ -301,6 +308,12 @@ pub fn batch_create_appointments(
             params![id, appointment_no, item.applicant_name, item.applicant_id_no, item.applicant_phone, item.notary_type, item.appointment_time, "pending_accept", "window", now, now],
         ).map_err(|e| e.to_string())?;
 
+        let flow_id = generate_id();
+        conn.execute(
+            "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+            params![flow_id, id, "system", "window", "create", "批量新建预约单，等待窗口受理", "系统", now],
+        ).map_err(|e| e.to_string())?;
+
         let mut stmt = conn.prepare("SELECT * FROM appointments WHERE id = ?1").map_err(|e| e.to_string())?;
         let apt = stmt.query_row(params![id], row_to_appointment).map_err(|e| e.to_string())?;
         results.push(apt);
@@ -341,10 +354,18 @@ pub fn issue_correction(
     let conn = state.conn.lock().map_err(|e| e.to_string())?;
     let now = now_str();
 
+    let current_role: String = payload.from_role.clone().unwrap_or_else(|| {
+        conn.query_row(
+            "SELECT current_handler_role FROM appointments WHERE id = ?1",
+            params![payload.appointment_id],
+            |row| row.get(0),
+        ).unwrap_or_else(|_| "window".to_string())
+    });
+
     let id = generate_id();
     conn.execute(
-        "INSERT INTO correction_notices (id, appointment_id, material_id, notice_content, deadline, status, issued_by, issued_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-        params![id, payload.appointment_id, payload.material_id, payload.notice_content, payload.deadline, "issued", payload.issued_by, now],
+        "INSERT INTO correction_notices (id, appointment_id, material_id, notice_content, deadline, status, issued_by, issued_by_role, issued_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+        params![id, payload.appointment_id, payload.material_id, payload.notice_content, payload.deadline, "issued", payload.issued_by, current_role, now],
     ).map_err(|e| e.to_string())?;
 
     conn.execute(
@@ -356,7 +377,7 @@ pub fn issue_correction(
     let comment = format!("发出补正通知：{}", payload.notice_content);
     conn.execute(
         "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-        params![flow_id, payload.appointment_id, "window", "window", "issue_correction", comment, payload.issued_by, now],
+        params![flow_id, payload.appointment_id, current_role, current_role, "issue_correction", comment, payload.issued_by, now],
     ).map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare("SELECT * FROM correction_notices WHERE id = ?1").map_err(|e| e.to_string())?;
@@ -380,9 +401,27 @@ pub fn resolve_correction(
     let mut stmt = conn.prepare("SELECT * FROM correction_notices WHERE id = ?1").map_err(|e| e.to_string())?;
     let notice = stmt.query_row(params![payload.notice_id], row_to_correction_notice).map_err(|e| e.to_string())?;
 
+    let (new_status, return_role) = match notice.issued_by_role.as_str() {
+        "notary" => ("notary_reviewing", "notary"),
+        "archivist" => ("archiving", "archivist"),
+        _ => ("accepted_reviewing", "window"),
+    };
+
     conn.execute(
-        "UPDATE appointments SET status = 'accepted_reviewing', updated_at = ?1 WHERE id = ?2",
-        params![now, notice.appointment_id],
+        "UPDATE appointments SET status = ?1, current_handler_role = ?2, updated_at = ?3 WHERE id = ?4",
+        params![new_status, return_role, now, notice.appointment_id],
+    ).map_err(|e| e.to_string())?;
+
+    let flow_id = generate_id();
+    let role_label = match return_role {
+        "notary" => "公证员",
+        "archivist" => "档案员",
+        _ => "窗口人员",
+    };
+    let comment = format!("补正完成，恢复至{}审核", role_label);
+    conn.execute(
+        "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
+        params![flow_id, notice.appointment_id, &notice.issued_by_role, return_role, "resolve_correction", comment, "窗口人员", now],
     ).map_err(|e| e.to_string())?;
 
     Ok(notice)
