@@ -104,7 +104,7 @@ export const useAppealStore = create<AppealStore>((set, get) => ({
     });
   },
   
-  createAppeal: (appealData) => {
+  createAppeal: (appealData, attachments: { fileName: string; fileUrl: string }[] = []) => {
     const appeal: Appeal = {
       ...appealData,
       id: generateId(),
@@ -124,9 +124,19 @@ export const useAppealStore = create<AppealStore>((set, get) => ({
       operationTime: new Date()
     };
     
+    const newAttachments: Attachment[] = attachments.map(file => ({
+      id: generateId(),
+      appealId: appeal.id,
+      fileName: file.fileName,
+      fileUrl: file.fileUrl,
+      uploadedBy: useRoleStore.getState().currentUserName,
+      uploadTime: new Date()
+    }));
+    
     set((state) => ({
       appeals: [...state.appeals, appeal],
-      operationHistory: [...state.operationHistory, operation]
+      operationHistory: [...state.operationHistory, operation],
+      attachments: [...state.attachments, ...newAttachments]
     }));
     
     saveData({
@@ -194,10 +204,10 @@ export const useAppealStore = create<AppealStore>((set, get) => ({
 
 interface WorkflowStore {
   assignProfessional: (appealId: string, professionalName: string) => void;
-  submitInvestigation: (appealId: string, siteRecord: string, opinion: string) => void;
+  submitInvestigation: (appealId: string, siteRecord: string, opinion: string, attachments?: { fileName: string; fileUrl: string }[]) => void;
   approveAppeal: (appealId: string, conclusion: string) => void;
   returnAppeal: (appealId: string, reason: string) => void;
-  supplementMaterial: (appealId: string, note: string) => void;
+  supplementMaterial: (appealId: string, note: string, siteRecord?: string, opinion?: string, attachments?: { fileName: string; fileUrl: string }[]) => void;
 }
 
 export const useWorkflowStore = create<WorkflowStore>(() => ({
@@ -219,8 +229,8 @@ export const useWorkflowStore = create<WorkflowStore>(() => ({
     });
   },
   
-  submitInvestigation: (appealId, siteRecord, opinion) => {
-    const { updateAppeal, addOperation } = useAppealStore.getState();
+  submitInvestigation: (appealId, siteRecord, opinion, attachments) => {
+    const { updateAppeal, addOperation, addAttachment } = useAppealStore.getState();
     const { currentRole, currentUserName } = useRoleStore.getState();
     
     updateAppeal(appealId, {
@@ -238,6 +248,17 @@ export const useWorkflowStore = create<WorkflowStore>(() => ({
       operationType: 'submit_investigation',
       operationContent: '提交现场核查结果和专业意见'
     });
+    
+    if (attachments && attachments.length > 0) {
+      attachments.forEach(file => {
+        addAttachment({
+          appealId,
+          fileName: file.fileName,
+          fileUrl: file.fileUrl,
+          uploadedBy: currentUserName
+        });
+      });
+    }
   },
   
   approveAppeal: (appealId, conclusion) => {
@@ -283,16 +304,21 @@ export const useWorkflowStore = create<WorkflowStore>(() => ({
     });
   },
   
-  supplementMaterial: (appealId, note) => {
-    const { updateAppeal, addOperation } = useAppealStore.getState();
+  supplementMaterial: (appealId, note, siteRecord, opinion, attachments) => {
+    const { updateAppeal, addOperation, addAttachment } = useAppealStore.getState();
     const { currentRole, currentUserName } = useRoleStore.getState();
     
-    updateAppeal(appealId, {
+    const updates: Partial<Appeal> = {
       status: 'pending_review',
       supplementNote: note,
       isException: false,
       exceptionReason: undefined
-    });
+    };
+    
+    if (siteRecord) updates.siteRecord = siteRecord;
+    if (opinion) updates.professionalOpinion = opinion;
+    
+    updateAppeal(appealId, updates);
     
     addOperation({
       appealId,
@@ -301,5 +327,16 @@ export const useWorkflowStore = create<WorkflowStore>(() => ({
       operationType: 'supplement',
       operationContent: '补充材料'
     });
+    
+    if (attachments && attachments.length > 0) {
+      attachments.forEach(file => {
+        addAttachment({
+          appealId,
+          fileName: file.fileName,
+          fileUrl: file.fileUrl,
+          uploadedBy: currentUserName
+        });
+      });
+    }
   }
 }));

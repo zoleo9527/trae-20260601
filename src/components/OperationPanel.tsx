@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Send, ArrowLeft, FileText, Upload } from 'lucide-react';
+import { Send, ArrowLeft, Upload } from 'lucide-react';
 import { useRoleStore, useWorkflowStore } from '../stores';
-import { Appeal, Role } from '../types';
+import { Appeal } from '../types';
 
 interface OperationPanelProps {
   appeal: Appeal;
@@ -12,12 +12,14 @@ interface OperationPanelProps {
 export function OperationPanel({ appeal, onBack }: OperationPanelProps) {
   const [formData, setFormData] = useState({
     professionalName: '',
-    siteRecord: '',
-    opinion: '',
+    siteRecord: appeal.siteRecord || '',
+    opinion: appeal.professionalOpinion || '',
     conclusion: '',
     returnReason: '',
     supplementNote: ''
   });
+  
+  const [uploadedFiles, setUploadedFiles] = useState<{ fileName: string; fileUrl: string }[]>([]);
   
   const currentRole = useRoleStore((state) => state.currentRole);
   const { assignProfessional, submitInvestigation, approveAppeal, returnAppeal, supplementMaterial } = useWorkflowStore();
@@ -43,6 +45,26 @@ export function OperationPanel({ appeal, onBack }: OperationPanelProps) {
     );
   }
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setUploadedFiles(prev => [...prev, {
+          fileName: file.name,
+          fileUrl: event.target?.result as string
+        }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = () => {
     switch (currentRole) {
       case 'receptionist':
@@ -53,11 +75,22 @@ export function OperationPanel({ appeal, onBack }: OperationPanelProps) {
       case 'professional':
         if (appeal.status === 'returned') {
           if (formData.supplementNote) {
-            supplementMaterial(appeal.id, formData.supplementNote);
+            supplementMaterial(
+              appeal.id, 
+              formData.supplementNote,
+              formData.siteRecord || undefined,
+              formData.opinion || undefined,
+              uploadedFiles.length > 0 ? uploadedFiles : undefined
+            );
           }
         } else {
           if (formData.siteRecord && formData.opinion) {
-            submitInvestigation(appeal.id, formData.siteRecord, formData.opinion);
+            submitInvestigation(
+              appeal.id, 
+              formData.siteRecord, 
+              formData.opinion,
+              uploadedFiles.length > 0 ? uploadedFiles : undefined
+            );
           }
         }
         break;
@@ -128,22 +161,134 @@ export function OperationPanel({ appeal, onBack }: OperationPanelProps) {
                 placeholder="请输入专业意见..."
               />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                沟通材料（可选）
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">点击上传文件</p>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="investigation-file-upload"
+                />
+                <label
+                  htmlFor="investigation-file-upload"
+                  className="cursor-pointer px-3 py-1 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors inline-block text-sm font-medium mt-2"
+                >
+                  选择文件
+                </label>
+              </div>
+              {uploadedFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-700 truncate flex-1 mr-2">
+                        {file.fileName}
+                      </span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        移除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </>
         )}
 
         {currentRole === 'professional' && appeal.status === 'returned' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              补充备注
-            </label>
-            <textarea
-              value={formData.supplementNote}
-              onChange={(e) => setFormData({ ...formData, supplementNote: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="请输入补充材料说明..."
-            />
-          </div>
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                退回原因
+              </label>
+              <div className="p-3 bg-red-50 rounded-lg">
+                <p className="text-sm text-red-700">{appeal.returnReason}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                更新现场记录（可选）
+              </label>
+              <textarea
+                value={formData.siteRecord}
+                onChange={(e) => setFormData({ ...formData, siteRecord: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="如需更新现场记录..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                更新专业意见（可选）
+              </label>
+              <textarea
+                value={formData.opinion}
+                onChange={(e) => setFormData({ ...formData, opinion: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="如需更新专业意见..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                补充备注
+              </label>
+              <textarea
+                value={formData.supplementNote}
+                onChange={(e) => setFormData({ ...formData, supplementNote: e.target.value })}
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="请输入补充材料说明..."
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                追加沟通材料（可选）
+              </label>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-blue-500 transition-colors">
+                <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">点击上传文件</p>
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="supplement-file-upload"
+                />
+                <label
+                  htmlFor="supplement-file-upload"
+                  className="cursor-pointer px-3 py-1 bg-blue-900 text-white rounded-lg hover:bg-blue-800 transition-colors inline-block text-sm font-medium mt-2"
+                >
+                  选择文件
+                </label>
+              </div>
+              {uploadedFiles.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-700 truncate flex-1 mr-2">
+                        {file.fileName}
+                      </span>
+                      <button
+                        onClick={() => removeFile(index)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        移除
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {currentRole === 'supervisor' && appeal.status === 'pending_review' && (

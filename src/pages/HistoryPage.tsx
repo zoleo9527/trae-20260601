@@ -12,6 +12,16 @@ export function HistoryPage() {
   const navigate = useNavigate();
   const [filteredAppeals, setFilteredAppeals] = useState<Appeal[]>([]);
   const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null);
+  const [filters, setFilters] = useState<SearchFilters & {
+    startDate: string;
+    endDate: string;
+  }>({
+    appealNumber: '',
+    customerName: '',
+    status: '',
+    startDate: '',
+    endDate: ''
+  });
   
   const loadAppeals = useAppealStore((state) => state.loadAppeals);
   const appeals = useAppealStore((state) => state.appeals);
@@ -23,11 +33,7 @@ export function HistoryPage() {
   }, [loadAppeals]);
 
   useEffect(() => {
-    setFilteredAppeals(appeals);
-  }, [appeals]);
-
-  const handleSearch = (filters: SearchFilters) => {
-    let filtered = appeals;
+    let filtered = appeals.filter(a => a.status === 'archived');
     
     if (filters.appealNumber) {
       filtered = filtered.filter(a => 
@@ -45,7 +51,26 @@ export function HistoryPage() {
       filtered = filtered.filter(a => a.status === filters.status);
     }
     
+    if (filters.startDate) {
+      const start = new Date(filters.startDate);
+      filtered = filtered.filter(a => new Date(a.createdAt) >= start);
+    }
+    
+    if (filters.endDate) {
+      const end = new Date(filters.endDate);
+      end.setDate(end.getDate() + 1);
+      filtered = filtered.filter(a => new Date(a.createdAt) <= end);
+    }
+    
     setFilteredAppeals(filtered);
+  }, [appeals, filters]);
+
+  const handleSearch = (newFilters: SearchFilters) => {
+    setFilters(prev => ({ ...prev, ...newFilters }));
+  };
+
+  const handleDateChange = (field: 'startDate' | 'endDate', value: string) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
   };
 
   const handleCardClick = (appeal: Appeal) => {
@@ -94,6 +119,32 @@ export function HistoryPage() {
           transition={{ delay: 0.1 }}
         >
           <SearchBar onSearch={handleSearch} />
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-4">
+            <div className="flex gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  开始日期
+                </label>
+                <input
+                  type="date"
+                  value={filters.startDate}
+                  onChange={(e) => handleDateChange('startDate', e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  结束日期
+                </label>
+                <input
+                  type="date"
+                  value={filters.endDate}
+                  onChange={(e) => handleDateChange('endDate', e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+          </div>
         </motion.div>
 
         <motion.div
