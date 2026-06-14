@@ -160,6 +160,55 @@ router.get('/inspections/:id', (req, res) => {
   res.json(ok(i));
 });
 
+router.put('/inspections/:id/complete', (req, res) => {
+  const idx = store.inspections.findIndex(x => x.id === req.params.id);
+  if (idx < 0) return res.status(404).json(fail('检测报告不存在'));
+
+  const { resultSummary, operator, operatorRole, items } = req.body as {
+    resultSummary?: string;
+    operator: string;
+    operatorRole: Role;
+    items?: { id: string; result: 'normal' | 'abnormal' | 'n/a'; note?: string }[];
+  };
+
+  if (operatorRole !== 'appraiser') {
+    return res.status(403).json(fail('仅评估师可完成复检'));
+  }
+
+  const old = store.inspections[idx];
+  const updatedItems = items && items.length > 0
+    ? old.items.map(existing => {
+        const updated = items.find(i => i.id === existing.id);
+        return updated ? { ...existing, result: updated.result, note: updated.note ?? existing.note } : existing;
+      })
+    : old.items;
+
+  store.inspections[idx] = {
+    ...old,
+    status: 'passed',
+    items: updatedItems,
+    resultSummary: resultSummary || old.resultSummary,
+    updatedAt: now(),
+  };
+
+  const orderIdx = store.orders.findIndex(o => o.id === old.orderId);
+  if (orderIdx >= 0) {
+    store.orders[orderIdx] = {
+      ...store.orders[orderIdx],
+      urgencyAction: 'none',
+      urgencyBy: undefined,
+      urgencyAt: undefined,
+      urgencyNote: undefined,
+      currentHandlerRole: STAGE_FLOW[store.orders[orderIdx].stage].role,
+      currentHandler: DEMO_ACCOUNTS[STAGE_FLOW[store.orders[orderIdx].stage].role].user,
+      updatedAt: now(),
+    };
+    addStatusLog(old.orderId, store.orders[orderIdx].stage, 'pass', operator, operatorRole, `复检完成：${resultSummary || old.resultSummary || '通过复检'}`);
+  }
+
+  res.json(ok(store.inspections[idx], '复检完成，订单已恢复正常流转'));
+});
+
 router.get('/loans', (req, res) => {
   const { orderId, status } = req.query;
   let list = store.loans;
@@ -176,6 +225,61 @@ router.get('/loans/:id', (req, res) => {
   const l = store.loans.find(x => x.id === req.params.id);
   if (!l) return res.status(404).json(fail('贷款申请不存在'));
   res.json(ok(l));
+});
+
+router.put('/loans/:id/complete', (req, res) => {
+  const idx = store.loans.findIndex(x => x.id === req.params.id);
+  if (idx < 0) return res.status(404).json(fail('贷款申请不存在'));
+
+  const { operator, operatorRole, docIds, remark } = req.body as {
+    operator: string;
+    operatorRole: Role;
+    docIds?: string[];
+    remark?: string;
+  };
+
+  if (operatorRole !== 'financeSpecialist') {
+    return res.status(403).json(fail('仅金融专员可完成贷款补件'));
+  }
+
+  const old = store.loans[idx];
+  const updatedDocs = old.docs.map(d => {
+    if (docIds && docIds.includes(d.id)) {
+      return { ...d, submitted: true, placeholder: undefined };
+    }
+    return d;
+  });
+
+  const allSubmitted = updatedDocs.every(d => d.submitted);
+  const newStatus: LoanApplication['status'] = allSubmitted ? 'pending' : old.status;
+
+  store.loans[idx] = {
+    ...old,
+    status: newStatus,
+    docs: updatedDocs,
+    updatedAt: now(),
+  };
+
+  const orderIdx = store.orders.findIndex(o => o.id === old.orderId);
+  if (orderIdx >= 0) {
+    const orderStage = store.orders[orderIdx].stage;
+    store.orders[orderIdx] = {
+      ...store.orders[orderIdx],
+      urgencyAction: allSubmitted ? 'none' : store.orders[orderIdx].urgencyAction,
+      urgencyBy: allSubmitted ? undefined : store.orders[orderIdx].urgencyBy,
+      urgencyAt: allSubmitted ? undefined : store.orders[orderIdx].urgencyAt,
+      urgencyNote: allSubmitted ? undefined : store.orders[orderIdx].urgencyNote,
+      currentHandlerRole: STAGE_FLOW[orderStage].role,
+      currentHandler: DEMO_ACCOUNTS[STAGE_FLOW[orderStage].role].user,
+      updatedAt: now(),
+    };
+    const submittedNames = docIds && docIds.length > 0
+      ? updatedDocs.filter(d => docIds.includes(d.id)).map(d => d.name).join('、')
+      : '相关资料';
+    addStatusLog(old.orderId, orderStage, 'pass', operator, operatorRole, `贷款补件完成（${submittedNames}）${remark ? '：' + remark : ''}`);
+  }
+
+  res.json(ok(store.loans[idx], allSubmitted ? '贷款补件全部完成，订单已恢复正常流转' : '部分资料已补件完成'));
 });
 
 router.get('/orders', (req, res) => {

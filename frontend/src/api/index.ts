@@ -116,5 +116,15 @@ export const markInspectionRecheck = (
   body: { note: string; operator: string; operatorRole: Role }
 ) => unwrap<InspectionReport>(api.put(`/inspections/${id}/recheck`, body));
 
+export const completeInspectionRecheck = (
+  id: string,
+  body: { resultSummary?: string; operator: string; operatorRole: Role; items?: { id: string; result: 'normal' | 'abnormal' | 'n/a'; note?: string }[] }
+) => unwrap<InspectionReport>(api.put(`/inspections/${id}/complete`, body));
+
+export const completeLoanSupplement = (
+  id: string,
+  body: { operator: string; operatorRole: Role; docIds?: string[]; remark?: string }
+) => unwrap<LoanApplication>(api.put(`/loans/${id}/complete`, body));
+
 export const getStatusLogs = (params?: { orderId?: string; role?: Role }) =>
   unwrap<StatusChangeLog[]>(api.get('/status-logs', { params }));

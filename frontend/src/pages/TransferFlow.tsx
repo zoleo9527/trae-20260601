@@ -62,6 +62,8 @@ import {
   updateTransferRemark,
   updateLoanRemark,
   fundLoan,
+  completeInspectionRecheck,
+  completeLoanSupplement,
 } from '../api';
 import { useUserStore } from '../store/user';
 import {
@@ -107,6 +109,7 @@ export default function TransferFlow({ role }: Props) {
   const [advanceOpen, setAdvanceOpen] = useState(false);
   const [editTransferRemarkOpen, setEditTransferRemarkOpen] = useState(false);
   const [editLoanRemarkOpen, setEditLoanRemarkOpen] = useState(false);
+  const [completeSupplementOpen, setCompleteSupplementOpen] = useState(false);
 
   const [urgencyForm] = Form.useForm();
   const [returnForm] = Form.useForm();
@@ -114,6 +117,7 @@ export default function TransferFlow({ role }: Props) {
   const [advanceForm] = Form.useForm();
   const [transferRemarkForm] = Form.useForm();
   const [loanRemarkForm] = Form.useForm();
+  const [completeSupplementForm] = Form.useForm();
 
   useEffect(() => { loadOrders(); }, [role, filterUrgency]);
 
@@ -274,6 +278,34 @@ export default function TransferFlow({ role }: Props) {
     });
   };
 
+  const handleCompleteSupplement = async (values: any) => {
+    if (!currentDetail) return;
+    try {
+      if (role === 'appraiser' && currentDetail.inspection) {
+        await completeInspectionRecheck(currentDetail.inspection.id, {
+          resultSummary: values.resultSummary,
+          operator: currentUser,
+          operatorRole: role,
+        });
+        message.success('复检完成，订单已恢复流转');
+      } else if (role === 'financeSpecialist' && currentDetail.loan) {
+        await completeLoanSupplement(currentDetail.loan.id, {
+          operator: currentUser,
+          operatorRole: role,
+          docIds: values.docIds,
+          remark: values.remark,
+        });
+        message.success('贷款补件已完成');
+      }
+      setCompleteSupplementOpen(false);
+      completeSupplementForm.resetFields();
+      loadOrders();
+      loadDetail(currentDetail.order.id);
+    } catch (e: any) {
+      message.error(e.message || '操作失败');
+    }
+  };
+
   const canAdvance = (o: TransferOrder) => {
     if (o.stage === 'completed') return false;
     if (o.stage === 'loan_funding') return false;
@@ -306,6 +338,13 @@ export default function TransferFlow({ role }: Props) {
   const canEditLoanRemark = (o: TransferOrder) => {
     if (o.stage === 'completed') return false;
     return role === 'financeSpecialist';
+  };
+
+  const canCompleteSupplement = (o: TransferOrder) => {
+    if (o.urgencyAction !== 'supplement') return false;
+    if (role === 'appraiser' && (o.stage === 'appraisal' || o.stage === 'transfer')) return true;
+    if (role === 'financeSpecialist' && (o.stage === 'loan_review' || o.stage === 'loan_funding')) return true;
+    return false;
   };
 
   const getStepIndex = (stage: string) => STEPS_ORDER.indexOf(stage as any);
@@ -512,6 +551,19 @@ export default function TransferFlow({ role }: Props) {
                 urgencyForm.setFieldsValue({ note: currentDetail.order.urgencyNote });
                 setUrgeOpen(true);
               }}>催办</Button>
+            )}
+            {canCompleteSupplement(currentDetail.order) && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => {
+                  completeSupplementForm.resetFields();
+                  setCompleteSupplementOpen(true);
+                }}
+                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+              >
+                {role === 'appraiser' ? '完成复检' : '完成补件'}
+              </Button>
             )}
             {canAdvance(currentDetail.order) && (
               <Button
@@ -1085,6 +1137,69 @@ export default function TransferFlow({ role }: Props) {
             rules={[{ required: true, message: '请输入备注内容' }]}
           >
             <Input.TextArea rows={6} placeholder="填写贷款审核、放款相关说明..." />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={
+          <span>
+            <CheckCircleOutlined />
+            {role === 'appraiser' ? ' 完成检测复检' : ' 完成贷款补件'}
+          </span>
+        }
+        open={completeSupplementOpen}
+        onCancel={() => setCompleteSupplementOpen(false)}
+        onOk={() => completeSupplementForm.submit()}
+        okText="确认完成"
+        okButtonProps={{ type: 'primary', style: { background: '#52c41a', borderColor: '#52c41a' } }}
+        cancelText="取消"
+        width={560}
+      >
+        <Form form={completeSupplementForm} layout="vertical" onFinish={handleCompleteSupplement}>
+          {currentDetail && role === 'financeSpecialist' && currentDetail.loan && (
+            <Form.Item
+              name="docIds"
+              label="勾选已补件完成的资料"
+              rules={[{ required: true, message: '请至少勾选一项已补件的资料' }]}
+            >
+              <Checkbox.Group style={{ width: '100%' }}>
+                <Row gutter={[8, 8]}>
+                  {currentDetail.loan.docs.map(d => (
+                    <Col span={24} key={d.id}>
+                      <Checkbox value={d.id} style={{ width: '100%' }} disabled={d.submitted}>
+                        <Space>
+                          <span style={{ fontWeight: 600 }}>{d.name}</span>
+                          {d.submitted
+                            ? <Tag color="success" style={{ marginLeft: 8 }}>已提交</Tag>
+                            : <Tag color="warning" style={{ marginLeft: 8 }}>{d.placeholder || '待补'}</Tag>}
+                        </Space>
+                      </Checkbox>
+                    </Col>
+                  ))}
+                </Row>
+              </Checkbox.Group>
+            </Form.Item>
+          )}
+          {currentDetail && role === 'appraiser' && currentDetail.inspection && (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="info"
+              showIcon
+              message={`当前检测报告状态：${inspectionStatusMap[currentDetail.inspection.status]?.label || currentDetail.inspection.status}`}
+              description={currentDetail.inspection.resultSummary ? `原结果摘要：${currentDetail.inspection.resultSummary}` : '完成复检后状态将更新为"通过"，订单恢复流转。'}
+            />
+          )}
+          <Form.Item
+            name={role === 'appraiser' ? 'resultSummary' : 'remark'}
+            label={role === 'appraiser' ? '复检结果摘要' : '补件备注（可选）'}
+            rules={role === 'appraiser' ? [{ required: true, message: '请输入复检结果摘要' }] : []}
+          >
+            <Input.TextArea rows={3} placeholder={
+              role === 'appraiser'
+                ? '请总结复检结果，如发动机异响已排除、事故信息已确认等...'
+                : '可备注补件的特殊说明...'
+            } />
           </Form.Item>
         </Form>
       </Modal>
