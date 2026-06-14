@@ -7,7 +7,7 @@ from services import (
     ProjectService, FeedbackService, FeeService, ProblemService,
     StatusChangeService, db
 )
-from models import RoleType, OrderStatus, FeedbackStatus, FeeStatus, ProblemType, ErrorCode
+from models import RoleType, OrderStatus, FeedbackStatus, FeeStatus, ProblemType, ErrorCode, ERROR_CODE_TO_HTTP_STATUS
 from state_machine import StateMachine, StateTransitionError
 
 app = FastAPI(title="翻译公司-客户反馈与费用确认系统")
@@ -20,35 +20,94 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
-ERROR_CODE_TO_HTTP_STATUS = {
-    ErrorCode.INVALID_STATUS_TRANSITION: 400,
-    ErrorCode.FEEDBACK_NOT_HANDLED: 400,
-    ErrorCode.FEE_ALREADY_CONFIRMED: 400,
-    ErrorCode.UNAUTHORIZED_ACCESS: 403,
-    ErrorCode.PROJECT_NOT_FOUND: 404,
-    ErrorCode.FEEDBACK_NOT_FOUND: 404,
-    ErrorCode.FEE_NOT_FOUND: 404,
-    ErrorCode.INVALID_ROLE: 403,
-    ErrorCode.MISSING_REQUIRED_FIELD: 400,
-    ErrorCode.DUPLICATE_OPERATION: 409,
-    ErrorCode.RESCHEDULE_NOT_ALLOWED: 400,
-    ErrorCode.SUPPLEMENT_NOT_ALLOWED: 400,
-    ErrorCode.REJECT_REASON_REQUIRED: 400,
-}
+class SuccessResponse(BaseModel):
+    code: str = "0000"
+    message: str
+    data: Optional[dict] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+def success_response(message: str, data: dict = None):
+    return {
+        "code": "0000",
+        "message": message,
+        "data": data,
+        "timestamp": datetime.now().isoformat()
+    }
+
+
+def error_response(code: str, message: str, details: dict = None):
+    return JSONResponse(
+        status_code=ERROR_CODE_TO_HTTP_STATUS.get(code, 400),
+        content={
+            "code": code,
+            "message": message,
+            "details": details,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
 
 
 @app.exception_handler(StateTransitionError)
 async def state_transition_error_handler(request: Request, exc: StateTransitionError):
     http_status = ERROR_CODE_TO_HTTP_STATUS.get(exc.error_code, 400)
-    error_response = ErrorResponse(
-        code=exc.error_code.value,
-        message=exc.message,
-        details=exc.details,
-        timestamp=datetime.now()
-    )
     return JSONResponse(
         status_code=http_status,
-        content=error_response.model_dump()
+        content={
+            "code": exc.error_code.value,
+            "message": exc.message,
+            "details": exc.details,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    if "找不到" in str(exc.detail):
+        status_code = 404
+        error_code = "E016"
+        if "项目" in str(exc.detail):
+            error_code = ErrorCode.PROJECT_NOT_FOUND.value
+        elif "反馈" in str(exc.detail):
+            error_code = ErrorCode.FEEDBACK_NOT_FOUND.value
+        elif "费用" in str(exc.detail):
+            error_code = ErrorCode.FEE_NOT_FOUND.value
+        elif "问题单" in str(exc.detail):
+            error_code = ErrorCode.PROBLEM_NOT_FOUND.value
+        elif "用户" in str(exc.detail):
+            error_code = ErrorCode.USER_NOT_FOUND.value
+    elif "没有权限" in str(exc.detail) or "不是" in str(exc.detail):
+        status_code = 403
+        error_code = ErrorCode.UNAUTHORIZED_ACCESS.value
+    elif "必须提供" in str(exc.detail) or "必须提供金额" in str(exc.detail):
+        status_code = 400
+        error_code = ErrorCode.MISSING_REQUIRED_FIELD.value
+    else:
+        status_code = exc.status_code
+        error_code = "E099"
+
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "code": error_code,
+            "message": str(exc.detail),
+            "details": None,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={
+            "code": "E500",
+            "message": f"服务器内部错误: {str(exc)}",
+            "details": None,
+            "timestamp": datetime.now().isoformat()
+        }
     )
 
 
@@ -57,7 +116,7 @@ async def create_user(name: str, role: RoleType):
     from models import User
     user = User(name=name, role=role)
     db.add("user", user)
-    return {"message": "用户创建成功", "user": user}
+    return success_response("用户创建成功", {"user": user})
 
 
 @app.get("/api/users/{user_id}", tags=["用户管理"])
@@ -65,7 +124,7 @@ async def get_user(user_id: str):
     user = db.get("user", user_id)
     if not user:
         raise HTTPException(status_code=404, detail=f"用户 {user_id} 不存在")
-    return user
+    return success_response("获取用户成功", {"user": user})
 
 
 @app.get("/api/users", tags=["用户管理"])
@@ -74,7 +133,7 @@ async def list_users(role: Optional[RoleType] = Query(None)):
         users = [u for u in db.get_all("user") if u.role == role]
     else:
         users = db.get_all("user")
-    return users
+    return success_response("获取用户列表成功", {"users": users})
 
 
 @app.post("/api/pm/projects", tags=["项目经理入口-项目管理"])
@@ -108,7 +167,7 @@ async def pm_create_project(
         project_manager_id, "项目经理创建项目"
     )
 
-    return {"message": "项目创建成功", "project": project}
+    return success_response("项目创建成功", {"project": project})
 
 
 @app.get("/api/pm/projects", tags=["项目经理入口-项目管理"])
@@ -118,7 +177,7 @@ async def pm_list_my_projects(project_manager_id: str = Query(...)):
         raise HTTPException(status_code=403, detail="用户不存在或不是项目经理")
 
     projects = db.filter("project", project_manager_id=project_manager_id)
-    return projects
+    return success_response("获取项目列表成功", {"projects": projects})
 
 
 @app.get("/api/pm/projects/{project_id}", tags=["项目经理入口-项目管理"])
@@ -136,13 +195,13 @@ async def pm_get_project_detail(project_id: str, requester_id: str = Query(...))
     problems = ProblemService.get_problems_by_project(project_id)
     status_changes = StatusChangeService.get_changes_by_entity("project", project_id)
 
-    return {
+    return success_response("获取项目详情成功", {
         "project": project,
         "feedbacks": feedbacks,
         "fees": fees,
         "problems": problems,
         "status_changes": status_changes
-    }
+    })
 
 
 @app.put("/api/pm/projects/{project_id}/status", tags=["项目经理入口-项目管理"])
@@ -157,7 +216,7 @@ async def pm_update_project_status(
         raise HTTPException(status_code=403, detail="只有项目经理可以更新项目状态")
 
     project = ProjectService.update_project_status(project_id, new_status, changed_by, reason)
-    return {"message": "项目状态更新成功", "project": project}
+    return success_response("项目状态更新成功", {"project": project})
 
 
 @app.put("/api/pm/feedbacks/{feedback_id}/handle", tags=["项目经理入口-客户反馈处理"])
@@ -190,11 +249,13 @@ async def pm_handle_feedback(
         fee_type=fee_type
     )
 
-    return {
-        "message": result.get("message", "反馈处理成功"),
-        "feedback": result["feedback"],
-        "fee": result.get("fee")
-    }
+    return success_response(
+        result.get("message", "反馈处理成功"),
+        {
+            "feedback": result["feedback"],
+            "fee": result.get("fee")
+        }
+    )
 
 
 @app.post("/api/pm/problems", tags=["项目经理入口-问题单处理"])
@@ -345,7 +406,7 @@ async def reviewer_get_fee_detail(fee_id: str, requester_id: str = Query(...)):
     if not user or user.role != RoleType.REVIEWER:
         raise HTTPException(status_code=403, detail="只有审校可以查看费用详情")
 
-    return FeeService.get_fee_with_full_context(fee_id)
+    return success_response("获取费用详情成功", FeeService.get_fee_with_full_context(fee_id))
 
 
 @app.put("/api/reviewer/fees/{fee_id}/confirm", tags=["审校入口-费用确认"])
@@ -359,7 +420,7 @@ async def reviewer_confirm_fee(
         raise HTTPException(status_code=403, detail="只有审校可以确认费用")
 
     fee = FeeService.confirm_fee(fee_id, confirmed_by, confirmation_notes)
-    return {"message": "费用确认成功", "fee": fee}
+    return success_response("费用确认成功", {"fee": fee})
 
 
 @app.put("/api/reviewer/fees/{fee_id}/reject", tags=["审校入口-费用确认"])
@@ -386,7 +447,7 @@ async def reviewer_reject_fee(
             problem.status = "resolved"
             problem.resolved_at = datetime.now()
 
-    return {"message": "费用驳回成功", "fee": fee}
+    return success_response("费用驳回成功", {"fee": fee})
 
 
 @app.put("/api/reviewer/feedbacks/{feedback_id}/handle", tags=["审校入口-客户反馈处理"])

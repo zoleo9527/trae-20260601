@@ -130,10 +130,39 @@ class ErrorCode(str, Enum):
     RESCHEDULE_NOT_ALLOWED = "E011"
     SUPPLEMENT_NOT_ALLOWED = "E012"
     REJECT_REASON_REQUIRED = "E013"
+    PROBLEM_NOT_FOUND = "E014"
+    USER_NOT_FOUND = "E015"
+
+
+ERROR_CODE_TO_HTTP_STATUS = {
+    ErrorCode.INVALID_STATUS_TRANSITION: 400,
+    ErrorCode.FEEDBACK_NOT_HANDLED: 400,
+    ErrorCode.FEE_ALREADY_CONFIRMED: 400,
+    ErrorCode.UNAUTHORIZED_ACCESS: 403,
+    ErrorCode.PROJECT_NOT_FOUND: 404,
+    ErrorCode.FEEDBACK_NOT_FOUND: 404,
+    ErrorCode.FEE_NOT_FOUND: 404,
+    ErrorCode.INVALID_ROLE: 403,
+    ErrorCode.MISSING_REQUIRED_FIELD: 400,
+    ErrorCode.DUPLICATE_OPERATION: 409,
+    ErrorCode.RESCHEDULE_NOT_ALLOWED: 400,
+    ErrorCode.SUPPLEMENT_NOT_ALLOWED: 400,
+    ErrorCode.REJECT_REASON_REQUIRED: 400,
+    ErrorCode.PROBLEM_NOT_FOUND: 404,
+    ErrorCode.USER_NOT_FOUND: 404,
+}
 
 
 class ErrorResponse(BaseModel):
-    code: ErrorCode
+    code: str
     message: str
     details: Optional[dict] = None
     timestamp: datetime = Field(default_factory=datetime.now)
+
+    def to_dict(self):
+        return {
+            "code": self.code,
+            "message": self.message,
+            "details": self.details,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None
+        }

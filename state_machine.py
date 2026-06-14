@@ -9,6 +9,15 @@ class StateTransitionError(Exception):
         self.details = details or {}
         super().__init__(message)
 
+    def to_dict(self):
+        from datetime import datetime
+        return {
+            "code": self.error_code.value,
+            "message": self.message,
+            "details": self.details,
+            "timestamp": datetime.now().isoformat()
+        }
+
 
 class StateMachine:
     PROJECT_TRANSITIONS: Dict[OrderStatus, Set[OrderStatus]] = {
