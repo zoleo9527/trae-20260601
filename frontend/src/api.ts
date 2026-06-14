@@ -110,23 +110,51 @@ export const carApi = {
     if (params?.operatorId) q.set('operatorId', params.operatorId);
     return handleResp(await fetch('/api/logs?' + q.toString(), { headers: getHeaders() }));
   },
-  downloadExport(id: string): void {
-    const token = authApi.token();
-    const a = document.createElement('a');
-    a.href = `/api/cars/${id}/export`;
-    if (token) a.href += (a.href.includes('?') ? '&' : '?') + 'token=' + token;
-    a.target = '_blank';
-    a.click();
+  async downloadExport(id: string): Promise<void> {
+    const resp = await fetch(`/api/cars/${id}/export`, { headers: getHeaders() });
+    if (resp.status === 401) {
+      authApi.logout();
+      location.hash = '#/login';
+      throw new Error('未登录');
+    }
+    if (!resp.ok) throw new Error('导出失败');
+    const blob = await resp.blob();
+    const filename = extractFilename(resp) || `审批单_${id}.txt`;
+    triggerDownload(blob, filename);
   },
-  downloadLogs(params?: { from?: string; to?: string }): void {
+  async downloadLogs(params?: { from?: string; to?: string }): Promise<void> {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
-    const token = authApi.token();
-    if (token) q.set('token', token);
-    const a = document.createElement('a');
-    a.href = '/api/logs/export?' + q.toString();
-    a.target = '_blank';
-    a.click();
+    const resp = await fetch('/api/logs/export?' + q.toString(), { headers: getHeaders() });
+    if (resp.status === 401) {
+      authApi.logout();
+      location.hash = '#/login';
+      throw new Error('未登录');
+    }
+    if (!resp.ok) throw new Error('导出失败');
+    const blob = await resp.blob();
+    const filename = extractFilename(resp) || `操作日志_${new Date().toISOString().slice(0, 10)}.csv`;
+    triggerDownload(blob, filename);
   }
 };
+
+function extractFilename(resp: Response): string | null {
+  const cd = resp.headers.get('Content-Disposition');
+  if (!cd) return null;
+  const match = cd.match(/filename\*=UTF-8''(.+)/i);
+  if (match) return decodeURIComponent(match[1]);
+  const match2 = cd.match(/filename="?([^"]+)"?/i);
+  return match2 ? match2[1] : null;
+}
+
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

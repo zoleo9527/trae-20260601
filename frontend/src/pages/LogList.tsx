@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Table, Tag, DatePicker, Select, Button, Card, Space, Input } from 'antd';
+import { Table, Tag, DatePicker, Select, Button, Card, Space, Input, message } from 'antd';
 import { DownloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { carApi } from '../api';
 import { AuthTokenPayload, OperationLog, CarStatus, CAR_STATUS_LABEL, OPERATION_LABEL, ROLE_LABEL, OperationType, UserRole, User } from '../types';
@@ -31,6 +31,7 @@ export default function LogList() {
   const [dateRange, setDateRange] = useState<any>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [meta, setMeta] = useState<any>(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -65,6 +66,21 @@ export default function LogList() {
       setData(filtered);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleExport() {
+    try {
+      setExportLoading(true);
+      await carApi.downloadLogs({
+        from: dateRange?.[0]?.startOf('day').toISOString(),
+        to: dateRange?.[1]?.endOf('day').toISOString()
+      });
+      message.success('日志已导出');
+    } catch (e: any) {
+      message.error(e.message || '导出失败');
+    } finally {
+      setExportLoading(false);
     }
   }
 
@@ -108,10 +124,7 @@ export default function LogList() {
           />
           <Input prefix={<SearchOutlined />} placeholder="搜索备注/操作人" value={keyword} onChange={(e) => setKeyword(e.target.value)} style={{ width: 220 }} allowClear />
           <Button type="primary" onClick={load}>查询</Button>
-          <Button icon={<DownloadOutlined />} onClick={() => carApi.downloadLogs({
-            from: dateRange?.[0]?.startOf('day').toISOString(),
-            to: dateRange?.[1]?.endOf('day').toISOString()
-          })}>导出 CSV</Button>
+          <Button icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExport}>导出 CSV</Button>
         </Space>
       </Card>
       <Card>

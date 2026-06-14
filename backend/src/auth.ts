@@ -22,12 +22,17 @@ declare global {
 }
 
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
+  let token: string | undefined;
   const header = req.headers.authorization;
-  if (!header || !header.startsWith('Bearer ')) {
+  if (header && header.startsWith('Bearer ')) {
+    token = header.slice(7);
+  } else if (req.query.token && typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
+  if (!token) {
     res.status(401).json({ code: 401, message: '未登录，请先登录' });
     return;
   }
-  const token = header.slice(7);
   try {
     const payload = jwt.verify(token, JWT_SECRET) as AuthTokenPayload;
     const user = db.findUserById(payload.userId);

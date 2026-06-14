@@ -116,7 +116,7 @@ router.get('/cars/:id/export', authMiddleware, (req: Request, res: Response) => 
   if (!result.ok || !result.data) return res.status(400).json({ code: 400, message: result.message });
   const { filename, content, format } = result.data;
   res.setHeader('Content-Type', format === 'csv' ? 'text/csv; charset=utf-8' : 'text/plain; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
   res.send(content);
 });
 
@@ -129,7 +129,7 @@ router.get('/logs/export', authMiddleware, (req: Request, res: Response) => {
   if (!result.ok || !result.data) return res.status(400).json({ code: 400, message: result.message });
   const { filename, content, format } = result.data;
   res.setHeader('Content-Type', format === 'csv' ? 'text/csv; charset=utf-8' : 'text/plain; charset=utf-8');
-  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"; filename*=UTF-8''${encodeURIComponent(filename)}`);
   res.send(content);
 });
 

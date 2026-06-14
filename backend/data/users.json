@@ -1,0 +1,37 @@
+[
+  {
+    "id": "u_admin",
+    "username": "admin",
+    "name": "系统管理员",
+    "role": "admin",
+    "phone": "13800000000"
+  },
+  {
+    "id": "u_mgr_1",
+    "username": "manager1",
+    "name": "张经理",
+    "role": "manager",
+    "phone": "13800000001"
+  },
+  {
+    "id": "u_mgr_2",
+    "username": "manager2",
+    "name": "李经理",
+    "role": "manager",
+    "phone": "13800000002"
+  },
+  {
+    "id": "u_app_1",
+    "username": "appraiser1",
+    "name": "王评估师",
+    "role": "appraiser",
+    "phone": "13800000003"
+  },
+  {
+    "id": "u_fin_1",
+    "username": "finance1",
+    "name": "赵专员",
+    "role": "finance",
+    "phone": "13800000004"
+  }
+]

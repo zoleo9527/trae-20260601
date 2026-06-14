@@ -46,6 +46,7 @@ export default function CarDetail({ user }: { user: AuthTokenPayload }) {
   const [commentForm] = Form.useForm();
   const [actionLoading, setActionLoading] = useState(false);
   const [meta, setMeta] = useState<any>(null);
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => { load(); loadMeta(); }, [id]);
 
@@ -93,6 +94,19 @@ export default function CarDetail({ user }: { user: AuthTokenPayload }) {
   async function openAction(type: string) {
     form.resetFields();
     setModalType(type);
+  }
+
+  async function handleExport() {
+    if (!id) return;
+    try {
+      setExportLoading(true);
+      await carApi.downloadExport(id);
+      message.success('审批单已导出');
+    } catch (e: any) {
+      message.error(e.message || '导出失败');
+    } finally {
+      setExportLoading(false);
+    }
   }
 
   async function handleAction() {
@@ -163,7 +177,7 @@ export default function CarDetail({ user }: { user: AuthTokenPayload }) {
       )}
       {canCancel() && <Popconfirm title="确认取消该车源？" onConfirm={() => openAction('cancel')}><Button>取消车源</Button></Popconfirm>}
       <Tooltip title="导出审批单（交班用）">
-        <Button icon={<DownloadOutlined />} onClick={() => carApi.downloadExport(id!)}>导出审批单</Button>
+        <Button icon={<DownloadOutlined />} loading={exportLoading} onClick={handleExport}>导出审批单</Button>
       </Tooltip>
     </Space>
   );
