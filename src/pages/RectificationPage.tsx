@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   ClipboardCheck, Search, Upload, CheckCircle2, XCircle, Plus, FileSpreadsheet,
   X, ChevronDown, AlertCircle, Paperclip, Car, Clock, RefreshCcw,
@@ -43,8 +43,24 @@ export default function RectificationPage() {
     submitRectification, auditRectification, addRectification,
   } = useStore()
 
-  const [filter, setFilter] = useState<FilterKey>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const roleDefault: Record<string, FilterKey> = {
+    receiver: 'pending',
+    inspector: 'pending',
+    auditor: 'submitted',
+  }
+  const initialFilter = (searchParams.get('status') as FilterKey) || roleDefault[currentUser.role] || 'all'
+  const [filter, setFilter] = useState<FilterKey>(initialFilter)
   const [keyword, setKeyword] = useState('')
+
+  useEffect(() => {
+    if (filter === roleDefault[currentUser.role] || filter === 'all') {
+      searchParams.delete('status')
+    } else {
+      searchParams.set('status', filter)
+    }
+    setSearchParams(searchParams, { replace: true })
+  }, [filter])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBatchAdd, setShowBatchAdd] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())

@@ -95,20 +95,28 @@ export default function Dashboard() {
 
   const quickActions = useMemo(() => {
     if (currentUser.role === 'receiver') {
+      const rejectedCount = myPendingRectifications.filter(r => r.status === 'rejected').length
+      const pendingCount = myPendingRectifications.filter(r => r.status === 'pending').length
       return [
-        { label: '去整改页处理', to: '/rectification', desc: '提交/补录整改凭证' },
-        { label: '被驳回清单', to: '/rectification?status=rejected', desc: `${myPendingRectifications.filter(r => r.status === 'rejected').length} 项待补录` },
+        { label: '我的整改待办', to: '/rectification?status=pending', desc: `${pendingCount} 项待提交整改` },
+        { label: '被驳回需补录', to: '/rectification?status=rejected', desc: `${rejectedCount} 项待补录材料` },
+        { label: '查看复检进度', to: '/reinspection?tab=pending', desc: '待安排复检列表' },
+        { label: '今日复检安排', to: '/reinspection?tab=scheduled', desc: '已安排的复检' },
       ]
     }
     if (currentUser.role === 'auditor') {
       return [
-        { label: '去审核整改', to: '/rectification', desc: `${myPendingRectifications.length} 项待审核` },
-        { label: '去安排复检', to: '/reinspection', desc: `${myPendingReinspections.length} 项待安排` },
+        { label: '待审核整改', to: '/rectification?status=submitted', desc: `${myPendingRectifications.length} 项待审核` },
+        { label: '待安排复检', to: '/reinspection?tab=pending', desc: `${myPendingReinspections.length} 项待排期` },
+        { label: '复检异常处理', to: '/reinspection?tab=abnormal', desc: '异常复检跟进' },
+        { label: '已通过整改', to: '/rectification?status=passed', desc: '最近合格记录' },
       ]
     }
     return [
-      { label: '去复检页执行', to: '/reinspection', desc: `${myPendingReinspections.length} 项待复检` },
-      { label: '查看今日安排', to: '/reinspection?tab=scheduled', desc: '今日已安排复检' },
+      { label: '今日待复检', to: '/reinspection?tab=scheduled', desc: `${myPendingReinspections.length} 项待执行` },
+      { label: '复检异常处理', to: '/reinspection?tab=abnormal', desc: '异常车辆跟进' },
+      { label: '待处理整改', to: '/rectification?status=pending', desc: '整改任务列表' },
+      { label: '历史记录回看', to: '/reinspection?tab=history', desc: '全部复检记录' },
     ]
   }, [currentUser, myPendingRectifications, myPendingReinspections])
 

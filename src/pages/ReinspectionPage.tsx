@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useMemo, useState, useEffect } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   CalendarClock, Search, AlertTriangle, CheckCircle2, CalendarDays, History,
   X, ChevronDown, AlertOctagon, Clock, Car, UserCheck,
@@ -32,7 +32,6 @@ export default function ReinspectionPage() {
     scheduleReinspection, cancelReinspectionSchedule, completeReinspection, resolveAbnormal,
   } = useStore()
 
-  const [tab, setTab] = useState<TabKey>('pending')
   const [keyword, setKeyword] = useState('')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [scheduleIds, setScheduleIds] = useState<string[]>([])
@@ -51,8 +50,26 @@ export default function ReinspectionPage() {
   const [batchScheduleText, setBatchScheduleText] = useState('')
   const [showBatchSchedule, setShowBatchSchedule] = useState(false)
 
+  const [searchParams, setSearchParams] = useSearchParams()
   const canSchedule = currentUser.role === 'auditor'
   const canComplete = currentUser.role === 'inspector'
+
+  const roleDefaultTab: Record<string, TabKey> = {
+    receiver: 'pending',
+    inspector: 'scheduled',
+    auditor: 'pending',
+  }
+  const initialTab = (searchParams.get('tab') as TabKey) || roleDefaultTab[currentUser.role] || 'pending'
+  const [tab, setTab] = useState<TabKey>(initialTab)
+
+  useEffect(() => {
+    if (tab === roleDefaultTab[currentUser.role]) {
+      searchParams.delete('tab')
+    } else {
+      searchParams.set('tab', tab)
+    }
+    setSearchParams(searchParams, { replace: true })
+  }, [tab])
 
   const toggleExpand = (id: string) => {
     setExpandedRows(prev => {
@@ -142,34 +159,41 @@ export default function ReinspectionPage() {
     if (!batchScheduleText.trim()) return
     const lines = batchScheduleText.trim().split('\n').filter(l => l.trim())
     const today = new Date().toISOString().slice(0, 10)
-    const ids: string[] = []
+    const result: { plate: string; date: string; time: string; lane: string; reId: string; isNew: boolean }[] = []
+
     lines.forEach(line => {
       const cols = line.split(/\t|,|，/).map(s => s.trim())
       const plate = cols[0]
+      if (!plate) return
       const date = cols[1] || today
       const time = cols[2] || '09:00'
       const lane = cols[3] || '1号线'
       const v = vehicles.find(x => x.plateNumber === plate)
-      const re = reinspections.find(x => {
+      let re = reinspections.find(x => {
         const vv = vehicles.find(vvv => vvv.id === x.vehicleId)
         return vv?.plateNumber === plate && (x.status === 'pending' || x.status === 'abnormal')
       })
-      if (re) ids.push(re.id)
-      else if (v) {
+      let isNew = false
+      if (!re && v) {
         const newReId = uid('re_')
-        useStore.setState(s => ({
-          reinspections: [{
-            id: newReId, inspectionId: uid('bi_'), vehicleId: v.id,
-            status: 'pending', scheduleHistory: [],
-          }, ...s.reinspections],
-        }))
-        ids.push(newReId)
+        const newRe = {
+          id: newReId, inspectionId: uid('bi_'), vehicleId: v.id,
+          status: 'pending' as const, scheduleHistory: [],
+        }
+        useStore.setState(s => ({ reinspections: [newRe as any, ...s.reinspections] }))
+        re = newRe as any
+        isNew = true
+      }
+      if (re) {
+        result.push({ plate, date, time, lane, reId: re.id, isNew })
       }
     })
-    if (ids.length > 0) {
-      const sched = new Date(`${today}T09:00:00`).toISOString()
-      scheduleReinspection(ids, { scheduledTime: sched, lane: '1号线' })
-    }
+
+    result.forEach(item => {
+      const scheduledTime = new Date(`${item.date}T${item.time}:00`).toISOString()
+      scheduleReinspection([item.reId], { scheduledTime, lane: item.lane })
+    })
+
     setBatchScheduleText(''); setShowBatchSchedule(false)
   }
 
