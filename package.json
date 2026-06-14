@@ -1,0 +1,15 @@
+{
+  "name": "dance-exam-service",
+  "version": "1.0.0",
+  "description": "舞蹈培训机构考级报名与资料审核后端服务",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "init-db": "node src/db.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.0"
+  }
+}
