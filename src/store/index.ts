@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import localForage from 'localforage';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { RecordItem, RecordDetail, HistoryItem, NoteItem, UserInfo, UserRole, RecordStatus, FilterParams } from '../types';
 import { sampleRecords, sampleHistory, sampleNotes, sampleUsers } from '../data/sampleData';
 
@@ -11,7 +11,6 @@ interface AppState {
   history: HistoryItem[];
   notes: NoteItem[];
   filters: FilterParams;
-  isOnline: boolean;
   isLoading: boolean;
 
   setUser: (user: UserInfo) => void;
@@ -30,7 +29,6 @@ interface AppState {
   setFilters: (filters: FilterParams) => void;
   clearFilters: () => void;
 
-  setOnline: (online: boolean) => void;
   setLoading: (loading: boolean) => void;
 
   getRecordDetail: (id: string) => RecordDetail | undefined;
@@ -55,7 +53,6 @@ export const useAppStore = create<AppState>()(
       history: sampleHistory,
       notes: sampleNotes,
       filters: {},
-      isOnline: navigator.onLine,
       isLoading: false,
 
       setUser: (user) => set({ user }),
@@ -98,8 +95,6 @@ export const useAppStore = create<AppState>()(
       setFilters: (filters) => set({ filters }),
 
       clearFilters: () => set({ filters: {} }),
-
-      setOnline: (online) => set({ isOnline: online }),
 
       setLoading: (loading) => set({ isLoading: loading }),
 
@@ -190,11 +185,11 @@ export const useAppStore = create<AppState>()(
 );
 
 export const useOfflineStatus = () => {
-  const { isOnline, setOnline } = useAppStore();
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -203,7 +198,7 @@ export const useOfflineStatus = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [setOnline]);
+  }, []);
 
   return isOnline;
 };

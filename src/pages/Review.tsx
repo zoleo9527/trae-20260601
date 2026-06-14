@@ -9,44 +9,62 @@ const Review = () => {
   const navigate = useNavigate();
   const { getRecordDetail, updateRecord, addHistory, addNote, user } = useAppStore();
 
-  const [record, setRecord] = useState(getRecordDetail(id || '') || null);
+  const [record, setRecord] = useState<ReturnType<typeof getRecordDetail> | null>(null);
   const [estimatedValue, setEstimatedValue] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [remark, setRemark] = useState('');
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+  const [hasTransitioned, setHasTransitioned] = useState(false);
 
   useEffect(() => {
-    const detail = getRecordDetail(id || '');
-    if (detail) {
-      setRecord(detail);
-      if (detail.estimatedValue) {
-        setEstimatedValue(detail.estimatedValue.toString());
-      }
-      if (detail.rejectReason) {
-        setRejectReason(detail.rejectReason);
-      }
-      setRemark(detail.remark);
+    const loadRecord = () => {
+      const detail = getRecordDetail(id || '');
+      if (detail) {
+        setRecord(detail);
+        if (detail.estimatedValue) {
+          setEstimatedValue(detail.estimatedValue.toString());
+        }
+        if (detail.rejectReason) {
+          setRejectReason(detail.rejectReason);
+        }
+        setRemark(detail.remark);
 
-      if (user && user.role === 'warehouse' && detail.status === 'pending') {
-        const now = new Date();
-        const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-        const historyId = `H${String(now.getTime()).slice(-4)}`;
-        
-        updateRecord(id || '', { status: 'reviewing' });
-        
-        addHistory({
-          id: historyId,
-          recordId: id || '',
-          statusFrom: 'pending',
-          statusTo: 'reviewing',
-          operatorId: user.id,
-          operatorName: user.name,
-          remark: '开始估价复核',
-          createdAt: timeStr,
-        });
+        if (user && user.role === 'warehouse' && detail.status === 'pending' && !hasTransitioned) {
+          const now = new Date();
+          const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
+          const historyId = `H${String(now.getTime()).slice(-4)}`;
+
+          updateRecord(id || '', { status: 'reviewing' });
+
+          addHistory({
+            id: historyId,
+            recordId: id || '',
+            statusFrom: 'pending',
+            statusTo: 'reviewing',
+            operatorId: user.id,
+            operatorName: user.name,
+            remark: '开始估价复核',
+            createdAt: timeStr,
+          });
+
+          setHasTransitioned(true);
+        }
       }
-    }
-  }, [id, getRecordDetail, user, updateRecord, addHistory]);
+    };
+
+    loadRecord();
+
+    const interval = setInterval(() => {
+      if (hasTransitioned) {
+        const updated = getRecordDetail(id || '');
+        if (updated) {
+          setRecord(updated);
+        }
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [id, getRecordDetail, user, updateRecord, addHistory, hasTransitioned]);
 
   const handleApprove = () => {
     if (!user) {
@@ -64,6 +82,8 @@ const Review = () => {
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
     const historyId = `H${String(now.getTime()).slice(-4)}`;
 
+    const currentStatus = record?.status || 'reviewing';
+
     updateRecord(id || '', {
       status: 'approved',
       estimatedValue: value,
@@ -74,7 +94,7 @@ const Review = () => {
     addHistory({
       id: historyId,
       recordId: id || '',
-      statusFrom: record?.status || 'pending',
+      statusFrom: currentStatus,
       statusTo: 'approved',
       operatorId: user.id,
       operatorName: user.name,
@@ -112,6 +132,8 @@ const Review = () => {
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
     const historyId = `H${String(now.getTime()).slice(-4)}`;
 
+    const currentStatus = record?.status || 'reviewing';
+
     updateRecord(id || '', {
       status: 'rejected',
       rejectReason,
@@ -121,7 +143,7 @@ const Review = () => {
     addHistory({
       id: historyId,
       recordId: id || '',
-      statusFrom: record?.status || 'pending',
+      statusFrom: currentStatus,
       statusTo: 'rejected',
       operatorId: user.id,
       operatorName: user.name,

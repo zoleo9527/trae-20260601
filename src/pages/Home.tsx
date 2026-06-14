@@ -1,27 +1,14 @@
 import { Edit3, Eye, Filter, LogOut, Plus, Search, Store, Wifi, WifiOff } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore, useOfflineStatus } from '../store';
 import { FilterParams, RecordStatus, ROLE_CONFIG, STATUS_COLORS, STATUS_LABELS } from '../types';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, logout, getFilteredRecords, getStatusStats, setFilters, filters, clearFilters, setOnline } = useAppStore();
+  const { user, logout, getFilteredRecords, getStatusStats, setFilters, filters, clearFilters } = useAppStore();
   
   const isOnline = useOfflineStatus();
-  
-  useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [setOnline]);
   
   const [searchKeyword, setSearchKeyword] = useState(filters.keyword || '');
   const [selectedStatus, setSelectedStatus] = useState<RecordStatus | ''>(filters.status || '');
