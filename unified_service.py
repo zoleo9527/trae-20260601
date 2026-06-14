@@ -206,8 +206,8 @@ class UnifiedBusinessService:
         self._record_responsibility(
             pawn_item_id=renewal.pawn_item_id,
             stage=ResponsibilityStage.FEE_CALCULATION,
-            handler_id=assessor_id,
-            handler_role=UserRole.ASSESSOR,
+            handler_id="finance",
+            handler_role=UserRole.FINANCE,
             notes=f"评估师审核通过，费用计算责任转移到财务: {assessor_notes}"
         )
         
@@ -474,7 +474,7 @@ class UnifiedBusinessService:
         
         self._record_responsibility(
             pawn_item_id=redemption.pawn_item_id,
-            stage=ResponsibilityStage.FEE_CALCULATION,
+            stage=ResponsibilityStage.REDEMPTION_PROCESSING,
             handler_id=finance_id,
             handler_role=UserRole.FINANCE,
             notes=f"财务完成费用计算，total_amount回写: {total_amount}"
@@ -761,7 +761,8 @@ class UnifiedBusinessService:
         self,
         calculation_id: str,
         reviewer_id: str,
-        review_notes: str
+        review_notes: str,
+        create_settlement_chain: bool = True
     ) -> FeeCalculation:
         fee_calculation = self._get_fee_calculation(calculation_id)
         
@@ -778,13 +779,14 @@ class UnifiedBusinessService:
         fee_calculation.review_notes = review_notes
         fee_calculation.updated_at = datetime.now()
         
-        self._record_responsibility(
-            pawn_item_id=fee_calculation.pawn_item_id,
-            stage=ResponsibilityStage.SETTLEMENT,
-            handler_id=reviewer_id,
-            handler_role=UserRole.FINANCE,
-            notes=f"费用计算审核通过: {review_notes}"
-        )
+        if create_settlement_chain:
+            self._record_responsibility(
+                pawn_item_id=fee_calculation.pawn_item_id,
+                stage=ResponsibilityStage.SETTLEMENT,
+                handler_id=reviewer_id,
+                handler_role=UserRole.FINANCE,
+                notes=f"费用计算审核通过: {review_notes}"
+            )
         
         self._log_audit(
             entity_type="FeeCalculation",
@@ -1164,7 +1166,7 @@ class UnifiedBusinessService:
         )
         
         self.submit_fee_for_review(fee_calculation.id, calculator_id)
-        self.approve_fee_calculation(fee_calculation.id, calculator_id, "续当费用计算")
+        self.approve_fee_calculation(fee_calculation.id, calculator_id, "续当费用计算", create_settlement_chain=False)
         
         return fee_calculation
     
@@ -1183,7 +1185,7 @@ class UnifiedBusinessService:
         )
         
         self.submit_fee_for_review(fee_calculation.id, calculator_id)
-        self.approve_fee_calculation(fee_calculation.id, calculator_id, "赎当费用计算")
+        self.approve_fee_calculation(fee_calculation.id, calculator_id, "赎当费用计算", create_settlement_chain=False)
         
         return fee_calculation
     
