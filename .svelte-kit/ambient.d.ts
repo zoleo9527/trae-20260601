@@ -116,7 +116,6 @@ declare module '$env/static/private' {
 	export const pnpm_config_verify_deps_before_run: string;
 	export const SAFE_RM_SOURCE_FLAG: string;
 	export const VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
-	export const VSCODE_INJECTION: string;
 	export const SHLVL: string;
 	export const HOME: string;
 	export const VSCODE_GIT_ASKPASS_MAIN: string;
@@ -303,7 +302,6 @@ declare module '$env/dynamic/private' {
 		pnpm_config_verify_deps_before_run: string;
 		SAFE_RM_SOURCE_FLAG: string;
 		VSCODE_DEBUGPY_ADAPTER_ENDPOINTS: string;
-		VSCODE_INJECTION: string;
 		SHLVL: string;
 		HOME: string;
 		VSCODE_GIT_ASKPASS_MAIN: string;

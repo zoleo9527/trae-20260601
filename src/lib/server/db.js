@@ -196,13 +196,15 @@ function migrateExistingData() {
 
   const samples = db.prepare('SELECT * FROM samples').all();
 
+  db.prepare('DELETE FROM sample_flows').run();
+
   const insertFlow = db.prepare(`
     INSERT INTO sample_flows (id, sample_id, from_status, to_status, action_type, operator_id, operator_name, operator_role, remarks, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))
   `);
 
-  const updateFlowOperator = db.prepare(`
-    UPDATE sample_flows SET operator_id = ?, operator_name = ? WHERE id = ?
+  const updateSample = db.prepare(`
+    UPDATE samples SET assigned_appraiser_id = ?, accepted_by = ?, accepted_at = datetime('now', '-1 day'), updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `);
 
   const insertDoc = db.prepare(`
@@ -219,29 +221,6 @@ function migrateExistingData() {
     INSERT INTO sample_abnormalities (id, sample_id, abnormality_type, description, severity, reported_by, reported_by_name, status, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))
   `);
-
-  const updateSample = db.prepare(`
-    UPDATE samples SET assigned_appraiser_id = ?, accepted_by = ?, accepted_at = datetime('now', '-1 day'), updated_at = CURRENT_TIMESTAMP WHERE id = ?
-  `);
-
-  const fixExistingFlows = () => {
-    const flows = db.prepare('SELECT * FROM sample_flows').all();
-    for (const flow of flows) {
-      if (flow.action_type === 'receive' || flow.action_type === 'receive_sample') {
-        updateFlowOperator.run(acceptor.id, acceptor.real_name, flow.id);
-      } else if (flow.action_type === 'process') {
-        const sample = db.prepare('SELECT assigned_appraiser_id FROM samples WHERE id = ?').get(flow.sample_id);
-        if (sample?.assigned_appraiser_id) {
-          const appraiser = appraisers.find(a => a.id === sample.assigned_appraiser_id);
-          if (appraiser) {
-            updateFlowOperator.run(appraiser.id, appraiser.real_name, flow.id);
-          }
-        }
-      }
-    }
-  };
-
-  fixExistingFlows();
 
   const sampleConfigs = {
     '2024FJ001': {
@@ -349,9 +328,11 @@ function migrateExistingData() {
     const appraiserId = appraisers[config.assignedAppraiserIndex]?.id || appraisers[0].id;
     const existingFlows = db.prepare('SELECT COUNT(*) as count FROM sample_flows WHERE sample_id = ?').get(sample.id);
 
-    if (existingFlows.count === 0 && config.needsFlows) {
-      for (let i = 0; i < config.flows.length; i++) {
+    if (config.needsFlows) {
+      const flowCount = config.flows.length;
+      for (let i = 0; i < flowCount; i++) {
         const flow = config.flows[i];
+        const dayOffset = -(flowCount - i);
         insertFlow.run(
           uuidv4(),
           sample.id,
@@ -362,7 +343,7 @@ function migrateExistingData() {
           flow.name,
           flow.role,
           flow.remark,
-          `-${i + 1} days`
+          `${dayOffset} days`
         );
       }
     }
