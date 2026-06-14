@@ -92,7 +92,8 @@ POST /api/renewal/create
 **状态迁移:**
 - 典当品状态从 active/overdue 转换为 renewal_pending
 - 续当记录状态为 draft
-- 责任转移到续当处理
+- 当前责任人设置为 ASSESSOR
+- 责任链交接：结束上一活跃责任人，创建续当处理责任链
 
 #### 2.2 提交评估师审核
 ```
@@ -120,7 +121,8 @@ POST /api/renewal/submit-assessor
 
 **状态迁移:**
 - 续当记录状态从 draft 转换为 pending_assessor
-- 责任转移到评估师
+- 当前责任人设置为 ASSESSOR
+- 责任链交接：结束上一活跃责任人，创建评估师审核责任链
 
 #### 2.3 评估师审核通过
 ```
@@ -150,7 +152,9 @@ POST /api/renewal/assessor-approve
 
 **状态迁移:**
 - 续当记录状态从 pending_assessor 转换为 pending_finance
-- 责任转移到财务
+- 当前责任人设置为 FINANCE
+- 典当品状态保持 renewal_pending
+- 责任链交接：结束上一活跃责任人，创建费用计算责任链
 
 #### 2.4 评估师审核拒绝
 ```
@@ -180,7 +184,7 @@ POST /api/renewal/assessor-reject
 **状态迁移:**
 - 续当记录状态转换为 rejected
 - 典当品状态回到 active
-- 责任回到客户
+- 责任链交接：结束上一活跃责任人
 
 #### 2.5 财务审核通过
 ```
@@ -214,7 +218,7 @@ POST /api/renewal/finance-approve
 - 典当品状态转换为 renewal_approved
 - 典当品到期日期更新为新到期日期
 - 费用计算结果回写到 renewal_fee
-- 责任转移到结算
+- 责任链交接：结束上一活跃责任人，创建结算责任链
 
 ### 3. 赎当处理
 
@@ -248,7 +252,8 @@ POST /api/redemption/create
 **状态迁移:**
 - 典当品状态从 active/overdue/renewal_approved 转换为 redemption_pending
 - 赎当记录状态为 draft
-- 责任转移到赎当处理
+- 当前责任人设置为 FINANCE
+- 责任链交接：结束上一活跃责任人，创建赎当处理责任链
 
 #### 3.2 提交财务审核
 ```
@@ -276,7 +281,8 @@ POST /api/redemption/submit-finance
 
 **状态迁移:**
 - 赎当记录状态从 draft 转换为 pending_finance
-- 责任转移到财务
+- 当前责任人设置为 FINANCE
+- 责任链交接：结束上一活跃责任人，创建赎当处理责任链
 
 #### 3.3 财务完成费用计算
 ```
@@ -308,8 +314,9 @@ POST /api/redemption/finance-complete
 
 **状态迁移:**
 - 赎当记录状态从 pending_finance 转换为 pending_warehouse
-- 费用计算结果回写到 total_amount
-- 责任转移到库管
+- 当前责任人设置为 WAREHOUSE
+- 赎当总金额 = 本金 + 利息 + 服务费 + 保管费 + 滞纳金
+- 责任链交接：结束上一活跃责任人，创建费用计算责任链
 
 #### 3.4 库管确认物品
 ```
@@ -338,7 +345,9 @@ POST /api/redemption/warehouse-confirm
 
 **状态迁移:**
 - 赎当记录状态从 pending_warehouse 转换为 pending_customer
-- 责任转移到客户确认
+- 当前责任人设置为 WAREHOUSE
+- 典当品状态保持 redemption_pending
+- 责任链交接：结束上一活跃责任人，创建库管保管责任链
 
 #### 3.5 客户确认赎当
 ```
@@ -367,7 +376,7 @@ POST /api/redemption/customer-confirm
 **状态迁移:**
 - 赎当记录状态转换为 completed
 - 典当品状态转换为 redeemed
-- 责任转移到结算
+- 责任链交接：结束上一活跃责任人，创建结算责任链
 
 #### 3.6 提起赎当争议
 ```
@@ -491,7 +500,7 @@ POST /api/fee/approve
 
 **状态迁移:**
 - 费用计算状态从 pending_review 转换为 approved
-- 责任转移到结算
+- 责任链交接：结束上一活跃责任人，创建结算责任链
 
 #### 4.4 提起争议
 ```
@@ -546,6 +555,7 @@ POST /api/fee/settle-dispute
 
 **状态迁移:**
 - 费用计算状态转换为 settled
+- 责任链交接：结束上一活跃责任人，创建结算责任链
 
 #### 4.6 查看费用计算历史
 ```
@@ -799,7 +809,8 @@ GET /api/audit/responsibility-report/{pawn_item_id}
   },
   "total_handlers": 2,
   "active_handlers": 0,
-  "completed_handlers": 2
+  "completed_handlers": 2,
+  "current_active_handlers": []
 }
 ```
 
@@ -892,7 +903,8 @@ disputed -> pending_review | settled
 1. 每个操作都会记录责任链
 2. 责任转移时必须明确交接人
 3. 责任链记录开始时间和结束时间
-4. 争议状态下责任链暂停
+4. 责任转移时自动结束上一活跃责任人
+5. 争议状态下责任链暂停
 
 ### 状态一致性保证
 1. 典当品状态与续当/赎当状态联动
@@ -905,10 +917,12 @@ disputed -> pending_review | settled
 ### 续当费用回写
 - 财务审核通过续当申请时，费用计算结果自动回写到 `renewal_fee`
 - 续当费用 = 利息 + 服务费 + 保管费 + 滞纳金
+- 审计日志记录回写操作
 
 ### 赎当费用回写
-- 财务完成赎当费用计算时，费用计算结果自动回写到 `total_amount`
-- 赎当总金额 = 本金 + 利息 + 服务费 + 保管费 + 滞纳金
+- 财务完成赎当费用计算时，赎当总金额自动回写到 `total_amount`
+- 赎当总金额 = 本金(loan_amount) + 利息 + 服务费 + 保管费 + 滞纳金
+- 审计日志记录回写操作，包含本金和费用明细
 
 ## 统一状态迁移和责任链交接
 
@@ -919,9 +933,15 @@ disputed -> pending_review | settled
 
 ### 责任链交接统一机制
 - 每个操作自动记录责任链
-- 责任转移时自动记录交接时间和交接人
+- 责任转移时自动结束上一活跃责任人（`_end_active_responsibility`）
+- 新责任人创建新的责任链记录
 - 责任链状态与典当品状态联动
 - 争议状态下责任链暂停
+
+### 责任报告更新
+- 责任报告现在包含 `current_active_handlers` 字段
+- 只返回当前活跃的处理人
+- 方便快速定位当前责任人
 
 ## 系统优势
 

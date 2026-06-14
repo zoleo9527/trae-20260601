@@ -3,7 +3,7 @@
 确保状态迁移和责任链交接的一致性
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from decimal import Decimal
 from typing import Optional, List, Dict, Any
 from models import (
@@ -93,6 +93,8 @@ class UnifiedBusinessService:
         
         PawnStatusConstraint.validate_transition(pawn_item.status, PawnStatus.RENEWAL_PENDING)
         
+        self._end_active_responsibility(pawn_item_id, "续当申请创建，交接给续当处理")
+        
         renewal_id = str(uuid.uuid4())
         renewal = RenewalRecord(
             id=renewal_id,
@@ -150,10 +152,20 @@ class UnifiedBusinessService:
         
         RenewalStatusConstraint.validate_transition(renewal.status, RenewalStatus.PENDING_ASSESSOR)
         
+        self._end_active_responsibility(renewal.pawn_item_id, "续当申请提交，交接给评估师")
+        
         old_status = renewal.status
         renewal.status = RenewalStatus.PENDING_ASSESSOR
         renewal.current_handler = UserRole.ASSESSOR
         renewal.updated_at = datetime.now()
+        
+        self._record_responsibility(
+            pawn_item_id=renewal.pawn_item_id,
+            stage=ResponsibilityStage.RENEWAL_PROCESSING,
+            handler_id="assessor",
+            handler_role=UserRole.ASSESSOR,
+            notes="续当申请提交给评估师审核"
+        )
         
         self._log_state_transition(
             entity_type="RenewalRecord",
@@ -177,6 +189,8 @@ class UnifiedBusinessService:
         
         RenewalStatusConstraint.validate_transition(renewal.status, RenewalStatus.PENDING_FINANCE)
         
+        self._end_active_responsibility(renewal.pawn_item_id, f"评估师审核通过: {assessor_notes}")
+        
         old_status = renewal.status
         renewal.status = RenewalStatus.PENDING_FINANCE
         renewal.assessor_id = assessor_id
@@ -184,12 +198,27 @@ class UnifiedBusinessService:
         renewal.current_handler = UserRole.FINANCE
         renewal.updated_at = datetime.now()
         
+        pawn_item = self._get_pawn_item(renewal.pawn_item_id)
+        old_pawn_status = pawn_item.status
+        pawn_item.status = PawnStatus.RENEWAL_PENDING
+        pawn_item.updated_at = datetime.now()
+        
         self._record_responsibility(
             pawn_item_id=renewal.pawn_item_id,
             stage=ResponsibilityStage.FEE_CALCULATION,
             handler_id=assessor_id,
             handler_role=UserRole.ASSESSOR,
-            notes=f"评估师审核通过: {assessor_notes}"
+            notes=f"评估师审核通过，费用计算责任转移到财务: {assessor_notes}"
+        )
+        
+        self._log_state_transition(
+            entity_type="PawnItem",
+            entity_id=pawn_item.id,
+            from_status=old_pawn_status.value,
+            to_status=PawnStatus.RENEWAL_PENDING.value,
+            triggered_by=assessor_id,
+            trigger_role=UserRole.ASSESSOR,
+            reason=f"评估师审核通过: {assessor_notes}"
         )
         
         self._log_state_transition(
@@ -213,6 +242,8 @@ class UnifiedBusinessService:
         renewal = self._get_renewal(renewal_id)
         
         RenewalStatusConstraint.validate_transition(renewal.status, RenewalStatus.REJECTED)
+        
+        self._end_active_responsibility(renewal.pawn_item_id, f"评估师拒绝续当申请: {reject_reason}")
         
         old_status = renewal.status
         renewal.status = RenewalStatus.REJECTED
@@ -255,6 +286,8 @@ class UnifiedBusinessService:
     ) -> RenewalRecord:
         renewal = self._get_renewal(renewal_id)
         
+        self._end_active_responsibility(renewal.pawn_item_id, f"财务审核通过并完成费用计算: {finance_notes}")
+        
         fee_calculation = self._calculate_renewal_fee(renewal.pawn_item_id, renewal_id, finance_id)
         
         RenewalStatusConstraint.validate_transition(renewal.status, RenewalStatus.APPROVED)
@@ -278,7 +311,7 @@ class UnifiedBusinessService:
             stage=ResponsibilityStage.SETTLEMENT,
             handler_id=finance_id,
             handler_role=UserRole.FINANCE,
-            notes=f"财务审核通过并完成费用计算: {finance_notes}"
+            notes=f"续当批准，结算完成: {finance_notes}"
         )
         
         self._log_state_transition(
@@ -301,6 +334,17 @@ class UnifiedBusinessService:
             reason=f"财务审核通过: {finance_notes}"
         )
         
+        self._log_audit(
+            entity_type="RenewalRecord",
+            entity_id=renewal_id,
+            action="APPROVE",
+            old_value=old_status.value,
+            new_value=f"renewal_fee={renewal.renewal_fee}",
+            operator_id=finance_id,
+            operator_role=UserRole.FINANCE,
+            notes=f"续当费用回写: {renewal.renewal_fee}"
+        )
+        
         return renewal
     
     def create_redemption(
@@ -316,6 +360,8 @@ class UnifiedBusinessService:
             raise ValueError(f"典当品状态 {pawn_item.status} 不允许赎当")
         
         PawnStatusConstraint.validate_transition(pawn_item.status, PawnStatus.REDEMPTION_PENDING)
+        
+        self._end_active_responsibility(pawn_item_id, "赎当申请创建，交接给赎当处理")
         
         redemption_id = str(uuid.uuid4())
         redemption = RedemptionRecord(
@@ -373,10 +419,20 @@ class UnifiedBusinessService:
         
         RedemptionStatusConstraint.validate_transition(redemption.status, RedemptionStatus.PENDING_FINANCE)
         
+        self._end_active_responsibility(redemption.pawn_item_id, "赎当申请提交，交接给财务")
+        
         old_status = redemption.status
         redemption.status = RedemptionStatus.PENDING_FINANCE
         redemption.current_handler = UserRole.FINANCE
         redemption.updated_at = datetime.now()
+        
+        self._record_responsibility(
+            pawn_item_id=redemption.pawn_item_id,
+            stage=ResponsibilityStage.REDEMPTION_PROCESSING,
+            handler_id="finance",
+            handler_role=UserRole.FINANCE,
+            notes="赎当申请提交给财务审核"
+        )
         
         self._log_state_transition(
             entity_type="RedemptionRecord",
@@ -398,7 +454,12 @@ class UnifiedBusinessService:
     ) -> RedemptionRecord:
         redemption = self._get_redemption(redemption_id)
         
+        self._end_active_responsibility(redemption.pawn_item_id, f"财务完成费用计算: {finance_notes}")
+        
         fee_calculation = self._calculate_redemption_fee(redemption.pawn_item_id, redemption_id, finance_id)
+        
+        pawn_item = self._get_pawn_item(redemption.pawn_item_id)
+        total_amount = pawn_item.loan_amount + fee_calculation.total_fee
         
         RedemptionStatusConstraint.validate_transition(redemption.status, RedemptionStatus.PENDING_WAREHOUSE)
         
@@ -407,7 +468,7 @@ class UnifiedBusinessService:
         redemption.finance_id = finance_id
         redemption.finance_notes = finance_notes
         redemption.fee_calculation_id = fee_calculation.id
-        redemption.total_amount = redemption.pawn_item.loan_amount + fee_calculation.total_fee
+        redemption.total_amount = total_amount
         redemption.current_handler = UserRole.WAREHOUSE
         redemption.updated_at = datetime.now()
         
@@ -416,7 +477,7 @@ class UnifiedBusinessService:
             stage=ResponsibilityStage.FEE_CALCULATION,
             handler_id=finance_id,
             handler_role=UserRole.FINANCE,
-            notes=f"财务完成费用计算: {finance_notes}"
+            notes=f"财务完成费用计算，total_amount回写: {total_amount}"
         )
         
         self._log_state_transition(
@@ -427,6 +488,17 @@ class UnifiedBusinessService:
             triggered_by=finance_id,
             trigger_role=UserRole.FINANCE,
             reason=f"财务完成费用计算: {finance_notes}"
+        )
+        
+        self._log_audit(
+            entity_type="RedemptionRecord",
+            entity_id=redemption_id,
+            action="FEE_CALCULATED",
+            old_value=old_status.value,
+            new_value=f"total_amount={total_amount}",
+            operator_id=finance_id,
+            operator_role=UserRole.FINANCE,
+            notes=f"赎当费用回写: 本金{pawn_item.loan_amount} + 费用{fee_calculation.total_fee} = {total_amount}"
         )
         
         return redemption
@@ -441,18 +513,36 @@ class UnifiedBusinessService:
         
         RedemptionStatusConstraint.validate_transition(redemption.status, RedemptionStatus.PENDING_CUSTOMER)
         
+        self._end_active_responsibility(redemption.pawn_item_id, f"库管确认物品: {warehouse_notes}")
+        
         old_status = redemption.status
         redemption.status = RedemptionStatus.PENDING_CUSTOMER
         redemption.warehouse_id = warehouse_id
         redemption.warehouse_notes = warehouse_notes
+        redemption.current_handler = UserRole.WAREHOUSE
         redemption.updated_at = datetime.now()
+        
+        pawn_item = self._get_pawn_item(redemption.pawn_item_id)
+        old_pawn_status = pawn_item.status
+        pawn_item.status = PawnStatus.REDEMPTION_PENDING
+        pawn_item.updated_at = datetime.now()
         
         self._record_responsibility(
             pawn_item_id=redemption.pawn_item_id,
             stage=ResponsibilityStage.WAREHOUSE_CUSTODY,
             handler_id=warehouse_id,
             handler_role=UserRole.WAREHOUSE,
-            notes=f"库管确认物品: {warehouse_notes}"
+            notes=f"库管确认物品，等待客户确认: {warehouse_notes}"
+        )
+        
+        self._log_state_transition(
+            entity_type="PawnItem",
+            entity_id=pawn_item.id,
+            from_status=old_pawn_status.value,
+            to_status=PawnStatus.REDEMPTION_PENDING.value,
+            triggered_by=warehouse_id,
+            trigger_role=UserRole.WAREHOUSE,
+            reason=f"库管确认: {warehouse_notes}"
         )
         
         self._log_state_transition(
@@ -477,6 +567,8 @@ class UnifiedBusinessService:
         
         RedemptionStatusConstraint.validate_transition(redemption.status, RedemptionStatus.COMPLETED)
         
+        self._end_active_responsibility(redemption.pawn_item_id, "客户确认赎当")
+        
         old_status = redemption.status
         redemption.status = RedemptionStatus.COMPLETED
         redemption.customer_confirmation = True
@@ -492,7 +584,7 @@ class UnifiedBusinessService:
             stage=ResponsibilityStage.SETTLEMENT,
             handler_id=operator_id,
             handler_role=operator_role,
-            notes="赎当完成"
+            notes=f"赎当完成，客户确认赎当"
         )
         
         self._log_state_transition(
@@ -678,6 +770,8 @@ class UnifiedBusinessService:
             FeeCalculationStatus.APPROVED
         )
         
+        self._end_active_responsibility(fee_calculation.pawn_item_id, f"费用计算审核通过: {review_notes}")
+        
         old_status = fee_calculation.status
         fee_calculation.status = FeeCalculationStatus.APPROVED
         fee_calculation.reviewer_id = reviewer_id
@@ -769,6 +863,8 @@ class UnifiedBusinessService:
             fee_calculation.status,
             FeeCalculationStatus.SETTLED
         )
+        
+        self._end_active_responsibility(fee_calculation.pawn_item_id, f"争议解决: {settlement_notes}")
         
         old_status = fee_calculation.status
         fee_calculation.status = FeeCalculationStatus.SETTLED
@@ -911,7 +1007,8 @@ class UnifiedBusinessService:
         stage: Optional[ResponsibilityStage] = None,
         handler_id: Optional[str] = None,
         handler_role: Optional[UserRole] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        active_only: bool = False
     ) -> List[ResponsibilityChain]:
         results = []
         
@@ -925,6 +1022,8 @@ class UnifiedBusinessService:
             if handler_role and chain.handler_role != handler_role:
                 continue
             if status and chain.status != status:
+                continue
+            if active_only and chain.status != "active":
                 continue
             
             results.append(chain)
@@ -947,10 +1046,12 @@ class UnifiedBusinessService:
         }
     
     def get_responsibility_report(self, pawn_item_id: str) -> Dict[str, Any]:
-        chains = self.query_responsibility_chains(pawn_item_id=pawn_item_id)
+        all_chains = self.query_responsibility_chains(pawn_item_id=pawn_item_id)
+        active_chains = self.query_responsibility_chains(pawn_item_id=pawn_item_id, active_only=True)
+        completed_chains = self.query_responsibility_chains(pawn_item_id=pawn_item_id, status="completed")
         
         stages = {}
-        for chain in chains:
+        for chain in all_chains:
             stage_name = chain.stage.value if hasattr(chain.stage, 'value') else chain.stage
             if stage_name not in stages:
                 stages[stage_name] = []
@@ -972,9 +1073,19 @@ class UnifiedBusinessService:
         return {
             "pawn_item_id": pawn_item_id,
             "responsibility_stages": stages,
-            "total_handlers": len(chains),
-            "active_handlers": len([c for c in chains if c.status == "active"]),
-            "completed_handlers": len([c for c in chains if c.status == "completed"])
+            "total_handlers": len(all_chains),
+            "active_handlers": len(active_chains),
+            "completed_handlers": len(completed_chains),
+            "current_active_handlers": [
+                {
+                    "handler_id": chain.handler_id,
+                    "handler_role": chain.handler_role.value,
+                    "stage": chain.stage.value,
+                    "start_time": chain.start_time.isoformat(),
+                    "notes": chain.notes
+                }
+                for chain in active_chains
+            ]
         }
     
     def get_dispute_evidence(
@@ -1030,6 +1141,13 @@ class UnifiedBusinessService:
             ],
             "timeline": timeline
         }
+    
+    def _end_active_responsibility(self, pawn_item_id: str, reason: str):
+        for chain in self.responsibility_chains.values():
+            if chain.pawn_item_id == pawn_item_id and chain.status == "active":
+                chain.end_time = datetime.now()
+                chain.status = "completed"
+                chain.notes = f"{chain.notes}; {reason}" if chain.notes else reason
     
     def _calculate_renewal_fee(
         self,
@@ -1201,6 +1319,3 @@ class UnifiedBusinessService:
             reason=reason
         )
         self.state_transitions.append(transition)
-
-
-from datetime import timedelta
