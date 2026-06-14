@@ -84,12 +84,13 @@ function listRegistrations({ status, keyword, offset = 0, limit = 20 } = {}) {
   const rows = db.prepare(`
     SELECT r.*, u.name AS auditor_name, t.ticket_no, t.exam_room_id,
            hd.name AS handler_name, ai.name AS assigned_invigilator_name,
-           sb.name AS supplement_by_name
+           sb.name AS supplement_by_name, rb.name AS reopen_by_name
     FROM registrations r
     LEFT JOIN users u ON r.auditor_id = u.id
     LEFT JOIN users hd ON r.handler_id = hd.id
     LEFT JOIN users ai ON r.assigned_invigilator_id = ai.id
     LEFT JOIN users sb ON r.supplement_by = sb.id
+    LEFT JOIN users rb ON r.reopen_by = rb.id
     LEFT JOIN admission_tickets t ON t.registration_id = r.id
     ${where}
     ORDER BY r.submitted_at DESC
@@ -99,6 +100,7 @@ function listRegistrations({ status, keyword, offset = 0, limit = 20 } = {}) {
     ...r,
     status_label: STATUS_LABEL[r.status] || r.status,
     supplement_completed: !!(r.supplement_by && r.supplement_time),
+    reopened: !!(r.reopen_by && r.reopen_time),
   }));
   const total = db.prepare(`SELECT COUNT(*) AS c FROM registrations r ${where}`).get(params).c;
   return { total, items: hydrated };
@@ -111,12 +113,13 @@ function getRegistrationDetail(id) {
            t.seat_no, er.room_code, er.building, er.exam_time, er.id AS exam_room_id,
            gen.name AS generated_by_name,
            hd.name AS handler_name, ai.name AS assigned_invigilator_name,
-           sb.name AS supplement_by_name
+           sb.name AS supplement_by_name, rb.name AS reopen_by_name
     FROM registrations r
     LEFT JOIN users u ON r.auditor_id = u.id
     LEFT JOIN users hd ON r.handler_id = hd.id
     LEFT JOIN users ai ON r.assigned_invigilator_id = ai.id
     LEFT JOIN users sb ON r.supplement_by = sb.id
+    LEFT JOIN users rb ON r.reopen_by = rb.id
     LEFT JOIN admission_tickets t ON t.registration_id = r.id
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id
     LEFT JOIN users gen ON t.generated_by = gen.id
@@ -126,6 +129,7 @@ function getRegistrationDetail(id) {
   reg.status_label = STATUS_LABEL[reg.status] || reg.status;
   reg.invigilators = getRoomInvigilators(reg.exam_room_id);
   reg.supplement_completed = !!(reg.supplement_by && reg.supplement_time);
+  reg.reopened = !!(reg.reopen_by && reg.reopen_time);
   reg.timeline = db.prepare(`
     SELECT tl.*, u.name AS operator_name
     FROM registration_timeline tl
@@ -157,9 +161,9 @@ function auditRegistration(id, { action, reason, auditorId, auditorRole, handler
       db.prepare(`
         UPDATE registrations
         SET status = @status, auditor_id = @auditorId, audit_time = datetime('now'),
-            reject_reason = @reason, handler_id = @handlerId,
-            assigned_invigilator_id = NULL,
-            supplement_remark = NULL, supplement_time = NULL, supplement_by = NULL
+            reject_reason = @reason,
+            handler_id = @handlerId,
+            assigned_invigilator_id = NULL
         WHERE id = @id
       `).run({
         id, status: newStatus, auditorId,
@@ -169,7 +173,7 @@ function auditRegistration(id, { action, reason, auditorId, auditorRole, handler
       db.prepare(`
         UPDATE registrations
         SET status = @status, auditor_id = @auditorId, audit_time = datetime('now'),
-            reject_reason = NULL, handler_id = NULL,
+            handler_id = NULL,
             assigned_invigilator_id = @assignedInvigilatorId
         WHERE id = @id
       `).run({
@@ -187,7 +191,7 @@ function auditRegistration(id, { action, reason, auditorId, auditorRole, handler
     addTimeline(id, action === 'approve' ? (isReviewCycle ? 're_review_approve' : 'approve') : (isReviewCycle ? 're_review_reject' : 'reject'),
       auditorId, auditorRole,
       action === 'approve'
-        ? `${prefix}通过${invigilatorName ? `，准考证负责监考：${invigilatorName}` : ''}`
+        ? `${prefix}通过（保留历史补正记录）${invigilatorName ? `，准考证负责监考：${invigilatorName}` : ''}`
         : `${prefix}退回：${reason}${handlerName ? `，归属处理人：${handlerName}` : ''}`
     );
     if (action === 'approve') {
@@ -302,15 +306,16 @@ function reopenRegistration(id, { operatorId, operatorRole, reason, reassignInvi
       UPDATE registrations
       SET status = 'pending',
           auditor_id = NULL, audit_time = NULL,
-          reject_reason = NULL, handler_id = NULL,
-          assigned_invigilator_id = @reassignInvigilatorId,
-          supplement_remark = NULL, supplement_time = NULL, supplement_by = NULL
+          handler_id = NULL,
+          assigned_invigilator_id = COALESCE(@reassignInvigilatorId, assigned_invigilator_id),
+          reopen_by = @operatorId,
+          reopen_time = datetime('now')
       WHERE id = @id
-    `).run({ id, reassignInvigilatorId: reassignInvigilatorId || null });
+    `).run({ id, operatorId, reassignInvigilatorId: reassignInvigilatorId || null });
     const operatorName = db.prepare('SELECT name FROM users WHERE id = ?').get(operatorId)?.name || '';
     const detail = reason
-      ? `由 ${operatorName} 接回复审，原因：${reason}`
-      : `由 ${operatorName} 接回复审，重新进入待审核队列`;
+      ? `由 ${operatorName} 接回复审（保留补正历史），原因：${reason}`
+      : `由 ${operatorName} 接回复审（保留补正历史），重新进入待审核队列`;
     addTimeline(id, 'reopen_review', operatorId, operatorRole, detail);
     if (reassignInvigilatorId) {
       const invName = db.prepare('SELECT name FROM users WHERE id = ?').get(reassignInvigilatorId)?.name || '';
@@ -318,7 +323,7 @@ function reopenRegistration(id, { operatorId, operatorRole, reason, reassignInvi
         userIds: [reassignInvigilatorId],
         registrationId: id,
         title: '复审报名已接回',
-        content: `考生 ${reg.candidate_name} 已接回待审核，初审通过后由您负责准考证：${invName ? invName : ''}`,
+        content: `考生 ${reg.candidate_name} 已接回待审核，初审通过后由您负责准考证生成（${invName}）`,
         type: 'reopen_review',
       });
     }

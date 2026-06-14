@@ -59,11 +59,14 @@ function createTables() {
       supplement_by TEXT,
       handler_id TEXT,
       assigned_invigilator_id TEXT,
+      reopen_by TEXT,
+      reopen_time TEXT,
       submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (auditor_id) REFERENCES users(id),
       FOREIGN KEY (supplement_by) REFERENCES users(id),
       FOREIGN KEY (handler_id) REFERENCES users(id),
-      FOREIGN KEY (assigned_invigilator_id) REFERENCES users(id)
+      FOREIGN KEY (assigned_invigilator_id) REFERENCES users(id),
+      FOREIGN KEY (reopen_by) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS registration_timeline (

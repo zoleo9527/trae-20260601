@@ -64,9 +64,11 @@ function getMyTodos(userId, role) {
     })));
     const pendingReview = db.prepare(`
       SELECT r.id, r.candidate_name, r.exam_type, r.supplement_time, r.reject_reason,
-             u.name AS supplement_by_name
+             r.supplement_remark, r.reopen_time,
+             u.name AS supplement_by_name, rb.name AS reopen_by_name
       FROM registrations r
       LEFT JOIN users u ON r.supplement_by = u.id
+      LEFT JOIN users rb ON r.reopen_by = rb.id
       WHERE r.status = 'pending_review'
       ORDER BY r.supplement_time ASC
     `).all();
@@ -74,9 +76,11 @@ function getMyTodos(userId, role) {
       id: `re-review-${r.id}`,
       type: 're_review_pending',
       title: `补正完成待复审：${r.candidate_name}`,
-      content: `考试类型：${r.exam_type}，补正处理人：${r.supplement_by_name || '-'}，补正时间：${r.supplement_time}，原退回原因：${r.reject_reason || '-'}`,
+      content: `考试类型：${r.exam_type}，补正人：${r.supplement_by_name || '-'}，补正时间：${r.supplement_time}，补正说明：${r.supplement_remark || '-'}，原退回原因：${r.reject_reason || '-'}${r.reopen_by_name ? `；曾被 ${r.reopen_by_name} 于 ${r.reopen_time} 接回` : ''}`,
       registration_id: r.id,
       created_at: r.supplement_time,
+      supplement_by_name: r.supplement_by_name,
+      reopen_by_name: r.reopen_by_name,
     })));
   }
 
@@ -104,20 +108,30 @@ function getMyTodos(userId, role) {
   if (role === 'tech_support') {
     const myRejected = db.prepare(`
       SELECT r.id, r.candidate_name, r.reject_reason, r.audit_time,
-             u.name AS handler_name, r.handler_id
+             u.name AS handler_name, r.handler_id,
+             r.supplement_remark AS prev_supplement_remark,
+             r.supplement_time AS prev_supplement_time,
+             sb.name AS prev_supplement_by_name,
+             rb.name AS reopen_by_name, r.reopen_time
       FROM registrations r
       LEFT JOIN users u ON r.handler_id = u.id
+      LEFT JOIN users sb ON r.supplement_by = sb.id
+      LEFT JOIN users rb ON r.reopen_by = rb.id
       WHERE r.status = 'rejected'
-        AND (r.supplement_remark IS NULL OR r.supplement_remark = '')
         AND r.handler_id = ?
       ORDER BY r.audit_time ASC
     `).all(userId);
     const unassignedRejected = db.prepare(`
       SELECT r.id, r.candidate_name, r.reject_reason, r.audit_time,
-             r.handler_id
+             r.handler_id,
+             r.supplement_remark AS prev_supplement_remark,
+             r.supplement_time AS prev_supplement_time,
+             sb.name AS prev_supplement_by_name,
+             rb.name AS reopen_by_name, r.reopen_time
       FROM registrations r
+      LEFT JOIN users sb ON r.supplement_by = sb.id
+      LEFT JOIN users rb ON r.reopen_by = rb.id
       WHERE r.status = 'rejected'
-        AND (r.supplement_remark IS NULL OR r.supplement_remark = '')
         AND r.handler_id IS NULL
       ORDER BY r.audit_time ASC
     `).all();
@@ -129,15 +143,25 @@ function getMyTodos(userId, role) {
       }
     });
     const merged = Array.from(mergedMap.values());
-    todos.push(...merged.map(r => ({
-      id: `supplement-${r.id}`,
-      type: 'supplement_pending',
-      title: `报名退回待补正：${r.candidate_name}`,
-      content: `退回原因：${r.reject_reason}，处理归属：${r.handler_name || '-'}`,
-      registration_id: r.id,
-      created_at: r.audit_time,
-      is_unassigned: r.is_unassigned,
-    })));
+    todos.push(...merged.map(r => {
+      const historyHint = [
+        r.prev_supplement_by_name ? `历史补正：${r.prev_supplement_by_name} @ ${r.prev_supplement_time}` : null,
+        r.reopen_by_name ? `曾接回：${r.reopen_by_name} @ ${r.reopen_time}` : null,
+      ].filter(Boolean).join('；');
+      return {
+        id: `supplement-${r.id}`,
+        type: 'supplement_pending',
+        title: `报名退回待补正：${r.candidate_name}`,
+        content: `退回原因：${r.reject_reason}，处理归属：${r.handler_name || '-'}${historyHint ? `（${historyHint}）` : ''}`,
+        registration_id: r.id,
+        created_at: r.audit_time,
+        is_unassigned: r.is_unassigned,
+        prev_supplement_by_name: r.prev_supplement_by_name,
+        prev_supplement_time: r.prev_supplement_time,
+        reopen_by_name: r.reopen_by_name,
+        reopen_time: r.reopen_time,
+      };
+    }));
   }
 
   todos.sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''));

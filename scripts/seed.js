@@ -49,18 +49,19 @@ const seed = () => {
   insertAssign.run(newId(), room3, invigilator1);
 
   const candidates = [
-    ['张明', '110101199001011234', '计算机二级', '13800138001', 'zhangming@example.com', 'pending', null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
-    ['李华', '110101199502022345', '计算机二级', '13800138002', 'lihua@example.com', 'pending', null, null, null, null, null, null, null, null, '2026-06-10 10:00:00'],
-    ['王芳', '110101199803033456', '英语四级', '13800138003', 'wangfang@example.com', 'pending', null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
-    ['赵强', '110101199204044567', '英语六级', '13800138004', 'zhaoqiang@example.com', 'approved', admin1, '2026-06-08 14:20:00', null, null, null, null, invigilator1, null, '2026-06-08 10:00:00'],
-    ['刘洋', '110101199705055678', '计算机二级', '13800138005', null, 'rejected', admin2, '2026-06-07 09:15:00', '身份证照片模糊不清，请重新上传清晰的证件照。', null, null, tech1, null, null, '2026-06-07 08:00:00'],
-    ['陈静', '110101199306066789', '英语四级', '13800138006', 'chenjing@example.com', 'pending_review', admin2, '2026-06-05 11:00:00', '报名照片与身份证照片不匹配，请重新上传近照。', '已重新拍摄并上传符合要求的照片，请核验。', '2026-06-06 15:30:00', tech1, tech1, null, '2026-06-05 08:30:00'],
-    ['周磊', '110101199607077890', '计算机二级', '13800138007', null, 'pending', null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
+    ['张明', '110101199001011234', '计算机二级', '13800138001', 'zhangming@example.com', 'pending', null, null, null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
+    ['李华', '110101199502022345', '计算机二级', '13800138002', 'lihua@example.com', 'pending', null, null, null, null, null, null, null, null, null, null, '2026-06-10 10:00:00'],
+    ['王芳', '110101199803033456', '英语四级', '13800138003', 'wangfang@example.com', 'pending', null, null, null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
+    ['赵强', '110101199204044567', '英语六级', '13800138004', 'zhaoqiang@example.com', 'approved', admin1, '2026-06-08 14:20:00', null, null, null, null, invigilator1, null, null, null, '2026-06-08 10:00:00'],
+    ['刘洋', '110101199705055678', '计算机二级', '13800138005', null, 'rejected', admin2, '2026-06-07 09:15:00', '身份证照片模糊不清，请重新上传清晰的证件照。', null, null, tech1, null, null, null, null, '2026-06-07 08:00:00'],
+    ['陈静', '110101199306066789', '英语四级', '13800138006', 'chenjing@example.com', 'pending_review', admin2, '2026-06-05 11:00:00', '报名照片与身份证照片不匹配，请重新上传近照。', '已重新拍摄并上传符合要求的照片，请核验。', '2026-06-06 15:30:00', tech1, tech1, null, null, null, '2026-06-05 08:30:00'],
+    ['周磊', '110101199607077890', '计算机二级', '13800138007', null, 'pending', null, null, null, null, null, null, null, null, null, null, '2026-06-14 12:22:19'],
+    ['吴倩', '110101199408088901', '英语六级', '13800138008', 'wuqian@example.com', 'rejected', admin1, '2026-06-03 10:00:00', '缺少英语四级成绩单，需补传CET4成绩证明', '首次补传的CET4成绩单模糊，已补传清晰扫描件', '2026-06-04 09:00:00', tech2, tech2, admin1, '2026-06-04 14:00:00', null, '2026-06-02 16:00:00'],
   ];
   const insertReg = db.prepare(`
     INSERT INTO registrations
-    (id, candidate_name, id_card, exam_type, phone, email, status, auditor_id, audit_time, reject_reason, supplement_remark, supplement_time, handler_id, supplement_by, assigned_invigilator_id, submitted_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
+    (id, candidate_name, id_card, exam_type, phone, email, status, auditor_id, audit_time, reject_reason, supplement_remark, supplement_time, handler_id, supplement_by, reopen_by, reopen_time, assigned_invigilator_id, submitted_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
   `);
   candidates.forEach(row => insertReg.run(newId(), ...row));
 
@@ -76,6 +77,14 @@ const seed = () => {
     timelines.push([regLiu.id, 'submit', null, null, `考生提交报名申请`, regLiu.submitted_at]);
     timelines.push([regLiu.id, 'reject', admin2, 'admin_staff', `审核退回：身份证照片模糊不清，请重新上传清晰的证件照。`, '2026-06-07 09:15:00']);
   }
+  const regWu = db.prepare("SELECT id, submitted_at FROM registrations WHERE candidate_name = '吴倩'").get();
+  if (regWu) {
+    timelines.push([regWu.id, 'submit', null, null, `考生提交报名申请`, regWu.submitted_at]);
+    timelines.push([regWu.id, 'reject', admin1, 'admin_staff', `审核退回：缺少英语四级成绩单，需补传CET4成绩证明`, '2026-06-03 10:00:00']);
+    timelines.push([regWu.id, 'supplement_done', tech2, 'tech_support', `补正完成，标记待复审。处理说明：首次补传的CET4成绩单模糊，已补传清晰扫描件`, '2026-06-04 09:00:00']);
+    timelines.push([regWu.id, 'reopen_review', admin1, 'admin_staff', `由 王考务 接回复审（保留补正历史），原因：照片仍然不清晰，需考生再次补传后由孙支持重新核查`, '2026-06-04 14:00:00']);
+    timelines.push([regWu.id, 're_review_reject', admin1, 'admin_staff', `复审退回：缺少英语四级成绩单，需补传CET4成绩证明，归属处理人：孙支持`, '2026-06-04 18:00:00']);
+  }
   const insertTl = db.prepare(`
     INSERT INTO registration_timeline (id, registration_id, action_type, operator_id, operator_role, detail, created_at)
     VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, datetime('now')))
@@ -89,6 +98,9 @@ const seed = () => {
   }
   if (regLiu) {
     notifications.push([tech1, 'tech_support', regLiu.id, '您有新的报名退回补正任务', `考生 刘洋 报名被退回，原因：身份证照片模糊不清，请重新上传清晰的证件照。`, 'audit_reject']);
+  }
+  if (regWu) {
+    notifications.push([tech2, 'tech_support', regWu.id, '复审再次退回：请继续补正', `考生 吴倩 报名复审退回，原因：缺少英语四级成绩单，需补传CET4成绩证明`, 'audit_reject']);
   }
   const insertNotif = db.prepare(`
     INSERT INTO notifications (id, user_id, user_role, registration_id, title, content, type)
@@ -104,10 +116,11 @@ console.log('  用户：2 考务专员（王考务、李专员）');
 console.log('        2 监考老师（张监考、赵老师）');
 console.log('        2 技术支持（陈工、孙支持）');
 console.log('  考场：A101（30人，监考：张监考）、A102（30人，监考：赵老师）、B201（25人，监考：张监考）');
-console.log('  报名：7 条（4个状态全覆盖）');
+console.log('  报名：8 条（覆盖完整补正闭环）');
 console.log('    - 赵强 已通过，负责监考：张监考');
 console.log('    - 刘洋 已退回，处理归属：陈工');
 console.log('    - 陈静 补正完成待复审，补正处理人：陈工（考务待办已初始化）');
+console.log('    - 吴倩 完整闭环样例：审核退回→孙支持补正→王考务接回复审→复审再次退回，保留历史补正与接回信息');
 console.log('');
 console.log('  使用示例用户ID（用于请求头 X-User-Id）：');
 const users = db.prepare('SELECT id, username, name, role FROM users ORDER BY role').all();
