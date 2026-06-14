@@ -342,56 +342,7 @@ export async function updateDocumentCheck(
   });
 }
 
-export function getBlockedReason(businessCase: any): string | null {
-  if (businessCase.status === 'DOCUMENT_CHECKING' && businessCase.documentCheck?.issues?.length > 0) {
-    return `资料问题: ${businessCase.documentCheck.issues.map((i: DocumentIssue) => {
-      const labels: Record<DocumentIssue, string> = {
-        MISSING_COPY: '资料复印缺页',
-        INCOMPLETE_DUE_DILIGENCE: '尽调补件',
-        EXPIRED_DOCUMENT: '证件过期',
-        SIGNATURE_MISMATCH: '签字不符',
-        MISSING_SIGNATURE: '缺少签字',
-        OTHER: '其他',
-      };
-      return labels[i];
-    }).join(', ')}`;
-  }
 
-  if (businessCase.status === 'DUE_DILIGENCE' && businessCase.dueDiligence?.needsSupplement) {
-    return `尽调补件: ${businessCase.dueDiligence.supplementNote || '需要补充材料'}`;
-  }
-
-  if (businessCase.status === 'RETURNED' && businessCase.authReviews?.[0]) {
-    return `授权退回: ${businessCase.authReviews[0].reason}`;
-  }
-
-  if (businessCase.status === 'PENDING_AUTHORIZATION') {
-    if (businessCase.authReviews?.length > 0) {
-      const lastReview = businessCase.authReviews[0];
-      if (lastReview.result === 'ESCALATED') {
-        return `等待${lastReview.reviewLevel + 1}级授权: ${lastReview.reason}`;
-      }
-    }
-    return '等待运营主管授权';
-  }
-
-  return null;
-}
-
-export function getHandlerInfo(businessCase: any): string {
-  const roleMap: Record<string, string> = {
-    HALL_MANAGER: '大堂经理',
-    ACCOUNT_MANAGER: '客户经理',
-    OPERATION_SUPERVISOR: '运营主管',
-  };
-  if (businessCase.assignee) {
-    return `${roleMap[businessCase.assignee.role] || ''} ${businessCase.assignee.name}`;
-  }
-  if (businessCase.acceptor) {
-    return `${roleMap[businessCase.acceptor.role] || ''} ${businessCase.acceptor.name} (受理)`;
-  }
-  return '暂未分配';
-}
 
 export async function updateDueDiligence(
   caseId: string,

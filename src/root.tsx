@@ -4,7 +4,8 @@ import { json } from '@remix-run/node';
 import clsx from 'clsx';
 
 import stylesheet from './tailwind.css?url';
-import { getUser, getRoleName } from './utils/session.server';
+import { getUser } from './utils/session.server';
+import { getRoleName } from './utils/display';
 
 export const links: LinksFunction = () => [
   { rel: 'stylesheet', href: stylesheet },

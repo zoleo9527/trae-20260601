@@ -102,11 +102,4 @@ export async function verifyLogin(username: string, password: string) {
   return { id: user.id, username: user.username, name: user.name, role: user.role };
 }
 
-export function getRoleName(role: UserRole): string {
-  const roleMap: Record<UserRole, string> = {
-    HALL_MANAGER: '大堂经理',
-    ACCOUNT_MANAGER: '客户经理',
-    OPERATION_SUPERVISOR: '运营主管',
-  };
-  return roleMap[role];
-}
+

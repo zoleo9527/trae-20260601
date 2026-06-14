@@ -3,8 +3,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { BusinessCase, Customer, User, DocumentCheck, DueDiligenceRecord, AuthorizationReview, TimelineEvent } from '@prisma/client';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DOT_COLORS, DOCUMENT_ISSUE_LABELS } from '../utils/constants';
-import { getBlockedReason, getHandlerInfo } from '../utils/business.server';
-import { getRoleName } from '../utils/session.server';
+import { getBlockedReason, getHandlerInfo, formatAmount } from '../utils/display';
 
 type CaseWithRelations = BusinessCase & {
   customer: Customer;
@@ -62,10 +61,10 @@ export default function CaseCard({ businessCase, showHandler = true, showBlocked
             <span className="text-slate-500">等级：</span>
             <span className="font-medium text-amber-600">{businessCase.customer.customerLevel}</span>
           </div>
-          {businessCase.amount && (
+          {businessCase.amount != null && (
             <div className="col-span-2">
               <span className="text-slate-500">金额：</span>
-              <span className="font-semibold text-slate-800">¥{businessCase.amount.toNumber().toLocaleString()}</span>
+              <span className="font-semibold text-slate-800">¥{formatAmount(businessCase.amount)}</span>
             </div>
           )}
         </div>

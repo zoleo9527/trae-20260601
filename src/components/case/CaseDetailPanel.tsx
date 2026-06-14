@@ -2,8 +2,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { BusinessCase, Customer, User, DocumentCheck, DueDiligenceRecord, AuthorizationReview, TimelineEvent, QueueTicket, Complaint } from '@prisma/client';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DOT_COLORS, DOCUMENT_ISSUE_LABELS, COMPLAINT_TYPE_LABELS, AUTHORIZATION_RESULT_LABELS, AUTHORIZATION_RESULT_COLORS } from '../../utils/constants';
-import { getBlockedReason, getHandlerInfo } from '../../utils/business.server';
-import { getRoleName } from '../../utils/session.server';
+import { getBlockedReason, getHandlerInfo, getRoleName, formatAmount, formatWaitTime } from '../../utils/display';
 import Timeline from '../Timeline';
 
 type CaseWithRelations = BusinessCase & {
@@ -157,7 +156,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                 <div className="col-span-2">
                   <span className="text-slate-500">业务金额</span>
                   <p className="font-bold text-slate-800 text-xl mt-1">
-                    ¥{businessCase.amount.toNumber().toLocaleString()}
+                    ¥{formatAmount(businessCase.amount)}
                   </p>
                 </div>
               )}

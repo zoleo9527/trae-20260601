@@ -3,8 +3,9 @@ import { useLoaderData, useActionData, Form, useNavigation, Link } from '@remix-
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json, redirect } from '@remix-run/node';
 import invariant from 'tiny-invariant';
-import { requireUser, getRoleName } from '../utils/session.server';
-import { getAuthReviewList, createAuthReview, getBlockedReason, getHandlerInfo } from '../utils/business.server';
+import { requireUser } from '../utils/session.server';
+import { getAuthReviewList, createAuthReview } from '../utils/business.server';
+import { getRoleName, getBlockedReason, getHandlerInfo, formatAmount, formatWaitTime } from '../utils/display';
 import { STATUS_LABELS, AUTHORIZATION_RESULT_LABELS, AUTHORIZATION_RESULT_COLORS } from '../utils/constants';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -175,7 +176,7 @@ export default function AuthorizationPage() {
                         {businessCase.amount && (
                           <div>
                             <span className="text-slate-500">金额：</span>
-                            <span className="font-bold text-slate-800">¥{businessCase.amount.toNumber().toLocaleString()}</span>
+                            <span className="font-bold text-slate-800">¥{formatAmount(businessCase.amount)}</span>
                           </div>
                         )}
                         <div>

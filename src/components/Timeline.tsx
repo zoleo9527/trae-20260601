@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { TimelineEvent, User } from '@prisma/client';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DOT_COLORS } from '../utils/constants';
-import { getRoleName } from '../utils/session.server';
+import { getRoleName } from '../utils/display';
 
 type TimelineEventWithUser = TimelineEvent & {
   createdBy?: Pick<User, 'id' | 'name' | 'role'> | null;
