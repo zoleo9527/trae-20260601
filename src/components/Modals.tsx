@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TAX_TYPES, PRIORITY_LABELS, type ConsultationStatus, type UserRole, type DocumentItem, type DocumentListItem } from '../types';
+import { TAX_TYPES, PRIORITY_LABELS, type ConsultationStatus, type UserRole, type DocumentItem, type DocumentListItem, type DocumentStatus } from '../types';
 import { X, User, Plus, Minus, AlertCircle, ListChecks, FileText } from 'lucide-react';
 import type { CreateConsultationRequest } from '../types';
+import { getNextDocumentStatusOptions } from '../lib/utils';
 
 interface CreateConsultationModalProps {
   isOpen: boolean;
@@ -1571,12 +1572,7 @@ export function UpdateDocumentModal({
     }
   }, [isOpen, documentId, currentStatus, document?.providedBy, document?.receivedBy, document?.remarks, document?.incompleteReason]);
 
-  const docStatusOptions: { value: string; label: string }[] = [
-    { value: '已要求提供', label: '已要求提供' },
-    { value: '客户已提供', label: '客户已提供' },
-    { value: '已收到', label: '已收到' },
-    { value: '已豁免', label: '已豁免' },
-  ];
+  const docStatusOptions = getNextDocumentStatusOptions(currentStatus as DocumentStatus);
 
   const handleSubmit = async () => {
     if (!currentUser) return;

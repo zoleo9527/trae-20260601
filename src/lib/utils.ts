@@ -1,4 +1,4 @@
-import type { UserRole, ConsultationStatus } from '../types';
+import type { UserRole, ConsultationStatus, DocumentStatus } from '../types';
 
 export const formatDateTime = (dateStr: string): string => {
   const date = new Date(dateStr);
@@ -182,4 +182,53 @@ export const getStatusDescription = (status: ConsultationStatus): string => {
 
 export const cn = (...classes: (string | boolean | undefined)[]): string => {
   return classes.filter(Boolean).join(' ');
+};
+
+export const getDocumentStatusBadgeClass = (status: DocumentStatus): string => {
+  const classes: Record<DocumentStatus, string> = {
+    '待发起': 'bg-gray-100 text-gray-600 border-gray-200',
+    '已要求提供': 'bg-blue-100 text-blue-600 border-blue-200',
+    '客户已提供': 'bg-yellow-100 text-yellow-600 border-yellow-200',
+    '已收到': 'bg-green-100 text-green-600 border-green-200',
+    '已豁免': 'bg-slate-100 text-slate-600 border-slate-200',
+  };
+  return classes[status] || 'bg-gray-100 text-gray-600 border-gray-200';
+};
+
+export const getNextDocumentStatusOptions = (
+  currentStatus: DocumentStatus
+): { value: DocumentStatus; label: string; recommended?: boolean }[] => {
+  const transitions: Record<
+    DocumentStatus,
+    { value: DocumentStatus; label: string; recommended?: boolean }[]
+  > = {
+    '待发起': [
+      { value: '已要求提供', label: '→ 已要求提供', recommended: true },
+      { value: '已豁免', label: '→ 已豁免' },
+      { value: '待发起', label: '（保持待发起）' },
+    ],
+    '已要求提供': [
+      { value: '客户已提供', label: '→ 客户已提供', recommended: true },
+      { value: '已豁免', label: '→ 已豁免' },
+      { value: '待发起', label: '← 退回待发起' },
+    ],
+    '客户已提供': [
+      { value: '已收到', label: '→ 已收到（确认）', recommended: true },
+      { value: '已要求提供', label: '← 退回重发' },
+      { value: '已豁免', label: '→ 已豁免' },
+    ],
+    '已收到': [
+      { value: '已豁免', label: '→ 改为已豁免' },
+      { value: '客户已提供', label: '← 退回已提供' },
+      { value: '已要求提供', label: '← 重新要求提供' },
+      { value: '已收到', label: '（保持已收到）' },
+    ],
+    '已豁免': [
+      { value: '已要求提供', label: '→ 重新要求提供', recommended: true },
+      { value: '已收到', label: '→ 改为已收到' },
+      { value: '已豁免', label: '（保持已豁免）' },
+    ],
+  };
+
+  return transitions[currentStatus] || [];
 };

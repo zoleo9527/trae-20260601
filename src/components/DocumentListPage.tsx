@@ -1125,7 +1125,7 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
                                     <span className="text-red-500 text-[10px] font-bold">*</span>
                                   )}
                                   <span
-                                    className={`inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium border ${getStatusBadgeClass(doc.status as ConsultationStatus)}`}
+                                    className={`inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium border ${DOCUMENT_STATUS_COLORS[doc.status as DocumentStatus] || 'bg-gray-100 text-gray-600'}`}
                                   >
                                     {doc.status}
                                   </span>
