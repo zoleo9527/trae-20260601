@@ -147,48 +147,84 @@ func UpdateRepaymentPlan(c *gin.Context) {
 		return
 	}
 
-	var plan models.RepaymentPlan
-	if err := c.ShouldBindJSON(&plan); err != nil {
+	var req struct {
+		PaidAmount     *float64                `json:"paid_amount"`
+		Status         *models.RepaymentStatus `json:"status"`
+		OverdueDays    *int                    `json:"overdue_days"`
+		DueDate        *time.Time              `json:"due_date"`
+		ActualPaidDate *time.Time              `json:"actual_paid_date"`
+		FollowUpName   *string                 `json:"follow_up_name"`
+		FollowUpRole   *models.Role            `json:"follow_up_role"`
+		FollowUpRemark *string                 `json:"follow_up_remark"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
 		fail(c, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
-	plan.ID = uint(id)
-	plan.UpdatedAt = time.Now()
 
+	merged := oldPlan
+	merged.UpdatedAt = time.Now()
 	changes := ""
-	if oldPlan.Status != plan.Status {
-		changes += "状态:" + string(oldPlan.Status) + "→" + string(plan.Status) + "; "
+
+	if req.Status != nil && *req.Status != oldPlan.Status {
+		changes += "状态:" + string(oldPlan.Status) + "→" + string(*req.Status) + "; "
+		merged.Status = *req.Status
 	}
-	if oldPlan.PaidAmount != plan.PaidAmount {
-		changes += "已还金额:" + strconv.FormatFloat(oldPlan.PaidAmount, 'f', 2, 64) + "→" + strconv.FormatFloat(plan.PaidAmount, 'f', 2, 64) + "; "
+	if req.PaidAmount != nil && *req.PaidAmount != oldPlan.PaidAmount {
+		changes += "已还金额:" + strconv.FormatFloat(oldPlan.PaidAmount, 'f', 2, 64) + "→" + strconv.FormatFloat(*req.PaidAmount, 'f', 2, 64) + "; "
+		merged.PaidAmount = *req.PaidAmount
 	}
-	if oldPlan.OverdueDays != plan.OverdueDays {
-		changes += "逾期天数:" + strconv.Itoa(oldPlan.OverdueDays) + "→" + strconv.Itoa(plan.OverdueDays) + "; "
+	if req.OverdueDays != nil && *req.OverdueDays != oldPlan.OverdueDays {
+		changes += "逾期天数:" + strconv.Itoa(oldPlan.OverdueDays) + "→" + strconv.Itoa(*req.OverdueDays) + "; "
+		merged.OverdueDays = *req.OverdueDays
 	}
-	if !oldPlan.DueDate.Equal(plan.DueDate) {
-		changes += "到期日:" + oldPlan.DueDate.Format("2006-01-02") + "→" + plan.DueDate.Format("2006-01-02") + "; "
+	if req.DueDate != nil && !oldPlan.DueDate.Equal(*req.DueDate) {
+		changes += "到期日:" + oldPlan.DueDate.Format("2006-01-02") + "→" + req.DueDate.Format("2006-01-02") + "; "
+		merged.DueDate = *req.DueDate
 	}
-	if plan.FollowUpRemark != "" && plan.FollowUpRemark != oldPlan.FollowUpRemark {
-		changes += "跟进说明:" + plan.FollowUpRemark + "; "
+	if req.ActualPaidDate != nil {
+		if oldPlan.ActualPaidDate == nil || !oldPlan.ActualPaidDate.Equal(*req.ActualPaidDate) {
+			oldStr := "null"
+			if oldPlan.ActualPaidDate != nil {
+				oldStr = oldPlan.ActualPaidDate.Format("2006-01-02")
+			}
+			changes += "实际还款日:" + oldStr + "→" + req.ActualPaidDate.Format("2006-01-02") + "; "
+		}
+		merged.ActualPaidDate = req.ActualPaidDate
+	}
+	if req.FollowUpName != nil && *req.FollowUpName != oldPlan.FollowUpName {
+		merged.FollowUpName = *req.FollowUpName
+	}
+	if req.FollowUpRole != nil && *req.FollowUpRole != oldPlan.FollowUpRole {
+		merged.FollowUpRole = *req.FollowUpRole
+	}
+	if req.FollowUpRemark != nil && *req.FollowUpRemark != oldPlan.FollowUpRemark {
+		changes += "跟进说明:" + *req.FollowUpRemark + "; "
+		merged.FollowUpRemark = *req.FollowUpRemark
 	}
 
-	DB.Save(&plan)
+	if changes == "" {
+		ok(c, merged)
+		return
+	}
 
-	role := plan.FollowUpRole
+	DB.Save(&merged)
+
+	role := merged.FollowUpRole
 	if role == "" {
 		role = models.RolePostLoan
 	}
-	operator := plan.FollowUpName
+	operator := merged.FollowUpName
 	if operator == "" {
 		operator = "system"
 	}
 	action := "更新还款计划"
-	if plan.FollowUpRemark != "" {
+	if merged.FollowUpRemark != "" && req.FollowUpRemark != nil {
 		action = "还款计划跟进"
 	}
-	detail := "第" + strconv.Itoa(plan.PeriodNo) + "期还款计划，" + changes
-	addLog(plan.LoanID, &plan.ID, operator, role, action, detail, c.ClientIP())
-	ok(c, plan)
+	detail := "第" + strconv.Itoa(merged.PeriodNo) + "期还款计划，" + changes
+	addLog(merged.LoanID, &merged.ID, operator, role, action, detail, c.ClientIP())
+	ok(c, merged)
 }
 
 func GetCollectionRecords(c *gin.Context) {
