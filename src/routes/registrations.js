@@ -78,7 +78,7 @@ router.get('/', (req, res) => {
     SELECT r.*, s.name as student_name, s.gender, s.current_level, s.guardian_phone,
       es.name as exam_name, es.level as exam_level, es.registration_deadline, es.fee,
       t.name as confirmed_teacher_name,
-      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status IN ('pending','rejected')) as missing_doc_count
+      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') as missing_doc_count
     FROM registrations r
     JOIN students s ON r.student_id = s.id
     JOIN exam_sessions es ON r.exam_session_id = es.id
