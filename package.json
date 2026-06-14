@@ -1,0 +1,22 @@
+{
+  "name": "lottery-prize-system",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "nitropack": "^2.9.0",
+    "nuxt": "^3.13.0",
+    "vue": "^3.4.0"
+  },
+  "devDependencies": {
+    "@nuxt/devtools": "^1.5.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.5",
+    "vue-tsc": "^2.0.0"
+  }
+}
