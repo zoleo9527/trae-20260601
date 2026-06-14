@@ -4,11 +4,11 @@ import {
   CalendarClock, Search, AlertTriangle, CheckCircle2, CalendarDays, History,
   X, ChevronDown, AlertOctagon, Clock, Car, UserCheck,
   CalendarX, RotateCcw, GripVertical, Eye, Plus, Calendar, FileSpreadsheet,
-  Zap, HandCoins, FileText, FileImage,
+  Zap, HandCoins, FileText, FileImage, UserCircle, Eye as EyeIcon,
 } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useStore } from '@/store'
-import type { ReinspectionStatus, DefectItem, ScheduleRecord } from '@/types'
+import type { ReinspectionStatus, DefectItem, ScheduleRecord, Rectification } from '@/types'
 import { reinspectionStatusLabel, formatDateTime, uid } from '@/utils/format'
 
 type TabKey = 'pending' | 'scheduled' | 'completed' | 'abnormal' | 'history'
@@ -28,9 +28,11 @@ const CANCEL_PRESETS = [
 
 export default function ReinspectionPage() {
   const {
-    currentUser, vehicles, inspections, reinspections,
+    currentUser, vehicles, inspections, rectifications, reinspections,
     scheduleReinspection, cancelReinspectionSchedule, completeReinspection, resolveAbnormal,
   } = useStore()
+
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [keyword, setKeyword] = useState('')
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -50,7 +52,6 @@ export default function ReinspectionPage() {
   const [batchScheduleText, setBatchScheduleText] = useState('')
   const [showBatchSchedule, setShowBatchSchedule] = useState(false)
 
-  const [searchParams, setSearchParams] = useSearchParams()
   const canSchedule = currentUser.role === 'auditor'
   const canComplete = currentUser.role === 'inspector'
 
@@ -63,13 +64,104 @@ export default function ReinspectionPage() {
   const [tab, setTab] = useState<TabKey>(initialTab)
 
   useEffect(() => {
+    setTab(initialTab)
+  }, [currentUser.id])
+
+  useEffect(() => {
     if (tab === roleDefaultTab[currentUser.role]) {
       searchParams.delete('tab')
     } else {
       searchParams.set('tab', tab)
     }
     setSearchParams(searchParams, { replace: true })
-  }, [tab])
+  }, [tab, currentUser.role])
+
+  const roleQueueLabel = useMemo(() => {
+    if (currentUser.role === 'receiver') return { title: '复检进度', sub: '查看与你相关车辆的复检进度，及时配合完成复检' }
+    if (currentUser.role === 'auditor') return { title: '复检排期', sub: '待安排排期、处理异常、改排复检的统一工作台' }
+    return { title: '执行复检', sub: '已安排的待复检车辆按时间排序，逐项完成复检' }
+  }, [currentUser])
+
+  const myVehicleIds = useMemo(() => {
+    if (currentUser.role !== 'receiver') return null
+    return new Set(
+      rectifications
+        .filter((r: Rectification) => r.handlerId === currentUser.id)
+        .map((r: Rectification) => r.vehicleId)
+    )
+  }, [rectifications, currentUser])
+
+  const displayList = useMemo(() => {
+    const baseAll = tab === 'history' ? reinspections : reinspections.filter(re => re.status === tab)
+    let base = baseAll
+    if (currentUser.role === 'receiver' && myVehicleIds) {
+      base = baseAll.filter(re => myVehicleIds.has(re.vehicleId))
+    }
+    const kw = (tab === 'history' ? historyKw : keyword).trim().toLowerCase()
+    if (!kw) return base
+    return base.filter(re => {
+      const v = vehicles.find(x => x.id === re.vehicleId)
+      return v?.plateNumber.toLowerCase().includes(kw)
+    })
+  }, [reinspections, tab, keyword, historyKw, vehicles, currentUser, myVehicleIds])
+
+  const queueCounts = useMemo(() => {
+    const roleFilter = (re: any) => {
+      if (currentUser.role === 'receiver' && myVehicleIds) return myVehicleIds.has(re.vehicleId)
+      return true
+    }
+    return {
+      pending: reinspections.filter(re => re.status === 'pending' && roleFilter(re)).length,
+      scheduled: reinspections.filter(re => re.status === 'scheduled' && roleFilter(re)).length,
+      completed: reinspections.filter(re => re.status === 'completed' && roleFilter(re)).length,
+      abnormal: reinspections.filter(re => re.status === 'abnormal' && roleFilter(re)).length,
+    }
+  }, [reinspections, currentUser, myVehicleIds])
+
+  const queueStats = useMemo(() => {
+    if (currentUser.role === 'receiver') {
+      return [
+        { label: '待安排复检', value: queueCounts.pending, tone: queueCounts.pending > 0 ? 'warn' as const : 'safe' as const },
+        { label: '已定复检时间', value: queueCounts.scheduled, tone: queueCounts.scheduled > 0 ? 'info' as const : 'safe' as const },
+        { label: '已完成复检', value: queueCounts.completed, tone: 'safe' as const },
+      ]
+    }
+    if (currentUser.role === 'auditor') {
+      const todayScheduled = reinspections.filter(re => re.status === 'scheduled' && re.scheduledTime?.startsWith(TODAY)).length
+      return [
+        { label: '待安排排期', value: queueCounts.pending, tone: queueCounts.pending > 0 ? 'warn' as const : 'safe' as const },
+        { label: '今日已安排', value: todayScheduled, tone: 'info' as const },
+        { label: '异常待处理', value: queueCounts.abnormal, tone: queueCounts.abnormal > 0 ? 'danger' as const : 'safe' as const },
+      ]
+    }
+    const todayTask = reinspections.filter(re => re.status === 'scheduled' && re.scheduledTime?.startsWith(TODAY)).length
+    return [
+      { label: '今日复检任务', value: todayTask, tone: todayTask > 0 ? 'warn' as const : 'safe' as const },
+      { label: '待执行总数', value: queueCounts.scheduled, tone: 'info' as const },
+      { label: '已完成(本周)', value: reinspections.filter(re => re.status === 'completed').length, tone: 'safe' as const },
+    ]
+  }, [reinspections, queueCounts, currentUser])
+
+  const emptyStateConfig = useMemo(() => {
+    const map: Record<string, { icon: React.ComponentType<{ className?: string }>; title: string; desc: string }> = {
+      receiver_pending: { icon: Clock, title: '暂无待安排复检', desc: '你提交的整改已通过的车辆，等待审核员安排复检时间。' },
+      receiver_scheduled: { icon: CalendarDays, title: '暂未定复检时间', desc: '暂无已安排的复检。请等待审核员排期或联系相关人员。' },
+      receiver_completed: { icon: CheckCircle2, title: '暂无已完成的复检', desc: '继续跟进你的整改车辆复检进度。' },
+      receiver_abnormal: { icon: AlertOctagon, title: '没有异常复检', desc: '你的车辆复检流程一切正常。' },
+      receiver_history: { icon: History, title: '暂无复检记录', desc: '你还没有车辆进入复检流程。' },
+      auditor_pending: { icon: CalendarClock, title: '暂无需排期的复检', desc: '所有需复检车辆已完成排期，状态良好！' },
+      auditor_scheduled: { icon: CalendarDays, title: '暂无已安排复检', desc: '等待分配排期任务，或今日排期已全部完成。' },
+      auditor_completed: { icon: CheckCircle2, title: '暂无已完成复检', desc: '开始今日工作，后续复检结果会显示在这里。' },
+      auditor_abnormal: { icon: AlertOctagon, title: '暂无异常复检', desc: '所有复检安排进展顺利，无爽约或异常。' },
+      auditor_history: { icon: History, title: '暂无历史复检记录', desc: '还没有车辆完成完整的复检流程。' },
+      inspector_pending: { icon: Clock, title: '暂无待安排复检', desc: '所有复检都已安排时间，等待执行即可。' },
+      inspector_scheduled: { icon: UserCheck, title: '今日无复检任务', desc: '太棒了！今天没有待执行的复检任务。' },
+      inspector_completed: { icon: CheckCircle2, title: '暂无已完成的复检', desc: '开始今日复检工作，完成后记录会显示在这里。' },
+      inspector_abnormal: { icon: AlertTriangle, title: '没有异常复检', desc: '车主准时到场，所有复检正常执行。' },
+      inspector_history: { icon: History, title: '暂无历史记录', desc: '执行过的复检都会自动记录到这里。' },
+    }
+    return map[`${currentUser.role}_${tab}`] || map[`${currentUser.role}_pending`]
+  }, [currentUser, tab])
 
   const toggleExpand = (id: string) => {
     setExpandedRows(prev => {
@@ -78,23 +170,6 @@ export default function ReinspectionPage() {
       return n
     })
   }
-
-  const displayList = useMemo(() => {
-    const base = tab === 'history' ? reinspections : reinspections.filter(re => re.status === tab)
-    const kw = (tab === 'history' ? historyKw : keyword).trim().toLowerCase()
-    if (!kw) return base
-    return base.filter(re => {
-      const v = vehicles.find(x => x.id === re.vehicleId)
-      return v?.plateNumber.toLowerCase().includes(kw)
-    })
-  }, [reinspections, tab, keyword, historyKw, vehicles])
-
-  const stats = useMemo(() => ({
-    pending: reinspections.filter(re => re.status === 'pending').length,
-    scheduled: reinspections.filter(re => re.status === 'scheduled').length,
-    completed: reinspections.filter(re => re.status === 'completed').length,
-    abnormal: reinspections.filter(re => re.status === 'abnormal').length,
-  }), [reinspections])
 
   const statusChip = (s: ReinspectionStatus) => {
     const map: Record<ReinspectionStatus, string> = {
@@ -209,26 +284,23 @@ export default function ReinspectionPage() {
   ]
 
   const tabs: { key: TabKey; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
-    { key: 'pending', label: '待安排', icon: Clock, count: stats.pending },
-    { key: 'scheduled', label: '已安排', icon: CalendarDays, count: stats.scheduled },
-    { key: 'completed', label: '已完成', icon: CheckCircle2, count: stats.completed },
-    { key: 'abnormal', label: '异常', icon: AlertOctagon, count: stats.abnormal },
+    { key: 'pending', label: currentUser.role === 'inspector' ? '待安排（参考）' : '待安排', icon: Clock, count: queueCounts.pending },
+    { key: 'scheduled', label: currentUser.role === 'inspector' ? '我的待执行' : '已安排', icon: CalendarDays, count: queueCounts.scheduled },
+    { key: 'completed', label: '已完成', icon: CheckCircle2, count: queueCounts.completed },
+    { key: 'abnormal', label: '异常', icon: AlertOctagon, count: queueCounts.abnormal },
     { key: 'history', label: '历史回看', icon: History },
   ]
 
   const todayScheduled = reinspections.filter(re => re.status === 'scheduled' && re.scheduledTime?.startsWith(TODAY)).length
   const emptyColSpan = tab === 'abnormal' || tab === 'completed' ? 12 : 11
+  const EmptyIcon = emptyStateConfig.icon
 
   return (
     <div>
       <PageHeader
-        title="复检安排"
-        subtitle="复检调度全流程：安排/改排/取消/完成，所有变更自动生成历史记录可追溯。"
-        stats={[
-          { label: '待安排', value: stats.pending, tone: 'warn' },
-          { label: '今日已安排', value: todayScheduled, tone: 'info' },
-          { label: '异常项', value: stats.abnormal, tone: 'danger' },
-        ]}
+        title={`复检安排 · ${roleQueueLabel.title}`}
+        subtitle={roleQueueLabel.sub}
+        stats={queueStats}
         actions={
           <>
             {canSchedule && (
@@ -310,9 +382,33 @@ export default function ReinspectionPage() {
               <tbody>
                 {displayList.length === 0 ? (
                   <tr>
-                    <td colSpan={emptyColSpan} className="py-16 text-center text-ink-500 text-xs">
-                      <CalendarClock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      暂无记录
+                    <td colSpan={emptyColSpan} className="py-16 text-center">
+                      <EmptyIcon className="w-10 h-10 mx-auto mb-2 opacity-30 text-ink-400" />
+                      <div className="text-xs text-ink-200 font-medium">{emptyStateConfig.title}</div>
+                      <div className="text-[11px] text-ink-500 mt-1">{emptyStateConfig.desc}</div>
+                      {canSchedule && tab === 'pending' && (
+                        <button onClick={() => setShowBatchSchedule(true)}
+                          className="mt-4 text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
+                          <Plus className="w-3 h-3 inline mr-0.5" /> 批量录入复检安排
+                        </button>
+                      )}
+                      {canSchedule && tab === 'abnormal' && (
+                        <Link to="/reinspection?tab=pending"
+                          className="mt-4 inline-flex text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
+                          <CalendarDays className="w-3 h-3 inline mr-0.5" /> 去安排复检
+                        </Link>
+                      )}
+                      {canComplete && tab === 'scheduled' && (
+                        <div className="mt-4 text-[11px] text-ink-400">
+                          <EyeIcon className="w-3 h-3 inline mr-0.5" /> 待有复检任务时在此执行
+                        </div>
+                      )}
+                      {currentUser.role === 'receiver' && (tab === 'pending' || tab === 'scheduled') && (
+                        <Link to="/rectification"
+                          className="mt-4 inline-flex text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
+                          <UserCircle className="w-3 h-3 inline mr-0.5" /> 先去处理整改
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ) : displayList.map(re => {
@@ -428,7 +524,7 @@ export default function ReinspectionPage() {
           </div>
         </div>
 
-        {tab === 'scheduled' && (
+        {tab === 'scheduled' && displayList.length > 0 && (
           <div className="mt-3 flex items-center gap-4 text-[10px] text-ink-400 flex-wrap">
             <span className="flex items-center gap-1"><CalendarDays className="w-3 h-3" /> 检测线占用示意：</span>
             {LANES.map(lane => {
@@ -440,7 +536,13 @@ export default function ReinspectionPage() {
                 </span>
               )
             })}
-            <span className="ml-4 text-ink-500">提示：点击「回看」可查看该条目的完整改排/取消历史记录</span>
+            <span className="ml-4 text-ink-500">
+              {canComplete
+                ? '提示：按时间排序，点击「完成复检」逐项录入结果。'
+                : canSchedule
+                  ? '提示：点击「回看」可查看该条目的完整改排/取消历史记录。'
+                  : '提示：点击「详情」查看车辆完整档案和复检进度。'}
+            </span>
           </div>
         )}
       </div>
@@ -534,7 +636,7 @@ export default function ReinspectionPage() {
           <div className="space-y-3">
             <div className="p-2 bg-info-500/10 border border-info-500/30 rounded-sm text-[11px] text-info-300">
               <FileSpreadsheet className="w-3.5 h-3.5 inline mr-1" />
-              支持粘贴 Excel 行。每行格式：<code className="font-mono bg-ink-700 px-1.5 py-0.5 rounded-sm">车牌号, 日期(可选), 时间(可选), 检测线(可选)</code>。未指定时默认今天09:00 1号线
+              支持粘贴 Excel 行。每行格式：<code className="font-mono bg-ink-700 px-1.5 py-0.5 rounded-sm">车牌号, 日期(可选), 时间(可选), 检测线(可选)</code>。未指定时默认今天09:00 1号线。每行将独立生成真实调度记录。
             </div>
             <textarea
               value={batchScheduleText}

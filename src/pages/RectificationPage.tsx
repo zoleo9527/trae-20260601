@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   ClipboardCheck, Search, Upload, CheckCircle2, XCircle, Plus, FileSpreadsheet,
   X, ChevronDown, AlertCircle, Paperclip, Car, Clock, RefreshCcw,
-  Filter, ChevronRight, FileText, GripVertical, Eye,
+  Filter, ChevronRight, FileText, GripVertical, Eye, UserCircle, AlertOctagon,
 } from 'lucide-react'
 import PageHeader from '@/components/PageHeader'
 import { useStore } from '@/store'
@@ -44,23 +44,16 @@ export default function RectificationPage() {
   } = useStore()
 
   const [searchParams, setSearchParams] = useSearchParams()
+
   const roleDefault: Record<string, FilterKey> = {
     receiver: 'pending',
     inspector: 'pending',
     auditor: 'submitted',
   }
+
   const initialFilter = (searchParams.get('status') as FilterKey) || roleDefault[currentUser.role] || 'all'
   const [filter, setFilter] = useState<FilterKey>(initialFilter)
   const [keyword, setKeyword] = useState('')
-
-  useEffect(() => {
-    if (filter === roleDefault[currentUser.role] || filter === 'all') {
-      searchParams.delete('status')
-    } else {
-      searchParams.set('status', filter)
-    }
-    setSearchParams(searchParams, { replace: true })
-  }, [filter])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showBatchAdd, setShowBatchAdd] = useState(false)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
@@ -71,9 +64,29 @@ export default function RectificationPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [batchText, setBatchText] = useState('')
 
+  useEffect(() => {
+    setFilter(initialFilter)
+  }, [currentUser.id])
+
+  useEffect(() => {
+    if (filter === roleDefault[currentUser.role] || filter === 'all') {
+      searchParams.delete('status')
+    } else {
+      searchParams.set('status', filter)
+    }
+    setSearchParams(searchParams, { replace: true })
+  }, [filter, currentUser.role])
+
+  const roleQueueLabel = useMemo(() => {
+    if (currentUser.role === 'receiver') return { title: '我的整改任务', sub: '只显示分配给你的待提交/被驳回整改' }
+    if (currentUser.role === 'auditor') return { title: '待审核整改队列', sub: '所有已提交待审核的整改任务' }
+    return { title: '检测员跟进整改', sub: '全部待处理整改，便于现场确认进度' }
+  }, [currentUser])
+
   const list = useMemo(() => {
     return rectifications
       .filter(r => {
+        if (currentUser.role === 'receiver' && r.handlerId !== currentUser.id) return false
         if (filter !== 'all' && r.status !== filter) return false
         if (keyword.trim()) {
           const v = vehicles.find(x => x.id === r.vehicleId)
@@ -88,15 +101,59 @@ export default function RectificationPage() {
         if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status]
         return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
       })
-  }, [rectifications, filter, keyword, vehicles])
+  }, [rectifications, filter, keyword, vehicles, currentUser])
 
-  const counts = useMemo(() => ({
-    all: rectifications.length,
-    pending: rectifications.filter(r => r.status === 'pending').length,
-    rejected: rectifications.filter(r => r.status === 'rejected').length,
-    submitted: rectifications.filter(r => r.status === 'submitted').length,
-    passed: rectifications.filter(r => r.status === 'passed').length,
-  }), [rectifications])
+  const allCounts = useMemo(() => ({
+    all: rectifications.filter(r => !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
+    pending: rectifications.filter(r => r.status === 'pending' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
+    rejected: rectifications.filter(r => r.status === 'rejected' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
+    submitted: rectifications.filter(r => r.status === 'submitted' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
+    passed: rectifications.filter(r => r.status === 'passed' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
+  }), [rectifications, currentUser])
+
+  const queueStats = useMemo(() => {
+    if (currentUser.role === 'receiver') {
+      const mine = rectifications.filter(r => r.handlerId === currentUser.id)
+      return [
+        { label: '我待提交', value: mine.filter(r => r.status === 'pending').length, tone: 'warn' as const },
+        { label: '我被驳回', value: mine.filter(r => r.status === 'rejected').length, tone: mine.some(r => r.status === 'rejected') ? 'danger' as const : 'safe' as const },
+        { label: '我已通过', value: mine.filter(r => r.status === 'passed').length, tone: 'safe' as const },
+      ]
+    }
+    if (currentUser.role === 'auditor') {
+      return [
+        { label: '待审核', value: allCounts.submitted, tone: allCounts.submitted > 0 ? 'info' as const : 'safe' as const },
+        { label: '已驳回待补录', value: allCounts.rejected, tone: allCounts.rejected > 0 ? 'danger' as const : 'safe' as const },
+        { label: '今日已通过', value: rectifications.filter(r => r.status === 'passed' && r.auditedAt?.startsWith(new Date().toISOString().slice(0, 10))).length, tone: 'safe' as const },
+      ]
+    }
+    return [
+      { label: '待处理整改', value: allCounts.pending, tone: 'warn' as const },
+      { label: '被驳回', value: allCounts.rejected, tone: allCounts.rejected > 0 ? 'danger' as const : 'safe' as const },
+      { label: '已审核通过', value: allCounts.passed, tone: 'safe' as const },
+    ]
+  }, [rectifications, allCounts, currentUser])
+
+  const emptyStateConfig = useMemo(() => {
+    const map: Record<string, { icon: React.ComponentType<{ className?: string }>; title: string; desc: string }> = {
+      receiver_pending: { icon: ClipboardCheck, title: '暂无待提交整改', desc: '你当前没有需要处理的整改任务，真棒！' },
+      receiver_rejected: { icon: RefreshCcw, title: '没有被驳回的整改', desc: '所有整改都已一次性通过或无待办。' },
+      receiver_submitted: { icon: CheckCircle2, title: '暂无可查看的已提交', desc: '先去"待处理"提交整改吧。' },
+      receiver_passed: { icon: UserCircle, title: '暂无已通过记录', desc: '继续努力，完成更多整改！' },
+      receiver_all: { icon: UserCircle, title: '你还没有整改任务', desc: '等待调度分配或联系审核员。' },
+      auditor_submitted: { icon: ClipboardCheck, title: '暂无待审核整改', desc: '所有整改已审核完毕，状态良好！' },
+      auditor_pending: { icon: Clock, title: '暂无待处理整改', desc: '等待接车员提交整改材料。' },
+      auditor_rejected: { icon: AlertOctagon, title: '暂无需补录项', desc: '没有被驳回的整改，很棒。' },
+      auditor_passed: { icon: CheckCircle2, title: '暂无已通过记录', desc: '开始今天的审核工作吧。' },
+      auditor_all: { icon: UserCircle, title: '暂无整改数据', desc: '等待检测员生成不合格整改。' },
+      inspector_pending: { icon: Clock, title: '暂无待处理整改', desc: '现场车况良好，没有待跟进的不合格项。' },
+      inspector_rejected: { icon: RefreshCcw, title: '没有被驳回的整改', desc: '接车员提交的材料质量不错。' },
+      inspector_submitted: { icon: CheckCircle2, title: '暂无已提交整改', desc: '等待接车员补充材料。' },
+      inspector_passed: { icon: CheckCircle2, title: '暂无已通过整改', desc: '继续保持现场检测质量。' },
+      inspector_all: { icon: UserCircle, title: '暂无整改数据', desc: '今日检测全部合格，状态极佳！' },
+    }
+    return map[`${currentUser.role}_${filter}`] || map[`${currentUser.role}_all`]
+  }, [currentUser, filter])
 
   const toggleSel = (id: string) => {
     setSelected(prev => {
@@ -214,8 +271,8 @@ export default function RectificationPage() {
         vehicleId,
         status: 'pending',
         deadline: deadline.toISOString(),
-        handlerId: currentUser.id,
-        handlerName: currentUser.name,
+        handlerId: currentUser.role === 'receiver' ? currentUser.id : 'receiver_default',
+        handlerName: currentUser.role === 'receiver' ? currentUser.name : '待分配',
         description: desc,
       })
     })
@@ -230,16 +287,14 @@ export default function RectificationPage() {
     return <span className={cls[s]}>{rectificationStatusLabel[s]}</span>
   }
 
+  const EmptyIcon = emptyStateConfig.icon
+
   return (
     <div>
       <PageHeader
-        title="不合格整改"
-        subtitle="处理车辆整改：常用动作直接在行内点击，驳回原因和补录历史可直接展开查看。"
-        stats={[
-          { label: '待处理', value: counts.pending, tone: 'warn' },
-          { label: '被驳回需补录', value: counts.rejected, tone: 'danger' },
-          { label: '待审核', value: counts.submitted, tone: 'info' },
-        ]}
+        title={`不合格整改 · ${roleQueueLabel.title}`}
+        subtitle={roleQueueLabel.sub}
+        stats={queueStats}
         actions={<>
           {canCreate && (
             <button className="btn-ghost" onClick={() => setShowBatchAdd(true)}>
@@ -263,7 +318,7 @@ export default function RectificationPage() {
                 filter === opt.key ? 'bg-info-500/15 text-info-400' : 'text-ink-300 hover:bg-ink-700'
               }`}>
               {opt.label}
-              <span className="ml-1 text-[10px] text-ink-400">({counts[opt.key]})</span>
+              <span className="ml-1 text-[10px] text-ink-400">({allCounts[opt.key]})</span>
             </button>
           ))}
         </div>
@@ -300,16 +355,29 @@ export default function RectificationPage() {
                   <th className="th w-28">截止日期</th>
                   <th className="th w-16">驳回</th>
                   <th className="th w-16">补录</th>
-                  <th className="th w-24">处理人</th>
+                  <th className="th w-24">{currentUser.role === 'receiver' ? '本人' : '处理人'}</th>
                   <th className="th w-72 text-right pr-4">常用动作</th>
                 </tr>
               </thead>
               <tbody>
                 {list.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="py-16 text-center text-ink-500 text-xs">
-                      <ClipboardCheck className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                      暂无符合条件的整改记录
+                    <td colSpan={11} className="py-16 text-center">
+                      <EmptyIcon className="w-10 h-10 mx-auto mb-2 opacity-30 text-ink-400" />
+                      <div className="text-xs text-ink-200 font-medium">{emptyStateConfig.title}</div>
+                      <div className="text-[11px] text-ink-500 mt-1">{emptyStateConfig.desc}</div>
+                      {canCreate && currentUser.role === 'receiver' && (filter === 'pending' || filter === 'all') && (
+                        <button onClick={() => setShowBatchAdd(true)}
+                          className="mt-4 text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
+                          <Plus className="w-3 h-3 inline mr-0.5" /> 新增整改任务
+                        </button>
+                      )}
+                      {canAudit && (filter === 'submitted' || filter === 'all') && (
+                        <Link to="/reinspection"
+                          className="mt-4 inline-flex text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
+                          <ChevronRight className="w-3 h-3 inline mr-0.5" /> 去安排复检
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 ) : list.map(r => {
@@ -392,7 +460,11 @@ export default function RectificationPage() {
                             {r.supplementHistory.length > 0 ? `${r.supplementHistory.length} 次` : '—'}
                           </span>
                         </td>
-                        <td className="td text-ink-300">{r.handlerName}</td>
+                        <td className="td text-ink-300">
+                          {r.handlerId === currentUser.id
+                            ? <span className="text-info-300 font-medium">我</span>
+                            : r.handlerName}
+                        </td>
                         <td className="td text-right pr-4">
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             {hasHistory && (
@@ -405,7 +477,7 @@ export default function RectificationPage() {
                               详情
                             </Link>
                             {canSubmit && (r.status === 'pending' || r.status === 'rejected') && (
-                              <button onClick={() => openSubmit(r.id)} className={`py-1 px-2 text-[11px] btn ${
+                              <button onClick={() => openSubmit(r.id)} className={`py-1 px-2 text-[11px] ${
                                 r.status === 'rejected' ? 'btn-warn' : 'btn-primary'
                               }`}>
                                 <Upload className="w-3 h-3" /> {r.status === 'rejected' ? '补录' : '提交'}
@@ -492,7 +564,11 @@ export default function RectificationPage() {
           </div>
         </div>
         <p className="text-[10px] text-ink-500 mt-2">
-          提示：常用动作直接点击，不用进详情。被驳回的记录带醒目背景，可直接展开查看完整驳回和补录历史。多选已提交的条目可批量通过。
+          {currentUser.role === 'receiver'
+            ? '提示：被驳回的记录带醒目背景和原因，点击「补录」可直接上传新材料。'
+            : currentUser.role === 'auditor'
+              ? '提示：点击「通过/驳回」直接处理，多选可批量通过。驳回请填写具体原因，方便接车员补录。'
+              : '提示：检测员视图显示全部整改，便于现场跟进不合格项整改进度。'}
         </p>
       </div>
 
