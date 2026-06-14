@@ -46,6 +46,7 @@ const ComplaintList: React.FC = () => {
   const {
     currentUser,
     complaints,
+    visits,
     usersByRole,
     registerComplaint,
     assignComplaint,
@@ -348,16 +349,24 @@ const ComplaintList: React.FC = () => {
         />
       )}
 
-      {resolveOpen && (
-        <ResolveModal
-          open={!!resolveOpen}
-          onClose={() => setResolveOpen(null)}
-          onConfirm={(text) => {
-            resolveComplaint(resolveOpen, text);
-            setResolveOpen(null);
-          }}
-        />
-      )}
+      {resolveOpen && (() => {
+        const relatedVisits = visits.filter((v) => v.complaintId === resolveOpen);
+        const openVisit = relatedVisits.find(
+          (v) => v.status === 'pending' || v.status === 'in_progress' || v.status === 'returned',
+        );
+        return (
+          <ResolveModal
+            open={!!resolveOpen}
+            hasOpenVisit={!!openVisit}
+            activeVisitStatus={openVisit?.status}
+            onClose={() => setResolveOpen(null)}
+            onConfirm={(text) => {
+              resolveComplaint(resolveOpen, text);
+              setResolveOpen(null);
+            }}
+          />
+        );
+      })()}
 
       {rejectOpen && (
         <ReasonModal
@@ -716,8 +725,25 @@ const ResolveModal: React.FC<{
   open: boolean;
   onClose: () => void;
   onConfirm: (text: string) => void;
-}> = ({ open, onClose, onConfirm }) => {
+  hasOpenVisit?: boolean;
+  activeVisitStatus?: string;
+}> = ({ open, onClose, onConfirm, hasOpenVisit, activeVisitStatus }) => {
   const [text, setText] = useState('');
+  const getButtonText = () => {
+    if (!hasOpenVisit) return '提交并生成回访';
+    if (activeVisitStatus === 'returned') return '提交并重置退回回访';
+    return '提交并复用现有回访';
+  };
+  const getPlaceholder = () => {
+    if (!hasOpenVisit) return '说明调查结论、整改措施、客户补偿方案等';
+    if (activeVisitStatus === 'returned') return '说明调查结论、整改措施、客户补偿方案等，提交后将重置原退回的回访任务为待跟进';
+    return '说明调查结论、整改措施、客户补偿方案等，提交后将复用现有回访任务继续跟进';
+  };
+  const getHint = () => {
+    if (!hasOpenVisit) return '提交后投诉进入「待回访核实」，系统将自动创建回访任务并分派给你。';
+    if (activeVisitStatus === 'returned') return '提交后将重置原退回的回访任务为待回访状态，不会重复创建新任务，异常标记同步清除。';
+    return '提交后将复用现有进行中的回访任务继续跟进，不会重复创建新任务。';
+  };
   return (
     <Modal
       open={open}
@@ -726,13 +752,17 @@ const ResolveModal: React.FC<{
       footer={
         <>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button disabled={!text.trim()} onClick={() => onConfirm(text.trim())}>提交并生成回访</Button>
+          <Button disabled={!text.trim()} onClick={() => onConfirm(text.trim())}>{getButtonText()}</Button>
         </>
       }
     >
       <Label required>处理结果说明</Label>
-      <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder="说明调查结论、整改措施、客户补偿方案等" />
-      <p className="mt-3 text-xs text-slate-500">提交后投诉进入「待回访核实」，系统将自动创建回访任务并分派给你。</p>
+      <Textarea rows={5} value={text} onChange={(e) => setText(e.target.value)} placeholder={getPlaceholder()} />
+      {hasOpenVisit ? (
+        <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">{getHint()}</div>
+      ) : (
+        <p className="mt-3 text-xs text-slate-500">{getHint()}</p>
+      )}
     </Modal>
   );
 };

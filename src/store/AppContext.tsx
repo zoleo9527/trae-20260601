@@ -323,6 +323,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 status: 'pending_verification',
                 resolution,
                 resolvedAt,
+                isAbnormal: isReturnedVisit ? false : c.isAbnormal,
+                abnormalReason: isReturnedVisit ? undefined : c.abnormalReason,
                 timeline: [
                   ...c.timeline,
                   {
@@ -334,10 +336,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     operatorName: currentUser.name,
                     operatorRole: currentUser.role,
                     content: isReturnedVisit
-                      ? `处理完成，已重置退回的回访任务待跟进：${resolution}`
+                      ? `处理完成，已重置退回的回访任务待跟进${c.isAbnormal ? '（异常标记已清除）' : ''}：${resolution}`
                       : existingVisit
                         ? `处理完成，等待回访核实（已有回访任务）：${resolution}`
                         : `处理完成，等待回访核实：${resolution}`,
+                    detail: isReturnedVisit ? { abnormalCleared: !!c.isAbnormal, resetFromReturned: true } : undefined,
                   },
                 ],
               }
@@ -355,6 +358,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   needReturn: false,
                   returnReason: undefined,
                   finishedAt: undefined,
+                  startedAt: undefined,
+                  visitMethod: undefined,
+                  customerFeedback: undefined,
+                  internalNote: undefined,
                   assignedAt: resolvedAt,
                   timeline: [
                     ...v.timeline,
@@ -366,7 +373,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                       operatorId: currentUser.id,
                       operatorName: currentUser.name,
                       operatorRole: currentUser.role,
-                      content: `已重置为待回访状态，处理方案更新：${resolution}`,
+                      content: `已重置为待回访状态，清除上次回访结果和退回痕迹，处理方案更新：${resolution}`,
                       detail: { resetFromReturned: true },
                     },
                   ],
@@ -400,7 +407,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         addNotification({
           type: 'info',
           title: '回访任务已重置',
-          message: `投诉 ${cp.code} 已提交新处理方案，原退回的回访任务已重置为待回访状态`,
+          message: cp.isAbnormal
+            ? `投诉 ${cp.code} 已提交新处理方案，原退回的回访任务已重置，异常标记已同步清除`
+            : `投诉 ${cp.code} 已提交新处理方案，原退回的回访任务已重置为待回访状态`,
           linkTo: `/visits/${existingVisit.id}`,
         });
         return;
