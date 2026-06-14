@@ -3,7 +3,7 @@ import type { MetaFunction, LoaderFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
 import { useLoaderData, useRevalidator } from '@remix-run/react';
 import VehicleCard from '~/components/VehicleCard';
-import { getStatusLabel } from '~/utils/formatters';
+import { getStatusLabel, getRoleLabel } from '~/utils/formatters';
 import { filterVehicles, getUsersByRole, getVehiclesWithDetails } from '~/utils/db.server';
 
 export const meta: MetaFunction = () => {
@@ -287,7 +287,7 @@ export default function Index() {
                   )}
                   {roleFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      当前负责人: {getStatusLabel(roleFilter)}
+                      当前负责人: {getRoleLabel(roleFilter)}
                     </span>
                   )}
                   <button
