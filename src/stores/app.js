@@ -189,13 +189,21 @@ export const useAppStore = defineStore('app', {
     reassignSchedule(id, { coachId, date, slot }) {
       const s = this.schedules.find(x => x.id === id)
       if (!s) return
+      const wasUnassigned = s.status === SCHEDULE_STATUS.UNASSIGNED
       s.coachId = coachId
       s.date = date
       s.slot = slot
       s.status = SCHEDULE_STATUS.ASSIGNED
       s.rejectReason = ''
       s.assignedAt = dayjs().format('YYYY-MM-DD HH:mm')
-      this.pushToast('已重新分配教练', 'success')
+      s.assignedBy = STAFF.advisors[0].id
+      if (wasUnassigned && s.appointmentId) {
+        const a = this.appointments.find(x => x.id === s.appointmentId)
+        if (a && a.status === APPOINTMENT_STATUS.REVIEWED) {
+          a.status = APPOINTMENT_STATUS.SCHEDULED
+        }
+      }
+      this.pushToast(`已分配 ${this.getCoachById(coachId)?.name || '教练'}，等待教练确认`, 'success')
     },
 
     batchApprove(ids) {

@@ -27,24 +27,11 @@ const dateOptions = Array.from({ length: 14 }).map((_, i) => dayjs().add(i, 'day
 function doAssign() {
  if (!form.value.coachId)
  return store.pushToast('请选择教练', 'warning');
- if (props.schedule.status === 'unassigned') {
- Object.assign(props.schedule, {
- coachId: form.value.coachId,
- date: form.value.date,
- slot: form.value.slot,
- status: 'assigned',
- assignedAt: dayjs().format('YYYY-MM-DD HH:mm'),
- assignedBy: store.staffMap ? Object.keys(store.staffMap).find(k => k.startsWith('A')) || 'A001' : 'A001'
- });
- store.pushToast('已分配教练', 'success');
- }
- else {
  store.reassignSchedule(props.schedule.id, {
  coachId: form.value.coachId,
  date: form.value.date,
  slot: form.value.slot
  });
- }
  emit('close');
 }
 function doCoachConfirm() {
