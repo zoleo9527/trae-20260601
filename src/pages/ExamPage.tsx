@@ -63,24 +63,27 @@ export function ExamPage() {
   };
 
   const handleRecordResult = (examId: string) => {
-    recordExamResult(examId, resultData.examResult, resultData.absenceReason);
+    const isAbsent = resultData.absenceReason.trim() !== '';
+    recordExamResult(examId, resultData.examResult, isAbsent ? resultData.absenceReason : undefined);
 
     const exam = exams.find((e) => e.id === examId);
-    if (exam && exam.student && resultData.examResult === 'PASSED') {
-      const studentExams = getExamsByStudentId(exam.studentId);
-      const passedExams = studentExams.filter((e) => e.examResult === 'PASSED');
-      const allSubjectsPassed = ['THEORY', 'SUBJECT2', 'SUBJECT3', 'SUBJECT4'].every((subject) =>
-        passedExams.some((e) => e.examSubject === subject)
-      );
+    if (exam && exam.student) {
+      if (resultData.examResult === 'PASSED') {
+        const studentExams = getExamsByStudentId(exam.studentId);
+        const passedExams = studentExams.filter((e) => e.examResult === 'PASSED');
+        const allSubjectsPassed = ['THEORY', 'SUBJECT2', 'SUBJECT3', 'SUBJECT4'].every((subject) =>
+          passedExams.some((e) => e.examSubject === subject)
+        );
 
-      if (allSubjectsPassed) {
+        if (allSubjectsPassed || exam.examSubject === 'SUBJECT4') {
+          updateStudent(exam.studentId, {
+            status: 'EXAM_PASSED_FINAL',
+          }, '所有科目考试通过');
+        }
+      } else {
         updateStudent(exam.studentId, {
-          status: 'EXAM_PASSED_FINAL',
-        }, '所有科目考试通过');
-      } else if (exam.examSubject === 'SUBJECT4') {
-        updateStudent(exam.studentId, {
-          status: 'EXAM_PASSED_FINAL',
-        }, '科目四考试通过');
+          status: 'PENDING_EXAM_BOOKING',
+        }, `考试${isAbsent ? '缺考' : '不合格'}，需要补考`);
       }
     }
 

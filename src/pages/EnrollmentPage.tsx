@@ -9,6 +9,7 @@ export function EnrollmentPage() {
   const { students, users, loadStudents, loadUsers, createStudent, updateStudent, currentUser, notifications, getArchiveByStudentId } = useStore();
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState<string | null>(null);
+  const [selectedCoachId, setSelectedCoachId] = useState<string>('');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [formData, setFormData] = useState({
@@ -19,6 +20,8 @@ export function EnrollmentPage() {
     carType: 'C1' as 'C1' | 'C2',
     enrollmentDate: new Date().toISOString().split('T')[0],
   });
+
+  const coaches = users.filter((u) => u.role === 'COACH');
 
   useEffect(() => {
     loadUsers();
@@ -63,11 +66,26 @@ export function EnrollmentPage() {
     setShowForm(false);
   };
 
-  const handleStatusChange = (studentId: string, newStatus: StudentStatus, reason?: string | undefined) => {
-    updateStudent(studentId, { status: newStatus }, reason);
+  const handleStatusChange = (studentId: string, newStatus: StudentStatus, reason?: string | undefined, coachId?: string) => {
+    const updates: Partial<Student> = { status: newStatus };
+    if (coachId) {
+      updates.coachId = coachId;
+    }
+    updateStudent(studentId, updates, reason);
     if (showDetail === studentId) {
       setShowDetail(null);
     }
+  };
+
+  const handleAssignCoach = () => {
+    if (!selectedCoachId || !selectedStudent) return;
+    const reason = prompt('请输入分配原因：') || `分配教练${coaches.find(c => c.id === selectedCoachId)?.name}`;
+    updateStudent(selectedStudent.id, {
+      status: 'COACH_ASSIGNED',
+      coachId: selectedCoachId,
+    }, reason);
+    setSelectedCoachId('');
+    setShowDetail(null);
   };
 
   const getAvailableStatuses = (currentStatus: StudentStatus): { value: StudentStatus; label: string; disabled?: boolean }[] => {
@@ -444,9 +462,39 @@ export function EnrollmentPage() {
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <div className="text-sm text-gray-500 mb-1">教练</div>
-                  <div className="text-lg font-medium">
-                    {selectedStudent.coachId ? users.find((u) => u.id === selectedStudent.coachId)?.name || '-' : '-'}
-                  </div>
+                  {selectedStudent.status === 'ARCHIVED' || selectedStudent.status === 'COACH_ASSIGNED' || selectedStudent.status === 'TRAINING' ? (
+                    selectedStudent.coachId ? (
+                      <div className="text-lg font-medium">
+                        {users.find((u) => u.id === selectedStudent.coachId)?.name || '-'}
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <select
+                          value={selectedCoachId}
+                          onChange={(e) => setSelectedCoachId(e.target.value)}
+                          className="input-field text-sm"
+                        >
+                          <option value="">选择教练</option>
+                          {coaches.map((coach) => (
+                            <option key={coach.id} value={coach.id}>
+                              {coach.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleAssignCoach}
+                          disabled={!selectedCoachId}
+                          className="w-full px-3 py-1.5 bg-primary-600 text-white rounded text-sm hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        >
+                          确认分配
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-lg font-medium text-gray-400">
+                      {selectedStudent.coachId ? users.find((u) => u.id === selectedStudent.coachId)?.name : '-'}
+                    </div>
+                  )}
                 </div>
               </div>
 

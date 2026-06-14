@@ -1173,9 +1173,14 @@ class DatabaseService {
 
     const beforeStatus = exam.examStatus;
     exam.examResult = result;
-    exam.examStatus = absenceReason ? 'ABSENT' : 'TAKEN';
-    if (absenceReason) {
-      exam.absenceReason = absenceReason;
+
+    if (result === 'PASSED') {
+      exam.examStatus = 'TAKEN';
+    } else {
+      exam.examStatus = absenceReason ? 'ABSENT' : 'TAKEN';
+      if (absenceReason) {
+        exam.absenceReason = absenceReason;
+      }
     }
 
     const log: OperationLog = {
@@ -1186,6 +1191,7 @@ class DatabaseService {
       operationType: 'EXAM_RESULT',
       beforeValue: { examStatus: beforeStatus },
       afterValue: { examStatus: exam.examStatus, examResult: result },
+      changeReason: result === 'PASSED' ? '考试合格' : (absenceReason ? `缺考: ${absenceReason}` : '考试不合格'),
       operatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
     };
     this.logs.push(log);

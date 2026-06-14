@@ -35,10 +35,18 @@ export function CoachPage() {
     }, progressData.notes);
 
     const student = students.find((s) => s.id === studentId);
-    if (student && progressData.progress === 'READY_FOR_EXAM' && student.status === 'TRAINING') {
-      updateStudent(studentId, {
-        status: 'PENDING_EXAM_BOOKING',
-      }, '训练完成，准备预约考试');
+    if (student) {
+      if (student.status === 'COACH_ASSIGNED') {
+        updateStudent(studentId, {
+          status: 'TRAINING',
+        }, '开始培训');
+      }
+
+      if (progressData.progress === 'READY_FOR_EXAM' && student.status === 'TRAINING') {
+        updateStudent(studentId, {
+          status: 'PENDING_EXAM_BOOKING',
+        }, '训练完成，准备预约考试');
+      }
     }
 
     setShowProgressForm(null);
