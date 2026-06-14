@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useExamStore } from "@/store"
 import { cn } from "@/lib/utils"
 import { Building2, Calendar, Clock, Users, Save, Send, CheckSquare, Square, SendHorizonal, AlertTriangle, ListChecks, ChevronRight, UserCheck, Shield, CheckCircle2 } from "lucide-react"
@@ -152,6 +153,7 @@ function OperationTrail({ roomId }: { roomId: string }) {
 }
 
 export default function Arrangement() {
+  const [searchParams] = useSearchParams()
   const { examRooms, arrangeRoom, submitRoom, currentRole, getUnresolvedRisks } = useExamStore()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
@@ -161,6 +163,15 @@ export default function Arrangement() {
   const isStaff = currentRole === "exam_staff"
   const canEdit = isStaff && selectedRoom && selectedRoom.status !== "submitted" && selectedRoom.status !== "confirmed"
   const risks = getUnresolvedRisks()
+
+  useEffect(() => {
+    const roomId = searchParams.get("roomId")
+    if (roomId) {
+      const room = examRooms.find((r) => r.id === roomId)
+      if (room) selectRoom(room)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const selectRoom = (room: ExamRoom) => {
     setSelectedId(room.id)

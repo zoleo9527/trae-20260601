@@ -130,7 +130,8 @@ export const useExamStore = create<ExamStore>()(
       },
 
       returnRoom: (roomId, reason) => {
-        const { currentOperatorId, currentOperatorName } = get()
+        const { currentOperatorId, currentOperatorName, examRooms } = get()
+        const room = examRooms.find((r) => r.id === roomId)
         set((s) => ({
           examRooms: s.examRooms.map((r) =>
             r.id === roomId
@@ -144,15 +145,14 @@ export const useExamStore = create<ExamStore>()(
               : r
           ),
         }))
-        const room = get().examRooms.find((r) => r.id === roomId)
         get().addAuditLog({
           operatorId: currentOperatorId,
           operatorName: currentOperatorName,
           operatorRole: get().currentRole,
-          action: "退回考场编排",
+          action: "退回座位分配",
           targetId: roomId,
-          targetType: "exam_room",
-          detail: `退回考场 ${room?.name ?? roomId}，原因：${reason}`,
+          targetType: "seat",
+          detail: `退回考场 ${room?.name ?? roomId} 座位分配，原因：${reason}`,
         })
       },
 
@@ -183,21 +183,26 @@ export const useExamStore = create<ExamStore>()(
       },
 
       assignSeat: (roomId, seatId, candidateId, candidateName) => {
-        const { currentOperatorId, currentOperatorName } = get()
+        const { currentOperatorId, currentOperatorName, examRooms } = get()
+        const room = examRooms.find((r) => r.id === roomId)
+        const newSeats = room
+          ? room.seats.map((seat) =>
+              seat.id === seatId
+                ? { ...seat, candidateId, candidateName, status: "assigned" as const }
+                : seat
+            )
+          : []
         set((s) => ({
           examRooms: s.examRooms.map((r) =>
             r.id === roomId
-              ? {
-                  ...r,
-                  seats: r.seats.map((seat) =>
-                    seat.id === seatId
-                      ? { ...seat, candidateId, candidateName, status: "assigned" as const }
-                      : seat
-                  ),
-                }
+              ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((seat) => seat.id === seatId ? { ...seat, candidateId, candidateName, status: "assigned" as const } : seat) }
               : r
           ),
+          candidates: s.candidates.map((c) =>
+            c.id === candidateId ? { ...c, examRoomId: roomId } : c
+          ),
         }))
+        get().addSnapshot(roomId, newSeats, `手动分配 ${candidateName}`)
         get().addAuditLog({
           operatorId: currentOperatorId,
           operatorName: currentOperatorName,
@@ -205,27 +210,31 @@ export const useExamStore = create<ExamStore>()(
           action: "分配座位",
           targetId: roomId,
           targetType: "seat",
-          detail: `将考生 ${candidateName} 分配至考场 ${roomId} 座位 ${seatId}`,
+          detail: `将考生 ${candidateName} 分配至考场 ${room?.name ?? roomId} 座位 ${seatId}`,
         })
       },
 
       unassignSeat: (roomId, seatId) => {
-        const { currentOperatorId, currentOperatorName } = get()
-        const room = get().examRooms.find((r) => r.id === roomId)
+        const { currentOperatorId, currentOperatorName, examRooms } = get()
+        const room = examRooms.find((r) => r.id === roomId)
         const seat = room?.seats.find((s) => s.id === seatId)
+        const prevCandidateId = seat?.candidateId
         const prevName = seat?.candidateName ?? "未知"
+        const newSeats = room
+          ? room.seats.map((st) =>
+              st.id === seatId
+                ? { ...st, candidateId: undefined, candidateName: undefined, status: "empty" as const }
+                : st
+            )
+          : []
         set((s) => ({
           examRooms: s.examRooms.map((r) =>
             r.id === roomId
-              ? {
-                  ...r,
-                  seats: r.seats.map((st) =>
-                    st.id === seatId
-                      ? { ...st, candidateId: undefined, candidateName: undefined, status: "empty" as const }
-                      : st
-                  ),
-                }
+              ? { ...r, seats: newSeats.length ? newSeats : r.seats.map((st) => st.id === seatId ? { ...st, candidateId: undefined, candidateName: undefined, status: "empty" as const } : st) }
               : r
+          ),
+          candidates: s.candidates.map((c) =>
+            c.id === prevCandidateId ? { ...c, examRoomId: undefined } : c
           ),
         }))
         get().addAuditLog({

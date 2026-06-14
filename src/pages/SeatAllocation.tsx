@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react"
+import { useSearchParams } from "react-router-dom"
 import { useExamStore } from "@/store"
 import { cn } from "@/lib/utils"
 import {
@@ -13,7 +14,6 @@ import {
   Shield,
   UserCheck,
   AlertTriangle,
-  Clock,
   ArrowRight,
   Eye,
   Diff,
@@ -24,12 +24,6 @@ const roleIconMap: Record<OperatorRole, typeof Shield> = {
   exam_staff: Shield,
   invigilator: UserCheck,
   tech_support: AlertTriangle,
-}
-
-const roleLabelMap: Record<OperatorRole, string> = {
-  exam_staff: "考务专员",
-  invigilator: "监考老师",
-  tech_support: "技术支持",
 }
 
 function formatTime(iso: string) {
@@ -257,6 +251,7 @@ function SnapshotViewer({
 }
 
 export default function SeatAllocation() {
+  const [searchParams] = useSearchParams()
   const {
     examRooms,
     candidates,
@@ -267,11 +262,11 @@ export default function SeatAllocation() {
     autoAssignSeats,
     confirmRoom,
     returnRoom,
-    addSnapshot,
     getUnresolvedRisks,
   } = useExamStore()
 
-  const [selectedRoomId, setSelectedRoomId] = useState(examRooms[0]?.id ?? "")
+  const urlRoomId = searchParams.get("roomId")
+  const [selectedRoomId, setSelectedRoomId] = useState(urlRoomId ?? examRooms[0]?.id ?? "")
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(true)
   const [returnReason, setReturnReason] = useState("")
@@ -286,7 +281,7 @@ export default function SeatAllocation() {
   const roomRisks = risks.filter((r) => r.roomId === selectedRoomId)
 
   const viewingSnapshot = snapshots.find((s) => s.id === viewingSnapshotId)
-  const displaySeats = viewingSnapshot ? viewingSnapshot.seats : room?.seats ?? []
+  const displaySeats = useMemo(() => viewingSnapshot ? viewingSnapshot.seats : room?.seats ?? [], [viewingSnapshot, room?.seats])
 
   const unassignedCandidates = useMemo(() => {
     if (!room) return []
@@ -323,7 +318,6 @@ export default function SeatAllocation() {
       const candidate = candidates.find((c) => c.id === selectedCandidateId)
       if (candidate) {
         assignSeat(selectedRoomId, seatId, candidate.id, candidate.name)
-        addSnapshot(selectedRoomId, room!.seats, `手动分配 ${candidate.name}`)
         setSelectedCandidateId(null)
       }
     }

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { Search, ChevronDown, ChevronUp, Clock, User, Shield, UserCheck, AlertTriangle, Building2, ListChecks, ArrowRight, Filter, X, Eye } from "lucide-react"
+import { Search, ChevronDown, ChevronUp, Clock, Shield, UserCheck, AlertTriangle, Building2, ListChecks, ArrowRight, Filter, X, Eye } from "lucide-react"
 import { useExamStore } from "@/store"
 import { cn } from "@/lib/utils"
 import type { OperatorRole, AuditLog, RoomStatus, ExamRoom } from "@/data/types"
@@ -16,7 +16,6 @@ const actionColorMap: Record<string, string> = {
   "创建考场编排": "bg-blue-100 text-blue-700 border-blue-200",
   "提交考场编排": "bg-teal-100 text-teal-700 border-teal-200",
   "退回座位分配": "bg-red-100 text-red-700 border-red-200",
-  "退回考场编排": "bg-red-100 text-red-700 border-red-200",
   "确认座位分配": "bg-green-100 text-green-700 border-green-200",
   "分配座位": "bg-indigo-100 text-indigo-700 border-indigo-200",
   "取消座位分配": "bg-orange-100 text-orange-700 border-orange-200",

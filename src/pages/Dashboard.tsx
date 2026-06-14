@@ -50,7 +50,6 @@ const logActionIcon: Record<string, typeof FileText> = {
   "分配座位": UserCheck,
   "自动分配座位": ListChecks,
   "确认座位分配": CheckCircle,
-  "退回考场编排": AlertTriangle,
   "退回座位分配": AlertTriangle,
   "处理异常": Wrench,
   "解决风险": Shield,
@@ -253,7 +252,7 @@ export default function Dashboard() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => navigate(room.status === "submitted" ? "/seat-allocation" : "/arrangement")}
+                          onClick={() => navigate(room.status === "submitted" ? `/seat-allocation?roomId=${room.id}` : `/arrangement?roomId=${room.id}`)}
                           className="flex items-center gap-1.5 rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800 transition-colors"
                         >
                           开始处理 <ArrowRight className="h-3.5 w-3.5" />
@@ -282,7 +281,7 @@ export default function Dashboard() {
                     <div className="flex items-center gap-2">
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-medium", cfg.color)}>{cfg.label}</span>
                       <button
-                        onClick={() => navigate(room.status === "submitted" ? "/seat-allocation" : "/arrangement")}
+                        onClick={() => navigate(room.status === "submitted" ? `/seat-allocation?roomId=${room.id}` : `/arrangement?roomId=${room.id}`)}
                         className="text-xs text-teal-600 hover:underline"
                       >
                         查看
