@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Navigate, useSearchParams } from "react-router-dom";
+import { useParams, Navigate, useSearchParams, useNavigate } from "react-router-dom";
 import {
   Calendar,
   Users,
@@ -11,9 +11,11 @@ import {
   MessageSquareText,
   AlertOctagon,
   Timer,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import { useAppStore } from "@/store";
-import { STATUS_META, ROLE_META } from "@/constants";
+import { STATUS_META, ROLE_META, SIZE_CONFIRM_META } from "@/constants";
 import {
   cn,
   formatCurrency,
@@ -23,6 +25,7 @@ import {
   isNodeStuck,
   getStuckDays,
   formatDurationDays,
+  getSizeConfirmSummary,
 } from "@/utils";
 import StatusBadge from "@/components/common/StatusBadge";
 import Avatar from "@/components/common/Avatar";
@@ -33,9 +36,10 @@ import SizeHistoryModal from "@/components/costume/SizeHistoryModal";
 import ActionBar from "@/components/costume/ActionBar";
 
 export default function CostumeDetail() {
+  const navigate = useNavigate();
   const { id = "", studentId: routeStudentId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { getCostumeById, addRecentOpened, sizeHistoryCostumeId, sizeHistoryStudentId, openSizeHistory } = useAppStore();
+  const { getCostumeById, addRecentOpened, addRecentStudent, sizeHistoryCostumeId, sizeHistoryStudentId, openSizeHistory } = useAppStore();
   const costume = getCostumeById(id);
 
   useEffect(() => {
@@ -48,12 +52,13 @@ export default function CostumeDetail() {
       const student = costume.studentSizes.find((s) => s.id === studentId);
       if (student) {
         openSizeHistory(costume.id, studentId);
+        addRecentStudent(costume.id, studentId, student.studentName);
         if (searchParams.get("student")) {
           setSearchParams({}, { replace: true });
         }
       }
     }
-  }, [routeStudentId, searchParams, costume, openSizeHistory, setSearchParams]);
+  }, [routeStudentId, searchParams, costume, openSizeHistory, addRecentStudent, setSearchParams]);
 
   if (!costume) {
     return <Navigate to="/" replace />;
@@ -61,12 +66,15 @@ export default function CostumeDetail() {
 
   const meta = STATUS_META[costume.status];
   const roleMeta = ROLE_META[costume.currentAssigneeRole];
-  const exceptionCount = costume.studentSizes.filter(
-    (s) => s.confirmStatus === "exception"
-  ).length;
   const daysInNode = getDaysInCurrentNode(costume);
   const stuck = isNodeStuck(costume);
   const stuckDays = getStuckDays(costume);
+  const summary = getSizeConfirmSummary(costume);
+
+  const handleJumpToStudent = (studentId: string, studentName: string) => {
+    addRecentStudent(costume.id, studentId, studentName);
+    navigate(`/costumes/${costume.id}/student/${studentId}`);
+  };
 
   return (
     <div className="max-w-[1400px] mx-auto px-6 py-8 pb-32">
@@ -146,32 +154,59 @@ export default function CostumeDetail() {
                 <FileText size={12} />
                 尺码进度
               </div>
-              {costume.studentSizes.length > 0 ? (
+              {summary.totalCount > 0 ? (
                 <>
                   <div className="font-serif text-2xl font-semibold text-wine-700">
-                    {costume.studentSizes.filter((s) => s.confirmStatus === "confirmed").length}
+                    {summary.confirmedCount}
                     <span className="text-sm font-normal text-ink-400">
-                      {" "}/ {costume.studentSizes.length}
+                      {" "}/ {summary.totalCount}
                     </span>
                   </div>
                   <div className="w-full h-1.5 bg-cream-200 rounded-full mt-2 overflow-hidden">
                     <div
                       className="h-full bg-forest-500 transition-all"
                       style={{
-                        width: `${
-                          (costume.studentSizes.filter((s) => s.confirmStatus === "confirmed")
-                            .length /
-                            costume.studentSizes.length) *
-                          100
-                        }%`,
+                        width: `${(summary.confirmedCount / summary.totalCount) * 100}%`,
                       }}
                     />
                   </div>
-                  {exceptionCount > 0 && (
-                    <p className="text-xs text-ochre-600 mt-2 flex items-center gap-1">
-                      <MessageSquareText size={12} />
-                      {exceptionCount} 条异常需处理
-                    </p>
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {summary.pendingCount > 0 && (
+                      <span className={cn("chip text-[10px]", SIZE_CONFIRM_META.pending.color)}>
+                        待确认 {summary.pendingCount} 人
+                      </span>
+                    )}
+                    {summary.exceptionCount > 0 && (
+                      <span className={cn("chip text-[10px]", SIZE_CONFIRM_META.exception.color)}>
+                        <AlertTriangle size={10} />
+                        异常 {summary.exceptionCount} 人
+                      </span>
+                    )}
+                  </div>
+                  {summary.blockingRemark && summary.blockingStudentId && (
+                    <button
+                      onClick={() => handleJumpToStudent(summary.blockingStudentId!, summary.blockingStudentName!)}
+                      className={cn(
+                        "mt-3 w-full text-left text-xs p-2.5 rounded-md border border-dashed transition-colors flex items-start gap-2 group",
+                        summary.blockingStatus === "exception"
+                          ? "bg-ochre-50 border-ochre-200 hover:bg-ochre-100 text-ochre-700"
+                          : "bg-ink-50 border-ink-200 hover:bg-ink-100 text-ink-700"
+                      )}
+                    >
+                      <MessageSquareText size={12} className="mt-0.5 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium flex items-center gap-1">
+                          <span>{summary.blockingStudentName}</span>
+                          <span className="text-[10px] opacity-70">
+                            （{summary.blockingStatus === "exception" ? "异常待处理" : "待确认"}）
+                          </span>
+                        </div>
+                        <p className="text-[11px] opacity-90 mt-0.5 line-clamp-2">
+                          {summary.blockingRemark}
+                        </p>
+                      </div>
+                      <ExternalLink size={12} className="opacity-50 group-hover:opacity-100 shrink-0 mt-0.5" />
+                    </button>
                   )}
                 </>
               ) : (

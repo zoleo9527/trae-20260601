@@ -1,4 +1,4 @@
-import type { Costume, CostumeStatus, TimelineEntry } from "@/types";
+import type { Costume, CostumeStatus, TimelineEntry, StudentSize } from "@/types";
 import { STATUS_TIMEOUT_DAYS, STATUS_FLOW } from "@/constants";
 
 export const formatDate = (dateStr: string): string => {
@@ -95,4 +95,60 @@ export const getNodeDuration = (
   const endTime = nextEntry ? new Date(nextEntry.timestamp) : new Date();
   const ms = endTime.getTime() - new Date(entry.timestamp).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+};
+
+export interface SizeConfirmSummary {
+  pendingCount: number;
+  exceptionCount: number;
+  confirmedCount: number;
+  totalCount: number;
+  pendingStudents: StudentSize[];
+  exceptionStudents: StudentSize[];
+  blockingRemark: string | null;
+  blockingStudentName: string | null;
+  blockingStudentId: string | null;
+  blockingStatus: "exception" | "pending" | null;
+  blockingUpdatedAt: string | null;
+}
+
+export const getSizeConfirmSummary = (costume: Costume): SizeConfirmSummary => {
+  const pending: StudentSize[] = [];
+  const exception: StudentSize[] = [];
+  const confirmed: StudentSize[] = [];
+  costume.studentSizes.forEach((s) => {
+    if (s.confirmStatus === "exception") exception.push(s);
+    else if (s.confirmStatus === "pending") pending.push(s);
+    else confirmed.push(s);
+  });
+
+  const byUpdatedAt = (a: StudentSize, b: StudentSize) =>
+    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+
+  const sortedPending = [...pending].sort(byUpdatedAt);
+  const sortedException = [...exception].sort(byUpdatedAt);
+
+  let blocking: StudentSize | null = null;
+  let blockingStatus: "exception" | "pending" | null = null;
+
+  if (sortedException.length > 0) {
+    blocking = sortedException[0];
+    blockingStatus = "exception";
+  } else if (sortedPending.length > 0) {
+    blocking = sortedPending[0];
+    blockingStatus = "pending";
+  }
+
+  return {
+    pendingCount: pending.length,
+    exceptionCount: exception.length,
+    confirmedCount: confirmed.length,
+    totalCount: costume.studentSizes.length,
+    pendingStudents: sortedPending,
+    exceptionStudents: sortedException,
+    blockingRemark: blocking?.remark || null,
+    blockingStudentName: blocking?.studentName || null,
+    blockingStudentId: blocking?.id || null,
+    blockingStatus,
+    blockingUpdatedAt: blocking?.updatedAt || null,
+  };
 };

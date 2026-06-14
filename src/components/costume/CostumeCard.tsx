@@ -1,4 +1,4 @@
-import { Calendar, Users, ChevronRight, AlertTriangle, Clock, AlertOctagon, Timer } from "lucide-react";
+import { Calendar, Users, ChevronRight, AlertTriangle, Clock, AlertOctagon, Timer, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/store";
 import { STATUS_META, SIZE_CONFIRM_META, ROLE_META } from "@/constants";
@@ -12,6 +12,7 @@ import {
   isNodeStuck,
   getStuckDays,
   formatDurationDays,
+  getSizeConfirmSummary,
 } from "@/utils";
 import StatusBadge from "../common/StatusBadge";
 import Avatar from "../common/Avatar";
@@ -29,9 +30,6 @@ export default function CostumeCard({ costume, compact = false }: Props) {
   const daysToShow = getDaysDiff(costume.performanceDate);
   const isUrgent = costume.performanceDate && daysToShow > 0 && daysToShow <= 7;
 
-  const exceptionCount = costume.studentSizes.filter((s) => s.confirmStatus === "exception").length;
-  const pendingCount = costume.studentSizes.filter((s) => s.confirmStatus === "pending").length;
-
   const handleClick = () => {
     addRecent(costume.id);
     navigate(`/costumes/${costume.id}`);
@@ -41,6 +39,13 @@ export default function CostumeCard({ costume, compact = false }: Props) {
   const stuck = isNodeStuck(costume);
   const stuckDays = getStuckDays(costume);
   const roleMeta = ROLE_META[costume.currentAssigneeRole];
+  const summary = getSizeConfirmSummary(costume);
+
+  const handleJumpToStudent = (e: React.MouseEvent, studentId: string) => {
+    e.stopPropagation();
+    addRecent(costume.id);
+    navigate(`/costumes/${costume.id}/student/${studentId}`);
+  };
 
   if (compact) {
     return (
@@ -151,15 +156,31 @@ export default function CostumeCard({ costume, compact = false }: Props) {
       )}
 
       <div className="flex items-center gap-3 mt-3 pt-3 border-t border-cream-200 text-xs flex-wrap">
-        {pendingCount > 0 && (
+        {summary.pendingCount > 0 && (
           <span className={cn("chip", SIZE_CONFIRM_META.pending.color)}>
-            待确认 {pendingCount} 人
+            待确认 {summary.pendingCount} 人
           </span>
         )}
-        {exceptionCount > 0 && (
+        {summary.exceptionCount > 0 && (
           <span className={cn("chip", SIZE_CONFIRM_META.exception.color)}>
             <AlertTriangle size={12} />
-            异常 {exceptionCount} 人
+            异常 {summary.exceptionCount} 人
+          </span>
+        )}
+        {summary.blockingRemark && summary.blockingStudentId && (
+          <span
+            onClick={(e) => handleJumpToStudent(e, summary.blockingStudentId!)}
+            className={cn(
+              "chip hover:shadow-md cursor-pointer transition-all flex items-center gap-1",
+              summary.blockingStatus === "exception"
+                ? "bg-ochre-50 text-ochre-700 border-ochre-200 hover:bg-ochre-100"
+                : "bg-ink-50 text-ink-700 border-ink-200 hover:bg-ink-100"
+            )}
+            title={`点击查看 ${summary.blockingStudentName} 的详情`}
+          >
+            <span className="font-medium">{summary.blockingStudentName}</span>
+            <span className="opacity-80">：{summary.blockingRemark}</span>
+            <ExternalLink size={10} className="opacity-60" />
           </span>
         )}
         <span className="ml-auto text-ink-500 flex items-center gap-1">
