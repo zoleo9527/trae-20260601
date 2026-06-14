@@ -167,7 +167,7 @@ export default function CostumeCard({ costume, compact = false }: Props) {
             异常 {summary.exceptionCount} 人
           </span>
         )}
-        {summary.blockingRemark && summary.blockingStudentId && (
+        {summary.blockingStudentId && (
           <span
             onClick={(e) => handleJumpToStudent(e, summary.blockingStudentId!)}
             className={cn(
@@ -179,7 +179,7 @@ export default function CostumeCard({ costume, compact = false }: Props) {
             title={`点击查看 ${summary.blockingStudentName} 的详情`}
           >
             <span className="font-medium">{summary.blockingStudentName}</span>
-            <span className="opacity-80">：{summary.blockingRemark}</span>
+            <span className="opacity-80">：{summary.blockingDisplayRemark}</span>
             <ExternalLink size={10} className="opacity-60" />
           </span>
         )}

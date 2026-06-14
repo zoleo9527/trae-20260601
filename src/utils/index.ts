@@ -105,11 +105,27 @@ export interface SizeConfirmSummary {
   pendingStudents: StudentSize[];
   exceptionStudents: StudentSize[];
   blockingRemark: string | null;
+  blockingDisplayRemark: string;
   blockingStudentName: string | null;
   blockingStudentId: string | null;
   blockingStatus: "exception" | "pending" | null;
   blockingUpdatedAt: string | null;
 }
+
+const getStudentLatestActivity = (student: StudentSize) => {
+  let latestTime = new Date(student.updatedAt).getTime();
+  let latestRemark: string | null = student.remark || null;
+
+  for (const log of student.changeLogs) {
+    const t = new Date(log.timestamp).getTime();
+    if (t > latestTime) {
+      latestTime = t;
+      if (log.remark) latestRemark = log.remark;
+    }
+  }
+
+  return { latestTime, latestRemark };
+};
 
 export const getSizeConfirmSummary = (costume: Costume): SizeConfirmSummary => {
   const pending: StudentSize[] = [];
@@ -127,15 +143,32 @@ export const getSizeConfirmSummary = (costume: Costume): SizeConfirmSummary => {
   const sortedPending = [...pending].sort(byUpdatedAt);
   const sortedException = [...exception].sort(byUpdatedAt);
 
+  const allUnfinished = [...pending, ...exception];
+
   let blocking: StudentSize | null = null;
   let blockingStatus: "exception" | "pending" | null = null;
+  let blockingRemark: string | null = null;
+  let blockingUpdatedAt: string | null = null;
 
-  if (sortedException.length > 0) {
-    blocking = sortedException[0];
-    blockingStatus = "exception";
-  } else if (sortedPending.length > 0) {
-    blocking = sortedPending[0];
-    blockingStatus = "pending";
+  if (allUnfinished.length > 0) {
+    let maxTime = -1;
+    allUnfinished.forEach((s) => {
+      const { latestTime, latestRemark } = getStudentLatestActivity(s);
+      if (latestTime > maxTime) {
+        maxTime = latestTime;
+        blocking = s;
+        blockingStatus = s.confirmStatus as "exception" | "pending";
+        blockingRemark = latestRemark;
+        blockingUpdatedAt = new Date(latestTime).toISOString();
+      }
+    });
+  }
+
+  let blockingDisplayRemark = "等待老师确认尺码";
+  if (blockingRemark) {
+    blockingDisplayRemark = blockingRemark;
+  } else if (blockingStatus === "exception") {
+    blockingDisplayRemark = "存在异常，等待老师处理";
   }
 
   return {
@@ -145,10 +178,11 @@ export const getSizeConfirmSummary = (costume: Costume): SizeConfirmSummary => {
     totalCount: costume.studentSizes.length,
     pendingStudents: sortedPending,
     exceptionStudents: sortedException,
-    blockingRemark: blocking?.remark || null,
+    blockingRemark,
+    blockingDisplayRemark,
     blockingStudentName: blocking?.studentName || null,
     blockingStudentId: blocking?.id || null,
     blockingStatus,
-    blockingUpdatedAt: blocking?.updatedAt || null,
+    blockingUpdatedAt,
   };
 };

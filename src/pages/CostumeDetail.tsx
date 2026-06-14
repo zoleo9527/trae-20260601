@@ -183,7 +183,7 @@ export default function CostumeDetail() {
                       </span>
                     )}
                   </div>
-                  {summary.blockingRemark && summary.blockingStudentId && (
+                  {summary.blockingStudentId && (
                     <button
                       onClick={() => handleJumpToStudent(summary.blockingStudentId!, summary.blockingStudentName!)}
                       className={cn(
@@ -202,7 +202,7 @@ export default function CostumeDetail() {
                           </span>
                         </div>
                         <p className="text-[11px] opacity-90 mt-0.5 line-clamp-2">
-                          {summary.blockingRemark}
+                          {summary.blockingDisplayRemark}
                         </p>
                       </div>
                       <ExternalLink size={12} className="opacity-50 group-hover:opacity-100 shrink-0 mt-0.5" />
