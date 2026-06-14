@@ -21,6 +21,7 @@ import {
   mockCustomers,
 } from '@/data/mock';
 import { uid, now } from '@/lib/utils';
+import { ROLE_LABEL, VISIT_RESULT_LABEL } from '@/types';
 
 interface AppContextValue extends AppState {
   switchUser: (userId: string) => void;
@@ -307,6 +308,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resolveComplaint = useCallback(
     (complaintId: string, resolution: string) => {
+      const cp = complaints.find((c) => c.id === complaintId);
+      if (!cp) return;
+      const assigneeId = cp.handlerId ?? cp.assigneeId;
+      const resolvedAt = now();
       setComplaints((prev) =>
         prev.map((c) =>
           c.id === complaintId
@@ -314,14 +319,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 ...c,
                 status: 'pending_verification',
                 resolution,
-                resolvedAt: now(),
+                resolvedAt,
                 timeline: [
                   ...c.timeline,
                   {
                     id: uid('e_'),
                     complaintId,
                     type: 'resolve',
-                    createdAt: now(),
+                    createdAt: resolvedAt,
                     operatorId: currentUser.id,
                     operatorName: currentUser.name,
                     operatorRole: currentUser.role,
@@ -332,8 +337,68 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : c,
         ),
       );
+      if (assigneeId) {
+        const assignee = users.find((u) => u.id === assigneeId);
+        if (assignee) {
+          const newVisit: VisitRecord = {
+            id: uid('vs_'),
+            complaintId: cp.id,
+            complaintCode: cp.code,
+            complaintTitle: cp.title,
+            customer: cp.customer,
+            status: 'pending',
+            assigneeId: assignee.id,
+            assigneeName: assignee.name,
+            assigneeRole: assignee.role,
+            assignedAt: resolvedAt,
+            timeline: [
+              {
+                id: uid('e_'),
+                complaintId: cp.id,
+                type: 'assign',
+                createdAt: resolvedAt,
+                operatorId: currentUser.id,
+                operatorName: currentUser.name,
+                operatorRole: currentUser.role,
+                content: `处理方案已提交，系统自动创建回访任务，分派给 ${assignee.name}`,
+              },
+            ],
+          };
+          setVisits((prev) => [newVisit, ...prev]);
+          setComplaints((prev) =>
+            prev.map((c) =>
+              c.id === complaintId
+                ? {
+                    ...c,
+                    visits: [...c.visits, newVisit.id],
+                    currentVisitId: newVisit.id,
+                    timeline: [
+                      ...c.timeline,
+                      {
+                        id: uid('e_'),
+                        complaintId,
+                        type: 'assign',
+                        createdAt: now(),
+                        operatorId: currentUser.id,
+                        operatorName: currentUser.name,
+                        operatorRole: currentUser.role,
+                        content: `已自动创建回访任务并分派给 ${assignee.name}（${ROLE_LABEL[assignee.role]}）`,
+                      },
+                    ],
+                  }
+                : c,
+            ),
+          );
+          addNotification({
+            type: 'info',
+            title: '新回访任务',
+            message: `投诉 ${cp.code} 已提交处理方案，请 ${assignee.name} 尽快回访客户`,
+            linkTo: `/visits/${newVisit.id}`,
+          });
+        }
+      }
     },
-    [currentUser],
+    [complaints, users, currentUser, addNotification],
   );
 
   const triggerAbnormalSample = useCallback(
@@ -452,23 +517,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const submitVisitResult = useCallback(
     (visitId, data) => {
+      const vs = visits.find((v) => v.id === visitId);
+      if (!vs) return;
+      const newVisitStatus: VisitStatus =
+        data.result === 'satisfied' || data.result === 'partially_satisfied'
+          ? 'verified'
+          : data.result === 'unsatisfied'
+            ? 'returned'
+            : 'unverified';
+      const resultLabel = VISIT_RESULT_LABEL[data.result];
+      const nowTime = now();
       setVisits((prev) =>
         prev.map((v) => {
           if (v.id !== visitId) return v;
-          const newStatus: VisitStatus =
-            data.result === 'satisfied' || data.result === 'partially_satisfied'
-              ? 'verified'
-              : data.result === 'unsatisfied'
-                ? 'returned'
-                : 'unverified';
           return {
             ...v,
-            status: newStatus,
+            status: newVisitStatus,
             result: data.result,
             customerFeedback: data.customerFeedback,
             internalNote: data.internalNote,
             visitMethod: data.visitMethod,
-            finishedAt: now(),
+            finishedAt: nowTime,
             needReturn: data.result === 'unsatisfied',
             timeline: [
               ...v.timeline,
@@ -476,31 +545,101 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 id: uid('e_'),
                 complaintId: v.complaintId,
                 type: 'visit_result',
-                createdAt: now(),
+                createdAt: nowTime,
                 operatorId: currentUser.id,
                 operatorName: currentUser.name,
                 operatorRole: currentUser.role,
-                content: `回访结果提交：${
-                  data.result === 'satisfied'
-                    ? '满意'
-                    : data.result === 'partially_satisfied'
-                      ? '基本满意'
-                      : data.result === 'unsatisfied'
-                        ? '不满意'
-                        : '无法联系'
-                }`,
-                detail: { result: data.result },
+                content: `回访结果提交：${resultLabel}`,
+                detail: { result: data.result, feedback: data.customerFeedback },
               },
             ],
           };
         }),
       );
+
+      setComplaints((prev) =>
+        prev.map((c) => {
+          if (c.id !== vs.complaintId) return c;
+          let nextStatus: ComplaintStatus = c.status;
+          let isAbnormal = c.isAbnormal;
+          let abnormalReason = c.abnormalReason;
+          let extraEvents: TimelineEvent[] = [];
+
+          if (data.result === 'satisfied' || data.result === 'partially_satisfied') {
+            nextStatus = 'resolved';
+            extraEvents.push({
+              id: uid('e_'),
+              complaintId: c.id,
+              type: 'verify',
+              createdAt: nowTime,
+              operatorId: currentUser.id,
+              operatorName: currentUser.name,
+              operatorRole: currentUser.role,
+              content: `回访确认客户${resultLabel}，投诉已结案`,
+              detail: { result: data.result, feedback: data.customerFeedback },
+            });
+          } else if (data.result === 'unsatisfied') {
+            nextStatus = 'investigating';
+            isAbnormal = true;
+            abnormalReason = `回访客户不满意：${data.customerFeedback || '客户明确表示不接受现有方案'}`;
+            extraEvents.push({
+              id: uid('e_'),
+              complaintId: c.id,
+              type: 'return',
+              createdAt: nowTime,
+              operatorId: currentUser.id,
+              operatorName: currentUser.name,
+              operatorRole: currentUser.role,
+              content: `回访客户不满意，退回重新处理：${data.customerFeedback || '客户不接受现有方案'}`,
+              detail: { result: data.result, feedback: data.customerFeedback, abnormal: true },
+            });
+          } else {
+            extraEvents.push({
+              id: uid('e_'),
+              complaintId: c.id,
+              type: 'update',
+              createdAt: nowTime,
+              operatorId: currentUser.id,
+              operatorName: currentUser.name,
+              operatorRole: currentUser.role,
+              content: `回访暂无法联系到客户，状态保留待回访核实`,
+              detail: { result: data.result },
+            });
+          }
+
+          return {
+            ...c,
+            status: nextStatus,
+            isAbnormal,
+            abnormalReason,
+            timeline: [...c.timeline, ...extraEvents],
+          };
+        }),
+      );
+
+      if (data.result === 'satisfied' || data.result === 'partially_satisfied') {
+        addNotification({
+          type: 'success',
+          title: '投诉已结案',
+          message: `投诉 ${vs.complaintCode} 回访确认客户${resultLabel}，已结案`,
+          linkTo: `/complaints/${vs.complaintId}`,
+        });
+      } else if (data.result === 'unsatisfied') {
+        addNotification({
+          type: 'danger',
+          title: '回访客户不满意',
+          message: `投诉 ${vs.complaintCode} 客户不满意，已自动标记异常并退回重新处理`,
+          linkTo: `/complaints/${vs.complaintId}`,
+        });
+      }
     },
-    [currentUser],
+    [currentUser, visits, addNotification],
   ) as AppContextValue['submitVisitResult'];
 
   const returnVisit = useCallback(
     (visitId: string, reason: string) => {
+      const vs = visits.find((v) => v.id === visitId);
+      const nowTime = now();
       setVisits((prev) =>
         prev.map((v) =>
           v.id === visitId
@@ -509,31 +648,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 status: 'returned',
                 needReturn: true,
                 returnReason: reason,
-                finishedAt: now(),
+                finishedAt: nowTime,
                 timeline: [
                   ...v.timeline,
                   {
                     id: uid('e_'),
                     complaintId: v.complaintId,
                     type: 'return',
-                    createdAt: now(),
+                    createdAt: nowTime,
                     operatorId: currentUser.id,
                     operatorName: currentUser.name,
                     operatorRole: currentUser.role,
-                    content: `退回：${reason}`,
+                    content: `主管退回：${reason}`,
                   },
                 ],
               }
             : v,
         ),
       );
-      const vs = visits.find((v) => v.id === visitId);
-      addNotification({
-        type: 'warning',
-        title: '回访被退回',
-        message: `投诉 ${vs?.complaintCode ?? visitId} 的回访被退回：${reason}`,
-        linkTo: `/visits/${visitId}`,
-      });
+      if (vs) {
+        setComplaints((prev) =>
+          prev.map((c) =>
+            c.id === vs.complaintId
+              ? {
+                  ...c,
+                  status: 'investigating',
+                  isAbnormal: true,
+                  abnormalReason: `主管退回回访：${reason}`,
+                  timeline: [
+                    ...c.timeline,
+                    {
+                      id: uid('e_'),
+                      complaintId: c.id,
+                      type: 'return',
+                      createdAt: nowTime,
+                      operatorId: currentUser.id,
+                      operatorName: currentUser.name,
+                      operatorRole: currentUser.role,
+                      content: `主管退回回访，需重新处理：${reason}`,
+                      detail: { abnormal: true, reason },
+                    },
+                  ],
+                }
+              : c,
+          ),
+        );
+        addNotification({
+          type: 'warning',
+          title: '回访被退回',
+          message: `投诉 ${vs.complaintCode} 的回访被主管退回：${reason}`,
+          linkTo: `/visits/${visitId}`,
+        });
+      }
     },
     [currentUser, visits, addNotification],
   );
