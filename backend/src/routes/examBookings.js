@@ -29,13 +29,14 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 router.get('/', asyncHandler(async (req, res) => {
-  const { status, subject, student_id, exam_session_id, is_makeup, offset, limit } = req.query;
+  const { status, subject, student_id, exam_session_id, is_makeup, needs_attention, offset, limit } = req.query;
   const result = listExamBookings({
     status,
     subject: subject ? Number(subject) : null,
     student_id,
     exam_session_id,
     is_makeup: is_makeup !== undefined ? is_makeup === 'true' || is_makeup === '1' : null,
+    needs_attention: needs_attention !== undefined ? needs_attention === 'true' || needs_attention === '1' : null,
     offset: offset ? Number(offset) : 0,
     limit: limit ? Number(limit) : 20,
   });

@@ -31,11 +31,12 @@ router.post('/', asyncHandler(async (req, res) => {
 
 router.get('/', asyncHandler(async (req, res) => {
   const { userId } = extractOperator(req);
-  const { status, subject, student_id, offset, limit } = req.query;
+  const { status, subject, student_id, needs_attention, offset, limit } = req.query;
   const result = listMakeupExams({
     status,
     subject: subject ? Number(subject) : null,
     student_id,
+    needs_attention: needs_attention !== undefined ? needs_attention === 'true' || needs_attention === '1' : null,
     offset: offset ? Number(offset) : 0,
     limit: limit ? Number(limit) : 20,
   }, userId);

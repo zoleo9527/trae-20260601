@@ -4,9 +4,10 @@ const {
   MAKEUP_STATUS_TRANSITIONS,
   canTransition,
   SUBJECT_NAMES,
+  PRIORITY_WEIGHTS,
 } = require('../statusConstraints');
 const { checkPermission, getUserById, getFeeTypeName } = require('./userService');
-const { createExamBooking, getMakeupFeeBySubject } = require('./examBookingService');
+const { createExamBooking, getMakeupFeeBySubject, batchGetLastOperations } = require('./examBookingService');
 
 function createMakeupExam(data, operatorId) {
   const dbi = getDB();
@@ -64,7 +65,7 @@ function createMakeupExam(data, operatorId) {
 function listMakeupExams(params = {}, operatorId) {
   const dbi = getDB();
   checkPermission(operatorId, 'makeup_exams', 'read');
-  const { status, subject, student_id, offset = 0, limit = 20 } = params;
+  const { status, subject, student_id, needs_attention, offset = 0, limit = 20 } = params;
 
   let sql = `
     SELECT m.*, s.name as student_name, s.phone as student_phone,
@@ -105,11 +106,22 @@ function listMakeupExams(params = {}, operatorId) {
   paramsArr.push(limit, offset);
 
   const { total } = dbi.prepare(countSql).get(...countParams);
-  const list = dbi.prepare(sql).all(...paramsArr);
+  let list = dbi.prepare(sql).all(...paramsArr);
+
+  const lastOps = batchGetLastOperations('makeup_exam', list.map(m => m.id));
+  list = list.map(m => ({ ...m, ...lastOps[m.id] }));
+
+  list = list.map(m => enrichMakeup(m));
+
+  if (needs_attention === true || needs_attention === 'true' || needs_attention === '1') {
+    list = list.filter(m => m.needs_attention);
+  } else if (needs_attention === false || needs_attention === 'false' || needs_attention === '0') {
+    list = list.filter(m => !m.needs_attention);
+  }
 
   return {
     total,
-    list: list.map(m => enrichMakeup(m)),
+    list,
   };
 }
 
@@ -601,12 +613,50 @@ function getMakeupReviewData(id, operatorId) {
   };
 }
 
+function computeMakeupAttention(makeup) {
+  let priority = 'normal';
+  let stuckReason = null;
+
+  if (makeup.status === 'pending_payment') {
+    priority = 'high';
+    const createdDays = Math.floor((Date.now() - new Date(makeup.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (createdDays > 7) {
+      stuckReason = `补考费已超过${createdDays}天未缴清`;
+    }
+  } else if (makeup.status === 'pending_booking') {
+    priority = 'high';
+    const paidDays = makeup.payment_time
+      ? Math.floor((Date.now() - new Date(makeup.payment_time).getTime()) / (1000 * 60 * 60 * 24))
+      : Math.floor((Date.now() - new Date(makeup.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    if (paidDays > 3) {
+      stuckReason = `缴费后已${paidDays}天未约考`;
+    }
+  } else if (makeup.status === 'booked' && makeup.new_exam_date) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const examDate = new Date(makeup.new_exam_date);
+    if (examDate.toDateString() === tomorrow.toDateString()) {
+      priority = 'high';
+    }
+  }
+
+  const needsAttention = priority === 'urgent' || priority === 'high' || !!stuckReason;
+
+  return { priority, stuck_reason: stuckReason, needs_attention: needsAttention };
+}
+
 function enrichMakeup(m) {
+  const attention = computeMakeupAttention(m);
   return {
     ...m,
     subject_name: SUBJECT_NAMES[m.subject],
     status_name: MAKEUP_STATUS_TRANSITIONS[m.status]?.description || m.status,
     fee_paid: !!m.fee_paid,
+    priority: attention.priority,
+    stuck_reason: attention.stuck_reason,
+    needs_attention: attention.needs_attention,
+    last_operator_name: m.last_operator_name || null,
+    last_action_time: m.last_action_time || null,
   };
 }
 

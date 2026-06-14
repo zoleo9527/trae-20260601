@@ -5,6 +5,7 @@ const {
   EXAM_SESSION_STATUS_TRANSITIONS,
   canTransition,
   SUBJECT_NAMES,
+  PRIORITY_WEIGHTS,
 } = require('../statusConstraints');
 const { checkPermission, getUserById } = require('./userService');
 
@@ -83,7 +84,7 @@ function createExamBooking(data, operatorId) {
 
 function listExamBookings(params = {}) {
   const dbi = getDB();
-  const { status, subject, student_id, exam_session_id, is_makeup, offset = 0, limit = 20 } = params;
+  const { status, subject, student_id, exam_session_id, is_makeup, needs_attention, offset = 0, limit = 20 } = params;
 
   let sql = `
     SELECT eb.*, s.name as student_name, s.phone as student_phone,
@@ -132,11 +133,22 @@ function listExamBookings(params = {}) {
   paramsArr.push(limit, offset);
 
   const { total } = dbi.prepare(countSql).get(...countParams);
-  const list = dbi.prepare(sql).all(...paramsArr);
+  let list = dbi.prepare(sql).all(...paramsArr);
+
+  const lastOps = batchGetLastOperations('exam_booking', list.map(b => b.id));
+  list = list.map(b => ({ ...b, ...lastOps[b.id] }));
+
+  list = list.map(b => enrichBooking(b));
+
+  if (needs_attention === true || needs_attention === 'true' || needs_attention === '1') {
+    list = list.filter(b => b.needs_attention);
+  } else if (needs_attention === false || needs_attention === 'false' || needs_attention === '0') {
+    list = list.filter(b => !b.needs_attention);
+  }
 
   return {
     total,
-    list: list.map(b => enrichBooking(b)),
+    list,
   };
 }
 
@@ -563,13 +575,67 @@ function getMakeupFeeBySubject(subject) {
   return fees[subject] || 100;
 }
 
+function computeBookingAttention(booking) {
+  let priority = 'normal';
+  let stuckReason = null;
+
+  if (booking.status === 'pending') {
+    priority = 'urgent';
+    const applyHours = Math.floor((Date.now() - new Date(booking.apply_time || booking.created_at).getTime()) / (1000 * 60 * 60));
+    if (applyHours > 24) {
+      stuckReason = `审核已超过${applyHours}小时未处理`;
+    }
+  } else if (booking.status === 'booked' && booking.exam_date) {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const examDate = new Date(booking.exam_date);
+    if (examDate.toDateString() === tomorrow.toDateString()) {
+      priority = 'high';
+    }
+  }
+
+  const needsAttention = priority === 'urgent' || priority === 'high' || !!stuckReason;
+
+  return { priority, stuck_reason: stuckReason, needs_attention: needsAttention };
+}
+
+function batchGetLastOperations(targetType, targetIds) {
+  if (!targetIds || targetIds.length === 0) return {};
+  const dbi = getDB();
+  const placeholders = targetIds.map(() => '?').join(',');
+  const logs = dbi.prepare(`
+    SELECT ol.* FROM operation_logs ol
+    INNER JOIN (
+      SELECT target_id, MAX(created_at) as max_time
+      FROM operation_logs
+      WHERE target_type = ? AND target_id IN (${placeholders})
+      GROUP BY target_id
+    ) latest ON ol.target_type = ? AND ol.target_id = latest.target_id AND ol.created_at = latest.max_time
+  `).all(targetType, ...targetIds, targetType);
+
+  const result = {};
+  logs.forEach(log => {
+    result[log.target_id] = {
+      last_operator_name: log.operator_name,
+      last_action_time: log.created_at,
+    };
+  });
+  return result;
+}
+
 function enrichBooking(b) {
+  const attention = computeBookingAttention(b);
   return {
     ...b,
     subject_name: SUBJECT_NAMES[b.subject],
     status_name: EXAM_BOOKING_STATUS_TRANSITIONS[b.status]?.description || b.status,
     is_makeup: !!b.is_makeup,
     session_status_name: b.session_status ? EXAM_SESSION_STATUS_TRANSITIONS[b.session_status]?.description : null,
+    priority: attention.priority,
+    stuck_reason: attention.stuck_reason,
+    needs_attention: attention.needs_attention,
+    last_operator_name: b.last_operator_name || null,
+    last_action_time: b.last_action_time || null,
   };
 }
 
@@ -586,4 +652,5 @@ module.exports = {
   enrichBooking,
   incrementSessionBookedCount,
   decrementSessionBookedCount,
+  batchGetLastOperations,
 };
