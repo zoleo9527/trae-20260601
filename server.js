@@ -441,15 +441,30 @@ app.put('/api/rework-records/:id', (req, res) => {
   }
   
   let completedAt = currentRecord.completed_at;
+  let finalReworkVersionId = rework_version_id;
+  
   if (status === 'completed' && !completedAt) {
     completedAt = new Date().toISOString();
     
-    if (rework_version_id) {
+    if (!finalReworkVersionId) {
+      const latestApprovedResult = db.exec(`
+        SELECT id FROM versions 
+        WHERE manuscript_id = (
+          SELECT manuscript_id FROM versions WHERE id = ?
+        ) AND review_status = 'approved' 
+        ORDER BY upload_time DESC 
+        LIMIT 1
+      `, [currentRecord.version_id]);
+      const latestApproved = prepareOne(latestApprovedResult);
+      finalReworkVersionId = latestApproved?.id || null;
+    }
+    
+    if (finalReworkVersionId) {
       db.run(`
         UPDATE rework_records 
         SET status = 'completed', completed_at = ?, rework_version_id = ?, updated_at = CURRENT_TIMESTAMP 
         WHERE version_id = ? AND status = 'pending' AND id != ?
-      `, [completedAt, rework_version_id, currentRecord.version_id, recordId]);
+      `, [completedAt, finalReworkVersionId, currentRecord.version_id, recordId]);
     } else {
       db.run(`
         UPDATE rework_records 
@@ -460,7 +475,7 @@ app.put('/api/rework-records/:id', (req, res) => {
   }
   
   db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
-    [status, rework_version_id, completedAt, recordId]);
+    [status, finalReworkVersionId, completedAt, recordId]);
   saveDatabase(db);
   
   const result = db.exec(`
