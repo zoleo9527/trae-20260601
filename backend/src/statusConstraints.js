@@ -202,7 +202,7 @@ const ROLE_PERMISSIONS = {
     actions: {
       students: ['create', 'read', 'update'],
       fees: ['create', 'read', 'update'],
-      makeup_exams: ['read', 'update_fee'],
+      makeup_exams: ['read', 'review', 'update_fee'],
       exam_bookings: ['read'],
       coach_schedules: ['read', 'book'],
     },
@@ -220,7 +220,7 @@ const ROLE_PERMISSIONS = {
     actions: {
       exam_sessions: ['create', 'read', 'update'],
       exam_bookings: ['create', 'read', 'update', 'approve', 'record_result', 'book_session'],
-      makeup_exams: ['read', 'book', 'update', 'complete', 'cancel'],
+      makeup_exams: ['read', 'review', 'book', 'complete', 'cancel'],
       students: ['read'],
     },
   },
@@ -232,8 +232,8 @@ const ROLE_PERMISSIONS = {
       coaches: ['create', 'read', 'update', 'delete'],
       coach_schedules: ['create', 'read', 'update', 'delete'],
       exam_sessions: ['create', 'read', 'update', 'delete'],
-      exam_bookings: ['create', 'read', 'update', 'delete', 'approve', 'record_result'],
-      makeup_exams: ['create', 'read', 'update', 'delete'],
+      exam_bookings: ['create', 'read', 'update', 'delete', 'approve', 'record_result', 'book_session'],
+      makeup_exams: ['create', 'read', 'review', 'update_fee', 'book', 'complete', 'cancel', 'delete'],
       fees: ['create', 'read', 'update', 'delete'],
       logs: ['read'],
     },

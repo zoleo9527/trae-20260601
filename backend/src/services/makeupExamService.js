@@ -61,8 +61,9 @@ function createMakeupExam(data, operatorId) {
   return getMakeupExamDetail(id);
 }
 
-function listMakeupExams(params = {}) {
+function listMakeupExams(params = {}, operatorId) {
   const dbi = getDB();
+  checkPermission(operatorId, 'makeup_exams', 'read');
   const { status, subject, student_id, offset = 0, limit = 20 } = params;
 
   let sql = `
@@ -112,7 +113,10 @@ function listMakeupExams(params = {}) {
   };
 }
 
-function getMakeupExamDetail(id) {
+function getMakeupExamDetail(id, operatorId) {
+  if (operatorId) {
+    checkPermission(operatorId, 'makeup_exams', 'read');
+  }
   const dbi = getDB();
   const makeup = dbi.prepare(`
     SELECT m.*, s.name as student_name, s.phone as student_phone, s.id_card,
@@ -150,7 +154,10 @@ function getMakeupExamDetail(id) {
   };
 }
 
-function getMakeupExamHistory(studentId, subject = null) {
+function getMakeupExamHistory(studentId, subject = null, operatorId) {
+  if (operatorId) {
+    checkPermission(operatorId, 'makeup_exams', 'read');
+  }
   const dbi = getDB();
   let sql = `
     SELECT m.*, s.name as student_name,
@@ -555,9 +562,12 @@ function cancelMakeupExam(id, data, operatorId) {
   });
 }
 
-function getMakeupReviewData(id) {
+function getMakeupReviewData(id, operatorId) {
+  if (operatorId) {
+    checkPermission(operatorId, 'makeup_exams', 'review');
+  }
   const dbi = getDB();
-  const makeup = getMakeupExamDetail(id);
+  const makeup = getMakeupExamDetail(id, operatorId);
 
   const originalBooking = dbi.prepare(`
     SELECT eb.*, es.exam_date, es.exam_time, es.exam_location

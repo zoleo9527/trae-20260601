@@ -30,6 +30,7 @@ router.post('/', asyncHandler(async (req, res) => {
 }));
 
 router.get('/', asyncHandler(async (req, res) => {
+  const { userId } = extractOperator(req);
   const { status, subject, student_id, offset, limit } = req.query;
   const result = listMakeupExams({
     status,
@@ -37,25 +38,29 @@ router.get('/', asyncHandler(async (req, res) => {
     student_id,
     offset: offset ? Number(offset) : 0,
     limit: limit ? Number(limit) : 20,
-  });
+  }, userId);
   res.json({ success: true, data: result });
 }));
 
 router.get('/:id', asyncHandler(async (req, res) => {
-  const result = getMakeupExamDetail(req.params.id);
+  const { userId } = extractOperator(req);
+  const result = getMakeupExamDetail(req.params.id, userId);
   res.json({ success: true, data: result });
 }));
 
 router.get('/:id/review', asyncHandler(async (req, res) => {
-  const result = getMakeupReviewData(req.params.id);
+  const { userId } = extractOperator(req);
+  const result = getMakeupReviewData(req.params.id, userId);
   res.json({ success: true, data: result });
 }));
 
 router.get('/student/:studentId/history', asyncHandler(async (req, res) => {
+  const { userId } = extractOperator(req);
   const { subject } = req.query;
   const result = getMakeupExamHistory(
     req.params.studentId,
-    subject ? Number(subject) : null
+    subject ? Number(subject) : null,
+    userId
   );
   res.json({ success: true, data: result });
 }));
