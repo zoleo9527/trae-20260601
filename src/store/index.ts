@@ -137,6 +137,12 @@ export const useStore = create<AppState>()(
               if (refreshed && refreshed.currentStatus === 'in_training') {
                 get().updateEmployeeStatus(employeeId, 'pending_documents', finalRemark);
               }
+            } else if (employee.currentStatus === 'training_exception') {
+              get().updateEmployeeStatus(employeeId, 'in_training', '复训开始：重新培训完成');
+              const refreshed = get().employees.find((e) => e.id === employeeId);
+              if (refreshed && refreshed.currentStatus === 'in_training') {
+                get().updateEmployeeStatus(employeeId, 'pending_documents', finalRemark);
+              }
             } else {
               get().updateEmployeeStatus(employeeId, 'pending_documents', finalRemark);
             }
@@ -144,6 +150,12 @@ export const useStore = create<AppState>()(
             const finalRemark = remark ?? training.trainingRemark;
             if (employee.currentStatus === 'pending_training') {
               get().updateEmployeeStatus(employeeId, 'in_training', '培训开始（后判定未通过）');
+              const refreshed = get().employees.find((e) => e.id === employeeId);
+              if (refreshed && refreshed.currentStatus === 'in_training') {
+                get().updateEmployeeStatus(employeeId, 'training_exception', finalRemark);
+              }
+            } else if (employee.currentStatus === 'training_exception') {
+              get().updateEmployeeStatus(employeeId, 'in_training', '复训开始（后判定仍未通过）');
               const refreshed = get().employees.find((e) => e.id === employeeId);
               if (refreshed && refreshed.currentStatus === 'in_training') {
                 get().updateEmployeeStatus(employeeId, 'training_exception', finalRemark);
@@ -343,12 +355,24 @@ export const POST_TRAINING_STATUSES: EmployeeStatus[] = ['pending_documents', 't
 
 export function getTrainingHandover(employeeId: string): StatusLog | undefined {
   const logs = getEmployeeLogs(employeeId);
-  return logs.find(
+
+  const passedHandover = logs.find(
     (l) =>
       l.fromStatus !== null &&
       TRAINING_PHASE_STATUSES.includes(l.fromStatus) &&
-      POST_TRAINING_STATUSES.includes(l.toStatus)
+      l.toStatus === 'pending_documents'
   );
+  if (passedHandover) return passedHandover;
+
+  const directHandover = logs.find(
+    (l) =>
+      l.fromStatus !== null &&
+      l.fromStatus === 'training_exception' &&
+      l.toStatus === 'pending_documents'
+  );
+  if (directHandover) return directHandover;
+
+  return undefined;
 }
 
 export function getMissingDocuments(employeeId: string): {
