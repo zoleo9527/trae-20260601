@@ -22,6 +22,7 @@
         </div>
         <div class="flex items-center gap-2">
           <ActionButton
+            v-if="isProjectManager"
             variant="secondary"
             size="sm"
             :icon="UserPlusIcon"
@@ -30,6 +31,7 @@
             批量分配
           </ActionButton>
           <ActionButton
+            v-if="isReviewer"
             variant="danger"
             size="sm"
             :icon="XCircleIcon"
@@ -38,6 +40,7 @@
             批量驳回
           </ActionButton>
           <ActionButton
+            v-if="isReviewer"
             variant="success"
             size="sm"
             :icon="CheckCircleIcon"
@@ -114,21 +117,21 @@
                     查看
                   </button>
                   <button
-                    v-if="assignment.status === 'pending'"
+                    v-if="isProjectManager && assignment.status === 'pending'"
                     class="text-primary-600 hover:text-primary-700 text-sm font-medium"
                     @click="openAssignModal(assignment)"
                   >
                     分配
                   </button>
                   <button
-                    v-if="assignment.status === 'reviewing'"
+                    v-if="isReviewer && assignment.status === 'reviewing'"
                     class="text-success-600 hover:text-success-700 text-sm font-medium"
                     @click="openApproveModal(assignment)"
                   >
                     通过
                   </button>
                   <button
-                    v-if="assignment.status === 'reviewing'"
+                    v-if="isReviewer && assignment.status === 'reviewing'"
                     class="text-red-600 hover:text-red-700 text-sm font-medium"
                     @click="openRejectModal(assignment)"
                   >
@@ -457,6 +460,9 @@ const batchRejectReason = ref('')
 const batchApproveRemark = ref('')
 
 const translators = computed(() => userStore.getUsersByRole('translator'))
+
+const isProjectManager = computed(() => userStore.currentUser.role === 'project_manager')
+const isReviewer = computed(() => userStore.currentUser.role === 'reviewer')
 
 const isAllSelected = computed(() => {
   return assignmentStore.assignments.length > 0 &&

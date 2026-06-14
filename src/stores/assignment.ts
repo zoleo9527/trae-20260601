@@ -107,31 +107,60 @@ export const useAssignmentStore = defineStore('assignment', () => {
     operator: string,
     operatorRole: 'project_manager' | 'translator' | 'reviewer'
   ) => {
+    if (operatorRole !== 'project_manager') return false
+    
     const assignment = getAssignmentById(assignmentId)
-    if (!assignment) return
+    if (!assignment || assignment.status !== 'pending') return false
 
     assignment.translatorId = translatorId
     assignment.translatorName = translatorName
     updateStatus(assignmentId, 'assigned', operator, operatorRole, `分配给${translatorName}`)
+    return true
   }
 
   const acceptAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    if (operatorRole !== 'translator') return false
+    
+    const assignment = getAssignmentById(assignmentId)
+    if (!assignment || assignment.status !== 'assigned') return false
+    
     updateStatus(assignmentId, 'in_progress', operator, operatorRole, remark)
+    return true
   }
 
   const submitForReview = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    if (operatorRole !== 'translator') return false
+    
+    const assignment = getAssignmentById(assignmentId)
+    if (!assignment || assignment.status !== 'in_progress') return false
+    
     updateStatus(assignmentId, 'reviewing', operator, operatorRole, remark)
+    return true
   }
 
   const rejectAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
+    if (operatorRole !== 'reviewer') return false
+    
+    const assignment = getAssignmentById(assignmentId)
+    if (!assignment || assignment.status !== 'reviewing') return false
+    
     updateStatus(assignmentId, 'rejected', operator, operatorRole, `驳回：${reason}`)
+    return true
   }
 
   const approveAssignment = (assignmentId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    if (operatorRole !== 'reviewer') return false
+    
+    const assignment = getAssignmentById(assignmentId)
+    if (!assignment || assignment.status !== 'reviewing') return false
+    
     updateStatus(assignmentId, 'completed', operator, operatorRole, remark)
+    return true
   }
 
   const batchAssign = (ids: string[], translatorId: string, translatorName: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer') => {
+    if (operatorRole !== 'project_manager') return
+    
     ids.forEach(id => {
       const assignment = getAssignmentById(id)
       if (assignment && assignment.status === 'pending') {
@@ -142,6 +171,8 @@ export const useAssignmentStore = defineStore('assignment', () => {
   }
 
   const batchReject = (ids: string[], operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
+    if (operatorRole !== 'reviewer') return
+    
     ids.forEach(id => {
       const assignment = getAssignmentById(id)
       if (assignment && assignment.status === 'reviewing') {
@@ -152,6 +183,8 @@ export const useAssignmentStore = defineStore('assignment', () => {
   }
 
   const batchApprove = (ids: string[], operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
+    if (operatorRole !== 'reviewer') return
+    
     ids.forEach(id => {
       const assignment = getAssignmentById(id)
       if (assignment && assignment.status === 'reviewing') {

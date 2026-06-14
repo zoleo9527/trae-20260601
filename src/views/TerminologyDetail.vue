@@ -52,7 +52,7 @@
 
           <div class="flex items-center gap-2">
             <ActionButton
-              v-if="terminology.status === 'pending'"
+              v-if="isReviewer && terminology.status === 'pending'"
               variant="success"
               :icon="CheckCircleIcon"
               @click="approveTerm"
@@ -60,7 +60,7 @@
               确认通过
             </ActionButton>
             <ActionButton
-              v-if="terminology.status === 'pending'"
+              v-if="isReviewer && terminology.status === 'pending'"
               variant="danger"
               :icon="XCircleIcon"
               @click="showRejectModal = true"
@@ -68,7 +68,7 @@
               驳回术语
             </ActionButton>
             <ActionButton
-              v-if="terminology.status === 'rejected'"
+              v-if="isTranslator && terminology.status === 'rejected'"
               variant="primary"
               :icon="EditIcon"
               @click="showUpdateModal = true"
@@ -246,6 +246,9 @@ const rejectReason = ref('')
 const newTargetTerm = ref('')
 const updateRemark = ref('')
 
+const isTranslator = computed(() => userStore.currentUser.role === 'translator')
+const isReviewer = computed(() => userStore.currentUser.role === 'reviewer')
+
 const formatDate = (dateStr: string) => {
   return new Date(dateStr).toLocaleDateString('zh-CN')
 }
@@ -285,6 +288,7 @@ const updateTerm = () => {
     terminology.value.id,
     newTargetTerm.value,
     userStore.currentUser.name,
+    userStore.currentUser.role,
     updateRemark.value || '修改术语翻译'
   )
   

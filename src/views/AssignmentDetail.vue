@@ -52,7 +52,7 @@
 
           <div class="flex items-center gap-2">
             <ActionButton
-              v-if="assignment.status === 'pending'"
+              v-if="isProjectManager && assignment.status === 'pending'"
               variant="primary"
               :icon="UserPlusIcon"
               @click="showAssignModal = true"
@@ -60,7 +60,7 @@
               分配译员
             </ActionButton>
             <ActionButton
-              v-if="assignment.status === 'assigned'"
+              v-if="isTranslator && assignment.status === 'assigned'"
               variant="primary"
               :icon="CheckCircleIcon"
               @click="acceptTask"
@@ -68,7 +68,7 @@
               接收任务
             </ActionButton>
             <ActionButton
-              v-if="assignment.status === 'in_progress'"
+              v-if="isTranslator && assignment.status === 'in_progress'"
               variant="primary"
               :icon="SendIcon"
               @click="showSubmitModal = true"
@@ -76,7 +76,7 @@
               提交译稿
             </ActionButton>
             <ActionButton
-              v-if="assignment.status === 'reviewing'"
+              v-if="isReviewer && assignment.status === 'reviewing'"
               variant="success"
               :icon="CheckCircleIcon"
               @click="showApproveModal = true"
@@ -84,7 +84,7 @@
               通过审核
             </ActionButton>
             <ActionButton
-              v-if="assignment.status === 'reviewing'"
+              v-if="isReviewer && assignment.status === 'reviewing'"
               variant="danger"
               :icon="XCircleIcon"
               @click="showRejectModal = true"
@@ -92,7 +92,7 @@
               驳回译稿
             </ActionButton>
             <ActionButton
-              v-if="assignment.status === 'rejected'"
+              v-if="isTranslator && assignment.status === 'rejected'"
               variant="primary"
               :icon="SendIcon"
               @click="showResubmitModal = true"
@@ -370,6 +370,10 @@ const ArrowLeftIcon = ArrowLeft
 const assignmentId = route.params.id as string
 const assignment = computed(() => assignmentStore.getAssignmentById(assignmentId))
 const terminologies = computed(() => terminologyStore.getTerminologiesByAssignment(assignmentId))
+
+const isProjectManager = computed(() => userStore.currentUser.role === 'project_manager')
+const isTranslator = computed(() => userStore.currentUser.role === 'translator')
+const isReviewer = computed(() => userStore.currentUser.role === 'reviewer')
 
 const showAssignModal = ref(false)
 const showSubmitModal = ref(false)

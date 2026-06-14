@@ -91,10 +91,13 @@ export const useTerminologyStore = defineStore('terminology', () => {
     terminologyId: string,
     newTargetTerm: string,
     operator: string,
+    operatorRole: 'project_manager' | 'translator' | 'reviewer',
     remark: string
   ) => {
+    if (operatorRole !== 'translator') return false
+    
     const terminology = getTerminologyById(terminologyId)
-    if (!terminology) return
+    if (!terminology || terminology.status !== 'rejected') return false
 
     const version: TerminologyVersion = {
       id: generateVersionId(),
@@ -108,7 +111,21 @@ export const useTerminologyStore = defineStore('terminology', () => {
     terminology.versions.push(version)
     terminology.targetTerm = newTargetTerm
     terminology.status = 'pending'
-    addHistoryRecord(terminologyId, '更新术语', operator, 'translator', `修改为：${terminology.sourceTerm} -> ${newTargetTerm}`)
+    addHistoryRecord(terminologyId, '更新术语', operator, operatorRole, `修改为：${terminology.sourceTerm} -> ${newTargetTerm}`)
+    
+    const assignmentStore = useAssignmentStore()
+    const assignment = assignmentStore.getAssignmentById(terminology.assignmentId)
+    if (assignment) {
+      assignmentStore.addHistoryRecord(
+        assignment.id,
+        '术语更新',
+        operator,
+        operatorRole,
+        `更新术语：${terminology.sourceTerm} -> ${newTargetTerm}`
+      )
+    }
+    
+    return true
   }
 
   const approveTerminology = (terminologyId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', remark: string) => {
@@ -132,8 +149,10 @@ export const useTerminologyStore = defineStore('terminology', () => {
   }
 
   const rejectTerminology = (terminologyId: string, operator: string, operatorRole: 'project_manager' | 'translator' | 'reviewer', reason: string) => {
+    if (operatorRole !== 'reviewer') return false
+    
     const terminology = getTerminologyById(terminologyId)
-    if (!terminology) return
+    if (!terminology || terminology.status !== 'pending') return false
 
     terminology.status = 'rejected'
     addHistoryRecord(terminologyId, '驳回术语', operator, operatorRole, `驳回：${reason}`)
