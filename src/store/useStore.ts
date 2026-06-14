@@ -27,6 +27,7 @@ export function useStore() {
         under_review: '提交审核',
         approved: '批准贷款',
         rejected: '拒绝贷款',
+        returned: '退回申请',
         supplement: '要求补材料',
         urgent: '标记催办',
         completed: '完成',
@@ -58,11 +59,72 @@ export function useStore() {
   }, [])
 
   const updateQuotaSuggestion = useCallback((quotaId: string, status: Status) => {
+    const quota = quotaSuggestions.find(q => q.id === quotaId)
+    if (!quota) return
+
     setQuotaSuggestions(prev => prev.map(q => 
       q.id === quotaId ? { ...q, status } : q
     ))
-    addNotification(`额度建议 ${quotaId} 状态已更新`)
-  }, [])
+
+    let relatedAction = ''
+    let applicationStatusUpdate: Status | null = null
+
+    switch (status) {
+      case 'approved':
+        relatedAction = '批准额度建议'
+        applicationStatusUpdate = 'approved'
+        break
+      case 'rejected':
+        relatedAction = '拒绝额度建议'
+        applicationStatusUpdate = 'rejected'
+        break
+      case 'returned':
+        relatedAction = '退回额度建议'
+        applicationStatusUpdate = 'returned'
+        break
+      case 'completed':
+        relatedAction = '完成额度建议'
+        applicationStatusUpdate = 'completed'
+        break
+      default:
+        relatedAction = '更新额度建议状态'
+    }
+
+    const newWorkflow: WorkflowRecord = {
+      id: `WF${Date.now()}`,
+      applicationId: quota.applicationId,
+      action: relatedAction,
+      operator: currentUser.name,
+      operateTime: new Date().toLocaleString('zh-CN'),
+      note: `额度建议 ${quotaId} ${status}`,
+      statusBefore: quota.status,
+      statusAfter: status,
+    }
+    setWorkflowRecords(prev => [newWorkflow, ...prev])
+
+    if (applicationStatusUpdate) {
+      setApplications(prev => prev.map(app => 
+        app.id === quota.applicationId ? { ...app, status: applicationStatusUpdate } : app
+      ))
+      
+      const application = applications.find(a => a.id === quota.applicationId)
+      if (application) {
+        const appWorkflow: WorkflowRecord = {
+          id: `WF${Date.now()}`,
+          applicationId: quota.applicationId,
+          action: applicationStatusUpdate === 'approved' ? '批准贷款' : applicationStatusUpdate === 'rejected' ? '拒绝贷款' : applicationStatusUpdate === 'returned' ? '退回申请' : '完成申请',
+          operator: currentUser.name,
+          operateTime: new Date().toLocaleString('zh-CN'),
+          note: `关联额度建议 ${quotaId} ${status}`,
+          statusBefore: application.status,
+          statusAfter: applicationStatusUpdate,
+        }
+        setWorkflowRecords(prev => [appWorkflow, ...prev])
+      }
+    }
+
+    addNotification(`额度建议 ${quotaId} 状态已更新为 ${status}`)
+  }, [quotaSuggestions, applications, currentUser])
 
   const addNotification = useCallback((message: string) => {
     const newNotification = {

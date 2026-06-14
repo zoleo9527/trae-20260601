@@ -5,6 +5,7 @@ export const statusMap: Record<Status, { label: string; color: string }> = {
   under_review: { label: '审核中', color: 'processing' },
   approved: { label: '已批准', color: 'success' },
   rejected: { label: '已拒绝', color: 'error' },
+  returned: { label: '已退回', color: 'warning' },
   supplement: { label: '补材料', color: 'warning' },
   urgent: { label: '有人催', color: 'error' },
   completed: { label: '已完成', color: 'success' },

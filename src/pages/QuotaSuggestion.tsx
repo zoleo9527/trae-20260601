@@ -1,22 +1,26 @@
 import { useState } from 'react'
 import { Table, Tag, Button, Card, Row, Col, Space, Modal, Form, Input, InputNumber, message, Empty } from 'antd'
-import type { QuotaSuggestion, LoanApplication, RiskData, Status } from '@/types'
+import type { QuotaSuggestion, LoanApplication, RiskData, CollectionRecord, WorkflowRecord, Status } from '@/types'
 import { statusMap } from '@/utils/statusMap'
 
 interface QuotaSuggestionProps {
   quotaSuggestions: QuotaSuggestion[]
   applications: LoanApplication[]
   riskData: RiskData[]
+  collectionRecords: CollectionRecord[]
+  workflowRecords: WorkflowRecord[]
   onUpdateQuota: (id: string, status: Status) => void
 }
 
-export function QuotaSuggestion({ quotaSuggestions, applications, riskData, onUpdateQuota }: QuotaSuggestionProps) {
+export function QuotaSuggestion({ quotaSuggestions, applications, riskData, collectionRecords, workflowRecords, onUpdateQuota }: QuotaSuggestionProps) {
   const [selectedQuotaId, setSelectedQuotaId] = useState<string | null>(null)
   const [showApproveModal, setShowApproveModal] = useState(false)
 
   const selectedQuota = quotaSuggestions.find(q => q.id === selectedQuotaId)
   const selectedApplication = selectedQuota ? applications.find(a => a.id === selectedQuota!.applicationId) : null
   const selectedRisk = selectedQuota ? riskData.find(r => r.applicationId === selectedQuota!.applicationId) : null
+  const selectedCollectionRecords = selectedQuota ? collectionRecords.filter(c => c.applicationId === selectedQuota!.applicationId) : []
+  const selectedWorkflowRecords = selectedQuota ? workflowRecords.filter(w => w.applicationId === selectedQuota!.applicationId) : []
 
   const columns = [
     {
@@ -146,6 +150,9 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, onUp
                   <p>申请人: {selectedApplication.applicantName}</p>
                   <p>申请金额: ¥{selectedApplication.amount.toLocaleString()}</p>
                   <p>申请期限: {selectedApplication.term} 个月</p>
+                  <p>申请状态: <Tag color={statusMap[selectedApplication.status as Status].color}>
+                    {statusMap[selectedApplication.status as Status].label}
+                  </Tag></p>
                 </div>
                 <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
                   <h4>额度建议</h4>
@@ -157,6 +164,11 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, onUp
                   </div>
                   <p>建议利率: {(selectedQuota.suggestedRate * 100).toFixed(2)}%</p>
                   <p>建议期限: {selectedQuota.suggestedTerm} 个月</p>
+                  <p>建议人: {selectedQuota.reviewer}</p>
+                  <p>建议时间: {selectedQuota.reviewTime}</p>
+                  <p>建议状态: <Tag color={statusMap[selectedQuota.status].color}>
+                    {statusMap[selectedQuota.status].label}
+                  </Tag></p>
                 </div>
                 {selectedRisk && (
                   <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
@@ -166,12 +178,52 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, onUp
                     <p>风险等级: <Tag color={selectedRisk.riskLevel === 'low' ? 'success' : selectedRisk.riskLevel === 'medium' ? 'warning' : 'error'}>
                       {selectedRisk.riskLevel === 'low' ? '低' : selectedRisk.riskLevel === 'medium' ? '中' : '高'}
                     </Tag></p>
+                    <p>收入验证: {selectedRisk.incomeVerification ? '已验证' : '未验证'}</p>
+                    <p>资产验证: {selectedRisk.assetVerification ? '已验证' : '未验证'}</p>
+                    <p>审核备注: {selectedRisk.reviewNote}</p>
                   </div>
                 )}
                 <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
                   <h4>建议理由</h4>
                   <p>{selectedQuota.reason}</p>
                 </div>
+                {selectedCollectionRecords.length > 0 && (
+                  <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                    <h4>催收记录</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {selectedCollectionRecords.map(record => (
+                        <div key={record.id} style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+                          <p style={{ margin: 0, fontSize: 12 }}>联系时间: {record.contactTime}</p>
+                          <p style={{ margin: 4, fontSize: 12 }}>催收人: {record.collector}</p>
+                          <p style={{ margin: 4, fontSize: 12 }}>联系结果: <Tag color={record.contactResult === 'success' ? 'success' : record.contactResult === 'failed' ? 'error' : 'warning'}>
+                            {record.contactResult === 'success' ? '成功' : record.contactResult === 'failed' ? '失败' : '待跟进'}
+                          </Tag></p>
+                          <p style={{ margin: 4, fontSize: 12 }}>备注: {record.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {selectedWorkflowRecords.length > 0 && (
+                  <div style={{ borderTop: '1px solid #f0f0f0', paddingTop: 16 }}>
+                    <h4>审批流程</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {selectedWorkflowRecords.map(record => (
+                        <div key={record.id} style={{ padding: 8, background: '#fafafa', borderRadius: 4 }}>
+                          <p style={{ margin: 0, fontSize: 12 }}>操作: {record.action}</p>
+                          <p style={{ margin: 4, fontSize: 12 }}>操作人: {record.operator}</p>
+                          <p style={{ margin: 4, fontSize: 12 }}>操作时间: {record.operateTime}</p>
+                          <p style={{ margin: 4, fontSize: 12 }}>状态变更: 
+                            <Tag color={statusMap[record.statusBefore as Status].color}>{statusMap[record.statusBefore as Status].label}</Tag>
+                            <span style={{ margin: '0 4px' }}>→</span>
+                            <Tag color={statusMap[record.statusAfter as Status].color}>{statusMap[record.statusAfter as Status].label}</Tag>
+                          </p>
+                          <p style={{ margin: 4, fontSize: 12 }}>备注: {record.note}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <Empty description="请选择一条额度建议查看详情" />

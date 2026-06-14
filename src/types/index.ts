@@ -5,6 +5,7 @@ export type Status =
   | 'under_review' 
   | 'approved' 
   | 'rejected' 
+  | 'returned'
   | 'supplement' 
   | 'urgent' 
   | 'completed'

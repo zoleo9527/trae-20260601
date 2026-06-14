@@ -81,7 +81,7 @@ export function Applications({ applications, onUpdateStatus }: ApplicationsProps
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 250,
       render: (_: unknown, record: LoanApplication) => (
         <Space>
           <Button size="small" onClick={() => handleStatusChange(record.id, 'urgent', '标记为有人催')}>
@@ -90,8 +90,11 @@ export function Applications({ applications, onUpdateStatus }: ApplicationsProps
           <Button size="small" onClick={() => handleStatusChange(record.id, 'supplement', '要求补材料')}>
             补材料
           </Button>
-          <Button size="small" danger onClick={() => handleStatusChange(record.id, 'rejected', '退回')}>
+          <Button size="small" onClick={() => handleStatusChange(record.id, 'returned', '退回')}>
             退回
+          </Button>
+          <Button size="small" danger onClick={() => handleStatusChange(record.id, 'rejected', '拒绝')}>
+            拒绝
           </Button>
         </Space>
       ),
@@ -129,7 +132,8 @@ export function Applications({ applications, onUpdateStatus }: ApplicationsProps
             options={[
               { value: 'urgent', label: '有人催' },
               { value: 'supplement', label: '补材料' },
-              { value: 'rejected', label: '退回' },
+              { value: 'returned', label: '退回' },
+              { value: 'rejected', label: '拒绝' },
             ]}
           />
           <Input.TextArea
@@ -159,6 +163,7 @@ export function Applications({ applications, onUpdateStatus }: ApplicationsProps
 
   const urgentCount = applications.filter(a => a.status === 'urgent').length
   const supplementCount = applications.filter(a => a.status === 'supplement').length
+  const returnedCount = applications.filter(a => a.status === 'returned').length
   const rejectedCount = applications.filter(a => a.status === 'rejected').length
 
   return (
@@ -169,7 +174,8 @@ export function Applications({ applications, onUpdateStatus }: ApplicationsProps
           <div style={{ display: 'flex', gap: 16 }}>
             <span style={{ color: '#ff4d4f' }}>有人催: {urgentCount}</span>
             <span style={{ color: '#faad14' }}>补材料: {supplementCount}</span>
-            <span style={{ color: '#666' }}>已退回: {rejectedCount}</span>
+            <span style={{ color: '#faad14' }}>已退回: {returnedCount}</span>
+            <span style={{ color: '#ff4d4f' }}>已拒绝: {rejectedCount}</span>
           </div>
         </div>
         {selectedRows.length > 0 && (

@@ -38,11 +38,11 @@ function App() {
       case 'collection':
         return <Collection collectionRecords={collectionRecords} applications={applications} onAddRecord={addCollectionRecord} />
       case 'quota-review':
-        return <QuotaReview quotaSuggestions={quotaSuggestions} applications={applications} riskData={riskData} />
+        return <QuotaReview quotaSuggestions={quotaSuggestions} applications={applications} riskData={riskData} collectionRecords={collectionRecords} workflowRecords={workflowRecords} />
       case 'risk-review':
         return <RiskReview applications={applications} riskData={riskData} onUpdateStatus={updateApplicationStatus} />
       case 'quota-suggestion':
-        return <QuotaSuggestion quotaSuggestions={quotaSuggestions} applications={applications} riskData={riskData} onUpdateQuota={updateQuotaSuggestion} />
+        return <QuotaSuggestion quotaSuggestions={quotaSuggestions} applications={applications} riskData={riskData} collectionRecords={collectionRecords} workflowRecords={workflowRecords} onUpdateQuota={updateQuotaSuggestion} />
       case 'workflow':
         return <Workflow workflowRecords={workflowRecords} applications={applications} />
       case 'statistics':
