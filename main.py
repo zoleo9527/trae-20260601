@@ -665,7 +665,8 @@ async def get_fee_calculation_details(
                     "handler_id": chain.handler_id,
                     "handler_role": chain.handler_role.value,
                     "start_time": chain.start_time.isoformat(),
-                    "end_time": chain.end_time.isoformat() if chain.end_time else None
+                    "end_time": chain.end_time.isoformat() if chain.end_time else None,
+                    "status": chain.status
                 }
                 for chain in details["responsibility_chains"]
             ],

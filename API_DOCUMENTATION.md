@@ -617,7 +617,8 @@ GET /api/fee/details/{calculation_id}
       "handler_id": "string",
       "handler_role": "finance",
       "start_time": "2024-06-14T10:00:00Z",
-      "end_time": "2024-06-14T10:10:00Z"
+      "end_time": "2024-06-14T10:10:00Z",
+      "status": "completed"
     }
   ],
   "audit_trail": [

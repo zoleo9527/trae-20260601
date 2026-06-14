@@ -474,10 +474,10 @@ class UnifiedBusinessService:
         
         self._record_responsibility(
             pawn_item_id=redemption.pawn_item_id,
-            stage=ResponsibilityStage.REDEMPTION_PROCESSING,
-            handler_id=finance_id,
-            handler_role=UserRole.FINANCE,
-            notes=f"财务完成费用计算，total_amount回写: {total_amount}"
+            stage=ResponsibilityStage.WAREHOUSE_CUSTODY,
+            handler_id="warehouse",
+            handler_role=UserRole.WAREHOUSE,
+            notes=f"费用计算完成，责任移交库管"
         )
         
         self._log_state_transition(
