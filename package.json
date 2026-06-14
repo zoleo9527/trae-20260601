@@ -1,0 +1,17 @@
+{
+  "name": "exam-admin-center",
+  "version": "1.0.0",
+  "description": "考务中心-报名审核与准考证生成系统",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "seed": "node scripts/seed.js",
+    "test:errors": "node scripts/test-error-samples.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "uuid": "^10.0.0"
+  }
+}
