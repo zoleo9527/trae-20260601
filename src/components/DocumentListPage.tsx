@@ -8,6 +8,7 @@ import {
   type ConsultationStatus,
   type UserRole,
   type DocumentListItem,
+  type DocumentItem,
 } from '../types';
 import {
   FileCheck,
@@ -29,10 +30,8 @@ import {
   GripVertical,
   AlertCircle,
   Pencil,
-  XCircle,
   Calendar,
   History,
-  AlertOctagon,
   ExternalLink,
 } from 'lucide-react';
 import { formatDateTime, getRoleLabel, getStatusBadgeClass } from '../lib/utils';
@@ -144,13 +143,19 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
   const [selectedDocIds, setSelectedDocIds] = useState<Set<number>>(new Set());
   const [batchStatus, setBatchStatus] = useState<string>('');
   const [docModalOpen, setDocModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<(DocumentListItem & { consultationStatus?: string }) | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerConsultationId, setDrawerConsultationId] = useState<number | null>(null);
+  const [drawerTab, setDrawerTab] = useState<'all' | 'pending' | 'provided' | 'incomplete'>('all');
 
   const handleDocumentEdit = (e: React.MouseEvent, doc: DocumentListItem) => {
     e.stopPropagation();
     setSelectedDoc(doc);
+    setDocModalOpen(true);
+  };
+
+  const handleDrawerDocEdit = (doc: DocumentItem) => {
+    setSelectedDoc(doc as any);
     setDocModalOpen(true);
   };
 
@@ -161,6 +166,7 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
     } else {
       setDrawerConsultationId(doc.consultationId);
       setDrawerOpen(true);
+      setDrawerTab('all');
       loadDetail(doc.consultationId);
     }
   };
@@ -865,6 +871,10 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
         onClose={() => {
           setDocModalOpen(false);
           setSelectedDoc(null);
+          if (drawerOpen && drawerConsultationId) {
+            loadDetail(drawerConsultationId);
+          }
+          loadDocumentList();
         }}
         documentId={selectedDoc?.id || 0}
         documentName={selectedDoc?.itemName || ''}
@@ -1000,7 +1010,7 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
                     资料进度
                   </h4>
                 </div>
-                <div className="p-3">
+                <div className="p-3 pb-2">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs text-gray-500">整体进度</span>
                     <span className="text-sm font-semibold text-gray-900 tabular-nums">
@@ -1008,7 +1018,7 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
                       <span className="text-gray-400 font-normal"> / {currentDetail.documents.length}</span>
                     </span>
                   </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
                     <div
                       className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all"
                       style={{
@@ -1050,39 +1060,103 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
                 </div>
               </div>
 
-              {currentDetail.documents.filter(d => d.incompleteReason).length > 0 && (
-                <div className="bg-white border border-red-200 rounded-lg overflow-hidden">
-                  <div className="px-3 py-2 bg-gradient-to-r from-red-50 to-white border-b border-red-100">
-                    <h4 className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
-                      <AlertOctagon size={14} className="text-red-500" />
-                      未完成原因汇总
-                      <span className="ml-auto text-xs font-normal text-red-500 bg-red-100 px-1.5 py-0.5 rounded-full">
-                        {currentDetail.documents.filter(d => d.incompleteReason).length} 项
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1">
+                  {([
+                    { key: 'all' as const, label: '全部', count: currentDetail.documents.length },
+                    { key: 'pending' as const, label: '待提供', count: currentDetail.documents.filter(d => d.status === '待发起' || d.status === '已要求提供').length },
+                    { key: 'provided' as const, label: '已提供', count: currentDetail.documents.filter(d => d.status === '客户已提供').length },
+                    { key: 'incomplete' as const, label: '不完整', count: currentDetail.documents.filter(d => d.incompleteReason).length },
+                  ]).map(tab => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setDrawerTab(tab.key)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                        drawerTab === tab.key
+                          ? 'bg-blue-600 text-white shadow-sm'
+                          : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                    >
+                      {tab.label}
+                      <span className={`ml-1 tabular-nums ${drawerTab === tab.key ? 'text-blue-200' : 'text-gray-400'}`}>
+                        {tab.count}
                       </span>
-                    </h4>
-                  </div>
-                  <div className="p-2 space-y-1.5 max-h-48 overflow-auto">
-                    {currentDetail.documents
-                      .filter(d => d.incompleteReason)
-                      .map(doc => (
-                        <div key={doc.id} className="flex items-start gap-2 px-2 py-1.5 hover:bg-red-50/50 rounded transition-colors">
-                          <XCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
-                          <div className="min-w-0 flex-1">
-                            <div className="text-xs font-medium text-gray-700 truncate">
-                              {doc.itemName}
-                              {doc.required && (
-                                <span className="text-red-500 ml-1">*</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="max-h-72 overflow-auto">
+                  {(() => {
+                    const filtered = currentDetail.documents.filter(doc => {
+                      if (drawerTab === 'all') return true;
+                      if (drawerTab === 'pending') return doc.status === '待发起' || doc.status === '已要求提供';
+                      if (drawerTab === 'provided') return doc.status === '客户已提供';
+                      if (drawerTab === 'incomplete') return !!doc.incompleteReason;
+                      return true;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="py-8 text-center text-xs text-gray-400">
+                          <CheckCircle size={24} className="mx-auto mb-1.5 text-green-300" />
+                          此分组下无资料项
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="divide-y divide-gray-50">
+                        {filtered.map(doc => {
+                          const isDone = doc.status === '已收到' || doc.status === '已豁免';
+                          const isIncomplete = !!doc.incompleteReason;
+                          return (
+                            <div
+                              key={doc.id}
+                              className={`px-3 py-2 flex items-start gap-2 transition-colors ${
+                                isIncomplete ? 'bg-red-50/40 hover:bg-red-50/70' : isDone ? 'bg-emerald-50/30' : 'hover:bg-gray-50'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className={`text-xs font-medium ${isDone ? 'text-gray-500 line-through' : 'text-gray-800'} truncate`}>
+                                    {doc.itemName}
+                                  </span>
+                                  {doc.required && (
+                                    <span className="text-red-500 text-[10px] font-bold">*</span>
+                                  )}
+                                  <span
+                                    className={`inline-flex items-center px-1.5 py-0 rounded text-[10px] font-medium border ${getStatusBadgeClass(doc.status as ConsultationStatus)}`}
+                                  >
+                                    {doc.status}
+                                  </span>
+                                </div>
+                                {isIncomplete && (
+                                  <p className="text-[11px] text-red-600 mt-0.5 leading-snug">
+                                    {doc.incompleteReason}
+                                  </p>
+                                )}
+                                {doc.remarks && !isIncomplete && (
+                                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                                    {doc.remarks}
+                                  </p>
+                                )}
+                              </div>
+                              {!isDone && (
+                                <button
+                                  onClick={() => handleDrawerDocEdit(doc)}
+                                  className="shrink-0 mt-0.5 px-2 py-1 text-[11px] font-medium text-blue-600 hover:text-white hover:bg-blue-600 bg-blue-50 border border-blue-200 rounded transition-colors"
+                                >
+                                  处理
+                                </button>
                               )}
                             </div>
-                            <div className="text-xs text-red-600 mt-0.5">
-                              {doc.incompleteReason}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
-              )}
+              </div>
 
               <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
                 <div className="px-3 py-2 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
