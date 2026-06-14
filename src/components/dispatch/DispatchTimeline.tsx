@@ -62,11 +62,11 @@ export default function DispatchTimeline({ caseData }: Props) {
         icon: STEP_ICONS.signature,
         done: !!dispatch?.receiverIdCard,
         time: dispatch?.pickupDate,
-        operator: dispatch?.receiver || '签收人',
+        operator: '王发放',
         role: 'receptionist' as const,
         desc: dispatch?.receiverIdCard
-          ? `签收人：${dispatch.receiver}（${dispatch.receiverIdCard}）`
-          : '核验领取人身份并登记签收',
+          ? `办理签收登记，签收人：${dispatch.receiver}（${dispatch.receiverIdCard}）`
+          : '核验领取人身份并登记签收信息',
       },
       {
         key: 'archive',

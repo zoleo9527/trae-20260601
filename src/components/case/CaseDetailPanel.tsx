@@ -41,7 +41,7 @@ export default function CaseDetailPanel() {
       else if (caseData.corrections.length > 0) setTab('corrections');
       else setTab('overview');
     }
-  }, [caseData?.currentStage]);
+  }, [caseId, caseData?.currentStage]);
 
   useEffect(() => {
     return () => {
