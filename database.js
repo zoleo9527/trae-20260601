@@ -1,178 +1,175 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
 
 const dbPath = path.join(__dirname, 'data', 'training.db');
-const db = new sqlite3.Database(dbPath);
+const db = new Database(dbPath);
 
 db.initialize = function() {
-  db.serialize(() => {
-    db.run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username VARCHAR(50) NOT NULL UNIQUE,
-        name VARCHAR(100) NOT NULL,
-        role VARCHAR(50) NOT NULL CHECK(role IN ('training_manager', 'department_head', 'instructor', 'employee')),
-        department VARCHAR(100),
-        email VARCHAR(100),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username VARCHAR(50) NOT NULL UNIQUE,
+      name VARCHAR(100) NOT NULL,
+      role VARCHAR(50) NOT NULL CHECK(role IN ('training_manager', 'department_head', 'instructor', 'employee')),
+      department VARCHAR(100),
+      email VARCHAR(100),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS training_projects (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name VARCHAR(200) NOT NULL,
-        type VARCHAR(20) NOT NULL CHECK(type IN ('required', 'elective')),
-        format VARCHAR(20) NOT NULL CHECK(format IN ('online', 'offline', 'hybrid')),
-        instructor_id INTEGER REFERENCES users(id),
-        instructor_name VARCHAR(100),
-        start_date DATE NOT NULL,
-        end_date DATE NOT NULL,
-        status VARCHAR(30) NOT NULL CHECK(status IN ('planning', 'registration', 'in_progress', 'completed', 'cancelled')),
-        max_participants INTEGER DEFAULT 50,
-        description TEXT,
-        created_by INTEGER REFERENCES users(id),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS training_projects (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name VARCHAR(200) NOT NULL,
+      type VARCHAR(20) NOT NULL CHECK(type IN ('required', 'elective')),
+      format VARCHAR(20) NOT NULL CHECK(format IN ('online', 'offline', 'hybrid')),
+      instructor_id INTEGER REFERENCES users(id),
+      instructor_name VARCHAR(100),
+      start_date DATE NOT NULL,
+      end_date DATE NOT NULL,
+      status VARCHAR(30) NOT NULL CHECK(status IN ('planning', 'registration', 'in_progress', 'completed', 'cancelled')),
+      max_participants INTEGER DEFAULT 50,
+      description TEXT,
+      created_by INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS training_registrations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER REFERENCES training_projects(id),
-        user_id INTEGER REFERENCES users(id),
-        user_name VARCHAR(100),
-        user_department VARCHAR(100),
-        status VARCHAR(20) NOT NULL CHECK(status IN ('registered', 'attended', 'absent', 'cancelled', 'replaced')),
-        absence_reason TEXT,
-        check_in_time DATETIME,
-        check_out_time DATETIME,
-        remarks TEXT,
-        registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS training_registrations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER REFERENCES training_projects(id),
+      user_id INTEGER REFERENCES users(id),
+      user_name VARCHAR(100),
+      user_department VARCHAR(100),
+      status VARCHAR(20) NOT NULL CHECK(status IN ('registered', 'attended', 'absent', 'cancelled', 'replaced')),
+      absence_reason TEXT,
+      check_in_time DATETIME,
+      check_out_time DATETIME,
+      remarks TEXT,
+      registered_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS certificates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        certificate_number VARCHAR(50) UNIQUE NOT NULL,
-        project_id INTEGER REFERENCES training_projects(id),
-        project_name VARCHAR(200),
-        user_id INTEGER REFERENCES users(id),
-        user_name VARCHAR(100),
-        user_department VARCHAR(100),
-        status VARCHAR(30) NOT NULL CHECK(status IN ('pending', 'creating', 'pending_review', 'needs_correction', 'approved', 'issued', 'cancelled', 'revoked')),
-        issue_date DATE,
-        correction_reason TEXT,
-        revoke_reason TEXT,
-        created_by INTEGER REFERENCES users(id),
-        issued_by INTEGER REFERENCES users(id),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS certificates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      certificate_number VARCHAR(50) UNIQUE NOT NULL,
+      project_id INTEGER REFERENCES training_projects(id),
+      project_name VARCHAR(200),
+      user_id INTEGER REFERENCES users(id),
+      user_name VARCHAR(100),
+      user_department VARCHAR(100),
+      status VARCHAR(30) NOT NULL CHECK(status IN ('pending', 'creating', 'pending_review', 'needs_correction', 'approved', 'issued', 'cancelled', 'revoked')),
+      issue_date DATE,
+      correction_reason TEXT,
+      revoke_reason TEXT,
+      created_by INTEGER REFERENCES users(id),
+      issued_by INTEGER REFERENCES users(id),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS certificate_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        certificate_id INTEGER REFERENCES certificates(id),
-        action VARCHAR(50) NOT NULL,
-        from_status VARCHAR(50),
-        to_status VARCHAR(50),
-        operator_id INTEGER REFERENCES users(id),
-        operator_name VARCHAR(100),
-        remark TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS certificate_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      certificate_id INTEGER REFERENCES certificates(id),
+      action VARCHAR(50) NOT NULL,
+      from_status VARCHAR(50),
+      to_status VARCHAR(50),
+      operator_id INTEGER REFERENCES users(id),
+      operator_name VARCHAR(100),
+      remark TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS homework_submissions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER REFERENCES training_projects(id),
-        user_id INTEGER REFERENCES users(id),
-        user_name VARCHAR(100),
-        status VARCHAR(20) NOT NULL CHECK(status IN ('not_submitted', 'submitted', 'late', 'graded')),
-        submission_date DATETIME,
-        grade DECIMAL(5,2),
-        remarks TEXT
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS homework_submissions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER REFERENCES training_projects(id),
+      user_id INTEGER REFERENCES users(id),
+      user_name VARCHAR(100),
+      status VARCHAR(20) NOT NULL CHECK(status IN ('not_submitted', 'submitted', 'late', 'graded')),
+      submission_date DATETIME,
+      grade DECIMAL(5,2),
+      remarks TEXT
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS effect_evaluations (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        project_id INTEGER REFERENCES training_projects(id),
-        project_name VARCHAR(200),
-        satisfaction_score DECIMAL(3,2),
-        completion_rate DECIMAL(5,2),
-        pass_rate DECIMAL(5,2),
-        issuance_rate DECIMAL(5,2),
-        behavior_change_score DECIMAL(3,2),
-        performance_improvement DECIMAL(5,2),
-        report_status VARCHAR(20) NOT NULL CHECK(report_status IN ('draft', 'published', 'frozen')),
-        frozen_reason TEXT,
-        published_at DATETIME,
-        last_recalculated_at DATETIME,
-        recalculate_trigger TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS effect_evaluations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER REFERENCES training_projects(id),
+      project_name VARCHAR(200),
+      satisfaction_score DECIMAL(3,2),
+      completion_rate DECIMAL(5,2),
+      pass_rate DECIMAL(5,2),
+      issuance_rate DECIMAL(5,2),
+      behavior_change_score DECIMAL(3,2),
+      performance_improvement DECIMAL(5,2),
+      report_status VARCHAR(20) NOT NULL CHECK(report_status IN ('draft', 'published', 'frozen')),
+      frozen_reason TEXT,
+      published_at DATETIME,
+      last_recalculated_at DATETIME,
+      recalculate_trigger TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS exceptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exception_number VARCHAR(50) UNIQUE,
-        type VARCHAR(50) NOT NULL CHECK(type IN ('registration_absent', 'homework_not_submitted', 'certificate_error', 'certificate_duplicate', 'certificate_missed')),
-        project_id INTEGER REFERENCES training_projects(id),
-        project_name VARCHAR(200),
-        related_id INTEGER,
-        related_type VARCHAR(50),
-        description TEXT,
-        status VARCHAR(20) NOT NULL CHECK(status IN ('discovered', 'assigned', 'processing', 'resolved', 'closed')),
-        priority VARCHAR(10) DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'urgent')),
-        discovered_by INTEGER REFERENCES users(id),
-        discovered_by_name VARCHAR(100),
-        assigned_to INTEGER REFERENCES users(id),
-        assigned_to_name VARCHAR(100),
-        resolution TEXT,
-        resolved_by INTEGER REFERENCES users(id),
-        resolved_by_name VARCHAR(100),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        resolved_at DATETIME
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exceptions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exception_number VARCHAR(50) UNIQUE,
+      type VARCHAR(50) NOT NULL CHECK(type IN ('registration_absent', 'homework_not_submitted', 'certificate_error', 'certificate_duplicate', 'certificate_missed')),
+      project_id INTEGER REFERENCES training_projects(id),
+      project_name VARCHAR(200),
+      related_id INTEGER,
+      related_type VARCHAR(50),
+      description TEXT,
+      status VARCHAR(20) NOT NULL CHECK(status IN ('discovered', 'assigned', 'processing', 'resolved', 'closed')),
+      priority VARCHAR(10) DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high', 'urgent')),
+      discovered_by INTEGER REFERENCES users(id),
+      discovered_by_name VARCHAR(100),
+      assigned_to INTEGER REFERENCES users(id),
+      assigned_to_name VARCHAR(100),
+      resolution TEXT,
+      resolved_by INTEGER REFERENCES users(id),
+      resolved_by_name VARCHAR(100),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      resolved_at DATETIME
+    )
+  `);
 
-    db.run(`
-      CREATE TABLE IF NOT EXISTS exception_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        exception_id INTEGER REFERENCES exceptions(id),
-        action VARCHAR(50) NOT NULL,
-        operator_id INTEGER REFERENCES users(id),
-        operator_name VARCHAR(100),
-        remark TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS exception_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      exception_id INTEGER REFERENCES exceptions(id),
+      action VARCHAR(50) NOT NULL,
+      operator_id INTEGER REFERENCES users(id),
+      operator_name VARCHAR(100),
+      remark TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 
-    db.get("SELECT COUNT(*) as count FROM users", (err, row) => {
-      if (err) {
-        console.error('检查用户数量失败:', err);
-        return;
-      }
-      console.log('当前用户数量:', row.count);
-      if (row.count === 0) {
-        console.log('开始初始化示例数据...');
-        seedData();
-        console.log('示例数据初始化完成');
-      }
-    });
-  });
+  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get();
+  console.log('当前用户数量:', userCount.count);
+  
+  if (userCount.count === 0) {
+    console.log('开始初始化示例数据...');
+    seedData();
+    console.log('示例数据初始化完成');
+  }
 };
 
 function seedData() {
   console.log('seedData 函数被调用');
+  
+  const insertUser = db.prepare("INSERT INTO users (username, name, role, department, email) VALUES (?, ?, ?, ?, ?)");
+  
   const users = [
     { username: 'wangfang', name: '王芳', role: 'training_manager', department: '培训部', email: 'wangfang@company.com' },
     { username: 'zhaoli', name: '赵丽', role: 'department_head', department: '技术部', email: 'zhaoli@company.com' },
@@ -214,11 +211,14 @@ function seedData() {
     { username: 'limin', name: '李敏', role: 'employee', department: '技术部', email: 'limin@company.com' }
   ];
 
-  users.forEach(user => {
-    db.prepare("INSERT INTO users (username, name, role, department, email) VALUES (?, ?, ?, ?, ?)").run(
-      user.username, user.name, user.role, user.department, user.email
-    );
-  });
+  for (const user of users) {
+    insertUser.run(user.username, user.name, user.role, user.department, user.email);
+  }
+
+  const insertProject = db.prepare(`
+    INSERT INTO training_projects (name, type, format, instructor_id, instructor_name, start_date, end_date, status, max_participants, description, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
   const projects = [
     {
@@ -259,15 +259,17 @@ function seedData() {
     }
   ];
 
-  projects.forEach(project => {
-    db.prepare(`
-      INSERT INTO training_projects (name, type, format, instructor_id, instructor_name, start_date, end_date, status, max_participants, description, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+  for (const project of projects) {
+    insertProject.run(
       project.name, project.type, project.format, project.instructor_id, project.instructor_name,
       project.start_date, project.end_date, project.status, project.max_participants, project.description, 1
     );
-  });
+  }
+
+  const insertReg1 = db.prepare(`
+    INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time)
+    VALUES (1, ?, ?, ?, ?, ?, datetime('2024-01-10 09:00:00'))
+  `);
 
   const registrations1 = [
     { user_id: 10, user_name: '张伟', user_department: '技术部', status: 'attended' },
@@ -287,40 +289,44 @@ function seedData() {
     { user_id: 24, user_name: '胡云', user_department: '财务部', status: 'attended' }
   ];
 
-  registrations1.forEach(reg => {
-    db.prepare(`
-      INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time)
-      VALUES (1, ?, ?, ?, ?, ?, datetime('2024-01-10 09:00:00'))
-    `).run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null);
-  });
+  for (const reg of registrations1) {
+    insertReg1.run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null);
+  }
+
+  const insertReg2 = db.prepare(`
+    INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time, remarks)
+    VALUES (2, ?, ?, ?, ?, ?, datetime('2024-01-20 09:00:00'), ?)
+  `);
 
   const registrations2 = [
-    { user_id: 25, user_name: '张华', user_department: '技术部', status: 'attended' },
-    { user_id: 26, user_name: '李娜', user_department: '市场部', status: 'attended' },
-    { user_id: 27, user_name: '王磊', user_department: '技术部', status: 'cancelled', absence_reason: '项目紧急取消' },
-    { user_id: 28, user_name: '赵雪', user_department: '财务部', status: 'attended' },
-    { user_id: 29, user_name: '孙超', user_department: '市场部', status: 'attended' },
-    { user_id: 30, user_name: '周琳', user_department: '技术部', status: 'attended' },
-    { user_id: 31, user_name: '吴昊', user_department: '财务部', status: 'attended' },
-    { user_id: 32, user_name: '郑健', user_department: '市场部', status: 'attended', check_in_time: '2024-01-20 09:30:00', remarks: '迟到30分钟' },
-    { user_id: 33, user_name: '杨帆', user_department: '技术部', status: 'attended' },
-    { user_id: 34, user_name: '林静', user_department: '财务部', status: 'attended' },
-    { user_id: 35, user_name: '黄勇', user_department: '市场部', status: 'attended' },
-    { user_id: 36, user_name: '徐敏', user_department: '技术部', status: 'attended' },
-    { user_id: 37, user_name: '马超', user_department: '财务部', status: 'attended' },
-    { user_id: 38, user_name: '朱莉', user_department: '市场部', status: 'attended' },
-    { user_id: 39, user_name: '胡涛', user_department: '技术部', status: 'attended' },
-    { user_id: 40, user_name: '马丽', user_department: '财务部', status: 'attended' },
-    { user_id: 41, user_name: '张力', user_department: '市场部', status: 'attended' },
-    { user_id: 42, user_name: '李敏', user_department: '技术部', status: 'attended' }
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'attended' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'attended' },
+    { user_id: 23, user_name: '王磊', user_department: '技术部', status: 'cancelled', absence_reason: '项目紧急取消' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'attended' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'attended' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'attended' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'attended' },
+    { user_id: 28, user_name: '郑健', user_department: '市场部', status: 'attended', remarks: '迟到30分钟' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'attended' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'attended' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'attended' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'attended' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'attended' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'attended' },
+    { user_id: 35, user_name: '胡涛', user_department: '技术部', status: 'attended' },
+    { user_id: 36, user_name: '马丽', user_department: '财务部', status: 'attended' },
+    { user_id: 37, user_name: '张力', user_department: '市场部', status: 'attended' },
+    { user_id: 38, user_name: '李敏', user_department: '技术部', status: 'attended' }
   ];
 
-  registrations2.forEach(reg => {
-    db.prepare(`
-      INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time, remarks)
-      VALUES (2, ?, ?, ?, ?, ?, datetime('2024-01-20 09:00:00'), ?)
-    `).run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null, reg.remarks || null);
-  });
+  for (const reg of registrations2) {
+    insertReg2.run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null, reg.remarks || null);
+  }
+
+  const insertCert1 = db.prepare(`
+    INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, issue_date, created_by, issued_by)
+    VALUES (?, 1, '新员工入职培训', ?, ?, ?, ?, ?, 1, 1)
+  `);
 
   const certificates1 = [
     { user_id: 10, user_name: '张伟', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
@@ -337,72 +343,85 @@ function seedData() {
     { user_id: 24, user_name: '胡云', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' }
   ];
 
-  certificates1.forEach((cert, index) => {
+  const insertCertHistory = db.prepare(`
+    INSERT INTO certificate_history (certificate_id, action, to_status, from_status, operator_id, operator_name, remark, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (let index = 0; index < certificates1.length; index++) {
+    const cert = certificates1[index];
     const certNum = `CERT-2024-${String(index + 1).padStart(4, '0')}`;
-    db.prepare(`
-      INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, issue_date, created_by, issued_by)
-      VALUES (?, 1, '新员工入职培训', ?, ?, ?, ?, ?, 1, 1)
-    `).run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.issue_date);
+    insertCert1.run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.issue_date);
 
     const certId = db.prepare("SELECT last_insert_rowid() as id").get().id;
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'auto_generated', 'pending', 1, '系统', '培训完成，系统自动生成待发放记录', datetime('2024-01-13 16:00:00'))`).run(certId);
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'created', 'pending', 'creating', 3, '李明', '开始制作证书，检查姓名和身份证信息一致性', datetime('2024-01-13 09:30:00'))`).run(certId);
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'submitted', 'creating', 'pending_review', 3, '李明', '证书制作完成，照片已添加，提交培训经理王芳审核', datetime('2024-01-14 14:20:00'))`).run(certId);
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'approved', 'pending_review', 'issued', 1, '王芳', '审核通过，证书信息与培训记录一致，已发放', datetime('2024-01-15 11:00:00'))`).run(certId);
-  });
+    insertCertHistory.run(certId, 'auto_generated', 'pending', null, 1, '系统', '培训完成，系统自动生成待发放记录', '2024-01-13 16:00:00');
+    insertCertHistory.run(certId, 'created', 'creating', 'pending', 3, '李明', '开始制作证书，检查姓名和身份证信息一致性', '2024-01-13 09:30:00');
+    insertCertHistory.run(certId, 'submitted', 'pending_review', 'creating', 3, '李明', '证书制作完成，照片已添加，提交培训经理王芳审核', '2024-01-14 14:20:00');
+    insertCertHistory.run(certId, 'approved', 'issued', 'pending_review', 1, '王芳', '审核通过，证书信息与培训记录一致，已发放', '2024-01-15 11:00:00');
+  }
+
+  const insertCert2 = db.prepare(`
+    INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, correction_reason, created_by)
+    VALUES (?, 2, '中层管理能力提升', ?, ?, ?, ?, ?, 5)
+  `);
 
   const certificates2 = [
-    { user_id: 25, user_name: '张华', user_department: '技术部', status: 'pending' },
-    { user_id: 26, user_name: '李娜', user_department: '市场部', status: 'pending' },
-    { user_id: 28, user_name: '赵雪', user_department: '财务部', status: 'pending' },
-    { user_id: 29, user_name: '孙超', user_department: '市场部', status: 'pending' },
-    { user_id: 30, user_name: '周琳', user_department: '技术部', status: 'pending' },
-    { user_id: 31, user_name: '吴昊', user_department: '财务部', status: 'needs_correction', correction_reason: '证书姓名与身份证不符' },
-    { user_id: 33, user_name: '杨帆', user_department: '技术部', status: 'pending' },
-    { user_id: 34, user_name: '林静', user_department: '财务部', status: 'pending' },
-    { user_id: 35, user_name: '黄勇', user_department: '市场部', status: 'pending' },
-    { user_id: 36, user_name: '徐敏', user_department: '技术部', status: 'pending' },
-    { user_id: 37, user_name: '马超', user_department: '财务部', status: 'pending' },
-    { user_id: 38, user_name: '朱莉', user_department: '市场部', status: 'pending' },
-    { user_id: 39, user_name: '胡涛', user_department: '技术部', status: 'pending' },
-    { user_id: 40, user_name: '马丽', user_department: '财务部', status: 'pending' },
-    { user_id: 41, user_name: '张力', user_department: '市场部', status: 'pending' },
-    { user_id: 42, user_name: '李敏', user_department: '技术部', status: 'pending' }
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'pending' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'pending' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'pending' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'pending' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'pending' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'needs_correction', correction_reason: '证书姓名与身份证不符' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'pending' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'pending' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'pending' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'pending' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'pending' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'pending' },
+    { user_id: 35, user_name: '胡涛', user_department: '技术部', status: 'pending' },
+    { user_id: 36, user_name: '马丽', user_department: '财务部', status: 'pending' },
+    { user_id: 37, user_name: '张力', user_department: '市场部', status: 'pending' },
+    { user_id: 38, user_name: '李敏', user_department: '技术部', status: 'pending' }
   ];
 
-  certificates2.forEach((cert, index) => {
+  for (let index = 0; index < certificates2.length; index++) {
+    const cert = certificates2[index];
     const certNum = `CERT-2024-${String(index + 13).padStart(4, '0')}`;
-    db.prepare(`
-      INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, correction_reason, created_by)
-      VALUES (?, 2, '中层管理能力提升', ?, ?, ?, ?, ?, 5)
-    `).run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.correction_reason || null);
+    insertCert2.run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.correction_reason || null);
 
     const certId = db.prepare("SELECT last_insert_rowid() as id").get().id;
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'auto_generated', 'pending', 1, '系统', '系统自动生成待发放记录', datetime('2024-01-26 09:00:00'))`).run(certId);
+    insertCertHistory.run(certId, 'auto_generated', 'pending', null, 1, '系统', '系统自动生成待发放记录', '2024-01-26 09:00:00');
 
     if (cert.status === 'needs_correction') {
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'created', 'pending', 'creating', 5, '孙梅', '证书制作中', datetime('2024-01-26 10:30:00'))`).run(certId);
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'submitted', 'creating', 'pending_review', 5, '孙梅', '证书已制作完成，提交审核', datetime('2024-01-26 15:00:00'))`).run(certId);
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'info_error_detected', 'pending_review', 'needs_correction', 1, '王芳', '员工姓名错写，需要修正', datetime('2024-01-26 16:30:00'))`).run(certId);
-    }
-  });
-
-  const homeworks = [];
-  for (let i = 25; i <= 42; i++) {
-    if (i !== 27) {
-      const statuses = ['submitted', 'late', 'not_submitted', 'graded'];
-      const status = [28, 30, 32, 33, 36, 39].includes(i) ? 'late' :
-                     [31, 34, 37, 40, 41].includes(i) ? 'not_submitted' : 'submitted';
-      homeworks.push({ project_id: 2, user_id: i, status, submission_date: status === 'late' ? '2024-01-27 23:59:00' : '2024-01-26 18:00:00' });
+      insertCertHistory.run(certId, 'created', 'creating', 'pending', 5, '孙梅', '证书制作中', '2024-01-26 10:30:00');
+      insertCertHistory.run(certId, 'submitted', 'pending_review', 'creating', 5, '孙梅', '证书已制作完成，提交审核', '2024-01-26 15:00:00');
+      insertCertHistory.run(certId, 'info_error_detected', 'needs_correction', 'pending_review', 1, '王芳', '员工姓名错写，需要修正', '2024-01-26 16:30:00');
     }
   }
 
-  homeworks.forEach(hw => {
-    db.prepare(`
-      INSERT INTO homework_submissions (project_id, user_id, user_name, status, submission_date)
-      SELECT ?, ?, name, ?, ? FROM users WHERE id = ?
-    `).run(hw.project_id, hw.user_id, hw.status, hw.submission_date, hw.user_id);
-  });
+  const insertHw = db.prepare(`
+    INSERT INTO homework_submissions (project_id, user_id, user_name, status, submission_date)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const homeworks = [];
+  for (let i = 21; i <= 38; i++) {
+    if (i !== 23) {
+      const status = [24, 26, 28, 29, 32, 35].includes(i) ? 'late' :
+                     [27, 30, 33, 36, 37].includes(i) ? 'not_submitted' : 'submitted';
+      const userName = db.prepare("SELECT name FROM users WHERE id = ?").get(i)?.name || '未知';
+      homeworks.push({ project_id: 2, user_id: i, user_name: userName, status, submission_date: status === 'late' ? '2024-01-27 23:59:00' : '2024-01-26 18:00:00' });
+    }
+  }
+
+  for (const hw of homeworks) {
+    insertHw.run(hw.project_id, hw.user_id, hw.user_name, hw.status, hw.submission_date);
+  }
+
+  const insertEval = db.prepare(`
+    INSERT INTO effect_evaluations (project_id, project_name, satisfaction_score, completion_rate, pass_rate, issuance_rate, report_status, frozen_reason, published_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
 
   const evaluations = [
     {
@@ -438,12 +457,19 @@ function seedData() {
     }
   ];
 
-  evaluations.forEach(eval => {
-    db.prepare(`
-      INSERT INTO effect_evaluations (project_id, project_name, satisfaction_score, completion_rate, pass_rate, issuance_rate, report_status, frozen_reason, published_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(eval.project_id, eval.project_name, eval.satisfaction_score, eval.completion_rate, eval.pass_rate, eval.issuance_rate, eval.report_status, eval.frozen_reason || null, eval.published_at);
-  });
+  for (const eval of evaluations) {
+    insertEval.run(eval.project_id, eval.project_name, eval.satisfaction_score, eval.completion_rate, eval.pass_rate, eval.issuance_rate, eval.report_status, eval.frozen_reason || null, eval.published_at);
+  }
+
+  const insertExc = db.prepare(`
+    INSERT INTO exceptions (exception_number, type, project_id, project_name, description, status, priority, discovered_by, discovered_by_name, assigned_to, assigned_to_name, resolution, resolved_by, resolved_by_name, resolved_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const insertExcHistory = db.prepare(`
+    INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `);
 
   const exceptions = [
     {
@@ -552,11 +578,8 @@ function seedData() {
     }
   ];
 
-  exceptions.forEach(exc => {
-    db.prepare(`
-      INSERT INTO exceptions (exception_number, type, project_id, project_name, description, status, priority, discovered_by, discovered_by_name, assigned_to, assigned_to_name, resolution, resolved_by, resolved_by_name, resolved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+  for (const exc of exceptions) {
+    insertExc.run(
       exc.exception_number, exc.type, exc.project_id, exc.project_name, exc.description,
       exc.status, exc.priority, exc.discovered_by, exc.discovered_by_name,
       exc.assigned_to || null, exc.assigned_to_name || null,
@@ -566,36 +589,27 @@ function seedData() {
     const excId = db.prepare("SELECT last_insert_rowid() as id").get().id;
 
     if (exc.history && exc.history.length > 0) {
-      exc.history.forEach(h => {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, ?, ?, ?, ?, ?)`).run(excId, h.action, h.operator_id, h.operator_name, h.remark, h.time);
-      });
-    } else {
-      db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'discovered', ?, ?, '异常被标记', datetime('now', '-2 days'))`).run(excId, exc.discovered_by, exc.discovered_by_name);
-
-      if (exc.assigned_to) {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'assigned', ?, ?, '已分配处理人', datetime('now', '-1 days'))`).run(excId, exc.discovered_by, exc.discovered_by_name);
-      }
-
-      if (exc.status === 'processing') {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'processing_started', ?, ?, '开始处理', datetime('now', '-12 hours'))`).run(excId, exc.assigned_to, exc.assigned_to_name);
-      }
-
-      if (exc.status === 'resolved') {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'resolved', ?, ?, ?, datetime('now', '-6 hours'))`).run(excId, exc.resolved_by, exc.resolved_by_name, exc.resolution);
+      for (const h of exc.history) {
+        insertExcHistory.run(excId, h.action, h.operator_id, h.operator_name, h.remark, h.time);
       }
     }
-  });
+  }
+
+  const insertReg3 = db.prepare(`
+    INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time)
+    VALUES (3, ?, ?, ?, ?, ?, datetime('2024-01-28 09:00:00'))
+  `);
 
   const registrations3 = [
-    { user_id: 6, user_name: '赵强', user_department: '技术部', status: 'absent', absence_reason: '无故缺席' },
-    { user_id: 7, user_name: '钱琳', user_department: '市场部', status: 'absent', absence_reason: '无故缺席' },
-    { user_id: 8, user_name: '孙伟', user_department: '技术部', status: 'attended' },
-    { user_id: 9, user_name: '周婷', user_department: '财务部', status: 'attended' },
-    { user_id: 10, user_name: '吴军', user_department: '技术部', status: 'attended' },
-    { user_id: 11, user_name: '郑浩', user_department: '市场部', status: 'attended' },
-    { user_id: 12, user_name: '陈晨', user_department: '技术部', status: 'attended' },
-    { user_id: 13, user_name: '刘洋', user_department: '财务部', status: 'attended' },
-    { user_id: 14, user_name: '杨明', user_department: '技术部', status: 'attended' },
+    { user_id: 6, user_name: '张伟', user_department: '技术部', status: 'absent', absence_reason: '无故缺席' },
+    { user_id: 7, user_name: '刘芳', user_department: '市场部', status: 'absent', absence_reason: '无故缺席' },
+    { user_id: 8, user_name: '王强', user_department: '技术部', status: 'attended' },
+    { user_id: 9, user_name: '赵敏', user_department: '财务部', status: 'attended' },
+    { user_id: 10, user_name: '孙磊', user_department: '技术部', status: 'attended' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'attended' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'attended' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'attended' },
+    { user_id: 14, user_name: '杨洋', user_department: '技术部', status: 'attended' },
     { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'attended' },
     { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'attended' },
     { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'attended' },
@@ -618,21 +632,23 @@ function seedData() {
     { user_id: 34, user_name: '高建', user_department: '技术部', status: 'attended' }
   ];
 
-  registrations3.forEach(reg => {
-    db.prepare(`
-      INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time)
-      VALUES (3, ?, ?, ?, ?, ?, datetime('2024-01-28 09:00:00'))
-    `).run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null);
-  });
+  for (const reg of registrations3) {
+    insertReg3.run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null);
+  }
+
+  const insertCert3 = db.prepare(`
+    INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, correction_reason, created_by)
+    VALUES (?, 3, '技术技能认证培训', ?, ?, ?, ?, ?, 3)
+  `);
 
   const certificates3 = [
-    { user_id: 8, user_name: '孙伟', user_department: '技术部', status: 'pending' },
-    { user_id: 9, user_name: '周婷', user_department: '财务部', status: 'pending' },
-    { user_id: 10, user_name: '吴军', user_department: '技术部', status: 'pending' },
-    { user_id: 11, user_name: '郑浩', user_department: '市场部', status: 'pending' },
-    { user_id: 12, user_name: '陈晨', user_department: '技术部', status: 'pending' },
-    { user_id: 13, user_name: '刘洋', user_department: '财务部', status: 'pending' },
-    { user_id: 14, user_name: '杨明', user_department: '技术部', status: 'pending' },
+    { user_id: 8, user_name: '王强', user_department: '技术部', status: 'pending' },
+    { user_id: 9, user_name: '赵敏', user_department: '财务部', status: 'pending' },
+    { user_id: 10, user_name: '孙磊', user_department: '技术部', status: 'pending' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'pending' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'pending' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'pending' },
+    { user_id: 14, user_name: '杨洋', user_department: '技术部', status: 'pending' },
     { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'pending' },
     { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'pending' },
     { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'pending' },
@@ -655,39 +671,33 @@ function seedData() {
     { user_id: 34, user_name: '高建', user_department: '技术部', status: 'pending' }
   ];
 
-  certificates3.forEach((cert, index) => {
+  for (let index = 0; index < certificates3.length; index++) {
+    const cert = certificates3[index];
     const certNum = `CERT-2024-${String(index + 30).padStart(4, '0')}`;
-    db.prepare(`
-      INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, correction_reason, created_by)
-      VALUES (?, 3, '技术技能认证培训', ?, ?, ?, ?, ?, 3)
-    `).run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.correction_reason || null);
+    insertCert3.run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.correction_reason || null);
 
     const certId = db.prepare("SELECT last_insert_rowid() as id").get().id;
-    db.prepare(`INSERT INTO certificate_history (certificate_id, action, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'auto_generated', 'pending', 1, '系统', '系统自动生成待发放记录', datetime('2024-01-31 09:00:00'))`).run(certId);
+    insertCertHistory.run(certId, 'auto_generated', 'pending', null, 1, '系统', '系统自动生成待发放记录', '2024-01-31 09:00:00');
 
     if (cert.status === 'needs_correction') {
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'created', 'pending', 'creating', 3, '李明', '开始制作证书', datetime('2024-01-31 10:30:00'))`).run(certId);
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'submitted', 'creating', 'pending_review', 3, '李明', '证书制作完成，提交审核', datetime('2024-01-31 16:00:00'))`).run(certId);
-      db.prepare(`INSERT INTO certificate_history (certificate_id, action, from_status, to_status, operator_id, operator_name, remark, created_at) VALUES (?, 'info_error_detected', 'pending_review', 'needs_correction', 1, '王芳', ?, datetime('2024-02-01 09:30:00'))`).run(certId, cert.correction_reason);
+      insertCertHistory.run(certId, 'created', 'creating', 'pending', 3, '李明', '开始制作证书', '2024-01-31 10:30:00');
+      insertCertHistory.run(certId, 'submitted', 'pending_review', 'creating', 3, '李明', '证书制作完成，提交审核', '2024-01-31 16:00:00');
+      insertCertHistory.run(certId, 'info_error_detected', 'needs_correction', 'pending_review', 1, '王芳', cert.correction_reason, '2024-02-01 09:30:00');
     }
-  });
+  }
 
   const homeworks3 = [];
   for (let i = 8; i <= 34; i++) {
     if (i !== 6 && i !== 7) {
-      const statuses = ['submitted', 'late', 'not_submitted'];
-      const status = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34].includes(i) ? 'late' :
-                     [8, 9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33].includes(i) ? 'submitted' : 'not_submitted';
-      homeworks3.push({ project_id: 3, user_id: i, status, submission_date: status === 'late' ? '2024-01-31 23:59:00' : '2024-01-30 18:00:00' });
+      const status = [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34].includes(i) ? 'late' : 'submitted';
+      const userName = db.prepare("SELECT name FROM users WHERE id = ?").get(i)?.name || '未知';
+      homeworks3.push({ project_id: 3, user_id: i, user_name: userName, status, submission_date: status === 'late' ? '2024-01-31 23:59:00' : '2024-01-30 18:00:00' });
     }
   }
 
-  homeworks3.forEach(hw => {
-    db.prepare(`
-      INSERT INTO homework_submissions (project_id, user_id, user_name, status, submission_date)
-      SELECT ?, ?, name, ?, ? FROM users WHERE id = ?
-    `).run(hw.project_id, hw.user_id, hw.status, hw.submission_date, hw.user_id);
-  });
+  for (const hw of homeworks3) {
+    insertHw.run(hw.project_id, hw.user_id, hw.user_name, hw.status, hw.submission_date);
+  }
 
   const additionalExceptions = [
     {
@@ -723,11 +733,8 @@ function seedData() {
     }
   ];
 
-  additionalExceptions.forEach(exc => {
-    db.prepare(`
-      INSERT INTO exceptions (exception_number, type, project_id, project_name, description, status, priority, discovered_by, discovered_by_name, assigned_to, assigned_to_name, resolution, resolved_by, resolved_by_name, resolved_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+  for (const exc of additionalExceptions) {
+    insertExc.run(
       exc.exception_number, exc.type, exc.project_id, exc.project_name, exc.description,
       exc.status, exc.priority, exc.discovered_by, exc.discovered_by_name,
       exc.assigned_to || null, exc.assigned_to_name || null,
@@ -737,17 +744,11 @@ function seedData() {
     const excId = db.prepare("SELECT last_insert_rowid() as id").get().id;
 
     if (exc.history && exc.history.length > 0) {
-      exc.history.forEach(h => {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, ?, ?, ?, ?, ?)`).run(excId, h.action, h.operator_id, h.operator_name, h.remark, h.time);
-      });
-    } else {
-      db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'discovered', ?, ?, '异常被标记', datetime('2024-02-01 10:00:00'))`).run(excId, exc.discovered_by, exc.discovered_by_name);
-
-      if (exc.assigned_to) {
-        db.prepare(`INSERT INTO exception_history (exception_id, action, operator_id, operator_name, remark, created_at) VALUES (?, 'assigned', ?, ?, '已分配处理人', datetime('2024-02-01 11:00:00'))`).run(excId, exc.discovered_by, exc.discovered_by_name);
+      for (const h of exc.history) {
+        insertExcHistory.run(excId, h.action, h.operator_id, h.operator_name, h.remark, h.time);
       }
     }
-  });
+  }
 
   console.log('示例数据初始化完成');
 }

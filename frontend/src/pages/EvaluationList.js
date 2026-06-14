@@ -11,16 +11,18 @@ import {
   Progress,
   Tag,
   Modal,
-  message
+  message,
+  Alert
 } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   ReloadOutlined,
-  ThunderboltOutlined
+  ThunderboltOutlined,
+  ArrowRightOutlined
 } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { evaluationApi } from '../api';
 import StatusBadge from '../components/StatusBadge';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +30,7 @@ import dayjs from 'dayjs';
 
 function EvaluationList() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { permissions } = useAuth();
   const [loading, setLoading] = useState(false);
   const [evaluations, setEvaluations] = useState([]);
@@ -39,10 +42,15 @@ function EvaluationList() {
   });
   const [recalculateModalVisible, setRecalculateModalVisible] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [highlightProjectId, setHighlightProjectId] = useState(null);
 
   useEffect(() => {
+    const projectIdFromUrl = searchParams.get('project_id');
+    if (projectIdFromUrl) {
+      setHighlightProjectId(parseInt(projectIdFromUrl));
+    }
     fetchEvaluations();
-  }, [pagination.page, filters]);
+  }, [pagination.page, filters, searchParams]);
 
   const fetchEvaluations = async () => {
     setLoading(true);
@@ -59,6 +67,18 @@ function EvaluationList() {
         ...prev,
         total: response.data.pagination?.total || 0
       }));
+
+      const projectIdFromUrl = searchParams.get('project_id');
+      if (projectIdFromUrl) {
+        const targetEval = (response.data.evaluations || []).find(
+          e => e.project_id === parseInt(projectIdFromUrl)
+        );
+        if (targetEval) {
+          setTimeout(() => {
+            navigate(`/evaluations/${targetEval.id}`, { replace: true });
+          }, 500);
+        }
+      }
     } catch (error) {
       console.error('获取效果评估列表失败:', error);
       message.error('获取效果评估列表失败');

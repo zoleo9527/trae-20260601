@@ -46,21 +46,21 @@ router.get('/permissions', (req, res) => {
       dashboard: ['pending_approvals', 'statistics', 'recent_activities'],
       certificates: ['view', 'create', 'approve', 'reject', 'revoke', 'batch_process'],
       evaluations: ['view', 'export', 'recalculate'],
-      exceptions: ['view', 'assign', 'resolve'],
+      exceptions: ['view', 'assign', 'resolve', 'close'],
       training: ['view', 'create', 'edit', 'delete']
     },
     department_head: {
       dashboard: ['department_training', 'team_attendance'],
       certificates: ['view'],
       evaluations: ['view', 'export'],
-      exceptions: ['view', 'report'],
+      exceptions: ['view', 'report', 'resolve_absent', 'follow_up'],
       training: ['view', 'register']
     },
     instructor: {
       dashboard: ['course_schedule', 'pending_homework'],
-      certificates: ['view', 'create', 'submit_review'],
+      certificates: ['view', 'create', 'submit_review', 'correct'],
       evaluations: ['view'],
-      exceptions: ['view'],
+      exceptions: ['view', 'resolve_homework', 'resolve_certificate_error'],
       training: ['view', 'check_in', 'record_performance'],
       homework: ['view', 'grade', '催交']
     }

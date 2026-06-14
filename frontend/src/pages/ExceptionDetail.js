@@ -35,7 +35,7 @@ import dayjs from 'dayjs';
 function ExceptionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, permissions } = useAuth();
+  const { user, permissions, currentRole } = useAuth();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState({
     exception: null,
@@ -199,21 +199,47 @@ function ExceptionDetail() {
 
     const options = [];
     const status = data.exception.status;
+    const type = data.exception.type;
 
-    if (status === 'discovered' && permissions.exceptions?.includes('assign')) {
-      options.push({ value: 'assigned', label: '分配处理人', icon: <UserAddOutlined /> });
-    }
-
-    if ((status === 'assigned' || status === 'discovered') && permissions.exceptions?.includes('resolve')) {
-      options.push({ value: 'processing', label: '开始处理', icon: <ClockCircleOutlined /> });
-    }
-
-    if (status === 'processing' && permissions.exceptions?.includes('resolve')) {
-      options.push({ value: 'resolved', label: '标记已解决', icon: <CheckCircleOutlined /> });
-    }
-
-    if (status === 'resolved' && permissions.exceptions?.includes('resolve')) {
-      options.push({ value: 'closed', label: '关闭异常', icon: <SolutionOutlined /> });
+    if (currentRole === 'training_manager') {
+      if (status === 'discovered') {
+        options.push({ value: 'assigned', label: '分配处理人', icon: <UserAddOutlined /> });
+      }
+      if (status === 'assigned' || status === 'discovered') {
+        options.push({ value: 'processing', label: '开始处理', icon: <ClockCircleOutlined /> });
+      }
+      if (status === 'processing') {
+        options.push({ value: 'resolved', label: '标记已解决', icon: <CheckCircleOutlined /> });
+      }
+      if (status === 'resolved') {
+        options.push({ value: 'closed', label: '关闭异常', icon: <SolutionOutlined /> });
+      }
+    } else if (currentRole === 'department_head') {
+      if (type === 'registration_absent') {
+        if (status === 'assigned' || status === 'discovered') {
+          options.push({ value: 'processing', label: '跟进缺席原因', icon: <ClockCircleOutlined /> });
+        }
+        if (status === 'processing') {
+          options.push({ value: 'resolved', label: '确认处理结果', icon: <CheckCircleOutlined /> });
+        }
+      }
+    } else if (currentRole === 'instructor') {
+      if (type === 'homework_not_submitted') {
+        if (status === 'assigned' || status === 'discovered') {
+          options.push({ value: 'processing', label: '催促作业提交', icon: <ClockCircleOutlined /> });
+        }
+        if (status === 'processing') {
+          options.push({ value: 'resolved', label: '确认作业已提交', icon: <CheckCircleOutlined /> });
+        }
+      }
+      if (type === 'certificate_error') {
+        if (status === 'assigned' || status === 'discovered') {
+          options.push({ value: 'processing', label: '修正证书信息', icon: <ClockCircleOutlined /> });
+        }
+        if (status === 'processing') {
+          options.push({ value: 'resolved', label: '证书已修正完成', icon: <CheckCircleOutlined /> });
+        }
+      }
     }
 
     return options;

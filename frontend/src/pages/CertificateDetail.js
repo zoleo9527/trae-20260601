@@ -51,7 +51,11 @@ function CertificateDetail() {
     setLoading(true);
     try {
       const response = await certificateApi.getDetail(id);
-      setCertificate(response.data.certificate);
+      setCertificate({
+        ...response.data.certificate,
+        project: response.data.project,
+        user: response.data.user
+      });
       setHistory(response.data.history || []);
       setRelatedExceptions(response.data.relatedExceptions || []);
     } catch (error) {
