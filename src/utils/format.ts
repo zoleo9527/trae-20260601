@@ -1,4 +1,4 @@
-import type { ReminderStatus, UserRole, PaymentStatus, RiskLevel, RiskCategory } from '../../shared/types';
+import type { ReminderStatus, UserRole, PaymentStatus, RiskLevel, RiskCategory, Reminder } from '../../shared/types';
 
 export const statusMap: Record<
   ReminderStatus,
@@ -162,3 +162,163 @@ export const riskCategoryMap: Record<RiskCategory, { label: string; description:
     description: '其他需要关注的责任风险',
   },
 };
+
+export interface HandoverInfo {
+  currentRole: UserRole;
+  currentName: string;
+  nextRole: UserRole | null;
+  nextLabel: string;
+  deadline: string;
+  deadlineHours: number;
+  isOverdue: boolean;
+  isGapRisk: boolean;
+  gapLevel: 'normal' | 'warning' | 'danger';
+  followUpNote: string;
+  timeRemaining: string;
+}
+
+export const handoverConfig: Record<ReminderStatus, {
+  ownerRole: UserRole;
+  nextRole: UserRole | null;
+  nextLabel: string;
+  deadlineHours: number;
+  isGapRisk: boolean;
+  followUpNotes: Record<UserRole, string>;
+}> = {
+  pending_schedule: {
+    ownerRole: 'enroller',
+    nextRole: 'coach',
+    nextLabel: '教练执行',
+    deadlineHours: 24,
+    isGapRisk: false,
+    followUpNotes: {
+      enroller: '请在24小时内完成补训时间安排，避免学员等待',
+      coach: '待报名员安排时间后，准备接棒执行补训',
+      safety_officer: '关注安排时效，超时可能引发学员投诉',
+    },
+  },
+  pending_execute: {
+    ownerRole: 'coach',
+    nextRole: 'enroller',
+    nextLabel: '费用确认',
+    deadlineHours: 72,
+    isGapRisk: false,
+    followUpNotes: {
+      enroller: '待教练完成补训后，及时进行费用确认',
+      coach: '请按约定时间完成补训执行，带教后及时提交记录',
+      safety_officer: '关注教练带教质量和安全操作规范',
+    },
+  },
+  pending_confirm: {
+    ownerRole: 'enroller',
+    nextRole: null,
+    nextLabel: '流程完结',
+    deadlineHours: 48,
+    isGapRisk: true,
+    followUpNotes: {
+      enroller: '⚠️ 补训已完成，请在48小时内完成费用确认，避免责任空档',
+      coach: '执行已完成，请配合报名员核实费用和记录',
+      safety_officer: '重点关注：费用确认超时易引发费用争议风险',
+    },
+  },
+  disputed: {
+    ownerRole: 'safety_officer',
+    nextRole: 'enroller',
+    nextLabel: '后续处理',
+    deadlineHours: 24,
+    isGapRisk: true,
+    followUpNotes: {
+      enroller: '争议已提交，请配合安全员核实情况',
+      coach: '争议处理中，请提供相关带教记录和说明',
+      safety_officer: '⚠️ 请在24小时内介入争议处理，避免升级为投诉',
+    },
+  },
+  completed: {
+    ownerRole: 'enroller',
+    nextRole: null,
+    nextLabel: '已完结',
+    deadlineHours: 0,
+    isGapRisk: false,
+    followUpNotes: {
+      enroller: '补训已完成，费用已确认归档',
+      coach: '补训执行已完成，费用已确认',
+      safety_officer: '流程已合规完结，无待处理事项',
+    },
+  },
+};
+
+export function getHandoverInfo(reminder: Reminder): HandoverInfo {
+  const config = handoverConfig[reminder.status];
+
+  let referenceTime = reminder.createdAt;
+  if (reminder.status === 'pending_execute' && reminder.scheduledAt) {
+    referenceTime = reminder.scheduledAt;
+  } else if (reminder.status === 'pending_confirm' && reminder.executedAt) {
+    referenceTime = reminder.executedAt;
+  } else if (reminder.status === 'disputed' && reminder.history.length > 0) {
+    const disputedRecord = reminder.history.find((h) => h.status === 'disputed');
+    if (disputedRecord) {
+      referenceTime = disputedRecord.createdAt;
+    }
+  }
+
+  const now = new Date().getTime();
+  const refTime = new Date(referenceTime).getTime();
+  const deadlineMs = refTime + config.deadlineHours * 60 * 60 * 1000;
+  const remainingMs = deadlineMs - now;
+  const isOverdue = remainingMs < 0;
+
+  let gapLevel: 'normal' | 'warning' | 'danger' = 'normal';
+  if (config.isGapRisk) {
+    if (isOverdue) {
+      gapLevel = 'danger';
+    } else if (remainingMs < 24 * 60 * 60 * 1000) {
+      gapLevel = 'warning';
+    } else {
+      gapLevel = 'normal';
+    }
+  }
+
+  const absRemainingMs = Math.abs(remainingMs);
+  const hours = Math.floor(absRemainingMs / (1000 * 60 * 60));
+  const minutes = Math.floor((absRemainingMs % (1000 * 60 * 60)) / (1000 * 60));
+  let timeRemaining = '';
+  if (isOverdue) {
+    if (hours > 0) {
+      timeRemaining = `已逾期 ${hours} 小时 ${minutes} 分`;
+    } else {
+      timeRemaining = `已逾期 ${minutes} 分钟`;
+    }
+  } else {
+    if (hours > 24) {
+      const days = Math.floor(hours / 24);
+      const remainHours = hours % 24;
+      timeRemaining = `剩 ${days} 天 ${remainHours} 小时`;
+    } else if (hours > 0) {
+      timeRemaining = `剩 ${hours} 小时 ${minutes} 分`;
+    } else {
+      timeRemaining = `剩 ${minutes} 分钟`;
+    }
+  }
+
+  const deadline = new Date(deadlineMs).toISOString();
+
+  return {
+    currentRole: reminder.currentOwnerRole,
+    currentName: reminder.currentOwnerName,
+    nextRole: config.nextRole,
+    nextLabel: config.nextLabel,
+    deadline,
+    deadlineHours: config.deadlineHours,
+    isOverdue,
+    isGapRisk: config.isGapRisk,
+    gapLevel,
+    followUpNote: config.followUpNotes[reminder.currentOwnerRole] || '',
+    timeRemaining,
+  };
+}
+
+export function getFollowUpNote(reminder: Reminder, role: UserRole): string {
+  const config = handoverConfig[reminder.status];
+  return config.followUpNotes[role] || '';
+}

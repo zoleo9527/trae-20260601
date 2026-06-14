@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { ShieldAlert, ShieldCheck, AlertTriangle, Clock, DollarSign, Users, TrendingUp, UserCheck, FileX, Gauge, AlertOctagon, Activity, FileWarning } from 'lucide-react';
 import { useReminderStore } from '../store/reminder';
 import type { ReminderStatus, UserRole, RiskLevel, RiskCategory } from '../../shared/types';
-import { statusMap, riskLevelMap, riskCategoryMap, roleMap } from '../utils/format';
+import { statusMap, riskLevelMap, riskCategoryMap, roleMap, getHandoverInfo } from '../utils/format';
 
 interface Tab {
   value: string;
@@ -85,6 +85,51 @@ export default function StatusTabs() {
     }));
   }, [allReminders]);
 
+  const roleFollowUpStats = useMemo(() => {
+    const myRecords = allReminders.filter(
+      (r) => r.currentOwnerRole === currentRole && r.status !== 'completed'
+    );
+    const myOverdue = myRecords.filter((r) => {
+      const h = getHandoverInfo(r);
+      return h.isOverdue;
+    });
+    const myGapRisk = myRecords.filter((r) => {
+      const h = getHandoverInfo(r);
+      return h.isGapRisk;
+    });
+    const myGapOverdue = myRecords.filter((r) => {
+      const h = getHandoverInfo(r);
+      return h.isGapRisk && h.isOverdue;
+    });
+
+    let pendingCount = 0;
+    let actionLabel = '';
+
+    switch (currentRole) {
+      case 'enroller':
+        pendingCount = allReminders.filter((r) => r.status === 'pending_schedule' || r.status === 'pending_confirm').length;
+        actionLabel = '待安排/确认';
+        break;
+      case 'coach':
+        pendingCount = allReminders.filter((r) => r.status === 'pending_execute').length;
+        actionLabel = '待执行';
+        break;
+      case 'safety_officer':
+        pendingCount = allReminders.filter((r) => r.status === 'disputed').length;
+        actionLabel = '待处理争议';
+        break;
+    }
+
+    return {
+      myTotal: myRecords.length,
+      myOverdue: myOverdue.length,
+      myGapRisk: myGapRisk.length,
+      myGapOverdue: myGapOverdue.length,
+      pendingCount,
+      actionLabel,
+    };
+  }, [allReminders, currentRole]);
+
   const myCount = useMemo(() => {
     return allReminders.filter(
       (r) => r.currentOwnerId === currentUserId && r.status !== 'completed'
@@ -111,12 +156,24 @@ export default function StatusTabs() {
     let totalActiveRisks = 0;
     let criticalCount = 0;
     let highCount = 0;
+    let gapRiskCount = 0;
+    let gapOverdueCount = 0;
+    let pendingConfirmGap = 0;
+    let disputedGap = 0;
 
     highRiskList.forEach((r) => {
       const activeRisks = r.risks.filter((x) => !x.resolved);
       totalActiveRisks += activeRisks.length;
       if (r.riskLevel === 'critical') criticalCount++;
       if (r.riskLevel === 'high') highCount++;
+
+      const handover = getHandoverInfo(r);
+      if (handover.isGapRisk) {
+        gapRiskCount++;
+        if (handover.isOverdue) gapOverdueCount++;
+        if (r.status === 'pending_confirm') pendingConfirmGap++;
+        if (r.status === 'disputed') disputedGap++;
+      }
 
       activeRisks.forEach((risk) => {
         if (!byCategory[risk.category]) {
@@ -165,6 +222,10 @@ export default function StatusTabs() {
       totalActiveRisks,
       criticalCount,
       highCount,
+      gapRiskCount,
+      gapOverdueCount,
+      pendingConfirmGap,
+      disputedGap,
       categoryStats,
       roleStats,
       oldestRisk,
@@ -194,12 +255,32 @@ export default function StatusTabs() {
                 );
               })}
             </div>
-            {totalHighRisk > 0 && (
-              <div className="flex-shrink-0 text-xs">
-                <span className="text-slate-500">待处理风险：</span>
-                <span className="font-semibold text-red-600">{totalHighRisk} 条</span>
+            <div className="flex items-center gap-3 flex-shrink-0 text-xs">
+              <div className="flex items-center gap-1">
+                <UserCheck size={12} className="text-navy-600" />
+                <span className="text-slate-500">{roleFollowUpStats.actionLabel}：</span>
+                <span className="font-semibold text-navy-700">{roleFollowUpStats.pendingCount}</span>
               </div>
-            )}
+              {roleFollowUpStats.myGapRisk > 0 && (
+                <div className="flex items-center gap-1">
+                  <FileWarning size={12} className="text-orange-600" />
+                  <span className="text-slate-500">空档风险：</span>
+                  <span className="font-semibold text-orange-700">{roleFollowUpStats.myGapRisk}</span>
+                </div>
+              )}
+              {roleFollowUpStats.myGapOverdue > 0 && (
+                <div className="flex items-center gap-1 bg-red-100 text-red-700 px-1.5 py-0.5 rounded-sm border border-red-200">
+                  <AlertOctagon size={10} />
+                  <span className="font-medium">逾期 {roleFollowUpStats.myGapOverdue}</span>
+                </div>
+              )}
+              {totalHighRisk > 0 && (
+                <div className="flex items-center gap-1 pl-2 ml-1 border-l border-amber-200">
+                  <span className="text-slate-500">高风险：</span>
+                  <span className="font-semibold text-red-600">{totalHighRisk} 条</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -232,6 +313,33 @@ export default function StatusTabs() {
                 <span className="font-semibold text-orange-700">{highRiskStats.highCount} 条</span>
               </div>
             </div>
+            {highRiskStats.gapRiskCount > 0 && (
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-red-200">
+                <div className="flex items-center gap-1.5 text-xs">
+                  <FileWarning size={12} className="text-red-600" />
+                  <span className="text-slate-600">空档风险：</span>
+                  <span className="font-semibold text-red-700">{highRiskStats.gapRiskCount} 条</span>
+                </div>
+                {highRiskStats.gapOverdueCount > 0 && (
+                  <div className="flex items-center gap-1 text-xs bg-red-100 text-red-700 px-1.5 py-0.5 rounded-sm border border-red-200 animate-pulse">
+                    <AlertOctagon size={10} />
+                    <span className="font-medium">逾期 {highRiskStats.gapOverdueCount} 条</span>
+                  </div>
+                )}
+                {highRiskStats.pendingConfirmGap > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-slate-500">待费用确认：</span>
+                    <span className="font-medium text-amber-700">{highRiskStats.pendingConfirmGap}</span>
+                  </div>
+                )}
+                {highRiskStats.disputedGap > 0 && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <span className="text-slate-500">待安全员介入：</span>
+                    <span className="font-medium text-red-700">{highRiskStats.disputedGap}</span>
+                  </div>
+                )}
+              </div>
+            )}
             {highRiskStats.oldestRisk && (
               <div className="flex-shrink-0 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1 flex items-center gap-1">
                 <span className="text-slate-500">最久未处理：</span>

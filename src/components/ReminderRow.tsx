@@ -1,7 +1,8 @@
 import StatusBadge from './StatusBadge';
 import Avatar from './Avatar';
+import { ArrowRight, Clock, AlertOctagon } from 'lucide-react';
 import { useReminderStore } from '../store/reminder';
-import { formatDateTime, roleMap, riskLevelMap } from '../utils/format';
+import { formatDateTime, roleMap, riskLevelMap, getHandoverInfo } from '../utils/format';
 import type { Reminder } from '../../shared/types';
 
 interface Props {
@@ -21,6 +22,7 @@ export default function ReminderRow({ reminder }: Props) {
   const isMine = reminder.currentOwnerRole === currentRole && reminder.status !== 'completed';
   const hasActiveRisk = reminder.riskLevel !== 'none';
   const isHighRisk = reminder.riskLevel === 'high' || reminder.riskLevel === 'critical';
+  const handover = getHandoverInfo(reminder);
 
   return (
     <div
@@ -82,9 +84,45 @@ export default function ReminderRow({ reminder }: Props) {
 
         <div className="col-span-2 flex items-center gap-2 min-w-0">
           <Avatar name={reminder.currentOwnerName} role={reminder.currentOwnerRole} size="sm" />
-          <div className="min-w-0">
-            <div className="text-sm text-slate-700 truncate">{reminder.currentOwnerName}</div>
-            <div className="text-xs text-slate-500">{roleMap[reminder.currentOwnerRole].label}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-slate-700 font-medium truncate">{reminder.currentOwnerName}</span>
+              {handover.isGapRisk && handover.gapLevel === 'danger' && (
+                <AlertOctagon size={12} className="text-red-500 flex-shrink-0" />
+              )}
+              {handover.isGapRisk && handover.gapLevel === 'warning' && (
+                <Clock size={12} className="text-amber-500 flex-shrink-0" />
+              )}
+            </div>
+            <div className="text-xs text-slate-500 flex items-center gap-1">
+              <span className={roleMap[reminder.currentOwnerRole].className + ' px-1 py-0.5 rounded-sm'}>
+                {roleMap[reminder.currentOwnerRole].label}
+              </span>
+              {handover.nextRole && reminder.status !== 'completed' && (
+                <>
+                  <ArrowRight size={10} className="text-slate-300" />
+                  <span className="text-slate-400">{handover.nextLabel}</span>
+                </>
+              )}
+            </div>
+            {reminder.status !== 'completed' && (
+              <div className={`text-xs mt-0.5 flex items-center gap-0.5 ${
+                handover.isOverdue
+                  ? handover.isGapRisk ? 'text-red-600 font-medium' : 'text-amber-600'
+                  : handover.gapLevel === 'warning'
+                  ? 'text-amber-600'
+                  : 'text-slate-400'
+              }`}>
+                <Clock size={10} className="flex-shrink-0" />
+                <span>{handover.timeRemaining}</span>
+                {handover.isGapRisk && handover.isOverdue && (
+                  <span className="text-red-600 font-medium ml-1">·空档风险</span>
+                )}
+                {handover.isGapRisk && !handover.isOverdue && handover.gapLevel === 'warning' && (
+                  <span className="text-amber-600 ml-1">·临近空档</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 

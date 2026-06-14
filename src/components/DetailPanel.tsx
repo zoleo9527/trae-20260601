@@ -1,4 +1,4 @@
-import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText, ShieldAlert, ShieldCheck, Plus, FileEdit, UserCheck, Zap, Ban } from 'lucide-react';
+import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText, ShieldAlert, ShieldCheck, Plus, FileEdit, UserCheck, Zap, Ban, ArrowRight, AlertOctagon, Timer } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import Avatar from './Avatar';
 import HistoryTimeline from './HistoryTimeline';
@@ -12,6 +12,8 @@ import {
   formatDate,
   riskLevelMap,
   riskCategoryMap,
+  getHandoverInfo,
+  getFollowUpNote,
 } from '../utils/format';
 import type { Reminder, UserRole, RiskRecord } from '../../shared/types';
 
@@ -51,6 +53,7 @@ export default function DetailPanel({
   const isHighRisk = reminder.riskLevel === 'high' || reminder.riskLevel === 'critical';
   const activeRisks = reminder.risks.filter((r) => !r.resolved);
   const resolvedRisks = reminder.risks.filter((r) => r.resolved);
+  const handover = getHandoverInfo(reminder);
 
   return (
     <aside className="w-[480px] bg-white border-l border-slate-200 h-full flex flex-col animate-slide-in-right">
@@ -222,7 +225,7 @@ export default function DetailPanel({
                 role={reminder.currentOwnerRole as UserRole}
                 size="lg"
               />
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="font-medium text-slate-800">{reminder.currentOwnerName}</div>
                 <div className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                   <span
@@ -233,8 +236,76 @@ export default function DetailPanel({
                   {isOwner && <span className="text-accent font-medium">（当前登录账号）</span>}
                 </div>
               </div>
+              {handover.nextRole && reminder.status !== 'completed' && (
+                <div className="flex items-center gap-1.5 text-xs text-slate-400">
+                  <span>下一棒</span>
+                  <ArrowRight size={12} />
+                  <div className="flex items-center gap-1">
+                    <span className={`px-1 py-0.5 rounded-sm ${roleMap[handover.nextRole].className}`}>
+                      {roleMap[handover.nextRole].label}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
+
+          {reminder.status !== 'completed' && (
+            <section>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <Timer size={14} className="text-amber-500" />
+                责任接棒时限
+              </h4>
+              <div className={`p-3 rounded-sm border ${
+                handover.gapLevel === 'danger'
+                  ? 'bg-red-50 border-red-200'
+                  : handover.gapLevel === 'warning'
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-slate-50 border-slate-200'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Clock size={12} className={
+                      handover.gapLevel === 'danger' ? 'text-red-600' :
+                      handover.gapLevel === 'warning' ? 'text-amber-600' : 'text-slate-500'
+                    } />
+                    <span className={`text-sm font-medium ${
+                      handover.gapLevel === 'danger' ? 'text-red-700' :
+                      handover.gapLevel === 'warning' ? 'text-amber-700' : 'text-slate-700'
+                    }`}>
+                      {handover.timeRemaining}
+                    </span>
+                  </div>
+                  {handover.isGapRisk && (
+                    <span className={`text-xs px-1.5 py-0.5 rounded-sm font-medium ${
+                      handover.gapLevel === 'danger'
+                        ? 'bg-red-100 text-red-700 border border-red-200'
+                        : 'bg-amber-100 text-amber-700 border border-amber-200'
+                    }`}>
+                      {handover.gapLevel === 'danger' ? '空档高风险' : '空档预警'}
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 mb-2">
+                  截止时间：{formatDateTime(handover.deadline)}
+                </div>
+                <div className={`text-xs leading-relaxed p-2 rounded-sm ${
+                  handover.gapLevel === 'danger' ? 'bg-red-100/50 text-red-700' :
+                  handover.gapLevel === 'warning' ? 'bg-amber-100/50 text-amber-700' :
+                  'bg-white text-slate-600'
+                }`}>
+                  {handover.isGapRisk && handover.gapLevel === 'danger' && (
+                    <AlertOctagon size={12} className="inline-block mr-1 align-middle" />
+                  )}
+                  {handover.gapLevel === 'warning' && (
+                    <AlertTriangle size={12} className="inline-block mr-1 align-middle" />
+                  )}
+                  <span className="font-medium">待跟进说明：</span>
+                  {getFollowUpNote(reminder, currentRole)}
+                </div>
+              </div>
+            </section>
+          )}
 
           <section>
             <div className="flex items-center justify-between mb-3">
