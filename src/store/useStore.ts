@@ -151,13 +151,24 @@ export function useStore() {
       
       const application = applications.find(a => a.id === quota.applicationId)
       if (application) {
+        const appActionMap: Record<Status, string> = {
+          approved: '批准贷款',
+          rejected: '拒绝贷款',
+          returned: '退回申请',
+          supplement: '要求补材料',
+          urgent: '标记催办',
+          completed: '完成申请',
+          pending: '重新提交',
+          under_review: '提交审核',
+        }
+        
         const appWorkflow: WorkflowRecord = {
           id: `WF${Date.now()}`,
           applicationId: quota.applicationId,
-          action: applicationStatusUpdate === 'approved' ? '批准贷款' : applicationStatusUpdate === 'rejected' ? '拒绝贷款' : applicationStatusUpdate === 'returned' ? '退回申请' : '完成申请',
+          action: `${appActionMap[applicationStatusUpdate]}（关联额度建议）`,
           operator: currentUser.name,
           operateTime: new Date().toLocaleString('zh-CN'),
-          note: `关联额度建议 ${quotaId} ${status}`,
+          note: `关联额度建议 ${quotaId} 状态更新为 ${status}`,
           statusBefore: application.status,
           statusAfter: applicationStatusUpdate,
         }
