@@ -74,7 +74,6 @@ const Register = () => {
       });
 
       addHistory({
-        id: `H${String(now.getTime()).slice(-4)}`,
         recordId: id || '',
         statusFrom: 'rejected',
         statusTo: 'pending',
@@ -107,7 +106,6 @@ const Register = () => {
       });
 
       addHistory({
-        id: `H${String(now.getTime()).slice(-4)}`,
         recordId,
         statusFrom: null,
         statusTo: 'pending',

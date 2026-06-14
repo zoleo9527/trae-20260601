@@ -35,8 +35,27 @@ const Review = () => {
     });
 
     setCurrentStatus('reviewing');
+    if (record) {
+      setRecord({
+        ...record,
+        status: 'reviewing',
+        history: [
+          {
+            id: `temp-${Date.now()}`,
+            recordId: id || '',
+            statusFrom: 'pending',
+            statusTo: 'reviewing',
+            operatorId: user.id,
+            operatorName: user.name,
+            remark: '开始估价复核',
+            createdAt: timeStr,
+          },
+          ...record.history,
+        ],
+      });
+    }
     return true;
-  }, [id, user, updateRecord, addHistory]);
+  }, [id, user, updateRecord, addHistory, record]);
 
   useEffect(() => {
     const detail = getRecordDetail(id || '');
