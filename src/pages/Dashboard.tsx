@@ -9,6 +9,8 @@ import Timeline from '@/components/Timeline'
 import { useStore } from '@/store'
 import { rectificationStatusLabel, reinspectionStatusLabel, formatDateTime, isOverdue, timeAgo } from '@/utils/format'
 
+const TODAY = new Date().toISOString().slice(0, 10)
+
 export default function Dashboard() {
   const { currentUser, vehicles, rectifications, reinspections, logs } = useStore()
 
@@ -105,11 +107,13 @@ export default function Dashboard() {
       ]
     }
     if (currentUser.role === 'auditor') {
+      const abnormalCount = reinspections.filter(re => re.status === 'abnormal').length
+      const todayScheduled = reinspections.filter(re => re.status === 'scheduled' && re.scheduledTime?.startsWith(TODAY)).length
       return [
         { label: '待审核整改', to: '/rectification?status=submitted', desc: `${myPendingRectifications.length} 项待审核` },
         { label: '待安排复检', to: '/reinspection?tab=pending', desc: `${myPendingReinspections.length} 项待排期` },
-        { label: '复检异常处理', to: '/reinspection?tab=abnormal', desc: '异常复检跟进' },
-        { label: '已通过整改', to: '/rectification?status=passed', desc: '最近合格记录' },
+        { label: '今日已安排', to: '/reinspection?tab=scheduled', desc: `${todayScheduled} 条今日复检` },
+        { label: '复检异常处理', to: '/reinspection?tab=abnormal', desc: `${abnormalCount} 项异常待跟进` },
       ]
     }
     return [

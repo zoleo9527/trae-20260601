@@ -72,7 +72,17 @@ export default function ReinspectionPage() {
 
   useEffect(() => {
     const urlTab = searchParams.get('tab') as TabKey | null
-    const target = urlTab || roleDefaultTab[currentUser.role] || 'pending'
+    const allTabs: TabKey[] = ['pending', 'scheduled', 'completed', 'abnormal', 'history']
+    let target: TabKey
+    if (urlTab && allTabs.includes(urlTab)) {
+      target = urlTab
+    } else {
+      target = roleDefaultTab[currentUser.role] || 'pending'
+      if (urlTab) {
+        searchParams.delete('tab')
+        setSearchParams(searchParams, { replace: true })
+      }
+    }
     setTab(prev => (prev === target ? prev : target))
   }, [searchParams])
 

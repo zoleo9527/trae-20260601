@@ -53,7 +53,7 @@ export default function RectificationPage() {
 
   const roleVisibleStatuses: Record<string, RectificationStatus[]> = {
     receiver: ['pending', 'rejected', 'submitted', 'passed'],
-    auditor: ['submitted', 'rejected', 'passed'],
+    auditor: ['submitted'],
     inspector: ['pending', 'rejected', 'submitted'],
   }
 
@@ -79,7 +79,17 @@ export default function RectificationPage() {
 
   useEffect(() => {
     const urlStatus = searchParams.get('status') as FilterKey | null
-    const target = urlStatus || roleDefault[currentUser.role] || 'all'
+    const visible = roleVisibleStatuses[currentUser.role] || []
+    let target: FilterKey
+    if (urlStatus && (urlStatus === 'all' || visible.includes(urlStatus as RectificationStatus))) {
+      target = urlStatus
+    } else {
+      target = roleDefault[currentUser.role] || 'all'
+      if (urlStatus) {
+        searchParams.delete('status')
+        setSearchParams(searchParams, { replace: true })
+      }
+    }
     setFilter(prev => (prev === target ? prev : target))
   }, [searchParams])
 
@@ -152,10 +162,13 @@ export default function RectificationPage() {
       ]
     }
     if (currentUser.role === 'auditor') {
+      const today = new Date().toISOString().slice(0, 10)
+      const todayPassed = rectifications.filter(r => r.status === 'passed' && r.auditedAt?.startsWith(today)).length
+      const todayRejected = rectifications.filter(r => r.status === 'rejected' && r.rejectHistory.some(rh => rh.timestamp.startsWith(today))).length
       return [
         { label: '待审核', value: allCounts.submitted, tone: allCounts.submitted > 0 ? 'info' as const : 'safe' as const },
-        { label: '已驳回待补录', value: allCounts.rejected, tone: allCounts.rejected > 0 ? 'danger' as const : 'safe' as const },
-        { label: '今日已通过', value: rectifications.filter(r => r.status === 'passed' && r.auditedAt?.startsWith(new Date().toISOString().slice(0, 10))).length, tone: 'safe' as const },
+        { label: '今日已通过', value: todayPassed, tone: 'safe' as const },
+        { label: '今日已驳回', value: todayRejected, tone: todayRejected > 0 ? 'danger' as const : 'safe' as const },
       ]
     }
     return [
@@ -181,9 +194,7 @@ export default function RectificationPage() {
       receiver_passed: { icon: UserCircle, title: '暂无已通过记录', desc: '继续努力，完成更多整改！' },
       receiver_all: { icon: UserCircle, title: '你还没有整改任务', desc: '等待调度分配或联系审核员。' },
       auditor_submitted: { icon: ClipboardCheck, title: '暂无待审核整改', desc: '所有整改已审核完毕，状态良好！', action: '去安排复检', actionTo: '/reinspection?tab=pending' },
-      auditor_rejected: { icon: AlertOctagon, title: '暂无需补录项', desc: '没有被驳回的整改，很棒。', action: '查看待审核', actionTo: '/rectification?status=submitted' },
-      auditor_passed: { icon: CheckCircle2, title: '暂无已通过记录', desc: '开始今天的审核工作吧。', action: '待审核整改', actionTo: '/rectification?status=submitted' },
-      auditor_all: { icon: UserCircle, title: '暂无审核相关整改', desc: '等待接车员提交整改材料进入审核流程。' },
+      auditor_all: { icon: UserCircle, title: '暂无待审核整改', desc: '等待接车员提交整改材料后进入审核流程。', action: '去安排复检', actionTo: '/reinspection?tab=pending' },
       inspector_pending: { icon: Clock, title: '暂无待处理整改', desc: '现场车况良好，没有待跟进的不合格项。' },
       inspector_rejected: { icon: RefreshCcw, title: '没有被驳回的整改', desc: '接车员提交的材料质量不错。' },
       inspector_submitted: { icon: CheckCircle2, title: '暂无已提交整改', desc: '等待接车员补充材料后进入审核。' },
@@ -604,7 +615,7 @@ export default function RectificationPage() {
           {currentUser.role === 'receiver'
             ? '提示：被驳回的记录带醒目背景和原因，点击「补录」可直接上传新材料。'
             : currentUser.role === 'auditor'
-              ? '提示：只展示进入审核流程的整改（待审核/已驳回/已通过）。点击「通过/驳回」直接处理，多选可批量通过。'
+              ? '提示：只展示待审核整改（submitted）。点击「通过/驳回」直接处理，多选可批量通过。审核后记录自动流转出视图。'
               : '提示：只展示需跟进的整改（待处理/被驳回/已提交），便于现场跟进不合格项整改进度。'}
         </p>
       </div>
