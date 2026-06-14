@@ -196,6 +196,7 @@ func ListShiftSettlements(c *gin.Context) {
 }
 
 func GetShiftSettlement(c *gin.Context) {
+	u := getUserFromHeader(c)
 	id, _ := strconv.Atoi(c.Param("id"))
 	query := `SELECT s.id, s.store_id, st.name, s.shift_no, s.clerk_id, u.name, 
 		s.shift_date, s.shift_type, s.ticket_sales, s.scratch_sales, s.total_sales,
@@ -209,6 +210,25 @@ func GetShiftSettlement(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusOK, Err(404, "not found"))
 		return
+	}
+	switch u.Role {
+	case "clerk":
+		if s.ClerkID != u.ID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他店员的班结"))
+			return
+		}
+	case "store_manager":
+		if u.StoreID != nil && s.StoreID != *u.StoreID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他门店的班结"))
+			return
+		}
+	case "area_manager":
+		var storeAreaID int
+		database.QueryRow("SELECT area_id FROM stores WHERE id=?", s.StoreID).Scan(&storeAreaID)
+		if u.AreaID != nil && storeAreaID != *u.AreaID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他片区的班结"))
+			return
+		}
 	}
 	c.JSON(http.StatusOK, OK(s))
 }
@@ -508,6 +528,7 @@ func ListCashVerifications(c *gin.Context) {
 }
 
 func GetCashVerification(c *gin.Context) {
+	u := getUserFromHeader(c)
 	id, _ := strconv.Atoi(c.Param("id"))
 	query := `SELECT cv.id, cv.shift_settlement_id, cv.store_id, st.name, cv.store_manager_id, sm.name,
 		cv.area_manager_id, am.name, cv.cash_declared, cv.cash_counted, cv.difference, cv.status,
@@ -523,6 +544,25 @@ func GetCashVerification(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusOK, Err(404, "not found"))
 		return
+	}
+	switch u.Role {
+	case "clerk":
+		if cv.ClerkID == nil || *cv.ClerkID != u.ID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他店员的现金核对"))
+			return
+		}
+	case "store_manager":
+		if u.StoreID != nil && cv.StoreID != *u.StoreID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他门店的现金核对"))
+			return
+		}
+	case "area_manager":
+		var storeAreaID int
+		database.QueryRow("SELECT area_id FROM stores WHERE id=?", cv.StoreID).Scan(&storeAreaID)
+		if u.AreaID != nil && storeAreaID != *u.AreaID {
+			c.JSON(http.StatusOK, Err(403, "无权查看其他片区的现金核对"))
+			return
+		}
 	}
 	shiftQ := `SELECT s.id, s.store_id, st.name, s.shift_no, s.clerk_id, u.name, 
 		s.shift_date, s.shift_type, s.ticket_sales, s.scratch_sales, s.total_sales,
@@ -589,9 +629,29 @@ func UpdateCashVerification(c *gin.Context) {
 		if u.Role != "area_manager" {
 			c.JSON(http.StatusOK, Err(403, "仅片区管理员可裁定")); return
 		}
+		var cvStoreID3 int
+		database.QueryRow("SELECT store_id FROM cash_verifications WHERE id=?", id).Scan(&cvStoreID3)
+		var storeAreaID3 int
+		database.QueryRow("SELECT area_id FROM stores WHERE id=?", cvStoreID3).Scan(&storeAreaID3)
+		if u.AreaID != nil && storeAreaID3 != *u.AreaID {
+			c.JSON(http.StatusOK, Err(403, "仅本片区管理员可裁定")); return
+		}
 	case "update_notes":
 		if u.Role != "store_manager" && u.Role != "area_manager" {
 			c.JSON(http.StatusOK, Err(403, "无权限")); return
+		}
+		var cvStoreID2 int
+		database.QueryRow("SELECT store_id FROM cash_verifications WHERE id=?", id).Scan(&cvStoreID2)
+		if u.Role == "store_manager" {
+			if u.StoreID != nil && cvStoreID2 != *u.StoreID {
+				c.JSON(http.StatusOK, Err(403, "仅本店店长可更新备注")); return
+			}
+		} else if u.Role == "area_manager" {
+			var storeAreaID2 int
+			database.QueryRow("SELECT area_id FROM stores WHERE id=?", cvStoreID2).Scan(&storeAreaID2)
+			if u.AreaID != nil && storeAreaID2 != *u.AreaID {
+				c.JSON(http.StatusOK, Err(403, "仅本片区管理员可更新备注")); return
+			}
 		}
 	}
 	var oldStatus string
@@ -707,6 +767,19 @@ func AddMaterial(c *gin.Context) {
 	if u.Role != "store_manager" && u.Role != "area_manager" {
 		c.JSON(http.StatusOK, Err(403, "仅店长或片区管理员可上传材料")); return
 	}
+	var cvStoreID int
+	database.QueryRow("SELECT store_id FROM cash_verifications WHERE id=?", cvID).Scan(&cvStoreID)
+	if u.Role == "store_manager" {
+		if u.StoreID != nil && cvStoreID != *u.StoreID {
+			c.JSON(http.StatusOK, Err(403, "仅本店店长可上传材料")); return
+		}
+	} else if u.Role == "area_manager" {
+		var storeAreaID int
+		database.QueryRow("SELECT area_id FROM stores WHERE id=?", cvStoreID).Scan(&storeAreaID)
+		if u.AreaID != nil && storeAreaID != *u.AreaID {
+			c.JSON(http.StatusOK, Err(403, "仅本片区管理员可上传材料")); return
+		}
+	}
 	var req struct {
 		Type        string  `json:"type"`
 		Name        string  `json:"name"`
@@ -736,6 +809,7 @@ func AddMaterial(c *gin.Context) {
 
 // ===== 操作日志 =====
 func GetOperationLogs(c *gin.Context) {
+	u := getUserFromHeader(c)
 	refType := c.Query("ref_type")
 	refID := c.Query("ref_id")
 	query := `SELECT id, ref_type, ref_id, action, old_status, new_status, operator_id, operator_name, operator_role, detail, created_at FROM operation_logs WHERE 1=1`
@@ -747,6 +821,21 @@ func GetOperationLogs(c *gin.Context) {
 	if refID != "" {
 		query += " AND ref_id = ?"
 		args = append(args, refID)
+	}
+	switch u.Role {
+	case "clerk":
+		query += ` AND ((ref_type='shift_settlement' AND ref_id IN (SELECT id FROM shift_settlements WHERE clerk_id=?)) OR (ref_type='cash_verification' AND ref_id IN (SELECT cv.id FROM cash_verifications cv JOIN shift_settlements s ON cv.shift_settlement_id=s.id WHERE s.clerk_id=?)))`
+		args = append(args, u.ID, u.ID)
+	case "store_manager":
+		if u.StoreID != nil {
+			query += ` AND ((ref_type='shift_settlement' AND ref_id IN (SELECT id FROM shift_settlements WHERE store_id=?)) OR (ref_type='cash_verification' AND ref_id IN (SELECT cv.id FROM cash_verifications cv WHERE cv.store_id=?)))`
+			args = append(args, *u.StoreID, *u.StoreID)
+		}
+	case "area_manager":
+		if u.AreaID != nil {
+			query += ` AND ((ref_type='shift_settlement' AND ref_id IN (SELECT s.id FROM shift_settlements s JOIN stores st ON s.store_id=st.id WHERE st.area_id=?)) OR (ref_type='cash_verification' AND ref_id IN (SELECT cv.id FROM cash_verifications cv JOIN stores st ON cv.store_id=st.id WHERE st.area_id=?)))`
+			args = append(args, *u.AreaID, *u.AreaID)
+		}
 	}
 	query += " ORDER BY created_at DESC LIMIT 200"
 	rows, _ := database.Query(query, args...)

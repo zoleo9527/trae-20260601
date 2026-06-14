@@ -36,25 +36,40 @@ function diffText(d) {
 function getHeaders() { return { 'X-User-ID': currentUser.id, 'Content-Type': 'application/json' }; }
 
 async function api(url, method='GET', body) {
-  const opts = { method, headers: getHeaders() };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch('/api' + url, opts);
-  return res.json();
+  try {
+    const opts = { method, headers: getHeaders() };
+    if (body) opts.body = JSON.stringify(body);
+    const res = await fetch('/api' + url, opts);
+    const data = await res.json();
+    return data;
+  } catch(e) {
+    console.error('API error:', url, e);
+    return { code: -1, message: '网络请求失败: ' + e.message, data: null };
+  }
 }
 
-// ===== Init & nav =====
+function errorPage(msg) {
+  return `<div class="alert alert-danger" style="margin:24px;"><span class="alert-icon">⚠️</span><div><b>加载失败</b><br>${msg||'未知错误'}<br><button class="btn btn-primary" style="margin-top:10px;" onclick="loadPage(currentPage)">重试</button></div></div>`;
+}
+
 async function init() {
-  const r = await api('/users');
-  const users = r.data || [];
-  const sel = document.getElementById('roleSelect');
-  sel.innerHTML = users.map(u => {
-    const store = u.store_id ? (u.store_id===1?'朝阳店':u.store_id===2?'中关村店':'金融街店') : '片区';
-    return `<option value="${u.id}">${u.name} · ${ROLE_TEXT[u.role]} · ${store}</option>`;
-  }).join('');
-  sel.value = currentUser.id;
-  updateUserInfo();
-  updateUnreadCount();
-  loadPage('dashboard');
+  try {
+    const r = await api('/users');
+    if (r.code !== 0) { document.getElementById('pageContent').innerHTML = errorPage(r.message); return; }
+    const users = r.data || [];
+    const sel = document.getElementById('roleSelect');
+    sel.innerHTML = users.map(u => {
+      const store = u.store_id ? (u.store_id===1?'朝阳店':u.store_id===2?'中关村店':'金融街店') : '片区';
+      return `<option value="${u.id}">${u.name} · ${ROLE_TEXT[u.role]} · ${store}</option>`;
+    }).join('');
+    sel.value = currentUser.id;
+    updateUserInfo();
+    updateUnreadCount();
+    loadPage('dashboard');
+  } catch(e) {
+    console.error('init error:', e);
+    document.getElementById('pageContent').innerHTML = errorPage('初始化失败: ' + e.message);
+  }
 }
 
 async function updateUnreadCount() {
@@ -73,15 +88,17 @@ function updateUserInfo() {
 }
 
 async function switchUser(id) {
-  const r = await api('/users');
-  const u = (r.data || []).find(x => x.id == id);
-  if (u) {
-    currentUser = u;
-    updateUserInfo();
-    updateUnreadCount();
-    pageCache = {};
-    loadPage(currentPage);
-  }
+  try {
+    const r = await api('/users');
+    const u = (r.data || []).find(x => x.id == id);
+    if (u) {
+      currentUser = u;
+      updateUserInfo();
+      updateUnreadCount();
+      pageCache = {};
+      loadPage(currentPage);
+    }
+  } catch(e) { console.error('switchUser error:', e); }
 }
 
 function navTo(page) {
@@ -94,11 +111,17 @@ function navTo(page) {
 async function loadPage(page) {
   currentPage = page;
   const pc = document.getElementById('pageContent');
-  if (page === 'dashboard') pc.innerHTML = await renderDashboard();
-  else if (page === 'shifts') pc.innerHTML = await renderShifts();
-  else if (page === 'cash') pc.innerHTML = await renderCash();
-  else if (page === 'notifications') pc.innerHTML = await renderNotifications();
-  else if (page === 'logs') pc.innerHTML = await renderLogs();
+  try {
+    if (page === 'dashboard') pc.innerHTML = await renderDashboard();
+    else if (page === 'shifts') pc.innerHTML = await renderShifts();
+    else if (page === 'cash') pc.innerHTML = await renderCash();
+    else if (page === 'notifications') pc.innerHTML = await renderNotifications();
+    else if (page === 'logs') pc.innerHTML = await renderLogs();
+    else pc.innerHTML = errorPage('未知页面');
+  } catch(e) {
+    console.error('loadPage error:', page, e);
+    pc.innerHTML = errorPage('页面加载异常: ' + e.message);
+  }
   document.getElementById('notifPanel').style.display = 'none';
   window.scrollTo(0, 0);
 }
@@ -111,6 +134,9 @@ async function renderDashboard() {
     api('/notifications?unread=1'),
     api('/logs')
   ]);
+  if (shifts.code !== 0 || cashs.code !== 0) {
+    return errorPage('仪表盘数据加载失败: ' + (shifts.message || cashs.message));
+  }
   const ss = shifts.data || [];
   const cs = cashs.data || [];
   const unread = notifs.data || [];
@@ -398,12 +424,13 @@ function filterShift(key, val) {
 }
 
 async function viewShift(id) {
-  const [shift, logs] = await Promise.all([
-    api('/shifts/' + id),
-    api(`/logs?ref_type=shift_settlement&ref_id=${id}`)
-  ]);
-  const s = shift.data;
-  if (!s) { alert('未找到'); return; }
+  try {
+    const [shift, logs] = await Promise.all([
+      api('/shifts/' + id),
+      api(`/logs?ref_type=shift_settlement&ref_id=${id}`)
+    ]);
+    const s = shift.data;
+    if (!s) { alert('未找到或无权查看'); navTo('shifts'); return; }
 
   const isClerk = currentUser.role === 'clerk' && currentUser.id === s.clerk_id;
   const isMgr = currentUser.role === 'store_manager' && currentUser.store_id === s.store_id;
@@ -484,6 +511,7 @@ async function viewShift(id) {
     </div>
   `;
   recentLogsPreview();
+  } catch(e) { console.error('viewShift error:', e); document.getElementById('pageContent').innerHTML = errorPage('班结详情加载失败: ' + e.message); }
 }
 
 function renderNextStep(status) {
@@ -537,7 +565,7 @@ async function shiftAction(id, act, payload) {
   if (r.code === 0) {
     updateUnreadCount();
     viewShift(id);
-  } else alert(r.message);
+  } else { alert(r.message || '操作失败'); viewShift(id); }
 }
 
 function openShiftReject(id) {
@@ -686,12 +714,13 @@ function filterCash(key, val) {
 }
 
 async function viewCash(id) {
+  try {
   const [cash, logs] = await Promise.all([
     api('/cash/' + id),
     api(`/logs?ref_type=cash_verification&ref_id=${id}`)
   ]);
   const c = cash.data;
-  if (!c) { alert('未找到'); return; }
+  if (!c) { alert('未找到或无权查看'); navTo('cash'); return; }
   const s = c.shift_info;
 
   const isMgr = currentUser.role === 'store_manager' && currentUser.store_id === c.store_id;
@@ -854,12 +883,13 @@ async function viewCash(id) {
     </div>
   `;
   recentLogsPreview();
+  } catch(e) { console.error('viewCash error:', e); document.getElementById('pageContent').innerHTML = errorPage('现金核对详情加载失败: ' + e.message); }
 }
 
 async function cashAction(id, act, payload) {
   const r = await api(`/cash/${id}/${act}`, 'POST', payload || {});
   if (r.code === 0) { updateUnreadCount(); viewCash(id); }
-  else alert(r.message);
+  else { alert(r.message || '操作失败'); viewCash(id); }
 }
 
 function openCountSubmit(id, declared) {
