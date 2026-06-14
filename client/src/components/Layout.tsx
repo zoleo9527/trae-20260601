@@ -1,10 +1,10 @@
 import { Layout as AntLayout, Menu, Typography } from 'antd';
 import { 
   CalendarOutlined, 
-  UsersOutlined, 
-  AlertTriangleOutlined, 
+  UserOutlined, 
+  WarningOutlined, 
   BarChartOutlined,
-  UserSwitchOutlined
+  SwapOutlined
 } from '@ant-design/icons';
 import { useStore } from '../store';
 
@@ -22,8 +22,8 @@ export default function Layout({ children, currentPage, onPageChange }: LayoutPr
 
   const menuItems = [
     { key: 'programs', label: '演出节目', icon: <CalendarOutlined /> },
-    { key: 'attendance', label: '排练签到', icon: <UsersOutlined /> },
-    { key: 'makeup', label: '缺勤补训', icon: <AlertTriangleOutlined /> },
+    { key: 'attendance', label: '排练签到', icon: <UserOutlined /> },
+    { key: 'makeup', label: '缺勤补训', icon: <WarningOutlined /> },
     { key: 'dashboard', label: '风险监控', icon: <BarChartOutlined /> },
   ];
 
@@ -58,7 +58,7 @@ export default function Layout({ children, currentPage, onPageChange }: LayoutPr
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-            <UserSwitchOutlined style={{ color: '#fff', fontSize: '16px' }} />
+            <SwapOutlined style={{ color: '#fff', fontSize: '16px' }} />
           </div>
         </div>
       </Header>

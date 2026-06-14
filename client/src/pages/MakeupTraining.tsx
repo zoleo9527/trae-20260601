@@ -35,6 +35,8 @@ export default function MakeupTraining() {
     form.setFieldsValue({
       ...record,
       date: dayjs(record.date),
+      startTime: record.startTime ? dayjs(record.startTime, 'HH:mm') : null,
+      endTime: record.endTime ? dayjs(record.endTime, 'HH:mm') : null,
     });
     setIsModalVisible(true);
   };
@@ -44,6 +46,8 @@ export default function MakeupTraining() {
       const data = {
         ...values,
         date: values.date.format('YYYY-MM-DD'),
+        startTime: values.startTime ? values.startTime.format('HH:mm') : '',
+        endTime: values.endTime ? values.endTime.format('HH:mm') : '',
       };
       if (isEditing) {
         updateMakeupTraining(currentTraining.id, data);
@@ -58,7 +62,7 @@ export default function MakeupTraining() {
     { title: '学生姓名', dataIndex: 'studentId', key: 'studentId', render: (text: string) => getStudentName(text) },
     { title: '所属节目', dataIndex: 'programId', key: 'programId', render: (text: string) => getProgramName(text) },
     { title: '补训日期', dataIndex: 'date', key: 'date' },
-    { title: '时间', dataIndex: 'startTime', key: 'time', render: (_, record) => `${record.startTime}-${record.endTime}` },
+    { title: '时间', dataIndex: 'startTime', key: 'time', render: (_: any, record: any) => `${record.startTime}-${record.endTime}` },
     { title: '补训内容', dataIndex: 'content', key: 'content' },
     { title: '负责老师', dataIndex: 'teacher', key: 'teacher' },
     { title: '完成状态', dataIndex: 'completed', key: 'completed', render: (text: boolean) => (
@@ -68,7 +72,7 @@ export default function MakeupTraining() {
         <Tag color="orange">待完成</Tag>
       )
     )},
-    { title: '操作', key: 'action', render: (_, record) => (
+    { title: '操作', key: 'action', render: (_: any, record: any) => (
       <div style={{ display: 'flex', gap: '8px' }}>
         {userRole === 'admin' && <Button icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>}
         {!record.completed && userRole === 'teacher' && (

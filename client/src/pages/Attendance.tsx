@@ -1,10 +1,11 @@
 import { Table, Tag, Card, Select, Button, Modal, Form, Input, Checkbox, Slider } from 'antd';
-import { CheckOutlined, XOutlined, EditOutlined, UserOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, EditOutlined, UserOutlined } from '@ant-design/icons';
 import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 
 export default function Attendance() {
   const { rehearsals, programs, students, attendances, updateAttendance, userRole } = useStore();
+  const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [selectedRehearsal, setSelectedRehearsal] = useState<string>('');
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentAttendance, setCurrentAttendance] = useState<any>(null);
@@ -12,24 +13,24 @@ export default function Attendance() {
 
   const programOptions = programs.map((p) => ({ value: p.id, label: p.name }));
   const rehearsalOptions = useMemo(() => {
-    if (!selectedRehearsal) return [];
+    if (!selectedProgram) return [];
     return rehearsals
-      .filter((r) => r.programId === selectedRehearsal)
+      .filter((r) => r.programId === selectedProgram)
       .map((r) => ({ value: r.id, label: `${r.date} ${r.startTime}-${r.endTime}` }));
-  }, [selectedRehearsal, rehearsals]);
+  }, [selectedProgram, rehearsals]);
 
   const filteredAttendances = useMemo(() => {
     if (!selectedRehearsal) return [];
-    const programRehearsals = rehearsals.filter((r) => r.programId === selectedRehearsal);
-    return attendances.filter((a) => programRehearsals.some((r) => r.id === a.rehearsalId));
-  }, [selectedRehearsal, rehearsals, attendances]);
+    return attendances.filter((a) => a.rehearsalId === selectedRehearsal);
+  }, [selectedRehearsal, attendances]);
 
   const getStudentName = (studentId: string) => {
     return students.find((s) => s.id === studentId)?.name || '';
   };
 
-  const getRehearsalInfo = (rehearsalId: string) => {
-    return rehearsals.find((r) => r.id === rehearsalId);
+  const handleProgramChange = (value: string) => {
+    setSelectedProgram(value);
+    setSelectedRehearsal('');
   };
 
   const handleEdit = (record: any) => {
@@ -40,16 +41,20 @@ export default function Attendance() {
 
   const handleSave = () => {
     form.validateFields().then((values) => {
-      updateAttendance(currentAttendance.id, values);
+      const updates = {
+        present: values.present,
+        reason: values.reason || '',
+        actionCompletion: values.actionCompletion || 0,
+        makeupCompleted: values.makeupCompleted || false,
+        costumeCollected: values.costumeCollected || false,
+        parentConfirmed: values.parentConfirmed || false,
+      };
+      updateAttendance(currentAttendance.id, updates);
       setIsModalVisible(false);
     });
   };
 
   const columns = [
-    { title: '排练日期', dataIndex: 'rehearsalId', key: 'rehearsalId', render: (text: string) => {
-      const rehearsal = getRehearsalInfo(text);
-      return rehearsal ? `${rehearsal.date} ${rehearsal.startTime}` : '';
-    }},
     { title: '学生姓名', dataIndex: 'studentId', key: 'studentId', render: (text: string) => (
       <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <UserOutlined />
@@ -60,7 +65,7 @@ export default function Attendance() {
       text ? (
         <Tag color="green"><CheckOutlined /> 出勤</Tag>
       ) : (
-        <Tag color="red"><XOutlined /> 缺勤</Tag>
+        <Tag color="red"><CloseOutlined /> 缺勤</Tag>
       )
     )},
     { title: '缺勤原因', dataIndex: 'reason', key: 'reason' },
@@ -79,7 +84,7 @@ export default function Attendance() {
     { title: '家长确认', dataIndex: 'parentConfirmed', key: 'parentConfirmed', render: (text: boolean) => (
       text ? <Tag color="green">是</Tag> : <Tag color="red">否</Tag>
     )},
-    { title: '操作', key: 'action', render: (_, record) => (
+    { title: '操作', key: 'action', render: (_: any, record: any) => (
       (userRole === 'admin' || userRole === 'teacher') && (
         <Button icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
       )
@@ -93,14 +98,17 @@ export default function Attendance() {
           <Select
             placeholder="选择节目"
             options={programOptions}
-            value={selectedRehearsal}
-            onChange={(value) => setSelectedRehearsal(value)}
+            value={selectedProgram}
+            onChange={handleProgramChange}
             style={{ width: '200px' }}
           />
           <Select
             placeholder="选择排练"
             options={rehearsalOptions}
+            value={selectedRehearsal}
+            onChange={setSelectedRehearsal}
             style={{ width: '250px' }}
+            disabled={!selectedProgram}
           />
         </div>
         <Table
@@ -113,7 +121,7 @@ export default function Attendance() {
 
       <Modal
         title="编辑签到记录"
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
           <Button key="back" onClick={() => setIsModalVisible(false)}>取消</Button>,

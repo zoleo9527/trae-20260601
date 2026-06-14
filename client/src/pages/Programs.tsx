@@ -31,7 +31,7 @@ export default function Programs() {
         {text === 'high' ? '高风险' : text === 'medium' ? '中风险' : '低风险'}
       </Tag>
     )},
-    { title: '操作', key: 'action', render: (_, record) => (
+    { title: '操作', key: 'action', render: (_: any, record: any) => (
       <div style={{ display: 'flex', gap: '8px' }}>
         <Button icon={<EyeOutlined />} onClick={() => {
           setSelectedProgram(record);

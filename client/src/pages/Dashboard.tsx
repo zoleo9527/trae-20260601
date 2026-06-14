@@ -1,5 +1,5 @@
 import { Card, Row, Col, Tag, Progress, Alert, Table } from 'antd';
-import { AlertTriangleOutlined, CheckCircleOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
+import { AlertOutlined, CheckCircleOutlined, ClockCircleOutlined, UserOutlined } from '@ant-design/icons';
 import { useMemo } from 'react';
 import { useStore } from '../store';
 
@@ -102,7 +102,7 @@ export default function Dashboard() {
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#fff1f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <AlertTriangleOutlined style={{ color: '#f5222d', fontSize: '20px' }} />
+                <AlertOutlined style={{ color: '#f5222d', fontSize: '20px' }} />
               </div>
               <div>
                 <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{stats.absentStudents}</div>
