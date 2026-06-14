@@ -226,7 +226,7 @@ function WorkbenchContent() {
 
   const getRelatedPracticeNotes = (review: StageReview): string[] => {
     return practiceRecords
-      .filter((record) => record.studentId === review.studentId && record.status === '已确认' && record.note)
+      .filter((record) => record.reviewId === review.id && record.status === '已确认' && record.note)
       .map((record) => record.note);
   };
 
@@ -456,6 +456,9 @@ function WorkbenchContent() {
             onReview={handleReview}
             onConfirm={handleConfirmReview}
             currentRole={currentRole}
+            getPracticeNotes={(reviewId) => practiceRecords
+              .filter(p => p.reviewId === reviewId && p.status === '已确认' && p.note)
+              .map(p => p.note)}
           />
         )}
         
@@ -466,6 +469,9 @@ function WorkbenchContent() {
             onReview={() => {}}
             onConfirm={() => {}}
             currentRole={currentRole}
+            getPracticeNotes={(reviewId) => practiceRecords
+              .filter(p => p.reviewId === reviewId && p.status === '已确认' && p.note)
+              .map(p => p.note)}
           />
         )}
       </div>
@@ -496,7 +502,12 @@ function WorkbenchContent() {
           />
         )}
         {modalType === 'review-detail' && selectedReview && (
-          <ReviewDetailView review={selectedReview} />
+          <ReviewDetailView
+            review={selectedReview}
+            getPracticeNotes={(reviewId) => practiceRecords
+              .filter(p => p.reviewId === reviewId && p.status === '已确认' && p.note)
+              .map(p => p.note)}
+          />
         )}
         {modalType === 'review-edit' && selectedReview && (
           <ReviewForm

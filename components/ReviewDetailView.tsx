@@ -2,6 +2,7 @@ import { StageReview, ReviewStatus } from '../types';
 
 interface ReviewDetailViewProps {
   review: StageReview;
+  getPracticeNotes?: (reviewId: string) => string[];
 }
 
 const statusConfig: Record<ReviewStatus, { label: string; className: string }> = {
@@ -11,13 +12,17 @@ const statusConfig: Record<ReviewStatus, { label: string; className: string }> =
   '已完成': { label: '已完成', className: 'bg-green-100 text-green-700' },
 };
 
-export function ReviewDetailView({ review }: ReviewDetailViewProps) {
+export function ReviewDetailView({ review, getPracticeNotes }: ReviewDetailViewProps) {
   const avgScore = Math.round(
     (review.skillsEvaluation.technique +
       review.skillsEvaluation.expression +
       review.skillsEvaluation.rhythm +
       review.skillsEvaluation.progress) / 4
   );
+
+  const displayNotes = review.status === '待点评' && getPracticeNotes
+    ? getPracticeNotes(review.id)
+    : review.relatedPracticeNotes;
 
   return (
     <div className="space-y-4">
@@ -53,7 +58,7 @@ export function ReviewDetailView({ review }: ReviewDetailViewProps) {
       <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-4">
         <div className="flex items-center justify-center">
           <div className="text-center">
-            <div className="text-4xl font-bold text-primary-600">{avgScore}</div>
+            <div className="text-4xl font-bold text-primary-600">{avgScore || '-'}</div>
             <div className="text-sm text-gray-500">综合评分</div>
           </div>
         </div>
@@ -65,7 +70,7 @@ export function ReviewDetailView({ review }: ReviewDetailViewProps) {
             { label: '进步度', value: review.skillsEvaluation.progress },
           ].map((item) => (
             <div key={item.label} className="text-center">
-              <div className="text-xl font-semibold text-gray-800">{item.value}</div>
+              <div className="text-xl font-semibold text-gray-800">{item.value || '-'}</div>
               <div className="text-xs text-gray-500">{item.label}</div>
             </div>
           ))}
@@ -74,14 +79,14 @@ export function ReviewDetailView({ review }: ReviewDetailViewProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-500 mb-1">综合评价</label>
-        <div className="bg-gray-50 rounded-lg p-3 text-gray-800">{review.overallEvaluation}</div>
+        <div className="bg-gray-50 rounded-lg p-3 text-gray-800">{review.overallEvaluation || '（待填写）'}</div>
       </div>
 
-      {review.relatedPracticeNotes.length > 0 && (
+      {displayNotes.length > 0 && (
         <div>
           <label className="block text-sm font-medium text-gray-500 mb-1">关联陪练备注</label>
           <div className="space-y-2">
-            {review.relatedPracticeNotes.map((note, index) => (
+            {displayNotes.map((note, index) => (
               <div key={index} className="bg-primary-50 rounded-lg p-3 text-primary-800">
                 {note}
               </div>
@@ -92,12 +97,12 @@ export function ReviewDetailView({ review }: ReviewDetailViewProps) {
 
       <div>
         <label className="block text-sm font-medium text-gray-500 mb-1">改进建议</label>
-        <div className="bg-warning-50 rounded-lg p-3 text-warning-800">{review.improvementSuggestions}</div>
+        <div className="bg-warning-50 rounded-lg p-3 text-warning-800">{review.improvementSuggestions || '（待填写）'}</div>
       </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-500 mb-1">下一阶段目标</label>
-        <div className="bg-success-50 rounded-lg p-3 text-success-800">{review.nextStageGoals}</div>
+        <div className="bg-success-50 rounded-lg p-3 text-success-800">{review.nextStageGoals || '（待填写）'}</div>
       </div>
 
       <div className="flex justify-between text-sm text-gray-400 pt-4 border-t border-gray-200">

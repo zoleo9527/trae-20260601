@@ -6,6 +6,7 @@ interface ReviewListProps {
   onReview: (review: StageReview) => void;
   onConfirm: (review: StageReview) => void;
   currentRole?: Role;
+  getPracticeNotes?: (reviewId: string) => string[];
 }
 
 const statusConfig: Record<ReviewStatus, { label: string; className: string }> = {
@@ -15,13 +16,20 @@ const statusConfig: Record<ReviewStatus, { label: string; className: string }> =
   '已完成': { label: '已完成', className: 'bg-green-100 text-green-700' },
 };
 
-export function ReviewList({ reviews, onViewDetail, onReview, onConfirm, currentRole }: ReviewListProps) {
+export function ReviewList({ reviews, onViewDetail, onReview, onConfirm, currentRole, getPracticeNotes }: ReviewListProps) {
   const canReview = (review: StageReview): boolean => {
     return currentRole === '任课老师' && review.status === '待点评';
   };
 
   const canConfirm = (review: StageReview): boolean => {
     return currentRole === '家长顾问' && review.status === '待确认';
+  };
+
+  const getDisplayNotes = (review: StageReview): string[] => {
+    if (review.status === '待点评' && getPracticeNotes) {
+      return getPracticeNotes(review.id);
+    }
+    return review.relatedPracticeNotes;
   };
 
   return (
@@ -33,70 +41,73 @@ export function ReviewList({ reviews, onViewDetail, onReview, onConfirm, current
         {reviews.length === 0 ? (
           <div className="px-6 py-12 text-center text-gray-500">暂无记录</div>
         ) : (
-          reviews.map((review) => (
-            <div
-              key={review.id}
-              className="px-6 py-4 hover:bg-gray-50 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-medium text-gray-800">{review.studentName}</span>
-                    <span className="text-sm text-gray-500">{review.instrument}</span>
-                    <span className="text-sm text-gray-400">{review.stage}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[review.status].className}`}>
-                      {statusConfig[review.status].label}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-sm text-gray-600">
-                    <span className="mr-4">📅 {review.startDate} ~ {review.endDate}</span>
-                  </div>
-                  <div className="mt-2 text-sm text-gray-600 line-clamp-2">
-                    <span className="font-medium">综合评价：</span>{review.overallEvaluation}
-                  </div>
-                  {review.relatedPracticeNotes.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {review.relatedPracticeNotes.map((note, index) => (
-                        <span key={index} className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded">
-                          陪练备注: {note}
-                        </span>
-                      ))}
+          reviews.map((review) => {
+            const displayNotes = getDisplayNotes(review);
+            return (
+              <div
+                key={review.id}
+                className="px-6 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg font-medium text-gray-800">{review.studentName}</span>
+                      <span className="text-sm text-gray-500">{review.instrument}</span>
+                      <span className="text-sm text-gray-400">{review.stage}</span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig[review.status].className}`}>
+                        {statusConfig[review.status].label}
+                      </span>
                     </div>
-                  )}
-                  {(review.reviewedBy || review.confirmedBy) && (
-                    <div className="mt-1 text-xs text-gray-400">
-                      {review.reviewedBy && `点评人: ${review.reviewedBy}`}
-                      {review.confirmedBy && ` · 确认人: ${review.confirmedBy}`}
+                    <div className="mt-2 text-sm text-gray-600">
+                      <span className="mr-4">📅 {review.startDate} ~ {review.endDate}</span>
                     </div>
-                  )}
-                </div>
-                <div className="flex gap-2 ml-4">
-                  <button
-                    onClick={() => onViewDetail(review)}
-                    className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
-                  >
-                    查看
-                  </button>
-                  {canReview(review) && (
+                    <div className="mt-2 text-sm text-gray-600 line-clamp-2">
+                      <span className="font-medium">综合评价：</span>{review.overallEvaluation || '（待填写）'}
+                    </div>
+                    {displayNotes.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1">
+                        {displayNotes.map((note, index) => (
+                          <span key={index} className="text-xs bg-primary-50 text-primary-600 px-2 py-0.5 rounded">
+                            陪练备注: {note}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {(review.reviewedBy || review.confirmedBy) && (
+                      <div className="mt-1 text-xs text-gray-400">
+                        {review.reviewedBy && `点评人: ${review.reviewedBy}`}
+                        {review.confirmedBy && ` · 确认人: ${review.confirmedBy}`}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-2 ml-4">
                     <button
-                      onClick={() => onReview(review)}
-                      className="px-3 py-1.5 text-sm bg-secondary-500 text-white rounded-lg hover:bg-secondary-600 transition-colors"
+                      onClick={() => onViewDetail(review)}
+                      className="px-3 py-1.5 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
                     >
-                      点评
+                      查看
                     </button>
-                  )}
-                  {canConfirm(review) && (
-                    <button
-                      onClick={() => onConfirm(review)}
-                      className="px-3 py-1.5 text-sm bg-success-500 text-white rounded-lg hover:bg-success-600 transition-colors"
-                    >
-                      确认
-                    </button>
-                  )}
+                    {canReview(review) && (
+                      <button
+                        onClick={() => onReview(review)}
+                        className="px-3 py-1.5 text-sm bg-secondary-500 text-white rounded-lg hover:bg-secondary-600 transition-colors"
+                      >
+                        点评
+                      </button>
+                    )}
+                    {canConfirm(review) && (
+                      <button
+                        onClick={() => onConfirm(review)}
+                        className="px-3 py-1.5 text-sm bg-success-500 text-white rounded-lg hover:bg-success-600 transition-colors"
+                      >
+                        确认
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>
