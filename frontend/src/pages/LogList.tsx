@@ -74,7 +74,9 @@ export default function LogList() {
       setExportLoading(true);
       await carApi.downloadLogs({
         from: dateRange?.[0]?.startOf('day').toISOString(),
-        to: dateRange?.[1]?.endOf('day').toISOString()
+        to: dateRange?.[1]?.endOf('day').toISOString(),
+        operatorId,
+        operationType
       });
       message.success('日志已导出');
     } catch (e: any) {

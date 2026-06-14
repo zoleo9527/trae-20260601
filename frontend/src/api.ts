@@ -122,10 +122,12 @@ export const carApi = {
     const filename = extractFilename(resp) || `审批单_${id}.txt`;
     triggerDownload(blob, filename);
   },
-  async downloadLogs(params?: { from?: string; to?: string }): Promise<void> {
+  async downloadLogs(params?: { from?: string; to?: string; operatorId?: string; operationType?: string }): Promise<void> {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
+    if (params?.operatorId) q.set('operatorId', params.operatorId);
+    if (params?.operationType) q.set('operationType', params.operationType);
     const resp = await fetch('/api/logs/export?' + q.toString(), { headers: getHeaders() });
     if (resp.status === 401) {
       authApi.logout();

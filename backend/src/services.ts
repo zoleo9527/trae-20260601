@@ -233,6 +233,22 @@ export function exportApprovalSheet(_user: AuthTokenPayload, carId: string): Ser
   if (!detail.ok || !detail.data) return { ok: false, message: detail.message };
   const { car, logs } = detail.data;
 
+  const handlerUser = car.currentHandlerId ? db.findUserById(car.currentHandlerId) : null;
+  const handlerLabel = handlerUser
+    ? `${handlerUser.name}（${roleLabel(handlerUser.role)}）`
+    : car.currentStatus === 'approved' ? '已审批通过，无待处理人'
+    : car.currentStatus === 'rejected' ? '已驳回，无待处理人'
+    : car.currentStatus === 'cancelled' ? '已取消，无待处理人'
+    : '暂无';
+
+  const latestLog = logs.length > 0 ? logs[logs.length - 1] : null;
+  const latestTime = latestLog ? latestLog.createdAt : car.updatedAt;
+
+  const keyRemarks = logs
+    .filter(l => l.remark && l.remark.trim() && ['submit', 'manager_approve', 'manager_reject', 'appraiser_submit', 'appraiser_reject', 'finance_approve', 'finance_reject', 'cancel', 'add_comment'].includes(l.operationType))
+    .map(l => `[${l.createdAt}] ${l.operatorName}: ${l.remark}`)
+    .slice(-5);
+
   const lines: string[] = [];
   lines.push('======= 二手车源收购审批单 =======');
   lines.push(`车源编号: ${car.carNo}`);
@@ -246,6 +262,16 @@ export function exportApprovalSheet(_user: AuthTokenPayload, carId: string): Ser
   lines.push(`评估师现场价: ${car.appraiserPrice ? '¥' + car.appraiserPrice.toLocaleString() : '-'}`);
   lines.push(`金融审批价: ${car.finalPrice ? '¥' + car.finalPrice.toLocaleString() : '-'}`);
   lines.push(`当前状态: ${CAR_STATUS_LABEL[car.currentStatus]}`);
+  lines.push('');
+  lines.push('--- 交班关键信息 ---');
+  lines.push(`当前责任人: ${handlerLabel}`);
+  lines.push(`最近处理时间: ${latestTime}`);
+  lines.push(`关键备注摘要:`);
+  if (keyRemarks.length > 0) {
+    keyRemarks.forEach(r => lines.push(`  · ${r}`));
+  } else {
+    lines.push('  （无）');
+  }
   lines.push('');
   lines.push('--- 流转历史（按时间顺序） ---');
   logs.forEach((log, idx) => {
@@ -262,10 +288,36 @@ export function exportApprovalSheet(_user: AuthTokenPayload, carId: string): Ser
 
 export function exportOperationLogs(_user: AuthTokenPayload, query?: { from?: string; to?: string; operationType?: OperationType[]; operatorId?: string }): ServiceResult<{ filename: string; content: string; format: 'csv' | 'txt' }> {
   const logs = db.listAllLogs(query);
-  const header = ['时间', '操作人', '角色', '车源编号', '操作类型', '起始状态', '目标状态', '价格', '备注'];
+
+  const carContextCache = new Map<string, { handler: string; latestTime: string; keyRemarks: string }>();
+  function getCarContext(carId: string): { handler: string; latestTime: string; keyRemarks: string } {
+    if (carContextCache.has(carId)) return carContextCache.get(carId)!;
+    const car = db.findCarById(carId);
+    const carLogs = car ? db.listLogsByCar(carId) : [];
+    const handlerUser = car?.currentHandlerId ? db.findUserById(car.currentHandlerId) : null;
+    const handler = handlerUser
+      ? `${handlerUser.name}(${roleLabel(handlerUser.role)})`
+      : car?.currentStatus === 'approved' ? '已通过'
+      : car?.currentStatus === 'rejected' ? '已驳回'
+      : car?.currentStatus === 'cancelled' ? '已取消'
+      : '-';
+    const latestLog = carLogs.length > 0 ? carLogs[carLogs.length - 1] : null;
+    const latestTime = latestLog ? latestLog.createdAt : car?.updatedAt || '-';
+    const keyRemarks = carLogs
+      .filter(l => l.remark && l.remark.trim() && ['submit', 'manager_approve', 'manager_reject', 'appraiser_submit', 'appraiser_reject', 'finance_approve', 'finance_reject', 'cancel', 'add_comment'].includes(l.operationType))
+      .map(l => `${l.operatorName}: ${l.remark}`)
+      .slice(-3)
+      .join('; ') || '-';
+    const ctx = { handler, latestTime, keyRemarks };
+    carContextCache.set(carId, ctx);
+    return ctx;
+  }
+
+  const header = ['时间', '操作人', '角色', '车源编号', '操作类型', '起始状态', '目标状态', '价格', '备注', '当前责任人', '最近处理时间', '关键备注摘要'];
   const rows = [header.join(',')];
   logs.forEach(log => {
     const car = db.findCarById(log.carId);
+    const ctx = getCarContext(log.carId);
     rows.push([
       log.createdAt,
       log.operatorName,
@@ -275,7 +327,10 @@ export function exportOperationLogs(_user: AuthTokenPayload, query?: { from?: st
       log.fromStatus ? CAR_STATUS_LABEL[log.fromStatus] : '',
       CAR_STATUS_LABEL[log.toStatus],
       log.price ? String(log.price) : '',
-      `"${(log.remark || '').replace(/"/g, '""')}"`
+      `"${(log.remark || '').replace(/"/g, '""')}"`,
+      `"${ctx.handler}"`,
+      ctx.latestTime,
+      `"${ctx.keyRemarks.replace(/"/g, '""')}"`
     ].join(','));
   });
   return { ok: true, data: { filename: `操作日志_${new Date().toISOString().slice(0, 10)}.csv`, content: '\ufeff' + rows.join('\n'), format: 'csv' } };
