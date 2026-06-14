@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '@/utils/date';
 import { Avatar } from './Avatar';
-import { MessageSquare, RefreshCw, User, Settings, AlertTriangle } from 'lucide-react';
+import { MessageSquare, RefreshCw, User, Settings, AlertTriangle, AlertCircle, Flame } from 'lucide-react';
 import { LogType } from '@/types';
 
 interface TimelineItem {
@@ -15,6 +15,8 @@ interface TimelineItem {
   timestamp: string;
   details: string;
   onClick?: () => void;
+  isPending?: boolean;
+  isHighRisk?: boolean;
 }
 
 interface TimelineProps {
@@ -62,11 +64,11 @@ export const Timeline: React.FC<TimelineProps> = ({ items, className }) => {
             <div
               className={cn(
                 'cursor-pointer transition-colors rounded-lg -mx-2 px-2 py-1',
-                item.onClick && 'hover:bg-cream-50'
+                (item.isPending || item.isHighRisk) ? 'bg-rose-50/30 hover:bg-rose-50' : item.onClick ? 'hover:bg-cream-50' : ''
               )}
               onClick={item.onClick}
             >
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-2 flex-wrap">
                 <span className="font-medium text-ink-800 text-sm">
                   {item.operator}
                 </span>
@@ -76,6 +78,18 @@ export const Timeline: React.FC<TimelineProps> = ({ items, className }) => {
                 <span className="text-ink-700 font-medium text-sm">
                   {item.targetName}
                 </span>
+                {item.isPending && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                    <AlertCircle className="w-3 h-3" />
+                    待处理
+                  </span>
+                )}
+                {item.isHighRisk && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                    <Flame className="w-3 h-3" />
+                    高风险
+                  </span>
+                )}
               </div>
               <p className="text-sm text-ink-500 mt-0.5 line-clamp-2">
                 {item.details}

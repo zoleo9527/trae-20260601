@@ -15,6 +15,11 @@ import {
   Plus,
   AlertTriangle,
   RefreshCw,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  AlertCircle,
+  Flame,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Avatar } from '@/components/Avatar';
@@ -28,14 +33,24 @@ import { useExceptionStore } from '@/store/useExceptionStore';
 import { useOperationLogStore } from '@/store/useOperationLogStore';
 import { formatDate, formatRelativeTime } from '@/utils/date';
 import { cn } from '@/lib/utils';
+import type { LogType } from '@/types';
 
 type TabType = 'feedback' | 'renewal' | 'exam' | 'costume';
+type LogFilterType = LogType | 'all';
 
 const tabOptions: { value: TabType; label: string; icon: typeof BookOpen }[] = [
   { value: 'feedback', label: '课堂反馈', icon: BookOpen },
   { value: 'renewal', label: '续费记录', icon: BarChart3 },
   { value: 'exam', label: '考级进度', icon: Award },
   { value: 'costume', label: '服装尺码', icon: Shirt },
+];
+
+const logFilterOptions: { value: LogFilterType; label: string; color: string }[] = [
+  { value: 'all', label: '全部', color: 'text-ink-600 bg-ink-50' },
+  { value: 'feedback', label: '课堂反馈', color: 'text-sky-600 bg-sky-50' },
+  { value: 'renewal', label: '续费跟进', color: 'text-gold-600 bg-gold-50' },
+  { value: 'exception', label: '异常处理', color: 'text-rose-600 bg-rose-50' },
+  { value: 'student', label: '学员管理', color: 'text-emerald-600 bg-emerald-50' },
 ];
 
 const StudentDetail: React.FC = () => {
@@ -50,6 +65,11 @@ const StudentDetail: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('feedback');
   const [showAddFeedback, setShowAddFeedback] = useState(false);
   const [showAddException, setShowAddException] = useState(false);
+  const [logFilter, setLogFilter] = useState<LogFilterType>('all');
+  const [showAllLogs, setShowAllLogs] = useState(false);
+
+  const { getFeedbackById } = useFeedbackStore();
+  const { getExceptionById } = useExceptionStore();
 
   const student = getStudentById(id || '');
   const feedbackList = id ? getFeedbackByStudentId(id) : [];
@@ -112,26 +132,57 @@ const StudentDetail: React.FC = () => {
     onClick: () => navigate(`/feedback/${fb.id}`),
   }));
 
-  const logItems = logs.map((log) => ({
-    id: log.id,
-    type: log.type,
-    targetName: log.targetName,
-    action: log.action,
-    operator: log.operator,
-    timestamp: log.timestamp,
-    details: log.details,
-    onClick: () => {
-      if (log.type === 'feedback') {
-        navigate(`/feedback/${log.targetId}`);
-      } else if (log.type === 'renewal') {
-        navigate(`/renewal/${log.targetId}`);
-      } else if (log.type === 'student') {
-        navigate(`/student/${log.targetId}`);
-      } else if (log.type === 'exception') {
-        navigate(`/exception/${log.targetId}`);
-      }
-    },
-  }));
+  // 判断业务对象的状态标记
+  const getStatusFlags = (log: ReturnType<typeof getStudentRelatedLogs>[0]) => {
+    let isPending = false;
+    let isHighRisk = false;
+
+    if (log.type === 'feedback') {
+      const fb = getFeedbackById(log.targetId);
+      isPending = fb?.status === 'pending';
+    } else if (log.type === 'renewal') {
+      const rn = renewal;
+      isPending = rn?.status === 'pending';
+      isHighRisk = rn?.riskLevel === 'high' && rn.status !== 'signed' && rn.status !== 'lost';
+    } else if (log.type === 'exception') {
+      const ex = getExceptionById(log.targetId);
+      isPending = ex?.status === 'pending';
+      isHighRisk = ex?.priority === 'high' && ex.status !== 'resolved';
+    }
+
+    return { isPending, isHighRisk };
+  };
+
+  const logItems = logs.map((log) => {
+    const flags = getStatusFlags(log);
+    return {
+      id: log.id,
+      type: log.type,
+      targetName: log.targetName,
+      action: log.action,
+      operator: log.operator,
+      timestamp: log.timestamp,
+      details: log.details,
+      isPending: flags.isPending,
+      isHighRisk: flags.isHighRisk,
+      onClick: () => {
+        if (log.type === 'feedback') {
+          navigate(`/feedback/${log.targetId}`);
+        } else if (log.type === 'renewal') {
+          navigate(`/renewal/${log.targetId}`);
+        } else if (log.type === 'student') {
+          navigate(`/student/${log.targetId}`);
+        } else if (log.type === 'exception') {
+          navigate(`/exception/${log.targetId}`);
+        }
+      },
+    };
+  });
+
+  // 按类型筛选
+  const filteredLogItems = logFilter === 'all'
+    ? logItems
+    : logItems.filter(item => item.type === logFilter);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -468,20 +519,41 @@ const StudentDetail: React.FC = () => {
 
       {/* 最近变更摘要 */}
       <div className="card-base p-6 border-l-4 border-l-sky-400">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <h3 className="font-serif text-lg font-semibold text-ink-900 flex items-center gap-2">
             <RefreshCw className="w-5 h-5 text-sky-500" />
             最近变更摘要
           </h3>
-          {logItems.length > 5 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* 类型筛选 */}
+            <div className="flex items-center gap-1 bg-cream-50 rounded-lg p-1">
+              {logFilterOptions.map(opt => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setLogFilter(opt.value);
+                    setShowAllLogs(false);
+                  }}
+                  className={cn(
+                    'text-xs font-medium px-2.5 py-1.5 rounded-md transition-all',
+                    logFilter === opt.value
+                      ? opt.color + ' shadow-sm'
+                      : 'text-ink-500 hover:text-ink-700'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
             <span className="text-xs text-ink-400">
-              共 {logItems.length} 条记录
+              共 {filteredLogItems.length} 条
             </span>
-          )}
+          </div>
         </div>
-        {logItems.length > 0 ? (
+
+        {filteredLogItems.length > 0 ? (
           <div className="space-y-3">
-            {logItems.slice(0, 5).map((item) => {
+            {(showAllLogs ? filteredLogItems : filteredLogItems.slice(0, 5)).map((item) => {
               const typeLabel =
                 item.type === 'feedback' ? '课堂反馈' :
                 item.type === 'renewal' ? '续费跟进' :
@@ -492,10 +564,16 @@ const StudentDetail: React.FC = () => {
                 item.type === 'renewal' ? 'text-gold-600 bg-gold-50' :
                 item.type === 'exception' ? 'text-rose-600 bg-rose-50' :
                 item.type === 'student' ? 'text-emerald-600 bg-emerald-50' : 'text-ink-600 bg-ink-50';
+              const hasAlert = item.isPending || item.isHighRisk;
               return (
                 <div
                   key={item.id}
-                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-cream-50 cursor-pointer transition-colors group"
+                  className={cn(
+                    'flex items-start gap-3 p-3 rounded-lg cursor-pointer transition-colors group',
+                    hasAlert
+                      ? 'bg-rose-50/50 hover:bg-rose-50 border border-rose-100'
+                      : 'hover:bg-cream-50'
+                  )}
                   onClick={item.onClick}
                 >
                   <span className={cn(
@@ -505,13 +583,25 @@ const StudentDetail: React.FC = () => {
                     {typeLabel}
                   </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-medium text-ink-800">
                         {item.operator}
                       </span>
                       <span className="text-sm text-ink-500">
                         {item.action}
                       </span>
+                      {item.isPending && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                          <AlertCircle className="w-3 h-3" />
+                          待处理
+                        </span>
+                      )}
+                      {item.isHighRisk && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                          <Flame className="w-3 h-3" />
+                          高风险
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-ink-600 mt-0.5 line-clamp-1">
                       {item.details}
@@ -526,6 +616,26 @@ const StudentDetail: React.FC = () => {
                 </div>
               );
             })}
+
+            {filteredLogItems.length > 5 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAllLogs(!showAllLogs);
+                }}
+                className="w-full mt-2 py-2 text-sm text-ink-500 hover:text-ink-700 flex items-center justify-center gap-1 rounded-lg hover:bg-cream-50 transition-colors"
+              >
+                {showAllLogs ? (
+                  <>
+                    收起 <ChevronUp className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    查看全部 {filteredLogItems.length} 条记录 <ChevronDown className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         ) : (
           <p className="text-sm text-ink-400 text-center py-6">
@@ -536,12 +646,20 @@ const StudentDetail: React.FC = () => {
 
       {/* 完整操作轨迹 */}
       <div className="card-base p-6">
-        <h3 className="font-serif text-lg font-semibold text-ink-900 mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-ink-400" />
-          完整操作轨迹
-        </h3>
-        {logItems.length > 0 ? (
-          <Timeline items={logItems.slice(0, 15)} />
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-serif text-lg font-semibold text-ink-900 flex items-center gap-2">
+            <Clock className="w-5 h-5 text-ink-400" />
+            完整操作轨迹
+          </h3>
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-ink-400" />
+            <span className="text-xs text-ink-500">
+              当前显示：{logFilterOptions.find(o => o.value === logFilter)?.label} · {filteredLogItems.length} 条
+            </span>
+          </div>
+        </div>
+        {filteredLogItems.length > 0 ? (
+          <Timeline items={filteredLogItems} />
         ) : (
           <p className="text-sm text-ink-400 text-center py-8">
             暂无操作记录
