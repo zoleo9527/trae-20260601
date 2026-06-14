@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model InspectionLine {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  status      LineStatus @default(IDLE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  records     InspectionRecord[]
+}
+
+model Vehicle {
+  id              Int      @id @default(autoincrement())
+  licensePlate    String   @unique
+  vehicleType     VehicleType
+  ownerName       String
+  ownerPhone      String
+  vin             String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  records         InspectionRecord[]
+}
+
+model InspectionRecord {
+  id              Int                  @id @default(autoincrement())
+  vehicleId       Int
+  lineId          Int?
+  status          RecordStatus
+  currentStep     Int                  @default(1)
+  totalSteps      Int                  @default(6)
+  queueNumber     String?
+  assignedAt      DateTime?
+  startedAt       DateTime?
+  completedAt     DateTime?
+  rejectedAt      DateTime?
+  rejectReason    String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  vehicle         Vehicle              @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  line            InspectionLine?      @relation(fields: [lineId], references: [id])
+  items           InspectionItem[]
+  anomalies       AnomalyRecord[]
+}
+
+model InspectionItem {
+  id              Int                  @id @default(autoincrement())
+  recordId        Int
+  itemCode        String
+  itemName        String
+  result          ItemResult           @default(PENDING)
+  measuredValue   String?
+  referenceValue  String?
+  inspector       String?
+  inspectedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  record          InspectionRecord     @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+model AnomalyRecord {
+  id              Int                  @id @default(autoincrement())
+  recordId        Int
+  anomalyType     AnomalyType
+  description     String
+  operator        String
+  createdAt       DateTime             @default(now())
+  resolved        Boolean              @default(false)
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  record          InspectionRecord     @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+enum LineStatus {
+  IDLE
+  BUSY
+  MAINTENANCE
+}
+
+enum VehicleType {
+  CAR
+  TRUCK
+  MOTORCYCLE
+  OTHER
+}
+
+enum RecordStatus {
+  QUEUING
+  ASSIGNED
+  INSPECTING
+  COMPLETED
+  REJECTED
+}
+
+enum ItemResult {
+  PENDING
+  PASS
+  FAIL
+  SKIPPED
+}
+
+enum AnomalyType {
+  EQUIPMENT_ERROR
+  DATA_ERROR
+  VEHICLE_ISSUE
+  PROCESS_ERROR
+  OTHER
+}

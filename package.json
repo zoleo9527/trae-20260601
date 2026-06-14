@@ -1,0 +1,21 @@
+{
+  "name": "vehicle-inspection-system",
+  "version": "1.0.0",
+  "description": "车辆年检站检测线排队与项目记录系统",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "migrate": "prisma migrate dev",
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.10.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "prisma": "^5.10.2"
+  }
+}
