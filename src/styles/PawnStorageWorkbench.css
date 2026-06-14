@@ -449,6 +449,29 @@
   table-layout: fixed;
 }
 
+.records-table th:nth-child(1),
+.records-table td:nth-child(1) { width: 9%; }
+.records-table th:nth-child(2),
+.records-table td:nth-child(2) { width: 10%; }
+.records-table th:nth-child(3),
+.records-table td:nth-child(3) { width: 12%; }
+.records-table th:nth-child(4),
+.records-table td:nth-child(4) { width: 10%; }
+.records-table th:nth-child(5),
+.records-table td:nth-child(5) { width: 11%; }
+.records-table th:nth-child(6),
+.records-table td:nth-child(6) { width: 8%; }
+.records-table th:nth-child(7),
+.records-table td:nth-child(7) { width: 14%; }
+.records-table th:nth-child(8),
+.records-table td:nth-child(8) { width: 7%; }
+.records-table th:nth-child(9),
+.records-table td:nth-child(9) { width: 7%; }
+.records-table th:nth-child(10),
+.records-table td:nth-child(10) { width: 7%; }
+.records-table th:nth-child(11),
+.records-table td:nth-child(11) { width: 8%; }
+
 .record-row {
   cursor: pointer;
   transition: background-color 0.15s ease;
@@ -588,4 +611,138 @@
   .search-box input {
     width: 200px;
   }
+}
+
+.record-row.overdue {
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.record-row.overdue:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+
+.record-row td:first-child {
+  position: relative;
+}
+
+.overdue-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 8px;
+  background-color: var(--danger-color);
+  color: white;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  animation: pulseRed 2s ease-in-out infinite;
+}
+
+@keyframes pulseRed {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.handler-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.handler-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+}
+
+.handler-avatar.small {
+  width: 28px;
+  height: 28px;
+  font-size: 12px;
+}
+
+.handler-avatar[data-role="counter"] {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.handler-avatar[data-role="warehouse"] {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+}
+
+.handler-avatar[data-role="finance"] {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.handler-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.handler-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.handler-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.reject-reason-cell {
+  display: block;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  color: var(--danger-color);
+  cursor: help;
+}
+
+.text-muted {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.time-cell {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', Menlo, monospace;
+  white-space: nowrap;
+}
+
+.duration-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.duration-value {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.duration-cell.overdue .duration-value {
+  color: var(--danger-color);
+  font-weight: 600;
+}
+
+.overdue-icon {
+  font-size: 14px;
+  animation: bounce 1s ease-in-out infinite;
+}
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }

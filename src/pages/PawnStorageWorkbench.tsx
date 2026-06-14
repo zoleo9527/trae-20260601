@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import type { UserRole, PawnRecord, TodoItem } from '../types';
-import { mockRecords, getTodosByRole, roleNames, statusNames, statusColors } from '../mockData';
+import { mockRecords, getTodosByRole, roleNames, statusNames, statusColors, getBlockPointSummary, formatTimeShort } from '../mockData';
 import RecordDetailDrawer from '../components/RecordDetailDrawer';
 import '../styles/PawnStorageWorkbench.css';
 
@@ -229,17 +229,19 @@ export default function PawnStorageWorkbench({ currentRole, onRoleChange }: Prop
                   <th>客户信息</th>
                   <th>物品信息</th>
                   <th>评估金额</th>
-                  <th>入库状态</th>
-                  <th>照片状态</th>
-                  <th>状态</th>
-                  <th>更新时间</th>
+                  <th>当前责任</th>
+                  <th>卡点环节</th>
+                  <th>最近退回原因</th>
+                  <th>入库完成</th>
+                  <th>审核完成</th>
+                  <th>卡点时长</th>
                   <th>操作</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="empty-row">
+                    <td colSpan={11} className="empty-row">
                       <div className="empty-content">
                         <span className="empty-icon">📭</span>
                         <span className="empty-text">暂无{activeTab === 'todo' ? '待办' : activeTab === 'abnormal' ? '异常' : activeTab === 'completed' ? '已完成' : ''}记录</span>
@@ -247,72 +249,93 @@ export default function PawnStorageWorkbench({ currentRole, onRoleChange }: Prop
                     </td>
                   </tr>
                 ) : (
-                  displayedRecords.map(record => (
-                    <tr 
-                      key={record.id} 
-                      className="record-row"
-                      onClick={() => setSelectedRecord(record)}
-                    >
-                      <td>
-                        <span className="pawn-no">{record.pawnNo}</span>
-                      </td>
-                      <td>
-                        <div className="customer-info">
-                          <span className="customer-name">{record.customerName}</span>
-                          <span className="customer-phone">{record.customerPhone}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="item-info">
-                          <span className="item-name">{record.itemName}</span>
-                          <span className="item-category">{record.itemCategory}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="amount-info">
-                          <span className="estimated">估值 ¥{record.estimatedValue.toLocaleString()}</span>
-                          <span className="pawn-amount">放款 ¥{record.pawnAmount.toLocaleString()}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`status-badge storage-${record.storageStatus}`}>
-                          {record.storageStatus === 'pending' ? '待入库' : 
-                           record.storageStatus === 'stored' ? '已入库' : '已退回'}
-                        </span>
-                      </td>
-                      <td>
-                        <span className={`status-badge photo-${record.photoStatus}`}>
-                          {record.photoStatus === 'pending' ? '待拍照' : 
-                           record.photoStatus === 'taken' ? '已拍照' : '已退回'}
-                        </span>
-                      </td>
-                      <td>
-                        <span 
-                          className="status-badge main-status"
-                          style={{ 
-                            backgroundColor: `${statusColors[record.status]}15`,
-                            color: statusColors[record.status] 
-                          }}
-                        >
-                          {statusNames[record.status]}
-                        </span>
-                      </td>
-                      <td>
-                        <span className="update-time">{record.updatedAt}</span>
-                      </td>
-                      <td>
-                        <button 
-                          className="action-btn"
-                          onClick={e => {
-                            e.stopPropagation();
-                            setSelectedRecord(record);
-                          }}
-                        >
-                          查看详情
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  displayedRecords.map(record => {
+                    const summary = getBlockPointSummary(record);
+                    return (
+                      <tr
+                        key={record.id}
+                        className={`record-row ${summary.isOverdue ? 'overdue' : ''}`}
+                        onClick={() => setSelectedRecord(record)}
+                      >
+                        <td>
+                          <span className="pawn-no">{record.pawnNo}</span>
+                          {summary.isOverdue && <span className="overdue-badge">超时 {summary.overdueHours}h</span>}
+                        </td>
+                        <td>
+                          <div className="customer-info">
+                            <span className="customer-name">{record.customerName}</span>
+                            <span className="customer-phone">{record.customerPhone}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="item-info">
+                            <span className="item-name">{record.itemName}</span>
+                            <span className="item-category">{record.itemCategory}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="amount-info">
+                            <span className="estimated">估值 ¥{record.estimatedValue.toLocaleString()}</span>
+                            <span className="pawn-amount">放款 ¥{record.pawnAmount.toLocaleString()}</span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="handler-info">
+                            <span className="handler-avatar small" data-role={summary.currentHandlerRole}>
+                              {summary.currentHandlerName.charAt(0)}
+                            </span>
+                            <div className="handler-detail">
+                              <span className="handler-name">{summary.currentHandlerName}</span>
+                              <span className="handler-role">{summary.currentHandlerRoleName}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span
+                            className="status-badge main-status"
+                            style={{
+                              backgroundColor: `${statusColors[record.status]}15`,
+                              color: statusColors[record.status]
+                            }}
+                          >
+                            {summary.blockedStepName}
+                          </span>
+                        </td>
+                        <td>
+                          {summary.lastRejectReason ? (
+                            <span className="reject-reason-cell" title={summary.lastRejectReason}>
+                              ⚠️ {summary.lastRejectReason}
+                            </span>
+                          ) : (
+                            <span className="text-muted">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className="time-cell">{formatTimeShort(summary.storageCompleteTime)}</span>
+                        </td>
+                        <td>
+                          <span className="time-cell">{formatTimeShort(summary.photoReviewCompleteTime)}</span>
+                        </td>
+                        <td>
+                          <div className={`duration-cell ${summary.isOverdue ? 'overdue' : ''}`}>
+                            <span className="duration-value">{summary.blockedDuration}</span>
+                            {summary.isOverdue && <span className="overdue-icon">⏰</span>}
+                          </div>
+                        </td>
+                        <td>
+                          <button
+                            className="action-btn"
+                            onClick={e => {
+                              e.stopPropagation();
+                              setSelectedRecord(record);
+                            }}
+                          >
+                            查看详情
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

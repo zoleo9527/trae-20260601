@@ -886,3 +886,132 @@
   background-color: var(--bg-secondary);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+
+.block-point-summary {
+  margin: 16px 24px 0;
+  padding: 16px;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: var(--border-radius-lg);
+}
+
+.block-point-summary.overdue {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(245, 158, 11, 0.08));
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.summary-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed rgba(59, 130, 246, 0.2);
+}
+
+.block-point-summary.overdue .summary-header {
+  border-bottom-color: rgba(239, 68, 68, 0.2);
+}
+
+.summary-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.block-point-summary.overdue .summary-title {
+  color: var(--danger-color);
+}
+
+.overdue-tag {
+  padding: 4px 10px;
+  background-color: var(--danger-color);
+  color: white;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  animation: pulseShake 2s ease-in-out infinite;
+}
+
+@keyframes pulseShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background-color: rgba(255, 255, 255, 0.6);
+  border-radius: 8px;
+}
+
+.summary-label {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.summary-item .handler-info {
+  gap: 8px;
+}
+
+.summary-item .handler-avatar {
+  width: 26px;
+  height: 26px;
+  font-size: 11px;
+}
+
+.summary-item .handler-name {
+  font-size: 12px;
+}
+
+.summary-item .handler-role {
+  font-size: 10px;
+}
+
+.summary-item .duration {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.summary-item .duration.danger {
+  color: var(--danger-color);
+  animation: blink 1.5s ease-in-out infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.summary-item .reject-reason {
+  font-size: 12px;
+  color: var(--danger-color);
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
+.summary-item .value {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', Menlo, monospace;
+}
+
+@media (max-width: 600px) {
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

@@ -729,3 +729,105 @@ export const statusColors: Record<string, string> = {
   completed: '#10b981',
   rejected: '#6b7280'
 };
+
+export interface BlockPointSummary {
+  currentHandlerName: string;
+  currentHandlerRole: UserRole;
+  currentHandlerRoleName: string;
+  blockedStep: string;
+  blockedStepName: string;
+  blockedAt: string;
+  blockedDuration: string;
+  isOverdue: boolean;
+  overdueHours: number;
+  lastRejectReason: string | null;
+  storageCompleteTime: string | null;
+  photoReviewCompleteTime: string | null;
+}
+
+export const STEP_NAMES: Record<string, string> = {
+  pending_assessment: '柜台评估',
+  pending_storage: '入库保管',
+  pending_photo: '照片留证',
+  pending_photo_review: '柜台审核照片',
+  pending_finance: '财务放款',
+  abnormal: '异常处理'
+};
+
+export const OVERDUE_THRESHOLD_HOURS = 12;
+
+export function getBlockPointSummary(record: PawnRecord, now: Date = new Date()): BlockPointSummary {
+  const handlerName = record.currentHandler === 'counter' ? '李评估师' :
+    record.currentHandler === 'warehouse' ? '赵库管' : '孙会计';
+
+  let lastRejectReason: string | null = null;
+  if (record.photoRejectReason) lastRejectReason = record.photoRejectReason;
+  if (record.rejectReason) lastRejectReason = record.rejectReason;
+
+  for (let i = record.operationLogs.length - 1; i >= 0; i--) {
+    const log = record.operationLogs[i];
+    if (log.operation.includes('退回') && log.reason) {
+      lastRejectReason = log.reason;
+      break;
+    }
+  }
+
+  let storageCompleteTime: string | null = null;
+  if (record.storageStatus === 'stored' && record.storageTime) {
+    storageCompleteTime = record.storageTime;
+  }
+
+  let photoReviewCompleteTime: string | null = null;
+  if (record.photoReviewStatus === 'approved' && record.photoReviewTime) {
+    photoReviewCompleteTime = record.photoReviewTime;
+  }
+
+  const blockedAt = record.updatedAt;
+  const blockedDate = new Date(blockedAt.replace(/-/g, '/'));
+  const diffMs = now.getTime() - blockedDate.getTime();
+  const diffHours = Math.round((diffMs / (1000 * 60 * 60)) * 10) / 10;
+
+  let blockedDuration = '';
+  if (diffHours < 1) {
+    const mins = Math.max(1, Math.round(diffMs / (1000 * 60)));
+    blockedDuration = `${mins}分钟`;
+  } else if (diffHours < 24) {
+    blockedDuration = `${Math.floor(diffHours)}小时${Math.round((diffHours - Math.floor(diffHours)) * 60)}分钟`;
+  } else {
+    const days = Math.floor(diffHours / 24);
+    const hours = Math.round(diffHours - days * 24);
+    blockedDuration = `${days}天${hours}小时`;
+  }
+
+  const isOverdue = diffHours > OVERDUE_THRESHOLD_HOURS && record.status !== 'completed';
+
+  return {
+    currentHandlerName: handlerName,
+    currentHandlerRole: record.currentHandler,
+    currentHandlerRoleName: roleNames[record.currentHandler],
+    blockedStep: record.status,
+    blockedStepName: STEP_NAMES[record.status] || statusNames[record.status],
+    blockedAt: blockedAt,
+    blockedDuration,
+    isOverdue,
+    overdueHours: Math.round(diffHours * 10) / 10,
+    lastRejectReason,
+    storageCompleteTime,
+    photoReviewCompleteTime
+  };
+}
+
+export function formatTimeShort(timeStr: string | null): string {
+  if (!timeStr) return '—';
+  const parts = timeStr.split(' ');
+  if (parts.length === 2) {
+    const datePart = parts[0];
+    const timePart = parts[1].substring(0, 5);
+    const today = new Date().toISOString().split('T')[0];
+    if (datePart === today) return `今天 ${timePart}`;
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    if (datePart === yesterday) return `昨天 ${timePart}`;
+    return `${datePart.slice(5)} ${timePart}`;
+  }
+  return timeStr;
+}

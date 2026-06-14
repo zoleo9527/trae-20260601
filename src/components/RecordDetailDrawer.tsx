@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { PawnRecord, UserRole, OperationLog, PhotoItem } from '../types';
-import { roleNames, statusNames, statusColors } from '../mockData';
+import { roleNames, statusNames, statusColors, getBlockPointSummary, formatTimeShort } from '../mockData';
 import PhotoViewer from './PhotoViewer';
 import '../styles/RecordDetailDrawer.css';
 
@@ -389,6 +389,68 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
           </div>
           <button className="close-btn" onClick={onClose}>×</button>
         </div>
+
+        {record.status !== 'completed' && (() => {
+          const summary = getBlockPointSummary(record);
+          return (
+            <div className={`block-point-summary ${summary.isOverdue ? 'overdue' : ''}`}>
+              <div className="summary-header">
+                <span className="summary-title">
+                  {summary.isOverdue ? '⏰ 超时提醒' : '📍 卡点摘要'}
+                </span>
+                {summary.isOverdue && (
+                  <span className="overdue-tag">已超时 {summary.overdueHours} 小时</span>
+                )}
+              </div>
+              <div className="summary-grid">
+                <div className="summary-item">
+                  <span className="summary-label">当前责任</span>
+                  <div className="handler-info">
+                    <span className="handler-avatar" data-role={summary.currentHandlerRole}>
+                      {summary.currentHandlerName.charAt(0)}
+                    </span>
+                    <div className="handler-detail">
+                      <span className="handler-name">{summary.currentHandlerName}</span>
+                      <span className="handler-role">{summary.currentHandlerRoleName}</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">卡点环节</span>
+                  <span
+                    className="status-badge main-status"
+                    style={{
+                      backgroundColor: `${statusColors[record.status]}15`,
+                      color: statusColors[record.status]
+                    }}
+                  >
+                    {summary.blockedStepName}
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">等待时长</span>
+                  <span className={`duration ${summary.isOverdue ? 'danger' : ''}`}>
+                    {summary.blockedDuration}
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">最近退回</span>
+                  <span className="reject-reason" title={summary.lastRejectReason || ''}>
+                    {summary.lastRejectReason || '—'}
+                  </span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">入库完成</span>
+                  <span className="value">{formatTimeShort(summary.storageCompleteTime)}</span>
+                </div>
+                <div className="summary-item">
+                  <span className="summary-label">审核完成</span>
+                  <span className="value">{formatTimeShort(summary.photoReviewCompleteTime)}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {record.status === 'abnormal' && (
           <div className="abnormal-alert">
