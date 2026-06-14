@@ -1,0 +1,23 @@
+{
+	"/": [],
+	"/api/attachments": [
+		"src/routes/api/attachments/+server.js"
+	],
+	"/api/notifications": [
+		"src/routes/api/notifications/+server.js"
+	],
+	"/api/notifications/[id]/ack": [
+		"src/routes/api/notifications/[id]/ack/+server.js"
+	],
+	"/api/orders": [
+		"src/routes/api/orders/+server.js"
+	],
+	"/api/orders/[id]": [
+		"src/routes/api/orders/[id]/+server.js"
+	],
+	"/api/orders/[id]/transition": [
+		"src/routes/api/orders/[id]/transition/+server.js"
+	],
+	"/orders": [],
+	"/orders/[id]": []
+}
