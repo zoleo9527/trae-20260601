@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id          String   @id @default(uuid())
+  name        String
+  role        String
+  department  String
+  phone       String
+  password    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  createdArrangements   Arrangement[]  @relation("CreatedBy")
+  invigilatedArrangements Arrangement[] @relation("Invigilator")
+  checkedRecords  CheckInRecord[]  @relation("CheckedBy")
+  reportedAnomalies  Anomaly[]    @relation("ReportedBy")
+  processedAnomalies Anomaly[]   @relation("ProcessedBy")
+  operationLogs  OperationLog[]
+  todoItems   TodoItem[]  @relation("Assignee")
+}
+
+model Exam {
+  id          String   @id @default(uuid())
+  name        String
+  date        DateTime
+  startTime   String
+  endTime     String
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  arrangements Arrangement[]
+}
+
+model ExamRoom {
+  id          String   @id @default(uuid())
+  building    String
+  roomNumber  String
+  seatCount   Int
+  facilities  String
+  status      String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  arrangements Arrangement[]
+}
+
+model Arrangement {
+  id            String    @id @default(uuid())
+  examId        String
+  examRoomId    String
+  invigilatorId String
+  date          DateTime
+  startTime     String
+  endTime       String
+  status        String
+  confirmedAt   DateTime?
+  confirmedBy   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  createdBy     String
+  
+  exam          Exam      @relation(fields: [examId], references: [id])
+  examRoom      ExamRoom  @relation(fields: [examRoomId], references: [id])
+  invigilator   User      @relation("Invigilator", fields: [invigilatorId], references: [id])
+  creator       User      @relation("CreatedBy", fields: [createdBy], references: [id])
+  checkInRecords CheckInRecord[]
+  anomalies     Anomaly[]
+  
+  @@index([examId])
+  @@index([examRoomId])
+  @@index([invigilatorId])
+  @@index([date, startTime, endTime])
+}
+
+model Student {
+  id              String   @id @default(uuid())
+  name            String
+  studentId       String   @unique
+  admissionTicket String   @unique
+  department      String
+  major           String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  checkInRecords  CheckInRecord[]
+}
+
+model CheckInRecord {
+  id             String   @id @default(uuid())
+  arrangementId  String
+  studentId      String
+  seatNumber     String
+  status         String
+  checkedAt      DateTime?
+  checkedBy      String
+  note           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  arrangement    Arrangement @relation(fields: [arrangementId], references: [id])
+  student        Student     @relation(fields: [studentId], references: [id])
+  checker        User        @relation("CheckedBy", fields: [checkedBy], references: [id])
+  
+  @@unique([arrangementId, studentId])
+  @@index([arrangementId])
+  @@index([studentId])
+}
+
+model Anomaly {
+  id             String    @id @default(uuid())
+  type           String
+  description    String
+  arrangementId  String
+  reportedBy     String
+  status         String
+  processedBy    String?
+  processedAt    DateTime?
+  solution       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  
+  arrangement    Arrangement @relation(fields: [arrangementId], references: [id])
+  reporter       User       @relation("ReportedBy", fields: [reportedBy], references: [id])
+  processor      User?      @relation("ProcessedBy", fields: [processedBy], references: [id])
+  
+  @@index([arrangementId])
+  @@index([status])
+}
+
+model OperationLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  entityType  String
+  entityId    String
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+model TodoItem {
+  id          String    @id @default(uuid())
+  type        String
+  title       String
+  description String
+  priority    String
+  dueDate     DateTime?
+  status      String
+  assigneeId  String
+  relatedId   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  assignee    User      @relation("Assignee", fields: [assigneeId], references: [id])
+  
+  @@index([assigneeId])
+  @@index([status])
+}

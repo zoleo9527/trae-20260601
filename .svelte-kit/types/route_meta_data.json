@@ -1,0 +1,96 @@
+{
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/api/arrangements": [
+		"src/routes/api/arrangements/+server.ts"
+	],
+	"/api/arrangements/batch-confirm": [
+		"src/routes/api/arrangements/batch-confirm/+server.ts"
+	],
+	"/api/arrangements/check-conflict": [
+		"src/routes/api/arrangements/check-conflict/+server.ts"
+	],
+	"/api/arrangements/[id]": [
+		"src/routes/api/arrangements/[id]/+server.ts"
+	],
+	"/api/arrangements/[id]/confirm": [
+		"src/routes/api/arrangements/[id]/confirm/+server.ts"
+	],
+	"/api/auth/login": [
+		"src/routes/api/auth/login/+server.ts"
+	],
+	"/api/checkin": [
+		"src/routes/api/checkin/+server.ts"
+	],
+	"/api/checkin/history": [
+		"src/routes/api/checkin/history/+server.ts"
+	],
+	"/api/checkin/[id]": [
+		"src/routes/api/checkin/[id]/+server.ts"
+	],
+	"/api/checkin/[id]/batch-check": [
+		"src/routes/api/checkin/[id]/batch-check/+server.ts"
+	],
+	"/api/checkin/[id]/check": [
+		"src/routes/api/checkin/[id]/check/+server.ts"
+	],
+	"/api/checkin/[id]/report-anomaly": [
+		"src/routes/api/checkin/[id]/report-anomaly/+server.ts"
+	],
+	"/api/exam-rooms": [
+		"src/routes/api/exam-rooms/+server.ts"
+	],
+	"/api/exams": [
+		"src/routes/api/exams/+server.ts"
+	],
+	"/api/recent-changes": [
+		"src/routes/api/recent-changes/+server.ts"
+	],
+	"/api/risks": [
+		"src/routes/api/risks/+server.ts"
+	],
+	"/api/statistics/absent": [
+		"src/routes/api/statistics/absent/+server.ts"
+	],
+	"/api/statistics/anomalies": [
+		"src/routes/api/statistics/anomalies/+server.ts"
+	],
+	"/api/statistics/invigilator-workload": [
+		"src/routes/api/statistics/invigilator-workload/+server.ts"
+	],
+	"/api/todos": [
+		"src/routes/api/todos/+server.ts"
+	],
+	"/api/users": [
+		"src/routes/api/users/+server.ts"
+	],
+	"/arrangement": [
+		"src/routes/+layout.ts"
+	],
+	"/arrangement/new": [
+		"src/routes/+layout.ts"
+	],
+	"/arrangement/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/checkin": [
+		"src/routes/+layout.ts"
+	],
+	"/checkin/history": [
+		"src/routes/+layout.ts"
+	],
+	"/checkin/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/exam-room": [
+		"src/routes/+layout.ts"
+	],
+	"/login": [
+		"src/routes/+layout.ts"
+	],
+	"/statistics": [
+		"src/routes/+layout.ts"
+	]
+}
