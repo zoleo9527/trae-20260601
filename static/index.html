@@ -161,6 +161,7 @@ label { display: block; font-size: 12px; font-weight: 500; color: #374151; margi
 .tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 500; margin-right: 4px; }
 .tag-warning { background: #fef3c7; color: #92400e; }
 .tag-danger { background: #fee2e2; color: #991b1b; }
+.tag-info { background: #dbeafe; color: #1e40af; }
 
 .diff-neg { color: #dc2626; font-weight: 700; }
 .diff-pos { color: #16a34a; font-weight: 700; }
@@ -201,7 +202,7 @@ label { display: block; font-size: 12px; font-weight: 500; color: #374151; margi
       <span style="font-size:12px;opacity:0.85;">切换角色:</span>
       <select id="roleSelect" class="role-select" onchange="switchUser(this.value)"></select>
     </div>
-    <button class="bell-btn" onclick="toggleNotifications()">🔔<span class="bell-badge" id="unreadBadge" style="display:none;">0</span></button>
+    <button class="bell-btn" id="notifBell" onclick="toggleNotifPanel()">🔔<span class="bell-badge" id="unreadBadge" style="display:none;">0</span></button>
     <div class="user-info">
       <div class="user-avatar" id="userAvatar">张</div>
       <div>
@@ -228,10 +229,23 @@ label { display: block; font-size: 12px; font-weight: 500; color: #374151; margi
     <div style="font-weight:600;">🔔 通知</div>
     <button class="btn btn-sm btn-outline" onclick="readAllNotif()">全部已读</button>
   </div>
-  <div class="notif-list" id="notifListPanel"></div>
+  <div class="notif-list" id="notifList"></div>
 </div>
 
-<div id="modalContainer"></div>
+<div id="modalOverlay" class="modal-mask" style="display:none;">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modalTitle"></div>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">取消</button>
+      <button class="btn btn-primary" id="modalOkBtn">确定</button>
+    </div>
+  </div>
+</div>
 <script src="/static/app.js"></script>
+<script>init();</script>
 </body>
 </html>

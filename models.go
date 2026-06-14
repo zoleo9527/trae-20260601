@@ -46,6 +46,9 @@ type CashVerification struct {
 	ShiftSettlementID int        `json:"shift_settlement_id"`
 	StoreID           int        `json:"store_id"`
 	StoreName         string     `json:"store_name,omitempty"`
+	ShiftNo           string     `json:"shift_no,omitempty"`
+	ClerkID           *int       `json:"clerk_id,omitempty"`
+	ClerkName         string     `json:"clerk_name,omitempty"`
 	StoreManagerID    *int       `json:"store_manager_id"`
 	StoreManagerName  string     `json:"store_manager_name,omitempty"`
 	AreaManagerID     *int       `json:"area_manager_id"`
@@ -55,6 +58,7 @@ type CashVerification struct {
 	Difference        *float64   `json:"difference"`
 	Status            string     `json:"status"`
 	PreviousConclusion *string   `json:"previous_conclusion"`
+	PrevConclusionSummary string `json:"prev_conclusion_summary,omitempty"`
 	MaterialNotes     *string    `json:"material_notes"`
 	Notes             *string    `json:"notes"`
 	Resolution        *string    `json:"resolution"`

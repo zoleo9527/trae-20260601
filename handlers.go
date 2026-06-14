@@ -215,6 +215,9 @@ func GetShiftSettlement(c *gin.Context) {
 
 func CreateShiftSettlement(c *gin.Context) {
 	u := getUserFromHeader(c)
+	if u.Role != "clerk" {
+		c.JSON(http.StatusOK, Err(403, "仅店员可创建班结")); return
+	}
 	var req struct {
 		StoreID      int     `json:"store_id"`
 		ShiftType    string  `json:"shift_type"`
@@ -258,13 +261,34 @@ func UpdateShiftStatus(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	action := c.Param("action")
 	var oldStatus string
-	database.QueryRow("SELECT status FROM shift_settlements WHERE id=?", id).Scan(&oldStatus)
+	var clerkID int
+	database.QueryRow("SELECT status, clerk_id FROM shift_settlements WHERE id=?", id).Scan(&oldStatus, &clerkID)
+
+	switch action {
+	case "submit":
+		if u.Role != "clerk" || u.ID != clerkID {
+			c.JSON(http.StatusOK, Err(403, "仅本班结店员可提交")); return
+		}
+	case "approve", "reject":
+		if u.Role != "store_manager" {
+			c.JSON(http.StatusOK, Err(403, "仅店长可审核")); return
+		}
+		var sid int
+		database.QueryRow("SELECT store_id FROM shift_settlements WHERE id=?", id).Scan(&sid)
+		if u.StoreID != nil && *u.StoreID != sid {
+			c.JSON(http.StatusOK, Err(403, "仅本店店长可审核")); return
+		}
+	case "update_cash":
+		if u.Role != "clerk" || u.ID != clerkID {
+			c.JSON(http.StatusOK, Err(403, "仅本班结店员可修改")); return
+		}
+	}
 
 	var req struct {
 		Reason string  `json:"reason"`
 		Amount float64 `json:"amount"`
 	}
-	c.BindJSON(&req)
+	c.ShouldBindJSON(&req)
 
 	newStatus := ""
 	detail := ""
@@ -356,15 +380,21 @@ func scanCash(row interface{ Scan(dest ...interface{}) error }) (CashVerificatio
 	var resolution sql.NullString
 	var storeMgrID sql.NullInt64
 	var areaMgrID sql.NullInt64
+	var shiftNo sql.NullString
+	var clerkID sql.NullInt64
+	var clerkName sql.NullString
 	err := row.Scan(&cv.ID, &cv.ShiftSettlementID, &cv.StoreID, &storeName, &storeMgrID, &mgrName,
 		&areaMgrID, &areaName, &cv.CashDeclared, &cashCounted, &diff, &cv.Status,
-		&prevConc, &matNotes, &notes, &resolution, &cv.CreatedAt, &cv.UpdatedAt)
+		&prevConc, &matNotes, &notes, &resolution, &cv.CreatedAt, &cv.UpdatedAt,
+		&shiftNo, &clerkID, &clerkName)
 	if err != nil {
 		return cv, err
 	}
 	cv.StoreName = storeName.String
 	cv.StoreManagerName = mgrName.String
 	cv.AreaManagerName = areaName.String
+	cv.ShiftNo = shiftNo.String
+	cv.ClerkName = clerkName.String
 	if cashCounted.Valid {
 		v := cashCounted.Float64
 		cv.CashCounted = &v
@@ -376,6 +406,11 @@ func scanCash(row interface{ Scan(dest ...interface{}) error }) (CashVerificatio
 	if prevConc.Valid {
 		v := prevConc.String
 		cv.PreviousConclusion = &v
+		s := v
+		if len(s) > 40 {
+			s = s[:40] + "..."
+		}
+		cv.PrevConclusionSummary = s
 	}
 	if matNotes.Valid {
 		v := matNotes.String
@@ -397,6 +432,10 @@ func scanCash(row interface{ Scan(dest ...interface{}) error }) (CashVerificatio
 		v := int(areaMgrID.Int64)
 		cv.AreaManagerID = &v
 	}
+	if clerkID.Valid {
+		v := int(clerkID.Int64)
+		cv.ClerkID = &v
+	}
 	return cv, nil
 }
 
@@ -407,11 +446,14 @@ func ListCashVerifications(c *gin.Context) {
 	view := c.Query("view")
 	query := `SELECT cv.id, cv.shift_settlement_id, cv.store_id, st.name, cv.store_manager_id, sm.name,
 		cv.area_manager_id, am.name, cv.cash_declared, cv.cash_counted, cv.difference, cv.status,
-		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at
+		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at,
+		ss.shift_no, ss.clerk_id, ck.name
 		FROM cash_verifications cv
 		LEFT JOIN stores st ON cv.store_id = st.id
 		LEFT JOIN users sm ON cv.store_manager_id = sm.id
-		LEFT JOIN users am ON cv.area_manager_id = am.id WHERE 1=1`
+		LEFT JOIN users am ON cv.area_manager_id = am.id
+		LEFT JOIN shift_settlements ss ON cv.shift_settlement_id = ss.id
+		LEFT JOIN users ck ON ss.clerk_id = ck.id WHERE 1=1`
 	args := []interface{}{}
 
 	switch u.Role {
@@ -469,11 +511,14 @@ func GetCashVerification(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
 	query := `SELECT cv.id, cv.shift_settlement_id, cv.store_id, st.name, cv.store_manager_id, sm.name,
 		cv.area_manager_id, am.name, cv.cash_declared, cv.cash_counted, cv.difference, cv.status,
-		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at
+		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at,
+		ss.shift_no, ss.clerk_id, ck.name
 		FROM cash_verifications cv
 		LEFT JOIN stores st ON cv.store_id = st.id
 		LEFT JOIN users sm ON cv.store_manager_id = sm.id
-		LEFT JOIN users am ON cv.area_manager_id = am.id WHERE cv.id = ?`
+		LEFT JOIN users am ON cv.area_manager_id = am.id
+		LEFT JOIN shift_settlements ss ON cv.shift_settlement_id = ss.id
+		LEFT JOIN users ck ON ss.clerk_id = ck.id WHERE cv.id = ?`
 	cv, err := scanCash(database.QueryRow(query, id))
 	if err != nil {
 		c.JSON(http.StatusOK, Err(404, "not found"))
@@ -529,6 +574,26 @@ func UpdateCashVerification(c *gin.Context) {
 	u := getUserFromHeader(c)
 	id, _ := strconv.Atoi(c.Param("id"))
 	action := c.Param("action")
+
+	switch action {
+	case "start_count", "submit_count", "escalate", "match":
+		if u.Role != "store_manager" {
+			c.JSON(http.StatusOK, Err(403, "仅店长可执行此操作")); return
+		}
+		var cvStoreID int
+		database.QueryRow("SELECT store_id FROM cash_verifications WHERE id=?", id).Scan(&cvStoreID)
+		if u.StoreID != nil && *u.StoreID != cvStoreID {
+			c.JSON(http.StatusOK, Err(403, "仅本店店长可操作")); return
+		}
+	case "resolve":
+		if u.Role != "area_manager" {
+			c.JSON(http.StatusOK, Err(403, "仅片区管理员可裁定")); return
+		}
+	case "update_notes":
+		if u.Role != "store_manager" && u.Role != "area_manager" {
+			c.JSON(http.StatusOK, Err(403, "无权限")); return
+		}
+	}
 	var oldStatus string
 	database.QueryRow("SELECT status FROM cash_verifications WHERE id=?", id).Scan(&oldStatus)
 
@@ -540,7 +605,7 @@ func UpdateCashVerification(c *gin.Context) {
 		Resolution         string  `json:"resolution"`
 		Reason             string  `json:"reason"`
 	}
-	c.BindJSON(&req)
+	c.ShouldBindJSON(&req)
 
 	newStatus := ""
 	detail := ""
@@ -639,13 +704,16 @@ func UpdateCashVerification(c *gin.Context) {
 func AddMaterial(c *gin.Context) {
 	u := getUserFromHeader(c)
 	cvID, _ := strconv.Atoi(c.Param("id"))
+	if u.Role != "store_manager" && u.Role != "area_manager" {
+		c.JSON(http.StatusOK, Err(403, "仅店长或片区管理员可上传材料")); return
+	}
 	var req struct {
 		Type        string  `json:"type"`
 		Name        string  `json:"name"`
 		Amount      float64 `json:"amount"`
 		ReferenceNo string  `json:"reference_no"`
 	}
-	c.BindJSON(&req)
+	c.ShouldBindJSON(&req)
 	var amt *float64
 	var ref *string
 	if req.Amount != 0 {

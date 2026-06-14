@@ -309,7 +309,7 @@ function renderOpenIssues(ss, cs) {
 
 function unreadNotifs(list) {
   if (!list.length) return '<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">✉️</div><div class="empty-text">暂无未读通知</div></div>';
-  return list.slice(0, 6).map(n => renderNotifItem(n, true, true)).join('');
+  return list.slice(0, 6).map(n => renderNotifItem(n, true)).join('');
 }
 
 // ===== Shifts =====
@@ -327,7 +327,6 @@ async function renderShifts() {
 
   const showClerkCol = currentUser.role !== 'clerk';
   const showStoreCol = currentUser.role === 'area_manager';
-  const colCount = 9 - (showClerkCol?0:1) - (showStoreCol?0:0);
 
   return `
     <div class="page-header">
@@ -385,7 +384,7 @@ async function renderShifts() {
                 <td><span class="status-badge status-${s.status}">${STATUS_TEXT[s.status]}</span></td>
                 <td><button class="btn btn-sm btn-outline" onclick="viewShift(${s.id})">详情</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${colCount}"><div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无数据</div></div></td></tr>`}
+            }).join('') : `<tr><td colspan="${showClerkCol?(showStoreCol?9:8):(showStoreCol?8:7)}"><div class="empty-state"><div class="empty-icon">📝</div><div class="empty-text">暂无数据</div></div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -498,7 +497,7 @@ function renderNextStep(status) {
   const step = map[status];
   if (!step) return '';
   return `<div style="margin-top:12px;padding:10px 12px;background:#ede9fe;border-radius:6px;font-size:12px;color:#6d28d9;">
-    👉 <b>${step.label}</b>${step.role ? `（责任角色：${ROLE_TEXT[step.role]}` : ''}</div>`;
+    👉 <b>${step.label}</b>${step.role ? `（责任角色：${ROLE_TEXT[step.role]}）` : ''}</div>`;
 }
 
 function renderPrevStep(s) {
@@ -616,7 +615,6 @@ async function renderCash() {
 
   const showClerkCol = currentUser.role !== 'clerk';
   const showStoreCol = currentUser.role === 'area_manager';
-  const colCount = 9 - (showClerkCol?0:1) - (showStoreCol?0:0);
 
   return `
     <div class="page-header">
@@ -645,33 +643,36 @@ async function renderCash() {
           <thead><tr>
             <th>核对编号</th>
             <th>关联班结</th>
-            ${showClerkCol ? '<th>责任人（店员）</th>' : ''}
+            ${showClerkCol ? '<th>店员责任人</th>' : ''}
             ${showStoreCol ? '<th>门店</th>' : ''}
             <th style="text-align:right;">申报现金</th>
             <th style="text-align:right;">实盘现金</th>
             <th style="text-align:right;">差异</th>
             <th>当前责任人</th>
+            <th>上环节结论</th>
             <th>状态</th>
             <th>操作</th>
           </tr></thead>
           <tbody>
             ${list.length ? list.map(c => {
-              const clerk = c.clerk_name || (c.shift_settlement_id ? '关联班结' : '-');
+              const clerk = c.clerk_name || '-';
               const handler = c.area_manager_name || c.store_manager_name || '待分配';
               const handlerRole = c.area_manager_id ? 'role-area_manager' : 'role-store_manager';
+              const prevSummary = c.prev_conclusion_summary || c.previous_conclusion || '—';
               return `<tr>
                 <td><a class="link-btn" onclick="viewCash(${c.id})"><b>CV${String(c.id).padStart(4,'0')}</b></a></td>
-                <td>${c.shift_settlement_id?`<a class="link-btn" onclick="viewShift(${c.shift_settlement_id})">${c.shift_no||('班结#'+c.shift_settlement_id)}</a>`:'-'}</td>
+                <td>${c.shift_no?`<a class="link-btn" onclick="viewShift(${c.shift_settlement_id})">${c.shift_no}</a>`:'-'}</td>
                 ${showClerkCol ? `<td><span class="type-badge role-clerk">${clerk}</span></td>` : ''}
                 ${showStoreCol ? `<td>${c.store_name||'-'}</td>` : ''}
                 <td style="text-align:right;" class="info-value money">${fmtMoney(c.cash_declared)}</td>
                 <td style="text-align:right;" class="info-value money">${c.cash_counted!==null&&c.cash_counted!==undefined?fmtMoney(c.cash_counted):'—'}</td>
                 <td style="text-align:right;" class="${diffClass(c.difference)}">${c.difference!==null&&c.difference!==undefined?diffText(c.difference):'—'}</td>
                 <td><span class="type-badge ${handlerRole}">${handler}</span></td>
+                <td style="font-size:11px;color:#6b7280;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${prevSummary}">${prevSummary}</td>
                 <td><span class="status-badge status-${c.status}">${STATUS_TEXT[c.status]}</span></td>
                 <td><button class="btn btn-sm btn-primary" onclick="viewCash(${c.id})">工作面</button></td>
               </tr>`;
-            }).join('') : `<tr><td colspan="${colCount}"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无数据</div></div></td></tr>`}
+            }).join('') : `<tr><td colspan="${showClerkCol?(showStoreCol?11:10):(showStoreCol?10:9)}"><div class="empty-state"><div class="empty-icon">💰</div><div class="empty-text">暂无数据</div></div></td></tr>`}
           </tbody>
         </table>
       </div>
@@ -975,17 +976,15 @@ async function renderNotifications() {
   `;
 }
 
-function renderNotifItem(n, hideUnread, short) {
+function renderNotifItem(n, hideUnread) {
   const typeClass = { approval:'tag-info', review:'tag-warning', escalation:'tag-danger', mismatch:'tag-danger', overdue:'tag-danger' }[n.type] || 'tag-info';
-  return `<div class="notif-item ${!n.is_read && !hideUnread ? 'unread' : ''}" onclick="goNotif(${n.id}, '${n.ref_type}', ${n.ref_id})">
-    <div class="notif-icon">${n.type==='approval'?'✅':n.type==='escalation'?'⬆️':n.type==='mismatch'?'💸':n.type==='overdue'?'⏰':'📢'}</div>
-    <div class="notif-body">
-      <div class="notif-title">${n.title} ${!n.is_read && !hideUnread ? '<span class="dot-red"></span>' : ''}</div>
-      <div class="notif-desc">${n.content||''}</div>
-      <div class="notif-time">${fmtTime(n.created_at)}</div>
-    </div>
-    <div class="notif-tag">
-      <span class="tag ${typeClass}">${NOTIF_TYPE_TEXT[n.type]||n.type}</span>
+  const icon = n.type==='approval'?'✅':n.type==='escalation'?'⬆️':n.type==='mismatch'?'💸':n.type==='overdue'?'⏰':'📢';
+  return `<div class="notif-item ${!n.is_read && !hideUnread ? 'unread' : ''}" onclick="goNotif(${n.id}, '${n.ref_type}', ${n.ref_id})" style="display:flex;gap:10px;align-items:flex-start;">
+    <div class="notif-icon" style="flex-shrink:0;font-size:16px;">${icon}</div>
+    <div class="notif-body" style="flex:1;min-width:0;">
+      <div class="notif-title" style="display:flex;align-items:center;gap:6px;">${n.title} ${!n.is_read && !hideUnread ? '<span style="width:8px;height:8px;background:#ef4444;border-radius:50%;display:inline-block;"></span>' : ''} <span class="tag ${typeClass}">${NOTIF_TYPE_TEXT[n.type]||n.type}</span></div>
+      <div class="notif-desc" style="font-size:12px;color:#4b5563;line-height:1.5;margin-top:3px;">${n.content||''}</div>
+      <div class="notif-time" style="font-size:11px;color:#9ca3af;margin-top:4px;">${fmtTime(n.created_at)}</div>
     </div>
   </div>`;
 }
@@ -1050,6 +1049,17 @@ async function toggleNotifPanel() {
     ? list.slice(0,8).map(n => renderNotifItem(n, false)).join('')
     : '<div class="empty-state" style="padding:30px 0;"><div class="empty-icon">✉️</div><div class="empty-text">暂无未读通知</div></div>';
   p.style.display = 'block';
+}
+
+async function readAllNotif() {
+  const r = await api('/notifications?unread=1');
+  const list = r.data || [];
+  for (const n of list) {
+    await api(`/notifications/${n.id}/read`, 'POST');
+  }
+  updateUnreadCount();
+  toggleNotifPanel();
+  if (currentPage === 'notifications') loadPage('notifications');
 }
 
 // Utils
