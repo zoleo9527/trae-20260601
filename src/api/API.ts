@@ -225,6 +225,13 @@ export class API {
     });
   }
   
+  static async getAssessmentHistory(assessmentId: string) {
+    return this.handle({
+      method: 'GET',
+      url: `/api/assessments/${assessmentId}/history`
+    });
+  }
+  
   static async getAssessmentList(filters?: Record<string, string>) {
     const query = filters ? new URLSearchParams(filters).toString() : '';
     return this.handle({
