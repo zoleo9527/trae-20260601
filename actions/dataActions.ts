@@ -101,7 +101,13 @@ export async function getReturnedRecords(): Promise<PracticeRecord[]> {
 
 export async function getPendingReviews(): Promise<StageReview[]> {
   const data = await readData();
-  return data.stageReviews.filter(r => r.status === '待点评');
+  return data.stageReviews.filter(r => {
+    if (r.status !== '待点评') return false;
+    const hasConfirmedPractice = data.practiceRecords.some(
+      p => p.reviewId === r.id && p.status === '已确认'
+    );
+    return hasConfirmedPractice;
+  });
 }
 
 export async function getWaitingConfirmReviews(): Promise<StageReview[]> {
@@ -160,9 +166,9 @@ export async function handlePracticeRecord(
         status: '待点评',
         createdAt: new Date().toLocaleString('zh-CN'),
         updatedAt: new Date().toLocaleString('zh-CN'),
-        relatedPracticeNotes: [note] || [],
-        reviewedBy: null,
-        confirmedBy: null,
+        relatedPracticeNotes: note ? [note] : [],
+        reviewedBy: undefined,
+        confirmedBy: undefined,
       };
       
       data.stageReviews.push(newReview);
@@ -192,7 +198,7 @@ export async function submitStageReview(
   }
   
   const relatedNotes = store.practiceRecords
-    .filter(r => r.studentId === store.stageReviews[index].studentId && r.status === '已确认' && r.note)
+    .filter(r => r.reviewId === reviewId && r.status === '已确认' && r.note)
     .map(r => r.note);
   
   store.stageReviews[index] = {
@@ -259,7 +265,10 @@ export async function getDashboardStats(role: Role): Promise<{
   
   const returnedCount = data.practiceRecords.filter(r => r.status === '已退回').length;
   
-  const pendingReviews = data.stageReviews.filter(r => r.status === '待点评').length;
+  const pendingReviews = data.stageReviews.filter(r => {
+    if (r.status !== '待点评') return false;
+    return data.practiceRecords.some(p => p.reviewId === r.id && p.status === '已确认');
+  }).length;
   
   const waitingConfirm = data.stageReviews.filter(r => r.status === '待确认').length;
   

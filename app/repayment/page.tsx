@@ -148,10 +148,13 @@ function WorkbenchContent() {
       reviews = reviews.filter(r => r.status === '已完成');
     } else if (currentRole === '任课老师') {
       reviews = reviews.filter(r => {
-        const hasConfirmedPractice = practiceRecords.some(
-          p => p.studentId === r.studentId && p.status === '已确认'
-        );
-        return (r.status === '待点评' && hasConfirmedPractice) || r.status === '已点评';
+        if (r.status === '待点评') {
+          const hasConfirmedPractice = practiceRecords.some(
+            p => p.reviewId === r.id && p.status === '已确认'
+          );
+          return hasConfirmedPractice;
+        }
+        return r.status === '已点评';
       });
     } else {
       reviews = reviews.filter(r => r.status === '待确认' || r.status === '已完成');
