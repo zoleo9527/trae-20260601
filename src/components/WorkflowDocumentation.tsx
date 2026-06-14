@@ -41,9 +41,15 @@ export const WorkflowDocumentation = () => {
     },
     {
       title: '安全员确认通知',
-      description: '安全员确认学员收到通知，或标记缺考',
+      description: '安全员确认学员收到通知',
       icon: <BellOutlined />,
       roles: ['安全员'],
+    },
+    {
+      title: '标记缺考',
+      description: '场地教练或安全员可从待通知或已通知状态标记学员缺考',
+      icon: <AlertOutlined />,
+      roles: ['场地教练', '安全员'],
     },
     {
       title: '安全员完成考试',
@@ -218,6 +224,9 @@ export const WorkflowDocumentation = () => {
             </Descriptions.Item>
             <Descriptions.Item label="确认通知">
               <Tag color="orange">安全员</Tag> 确认通知 → <Tag color="green">已确认</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="标记缺考">
+              <Tag color="green">场地教练</Tag> 或 <Tag color="orange">安全员</Tag> 可从 <Tag color="gold">待通知</Tag> 或 <Tag color="blue">已通知</Tag> 标记为 <Tag color="red">缺考</Tag>
             </Descriptions.Item>
             <Descriptions.Item label="完成考试">
               <Tag color="orange">安全员</Tag> 完成考试 → <Tag color="purple">考试完成</Tag>
