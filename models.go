@@ -118,6 +118,9 @@ type ResponsibilitySummary struct {
 	LatestSupplementNoticeNo   string `json:"latest_supplement_notice_no"`
 	LatestSupplementDeadline   string `json:"latest_supplement_deadline"`
 	LatestSupplementStatus     string `json:"latest_supplement_status"`
+	SupplementRemainingDays    *int   `json:"supplement_remaining_days"`
+	SupplementIsOverdue        bool   `json:"supplement_is_overdue"`
+	SupplementStatusText       string `json:"supplement_status_text"`
 }
 
 func GetResponsibilityRule(status CaseStatus) *ResponsibilityRule {

@@ -131,6 +131,35 @@ func buildResponsibilitySummary(r *AppraisalRecord) ResponsibilitySummary {
 			issuerName,
 			ifElse(len(items) > 2, fmt.Sprintf("%d", len(items)), fmt.Sprintf("%d", len(shortItems))),
 			strings.Join(shortItems, "；"))
+
+		switch latestNotice.Status {
+		case "supplied":
+			summary.SupplementStatusText = "已补样待重排"
+		default:
+			if latestNotice.Deadline != "" {
+				deadlineTime, err := time.Parse("2006-01-02", latestNotice.Deadline)
+				if err == nil {
+					now := time.Now()
+					deadlineEnd := time.Date(deadlineTime.Year(), deadlineTime.Month(), deadlineTime.Day(), 23, 59, 59, 0, deadlineTime.Location())
+					remaining := int(deadlineEnd.Sub(now).Hours() / 24)
+					summary.SupplementRemainingDays = &remaining
+					if remaining < 0 {
+						summary.SupplementIsOverdue = true
+						summary.SupplementStatusText = fmt.Sprintf("已超期%d天", -remaining)
+					} else if remaining == 0 {
+						summary.SupplementStatusText = "今日到期"
+					} else if remaining <= 3 {
+						summary.SupplementStatusText = fmt.Sprintf("待补样（剩余%d天）", remaining)
+					} else {
+						summary.SupplementStatusText = fmt.Sprintf("待补样（剩余%d天）", remaining)
+					}
+				} else {
+					summary.SupplementStatusText = "待补样"
+				}
+			} else {
+				summary.SupplementStatusText = "待补样"
+			}
+		}
 	}
 
 	return summary
