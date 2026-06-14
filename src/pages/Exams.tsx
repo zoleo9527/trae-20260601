@@ -15,10 +15,11 @@ export const ExamsPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [examinerFilter, setExaminerFilter] = useState(false);
 
   useEffect(() => {
     loadExams();
-  }, [search, statusFilter, dateFilter]);
+  }, [search, statusFilter, dateFilter, examinerFilter]);
 
   const loadExams = async () => {
     try {
@@ -31,6 +32,7 @@ export const ExamsPage: React.FC = () => {
         params.startDate = start;
         params.endDate = end;
       }
+      if (examinerFilter && user) params.examinerId = user.id;
 
       const result = await examApi.getAll(params);
       setExams(result.exams || result);
@@ -130,6 +132,16 @@ export const ExamsPage: React.FC = () => {
             <option value="week">本周</option>
             <option value="month">本月</option>
           </select>
+          <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={examinerFilter}
+              onChange={(e) => setExaminerFilter(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <User className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-700">只看我处理的</span>
+          </label>
         </div>
 
         {loading ? (

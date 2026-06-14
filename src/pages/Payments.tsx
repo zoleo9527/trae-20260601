@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, CreditCard, DollarSign, AlertTriangle, CheckCircle, Calendar, Filter } from 'lucide-react';
+import { Search, CreditCard, DollarSign, AlertTriangle, CheckCircle, Calendar, Filter, User } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { Card, StatusBadge, LoadingSpinner, EmptyState, formatDate, formatCurrency } from '../components/Common';
 import { paymentApi } from '../api/client';
+import { useAuthStore } from '../stores/authStore';
 
 export const PaymentsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuthStore();
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,6 +16,7 @@ export const PaymentsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
+  const [handlerFilter, setHandlerFilter] = useState(false);
   const [summary, setSummary] = useState({
     totalPending: 0,
     totalPaid: 0,
@@ -23,7 +26,7 @@ export const PaymentsPage: React.FC = () => {
 
   useEffect(() => {
     loadPayments();
-  }, [search, statusFilter, typeFilter, dateFilter]);
+  }, [search, statusFilter, typeFilter, dateFilter, handlerFilter]);
 
   const loadPayments = async () => {
     try {
@@ -37,6 +40,7 @@ export const PaymentsPage: React.FC = () => {
         params.startDate = start;
         params.endDate = end;
       }
+      if (handlerFilter && user) params.handlerId = user.id;
 
       const result = await paymentApi.getAll(params);
       setPayments(result.payments || result);
@@ -214,6 +218,16 @@ export const PaymentsPage: React.FC = () => {
             <option value="week">本周</option>
             <option value="month">本月</option>
           </select>
+          <label className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+            <input
+              type="checkbox"
+              checked={handlerFilter}
+              onChange={(e) => setHandlerFilter(e.target.checked)}
+              className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+            />
+            <User className="w-4 h-4 text-gray-500" />
+            <span className="text-sm text-gray-700">只看我处理的</span>
+          </label>
         </div>
 
         {loading ? (

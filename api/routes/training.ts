@@ -9,7 +9,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
   try {
     const { studentId, coachId, status, search, startDate, endDate } = req.query;
 
-    const training = await getTrainingList({
+    const trainings = await getTrainingList({
       studentId: studentId as string,
       coachId: coachId as string,
       status: status as any,
@@ -18,7 +18,7 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response)
       endDate: endDate ? new Date(endDate as string) : undefined,
     });
 
-    res.json({ training });
+    res.json({ trainings });
   } catch (error: any) {
     res.status(500).json({ error: error.message || '获取学时列表失败' });
   }
