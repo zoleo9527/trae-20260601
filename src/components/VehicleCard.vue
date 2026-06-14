@@ -50,11 +50,29 @@
 
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import type { Vehicle } from '@/types'
+import type { VehicleStatus, User } from '@/types'
 import StatusBadge from './StatusBadge.vue'
 
+interface VehicleDisplay {
+  id: string
+  plate: string
+  model: string
+  brand: string
+  status: VehicleStatus
+  statusLabel: string
+  statusColor: string
+  purchasePrice: number
+  listedPrice: number | null
+  collector: User
+  currentAssignee: User
+  followupCount: number
+  lastFollowup: any
+  createdAt: string
+  updatedAt: string
+}
+
 const props = defineProps<{
-  vehicle: Vehicle
+  vehicle: VehicleDisplay
 }>()
 
 const router = useRouter()

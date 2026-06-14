@@ -212,20 +212,24 @@ import { useRoute, useRouter } from 'vue-router'
 import { useVehicles } from '@/composables/useVehicles'
 import { useStatusTransition } from '@/composables/useStatusTransition'
 import { useHandover } from '@/composables/useHandover'
+import { useAuth } from '@/composables/useAuth'
 import StatusBadge from '@/components/StatusBadge.vue'
 import StatusTimeline from '@/components/StatusTimeline.vue'
 import FollowupRecord from '@/components/FollowupRecord.vue'
 import HandoverModal from '@/components/HandoverModal.vue'
-import type { User, VehicleStatus } from '@/types'
+import type { User, Vehicle } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
 
 const { getVehicleById, changeStatus } = useVehicles()
-const { getAvailableTransitions, getAction, getStatusLabel } = useStatusTransition()
+const { getAvailableTransitions, getAction } = useStatusTransition()
 const { createHandover, shouldTriggerHandover, getAvailableReceivers } = useHandover()
+const { currentUser } = useAuth()
 
-const vehicle = computed(() => getVehicleById(route.params.id as string))
+const vehicle = computed((): Vehicle | null => {
+  return getVehicleById(route.params.id as string) || null
+})
 
 const showHandover = ref(false)
 const showActionModal = ref(false)
@@ -238,13 +242,13 @@ const nextActionLabel = computed(() => {
 
 const canChangeStatus = computed(() => {
   if (!vehicle.value) return false
-  const transitions = getAvailableTransitions(vehicle.value.status, 'collector')
+  const transitions = getAvailableTransitions(vehicle.value.status, currentUser.value.role)
   return transitions.length > 0
 })
 
 const shouldShowHandover = computed(() => {
   if (!vehicle.value) return false
-  const nextStatus = getAvailableTransitions(vehicle.value.status, 'collector')[0]?.status
+  const nextStatus = getAvailableTransitions(vehicle.value.status, currentUser.value.role)[0]?.status
   return nextStatus && shouldTriggerHandover(vehicle.value.status, nextStatus)
 })
 
@@ -269,14 +273,14 @@ const handleHandover = async (user: User, remark: string) => {
 const handleStatusChange = async () => {
   if (!vehicle.value || !actionRemark.value.trim()) return
 
-  const nextStatus = getAvailableTransitions(vehicle.value.status, 'collector')[0]?.status
+  const nextStatus = getAvailableTransitions(vehicle.value.status, currentUser.value.role)[0]?.status
   if (!nextStatus) return
 
   const handoverTo = shouldTriggerHandover(vehicle.value.status, nextStatus)
     ? getAvailableReceivers(vehicle.value)[0]
     : undefined
 
-  await changeStatus(vehicle.value.id, nextStatus, actionRemark.value, handoverTo)
+  await changeStatus(vehicle.value.id, nextStatus, actionRemark.value, handoverTo, undefined, currentUser.value)
   showActionModal.value = false
   actionRemark.value = ''
 }

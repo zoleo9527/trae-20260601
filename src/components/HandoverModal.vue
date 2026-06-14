@@ -69,7 +69,7 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { Vehicle, User, VehicleStatus } from '@/types'
+import type { Vehicle, User } from '@/types'
 import { useHandover } from '@/composables/useHandover'
 import { useStatusTransition } from '@/composables/useStatusTransition'
 

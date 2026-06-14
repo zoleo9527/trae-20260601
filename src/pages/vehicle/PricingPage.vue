@@ -60,6 +60,7 @@
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useVehicles } from '@/composables/useVehicles'
+import { useAuth } from '@/composables/useAuth'
 import StatusBadge from '@/components/StatusBadge.vue'
 import PricingForm from '@/components/PricingForm.vue'
 
@@ -67,6 +68,7 @@ const route = useRoute()
 const router = useRouter()
 
 const { getVehicleById, changeStatus } = useVehicles()
+const { currentUser } = useAuth()
 
 const vehicle = computed(() => getVehicleById(route.params.id as string))
 
@@ -74,14 +76,15 @@ const goBack = () => {
   router.push(`/vehicle/${vehicle.value?.id}`)
 }
 
-const handleSubmit = async (data: { suggestedPrice: number; financePlan: string; remark: string }) => {
-  if (!vehicle.value) return
+const handleSubmit = async (data: { suggestedPrice?: number; finalPrice?: number; financePlan?: string; remark: string }) => {
+  if (!vehicle.value || !data.suggestedPrice) return
   await changeStatus(
     vehicle.value.id,
     'pricing_pending',
     data.remark,
     undefined,
-    { suggestedPrice: data.suggestedPrice, financePlan: data.financePlan }
+    { suggestedPrice: data.suggestedPrice, financePlan: data.financePlan },
+    currentUser.value
   )
   goBack()
 }
@@ -93,7 +96,8 @@ const handleConfirm = async (data: { finalPrice: number; financePlan: string; re
     'listed',
     data.remark,
     undefined,
-    { finalPrice: data.finalPrice, financePlan: data.financePlan }
+    { finalPrice: data.finalPrice, financePlan: data.financePlan },
+    currentUser.value
   )
   goBack()
 }

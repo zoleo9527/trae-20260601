@@ -28,7 +28,7 @@
     </div>
 
     <div
-      v-for="(record, index) in records"
+        v-for="record in records"
       :key="record.id"
       class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow"
     >

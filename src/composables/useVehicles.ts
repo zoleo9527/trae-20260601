@@ -1,12 +1,14 @@
 import { useVehicleStore } from '@/stores/vehicleStore'
 import { useStatusTransition } from './useStatusTransition'
 import { useHandover } from './useHandover'
-import type { Vehicle, VehicleStatus, TimelineEvent } from '@/types'
+import { useAuth } from './useAuth'
+import type { Vehicle, VehicleStatus, TimelineEvent, User } from '@/types'
 
 export function useVehicles() {
   const vehicleStore = useVehicleStore()
   const { getStatusLabel, getStatusColor } = useStatusTransition()
   const { createHandover, shouldTriggerHandover } = useHandover()
+  const { currentUser } = useAuth()
 
   const generateId = () => {
     return `TL-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
@@ -17,15 +19,18 @@ export function useVehicles() {
     newStatus: VehicleStatus,
     remark: string,
     handoverTo?: any,
-    pricingData?: any
+    pricingData?: any,
+    operator?: User
   ) => {
     const vehicle = vehicleStore.getVehicleById(vehicleId)
     if (!vehicle) return
 
+    const eventOperator = operator || currentUser.value
+
     const event: TimelineEvent = {
       id: generateId(),
       status: newStatus,
-      operator: { id: 'U001', name: '张伟', role: 'collector' },
+      operator: eventOperator,
       time: new Date().toISOString(),
       remark,
       type: pricingData ? 'pricing' : 'status_change',

@@ -172,6 +172,7 @@ import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useVehicles } from '@/composables/useVehicles'
 import { useVehicleStore } from '@/stores/vehicleStore'
+import { useAuth } from '@/composables/useAuth'
 import StatusBadge from '@/components/StatusBadge.vue'
 import FollowupRecord from '@/components/FollowupRecord.vue'
 import type { FollowupMethod, FollowupResult, FollowupRecord as FollowupRecordType } from '@/types'
@@ -180,6 +181,7 @@ const route = useRoute()
 const router = useRouter()
 const vehicleStore = useVehicleStore()
 const { getVehicleById, changeStatus } = useVehicles()
+const { currentUser } = useAuth()
 
 const vehicle = computed(() => getVehicleById(route.params.id as string))
 
@@ -219,7 +221,7 @@ const handleSubmit = () => {
   const newFollowup: FollowupRecordType = {
     id: `FU-${Date.now()}`,
     vehicleId: vehicle.value.id,
-    operator: { id: 'U004', name: '赵强', role: 'sales' },
+    operator: currentUser.value,
     time: new Date().toISOString(),
     method: form.value.method,
     customerInfo: form.value.customerInfo,
@@ -244,7 +246,7 @@ const handleSubmit = () => {
 const handleComplete = async (status: 'sold' | 'unlisted') => {
   if (!vehicle.value) return
   const remark = status === 'sold' ? '客户成交，感谢购买！' : '跟进失败，已下架'
-  await changeStatus(vehicle.value.id, status, remark)
+  await changeStatus(vehicle.value.id, status, remark, undefined, undefined, currentUser.value)
   goBack()
 }
 </script>

@@ -2,7 +2,7 @@ import type { VehicleStatus, StatusConfig } from '@/types'
 import statusesData from '@/data/statuses.json'
 
 export function useStatusTransition() {
-  const statusConfig = statusesData as Record<VehicleStatus, StatusConfig & { color: string }>
+  const statusConfig = statusesData as unknown as Record<VehicleStatus, StatusConfig>
 
   const getStatusLabel = (status: VehicleStatus): string => {
     return statusConfig[status]?.label || status

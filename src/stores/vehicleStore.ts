@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Vehicle, FilterOptions, VehicleStatus } from '@/types'
+import type { Vehicle, FilterOptions } from '@/types'
 import vehiclesData from '@/data/vehicles.json'
 
 export const useVehicleStore = defineStore('vehicles', () => {

@@ -34,7 +34,7 @@
         <label class="block text-sm font-medium text-gray-700 mb-2">品牌</label>
         <div class="flex flex-wrap gap-2">
           <button
-            v-for="brand in brands"
+            v-for="brand in brandsList"
             :key="brand"
             @click="toggleBrand(brand)"
             :class="[
@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useVehicles } from '@/composables/useVehicles'
 import { useStatusTransition } from '@/composables/useStatusTransition'
 import type { VehicleStatus } from '@/types'
@@ -132,21 +132,21 @@ const statusOptions = computed(() => {
   }))
 })
 
-const brands = computed(() => getBrands.value)
+const brandsList = computed(() => getBrands)
 
 const selectedCollector = ref('')
 const selectedEvaluator = ref('')
 const selectedFinanceStaff = ref('')
-const sortField = ref('createdAt')
-const sortOrder = ref('desc')
+const sortField = ref<'createdAt' | 'updatedAt' | 'purchasePrice'>('createdAt')
+const sortOrder = ref<'asc' | 'desc'>('desc')
 
 onMounted(() => {
-  if (filters.value) {
-    selectedCollector.value = filters.value.collector || ''
-    selectedEvaluator.value = filters.value.evaluator || ''
-    selectedFinanceStaff.value = filters.value.financeStaff || ''
-    sortField.value = sortBy.value
-    sortOrder.value = storeSortOrder.value
+  if (filters) {
+    selectedCollector.value = filters.collector || ''
+    selectedEvaluator.value = filters.evaluator || ''
+    selectedFinanceStaff.value = filters.financeStaff || ''
+    sortField.value = sortBy
+    sortOrder.value = storeSortOrder
   }
 })
 
@@ -163,16 +163,16 @@ const financeStaffs = [
 ]
 
 const toggleStatus = (status: VehicleStatus) => {
-  const newStatuses = filters.value.status.includes(status)
-    ? filters.value.status.filter(s => s !== status)
-    : [...filters.value.status, status]
+  const newStatuses = filters.status.includes(status)
+    ? filters.status.filter((s: VehicleStatus) => s !== status)
+    : [...filters.status, status]
   setFilters({ status: newStatuses })
 }
 
 const toggleBrand = (brand: string) => {
-  const newBrands = filters.value.brand.includes(brand)
-    ? filters.value.brand.filter(b => b !== brand)
-    : [...filters.value.brand, brand]
+  const newBrands = filters.brand.includes(brand)
+    ? filters.brand.filter((b: string) => b !== brand)
+    : [...filters.brand, brand]
   setFilters({ brand: newBrands })
 }
 
@@ -189,12 +189,12 @@ const handleFinanceStaffChange = () => {
 }
 
 const handleSortChange = () => {
-  setSort(sortField.value as any, sortOrder.value)
+  setSort(sortField.value, sortOrder.value)
 }
 
 const toggleSortOrder = () => {
   sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc'
-  setSort(sortField.value as any, sortOrder.value)
+  setSort(sortField.value, sortOrder.value)
 }
 
 const handleClear = () => {
