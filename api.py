@@ -60,7 +60,7 @@ async def pm_create_project(
     project_manager_id: str = Body(...),
     translator_id: str = Body(...),
     reviewer_id: str = Body(...),
-    original_deadline: Body(...),
+    original_deadline: datetime = Body(...),
     ledger: Optional[str] = Body(None),
     scene_records: Optional[str] = Body(None),
     screenshots: Optional[List[str]] = Body(None)
@@ -492,10 +492,21 @@ async def reschedule_project(
     project_id: str,
     new_deadline: datetime = Body(...),
     changed_by: str = Body(...),
-    reason: str = Body(...)
+    reason: str = Body(...),
+    auto_create_fee: bool = Body(True),
+    estimated_amount: Optional[float] = Body(None),
+    fee_type: Optional[str] = Body(None)
 ):
-    project = ProjectService.reschedule_project(project_id, new_deadline, changed_by, reason)
-    return {"message": "项目改期成功", "project": project}
+    if auto_create_fee and (not estimated_amount or not fee_type):
+        raise HTTPException(status_code=400, detail="如果启用自动创建费用，必须提供金额和费用类型")
+
+    result = ProjectService.reschedule_project(
+        project_id, new_deadline, changed_by, reason,
+        auto_create_fee=auto_create_fee,
+        estimated_amount=estimated_amount,
+        fee_type=fee_type
+    )
+    return {"message": result.get("message", "项目改期成功"), **result}
 
 
 @app.post("/api/fees", tags=["费用确认-项目经理/审校入口"])

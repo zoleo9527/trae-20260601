@@ -217,7 +217,7 @@ class TestProblemOrder(unittest.TestCase):
         db.add("user", self.reviewer)
 
     def test_1_reschedule_problem(self):
-        """测试1: 问题单-改期"""
+        """测试1: 问题单-改期（自动创建费用）"""
         project = ProjectService.create_project(
             name="紧急翻译项目",
             project_manager_id=self.pm.id,
@@ -229,25 +229,43 @@ class TestProblemOrder(unittest.TestCase):
         original_deadline = project.actual_deadline or project.original_deadline
         new_deadline = datetime.now() + timedelta(days=5)
 
-        rescheduled_project = ProjectService.reschedule_project(
+        result = ProjectService.reschedule_project(
             project_id=project.id,
             new_deadline=new_deadline,
             changed_by=self.pm.id,
-            reason="客户临时增加内容，需要延长时间"
+            reason="客户临时增加内容，需要延长时间",
+            auto_create_fee=True,
+            estimated_amount=2000.00,
+            fee_type="改期附加费"
         )
 
+        rescheduled_project = result["project"]
         self.assertEqual(rescheduled_project.actual_deadline, new_deadline)
         self.assertNotEqual(rescheduled_project.actual_deadline, original_deadline)
 
-        problems = ProblemService.get_problems_by_project(project.id)
-        self.assertEqual(len(problems), 1)
-        self.assertEqual(problems[0].problem_type, ProblemType.RESCHEDULE)
+        self.assertIn("problem", result)
+        self.assertIn("fee", result)
+        problem = result["problem"]
+        fee = result["fee"]
+
+        self.assertEqual(problem.problem_type, ProblemType.RESCHEDULE)
+        self.assertEqual(fee.problem_id, problem.id)
+        self.assertIsNotNone(fee.inherited_notes)
+        self.assertIn("改期问题单", fee.inherited_notes)
+        self.assertIn("客户临时增加内容", fee.inherited_notes)
 
         status_changes = StatusChangeService.get_changes_by_entity("project", project.id)
         deadline_changes = [c for c in status_changes if c.field_name == "actual_deadline"]
         self.assertEqual(len(deadline_changes), 1)
         self.assertEqual(deadline_changes[0].old_value, str(original_deadline))
-        print(f"✓ 改期问题单处理成功")
+
+        project_status_changes = [c for c in status_changes if c.field_name == "status"]
+        self.assertGreaterEqual(len(project_status_changes), 1)
+
+        fee_status_changes = StatusChangeService.get_changes_by_entity("fee", fee.id)
+        self.assertGreater(len(fee_status_changes), 0)
+
+        print(f"✓ 改期问题单自动创建费用成功")
 
     def test_2_supplement_problem(self):
         """测试2: 问题单-补录"""
@@ -259,23 +277,36 @@ class TestProblemOrder(unittest.TestCase):
             original_deadline=datetime.now() + timedelta(days=7)
         )
 
-        problem = ProblemService.create_problem(
+        result = ProblemService.create_problem(
             project_id=project.id,
             feedback_id="",
             problem_type=ProblemType.SUPPLEMENT,
             reason="漏记了一次客户沟通",
             created_by=self.pm.id,
             original_data="原记录：3次沟通",
-            new_data="补录后：4次沟通，新增电话沟通记录"
+            new_data="补录后：4次沟通，新增电话沟通记录",
+            auto_create_fee=True,
+            estimated_amount=500.00,
+            fee_type="补录附加费"
         )
+
+        problem = result["problem"]
+        fee = result["fee"]
 
         self.assertEqual(problem.problem_type, ProblemType.SUPPLEMENT)
         self.assertIsNotNone(problem.original_data)
         self.assertIsNotNone(problem.new_data)
+        self.assertEqual(fee.problem_id, problem.id)
+        self.assertIsNotNone(fee.inherited_notes)
+        self.assertIn("补录", fee.inherited_notes)
 
         status_changes = StatusChangeService.get_changes_by_entity("problem", problem.id)
         self.assertGreater(len(status_changes), 0)
-        print(f"✓ 补录问题单处理成功")
+
+        fee_status_changes = StatusChangeService.get_changes_by_entity("fee", fee.id)
+        self.assertGreater(len(fee_status_changes), 0)
+
+        print(f"✓ 补录问题单自动创建费用成功")
 
     def test_3_reject_problem(self):
         """测试3: 问题单-驳回"""
@@ -342,14 +373,16 @@ class TestProblemOrder(unittest.TestCase):
             original_deadline=datetime.now() + timedelta(days=7)
         )
 
-        problem = ProblemService.create_problem(
+        result = ProblemService.create_problem(
             project_id=project.id,
             feedback_id="",
             problem_type=ProblemType.SUPPLEMENT,
             reason="需要补录客户确认",
-            created_by=self.pm.id
+            created_by=self.pm.id,
+            auto_create_fee=False
         )
 
+        problem = result["problem"]
         resolved_problem = ProblemService.resolve_problem(problem.id, self.pm.id)
 
         self.assertEqual(resolved_problem.status, "resolved")

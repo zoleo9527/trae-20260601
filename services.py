@@ -119,7 +119,10 @@ class ProjectService:
 
     @staticmethod
     def reschedule_project(project_id: str, new_deadline: datetime,
-                          changed_by: str, reason: str) -> Project:
+                          changed_by: str, reason: str,
+                          auto_create_fee: bool = True,
+                          estimated_amount: float = None,
+                          fee_type: str = None) -> dict:
         project = db.get("project", project_id)
         if not project:
             raise StateTransitionError(ErrorCode.PROJECT_NOT_FOUND, f"项目 {project_id} 不存在")
@@ -137,6 +140,21 @@ class ProjectService:
         )
         db.add("problem", problem_record)
 
+        StatusChangeService.record_change(
+            "problem", problem_record.id, "status",
+            None, "open",
+            changed_by, f"创建改期问题单: {reason}"
+        )
+
+        if project.status != OrderStatus.PROBLEM:
+            old_project_status = project.status.value
+            project.status = OrderStatus.PROBLEM
+            StatusChangeService.record_change(
+                "project", project_id, "status",
+                old_project_status, OrderStatus.PROBLEM.value,
+                changed_by, "改期导致项目标记为问题单"
+            )
+
         project.actual_deadline = new_deadline
         project.updated_at = datetime.now()
 
@@ -145,7 +163,33 @@ class ProjectService:
             str(new_deadline), changed_by, reason
         )
 
-        return project
+        result = {"project": project, "problem": problem_record}
+
+        if auto_create_fee and estimated_amount and fee_type:
+            inherited_notes = f"【来自改期问题单 #{problem_record.id[:8]}】\n" \
+                            f"问题类型: 改期\n" \
+                            f"问题原因: {reason}\n" \
+                            f"原截止日期: {str(old_deadline)}\n" \
+                            f"新截止日期: {str(new_deadline)}"
+
+            fee = FeeService.create_fee_from_feedback(
+                project_id=project_id,
+                amount=estimated_amount,
+                fee_type=fee_type,
+                problem_id=problem_record.id,
+                inherited_notes=inherited_notes
+            )
+
+            result["fee"] = fee
+            result["message"] = "改期成功，已自动创建关联的待确认费用"
+
+            StatusChangeService.record_change(
+                "fee", fee.id, "status",
+                None, FeeStatus.PENDING.value,
+                changed_by, "由改期问题单自动创建"
+            )
+
+        return result
 
 
 class FeedbackService:
@@ -195,14 +239,15 @@ class FeedbackService:
         )
 
         project = db.get("project", feedback.project_id)
-        if project:
+        if project and project.status != OrderStatus.PROBLEM:
+            old_project_status = project.status.value
             StateMachine.validate_project_transition(
                 project.status, OrderStatus.PROBLEM
             )
             project.status = OrderStatus.PROBLEM
             StatusChangeService.record_change(
                 "project", project.id, "status",
-                project.status.value, OrderStatus.PROBLEM.value,
+                old_project_status, OrderStatus.PROBLEM.value,
                 handler_id, "客户反馈导致项目标记为问题单"
             )
 
@@ -249,6 +294,7 @@ class FeeService:
                                  fee_type: str, feedback_id: str = None,
                                  problem_id: str = None,
                                  inherited_notes: str = None) -> FeeConfirmation:
+        feedback = None
         if feedback_id and not inherited_notes:
             feedback = db.get("feedback", feedback_id)
             if feedback and feedback.status == FeedbackStatus.HANDLED:
@@ -418,10 +464,11 @@ class ProblemService:
         )
 
         if project.status != OrderStatus.PROBLEM:
+            old_project_status = project.status.value
             project.status = OrderStatus.PROBLEM
             StatusChangeService.record_change(
                 "project", project_id, "status",
-                project.status.value, OrderStatus.PROBLEM.value,
+                old_project_status, OrderStatus.PROBLEM.value,
                 created_by, f"创建问题单: {problem_type.value}"
             )
 
