@@ -1,0 +1,141 @@
+import { Router } from 'express';
+import { getDatabase, Handoff, Customer, DueDiligence } from '../database';
+
+const router = Router();
+
+router.get('/', async (req, res) => {
+  try {
+    const db = await getDatabase();
+    const handoffs = await db.all(`
+      SELECT h.*, 
+             u1.display_name as from_user_name,
+             u2.display_name as to_user_name
+      FROM handoffs h
+      LEFT JOIN users u1 ON h.from_user = u1.id
+      LEFT JOIN users u2 ON h.to_user = u2.id
+      ORDER BY h.created_at DESC
+    `) as (Handoff & { from_user_name: string; to_user_name: string })[];
+
+    for (const handoff of handoffs) {
+      const tasks = await db.all(
+        'SELECT * FROM handoff_tasks WHERE handoff_id = ?',
+        [handoff.id]
+      );
+      (handoff as any).tasks = tasks;
+    }
+
+    res.json({ success: true, data: handoffs });
+  } catch (error) {
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const { type, from_user, to_user, tasks } = req.body;
+    const db = await getDatabase();
+
+    const result = await db.run(
+      'INSERT INTO handoffs (type, from_user, to_user, status) VALUES (?, ?, ?, ?)',
+      [type || 'shift', from_user, to_user, 'pending']
+    );
+
+    const handoffId = result.lastID;
+
+    if (tasks && tasks.length > 0) {
+      for (const task of tasks) {
+        await db.run(
+          'INSERT INTO handoff_tasks (handoff_id, task_type, task_id, task_description) VALUES (?, ?, ?, ?)',
+          [handoffId, task.task_type, task.task_id, task.task_description]
+        );
+      }
+    }
+
+    res.json({ success: true, data: { id: handoffId } });
+  } catch (error) {
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+router.get('/pending', async (req, res) => {
+  try {
+    const db = await getDatabase();
+
+    const pendingCustomers = await db.all(
+      'SELECT * FROM customers WHERE status IN (?, ?)',
+      ['pending', 'processing']
+    ) as Customer[];
+
+    const pendingDueDiligences = await db.all(
+      'SELECT * FROM due_diligences WHERE status IN (?, ?)',
+      ['pending', 'processing']
+    ) as DueDiligence[];
+
+    const customerTasks = pendingCustomers.map((c: Customer) => ({
+      task_type: 'customer',
+      task_id: c.id,
+      task_description: `客户${c.name}的${c.business_type}业务（状态：${c.status}）`
+    }));
+
+    const dueDiligenceTasks = pendingDueDiligences.map((d: DueDiligence) => ({
+      task_type: 'due_diligence',
+      task_id: d.id,
+      task_description: `尽调补件任务 #${d.id}（状态：${d.status}）`
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        customers: customerTasks,
+        dueDiligences: dueDiligenceTasks
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    const handoff = await db.get<Handoff>(
+      'SELECT * FROM handoffs WHERE id = ?',
+      [id]
+    );
+
+    if (handoff) {
+      const tasks = await db.all(
+        'SELECT * FROM handoff_tasks WHERE handoff_id = ?',
+        [id]
+      );
+      res.json({ 
+        success: true, 
+        data: { 
+          ...handoff, 
+          tasks 
+        } 
+      });
+    } else {
+      res.status(404).json({ success: false, error: '交班记录不存在' });
+    }
+  } catch (error) {
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+router.put('/:id/confirm', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = await getDatabase();
+    await db.run(
+      'UPDATE handoffs SET status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
+      ['confirmed', id]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, error: '服务器错误' });
+  }
+});
+
+export default router;
