@@ -62,7 +62,7 @@ function getRegistrationProblems(registrationId) {
   for (const doc of docProblems) {
     const statusMap = {
       pending: { label: '未上传', severity: 'block' },
-      uploaded: { label: '已上传待审', severity: 'warn' },
+      uploaded: { label: '已上传待审核', severity: 'block' },
       rejected: { label: `被退回: ${doc.rejection_reason || ''}`, severity: 'block' }
     };
     const status = statusMap[doc.upload_status] || { label: doc.upload_status, severity: 'warn' };

@@ -46,7 +46,7 @@ app.get('/api/dashboard', (req, res) => {
   const returned = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE registration_status = 'returned'").get().cnt;
   const unpaid = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE payment_status = 'unpaid'").get().cnt;
   const unconfirmed = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE teacher_confirmed = 0").get().cnt;
-  const pendingDocs = db.prepare("SELECT COUNT(*) as cnt FROM registration_documents WHERE upload_status IN ('pending','rejected')").get().cnt;
+  const pendingDocs = db.prepare("SELECT COUNT(*) as cnt FROM registration_documents WHERE upload_status != 'verified'").get().cnt;
   const missingIdCard = db.prepare("SELECT COUNT(*) as cnt FROM students s JOIN registrations r ON s.id = r.student_id WHERE (s.id_card_number IS NULL OR s.id_card_number = '') AND r.registration_status NOT IN ('approved')").get().cnt;
   const missingTrackName = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE (track_name IS NULL OR track_name = '') AND registration_status NOT IN ('approved')").get().cnt;
   const missingCostumeSize = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE (costume_size IS NULL OR costume_size = '') AND registration_status NOT IN ('approved')").get().cnt;
@@ -54,7 +54,7 @@ app.get('/api/dashboard', (req, res) => {
   const deadlineApproaching = db.prepare(`
     SELECT r.id as registration_id, s.name as student_name, s.guardian_phone, es.registration_deadline, es.name as exam_name,
       r.teacher_confirmed, r.payment_status, r.costume_size, r.track_name, s.id_card_number,
-      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status IN ('pending','rejected')) as missing_doc_count
+      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') as missing_doc_count
     FROM registrations r
     JOIN students s ON r.student_id = s.id
     JOIN exam_sessions es ON r.exam_session_id = es.id

@@ -37,9 +37,9 @@ router.get('/roster', (req, res) => {
       r.teacher_confirmed,
       t.name as confirmed_teacher_name,
       r.remark,
-      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status IN ('pending','rejected')) as missing_doc_count,
+      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') as missing_doc_count,
       CASE
-        WHEN (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status IN ('pending','rejected')) > 0 THEN '资料不全'
+        WHEN (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') > 0 THEN '资料不全'
         ELSE '资料齐全'
       END as doc_status_label
     FROM registrations r
@@ -136,7 +136,7 @@ router.get('/checklist', (req, res) => {
         CASE
           WHEN rd.upload_status = 'verified' THEN rd.document_type || '✓'
           WHEN rd.upload_status = 'rejected' THEN rd.document_type || '✗(' || COALESCE(rd.rejection_reason,'') || ')'
-          WHEN rd.upload_status = 'uploaded' THEN rd.document_type || '○'
+          WHEN rd.upload_status = 'uploaded' THEN rd.document_type || '△'
           WHEN rd.upload_status = 'pending' THEN rd.document_type || '—'
         END, '|'
       ) as doc_checklist,
