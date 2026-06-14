@@ -1,6 +1,6 @@
 export type Role = '教务老师' | '任课老师' | '家长顾问';
 
-export type PracticeStatus = '待处理' | '已确认' | '已退回' | '已完成';
+export type PracticeStatus = '待处理' | '已确认' | '已退回' | '已完成' | '超时';
 
 export type ReviewStatus = '待点评' | '已点评' | '待确认' | '已完成';
 

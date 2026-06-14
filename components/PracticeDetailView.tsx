@@ -9,6 +9,7 @@ const statusConfig: Record<PracticeStatus, { label: string; className: string }>
   '已确认': { label: '已确认', className: 'bg-blue-100 text-blue-700' },
   '已退回': { label: '已退回', className: 'bg-red-100 text-red-700' },
   '已完成': { label: '已完成', className: 'bg-green-100 text-green-700' },
+  '超时': { label: '超时', className: 'bg-danger-100 text-danger-700' },
 };
 
 export function PracticeDetailView({ record }: PracticeDetailViewProps) {

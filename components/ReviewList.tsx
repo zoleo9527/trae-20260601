@@ -1,10 +1,11 @@
-import { StageReview, ReviewStatus } from '../types';
+import { StageReview, ReviewStatus, Role } from '../types';
 
 interface ReviewListProps {
   reviews: StageReview[];
   onViewDetail: (review: StageReview) => void;
   onReview: (review: StageReview) => void;
   onConfirm: (review: StageReview) => void;
+  currentRole?: Role;
 }
 
 const statusConfig: Record<ReviewStatus, { label: string; className: string }> = {
@@ -14,7 +15,15 @@ const statusConfig: Record<ReviewStatus, { label: string; className: string }> =
   '已完成': { label: '已完成', className: 'bg-green-100 text-green-700' },
 };
 
-export function ReviewList({ reviews, onViewDetail, onReview, onConfirm }: ReviewListProps) {
+export function ReviewList({ reviews, onViewDetail, onReview, onConfirm, currentRole }: ReviewListProps) {
+  const canReview = (review: StageReview): boolean => {
+    return currentRole === '任课老师' && review.status === '待点评';
+  };
+
+  const canConfirm = (review: StageReview): boolean => {
+    return currentRole === '家长顾问' && review.status === '待确认';
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -54,6 +63,12 @@ export function ReviewList({ reviews, onViewDetail, onReview, onConfirm }: Revie
                       ))}
                     </div>
                   )}
+                  {(review.reviewedBy || review.confirmedBy) && (
+                    <div className="mt-1 text-xs text-gray-400">
+                      {review.reviewedBy && `点评人: ${review.reviewedBy}`}
+                      {review.confirmedBy && ` · 确认人: ${review.confirmedBy}`}
+                    </div>
+                  )}
                 </div>
                 <div className="flex gap-2 ml-4">
                   <button
@@ -62,7 +77,7 @@ export function ReviewList({ reviews, onViewDetail, onReview, onConfirm }: Revie
                   >
                     查看
                   </button>
-                  {review.status === '待点评' && (
+                  {canReview(review) && (
                     <button
                       onClick={() => onReview(review)}
                       className="px-3 py-1.5 text-sm bg-secondary-500 text-white rounded-lg hover:bg-secondary-600 transition-colors"
@@ -70,7 +85,7 @@ export function ReviewList({ reviews, onViewDetail, onReview, onConfirm }: Revie
                       点评
                     </button>
                   )}
-                  {review.status === '待确认' && (
+                  {canConfirm(review) && (
                     <button
                       onClick={() => onConfirm(review)}
                       className="px-3 py-1.5 text-sm bg-success-500 text-white rounded-lg hover:bg-success-600 transition-colors"
