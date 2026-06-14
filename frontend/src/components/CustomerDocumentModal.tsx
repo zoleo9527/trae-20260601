@@ -19,7 +19,7 @@ export default function CustomerDocumentModal({ dueDiligence, onClose }: Props) 
   const { user, refreshDueDiligences } = useApp();
   const [history, setHistory] = useState<HistoryData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [notes, setNotes] = useState(dueDiligence?.inherited_notes || '');
+  const [processingNotes, setProcessingNotes] = useState(dueDiligence?.processing_notes || '');
   const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ export default function CustomerDocumentModal({ dueDiligence, onClose }: Props) 
     setLoading(true);
     try {
       await api.dueDiligence.update(dueDiligence.id, {
-        inherited_notes: notes,
+        processing_notes: processingNotes,
         status,
         assigned_to: dueDiligence.assigned_to,
       });
@@ -104,10 +104,10 @@ export default function CustomerDocumentModal({ dueDiligence, onClose }: Props) 
           </div>
 
           <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold text-gray-800 mb-4">尽调备注</h3>
+            <h3 className="font-semibold text-gray-800 mb-4">尽调处理备注</h3>
             <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              value={processingNotes}
+              onChange={(e) => setProcessingNotes(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               rows={6}
               placeholder="记录尽调补件处理过程中的备注..."

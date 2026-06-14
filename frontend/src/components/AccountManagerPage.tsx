@@ -3,11 +3,13 @@ import { useApp } from '../context/AppContext';
 import { DueDiligence, Customer, DUE_DILIGENCE_STATUS_LABELS, STATUS_LABELS } from '../types';
 import { api } from '../api';
 import CustomerDocumentModal from './CustomerDocumentModal';
+import CustomerModal from './CustomerModal';
 
 export default function AccountManagerPage() {
-  const { user, customers, dueDiligences, refreshDueDiligences } = useApp();
+  const { user, customers, dueDiligences, refreshDueDiligences, refreshCustomers } = useApp();
   const [selectedDueDiligence, setSelectedDueDiligence] = useState<DueDiligence | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [showModal, setShowModal] = useState<'customer' | 'dueDiligence' | null>(null);
 
   const myCustomers = customers.filter(c => c.assigned_to === user?.id && c.status !== 'completed');
   const myDueDiligences = dueDiligences.filter(d => d.assigned_to === user?.id);
@@ -94,14 +96,17 @@ export default function AccountManagerPage() {
           <div className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
             {myCustomers.length === 0 ? (
               <div className="p-12 text-center text-gray-500">
-                <p>暂无分配的的客户</p>
+                <p>暂无分配的客户</p>
               </div>
             ) : (
               myCustomers.map((customer) => (
                 <div
                   key={customer.id}
                   className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => setShowModal(true)}
+                  onClick={() => {
+                    setSelectedCustomer(customer);
+                    setShowModal('customer');
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -140,7 +145,7 @@ export default function AccountManagerPage() {
                   className="p-4 hover:bg-gray-50 cursor-pointer transition-colors"
                   onClick={() => {
                     setSelectedDueDiligence(dueDiligence);
-                    setShowModal(true);
+                    setShowModal('dueDiligence');
                   }}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -178,11 +183,20 @@ export default function AccountManagerPage() {
         </div>
       </div>
 
-      {showModal && (
+      {showModal === 'customer' && selectedCustomer && (
+        <CustomerModal
+          customer={selectedCustomer}
+          onClose={() => {
+            setShowModal(null);
+            setSelectedCustomer(null);
+          }}
+        />
+      )}
+      {showModal === 'dueDiligence' && selectedDueDiligence && (
         <CustomerDocumentModal
           dueDiligence={selectedDueDiligence}
           onClose={() => {
-            setShowModal(false);
+            setShowModal(null);
             setSelectedDueDiligence(null);
           }}
         />

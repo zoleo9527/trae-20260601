@@ -42,6 +42,7 @@ export interface DueDiligence {
   customer_id: number;
   source_customer_id: number;
   inherited_notes: string;
+  processing_notes: string;
   status: 'pending' | 'processing' | 'submitted' | 'completed' | 'rejected';
   assigned_to: number;
   created_at: string;
@@ -150,11 +151,16 @@ export async function getDatabase(): Promise<Database> {
       customer_id INTEGER NOT NULL REFERENCES customers(id),
       source_customer_id INTEGER,
       inherited_notes TEXT,
+      processing_notes TEXT,
       status VARCHAR(20) DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'submitted', 'completed', 'rejected')),
       assigned_to INTEGER REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+  `);
+
+  await db.exec(`
+    ALTER TABLE due_diligences ADD COLUMN IF NOT EXISTS processing_notes TEXT;
   `);
 
   await db.exec(`

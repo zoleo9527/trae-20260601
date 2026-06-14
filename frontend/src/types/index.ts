@@ -49,6 +49,7 @@ export interface DueDiligence {
   customer_name?: string;
   source_customer_id: number;
   inherited_notes: string;
+  processing_notes: string;
   status: DueDiligenceStatus;
   assigned_to: number;
   assigned_to_name?: string;

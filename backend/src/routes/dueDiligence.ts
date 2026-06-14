@@ -75,12 +75,37 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { inherited_notes, status, assigned_to } = req.body;
+    const { inherited_notes, processing_notes, status, assigned_to } = req.body;
     const db = await getDatabase();
 
+    const updates: string[] = [];
+    const params: any[] = [];
+
+    if (inherited_notes !== undefined) {
+      updates.push('inherited_notes = ?');
+      params.push(inherited_notes);
+    }
+    if (processing_notes !== undefined) {
+      updates.push('processing_notes = ?');
+      params.push(processing_notes);
+    }
+    if (status !== undefined) {
+      updates.push('status = ?');
+      params.push(status);
+    }
+    if (assigned_to !== undefined) {
+      updates.push('assigned_to = ?');
+      params.push(assigned_to);
+    }
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+
+    if (updates.length === 1) {
+      return res.json({ success: true });
+    }
+
     await db.run(
-      'UPDATE due_diligences SET inherited_notes = ?, status = ?, assigned_to = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [inherited_notes, status, assigned_to, id]
+      `UPDATE due_diligences SET ${updates.join(', ')} WHERE id = ?`,
+      [...params, id]
     );
 
     if (status === 'completed') {
