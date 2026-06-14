@@ -15,8 +15,9 @@ router.get('/', async (req, res) => {
 
     const pendingStatuses = ['QUEUING', 'ASSIGNED']
     const shouldQueryPending = !status || pendingStatuses.includes(status)
+    const pendingStatusFilter = status && pendingStatuses.includes(status) ? [status] : pendingStatuses
     const todayPendingRecords = shouldQueryPending ? await prisma.inspectionRecord.findMany({
-      where: { ...baseWhere, status: { in: pendingStatuses } },
+      where: { ...baseWhere, status: { in: pendingStatusFilter } },
       include: { vehicle: true, line: true, items: true, anomalies: true },
       orderBy: { createdAt: 'asc' }
     }) : []
