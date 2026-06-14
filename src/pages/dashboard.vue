@@ -99,14 +99,22 @@ const handleLogout = () => {
   window.location.href = '/'
 }
 
-const handleResolveException = async () => {
+const handleResolveException = async (updatedRecord?: any) => {
   await loadRecords()
   showExceptionDrawer.value = false
-  selectedException.value = null
+  if (updatedRecord) {
+    selectedException.value = { ...updatedRecord }
+  } else if (selectedException.value) {
+    const record = prizeRecords.value.find(r => r.id === selectedException.value!.id)
+    if (record) {
+      selectedException.value = { ...record }
+    }
+  }
 }
 
 const openExceptionDrawer = (record: PrizeRecord) => {
-  selectedException.value = record
+  const freshRecord = prizeRecords.value.find(r => r.id === record.id)
+  selectedException.value = freshRecord ? { ...freshRecord } : { ...record }
   showExceptionDrawer.value = true
 }
 

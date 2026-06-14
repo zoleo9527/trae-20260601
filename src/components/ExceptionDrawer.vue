@@ -159,7 +159,7 @@ const handleResolve = async () => {
   
   const result = await response.json()
   if (result.success) {
-    emit('resolve')
+    emit('resolve', result.data)
   }
 }
 
@@ -180,7 +180,7 @@ const handleReject = async () => {
   
   const result = await response.json()
   if (result.success) {
-    emit('resolve')
+    emit('resolve', result.data)
   }
 }
 </script>

@@ -235,7 +235,8 @@ const getProgressClass = (record: PrizeRecord) => {
 }
 
 const viewMaterials = (record: PrizeRecord) => {
-  selectedRecord.value = record
+  const freshRecord = props.records.find(r => r.id === record.id)
+  selectedRecord.value = freshRecord ? { ...freshRecord } : { ...record }
   showDetailModal.value = true
 }
 

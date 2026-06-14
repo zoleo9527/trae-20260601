@@ -203,6 +203,8 @@ export default defineEventHandler(async (event) => {
     prizeRecords[recordIndex].currentHandlerName = operator
     prizeRecords[recordIndex].lastUpdatedAt = now
     prizeRecords[recordIndex].currentStage = newStage
+    prizeRecords[recordIndex].remark = remark || prizeRecords[recordIndex].remark
+    
     prizeRecords[recordIndex].statusChanges.push({
       status,
       operator,

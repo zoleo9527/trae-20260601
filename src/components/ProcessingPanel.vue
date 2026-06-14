@@ -307,12 +307,14 @@ const getActionText = (record: PrizeRecord) => {
 }
 
 const viewRecord = (record: PrizeRecord) => {
-  selectedRecord.value = record
+  const freshRecord = props.records.find(r => r.id === record.id)
+  selectedRecord.value = freshRecord ? { ...freshRecord } : { ...record }
   showDetailModal.value = true
 }
 
 const handleUpdateStatus = (record: PrizeRecord) => {
-  updatingRecord.value = record
+  const freshRecord = props.records.find(r => r.id === record.id)
+  updatingRecord.value = freshRecord ? { ...freshRecord } : { ...record }
   updateAction.value = {
     status: record.status === 'pending' ? 'processing' : 'completed',
     remark: ''
@@ -363,6 +365,12 @@ const handleUpdate = async () => {
   const result = await response.json()
   if (result.success) {
     showUpdateModal.value = false
+    if (selectedRecord.value && selectedRecord.value.id === result.data.id) {
+      selectedRecord.value = { ...result.data }
+    }
+    if (updatingRecord.value && updatingRecord.value.id === result.data.id) {
+      updatingRecord.value = { ...result.data }
+    }
     emit('update')
   }
 }
