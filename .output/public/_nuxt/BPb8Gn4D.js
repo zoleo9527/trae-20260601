@@ -1,0 +1,1 @@
+const E={PENDING_SUBMIT:"待提交",SUBMITTED:"已提交",REJECTED:"已驳回",COMPLETED:"已完成",REVIEW_FAILED:"复核不通过",PENDING_REVIEW:"待核赔"},s={CLAIM_AGENT:"理赔专员",SURVEYOR:"查勘员",UNDERWRITER:"核赔主管"},D={NOT_UPLOADED:"未上传",UPLOADED:"已上传",CONFIRMED:"已确认"};export{s as r,E as s,D as u};

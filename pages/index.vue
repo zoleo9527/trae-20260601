@@ -23,6 +23,10 @@ const submittedCases = computed(() => {
   return caseStore.cases.filter(c => c.status === 'SUBMITTED')
 })
 
+const pendingReviewCases = computed(() => {
+  return caseStore.cases.filter(c => c.status === 'PENDING_REVIEW')
+})
+
 const completedCases = computed(() => {
   return caseStore.cases.filter(c => c.status === 'COMPLETED')
 })
@@ -35,8 +39,8 @@ const stats = computed(() => [
     color: 'var(--color-warning)'
   },
   {
-    label: '审核中',
-    value: submittedCases.value.length,
+    label: '待核赔',
+    value: pendingReviewCases.value.length,
     icon: FileText,
     color: 'var(--color-info)'
   },

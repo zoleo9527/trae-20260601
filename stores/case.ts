@@ -127,13 +127,13 @@ export const useCaseStore = defineStore('case', {
       }
     },
     
-    async completeCase(id: string, operatorId: string) {
+    async completeCase(id: string, operatorId: string, operatorRole?: string) {
       this.loading = true
       this.error = null
       try {
         const response = await $fetch(`/api/cases/${id}/complete`, {
           method: 'POST',
-          body: { operatorId }
+          body: { operatorId, operatorRole }
         })
         this.currentCase = response.case
         this.updateCaseInList(response.case)

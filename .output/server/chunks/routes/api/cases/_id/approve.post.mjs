@@ -12,7 +12,7 @@ import '@prisma/client';
 import 'path';
 import 'url';
 
-const complete_post = defineEventHandler(async (event) => {
+const approve_post = defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
   const body = await readBody(event);
   if (!id) {
@@ -28,17 +28,14 @@ const complete_post = defineEventHandler(async (event) => {
       message: "\u7F3A\u5C11\u64CD\u4F5C\u4EBAID"
     });
   }
-  if (operatorRole !== "SURVEYOR") {
+  if (operatorRole !== "UNDERWRITER") {
     throw createError({
       statusCode: 403,
-      message: "\u53EA\u6709\u67E5\u52D8\u5458\u624D\u80FD\u6267\u884C\u6B64\u64CD\u4F5C"
+      message: "\u53EA\u6709\u6838\u8D54\u4E3B\u7BA1\u624D\u80FD\u6267\u884C\u6838\u8D54\u901A\u8FC7"
     });
   }
   const currentCase = await prisma.caseReport.findUnique({
-    where: { id },
-    include: {
-      materials: true
-    }
+    where: { id }
   });
   if (!currentCase) {
     throw createError({
@@ -46,25 +43,16 @@ const complete_post = defineEventHandler(async (event) => {
       message: "\u6848\u4EF6\u4E0D\u5B58\u5728"
     });
   }
-  if (currentCase.status !== "SUBMITTED") {
+  if (currentCase.status !== "PENDING_REVIEW") {
     throw createError({
       statusCode: 400,
-      message: "\u6848\u4EF6\u72B6\u6001\u4E0D\u7B26\u5408\u8981\u6C42\uFF0C\u5FC5\u987B\u5148\u63D0\u4EA4\u62A5\u6848"
-    });
-  }
-  const allMaterialsConfirmed = currentCase.materials.every(
-    (m) => m.uploadStatus === "CONFIRMED"
-  );
-  if (!allMaterialsConfirmed) {
-    throw createError({
-      statusCode: 400,
-      message: "\u6240\u6709\u6750\u6599\u5FC5\u987B\u786E\u8BA4\u540E\u624D\u80FD\u63D0\u4EA4\u6838\u8D54"
+      message: "\u6848\u4EF6\u72B6\u6001\u4E0D\u7B26\u5408\u8981\u6C42\uFF0C\u5FC5\u987B\u5148\u63D0\u4EA4\u6838\u8D54"
     });
   }
   const updatedCase = await prisma.caseReport.update({
     where: { id },
     data: {
-      status: "PENDING_REVIEW"
+      status: "COMPLETED"
     },
     include: {
       materials: true,
@@ -76,14 +64,14 @@ const complete_post = defineEventHandler(async (event) => {
   await createOperationLog(
     id,
     operatorId,
-    "SURVEYOR",
-    "SUBMIT",
+    "UNDERWRITER",
+    "CONFIRM",
     currentCase.status,
-    "PENDING_REVIEW",
-    "\u67E5\u52D8\u5458\u786E\u8BA4\u6240\u6709\u6750\u6599\uFF0C\u63D0\u4EA4\u6838\u8D54"
+    "COMPLETED",
+    "\u6838\u8D54\u4E3B\u7BA1\u5BA1\u6279\u901A\u8FC7"
   );
   return { case: updatedCase };
 });
 
-export { complete_post as default };
-//# sourceMappingURL=complete.post.mjs.map
+export { approve_post as default };
+//# sourceMappingURL=approve.post.mjs.map

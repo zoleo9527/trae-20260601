@@ -1,4 +1,4 @@
-export type CaseStatus = 'PENDING_SUBMIT' | 'SUBMITTED' | 'REJECTED' | 'COMPLETED' | 'REVIEW_FAILED'
+export type CaseStatus = 'PENDING_SUBMIT' | 'SUBMITTED' | 'REJECTED' | 'COMPLETED' | 'REVIEW_FAILED' | 'PENDING_REVIEW'
 
 export type UploadStatus = 'NOT_UPLOADED' | 'UPLOADED' | 'CONFIRMED'
 
@@ -88,7 +88,8 @@ export const statusLabels: Record<CaseStatus, string> = {
   SUBMITTED: '已提交',
   REJECTED: '已驳回',
   COMPLETED: '已完成',
-  REVIEW_FAILED: '复核不通过'
+  REVIEW_FAILED: '复核不通过',
+  PENDING_REVIEW: '待核赔'
 }
 
 export const roleLabels: Record<Role, string> = {

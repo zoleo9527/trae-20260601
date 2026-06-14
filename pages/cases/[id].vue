@@ -35,6 +35,11 @@ const canApprove = computed(() => {
   return currentCase.value.status === 'SUBMITTED'
 })
 
+const canReview = computed(() => {
+  if (!currentCase.value) return false
+  return currentCase.value.status === 'PENDING_REVIEW'
+})
+
 const canReject = computed(() => {
   if (!currentCase.value) return false
   return currentCase.value.status === 'SUBMITTED'
@@ -95,16 +100,33 @@ async function handleComplete() {
   try {
     await caseStore.completeCase(
       caseId.value,
-      authStore.currentUser.id
+      authStore.currentUser.id,
+      authStore.currentUser.role
     )
     await caseStore.fetchCase(caseId.value)
   } catch (error) {
-    alert('完成失败')
+    alert('提交核赔失败')
   }
 }
 
 function goToMaterials() {
   router.push(`/materials/${caseId.value}`)
+}
+
+async function handleApprove() {
+  if (!authStore.currentUser) return
+  try {
+    const response = await $fetch(`/api/cases/${caseId.value}/approve`, {
+      method: 'POST',
+      body: {
+        operatorId: authStore.currentUser.id,
+        operatorRole: authStore.currentUser.role
+      }
+    })
+    await caseStore.fetchCase(caseId.value)
+  } catch (error) {
+    alert('核赔通过失败')
+  }
 }
 </script>
 
@@ -184,7 +206,7 @@ function goToMaterials() {
 
           <div v-if="!allMaterialsConfirmed && currentCase?.status === 'SUBMITTED'" class="warning-box">
             <XCircle :size="16" />
-            <span>所有材料必须确认后才能完成报案</span>
+            <span>所有材料必须确认后才能提交核赔</span>
           </div>
         </div>
 
@@ -217,11 +239,11 @@ function goToMaterials() {
               :disabled="caseStore.loading"
             >
               <CheckCircle :size="16" />
-              确认材料
+              提交核赔
             </button>
 
             <button 
-              v-if="canApprove && currentUser?.role === 'UNDERWRITER'"
+              v-if="canReview && currentUser?.role === 'UNDERWRITER'"
               @click="showReviewFailModal = true"
               class="btn btn-danger"
             >
@@ -230,8 +252,8 @@ function goToMaterials() {
             </button>
 
             <button 
-              v-if="canApprove && currentUser?.role === 'UNDERWRITER' && allMaterialsConfirmed"
-              @click="handleComplete"
+              v-if="canReview && currentUser?.role === 'UNDERWRITER'"
+              @click="handleApprove"
               class="btn btn-success"
               :disabled="caseStore.loading"
             >

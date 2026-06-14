@@ -20,18 +20,15 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  if (operatorRole !== 'SURVEYOR') {
+  if (operatorRole !== 'UNDERWRITER') {
     throw createError({
       statusCode: 403,
-      message: '只有查勘员才能执行此操作'
+      message: '只有核赔主管才能执行核赔通过'
     })
   }
   
   const currentCase = await prisma.caseReport.findUnique({
-    where: { id },
-    include: {
-      materials: true
-    }
+    where: { id }
   })
   
   if (!currentCase) {
@@ -41,28 +38,17 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  if (currentCase.status !== 'SUBMITTED') {
+  if (currentCase.status !== 'PENDING_REVIEW') {
     throw createError({
       statusCode: 400,
-      message: '案件状态不符合要求，必须先提交报案'
-    })
-  }
-  
-  const allMaterialsConfirmed = currentCase.materials.every(
-    m => m.uploadStatus === 'CONFIRMED'
-  )
-  
-  if (!allMaterialsConfirmed) {
-    throw createError({
-      statusCode: 400,
-      message: '所有材料必须确认后才能提交核赔'
+      message: '案件状态不符合要求，必须先提交核赔'
     })
   }
   
   const updatedCase = await prisma.caseReport.update({
     where: { id },
     data: {
-      status: 'PENDING_REVIEW'
+      status: 'COMPLETED'
     },
     include: {
       materials: true,
@@ -75,11 +61,11 @@ export default defineEventHandler(async (event) => {
   await createOperationLog(
     id,
     operatorId,
-    'SURVEYOR',
-    'SUBMIT',
+    'UNDERWRITER',
+    'CONFIRM',
     currentCase.status,
-    'PENDING_REVIEW',
-    '查勘员确认所有材料，提交核赔'
+    'COMPLETED',
+    '核赔主管审批通过'
   )
   
   return { case: updatedCase }

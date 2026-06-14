@@ -12,7 +12,8 @@ const badgeClass = computed(() => {
     SUBMITTED: 'badge-info',
     REJECTED: 'badge-danger',
     COMPLETED: 'badge-success',
-    REVIEW_FAILED: 'badge-danger'
+    REVIEW_FAILED: 'badge-danger',
+    PENDING_REVIEW: 'badge-info'
   }
   return classMap[props.status]
 })
