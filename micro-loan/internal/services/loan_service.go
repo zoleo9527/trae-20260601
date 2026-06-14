@@ -232,11 +232,14 @@ func (s *LoanService) RiskAuditUpdateStatus(req *RiskAuditStatusRequest) error {
 	beforeData, _ := json.Marshal(map[string]interface{}{
 		"status":           fromStatus,
 		"current_handler":  fromHandler,
+		"handler_role":     "risk_auditor",
 	})
 	afterData, _ := json.Marshal(map[string]interface{}{
 		"status":           req.ToStatus,
 		"current_handler":  handler,
+		"handler_role":     "",
 		"risk_audit_id":    req.RiskAuditID,
+		"auditor_id":       req.AuditorID,
 	})
 	s.createAuditLog("RISK_AUDIT_UPDATE_STATUS", req.AuditorID, req.AuditorRole, &req.LoanID, 
 		fmt.Sprintf("风控审核更新状态: %s -> %s", fromStatus, req.ToStatus), 

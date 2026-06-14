@@ -167,9 +167,11 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 		submitRemark = "资料提交完成，转入风控审核"
 	}
 	
+	nextHandler := models.NodeRiskAuditing
+	
 	loan.Status = models.LoanStatusRiskAuditing
 	loan.StatusUpdatedAt = currentTime
-	loan.CurrentHandler = ""
+	loan.CurrentHandler = nextHandler
 	loan.UpdatedBy = req.OperatorID
 	loan.Remark = submitRemark
 
@@ -191,10 +193,12 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 	beforeData, _ := json.Marshal(map[string]interface{}{
 		"status":          fromStatus,
 		"current_handler": fromHandler,
+		"handler_role":    "customer_manager",
 	})
 	afterData, _ := json.Marshal(map[string]interface{}{
 		"status":          string(models.LoanStatusRiskAuditing),
-		"current_handler": "",
+		"current_handler": nextHandler,
+		"handler_role":    "risk_auditor",
 		"submit_time":     currentTime.Format(time.RFC3339),
 		"remark":          submitRemark,
 	})

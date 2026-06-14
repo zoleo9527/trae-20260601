@@ -197,9 +197,11 @@
 {
   "loan_application_id": 1,
   "operator_id": "M001",
-  "operator_role": "customer_manager"
+  "operator_role": "customer_manager",
+  "remark": "资料收集完成，转入风控审核"
 }
 ```
+- **说明**: 资料提交后，`current_handler` 将设置为 `RISK_AUDITING_NODE`，表示已转交风控审核节点。审计日志会记录责任人从客户经理转到风控节点的完整信息。
 
 ### 风控审核入口 `/api/v1/risk-auditor`
 

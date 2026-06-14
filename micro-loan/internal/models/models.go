@@ -70,6 +70,11 @@ const (
 	RoleTypePostLoanOfficer RoleType = "post_loan_officer" // 贷后专员
 )
 
+// 节点标识常量
+const (
+	NodeRiskAuditing  = "RISK_AUDITING_NODE" // 风控审核节点标识
+)
+
 // 借款申请
 type LoanApplication struct {
 	ID              uint           `gorm:"primaryKey" json:"id"`
