@@ -6,6 +6,7 @@ const {
   getRegistrationDetail,
   auditRegistration,
   addSupplementRemark,
+  reopenRegistration,
 } = require('../services/registrationService');
 const { checkRole } = require('../services/userService');
 
@@ -61,6 +62,19 @@ router.post('/:id/supplement', asyncHandler(async (req, res) => {
     operatorRole: userRole,
     handlerId: handler_id,
     markResolved: !!mark_resolved,
+  });
+  res.json({ success: true, data: result });
+}));
+
+router.post('/:id/reopen', asyncHandler(async (req, res) => {
+  const { userId, userRole } = extractOperator(req);
+  checkRole(userId, ['admin_staff']);
+  const { reason, reassign_invigilator_id } = req.body || {};
+  const result = reopenRegistration(req.params.id, {
+    operatorId: userId,
+    operatorRole: userRole,
+    reason,
+    reassignInvigilatorId: reassign_invigilator_id,
   });
   res.json({ success: true, data: result });
 }));

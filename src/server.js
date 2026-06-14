@@ -63,8 +63,9 @@ if (require.main === module) {
     console.log(`  POST /api/registrations                提交报名`);
     console.log(`  GET  /api/registrations                报名列表`);
     console.log(`  GET  /api/registrations/:id            报名详情（含 timeline、准考证信息）`);
-    console.log(`  POST /api/registrations/:id/audit      审核（admin_staff）`);
-    console.log(`  POST /api/registrations/:id/supplement 补充备注（tech_support/admin_staff）`);
+    console.log(`  POST /api/registrations/:id/audit      审核（admin_staff，支持复审）`);
+    console.log(`  POST /api/registrations/:id/supplement 补正/转派（tech_support/admin_staff）`);
+    console.log(`  POST /api/registrations/:id/reopen     接回复审，pending_review→pending（admin_staff）`);
     console.log(`  POST /api/tickets                      生成准考证（admin_staff/invigilator）`);
     console.log(`  GET  /api/tickets/:id                  准考证详情`);
     console.log(`  GET  /api/tickets/by-registration/:id  按报名查准考证`);

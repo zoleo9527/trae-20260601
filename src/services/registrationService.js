@@ -5,7 +5,16 @@ const REGISTRATION_STATUS = {
   PENDING: 'pending',
   APPROVED: 'approved',
   REJECTED: 'rejected',
+  PENDING_REVIEW: 'pending_review',
 };
+
+const STATUS_LABEL = {
+  pending: '待审核',
+  approved: '审核通过',
+  rejected: '已退回',
+  pending_review: '补正完成待复审',
+};
+Object.freeze(STATUS_LABEL);
 
 function hydrateInvigilators(rows, roomIdKey = 'exam_room_id') {
   if (!Array.isArray(rows)) return rows;
@@ -46,7 +55,14 @@ function createRegistration(data) {
     VALUES (@id, @candidate_name, @id_card, @exam_type, @phone, @email, 'pending')
   `);
   tx(() => {
-    stmt.run({ id, ...data });
+    stmt.run({
+      id,
+      candidate_name: data.candidate_name,
+      id_card: data.id_card,
+      exam_type: data.exam_type,
+      phone: data.phone || null,
+      email: data.email || null,
+    });
     addTimeline(id, 'submit', null, null, `考生提交报名申请`);
   });
   return getRegistrationDetail(id);
@@ -67,17 +83,23 @@ function listRegistrations({ status, keyword, offset = 0, limit = 20 } = {}) {
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = db.prepare(`
     SELECT r.*, u.name AS auditor_name, t.ticket_no, t.exam_room_id,
-           hd.name AS handler_name, ai.name AS assigned_invigilator_name
+           hd.name AS handler_name, ai.name AS assigned_invigilator_name,
+           sb.name AS supplement_by_name
     FROM registrations r
     LEFT JOIN users u ON r.auditor_id = u.id
     LEFT JOIN users hd ON r.handler_id = hd.id
     LEFT JOIN users ai ON r.assigned_invigilator_id = ai.id
+    LEFT JOIN users sb ON r.supplement_by = sb.id
     LEFT JOIN admission_tickets t ON t.registration_id = r.id
     ${where}
     ORDER BY r.submitted_at DESC
     LIMIT @limit OFFSET @offset
   `).all({ ...params, limit: Number(limit), offset: Number(offset) });
-  const hydrated = hydrateInvigilators(rows, 'exam_room_id');
+  const hydrated = hydrateInvigilators(rows, 'exam_room_id').map(r => ({
+    ...r,
+    status_label: STATUS_LABEL[r.status] || r.status,
+    supplement_completed: !!(r.supplement_by && r.supplement_time),
+  }));
   const total = db.prepare(`SELECT COUNT(*) AS c FROM registrations r ${where}`).get(params).c;
   return { total, items: hydrated };
 }
@@ -88,18 +110,22 @@ function getRegistrationDetail(id) {
     SELECT r.*, u.name AS auditor_name, t.id AS ticket_id, t.ticket_no,
            t.seat_no, er.room_code, er.building, er.exam_time, er.id AS exam_room_id,
            gen.name AS generated_by_name,
-           hd.name AS handler_name, ai.name AS assigned_invigilator_name
+           hd.name AS handler_name, ai.name AS assigned_invigilator_name,
+           sb.name AS supplement_by_name
     FROM registrations r
     LEFT JOIN users u ON r.auditor_id = u.id
     LEFT JOIN users hd ON r.handler_id = hd.id
     LEFT JOIN users ai ON r.assigned_invigilator_id = ai.id
+    LEFT JOIN users sb ON r.supplement_by = sb.id
     LEFT JOIN admission_tickets t ON t.registration_id = r.id
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id
     LEFT JOIN users gen ON t.generated_by = gen.id
     WHERE r.id = ?
   `).get(id);
   assertFound(reg, 'REGISTRATION_NOT_FOUND');
+  reg.status_label = STATUS_LABEL[reg.status] || reg.status;
   reg.invigilators = getRoomInvigilators(reg.exam_room_id);
+  reg.supplement_completed = !!(reg.supplement_by && reg.supplement_time);
   reg.timeline = db.prepare(`
     SELECT tl.*, u.name AS operator_name
     FROM registration_timeline tl
@@ -119,45 +145,58 @@ function auditRegistration(id, { action, reason, auditorId, auditorRole, handler
   }
   const db = getDB();
   const reg = assertFound(db.prepare('SELECT * FROM registrations WHERE id = ?').get(id), 'REGISTRATION_NOT_FOUND');
-  if (reg.status !== REGISTRATION_STATUS.PENDING) {
+  if (![REGISTRATION_STATUS.PENDING, REGISTRATION_STATUS.PENDING_REVIEW].includes(reg.status)) {
     throw new AppError('REGISTRATION_ALREADY_AUDITED');
   }
+  const isReviewCycle = reg.status === REGISTRATION_STATUS.PENDING_REVIEW;
   const newStatus = action === 'approve' ? REGISTRATION_STATUS.APPROVED : REGISTRATION_STATUS.REJECTED;
   const finalHandlerId = action === 'reject' ? (handlerId || null) : null;
   const finalInvigilatorId = action === 'approve' ? (assignedInvigilatorId || pickRoundRobinInvigilator(db)) : null;
   tx(() => {
-    db.prepare(`
-      UPDATE registrations
-      SET status = @status, auditor_id = @auditorId, audit_time = datetime('now'),
-          reject_reason = @reason, handler_id = @handlerId,
-          assigned_invigilator_id = @assignedInvigilatorId
-      WHERE id = @id
-    `).run({
-      id,
-      status: newStatus,
-      auditorId,
-      reason: action === 'reject' ? reason : null,
-      handlerId: finalHandlerId,
-      assignedInvigilatorId: finalInvigilatorId,
-    });
+    if (action === 'reject') {
+      db.prepare(`
+        UPDATE registrations
+        SET status = @status, auditor_id = @auditorId, audit_time = datetime('now'),
+            reject_reason = @reason, handler_id = @handlerId,
+            assigned_invigilator_id = NULL,
+            supplement_remark = NULL, supplement_time = NULL, supplement_by = NULL
+        WHERE id = @id
+      `).run({
+        id, status: newStatus, auditorId,
+        reason, handlerId: finalHandlerId,
+      });
+    } else {
+      db.prepare(`
+        UPDATE registrations
+        SET status = @status, auditor_id = @auditorId, audit_time = datetime('now'),
+            reject_reason = NULL, handler_id = NULL,
+            assigned_invigilator_id = @assignedInvigilatorId
+        WHERE id = @id
+      `).run({
+        id, status: newStatus, auditorId,
+        assignedInvigilatorId: finalInvigilatorId,
+      });
+    }
     const handlerName = finalHandlerId
       ? (db.prepare('SELECT name FROM users WHERE id = ?').get(finalHandlerId)?.name || '')
       : '';
     const invigilatorName = finalInvigilatorId
       ? (db.prepare('SELECT name FROM users WHERE id = ?').get(finalInvigilatorId)?.name || '')
       : '';
-    addTimeline(id, action === 'approve' ? 'approve' : 'reject', auditorId, auditorRole,
+    const prefix = isReviewCycle ? '复审' : '审核';
+    addTimeline(id, action === 'approve' ? (isReviewCycle ? 're_review_approve' : 'approve') : (isReviewCycle ? 're_review_reject' : 'reject'),
+      auditorId, auditorRole,
       action === 'approve'
-        ? `审核通过${invigilatorName ? `，准考证负责监考：${invigilatorName}` : ''}`
-        : `审核退回：${reason}${handlerName ? `，归属处理人：${handlerName}` : ''}`
+        ? `${prefix}通过${invigilatorName ? `，准考证负责监考：${invigilatorName}` : ''}`
+        : `${prefix}退回：${reason}${handlerName ? `，归属处理人：${handlerName}` : ''}`
     );
     if (action === 'approve') {
       if (finalInvigilatorId) {
         pushNotification({
           userIds: [finalInvigilatorId],
           registrationId: id,
-          title: '新报名通过审核（待您生成准考证）',
-          content: `考生 ${reg.candidate_name}（${reg.exam_type}）报名已通过审核，请及时生成准考证`,
+          title: isReviewCycle ? '复审通过：待您生成准考证' : '新报名通过审核（待您生成准考证）',
+          content: `考生 ${reg.candidate_name}（${reg.exam_type}）${prefix}通过，请及时生成准考证`,
           type: 'audit_pass',
         });
       }
@@ -166,16 +205,16 @@ function auditRegistration(id, { action, reason, auditorId, auditorRole, handler
         pushNotification({
           userIds: [finalHandlerId],
           registrationId: id,
-          title: '您有新的报名退回补正任务',
-          content: `考生 ${reg.candidate_name} 报名被退回，原因：${reason}`,
+          title: isReviewCycle ? '复审再次退回：请继续补正' : '您有新的报名退回补正任务',
+          content: `考生 ${reg.candidate_name} 报名${prefix}退回，原因：${reason}`,
           type: 'audit_reject',
         });
       } else {
         pushNotification({
           userRole: 'tech_support',
           registrationId: id,
-          title: '报名被退回需补正',
-          content: `考生 ${reg.candidate_name} 报名被退回，原因：${reason}`,
+          title: isReviewCycle ? '复审再次退回：请接单补正' : '报名被退回需补正',
+          content: `考生 ${reg.candidate_name} 报名${prefix}退回，原因：${reason}`,
           type: 'audit_reject',
         });
       }
@@ -203,11 +242,16 @@ function addSupplementRemark(id, { remark, operatorId, operatorRole, handlerId, 
   }
   const db = getDB();
   const reg = assertFound(db.prepare('SELECT * FROM registrations WHERE id = ?').get(id), 'REGISTRATION_NOT_FOUND');
+  if (markResolved && reg.status !== REGISTRATION_STATUS.REJECTED) {
+    throw new AppError('REGISTRATION_STATUS_INVALID', {
+      hint: `仅 rejected 状态可标记补正完成，当前状态：${reg.status}`,
+    });
+  }
   tx(() => {
     if (handlerId) {
       db.prepare(`
         UPDATE registrations
-        SET handler_id = @handlerId, supplement_remark = NULL, supplement_time = NULL
+        SET handler_id = @handlerId
         WHERE id = @id
       `).run({ id, handlerId });
       const handlerName = db.prepare('SELECT name FROM users WHERE id = ?').get(handlerId)?.name || '';
@@ -220,14 +264,63 @@ function addSupplementRemark(id, { remark, operatorId, operatorRole, handlerId, 
         content: `考生 ${reg.candidate_name} 的补正任务：${remark}`,
         type: 'supplement_reassign',
       });
+    } else if (markResolved) {
+      db.prepare(`
+        UPDATE registrations
+        SET status = 'pending_review',
+            supplement_remark = @remark, supplement_time = datetime('now'),
+            supplement_by = @operatorId
+        WHERE id = @id
+      `).run({ id, remark, operatorId });
+      const operatorName = db.prepare('SELECT name FROM users WHERE id = ?').get(operatorId)?.name || '';
+      addTimeline(id, 'supplement_done', operatorId, operatorRole,
+        `补正完成，标记待复审。处理说明：${remark}`);
+      pushNotification({
+        userRole: 'admin_staff',
+        registrationId: id,
+        title: '补正完成，待复审接回',
+        content: `考生 ${reg.candidate_name} 已由 ${operatorName} 完成补正，请及时复审（${remark}）`,
+        type: 'supplement_done',
+      });
     } else {
-      if (markResolved) {
-        db.prepare(`
-          UPDATE registrations SET supplement_remark = @remark, supplement_time = datetime('now') WHERE id = @id
-        `).run({ id, remark });
-      }
-      addTimeline(id, 'supplement', operatorId, operatorRole,
-        markResolved ? `补正完成：${remark}` : `补充备注：${remark}`);
+      addTimeline(id, 'supplement', operatorId, operatorRole, `补充备注：${remark}`);
+    }
+  });
+  return getRegistrationDetail(id);
+}
+
+function reopenRegistration(id, { operatorId, operatorRole, reason, reassignInvigilatorId }) {
+  const db = getDB();
+  const reg = assertFound(db.prepare('SELECT * FROM registrations WHERE id = ?').get(id), 'REGISTRATION_NOT_FOUND');
+  if (reg.status !== REGISTRATION_STATUS.PENDING_REVIEW) {
+    throw new AppError('REGISTRATION_STATUS_INVALID', {
+      hint: `仅 pending_review 状态可接回复审，当前状态：${reg.status}`,
+    });
+  }
+  tx(() => {
+    db.prepare(`
+      UPDATE registrations
+      SET status = 'pending',
+          auditor_id = NULL, audit_time = NULL,
+          reject_reason = NULL, handler_id = NULL,
+          assigned_invigilator_id = @reassignInvigilatorId,
+          supplement_remark = NULL, supplement_time = NULL, supplement_by = NULL
+      WHERE id = @id
+    `).run({ id, reassignInvigilatorId: reassignInvigilatorId || null });
+    const operatorName = db.prepare('SELECT name FROM users WHERE id = ?').get(operatorId)?.name || '';
+    const detail = reason
+      ? `由 ${operatorName} 接回复审，原因：${reason}`
+      : `由 ${operatorName} 接回复审，重新进入待审核队列`;
+    addTimeline(id, 'reopen_review', operatorId, operatorRole, detail);
+    if (reassignInvigilatorId) {
+      const invName = db.prepare('SELECT name FROM users WHERE id = ?').get(reassignInvigilatorId)?.name || '';
+      pushNotification({
+        userIds: [reassignInvigilatorId],
+        registrationId: id,
+        title: '复审报名已接回',
+        content: `考生 ${reg.candidate_name} 已接回待审核，初审通过后由您负责准考证：${invName ? invName : ''}`,
+        type: 'reopen_review',
+      });
     }
   });
   return getRegistrationDetail(id);
@@ -265,11 +358,13 @@ function pushNotification({ userIds, userRole, examRoomId, registrationId, title
 
 module.exports = {
   REGISTRATION_STATUS,
+  STATUS_LABEL,
   createRegistration,
   listRegistrations,
   getRegistrationDetail,
   auditRegistration,
   addSupplementRemark,
+  reopenRegistration,
   addTimeline,
   pushNotification,
   hydrateInvigilators,

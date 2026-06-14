@@ -62,6 +62,22 @@ function getMyTodos(userId, role) {
       registration_id: r.id,
       created_at: r.submitted_at,
     })));
+    const pendingReview = db.prepare(`
+      SELECT r.id, r.candidate_name, r.exam_type, r.supplement_time, r.reject_reason,
+             u.name AS supplement_by_name
+      FROM registrations r
+      LEFT JOIN users u ON r.supplement_by = u.id
+      WHERE r.status = 'pending_review'
+      ORDER BY r.supplement_time ASC
+    `).all();
+    todos.push(...pendingReview.map(r => ({
+      id: `re-review-${r.id}`,
+      type: 're_review_pending',
+      title: `补正完成待复审：${r.candidate_name}`,
+      content: `考试类型：${r.exam_type}，补正处理人：${r.supplement_by_name || '-'}，补正时间：${r.supplement_time}，原退回原因：${r.reject_reason || '-'}`,
+      registration_id: r.id,
+      created_at: r.supplement_time,
+    })));
   }
 
   if (role === 'invigilator') {
