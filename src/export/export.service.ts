@@ -30,6 +30,13 @@ export class ExportService {
     const existed = this.idemService.checkExportTask(dto.idempotencyKey);
     if (existed) return existed;
 
+    if (!['LEAVE', 'MAKEUP'].includes(dto.type)) {
+      throw new BadRequestException(`不支持的导出类型：${dto.type}`);
+    }
+    if (!['CSV', 'EXCEL'].includes(dto.format)) {
+      throw new BadRequestException(`不支持的导出格式：${dto.format}`);
+    }
+
     const opHit = this.idemService.consumeOperation(
       dto.idempotencyKey, 'EXPORT', null, 'CREATE_TASK', creator.id,
     );

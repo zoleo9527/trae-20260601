@@ -46,7 +46,7 @@
 | GET | `/api/makeups/:id/review` | **回答：为什么还没完成？完整时间线+责任人** | |
 | PATCH | `/api/makeups/:id/schedule` | 正式排课（**幂等**） | PENDING_SCHEDULE → PENDING_EXECUTE |
 | PATCH | `/api/makeups/:id/complete` | 标记补课完成（**幂等**） | PENDING_EXECUTE → COMPLETED |
-| POST | `/api/exports/tasks` | 创建导出任务（CSV/Excel，LEAVE/MAKEUP） | |
+| POST | `/api/exports/tasks` | 创建导出任务（CSV/Excel，LEAVE/MAKEUP）（**幂等**） | |
 | GET | `/api/exports/tasks` | 导出任务列表 | |
 | GET | `/api/exports/tasks/:id` | 导出状态+下载链接 | |
 
@@ -60,7 +60,7 @@
 | GET | `/api/leaves` | 全部请假列表（用于答复家长询问） | |
 | PATCH | `/api/makeups/:id/confirm-parent` | **转达家长确认结果**（ALL_CONFIRMED / PARTIAL_CONFIRMED / REJECTED）（**幂等**） | PENDING_PARENT_CONFIRM → PENDING_SCHEDULE 或回退 |
 | GET | `/api/makeups/:id/review` | **给家长看的完整回看**：为什么还没完成 | |
-| POST | `/api/exports/tasks` | 创建导出任务 | |
+| POST | `/api/exports/tasks` | 创建导出任务（**幂等**） | |
 
 ---
 
@@ -117,7 +117,7 @@
 | INT-04 | **附件上传** | `attachments` 字段只传文件名 | 接入对象存储（OSS/S3/MinIO），提供 `POST /attachments/upload` 返回 URL；DTO 中 materialRequired 与 uploadId 强绑定 | [leave.type.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/types/leave.type.ts#L27) |
 | INT-05 | **消息通知** | `blockReason / coordinationLogs` 记录但不推送 | 对接企业微信/钉钉/短信：URGENCY 时推教务；RETURNED/PENDING_MATERIAL 时推任课老师；PROPOSE_MAKEUP 后推家长顾问；COMPLETED 后推全体 | [leave.service.ts `urge()`](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/leave/leave.service.ts#L205-L226) |
 | INT-06 | **微信/沟通截图OCR** | 题目要求的"台账/现场记录/沟通截图"来源 | 接入微信会话存档/OCR 接口；在 `coordinationLogs` 加 `sourceType=WECHAT/OCR/MANUAL` 字段，外部截图可回溯 | [makeup.type.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/types/makeup.type.ts#L40-L50) |
-| INT-07 | **幂等键存储** | 内存 Map（`leaveIdemKeys / makeupIdemKeys`） | 生产需落库唯一索引，且 key 设过期（Redis TTL + DB 唯一约束双保险） | [in-memory.store.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/store/in-memory.store.ts#L14-L17) |
+| INT-07 | **幂等键存储** | 内存 Map（`leaveIdemKeys / makeupIdemKeys / exportTaskIdemKeys / operationIdemKeys`） | 生产需落库唯一索引，且 key 设过期（Redis TTL + DB 唯一约束双保险）；操作级幂等 `IdemRecord` 单独建表 | [in-memory.store.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/store/in-memory.store.ts#L9-L27) |
 | INT-08 | **异步任务队列** | `setImmediate` 做导出 | 接入 BullMQ（Redis）+ 独立 worker；导出/通知/生成 PDF 全部进队列 | [export.service.ts `runExport()`](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/export/export.service.ts#L65-L77) |
 | INT-09 | **文件存储** | 导出文件放 `os.tmpdir()` | 放对象存储；`fileUrl` 返回签名 URL；文件生命周期由 TTL 管理 | [export.service.ts `writeCsv/writeExcel`](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/export/export.service.ts#L150-L180) |
 | INT-10 | **权限精细化** | 仅按角色做粗粒度控制 | 接入 RBAC/ABAC：如"家长顾问只能看自己负责班级的请假/补课"；"教务A只看自己部门的老师" | [roles.guard.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/guards/roles.guard.ts#L20-L40) |

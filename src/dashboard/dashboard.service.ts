@@ -193,7 +193,7 @@ export class DashboardService {
           { method: 'PATCH', path: '/makeups/:id/schedule', desc: '正式排课（幂等）' },
           { method: 'PATCH', path: '/makeups/:id/complete', desc: '标记补课完成（幂等）' },
           { method: 'GET', path: '/makeups/:id/review', desc: '补课协调回看+为什么没完成' },
-          { method: 'POST', path: '/exports/tasks', desc: '创建导出任务' },
+          { method: 'POST', path: '/exports/tasks', desc: '创建导出任务（幂等）' },
         ],
       },
       ADVISOR: {
@@ -205,7 +205,7 @@ export class DashboardService {
           { method: 'GET', path: '/leaves/:id/blocking', desc: '查看请假阻塞情况' },
           { method: 'PATCH', path: '/makeups/:id/confirm-parent', desc: '转达家长对补课时间的确认（幂等）' },
           { method: 'GET', path: '/makeups/:id/review', desc: '完整回看：为什么还没完成' },
-          { method: 'POST', path: '/exports/tasks', desc: '创建导出任务' },
+          { method: 'POST', path: '/exports/tasks', desc: '创建导出任务（幂等）' },
         ],
       },
     };

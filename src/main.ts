@@ -35,7 +35,23 @@ async function bootstrap() {
 - **有人补材料** (PENDING_MATERIAL)：教务要求补具体材料，处理人交还给任课老师
 
 ## 幂等性
-所有写接口均需传 \`idempotencyKey\`，服务端基于 key 去重，避免重复提交/催促/审批/排课。
+
+所有写接口 DTO 均强制 \`idempotencyKey: string\`，DTO 层通过 \`@IsString() + @IsNotEmpty()\` 校验。
+
+服务端采用**两级幂等索引**：
+
+- **创建级幂等**：POST 创建实体时，通过实体字段 \`*.idempotencyKey\` + Map 索引去重
+  - \`leaveIdemKeys\`：请假申请
+  - \`makeupIdemKeys\`：补课协调
+  - \`exportTaskIdemKeys\`：导出任务
+
+- **操作级幂等**：PATCH 修改实体时，通过 \`operationIdemKeys\` 统一索引，记录 \`{ entityType, entityId, action, actorId, timestamp }\`，避免重复审批/重复催办/重复状态流转
+
+**执行顺序（关键）**：\`参数校验 → 业务合法性校验（终态/权限/状态）→ 幂等登记（原子 check+set）→ 执行业务逻辑\`，避免失败请求占用幂等键导致重试被误判。
+
+**已覆盖的 10 个写接口**：请假创建/审批/催办/补材料；补课创建/提议/家长确认/排课/完成；导出任务创建。
+
+**幂等命中行为**：服务端返回当前实体的最新状态，不改状态、不计数、不写日志、不生成新任务。
 
 ## 角色与鉴权
 通过 HTTP Header \`x-user-id\` 传递用户ID：

@@ -26,6 +26,13 @@ export class MakeupService {
   create(dto: CreateMakeupDto, creator: User): MakeupCoordination {
     const existing = this.idemService.checkMakeup(dto.idempotencyKey);
     if (existing) return existing;
+
+    const leave = this.store.getLeave(dto.leaveId);
+    if (!leave) throw new NotFoundException('关联的请假申请不存在');
+
+    const old = this.store.findMakeupByLeaveId(dto.leaveId);
+    if (old) return old;
+
     const opHit = this.idemService.consumeOperation(
       dto.idempotencyKey, 'MAKEUP', null, 'CREATE', creator.id,
     );
@@ -33,12 +40,6 @@ export class MakeupService {
       const retry = this.idemService.checkMakeup(dto.idempotencyKey);
       if (retry) return retry;
     }
-
-    const leave = this.store.getLeave(dto.leaveId);
-    if (!leave) throw new NotFoundException('关联的请假申请不存在');
-
-    const old = this.store.findMakeupByLeaveId(dto.leaveId);
-    if (old) return old;
 
     const now = new Date().toISOString();
     let status: MakeupStatus;

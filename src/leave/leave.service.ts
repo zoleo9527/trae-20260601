@@ -26,6 +26,15 @@ export class LeaveService {
     if (existing) {
       return existing;
     }
+
+    const affairsUsers = this.store.findUsersByRole(UserRole.AFFAIRS);
+    if (affairsUsers.length === 0) {
+      throw new BadRequestException('系统中暂无教务老师，无法分配审批人');
+    }
+    if (new Date(dto.endDate) < new Date(dto.startDate)) {
+      throw new BadRequestException('结束日期不能早于开始日期');
+    }
+
     const opHit = this.idemService.consumeOperation(
       dto.idempotencyKey, 'LEAVE', null, 'CREATE', teacher.id,
     );
@@ -34,10 +43,6 @@ export class LeaveService {
       if (retry) return retry;
     }
 
-    const affairsUsers = this.store.findUsersByRole(UserRole.AFFAIRS);
-    if (affairsUsers.length === 0) {
-      throw new BadRequestException('系统中暂无教务老师，无法分配审批人');
-    }
     const handler = affairsUsers[0];
     const now = new Date().toISOString();
 
@@ -127,16 +132,16 @@ export class LeaveService {
     const leave = this.store.getLeave(id);
     if (!leave) throw new NotFoundException('请假申请不存在');
 
+    const TERMINAL_STATUSES = [LeaveStatus.APPROVED, LeaveStatus.REJECTED, LeaveStatus.CANCELLED];
+    if (TERMINAL_STATUSES.includes(leave.status)) {
+      throw new ConflictException('当前请假申请已结束，不能再次审批');
+    }
+
     const idemHit = this.idemService.consumeOperation(
       dto.idempotencyKey, 'LEAVE', id, 'REVIEW_' + dto.action, reviewer.id,
     );
     if (idemHit) {
       return leave;
-    }
-
-    const TERMINAL_STATUSES = [LeaveStatus.APPROVED, LeaveStatus.REJECTED, LeaveStatus.CANCELLED];
-    if (TERMINAL_STATUSES.includes(leave.status)) {
-      throw new ConflictException('当前请假申请已结束，不能再次审批');
     }
 
     const oldStatus = leave.status;
