@@ -36,6 +36,28 @@
   let filterStatus = '';
   let filterType = '';
   
+  const checkInStatuses = [
+    { value: '', label: '全部状态' },
+    { value: 'PRESENT', label: '已签到' },
+    { value: 'ABSENT', label: '缺考' },
+    { value: 'LATE', label: '迟到' }
+  ];
+  
+  const anomalyStatuses = [
+    { value: '', label: '全部状态' },
+    { value: 'REPORTED', label: '已上报' },
+    { value: 'PROCESSED', label: '已处理' }
+  ];
+  
+  $: currentStatusOptions = filterType === 'ANOMALY' ? anomalyStatuses : filterType === 'CHECK_IN' ? checkInStatuses : [
+    { value: '', label: '全部状态' },
+    { value: 'PRESENT', label: '已签到' },
+    { value: 'ABSENT', label: '缺考' },
+    { value: 'LATE', label: '迟到' },
+    { value: 'REPORTED', label: '已上报' },
+    { value: 'PROCESSED', label: '已处理' }
+  ];
+  
   onMount(async () => {
     await loadRecords();
   });
@@ -58,6 +80,11 @@
     } finally {
       loading = false;
     }
+  }
+  
+  function handleTypeChange() {
+    filterStatus = '';
+    loadRecords();
   }
   
   function formatDate(dateStr: string): string {
@@ -116,7 +143,7 @@
   <div class="flex items-center gap-4">
     <select 
       bind:value={filterType}
-      onchange={() => loadRecords()}
+      onchange={handleTypeChange}
       class="input w-36"
     >
       <option value="">全部类型</option>
@@ -129,12 +156,9 @@
       onchange={() => loadRecords()}
       class="input w-40"
     >
-      <option value="">全部状态</option>
-      <option value="PRESENT">已签到</option>
-      <option value="ABSENT">缺考</option>
-      <option value="LATE">迟到</option>
-      <option value="REPORTED">已上报</option>
-      <option value="PROCESSED">已处理</option>
+      {#each currentStatusOptions as option}
+        <option value={option.value}>{option.label}</option>
+      {/each}
     </select>
   </div>
   

@@ -6,16 +6,27 @@ export const GET: RequestHandler = async ({ url }) => {
   const recordType = url.searchParams.get('type');
   const status = url.searchParams.get('status');
   
+  const checkInStatuses = ['PRESENT', 'ABSENT', 'LATE'];
+  const anomalyStatuses = ['REPORTED', 'PROCESSED'];
+  
   try {
     let checkInRecords: any[] = [];
     let anomalies: any[] = [];
     
-    if (!recordType || recordType === 'CHECK_IN') {
+    const shouldGetCheckIn = !recordType || recordType === 'CHECK_IN';
+    const shouldGetAnomaly = !recordType || recordType === 'ANOMALY';
+    
+    if (shouldGetCheckIn && (!status || checkInStatuses.includes(status))) {
+      const checkInWhere: any = {
+        arrangement: examId ? { examId } : undefined
+      };
+      
+      if (status && checkInStatuses.includes(status)) {
+        checkInWhere.status = status;
+      }
+      
       checkInRecords = await prisma.checkInRecord.findMany({
-        where: {
-          ...(status ? { status } : {}),
-          arrangement: examId ? { examId } : undefined
-        },
+        where: checkInWhere,
         include: {
           arrangement: {
             include: {
@@ -48,12 +59,12 @@ export const GET: RequestHandler = async ({ url }) => {
       }));
     }
     
-    if (!recordType || recordType === 'ANOMALY') {
+    if (shouldGetAnomaly && (!status || anomalyStatuses.includes(status))) {
       const anomalyWhere: any = {
         arrangement: examId ? { examId } : undefined
       };
       
-      if (status && ['REPORTED', 'PROCESSED'].includes(status)) {
+      if (status && anomalyStatuses.includes(status)) {
         anomalyWhere.status = status;
       }
       

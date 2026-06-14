@@ -23,19 +23,29 @@
   }
   
   let arrangement = null;
-  let students = [];
+  let students: Student[] = [];
   let loading = true;
-  let selectedStudents = [];
+  let selectedStudents: string[] = [];
   let showAnomalyModal = false;
   let anomalyType = 'ADMISSION_ERROR';
   let anomalyDescription = '';
   let anomalyStudentId = '';
+  let errorMessage = '';
+  let showError = false;
   
   const id = $page.params.id;
   
   onMount(async () => {
     await loadData();
   });
+  
+  function showErrorMessage(msg: string) {
+    errorMessage = msg;
+    showError = true;
+    setTimeout(() => {
+      showError = false;
+    }, 5000);
+  }
   
   async function loadData() {
     loading = true;
@@ -69,9 +79,13 @@
       
       if (response.ok) {
         await loadData();
+      } else {
+        const errorData = await response.json();
+        showErrorMessage(errorData.detail || errorData.error || '操作失败');
       }
     } catch (e) {
       console.error('签到失败:', e);
+      showErrorMessage('网络错误，请重试');
     }
   }
   
@@ -112,11 +126,18 @@
       });
       
       if (response.ok) {
-        selectedStudents = [];
-        await loadData();
+        const result = await response.json();
+        if (result.success > 0) {
+          selectedStudents = [];
+          await loadData();
+        }
+      } else {
+        const errorData = await response.json();
+        showErrorMessage(errorData.detail || errorData.error || '批量操作失败');
       }
     } catch (e) {
       console.error('批量签到失败:', e);
+      showErrorMessage('网络错误，请重试');
     }
   }
   
@@ -147,9 +168,13 @@
       
       if (response.ok) {
         showAnomalyModal = false;
+        showErrorMessage('异常上报成功，技术支持将尽快处理');
+      } else {
+        showErrorMessage('上报失败，请重试');
       }
     } catch (e) {
       console.error('上报异常失败:', e);
+      showErrorMessage('网络错误，请重试');
     }
   }
   
@@ -189,6 +214,15 @@
   <div class="text-center py-12 text-gray-500">加载中...</div>
 {:else if arrangement}
   <div class="space-y-6">
+    {#if showError}
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center gap-2">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+        </svg>
+        <span>{errorMessage}</span>
+      </div>
+    {/if}
+    
     <div class="card p-6">
       <div class="flex items-center justify-between mb-4">
         <div>
