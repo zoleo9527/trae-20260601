@@ -373,7 +373,6 @@ export const useAppStore = create<AppState>()(
           claims: appData.claims,
           handlers: appData.handlers,
           settings: appData.settings,
-          backups: appData.backups,
         });
       },
 
