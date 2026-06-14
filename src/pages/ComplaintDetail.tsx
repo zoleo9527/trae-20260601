@@ -28,6 +28,7 @@ import { Input, Label, Select, Textarea } from '@/components/ui/Form';
 import {
   COMPLAINT_CATEGORY_LABEL,
   ROLE_LABEL,
+  VISIT_RESULT_LABEL,
   type ComplaintStatus,
   type RoleType,
 } from '@/types';
@@ -83,8 +84,15 @@ const ComplaintDetail: React.FC = () => {
     );
   }
 
-  const visits = complaint.visits.map((v) => getVisit(v)).filter(Boolean) as ReturnType<typeof getVisit>[];
+  const visits = complaint.visits
+    .map((v) => getVisit(v))
+    .filter((v): v is NonNullable<typeof v> => !!v);
   const managers = usersByRole('manager');
+  const openVisits = visits.filter(
+    (v) => v.status === 'pending' || v.status === 'in_progress' || v.status === 'returned',
+  );
+  const hasOpenVisit = openVisits.length > 0;
+  const activeVisit = openVisits[0];
 
   const InfoRow: React.FC<{ icon: React.ElementType; label: string; children: React.ReactNode }> = ({
     icon: Icon,
@@ -160,8 +168,18 @@ const ComplaintDetail: React.FC = () => {
             </Button>
           )}
           {(complaint.status === 'pending_verification' || complaint.status === 'investigating') && (
-            <Button variant="secondary" leftIcon={<PhoneCall size={15} />} onClick={() => setVisitOpen(true)}>
-              创建回访任务
+            <Button
+              variant="secondary"
+              leftIcon={<PhoneCall size={15} />}
+              disabled={hasOpenVisit}
+              onClick={() => setVisitOpen(true)}
+              title={hasOpenVisit ? '当前已有未关闭的回访任务，请先处理完成再创建新任务' : '创建回访任务'}
+            >
+              {hasOpenVisit
+                ? activeVisit?.status === 'returned'
+                  ? '已有退回回访待重置'
+                  : '已有回访进行中'
+                : '创建回访任务'}
             </Button>
           )}
           <Button variant="outline" leftIcon={<Sparkles size={15} />} onClick={() => setAbnormalOpen(true)}>
@@ -291,8 +309,17 @@ const ComplaintDetail: React.FC = () => {
           {visits.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>回访记录</CardTitle>
-                <span className="text-xs text-slate-500">{visits.length} 次</span>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <CardTitle>回访记录</CardTitle>
+                    {hasOpenVisit && (
+                      <div className="mt-0.5 text-xs font-medium text-amber-600">
+                        存在未关闭的回访任务，禁止重复创建
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-xs text-slate-500">{visits.length} 次</span>
+                </div>
               </CardHeader>
               <CardBody className="space-y-2">
                 {visits.map((v) =>
@@ -300,13 +327,31 @@ const ComplaintDetail: React.FC = () => {
                     <Link
                       key={v.id}
                       to={`/visits/${v.id}`}
-                      className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 hover:bg-slate-50"
+                      className={cn(
+                        'flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2.5 hover:bg-slate-50',
+                        v.status === 'pending' || v.status === 'in_progress' || v.status === 'returned'
+                          ? 'border-amber-200 bg-amber-50/60 ring-1 ring-amber-200'
+                          : '',
+                      )}
                     >
                       <div>
-                        <div className="text-sm font-medium text-slate-800">
-                          {v.assigneeName} · {ROLE_LABEL[v.assigneeRole]}
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-medium text-slate-800">
+                            {v.assigneeName} · {ROLE_LABEL[v.assigneeRole]}
+                          </div>
+                          {(v.status === 'pending' || v.status === 'in_progress' || v.status === 'returned') && (
+                            <Badge tone="warning" dot>进行中</Badge>
+                          )}
                         </div>
-                        <div className="text-xs text-slate-500">{formatDateTime(v.assignedAt)}</div>
+                        <div className="text-xs text-slate-500">
+                          {formatDateTime(v.assignedAt)}
+                          {v.status === 'returned' && v.returnReason && (
+                            <span className="ml-2 text-red-500">· 退回原因：{v.returnReason}</span>
+                          )}
+                          {v.result && (
+                            <span className="ml-2 text-slate-500">· {VISIT_RESULT_LABEL[v.result]}</span>
+                          )}
+                        </div>
                       </div>
                       <VisitStatusBadge status={v.status} />
                     </Link>
@@ -353,6 +398,8 @@ const ComplaintDetail: React.FC = () => {
       {resolveOpen && (
         <ResolveModal
           onClose={() => setResolveOpen(false)}
+          hasOpenVisit={hasOpenVisit}
+          activeVisitStatus={activeVisit?.status}
           onConfirm={(text) => {
             resolveComplaint(complaint.id, text);
             setResolveOpen(false);
@@ -500,8 +547,20 @@ const RejectModal: React.FC<{
 const ResolveModal: React.FC<{
   onClose: () => void;
   onConfirm: (text: string) => void;
-}> = ({ onClose, onConfirm }) => {
+  hasOpenVisit?: boolean;
+  activeVisitStatus?: string;
+}> = ({ onClose, onConfirm, hasOpenVisit, activeVisitStatus }) => {
   const [text, setText] = useState('');
+  const getButtonText = () => {
+    if (!hasOpenVisit) return '提交并生成回访';
+    if (activeVisitStatus === 'returned') return '提交并重置退回回访';
+    return '提交并复用现有回访';
+  };
+  const getPlaceholder = () => {
+    if (!hasOpenVisit) return '说明调查结论、整改措施、客户补偿方案等，提交后将进入待回访状态';
+    if (activeVisitStatus === 'returned') return '说明调查结论、整改措施、客户补偿方案等，提交后将重置原退回的回访任务为待跟进';
+    return '说明调查结论、整改措施、客户补偿方案等，提交后将复用现有回访任务继续跟进';
+  };
   return (
     <Modal
       open
@@ -510,7 +569,7 @@ const ResolveModal: React.FC<{
       footer={
         <>
           <Button variant="outline" onClick={onClose}>取消</Button>
-          <Button disabled={!text.trim()} onClick={() => onConfirm(text.trim())}>提交并生成回访</Button>
+          <Button disabled={!text.trim()} onClick={() => onConfirm(text.trim())}>{getButtonText()}</Button>
         </>
       }
     >
@@ -519,8 +578,15 @@ const ResolveModal: React.FC<{
         rows={5}
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="说明调查结论、整改措施、客户补偿方案等，提交后将进入待回访状态"
+        placeholder={getPlaceholder()}
       />
+      {hasOpenVisit && (
+        <div className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+          {activeVisitStatus === 'returned'
+            ? '提示：该投诉已有被退回的回访任务，提交后将自动重置为待回访状态，不会重复创建新任务。'
+            : '提示：该投诉已有进行中的回访任务，提交后将复用现有任务继续跟进，不会重复创建。'}
+        </div>
+      )}
     </Modal>
   );
 };

@@ -313,6 +313,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const assigneeId = cp.handlerId ?? cp.assigneeId;
       const resolvedAt = now();
       const existingVisit = visits.find((v) => v.complaintId === complaintId);
+      const isReturnedVisit = existingVisit?.status === 'returned';
+
       setComplaints((prev) =>
         prev.map((c) =>
           c.id === complaintId
@@ -331,15 +333,78 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     operatorId: currentUser.id,
                     operatorName: currentUser.name,
                     operatorRole: currentUser.role,
-                    content: existingVisit
-                      ? `处理完成，等待回访核实（已有回访任务）：${resolution}`
-                      : `处理完成，等待回访核实：${resolution}`,
+                    content: isReturnedVisit
+                      ? `处理完成，已重置退回的回访任务待跟进：${resolution}`
+                      : existingVisit
+                        ? `处理完成，等待回访核实（已有回访任务）：${resolution}`
+                        : `处理完成，等待回访核实：${resolution}`,
                   },
                 ],
               }
             : c,
         ),
       );
+      if (existingVisit && isReturnedVisit) {
+        setVisits((prev) =>
+          prev.map((v) =>
+            v.id === existingVisit.id
+              ? {
+                  ...v,
+                  status: 'pending',
+                  result: undefined,
+                  needReturn: false,
+                  returnReason: undefined,
+                  finishedAt: undefined,
+                  assignedAt: resolvedAt,
+                  timeline: [
+                    ...v.timeline,
+                    {
+                      id: uid('e_'),
+                      complaintId: v.complaintId,
+                      type: 'update',
+                      createdAt: resolvedAt,
+                      operatorId: currentUser.id,
+                      operatorName: currentUser.name,
+                      operatorRole: currentUser.role,
+                      content: `已重置为待回访状态，处理方案更新：${resolution}`,
+                      detail: { resetFromReturned: true },
+                    },
+                  ],
+                }
+              : v,
+          ),
+        );
+        setComplaints((prev) =>
+          prev.map((c) =>
+            c.id === complaintId
+              ? {
+                  ...c,
+                  timeline: [
+                    ...c.timeline,
+                    {
+                      id: uid('e_'),
+                      complaintId,
+                      type: 'assign',
+                      createdAt: resolvedAt,
+                      operatorId: currentUser.id,
+                      operatorName: currentUser.name,
+                      operatorRole: currentUser.role,
+                      content: `已重置原回访任务（${existingVisit.assigneeName}），清除退回痕迹待继续跟进`,
+                      detail: { resetFromReturned: true },
+                    },
+                  ],
+                }
+              : c,
+          ),
+        );
+        addNotification({
+          type: 'info',
+          title: '回访任务已重置',
+          message: `投诉 ${cp.code} 已提交新处理方案，原退回的回访任务已重置为待回访状态`,
+          linkTo: `/visits/${existingVisit.id}`,
+        });
+        return;
+      }
       if (existingVisit) {
         addNotification({
           type: 'info',
