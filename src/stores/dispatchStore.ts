@@ -108,7 +108,7 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
       receiver: receiver.trim(),
       receiverIdCard: idCard.trim(),
     });
-    cs.updateCaseStage(caseId, 'dispatch_sign', receiver.trim(), 'receptionist', '签收确认完成');
+    cs.updateCaseStage(caseId, 'dispatch_sign', '王发放', 'receptionist', `签收确认完成，签收人：${receiver.trim()}`);
     cs.clearException(caseId, 'dispatch_delay');
     get().diagnoseBlockReason(caseId);
     useNotificationStore.getState().pushToast({

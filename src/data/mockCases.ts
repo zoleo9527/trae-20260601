@@ -394,7 +394,7 @@ const DISPATCH_DELAY_CASES: Case[] = [
     entrustDate: t(-60 * DAY),
     currentHandler: '王发放',
     currentHandlerRole: 'receptionist',
-    currentStage: 'dispatch_sign',
+    currentStage: 'dispatch_notice',
     status: 'in_progress',
     stuckHours: 360,
     hasException: true,
@@ -436,7 +436,7 @@ const DISPATCH_DELAY_CASES: Case[] = [
       { id: 'f1', caseId: 'case-d1', stage: 'quality_review', action: '审核通过', operator: '张审（质控）', operatorRole: 'quality_controller', timestamp: t(-28 * DAY), detail: '全部审核项通过' },
       { id: 'f2', caseId: 'case-d1', stage: 'dispatch_notice', action: '第1次通知', operator: '王发放', operatorRole: 'receptionist', timestamp: t(-25 * DAY), detail: '电话通知仲裁委领取，对方承诺下周领取' },
       { id: 'f3', caseId: 'case-d1', stage: 'dispatch_notice', action: '第2次通知', operator: '王发放', operatorRole: 'receptionist', timestamp: t(-10 * DAY), detail: '再次催促，对方称案件经办人出差' },
-      { id: 'f4', caseId: 'case-d1', stage: 'dispatch_sign', action: '催办升级', operator: '王发放', operatorRole: 'receptionist', timestamp: t(-168 * H), detail: '超过15日未领取，已登记发放延迟，需补充所领导批准后邮寄送达' },
+      { id: 'f4', caseId: 'case-d1', stage: 'dispatch_notice', action: '催办升级', operator: '王发放', operatorRole: 'receptionist', timestamp: t(-360 * H), detail: '超过15日未领取，已登记发放延迟，需补充所领导批准后邮寄送达' },
     ],
   },
 ];
