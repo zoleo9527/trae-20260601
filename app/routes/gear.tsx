@@ -1,5 +1,6 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useState, useEffect } from "@remix-run/react";
+import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { useState, useEffect } from "react";
 import { requireUser } from "../auth/session";
 import { getStudents, getTrainingRecords, getGearIssues, createGearIssue, returnGear, addOperationLog, getTrainingRecordById } from "../db/queries";
 import Layout from "../components/Layout";
@@ -21,12 +22,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
     getGearIssues(),
   ]);
   
-  const activeTrainingRecords = trainingRecords.filter(r => r.status === "in_progress");
+  const availableTrainingRecords = trainingRecords.filter(r => 
+    r.status === "in_progress" || r.status === "completed"
+  );
   
   return json({
     user: { userId, role, name: userName },
     students,
-    trainingRecords: activeTrainingRecords,
+    trainingRecords: availableTrainingRecords,
     gearIssues,
   });
 }
@@ -71,7 +74,7 @@ export async function action({ request }: ActionFunctionArgs) {
         training_content: trainingRecord.content,
         training_notes: trainingRecord.notes,
         items: { helmet, jacket, gloves, boots },
-        handover_info: `训练教练: ${trainingRecord.trainer_name || '未知'}, 训练内容: ${trainingRecord.content}`
+        handover_info: `训练教练: ${trainingRecord.trainer_name || '未知'}, 训练内容: ${trainingRecord.content}, 训练备注: ${trainingRecord.notes || '无'}`
       }
     );
     
@@ -86,9 +89,9 @@ export async function action({ request }: ActionFunctionArgs) {
     const gearRows = gearResult.rows;
     const gearIssue = gearRows[0];
     
-    const result = await returnGear(gearId);
-    
     const trainingRecord = gearIssue.training_record_id ? await getTrainingRecordById(gearIssue.training_record_id) : null;
+    
+    const result = await returnGear(gearId);
     
     await addOperationLog(
       userId,
@@ -99,7 +102,8 @@ export async function action({ request }: ActionFunctionArgs) {
         student_id: gearIssue.student_id,
         training_record_id: gearIssue.training_record_id,
         trainer_name: trainingRecord?.trainer_name,
-        handover_info: `护具已收回，训练记录ID: ${gearIssue.training_record_id}`
+        training_notes: trainingRecord?.notes,
+        handover_info: `护具已收回，训练教练: ${trainingRecord?.trainer_name || '未知'}, 训练备注: ${trainingRecord?.notes || '无'}`
       }
     );
     
@@ -169,7 +173,8 @@ export default function GearPage() {
                     <option value="">请选择训练记录</option>
                     {selectedStudentId && getTrainingOptionsForStudent(selectedStudentId).map(record => (
                       <option key={record.id} value={record.id}>
-                        {record.date} - {record.trainer_name || "未分配教练"}
+                        {record.date} - {record.trainer_name || "未分配教练"} 
+                        ({record.status === "completed" ? "已完成" : "进行中"})
                       </option>
                     ))}
                   </select>

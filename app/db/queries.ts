@@ -109,9 +109,19 @@ export async function updateTrainingRecord(id: number, status: string, notes?: s
           UPDATE students SET status = 'gear_issued' WHERE id = $1
         `, [record.student_id]);
       } else {
-        await pool.query(`
-          UPDATE students SET status = 'completed' WHERE id = $1
+        const hasCompletedTraining = await pool.query(`
+          SELECT * FROM training_records WHERE student_id = $1 AND status = 'completed'
         `, [record.student_id]);
+        
+        const hasNoGear = await pool.query(`
+          SELECT * FROM gear_issues WHERE student_id = $1 AND status = 'issued'
+        `, [record.student_id]);
+        
+        if (hasCompletedTraining.rows.length > 0 && hasNoGear.rows.length === 0) {
+          await pool.query(`
+            UPDATE students SET status = 'training_done' WHERE id = $1
+          `, [record.student_id]);
+        }
       }
     }
   }
