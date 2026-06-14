@@ -42,6 +42,7 @@ const VisitList: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser, visits, updateVisitStatus, returnVisit, getComplaint } = useApp();
 
+  const isLobby = currentUser.role === 'lobby';
   const isManager = currentUser.role === 'manager';
   const isSupervisor = currentUser.role === 'supervisor';
 
@@ -61,18 +62,25 @@ const VisitList: React.FC = () => {
     );
   };
   const matchStatus = (v: VisitRecord) => statusFilter === 'all' || v.status === statusFilter;
+  const matchRole = (v: VisitRecord) => {
+    if (isManager) return v.assigneeId === currentUser.id;
+    if (isLobby) {
+      const cp = getComplaint(v.complaintId);
+      return !!cp && cp.registeredBy === currentUser.id;
+    }
+    return true;
+  };
 
   const allVisits = useMemo(
-    () => visits.filter((v) => matchKeyword(v) && matchStatus(v)),
-    [visits, keyword, statusFilter],
+    () => visits.filter((v) => matchRole(v) && matchKeyword(v) && matchStatus(v)),
+    [visits, keyword, statusFilter, isManager, isLobby, currentUser.id, getComplaint],
   );
 
   const sections = useMemo<VisitSection[]>(() => {
     if (isManager) {
-      const mine = allVisits.filter((v) => v.assigneeId === currentUser.id);
-      const pending = mine.filter((v) => v.status === 'pending' || v.status === 'in_progress');
-      const returned = mine.filter((v) => v.status === 'returned');
-      const done = mine.filter((v) => v.status === 'verified' || v.status === 'unverified');
+      const pending = allVisits.filter((v) => v.status === 'pending' || v.status === 'in_progress');
+      const returned = allVisits.filter((v) => v.status === 'returned');
+      const done = allVisits.filter((v) => v.status === 'verified' || v.status === 'unverified');
       return [
         {
           key: 'mgr-todo',
@@ -100,7 +108,47 @@ const VisitList: React.FC = () => {
         },
       ];
     }
-    // supervisor / lobby (lobby 默认看自己登记投诉的回访)
+    if (isLobby) {
+      const pending = allVisits.filter((v) => v.status === 'pending');
+      const inProgress = allVisits.filter((v) => v.status === 'in_progress');
+      const returned = allVisits.filter((v) => v.status === 'returned');
+      const done = allVisits.filter((v) => v.status === 'verified' || v.status === 'unverified');
+      return [
+        {
+          key: 'lobby-pending',
+          title: '待回访',
+          subtitle: '我登记的投诉，等待客户经理联系客户',
+          icon: Inbox,
+          tone: 'bg-amber-50 text-amber-700',
+          items: pending,
+        },
+        {
+          key: 'lobby-progress',
+          title: '回访中',
+          subtitle: '客户经理正在联系客户',
+          icon: Phone,
+          tone: 'bg-bank-50 text-bank-700',
+          items: inProgress,
+        },
+        {
+          key: 'lobby-returned',
+          title: '客户不满意',
+          subtitle: '客户不满意，需要重新处理',
+          icon: Flame,
+          tone: 'bg-red-50 text-red-700',
+          items: returned,
+        },
+        {
+          key: 'lobby-done',
+          title: '已完成回访',
+          subtitle: '已提交回访结果的记录',
+          icon: ClipboardList,
+          tone: 'bg-emerald-50 text-emerald-700',
+          items: done,
+        },
+      ];
+    }
+    // supervisor
     const pending = allVisits.filter((v) => v.status === 'pending');
     const inProgress = allVisits.filter((v) => v.status === 'in_progress');
     const returned = allVisits.filter((v) => v.status === 'returned');
@@ -139,7 +187,7 @@ const VisitList: React.FC = () => {
         items: done,
       },
     ];
-  }, [allVisits, isManager, currentUser.id]);
+  }, [allVisits, isManager, isLobby, currentUser.id]);
 
   return (
     <div className="space-y-5">
@@ -193,6 +241,7 @@ const VisitList: React.FC = () => {
           visits={allVisits}
           getComplaint={getComplaint}
           currentUserId={currentUser.id}
+          isLobby={isLobby}
           isManager={isManager}
           isSupervisor={isSupervisor}
           onNavigate={(id) => navigate(`/visits/${id}`)}
@@ -331,12 +380,13 @@ const UnifiedTable: React.FC<{
   visits: VisitRecord[];
   getComplaint: (id: string) => Complaint | undefined;
   currentUserId: string;
+  isLobby: boolean;
   isManager: boolean;
   isSupervisor: boolean;
   onNavigate: (id: string) => void;
   onStart: (id: string) => void;
   onReturn: (id: string) => void;
-}> = ({ visits, getComplaint, currentUserId, isManager, isSupervisor, onNavigate, onStart, onReturn }) => (
+}> = ({ visits, getComplaint, currentUserId, isLobby, isManager, isSupervisor, onNavigate, onStart, onReturn }) => (
   <Card>
     <CardBody className="p-0">
       {visits.length === 0 ? (

@@ -312,6 +312,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (!cp) return;
       const assigneeId = cp.handlerId ?? cp.assigneeId;
       const resolvedAt = now();
+      const existingVisit = visits.find((v) => v.complaintId === complaintId);
       setComplaints((prev) =>
         prev.map((c) =>
           c.id === complaintId
@@ -330,13 +331,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                     operatorId: currentUser.id,
                     operatorName: currentUser.name,
                     operatorRole: currentUser.role,
-                    content: `处理完成，等待回访核实：${resolution}`,
+                    content: existingVisit
+                      ? `处理完成，等待回访核实（已有回访任务）：${resolution}`
+                      : `处理完成，等待回访核实：${resolution}`,
                   },
                 ],
               }
             : c,
         ),
       );
+      if (existingVisit) {
+        addNotification({
+          type: 'info',
+          title: '投诉处理方案已更新',
+          message: `投诉 ${cp.code} 已提交新处理方案，将使用既有回访任务进行核实`,
+          linkTo: `/complaints/${complaintId}`,
+        });
+        return;
+      }
       if (assigneeId) {
         const assignee = users.find((u) => u.id === assigneeId);
         if (assignee) {
@@ -398,7 +410,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     },
-    [complaints, users, currentUser, addNotification],
+    [complaints, visits, users, currentUser, addNotification],
   );
 
   const triggerAbnormalSample = useCallback(
@@ -567,6 +579,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           if (data.result === 'satisfied' || data.result === 'partially_satisfied') {
             nextStatus = 'resolved';
+            isAbnormal = false;
+            abnormalReason = undefined;
             extraEvents.push({
               id: uid('e_'),
               complaintId: c.id,
@@ -576,7 +590,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               operatorName: currentUser.name,
               operatorRole: currentUser.role,
               content: `回访确认客户${resultLabel}，投诉已结案`,
-              detail: { result: data.result, feedback: data.customerFeedback },
+              detail: { result: data.result, feedback: data.customerFeedback, abnormalCleared: !!c.isAbnormal },
             });
           } else if (data.result === 'unsatisfied') {
             nextStatus = 'investigating';
