@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
+const { getRegistrationProblems, generateReturnComment } = require('../validation');
 
 router.post('/review', (req, res) => {
   const db = getDb();
@@ -40,15 +41,20 @@ router.post('/review', (req, res) => {
     }
 
     if (action === 'approve') {
-      const allDocsVerified = db.prepare(
-        `SELECT COUNT(*) as cnt FROM registration_documents WHERE registration_id = ? AND upload_status != 'verified'`
-      ).get(rid).cnt;
-      if (allDocsVerified > 0) {
-        results.push({ registration_id: rid, status: 'skipped', reason: '存在未通过审核的资料项' });
+      const checkResult = getRegistrationProblems(rid);
+      if (!checkResult) {
+        results.push({ registration_id: rid, status: 'not_found' });
         continue;
       }
-      if (reg.payment_status !== 'paid') {
-        results.push({ registration_id: rid, status: 'skipped', reason: '未缴费' });
+      if (!checkResult.canApprove) {
+        const blockingProblems = checkResult.problems.filter(p => p.severity === 'block');
+        const reasons = blockingProblems.map(p => p.label).join('；');
+        results.push({
+          registration_id: rid,
+          status: 'skipped',
+          reason: `无法通过审核，存在以下问题：${reasons}`,
+          details: blockingProblems
+        });
         continue;
       }
     }

@@ -155,6 +155,9 @@ function seedData() {
   const s5 = insertStudent.run('周天乐', 'M', '2012-09-12', '110101201209120017', '13900005551', '周敏', '13900005552', '三级', t2.lastInsertRowid);
   const s6 = insertStudent.run('孙雨萱', 'F', '2013-05-20', '110101201305200089', '13900006661', '孙建军', '13900006662', '二级', t3.lastInsertRowid);
   const s7 = insertStudent.run('吴子轩', 'M', '2011-08-03', '11010120110803005X', '13900007771', '吴静', '13900007772', '四级', t2.lastInsertRowid);
+  const s8 = insertStudent.run('郑梦瑶', 'F', '2012-12-01', '', '13900008881', '郑建国', '13900008882', '三级', t2.lastInsertRowid);
+  const s9 = insertStudent.run('冯俊杰', 'M', '2013-03-10', '110101201303100029', '13900009991', '冯晓华', '13900009992', '二级', t3.lastInsertRowid);
+  const s10 = insertStudent.run('韩雨桐', 'F', '2011-06-25', '110101201106250083', '13900010001', '韩梅', '13900010002', '四级', t2.lastInsertRowid);
 
   const insertExam = d.prepare(
     `INSERT INTO exam_sessions (name, level, exam_date, registration_deadline, location, status, fee) VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -174,6 +177,9 @@ function seedData() {
   const r5 = insertReg.run(s5.lastInsertRowid, e2.lastInsertRowid, 'M', '《渔舟唱晚》', 'paid', 350, '2026-06-08 16:45:00', 'submitted', 1, t2.lastInsertRowid, '2026-06-08 11:30:00', '跨级报考：当前三级报三级需确认');
   const r6 = insertReg.run(s6.lastInsertRowid, e1.lastInsertRowid, 'S', '《彩云追月》', 'paid', 380, '2026-06-13 08:10:00', 'returned', 1, t3.lastInsertRowid, '2026-06-12 15:00:00', '身份证号与系统不一致');
   const r7 = insertReg.run(s7.lastInsertRowid, e1.lastInsertRowid, 'L', '《将进酒》', 'paid', 380, '2026-06-09 10:00:00', 'submitted', 0, null, null, null);
+  const r8 = insertReg.run(s8.lastInsertRowid, e2.lastInsertRowid, 'M', '《兰亭序》', 'paid', 350, '2026-06-13 14:00:00', 'submitted', 1, t2.lastInsertRowid, '2026-06-13 10:00:00', '身份证号缺失');
+  const r9 = insertReg.run(s9.lastInsertRowid, e3.lastInsertRowid, 'S', null, 'paid', 320, '2026-06-12 17:00:00', 'submitted', 1, t3.lastInsertRowid, '2026-06-12 15:00:00', '曲目未确定');
+  const r10 = insertReg.run(s10.lastInsertRowid, e1.lastInsertRowid, null, '《满江红》', 'paid', 380, '2026-06-11 12:00:00', 'submitted', 1, t2.lastInsertRowid, '2026-06-11 10:00:00', '服装尺码待确认');
 
   const insertDoc = d.prepare(
     `INSERT INTO registration_documents (registration_id, document_type, document_value, upload_status, rejection_reason, uploaded_at, verified_at, verified_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -207,6 +213,18 @@ function seedData() {
   insertDoc.run(r7.lastInsertRowid, 'id_card_copy', 'wu_zixuan_id.jpg', 'uploaded', null, '2026-06-09 08:31:00', null, null);
   insertDoc.run(r7.lastInsertRowid, 'previous_certificate', null, 'pending', null, null, null, null);
 
+  insertDoc.run(r8.lastInsertRowid, 'photo', 'zheng_mengyao_photo.jpg', 'verified', null, '2026-06-13 11:00:00', '2026-06-13 15:00:00', t1.lastInsertRowid);
+  insertDoc.run(r8.lastInsertRowid, 'id_card_copy', 'zheng_mengyao_id.jpg', 'verified', null, '2026-06-13 11:01:00', '2026-06-13 15:01:00', t1.lastInsertRowid);
+  insertDoc.run(r8.lastInsertRowid, 'previous_certificate', 'zheng_mengyao_cert.jpg', 'verified', null, '2026-06-13 11:02:00', '2026-06-13 15:02:00', t1.lastInsertRowid);
+
+  insertDoc.run(r9.lastInsertRowid, 'photo', 'feng_junjie_photo.jpg', 'verified', null, '2026-06-12 16:00:00', '2026-06-13 09:00:00', t1.lastInsertRowid);
+  insertDoc.run(r9.lastInsertRowid, 'id_card_copy', 'feng_junjie_id.jpg', 'verified', null, '2026-06-12 16:01:00', '2026-06-13 09:01:00', t1.lastInsertRowid);
+  insertDoc.run(r9.lastInsertRowid, 'previous_certificate', 'feng_junjie_cert.jpg', 'verified', null, '2026-06-12 16:02:00', '2026-06-13 09:02:00', t1.lastInsertRowid);
+
+  insertDoc.run(r10.lastInsertRowid, 'photo', 'han_yutong_photo.jpg', 'verified', null, '2026-06-11 13:00:00', '2026-06-12 10:00:00', t1.lastInsertRowid);
+  insertDoc.run(r10.lastInsertRowid, 'id_card_copy', 'han_yutong_id.jpg', 'verified', null, '2026-06-11 13:01:00', '2026-06-12 10:01:00', t1.lastInsertRowid);
+  insertDoc.run(r10.lastInsertRowid, 'previous_certificate', 'han_yutong_cert.jpg', 'verified', null, '2026-06-11 13:02:00', '2026-06-12 10:02:00', t1.lastInsertRowid);
+
   const insertAudit = d.prepare(
     `INSERT INTO audit_logs (registration_id, action, operator_id, operator_role, comment, created_at) VALUES (?, ?, ?, ?, ?, ?)`
   );
@@ -219,6 +237,9 @@ function seedData() {
   insertAudit.run(r6.lastInsertRowid, 'submit', t3.lastInsertRowid, 'teacher', '任课老师确认提交', '2026-06-13 08:00:00');
   insertAudit.run(r6.lastInsertRowid, 'return', t1.lastInsertRowid, 'academic', '身份证号与系统登记不一致', '2026-06-13 10:00:00');
   insertAudit.run(r7.lastInsertRowid, 'submit', null, 'student', '家长自行提交，待任课老师确认', '2026-06-09 09:00:00');
+  insertAudit.run(r8.lastInsertRowid, 'submit', t2.lastInsertRowid, 'teacher', '任课老师确认提交，注意：学员身份证号缺失', '2026-06-13 10:00:00');
+  insertAudit.run(r9.lastInsertRowid, 'submit', t3.lastInsertRowid, 'teacher', '任课老师确认提交，注意：曲目待定', '2026-06-12 15:00:00');
+  insertAudit.run(r10.lastInsertRowid, 'submit', t2.lastInsertRowid, 'teacher', '任课老师确认提交，注意：服装尺码待确认', '2026-06-11 10:00:00');
 
   const insertResub = d.prepare(
     `INSERT INTO resubmission_logs (registration_id, document_id, resubmitted_by, resubmitted_at, confirmed_by, confirmed_at, note) VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -234,6 +255,9 @@ function seedData() {
   insertNotif.run(r4.lastInsertRowid, 'material_missing', '您有2项资料未上传：身份证复印件、上一级证书，请尽快补充', '13900004441', '2026-06-13 08:00:00', 'sent');
   insertNotif.run(r6.lastInsertRowid, 'audit_returned', '您的考级报名资料被退回，原因：身份证号与系统登记不一致，请核实后重新上传', '13900006661', '2026-06-13 10:05:00', 'sent');
   insertNotif.run(r7.lastInsertRowid, 'material_missing', '您有1项资料未上传：上一级证书，请尽快补充', '13900007771', '2026-06-14 08:00:00', 'pending');
+  insertNotif.run(r8.lastInsertRowid, 'material_missing', '您的身份证号尚未登记，请尽快补充身份证号', '13900008881', '2026-06-14 08:00:00', 'pending');
+  insertNotif.run(r9.lastInsertRowid, 'material_missing', '考级曲目尚未确定，请尽快联系任课老师确认曲目', '13900009991', '2026-06-14 08:00:00', 'pending');
+  insertNotif.run(r10.lastInsertRowid, 'material_missing', '服装尺码尚未确认，请尽快补充服装尺码', '13900010001', '2026-06-14 08:00:00', 'pending');
 
   console.log('种子数据初始化完成');
 }

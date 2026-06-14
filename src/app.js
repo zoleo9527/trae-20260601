@@ -1,6 +1,7 @@
 const cors = require('cors');
 const express = require('express');
 const { getDb, init } = require('./db');
+const { getRegistrationProblems } = require('./validation');
 const registrationsRouter = require('./routes/registrations');
 const documentsRouter = require('./routes/documents');
 const auditRouter = require('./routes/audit');
@@ -46,9 +47,13 @@ app.get('/api/dashboard', (req, res) => {
   const unpaid = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE payment_status = 'unpaid'").get().cnt;
   const unconfirmed = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE teacher_confirmed = 0").get().cnt;
   const pendingDocs = db.prepare("SELECT COUNT(*) as cnt FROM registration_documents WHERE upload_status IN ('pending','rejected')").get().cnt;
+  const missingIdCard = db.prepare("SELECT COUNT(*) as cnt FROM students s JOIN registrations r ON s.id = r.student_id WHERE (s.id_card_number IS NULL OR s.id_card_number = '') AND r.registration_status NOT IN ('approved')").get().cnt;
+  const missingTrackName = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE (track_name IS NULL OR track_name = '') AND registration_status NOT IN ('approved')").get().cnt;
+  const missingCostumeSize = db.prepare("SELECT COUNT(*) as cnt FROM registrations WHERE (costume_size IS NULL OR costume_size = '') AND registration_status NOT IN ('approved')").get().cnt;
 
   const deadlineApproaching = db.prepare(`
-    SELECT r.*, s.name as student_name, s.guardian_phone, es.registration_deadline, es.name as exam_name,
+    SELECT r.id as registration_id, s.name as student_name, s.guardian_phone, es.registration_deadline, es.name as exam_name,
+      r.teacher_confirmed, r.payment_status, r.costume_size, r.track_name, s.id_card_number,
       (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status IN ('pending','rejected')) as missing_doc_count
     FROM registrations r
     JOIN students s ON r.student_id = s.id
@@ -58,27 +63,50 @@ app.get('/api/dashboard', (req, res) => {
     ORDER BY es.registration_deadline ASC
   `).all();
 
-  const missingMaterialList = db.prepare(`
+  for (const item of deadlineApproaching) {
+    const checkResult = getRegistrationProblems(item.registration_id);
+    if (checkResult) {
+      item.blocking_problems = checkResult.problems.filter(p => p.severity === 'block').map(p => p.label);
+      item.can_approve = checkResult.canApprove;
+    }
+  }
+
+  const missingMaterialCandidates = db.prepare(`
     SELECT r.id as registration_id, s.name as student_name, s.guardian_phone, es.name as exam_name,
-      GROUP_CONCAT(
-        CASE WHEN rd.upload_status = 'pending' THEN rd.document_type
-             WHEN rd.upload_status = 'rejected' THEN rd.document_type || '(被退回:' || COALESCE(rd.rejection_reason,'') || ')'
-        END, '|'
-      ) as missing_items
+      r.teacher_confirmed, r.payment_status, r.costume_size, r.track_name, s.id_card_number
     FROM registrations r
     JOIN students s ON r.student_id = s.id
     JOIN exam_sessions es ON r.exam_session_id = es.id
-    JOIN registration_documents rd ON rd.registration_id = r.id
-    WHERE rd.upload_status IN ('pending','rejected')
-      AND r.registration_status NOT IN ('approved')
-    GROUP BY r.id
+    WHERE r.registration_status NOT IN ('approved')
     ORDER BY es.registration_deadline ASC
   `).all();
+
+  const missingMaterialList = [];
+  for (const item of missingMaterialCandidates) {
+    const checkResult = getRegistrationProblems(item.registration_id);
+    if (!checkResult || checkResult.problems.length === 0) continue;
+
+    const blocking = checkResult.problems.filter(p => p.severity === 'block');
+    if (blocking.length === 0) continue;
+
+    missingMaterialList.push({
+      registration_id: item.registration_id,
+      student_name: item.student_name,
+      guardian_phone: item.guardian_phone,
+      exam_name: item.exam_name,
+      missing_items: blocking.map(p => p.label).join('|'),
+      blocking_problems: blocking
+    });
+  }
 
   res.json({
     code: 0,
     data: {
-      summary: { totalRegistrations, submitted, approved, returned, unpaid, unconfirmed, pendingDocs },
+      summary: {
+        totalRegistrations, submitted, approved, returned, unpaid, unconfirmed, pendingDocs,
+        missingIdCard, missingTrackName, missingCostumeSize,
+        total_blocking_problems: missingMaterialList.length
+      },
       deadlineApproaching,
       missingMaterialList
     }

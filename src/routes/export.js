@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
+const { getRegistrationProblems, docLabel } = require('../validation');
 
 router.get('/roster', (req, res) => {
   const db = getDb();
@@ -17,6 +18,7 @@ router.get('/roster', (req, res) => {
       s.gender,
       s.birth_date,
       s.id_card_number,
+      CASE WHEN s.id_card_number IS NULL OR s.id_card_number = '' THEN 1 ELSE 0 END as id_card_missing,
       s.phone,
       s.guardian_name,
       s.guardian_phone,
@@ -26,7 +28,9 @@ router.get('/roster', (req, res) => {
       es.exam_date,
       es.location,
       r.costume_size,
+      CASE WHEN r.costume_size IS NULL OR r.costume_size = '' THEN 1 ELSE 0 END as costume_size_missing,
       r.track_name,
+      CASE WHEN r.track_name IS NULL OR r.track_name = '' THEN 1 ELSE 0 END as track_name_missing,
       r.payment_status,
       r.payment_amount,
       r.registration_status,
@@ -99,6 +103,10 @@ router.get('/roster', (req, res) => {
     unpaid: roster.filter(r => r.payment_status === 'unpaid').length,
     unconfirmed: roster.filter(r => !r.teacher_confirmed).length,
     incomplete_docs: roster.filter(r => r.missing_doc_count > 0).length,
+    missing_id_card: roster.filter(r => r.id_card_missing).length,
+    missing_costume_size: roster.filter(r => r.costume_size_missing).length,
+    missing_track_name: roster.filter(r => r.track_name_missing).length,
+    total_problems: roster.reduce((sum, r) => sum + r.missing_doc_count + r.id_card_missing + r.costume_size_missing + r.track_name_missing + (r.teacher_confirmed ? 0 : 1) + (r.payment_status === 'paid' ? 0 : 1), 0)
   };
 
   res.json({ code: 0, data: { summary, roster } });
@@ -112,13 +120,16 @@ router.get('/checklist', (req, res) => {
     return res.status(400).json({ code: 1, msg: '考级场次ID不能为空' });
   }
 
-  const checklist = db.prepare(`
+  const baseList = db.prepare(`
     SELECT
       r.id as registration_id,
       s.name as student_name,
       s.id_card_number,
+      CASE WHEN s.id_card_number IS NULL OR s.id_card_number = '' THEN 1 ELSE 0 END as id_card_missing,
       r.costume_size,
+      CASE WHEN r.costume_size IS NULL OR r.costume_size = '' THEN 1 ELSE 0 END as costume_size_missing,
       r.track_name,
+      CASE WHEN r.track_name IS NULL OR r.track_name = '' THEN 1 ELSE 0 END as track_name_missing,
       r.payment_status,
       r.teacher_confirmed,
       GROUP_CONCAT(
@@ -129,22 +140,87 @@ router.get('/checklist', (req, res) => {
           WHEN rd.upload_status = 'pending' THEN rd.document_type || '—'
         END, '|'
       ) as doc_checklist,
-      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') as problem_count
+      (SELECT COUNT(*) FROM registration_documents rd WHERE rd.registration_id = r.id AND rd.upload_status != 'verified') as doc_problem_count
     FROM registrations r
     JOIN students s ON r.student_id = s.id
     JOIN registration_documents rd ON rd.registration_id = r.id
     WHERE r.exam_session_id = ?
     GROUP BY r.id
-    ORDER BY problem_count DESC, s.name
   `).all(exam_session_id);
 
-  const problems = checklist.filter(c => c.problem_count > 0 || c.payment_status !== 'paid' || !c.teacher_confirmed);
+  const checklist = baseList.map(item => {
+    const infoItems = [];
+    let infoProblemCount = 0;
+
+    if (!item.teacher_confirmed) {
+      infoItems.push('teacher_confirm✗');
+      infoProblemCount++;
+    } else {
+      infoItems.push('teacher_confirm✓');
+    }
+
+    if (item.id_card_missing) {
+      infoItems.push('id_card✗');
+      infoProblemCount++;
+    } else {
+      infoItems.push('id_card✓');
+    }
+
+    if (item.track_name_missing) {
+      infoItems.push('track_name✗');
+      infoProblemCount++;
+    } else {
+      infoItems.push('track_name✓');
+    }
+
+    if (item.costume_size_missing) {
+      infoItems.push('costume_size✗');
+      infoProblemCount++;
+    } else {
+      infoItems.push('costume_size✓');
+    }
+
+    if (item.payment_status !== 'paid') {
+      infoItems.push('payment✗');
+      infoProblemCount++;
+    } else {
+      infoItems.push('payment✓');
+    }
+
+    const problem_count = item.doc_problem_count + infoProblemCount;
+
+    return {
+      ...item,
+      info_checklist: infoItems.join('|'),
+      doc_problem_count: item.doc_problem_count,
+      info_problem_count: infoProblemCount,
+      problem_count: problem_count
+    };
+  });
+
+  checklist.sort((a, b) => b.problem_count - a.problem_count || a.student_name.localeCompare(b.student_name, 'zh'));
+
+  const problems = checklist.filter(c => c.problem_count > 0);
+
+  const summary = {
+    total: checklist.length,
+    problem_count: problems.length,
+    doc_problems: checklist.filter(c => c.doc_problem_count > 0).length,
+    info_problems: checklist.filter(c => c.info_problem_count > 0).length,
+    teacher_unconfirmed: checklist.filter(c => !c.teacher_confirmed).length,
+    missing_id_card: checklist.filter(c => c.id_card_missing).length,
+    missing_track_name: checklist.filter(c => c.track_name_missing).length,
+    missing_costume_size: checklist.filter(c => c.costume_size_missing).length,
+    unpaid: checklist.filter(c => c.payment_status !== 'paid').length,
+    total_problem_items: checklist.reduce((sum, c) => sum + c.problem_count, 0)
+  };
 
   res.json({
     code: 0,
     data: {
       total: checklist.length,
       problem_count: problems.length,
+      summary,
       problems,
       full_list: checklist
     }
