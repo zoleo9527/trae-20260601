@@ -101,6 +101,21 @@ func SeedData() error {
 		"status":           models.RepaymentStatusPartial,
 		"overdue_days":     20,
 		"actual_paid_date": now.AddDate(0, 0, -10),
+		"follow_up_name":   "郑贷后",
+		"follow_up_role":   models.RolePostLoan,
+		"follow_up_remark": "客户资金紧张，已还部分，剩余承诺月底前补齐，持续跟进中",
+	})
+
+	plan8ID := plan1.ID
+	DB.Create(&models.OperationLog{
+		LoanID:          loanPartial.ID,
+		RepaymentPlanID: &plan8ID,
+		Operator:        "郑贷后",
+		Role:            models.RolePostLoan,
+		Action:          "还款计划跟进",
+		Detail:          "第8期还款计划，已还金额:0→1500，状态:pending→partial，逾期天数:0→20，跟进说明:客户资金紧张，已还部分，剩余承诺月底前补齐，持续跟进中",
+		IPAddress:       "192.168.1.50",
+		CreatedAt:       now.AddDate(0, 0, -10),
 	})
 
 	DB.Create(&models.CollectionRecord{
@@ -211,6 +226,36 @@ func SeedData() error {
 		IPAddress: "192.168.1.30",
 	})
 
+	plan6 := models.RepaymentPlan{}
+	DB.Model(&models.RepaymentPlan{}).Where("loan_id = ? AND period_no = ?", loanRejected.ID, 6).First(&plan6)
+	DB.Model(&plan6).Updates(map[string]interface{}{
+		"follow_up_name":   "冯贷后",
+		"follow_up_role": models.RolePostLoan,
+		"follow_up_remark": "展期申请被拒，已电话告知客户并要求按原计划还款，客户表示理解但仍在筹措资金，每周跟进一次",
+	})
+	plan6ID := plan6.ID
+	DB.Create(&models.OperationLog{
+		LoanID:          loanRejected.ID,
+		RepaymentPlanID: &plan6ID,
+		Operator:        "冯贷后",
+		Role:            models.RolePostLoan,
+		Action:          "还款计划跟进",
+		Detail:          "第6期还款计划，跟进说明:展期申请被拒，已电话告知客户并要求按原计划还款，客户表示理解但仍在筹措资金，每周跟进一次",
+		IPAddress:       "192.168.1.51",
+		CreatedAt:       now.AddDate(0, 0, -24),
+	})
+
+	DB.Create(&models.OperationLog{
+		LoanID:          loanRejected.ID,
+		RepaymentPlanID: &plan6ID,
+		Operator:        "冯贷后",
+		Role:            models.RolePostLoan,
+		Action:          "还款计划跟进",
+		Detail:          "第6期还款计划，状态:pending→overdue，逾期天数:0→35，跟进说明:客户仍在筹款，承诺下周五还5000，再下周五还剩余部分",
+		IPAddress:       "192.168.1.51",
+		CreatedAt:       now.AddDate(0, 0, -5),
+	})
+
 	loanReOverdue := models.Loan{
 		LoanNo:            "LN202512008",
 		CustomerName:      "赵六",
@@ -269,9 +314,27 @@ func SeedData() error {
 		"end_date": now.AddDate(0, 5, 0),
 	})
 	for i := 10; i <= 12; i++ {
-		DB.Model(&models.RepaymentPlan{}).Where("loan_id = ? AND period_no = ?", loanReOverdue.ID, i).Updates(map[string]interface{}{
-			"due_date": now.AddDate(0, i-9, 0).AddDate(0, 3, 0),
-			"status":   models.RepaymentStatusExtended,
+		plan := models.RepaymentPlan{}
+		DB.Model(&models.RepaymentPlan{}).Where("loan_id = ? AND period_no = ?", loanReOverdue.ID, i).First(&plan)
+		oldDueDate := plan.DueDate.Format("2006-01-02")
+		newDueDate := now.AddDate(0, i-9, 0).AddDate(0, 3, 0)
+		DB.Model(&plan).Updates(map[string]interface{}{
+			"due_date":         newDueDate,
+			"status":           models.RepaymentStatusExtended,
+			"follow_up_name":   "钱贷后",
+			"follow_up_role":   models.RolePostLoan,
+			"follow_up_remark": "展期审批通过，顺延3个月，密切关注甲方付款进度",
+		})
+		planID := plan.ID
+		DB.Create(&models.OperationLog{
+			LoanID:          loanReOverdue.ID,
+			RepaymentPlanID: &planID,
+			Operator:        "钱贷后",
+			Role:            models.RolePostLoan,
+			Action:          "展期顺延还款计划",
+			Detail:          "第" + fmt.Sprintf("%d", i) + "期还款计划，到期日:" + oldDueDate + "→" + newDueDate.Format("2006-01-02") + "，状态:pending→extended，跟进说明:展期审批通过，顺延3个月，密切关注甲方付款进度",
+			IPAddress:       "192.168.1.40",
+			CreatedAt:       now.AddDate(0, 0, -50),
 		})
 	}
 
@@ -323,6 +386,38 @@ func SeedData() error {
 	DB.Model(&loanReOverdue).Updates(map[string]interface{}{
 		"status":       models.LoanStatusOverdue,
 		"overdue_days": 15,
+	})
+
+	plan10 := models.RepaymentPlan{}
+	DB.Model(&models.RepaymentPlan{}).Where("loan_id = ? AND period_no = ?", loanReOverdue.ID, 10).First(&plan10)
+	oldStatus := string(plan10.Status)
+	DB.Model(&plan10).Updates(map[string]interface{}{
+		"status":           models.RepaymentStatusOverdue,
+		"overdue_days":     15,
+		"follow_up_name":   "钱贷后",
+		"follow_up_role":   models.RolePostLoan,
+		"follow_up_remark": "展期后再次逾期15天，客户称甲方付款流程已走完，等待银行到账，已取得付款凭证截图，预计5日内到账",
+	})
+	plan10ID := plan10.ID
+	DB.Create(&models.OperationLog{
+		LoanID:          loanReOverdue.ID,
+		RepaymentPlanID: &plan10ID,
+		Operator:        "钱贷后",
+		Role:            models.RolePostLoan,
+		Action:          "还款计划跟进",
+		Detail:          "第10期还款计划，状态:" + oldStatus + "→overdue，逾期天数:0→15，跟进说明:展期后再次逾期15天，客户称甲方付款流程已走完，等待银行到账，已取得付款凭证截图，预计5日内到账",
+		IPAddress:       "192.168.1.40",
+		CreatedAt:       now.AddDate(0, 0, -15),
+	})
+	DB.Create(&models.OperationLog{
+		LoanID:          loanReOverdue.ID,
+		RepaymentPlanID: &plan10ID,
+		Operator:        "钱贷后",
+		Role:            models.RolePostLoan,
+		Action:          "还款计划跟进",
+		Detail:          "第10期还款计划，跟进说明:与客户确认，甲方付款凭证已收到，银行预计3个工作日内到账，每日跟进到账情况",
+		IPAddress:       "192.168.1.40",
+		CreatedAt:       now.AddDate(0, 0, -5),
 	})
 
 	DB.Create(&models.OperationLog{
@@ -381,6 +476,9 @@ func seedRepaymentPlans(loan *models.Loan, now time.Time) {
 			Status:         status,
 			OverdueDays:    overdueDays,
 			ActualPaidDate: actualPaidDate,
+			FollowUpName:   "钱贷后",
+			FollowUpRole:   models.RolePostLoan,
+			FollowUpRemark: "按计划跟进还款",
 		})
 	}
 }

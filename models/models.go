@@ -58,6 +58,7 @@ const (
 	RoleManager   Role = "manager"
 	RoleRisk      Role = "risk"
 	RoleCollector Role = "collector"
+	RolePostLoan  Role = "post_loan"
 )
 
 type Loan struct {
@@ -96,6 +97,9 @@ type RepaymentPlan struct {
 	Status         RepaymentStatus `gorm:"size:32;default:pending" json:"status"`
 	OverdueDays    int             `gorm:"default:0" json:"overdue_days"`
 	ActualPaidDate *time.Time      `json:"actual_paid_date,omitempty"`
+	FollowUpName   string          `gorm:"size:64" json:"follow_up_name"`
+	FollowUpRole   Role            `gorm:"size:32" json:"follow_up_role"`
+	FollowUpRemark string          `gorm:"type:text" json:"follow_up_remark"`
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 }
@@ -149,12 +153,13 @@ type ApprovalDecision struct {
 }
 
 type OperationLog struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	LoanID     uint      `gorm:"index" json:"loan_id"`
-	Operator   string    `gorm:"size:64" json:"operator"`
-	Role       Role      `gorm:"size:32" json:"role"`
-	Action     string    `gorm:"size:64" json:"action"`
-	Detail     string    `gorm:"type:text" json:"detail"`
-	IPAddress  string    `gorm:"size:64" json:"ip_address"`
-	CreatedAt  time.Time  `json:"created_at"`
+	ID               uint      `gorm:"primaryKey" json:"id"`
+	LoanID           uint      `gorm:"index" json:"loan_id"`
+	RepaymentPlanID  *uint     `gorm:"index" json:"repayment_plan_id,omitempty"`
+	Operator         string    `gorm:"size:64" json:"operator"`
+	Role             Role      `gorm:"size:32" json:"role"`
+	Action           string    `gorm:"size:64" json:"action"`
+	Detail           string    `gorm:"type:text" json:"detail"`
+	IPAddress        string    `gorm:"size:64" json:"ip_address"`
+	CreatedAt        time.Time `json:"created_at"`
 }

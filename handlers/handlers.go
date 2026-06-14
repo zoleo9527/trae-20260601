@@ -78,7 +78,7 @@ func CreateLoan(c *gin.Context) {
 		return
 	}
 
-	addLog(loan.ID, loan.CustomerName, models.RoleManager, "创建借款", "创建借款记录: "+loan.LoanNo, c.ClientIP())
+	addLog(loan.ID, nil, loan.CustomerName, models.RoleManager, "创建借款", "创建借款记录: "+loan.LoanNo, c.ClientIP())
 	ok(c, loan)
 }
 
@@ -122,23 +122,72 @@ func CreateRepaymentPlan(c *gin.Context) {
 	plan.CreatedAt = time.Now()
 	plan.UpdatedAt = time.Now()
 	DB.Create(&plan)
+
+	role := plan.FollowUpRole
+	if role == "" {
+		role = models.RolePostLoan
+	}
+	operator := plan.FollowUpName
+	if operator == "" {
+		operator = "system"
+	}
+	detail := "创建第" + strconv.Itoa(plan.PeriodNo) + "期还款计划，应还金额:" + strconv.FormatFloat(plan.TotalAmount, 'f', 2, 64) + "元"
+	if plan.FollowUpRemark != "" {
+		detail += "，跟进说明:" + plan.FollowUpRemark
+	}
+	addLog(plan.LoanID, &plan.ID, operator, role, "创建还款计划", detail, c.ClientIP())
 	ok(c, plan)
 }
 
 func UpdateRepaymentPlan(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	var plan models.RepaymentPlan
-	if err := DB.First(&plan, id).Error; err != nil {
+	var oldPlan models.RepaymentPlan
+	if err := DB.First(&oldPlan, id).Error; err != nil {
 		fail(c, http.StatusNotFound, "还款计划不存在")
 		return
 	}
+
+	var plan models.RepaymentPlan
 	if err := c.ShouldBindJSON(&plan); err != nil {
 		fail(c, http.StatusBadRequest, "参数错误: "+err.Error())
 		return
 	}
 	plan.ID = uint(id)
 	plan.UpdatedAt = time.Now()
+
+	changes := ""
+	if oldPlan.Status != plan.Status {
+		changes += "状态:" + string(oldPlan.Status) + "→" + string(plan.Status) + "; "
+	}
+	if oldPlan.PaidAmount != plan.PaidAmount {
+		changes += "已还金额:" + strconv.FormatFloat(oldPlan.PaidAmount, 'f', 2, 64) + "→" + strconv.FormatFloat(plan.PaidAmount, 'f', 2, 64) + "; "
+	}
+	if oldPlan.OverdueDays != plan.OverdueDays {
+		changes += "逾期天数:" + strconv.Itoa(oldPlan.OverdueDays) + "→" + strconv.Itoa(plan.OverdueDays) + "; "
+	}
+	if !oldPlan.DueDate.Equal(plan.DueDate) {
+		changes += "到期日:" + oldPlan.DueDate.Format("2006-01-02") + "→" + plan.DueDate.Format("2006-01-02") + "; "
+	}
+	if plan.FollowUpRemark != "" && plan.FollowUpRemark != oldPlan.FollowUpRemark {
+		changes += "跟进说明:" + plan.FollowUpRemark + "; "
+	}
+
 	DB.Save(&plan)
+
+	role := plan.FollowUpRole
+	if role == "" {
+		role = models.RolePostLoan
+	}
+	operator := plan.FollowUpName
+	if operator == "" {
+		operator = "system"
+	}
+	action := "更新还款计划"
+	if plan.FollowUpRemark != "" {
+		action = "还款计划跟进"
+	}
+	detail := "第" + strconv.Itoa(plan.PeriodNo) + "期还款计划，" + changes
+	addLog(plan.LoanID, &plan.ID, operator, role, action, detail, c.ClientIP())
 	ok(c, plan)
 }
 
@@ -181,7 +230,7 @@ func CreateCollectionRecord(c *gin.Context) {
 		return
 	}
 
-	addLog(record.LoanID, record.CollectorName, record.CollectorRole,
+	addLog(record.LoanID, nil, record.CollectorName, record.CollectorRole,
 		"新增催收记录", "催收方式:"+string(record.CollectionType)+" 联系结果:"+string(record.ContactResult),
 		c.ClientIP())
 	ok(c, record)
@@ -229,12 +278,17 @@ func GetExtensionApplication(c *gin.Context) {
 	}
 
 	var loan models.Loan
-	DB.Preload("CollectionRecords").First(&loan, app.LoanID)
+	DB.Preload("CollectionRecords").Preload("RepaymentPlans").First(&loan, app.LoanID)
+
+	var planLogs []models.OperationLog
+	DB.Where("loan_id = ? AND repayment_plan_id IS NOT NULL", app.LoanID).Order("created_at DESC").Find(&planLogs)
 
 	result := gin.H{
 		"application":        app,
-		"loan":               loan,
-		"collection_history": loan.CollectionRecords,
+		"loan":                 loan,
+		"collection_history":   loan.CollectionRecords,
+		"repayment_plans":      loan.RepaymentPlans,
+		"repayment_plan_logs": planLogs,
 	}
 	ok(c, result)
 }
@@ -257,7 +311,7 @@ func CreateExtensionApplication(c *gin.Context) {
 		return
 	}
 
-	addLog(app.LoanID, app.ApplicantName, app.ApplicantRole,
+	addLog(app.LoanID, nil, app.ApplicantName, app.ApplicantRole,
 		"提交展期申请", "申请展期"+strconv.Itoa(app.ExtensionMonths)+"个月",
 		c.ClientIP())
 	ok(c, app)
@@ -314,16 +368,36 @@ func ApproveExtensionApplication(c *gin.Context) {
 			[]models.RepaymentStatus{models.RepaymentStatusPending, models.RepaymentStatusOverdue}).
 			Find(&plans)
 		for _, p := range plans {
+			oldDueDate := p.DueDate
+			oldStatus := p.Status
 			p.DueDate = p.DueDate.AddDate(0, app.ExtensionMonths, 0)
 			p.Status = models.RepaymentStatusExtended
 			p.UpdatedAt = time.Now()
+			p.FollowUpName = decision.ApproverName
+			p.FollowUpRole = decision.ApproverRole
+			p.FollowUpRemark = "展期审批通过，顺延" + strconv.Itoa(app.ExtensionMonths) + "个月"
 			tx.Save(&p)
+
+			planID := p.ID
+			detail := "第" + strconv.Itoa(p.PeriodNo) + "期还款计划，到期日:" + oldDueDate.Format("2006-01-02") + "→" + p.DueDate.Format("2006-01-02") +
+				"，状态:" + string(oldStatus) + "→" + string(p.Status) + "，跟进说明:" + p.FollowUpRemark
+			log := models.OperationLog{
+				LoanID:          app.LoanID,
+				RepaymentPlanID: &planID,
+				Operator:        decision.ApproverName,
+				Role:            decision.ApproverRole,
+				Action:          "展期顺延还款计划",
+				Detail:          detail,
+				IPAddress:       c.ClientIP(),
+				CreatedAt:       time.Now(),
+			}
+			tx.Create(&log)
 		}
 	}
 
 	tx.Commit()
 
-	addLog(app.LoanID, decision.ApproverName, decision.ApproverRole,
+	addLog(app.LoanID, nil, decision.ApproverName, decision.ApproverRole,
 		"展期审批-"+string(decision.Decision), decision.Remark, c.ClientIP())
 
 	ok(c, gin.H{"application": app, "decision": decision})
@@ -341,15 +415,16 @@ func GetOperationLogs(c *gin.Context) {
 	ok(c, logs)
 }
 
-func addLog(loanID uint, operator string, role models.Role, action, detail, ip string) {
+func addLog(loanID uint, planID *uint, operator string, role models.Role, action, detail, ip string) {
 	log := models.OperationLog{
-		LoanID:    loanID,
-		Operator:  operator,
-		Role:      role,
-		Action:    action,
-		Detail:    detail,
-		IPAddress: ip,
-		CreatedAt: time.Now(),
+		LoanID:          loanID,
+		RepaymentPlanID: planID,
+		Operator:        operator,
+		Role:            role,
+		Action:          action,
+		Detail:          detail,
+		IPAddress:       ip,
+		CreatedAt:       time.Now(),
 	}
 	DB.Create(&log)
 }
@@ -369,14 +444,18 @@ func GetLoanFullTimeline(c *gin.Context) {
 	var extensions []models.ExtensionApplication
 	DB.Preload("ApprovalDecision").Where("loan_id = ?", id).Order("apply_time ASC").Find(&extensions)
 
+	var repaymentPlans []models.RepaymentPlan
+	DB.Where("loan_id = ?", id).Order("period_no ASC").Find(&repaymentPlans)
+
 	var logs []models.OperationLog
 	DB.Where("loan_id = ?", id).Order("created_at ASC").Find(&logs)
 
 	type TimelineItem struct {
-		Time   time.Time   `json:"time"`
-		Type   string      `json:"type"`
-		Title  string      `json:"title"`
-		Detail interface{} `json:"detail"`
+		Time            time.Time   `json:"time"`
+		Type            string      `json:"type"`
+		Title           string      `json:"title"`
+		Detail          interface{} `json:"detail"`
+		RepaymentPlanID *uint       `json:"repayment_plan_id,omitempty"`
 	}
 
 	var timeline []TimelineItem
@@ -406,11 +485,16 @@ func GetLoanFullTimeline(c *gin.Context) {
 		}
 	}
 	for _, l := range logs {
+		itemType := "operation"
+		if l.RepaymentPlanID != nil {
+			itemType = "repayment_plan_update"
+		}
 		timeline = append(timeline, TimelineItem{
-			Time:   l.CreatedAt,
-			Type:   "operation",
-			Title:  l.Action,
-			Detail: l,
+			Time:            l.CreatedAt,
+			Type:            itemType,
+			Title:           l.Action,
+			Detail:          l,
+			RepaymentPlanID: l.RepaymentPlanID,
 		})
 	}
 
@@ -423,7 +507,8 @@ func GetLoanFullTimeline(c *gin.Context) {
 	}
 
 	ok(c, gin.H{
-		"loan":     loan,
-		"timeline": timeline,
+		"loan":            loan,
+		"repayment_plans": repaymentPlans,
+		"timeline":        timeline,
 	})
 }
