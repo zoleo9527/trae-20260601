@@ -1,0 +1,482 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "张三",
+      "role": "registrar",
+      "phone": "13800138001"
+    },
+    {
+      "id": "u2",
+      "name": "李四",
+      "role": "trainer",
+      "phone": "13800138002"
+    },
+    {
+      "id": "u3",
+      "name": "王五",
+      "role": "safety_officer",
+      "phone": "13800138003"
+    },
+    {
+      "id": "u4",
+      "name": "赵六",
+      "role": "registrar",
+      "phone": "13800138004"
+    }
+  ],
+  "students": [
+    {
+      "id": "s1",
+      "name": "小明",
+      "phone": "13900139001",
+      "idCard": "110101199001011234",
+      "trainingHours": 30,
+      "documentsComplete": true
+    },
+    {
+      "id": "s2",
+      "name": "小红",
+      "phone": "13900139002",
+      "idCard": "110101199002022345",
+      "trainingHours": 25,
+      "documentsComplete": false
+    },
+    {
+      "id": "s3",
+      "name": "小刚",
+      "phone": "13900139003",
+      "idCard": "110101199003033456",
+      "trainingHours": 35,
+      "documentsComplete": true
+    },
+    {
+      "id": "s4",
+      "name": "小丽",
+      "phone": "13900139004",
+      "idCard": "110101199004044567",
+      "trainingHours": 28,
+      "documentsComplete": false
+    },
+    {
+      "id": "s5",
+      "name": "小强",
+      "phone": "13900139005",
+      "idCard": "110101199005055678",
+      "trainingHours": 32,
+      "documentsComplete": true
+    },
+    {
+      "id": "s6",
+      "name": "小芳",
+      "phone": "13900139006",
+      "idCard": "110101199006066789",
+      "trainingHours": 22,
+      "documentsComplete": true
+    },
+    {
+      "id": "s7",
+      "name": "小军",
+      "phone": "13900139007",
+      "idCard": "110101199007077890",
+      "trainingHours": 20,
+      "documentsComplete": false
+    },
+    {
+      "id": "s8",
+      "name": "小华",
+      "phone": "13900139008",
+      "idCard": "110101199008088901",
+      "trainingHours": 38,
+      "documentsComplete": true
+    }
+  ],
+  "examBatches": [
+    {
+      "id": "b1",
+      "batchNumber": "MC20240115001",
+      "examDate": "2024-01-20",
+      "examTime": "09:00",
+      "location": "第一考场",
+      "status": "submitted",
+      "submitterId": "u1",
+      "submitterName": "张三",
+      "submitTime": "2024-01-15 09:00:00",
+      "students": [
+        "s1",
+        "s2",
+        "s3",
+        "s4"
+      ],
+      "exceptionRecords": [
+        {
+          "id": "ex1",
+          "batchId": "b1",
+          "studentId": "s2",
+          "studentName": "小红",
+          "type": "missing_documents",
+          "description": "缺少体检证明和照片",
+          "createdAt": "2024-01-15 10:30:00",
+          "resolved": false
+        },
+        {
+          "id": "ex2",
+          "batchId": "b1",
+          "studentId": "s4",
+          "studentName": "小丽",
+          "type": "missing_documents",
+          "description": "缺少身份证复印件",
+          "createdAt": "2024-01-15 11:00:00",
+          "handlerId": "u1",
+          "handlerName": "张三",
+          "handledAt": "2024-01-15 14:30:00",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "id": "b2",
+      "batchNumber": "MC20240116001",
+      "examDate": "2024-01-21",
+      "examTime": "14:00",
+      "location": "第二考场",
+      "status": "confirmed",
+      "submitterId": "u4",
+      "submitterName": "赵六",
+      "submitTime": "2024-01-16 08:30:00",
+      "confirmerId": "u2",
+      "confirmerName": "李四",
+      "confirmTime": "2024-01-16 10:00:00",
+      "students": [
+        "s5",
+        "s6",
+        "s7"
+      ],
+      "exceptionRecords": [
+        {
+          "id": "ex3",
+          "batchId": "b2",
+          "studentId": "s7",
+          "studentName": "小军",
+          "type": "timeout",
+          "description": "超过48小时未确认通知",
+          "createdAt": "2024-01-16 09:00:00",
+          "resolved": false
+        },
+        {
+          "id": "ex5",
+          "batchId": "b2",
+          "studentId": "s6",
+          "studentName": "小芳",
+          "type": "review_failed",
+          "description": "理论考试成绩未达标",
+          "createdAt": "2024-01-16 15:00:00",
+          "handlerId": "u3",
+          "handlerName": "王五",
+          "handledAt": "2024-01-17 09:00:00",
+          "resolved": true
+        }
+      ]
+    },
+    {
+      "id": "b3",
+      "batchNumber": "MC20240117001",
+      "examDate": "2024-01-22",
+      "examTime": "09:00",
+      "location": "第一考场",
+      "status": "pending",
+      "submitterId": "u1",
+      "submitterName": "张三",
+      "submitTime": "2024-01-17 09:00:00",
+      "students": [
+        "s3",
+        "s8"
+      ],
+      "exceptionRecords": [
+        {
+          "id": "ex4",
+          "batchId": "b3",
+          "studentId": "s3",
+          "studentName": "小刚",
+          "type": "review_failed",
+          "description": "培训时长不足要求",
+          "createdAt": "2024-01-17 10:00:00",
+          "resolved": false
+        }
+      ]
+    },
+    {
+      "id": "b4",
+      "batchNumber": "MC20240110001",
+      "examDate": "2024-01-12",
+      "examTime": "10:00",
+      "location": "第三考场",
+      "status": "exam_completed",
+      "submitterId": "u4",
+      "submitterName": "赵六",
+      "submitTime": "2024-01-10 08:00:00",
+      "confirmerId": "u2",
+      "confirmerName": "李四",
+      "confirmTime": "2024-01-10 11:00:00",
+      "students": [
+        "s1",
+        "s5"
+      ],
+      "exceptionRecords": []
+    },
+    {
+      "id": "b5",
+      "batchNumber": "MC20240108001",
+      "examDate": "2024-01-10",
+      "examTime": "09:00",
+      "location": "第二考场",
+      "status": "cancelled",
+      "submitterId": "u1",
+      "submitterName": "张三",
+      "submitTime": "2024-01-08 09:00:00",
+      "confirmerId": "u3",
+      "confirmerName": "王五",
+      "confirmTime": "2024-01-08 10:00:00",
+      "students": [
+        "s2",
+        "s4"
+      ],
+      "exceptionRecords": []
+    }
+  ],
+  "studentNotifications": [
+    {
+      "id": "n1",
+      "batchId": "b1",
+      "studentId": "s1",
+      "studentName": "小明",
+      "status": "confirmed",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-15 10:00:00",
+      "confirmTime": "2024-01-15 10:30:00"
+    },
+    {
+      "id": "n2",
+      "batchId": "b1",
+      "studentId": "s2",
+      "studentName": "小红",
+      "status": "pending",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-15 10:00:00",
+      "remarks": "材料缺失，待补充"
+    },
+    {
+      "id": "n3",
+      "batchId": "b1",
+      "studentId": "s3",
+      "studentName": "小刚",
+      "status": "confirmed",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-15 10:00:00",
+      "confirmTime": "2024-01-15 11:00:00"
+    },
+    {
+      "id": "n4",
+      "batchId": "b1",
+      "studentId": "s4",
+      "studentName": "小丽",
+      "status": "notified",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-15 10:00:00"
+    },
+    {
+      "id": "n5",
+      "batchId": "b2",
+      "studentId": "s5",
+      "studentName": "小强",
+      "status": "completed",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-16 09:00:00",
+      "confirmTime": "2024-01-16 09:30:00"
+    },
+    {
+      "id": "n6",
+      "batchId": "b2",
+      "studentId": "s6",
+      "studentName": "小芳",
+      "status": "absent",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-16 09:00:00",
+      "remarks": "未按时到场"
+    },
+    {
+      "id": "n7",
+      "batchId": "b2",
+      "studentId": "s7",
+      "studentName": "小军",
+      "status": "pending",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-16 09:00:00",
+      "remarks": "超时未确认"
+    },
+    {
+      "id": "n8",
+      "batchId": "b3",
+      "studentId": "s3",
+      "studentName": "小刚",
+      "status": "pending",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-17 10:00:00"
+    },
+    {
+      "id": "n9",
+      "batchId": "b3",
+      "studentId": "s8",
+      "studentName": "小华",
+      "status": "pending",
+      "notifierId": "u2",
+      "notifierName": "李四",
+      "notifyTime": "2024-01-17 10:00:00"
+    }
+  ],
+  "exceptionRecords": [
+    {
+      "id": "ex1",
+      "batchId": "b1",
+      "studentId": "s2",
+      "studentName": "小红",
+      "type": "missing_documents",
+      "description": "缺少体检证明和照片",
+      "createdAt": "2024-01-15 10:30:00",
+      "resolved": false
+    },
+    {
+      "id": "ex2",
+      "batchId": "b1",
+      "studentId": "s4",
+      "studentName": "小丽",
+      "type": "missing_documents",
+      "description": "缺少身份证复印件",
+      "createdAt": "2024-01-15 11:00:00",
+      "handlerId": "u1",
+      "handlerName": "张三",
+      "handledAt": "2024-01-15 14:30:00",
+      "resolved": true
+    },
+    {
+      "id": "ex3",
+      "batchId": "b2",
+      "studentId": "s7",
+      "studentName": "小军",
+      "type": "timeout",
+      "description": "超过48小时未确认通知",
+      "createdAt": "2024-01-16 09:00:00",
+      "resolved": false
+    },
+    {
+      "id": "ex4",
+      "batchId": "b3",
+      "studentId": "s3",
+      "studentName": "小刚",
+      "type": "review_failed",
+      "description": "培训时长不足要求",
+      "createdAt": "2024-01-17 10:00:00",
+      "resolved": false
+    },
+    {
+      "id": "ex5",
+      "batchId": "b2",
+      "studentId": "s6",
+      "studentName": "小芳",
+      "type": "review_failed",
+      "description": "理论考试成绩未达标",
+      "createdAt": "2024-01-16 15:00:00",
+      "handlerId": "u3",
+      "handlerName": "王五",
+      "handledAt": "2024-01-17 09:00:00",
+      "resolved": true
+    }
+  ],
+  "operationLogs": [
+    {
+      "id": "log1",
+      "operationType": "创建考试批次",
+      "targetType": "batch",
+      "targetId": "b1",
+      "operatorId": "u1",
+      "operatorName": "张三",
+      "operatorRole": "registrar",
+      "timestamp": "2024-01-15 09:00:00",
+      "details": "创建批次 MC20240115001"
+    },
+    {
+      "id": "log2",
+      "operationType": "提交考试批次",
+      "targetType": "batch",
+      "targetId": "b1",
+      "operatorId": "u1",
+      "operatorName": "张三",
+      "operatorRole": "registrar",
+      "timestamp": "2024-01-15 09:00:00",
+      "details": "提交批次 MC20240115001"
+    },
+    {
+      "id": "log3",
+      "operationType": "发送学员通知",
+      "targetType": "notification",
+      "targetId": "n1",
+      "operatorId": "u2",
+      "operatorName": "李四",
+      "operatorRole": "trainer",
+      "timestamp": "2024-01-15 10:00:00",
+      "details": "通知学员 小明"
+    },
+    {
+      "id": "log4",
+      "operationType": "确认学员通知",
+      "targetType": "notification",
+      "targetId": "n1",
+      "operatorId": "u3",
+      "operatorName": "王五",
+      "operatorRole": "safety_officer",
+      "timestamp": "2024-01-15 10:30:00",
+      "details": "确认学员小明的通知"
+    },
+    {
+      "id": "log5",
+      "operationType": "创建异常记录",
+      "targetType": "exception",
+      "targetId": "ex1",
+      "operatorId": "u2",
+      "operatorName": "李四",
+      "operatorRole": "trainer",
+      "timestamp": "2024-01-15 10:30:00",
+      "details": "记录小红材料缺失异常"
+    },
+    {
+      "id": "log6",
+      "operationType": "确认考试批次",
+      "targetType": "batch",
+      "targetId": "b2",
+      "operatorId": "u2",
+      "operatorName": "李四",
+      "operatorRole": "trainer",
+      "timestamp": "2024-01-16 10:00:00",
+      "details": "确认批次 MC20240116001"
+    },
+    {
+      "id": "log7",
+      "operationType": "处理异常记录",
+      "targetType": "exception",
+      "targetId": "ex2",
+      "operatorId": "u1",
+      "operatorName": "张三",
+      "operatorRole": "registrar",
+      "timestamp": "2024-01-15 14:30:00",
+      "details": "处理小丽材料缺失异常，已补充"
+    }
+  ]
+}

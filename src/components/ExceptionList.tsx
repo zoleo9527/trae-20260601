@@ -1,29 +1,40 @@
-import { useState } from 'react';
-import { Table, Button, Modal, Tag, message, Select, Badge, Card, Row, Col, Divider } from 'antd';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Table, Button, Modal, Tag, message, Select, Badge, Card, Row, Col, Divider, Spin } from 'antd';
 import AlertOutlined from '@ant-design/icons/lib/icons/AlertOutlined';
 import CheckCircleOutlined from '@ant-design/icons/lib/icons/CheckCircleOutlined';
 import EyeOutlined from '@ant-design/icons/lib/icons/EyeOutlined';
 import ExclamationCircleOutlined from '@ant-design/icons/lib/icons/ExclamationCircleOutlined';
-import { ExceptionRecord, EXCEPTION_TYPE_MAP, ExceptionType } from '../types';
-import { examBatches } from '../data/mockData';
-import { getExceptions, handleException } from '../api/exception';
+import { ExceptionRecord, EXCEPTION_TYPE_MAP, ExceptionType, ExamBatch } from '../types';
+import { apiClient } from '../services/apiClient';
 import { ExamBatchWorkflowSteps } from './WorkflowVisualization';
-import { RoleType } from '../types';
 
 const { Option } = Select;
 
-const currentUser = {
-  id: 'u1',
-  name: '张三',
-  role: 'registrar' as RoleType,
-};
-
 export default function ExceptionList() {
-  const [exceptions, setExceptions] = useState<ExceptionRecord[]>(getExceptions());
+  const [exceptions, setExceptions] = useState<ExceptionRecord[]>([]);
+  const [batches, setBatches] = useState<ExamBatch[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedException, setSelectedException] = useState<ExceptionRecord | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [filterType, setFilterType] = useState<ExceptionType | ''>('');
   const [filterResolved, setFilterResolved] = useState<string>('');
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [exceptionsData, batchesData] = await Promise.all([
+      apiClient.getExceptions(),
+      apiClient.getExamBatches(),
+    ]);
+    setExceptions(exceptionsData);
+    setBatches(batchesData);
+    setLoading(false);
+  };
 
   const typeColors: Record<ExceptionType, string> = {
     missing_documents: 'orange',
@@ -55,7 +66,7 @@ export default function ExceptionList() {
       dataIndex: 'batchId', 
       key: 'batchId',
       render: (id: string) => {
-        const batch = examBatches.find(b => b.id === id);
+        const batch = batches.find(b => b.id === id);
         return batch?.batchNumber || id;
       },
     },
@@ -120,15 +131,19 @@ export default function ExceptionList() {
     setIsModalVisible(true);
   };
 
-  const handleResolve = (id: string) => {
-    const result = handleException(id, currentUser.id, currentUser.name, currentUser.role);
+  const handleResolve = async (id: string) => {
+    const result = await apiClient.handleException(id);
     if (result.success) {
-      setExceptions(getExceptions());
-      message.success('处理成功');
+      message.success('处理成功，已同步更新批次和通知');
+      loadData();
     } else {
       message.error(result.error?.message || '处理失败');
     }
   };
+
+  if (loading) {
+    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+  }
 
   return (
     <div>
@@ -237,7 +252,7 @@ export default function ExceptionList() {
               <Col span={12}>
                 <div style={{ marginBottom: '16px' }}>
                   <strong>批次编号：</strong>
-                  <Tag color="blue">{examBatches.find(b => b.id === selectedException.batchId)?.batchNumber}</Tag>
+                  <Tag color="blue">{batches.find(b => b.id === selectedException.batchId)?.batchNumber}</Tag>
                 </div>
                 <div style={{ marginBottom: '16px' }}>
                   <strong>学员姓名：</strong>{selectedException.studentName}
@@ -289,11 +304,11 @@ export default function ExceptionList() {
             <Divider />
 
             <ExamBatchWorkflowSteps 
-              status={examBatches.find(b => b.id === selectedException.batchId)?.status || 'pending'}
-              submitterName={examBatches.find(b => b.id === selectedException.batchId)?.submitterName}
-              submitTime={examBatches.find(b => b.id === selectedException.batchId)?.submitTime}
-              confirmerName={examBatches.find(b => b.id === selectedException.batchId)?.confirmerName}
-              confirmTime={examBatches.find(b => b.id === selectedException.batchId)?.confirmTime}
+              status={batches.find(b => b.id === selectedException.batchId)?.status || 'pending'}
+              submitterName={batches.find(b => b.id === selectedException.batchId)?.submitterName}
+              submitTime={batches.find(b => b.id === selectedException.batchId)?.submitTime}
+              confirmerName={batches.find(b => b.id === selectedException.batchId)?.confirmerName}
+              confirmTime={batches.find(b => b.id === selectedException.batchId)?.confirmTime}
             />
           </div>
         )}

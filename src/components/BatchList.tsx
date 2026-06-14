@@ -1,29 +1,41 @@
-import { useState } from 'react';
-import { Table, Button, Modal, Form, Input, Select, DatePicker, TimePicker, Tag, message } from 'antd';
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Table, Button, Modal, Form, Input, Select, DatePicker, TimePicker, Tag, message, Spin } from 'antd';
 import PlusOutlined from '@ant-design/icons/lib/icons/PlusOutlined';
 import EyeOutlined from '@ant-design/icons/lib/icons/EyeOutlined';
 import CheckCircleOutlined from '@ant-design/icons/lib/icons/CheckCircleOutlined';
 import CloseCircleOutlined from '@ant-design/icons/lib/icons/CloseCircleOutlined';
 import PlayCircleOutlined from '@ant-design/icons/lib/icons/PlayCircleOutlined';
-import { ExamBatch, EXAM_BATCH_STATUS_MAP, ExamBatchStatus, RoleType } from '../types';
-import { getExamBatches, submitExamBatch, confirmExamBatch, completeExam, cancelExamBatch, getBatchStudents } from '../api/examBatch';
-import { students } from '../data/mockData';
+import { ExamBatch, EXAM_BATCH_STATUS_MAP, ExamBatchStatus, Student } from '../types';
+import { apiClient } from '../services/apiClient';
 import { ExamBatchWorkflowSteps } from './WorkflowVisualization';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
 
-const currentUser = {
-  id: 'u1',
-  name: '张三',
-  role: 'registrar' as RoleType,
-};
-
 export default function BatchList() {
-  const [batches, setBatches] = useState<ExamBatch[]>(getExamBatches());
+  const [batches, setBatches] = useState<ExamBatch[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<ExamBatch | null>(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [batchesData, studentsData] = await Promise.all([
+      apiClient.getExamBatches(),
+      apiClient.getStudents(),
+    ]);
+    setBatches(batchesData);
+    setStudents(studentsData);
+    setLoading(false);
+  };
 
   const statusColors: Record<ExamBatchStatus, string> = {
     pending: 'gold',
@@ -100,41 +112,41 @@ export default function BatchList() {
     setIsModalVisible(true);
   };
 
-  const handleSubmit = (id: string) => {
-    const result = submitExamBatch(id, currentUser.id, currentUser.name, currentUser.role);
+  const handleSubmit = async (id: string) => {
+    const result = await apiClient.submitExamBatch(id);
     if (result.success) {
-      setBatches(getExamBatches());
       message.success('提交成功');
+      loadData();
     } else {
       message.error(result.error?.message || '提交失败');
     }
   };
 
-  const handleConfirm = (id: string) => {
-    const result = confirmExamBatch(id, 'u2', '李四', 'trainer');
+  const handleConfirm = async (id: string) => {
+    const result = await apiClient.confirmExamBatch(id);
     if (result.success) {
-      setBatches(getExamBatches());
       message.success('确认成功');
+      loadData();
     } else {
       message.error(result.error?.message || '确认失败');
     }
   };
 
-  const handleComplete = (id: string) => {
-    const result = completeExam(id, 'u3', '王五', 'safety_officer');
+  const handleComplete = async (id: string) => {
+    const result = await apiClient.completeExam(id);
     if (result.success) {
-      setBatches(getExamBatches());
       message.success('考试完成');
+      loadData();
     } else {
       message.error(result.error?.message || '操作失败');
     }
   };
 
-  const handleCancel = (id: string) => {
-    const result = cancelExamBatch(id, 'u2', '李四', 'trainer');
+  const handleCancel = async (id: string) => {
+    const result = await apiClient.cancelExamBatch(id);
     if (result.success) {
-      setBatches(getExamBatches());
       message.success('已取消');
+      loadData();
     } else {
       message.error(result.error?.message || '取消失败');
     }
@@ -146,21 +158,31 @@ export default function BatchList() {
     setIsModalVisible(true);
   };
 
-  const handleOk = () => {
-    form.validateFields().then(values => {
-      if (selectedBatch) {
-        message.success('修改成功');
+  const handleOk = async () => {
+    try {
+      const values = await form.validateFields();
+      const result = await apiClient.createExamBatch({
+        examDate: values.examDate.format('YYYY-MM-DD'),
+        examTime: values.examTime.format('HH:mm'),
+        location: values.location,
+        students: values.students,
+      });
+      
+      if (result.success) {
+        message.success('创建成功，已自动生成学员通知');
+        setIsModalVisible(false);
+        loadData();
       } else {
-        message.success('创建成功');
+        message.error(result.error?.message || '创建失败');
       }
-      setIsModalVisible(false);
-      setBatches(getExamBatches());
-    }).catch(info => {
+    } catch (info) {
       message.error('表单验证失败');
-    });
+    }
   };
 
-  const batchStudents = selectedBatch ? getBatchStudents(selectedBatch.id) : [];
+  if (loading) {
+    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+  }
 
   return (
     <div>
@@ -210,7 +232,7 @@ export default function BatchList() {
             <div>
               <h3>学员列表</h3>
               <Table 
-                dataSource={batchStudents} 
+                dataSource={students.filter(s => selectedBatch.students.includes(s.id))} 
                 columns={[
                   { title: '姓名', dataIndex: 'name', key: 'name' },
                   { title: '手机号', dataIndex: 'phone', key: 'phone' },
@@ -222,7 +244,7 @@ export default function BatchList() {
                 size="small"
               />
             </div>
-            {selectedBatch.exceptionRecords.length > 0 && (
+            {selectedBatch.exceptionRecords && selectedBatch.exceptionRecords.length > 0 && (
               <div style={{ marginTop: '16px' }}>
                 <h3>异常记录</h3>
                 <Table 
@@ -241,9 +263,6 @@ export default function BatchList() {
           </div>
         ) : (
           <Form form={form} layout="vertical">
-            <Form.Item label="批次编号" name="batchNumber" rules={[{ required: true }]}>
-              <Input />
-            </Form.Item>
             <Form.Item label="考试日期" name="examDate" rules={[{ required: true }]}>
               <DatePicker style={{ width: '100%' }} />
             </Form.Item>

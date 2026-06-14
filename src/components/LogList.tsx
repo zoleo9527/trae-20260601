@@ -1,12 +1,13 @@
+'use client';
+
 import { useState, useEffect } from 'react';
-import { Table, Select, Tag, Card, Row, Col, Statistic } from 'antd';
+import { Table, Select, Tag, Card, Row, Col, Statistic, Spin } from 'antd';
 import FileTextOutlined from '@ant-design/icons/lib/icons/FileTextOutlined';
 import UserOutlined from '@ant-design/icons/lib/icons/UserOutlined';
 import TeamOutlined from '@ant-design/icons/lib/icons/TeamOutlined';
 import AlertOutlined from '@ant-design/icons/lib/icons/AlertOutlined';
-import { OperationLog, ERROR_CODES, ROLE_NAMES } from '../types';
-import { getOperationLogs } from '../api/operationLog';
-import { examBatches } from '../data/mockData';
+import { OperationLog, ERROR_CODES, ROLE_NAMES, ExamBatch } from '../types';
+import { apiClient } from '../services/apiClient';
 
 const { Option } = Select;
 
@@ -32,12 +33,25 @@ const targetTypeColors: Record<string, string> = {
 
 export default function LogList() {
   const [logs, setLogs] = useState<OperationLog[]>([]);
+  const [batches, setBatches] = useState<ExamBatch[]>([]);
+  const [loading, setLoading] = useState(true);
   const [filterRole, setFilterRole] = useState<string>('');
   const [filterTarget, setFilterTarget] = useState<string>('');
 
   useEffect(() => {
-    setLogs(getOperationLogs());
+    loadData();
   }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    const [logsData, batchesData] = await Promise.all([
+      apiClient.getOperationLogs(),
+      apiClient.getExamBatches(),
+    ]);
+    setLogs(logsData);
+    setBatches(batchesData);
+    setLoading(false);
+  };
 
   const filteredLogs = logs.filter(log => {
     if (filterRole && log.operatorRole !== filterRole) return false;
@@ -78,7 +92,7 @@ export default function LogList() {
       key: 'targetId',
       render: (id: string, record: OperationLog) => {
         if (record.targetType === 'batch') {
-          const batch = examBatches.find(b => b.id === id);
+          const batch = batches.find(b => b.id === id);
           return batch?.batchNumber || id;
         }
         return id;
@@ -108,6 +122,10 @@ export default function LogList() {
       key: 'details',
     },
   ];
+
+  if (loading) {
+    return <Spin size="large" style={{ display: 'block', margin: '100px auto' }} />;
+  }
 
   return (
     <div>
