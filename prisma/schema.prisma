@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  username     String   @unique @db.VarChar(50)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  realName     String   @map("real_name") @db.VarChar(100)
+  role         Role
+  phone        String?  @db.VarChar(20)
+  status       UserStatus @default(active)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  students           Student[]           @relation("AdvisorStudents")
+  coachingStudents   Student[]           @relation("CoachStudents")
+  trainingHours      TrainingHours[]
+  payments           Payment[]
+  examBookings       ExamBooking[]
+  statusLogs         StatusLog[]
+
+  @@map("users")
+  @@index([role])
+  @@index([status])
+}
+
+enum Role {
+  advisor
+  coach
+  examiner
+  admin
+}
+
+enum UserStatus {
+  active
+  inactive
+}
+
+model Student {
+  id        String       @id @default(uuid())
+  name      String       @db.VarChar(100)
+  phone     String       @unique @db.VarChar(20)
+  idCard    String       @unique @db.VarChar(18)
+  examType  String       @map("exam_type") @db.VarChar(50)
+  advisorId String?      @map("advisor_id")
+  coachId   String?      @map("coach_id")
+  status    StudentStatus @default(enrolled)
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+
+  advisor       User?            @relation("AdvisorStudents", fields: [advisorId], references: [id])
+  coach         User?            @relation("CoachStudents", fields: [coachId], references: [id])
+  trainingHours TrainingHours[]
+  payments      Payment[]
+  examBookings  ExamBooking[]
+
+  @@map("students")
+  @@index([status])
+  @@index([advisorId])
+  @@index([coachId])
+  @@index([phone])
+}
+
+enum StudentStatus {
+  enrolled
+  studying
+  training
+  examining
+  graduated
+  dropped
+}
+
+model TrainingHours {
+  id              String           @id @default(uuid())
+  studentId       String
+  coachId         String
+  scheduledAt     DateTime         @map("scheduled_at")
+  actualAt        DateTime?
+  hours           Decimal          @db.Decimal(4, 2)
+  actualHours     Decimal?         @map("actual_hours") @db.Decimal(4, 2)
+  location        String?          @db.VarChar(100)
+  status          TrainingStatus   @default(scheduled)
+  exceptionReason String?          @map("exception_reason")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  student     Student      @relation(fields: [studentId], references: [id])
+  coach       User         @relation(fields: [coachId], references: [id])
+  statusLogs  StatusLog[]
+
+  @@map("training_hours")
+  @@index([studentId])
+  @@index([coachId])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+enum TrainingStatus {
+  scheduled
+  coach_confirmed
+  hours_recorded
+  student_confirmed
+  completed
+  cancelled
+  exception
+}
+
+model Payment {
+  id           String        @id @default(uuid())
+  studentId    String
+  paymentType  PaymentType
+  amount       Decimal       @db.Decimal(10, 2)
+  status       PaymentStatus @default(pending)
+  paidAt       DateTime?
+  settledAt    DateTime?
+  refundReason String?       @map("refund_reason")
+  handlerId    String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  student    Student     @relation(fields: [studentId], references: [id])
+  handler    User?       @relation(fields: [handlerId], references: [id])
+  statusLogs StatusLog[]
+
+  @@map("payments")
+  @@index([studentId])
+  @@index([status])
+  @@index([paymentType])
+  @@index([handlerId])
+}
+
+enum PaymentType {
+  registration
+  training
+  retest
+  reinstatement
+  refund
+}
+
+enum PaymentStatus {
+  pending
+  confirmed
+  paid
+  settled
+  refund_pending
+  refunded
+  exception
+}
+
+model ExamBooking {
+  id           String         @id @default(uuid())
+  studentId    String
+  examType     String         @map("exam_type") @db.VarChar(50)
+  scheduledDate DateTime?     @map("scheduled_date")
+  location     String?        @db.VarChar(100)
+  examinerId   String?
+  status       ExamStatus     @default(pending)
+  score        Decimal?       @db.Decimal(5, 2)
+  retestFee    Decimal?       @map("retest_fee") @db.Decimal(10, 2)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  student    Student     @relation(fields: [studentId], references: [id])
+  examiner   User?       @relation(fields: [examinerId], references: [id])
+  statusLogs StatusLog[]
+
+  @@map("exam_bookings")
+  @@index([studentId])
+  @@index([status])
+  @@index([scheduledDate])
+}
+
+enum ExamStatus {
+  pending
+  booked
+  completed
+  absent
+  scored
+  archived
+  retest
+  cancelled
+}
+
+model StatusLog {
+  id              String   @id @default(uuid())
+  entityType      String   @map("entity_type") @db.VarChar(50)
+  entityId        String
+  previousStatus  String?  @map("previous_status")
+  newStatus       String
+  handlerId       String
+  handlerName     String   @map("handler_name") @db.VarChar(100)
+  handlerRole     String   @map("handler_role") @db.VarChar(20)
+  reason          String   @db.Text
+  remark          String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  handler       User?          @relation(fields: [handlerId], references: [id])
+  trainingHours TrainingHours? @relation(fields: [entityId], references: [id], map: "status_logs_training_hours")
+  payment       Payment?       @relation(fields: [entityId], references: [id], map: "status_logs_payment")
+  examBooking   ExamBooking?   @relation(fields: [entityId], references: [id], map: "status_logs_exam_booking")
+
+  @@map("status_logs")
+  @@index([entityType, entityId])
+  @@index([handlerId])
+  @@index([createdAt])
+}
