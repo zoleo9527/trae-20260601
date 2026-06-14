@@ -118,7 +118,8 @@ function makeRisk(
   markedAt: string,
   resolved = false,
   resolveRemark = '',
-  resolvedById = ''
+  resolvedById = '',
+  resolvedAt = ''
 ): RiskRecord {
   const u = userMap[operatorId];
   const record: RiskRecord = {
@@ -137,8 +138,9 @@ function makeRisk(
     const ru = userMap[resolvedById];
     record.resolvedById = resolvedById;
     record.resolvedByName = ru.name;
+    record.resolvedByRole = ru.role;
     record.resolveRemark = resolveRemark;
-    record.resolvedAt = markedAt;
+    record.resolvedAt = resolvedAt || markedAt;
   }
   return record;
 }
@@ -619,7 +621,8 @@ export const mockReminders: Reminder[] = [
         '2026-05-18T17:30:00+08:00',
         true,
         '已与教练沟通，教练向学员致歉，学员表示接受，已达成和解',
-        'u7'
+        'u7',
+        '2026-05-19T10:00:00+08:00'
       ),
     ],
   },

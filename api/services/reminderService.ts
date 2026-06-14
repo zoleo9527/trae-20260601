@@ -252,6 +252,7 @@ export function resolveRisk(
   risk.resolved = true;
   risk.resolvedById = payload.operatorId;
   risk.resolvedByName = operator.name;
+  risk.resolvedByRole = operator.role;
   risk.resolvedAt = new Date().toISOString();
   risk.resolveRemark = payload.resolveRemark;
   updateRiskLevel(r);

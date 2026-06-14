@@ -233,10 +233,13 @@ export default function StatusTabs() {
               </div>
             </div>
             {highRiskStats.oldestRisk && (
-              <div className="flex-shrink-0 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1">
+              <div className="flex-shrink-0 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1 flex items-center gap-1">
                 <span className="text-slate-500">最久未处理：</span>
                 <span className="font-medium">{highRiskStats.oldestRisk.markedByName}</span>
-                <span className="text-slate-400 ml-1">·</span>
+                <span className={`px-1 py-0.5 rounded-sm text-white ${roleMap[highRiskStats.oldestRisk.markedByRole]?.className || 'bg-slate-400'}`}>
+                  {roleMap[highRiskStats.oldestRisk.markedByRole]?.label}
+                </span>
+                <span className="text-slate-400">·</span>
                 <span className="font-mono">{highRiskStats.oldestRisk.markedAt.slice(5, 16)}</span>
               </div>
             )}

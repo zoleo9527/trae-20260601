@@ -633,18 +633,38 @@ function RiskItem({
       <div className="flex items-center justify-between text-xs text-slate-500">
         <div className="flex items-center gap-1.5">
           <Avatar name={risk.markedByName} size="sm" />
-          <span>{risk.markedByName}</span>
+          <span className="text-slate-700">{risk.markedByName}</span>
           <span className="text-slate-400">·</span>
-          <span>{roleMap[risk.markedByRole]?.label || risk.markedByRole}</span>
+          <span className={`px-1 py-0.5 rounded-sm text-white ${roleMap[risk.markedByRole]?.className || 'bg-slate-400'}`}>
+            {roleMap[risk.markedByRole]?.label || risk.markedByRole}
+          </span>
+          <span className="text-slate-400">标记</span>
         </div>
         <span className="tabular-nums">{formatDateTime(risk.markedAt)}</span>
       </div>
-      {risk.resolved && risk.resolveRemark && (
-        <div className="mt-2 pt-2 border-t border-slate-200 text-xs text-slate-600">
-          <span className="text-emerald-600 font-medium">解除说明：</span>
-          {risk.resolveRemark}
-          {risk.resolvedByName && (
-            <span className="text-slate-400 ml-1">— {risk.resolvedByName}</span>
+      {risk.resolved && (
+        <div className="mt-2 pt-2 border-t border-slate-200 space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <div className="flex items-center gap-1.5">
+              <Avatar name={risk.resolvedByName || ''} size="sm" />
+              <span className="text-emerald-700 font-medium">{risk.resolvedByName}</span>
+              <span className="text-slate-400">·</span>
+              {risk.resolvedByRole && (
+                <span className={`px-1 py-0.5 rounded-sm text-white ${roleMap[risk.resolvedByRole]?.className || 'bg-slate-400'}`}>
+                  {roleMap[risk.resolvedByRole]?.label || risk.resolvedByRole}
+                </span>
+              )}
+              <span className="text-emerald-600">解除</span>
+            </div>
+            {risk.resolvedAt && (
+              <span className="tabular-nums text-emerald-700">{formatDateTime(risk.resolvedAt)}</span>
+            )}
+          </div>
+          {risk.resolveRemark && (
+            <div className="text-xs text-slate-600 ml-8">
+              <span className="text-emerald-600 font-medium">解除说明：</span>
+              {risk.resolveRemark}
+            </div>
           )}
         </div>
       )}

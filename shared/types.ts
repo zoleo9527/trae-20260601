@@ -121,6 +121,7 @@ export interface RiskRecord {
   resolved?: boolean;
   resolvedById?: string;
   resolvedByName?: string;
+  resolvedByRole?: UserRole;
   resolvedAt?: string;
   resolveRemark?: string;
 }

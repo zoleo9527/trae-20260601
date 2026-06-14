@@ -107,15 +107,27 @@ export default function HistoryTimeline({ history, risks = [] }: Props) {
                   </span>
                 </div>
                 <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-500">
-                  <Avatar name={r.resolved ? (r.resolvedByName || r.markedByName) : r.markedByName} size="sm" />
-                  <span className="text-slate-700 font-medium">
-                    {r.resolved ? (r.resolvedByName || r.markedByName) : r.markedByName}
-                  </span>
-                  <span className={`px-1.5 py-0.5 rounded-sm ${
-                    roleMap[r.resolved ? (r.markedByRole as any) : r.markedByRole]?.className || 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {roleMap[r.resolved ? (r.markedByRole as any) : r.markedByRole]?.label || r.markedByRole}
-                  </span>
+                  {r.resolved ? (
+                    <>
+                      <Avatar name={r.resolvedByName || ''} size="sm" />
+                      <span className="text-slate-700 font-medium">{r.resolvedByName}</span>
+                      <span className={`px-1.5 py-0.5 rounded-sm ${
+                        roleMap[r.resolvedByRole as any]?.className || 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {roleMap[r.resolvedByRole as any]?.label || r.resolvedByRole}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Avatar name={r.markedByName} size="sm" />
+                      <span className="text-slate-700 font-medium">{r.markedByName}</span>
+                      <span className={`px-1.5 py-0.5 rounded-sm ${
+                        roleMap[r.markedByRole]?.className || 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {roleMap[r.markedByRole]?.label || r.markedByRole}
+                      </span>
+                    </>
+                  )}
                   <span className="ml-auto tabular-nums">
                     {formatDateTime(r.resolved ? (r.resolvedAt || r.markedAt) : r.markedAt)}
                   </span>
