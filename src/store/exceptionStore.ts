@@ -9,12 +9,14 @@ interface ExceptionStore {
   loadExceptions: () => void;
   selectException: (id: string | null) => void;
   setFilterType: (type: ExceptionType | 'all') => void;
+  addException: (exception: Omit<Exception, 'id'>) => Exception;
   analyzeException: (id: string, analysis: Exception['analysis']) => void;
   resolveException: (id: string, result: string) => void;
   escalateException: (id: string, escalation: Exception['escalation']) => void;
   updateExceptionStatus: (id: string, status: ExceptionStatus) => void;
   getFilteredExceptions: () => Exception[];
   getSelectedException: () => Exception | undefined;
+  getExceptionsByOrderId: (orderId: string) => Exception[];
 }
 
 export const useExceptionStore = create<ExceptionStore>((set, get) => ({
@@ -32,6 +34,17 @@ export const useExceptionStore = create<ExceptionStore>((set, get) => ({
 
   setFilterType: (type) => {
     set({ filterType: type });
+  },
+
+  addException: (exceptionData) => {
+    const newException: Exception = {
+      ...exceptionData,
+      id: `EXC${Date.now()}`,
+    };
+    set((state) => ({
+      exceptions: [...state.exceptions, newException],
+    }));
+    return newException;
   },
 
   analyzeException: (id, analysis) => {
@@ -89,5 +102,10 @@ export const useExceptionStore = create<ExceptionStore>((set, get) => ({
   getSelectedException: () => {
     const { exceptions, selectedExceptionId } = get();
     return exceptions.find((exc) => exc.id === selectedExceptionId);
+  },
+
+  getExceptionsByOrderId: (orderId) => {
+    const { exceptions } = get();
+    return exceptions.filter((exc) => exc.workOrderId === orderId);
   },
 }));

@@ -42,7 +42,7 @@ const statusColors = {
 
 export default function ExceptionsPage() {
   const { loadExceptions, exceptions, filterType, setFilterType } = useExceptionStore();
-  const { loadOrders, orders, selectOrder } = useWorkOrderStore();
+  const { loadOrders, orders, selectOrder, getOrderById } = useWorkOrderStore();
   const { loadTechnicians, getTechnicianById } = useTechnicianStore();
 
   useEffect(() => {
@@ -51,20 +51,25 @@ export default function ExceptionsPage() {
     loadTechnicians();
   }, [loadExceptions, loadOrders, loadTechnicians]);
 
+  const allExceptions = [
+    ...exceptions,
+    ...orders.flatMap(order =>
+      order.exceptions.filter(
+        exc => !exceptions.find(e => e.id === exc.id)
+      )
+    ),
+  ];
+
   const filteredExceptions = filterType === 'all'
-    ? exceptions
-    : exceptions.filter(e => e.type === filterType);
+    ? allExceptions
+    : allExceptions.filter(e => e.type === filterType);
 
   const stats = {
-    total: exceptions.length,
-    open: exceptions.filter(e => e.status === 'open').length,
-    analyzing: exceptions.filter(e => e.status === 'analyzing').length,
-    handling: exceptions.filter(e => e.status === 'handling').length,
-    resolved: exceptions.filter(e => e.status === 'resolved').length,
-  };
-
-  const getOrderById = (orderId: string) => {
-    return orders.find(o => o.id === orderId);
+    total: allExceptions.length,
+    open: allExceptions.filter(e => e.status === 'open').length,
+    analyzing: allExceptions.filter(e => e.status === 'analyzing').length,
+    handling: allExceptions.filter(e => e.status === 'handling').length,
+    resolved: allExceptions.filter(e => e.status === 'resolved').length,
   };
 
   const handleExceptionClick = (exception: any) => {

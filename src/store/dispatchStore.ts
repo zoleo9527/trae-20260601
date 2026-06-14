@@ -7,11 +7,13 @@ interface DispatchStore {
   selectedDispatchId: string | null;
   loadDispatches: () => void;
   selectDispatch: (id: string | null) => void;
-  createDispatch: (dispatch: Omit<Dispatch, 'id'>) => void;
+  createDispatch: (dispatch: Omit<Dispatch, 'id'>) => Dispatch;
+  addDispatch: (dispatch: Omit<Dispatch, 'id'>) => Dispatch;
   confirmDispatch: (id: string) => void;
   completeDispatch: (id: string, result: DispatchResult) => void;
   updateDispatchStatus: (id: string, status: DispatchStatus) => void;
   getDispatchByOrderId: (orderId: string) => Dispatch | undefined;
+  getDispatchesByTechnicianId: (technicianId: string) => Dispatch[];
 }
 
 export const useDispatchStore = create<DispatchStore>((set, get) => ({
@@ -34,6 +36,18 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
     set((state) => ({
       dispatches: [...state.dispatches, newDispatch],
     }));
+    return newDispatch;
+  },
+
+  addDispatch: (dispatchData) => {
+    const newDispatch: Dispatch = {
+      ...dispatchData,
+      id: `D${Date.now()}`,
+    };
+    set((state) => ({
+      dispatches: [...state.dispatches, newDispatch],
+    }));
+    return newDispatch;
   },
 
   confirmDispatch: (id) => {
@@ -50,7 +64,7 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
     set((state) => ({
       dispatches: state.dispatches.map((dispatch) =>
         dispatch.id === id
-          ? { ...dispatch, status: 'completed', result }
+          ? { ...dispatch, completedAt: new Date(), status: 'completed', result }
           : dispatch
       ),
     }));
@@ -67,5 +81,10 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
   getDispatchByOrderId: (orderId) => {
     const { dispatches } = get();
     return dispatches.find((dispatch) => dispatch.workOrderId === orderId);
+  },
+
+  getDispatchesByTechnicianId: (technicianId) => {
+    const { dispatches } = get();
+    return dispatches.filter((dispatch) => dispatch.technicianId === technicianId);
   },
 }));

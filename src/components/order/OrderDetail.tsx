@@ -20,6 +20,7 @@ import { zhCN } from 'date-fns/locale';
 import { useDispatchStore } from '../../store/dispatchStore';
 import { useTechnicianStore } from '../../store/technicianStore';
 import { useWorkOrderStore } from '../../store/workOrderStore';
+import { useExceptionStore } from '../../store/exceptionStore';
 import { useState } from 'react';
 
 interface OrderDetailProps {
@@ -59,11 +60,15 @@ const exceptionStatusLabels = {
 };
 
 export default function OrderDetail({ order }: OrderDetailProps) {
-  const { dispatches } = useDispatchStore();
-  const { getTechnicianById } = useTechnicianStore();
-  const { updateOrder } = useWorkOrderStore();
+  const { dispatches, addDispatch } = useDispatchStore();
+  const { getTechnicianById, getAvailableTechnicians, technicians } = useTechnicianStore();
+  const { updateOrder, addLog } = useWorkOrderStore();
+  const { addException } = useExceptionStore();
   const [showDispatchModal, setShowDispatchModal] = useState(false);
   const [showExceptionModal, setShowExceptionModal] = useState(false);
+  const [selectedTechId, setSelectedTechId] = useState('');
+  const [exceptionType, setExceptionType] = useState<string>('wrong_model');
+  const [exceptionDesc, setExceptionDesc] = useState('');
   const status = statusConfig[order.status];
   const priority = priorityConfig[order.priority];
 
@@ -72,25 +77,190 @@ export default function OrderDetail({ order }: OrderDetailProps) {
   const isPending = order.status === 'pending';
   const isInProgress = order.status === 'in_progress';
   const isSuspended = order.status === 'suspended';
+  const isCompleted = order.status === 'completed';
+
+  const availableTechnicians = getAvailableTechnicians();
 
   const handleDispatch = () => {
     setShowDispatchModal(true);
+    if (availableTechnicians.length > 0) {
+      setSelectedTechId(availableTechnicians[0].id);
+    }
+  };
+
+  const handleConfirmDispatch = () => {
+    if (!selectedTechId) return;
+
+    const newDispatch = addDispatch({
+      dispatchNo: `D${Date.now()}`,
+      workOrderId: order.id,
+      technicianId: selectedTechId,
+      dispatchType: 'manual',
+      dispatcherId: 'M001',
+      dispatchedAt: new Date(),
+      confirmedAt: new Date(),
+      status: 'in_progress',
+    });
+
+    updateOrder(order.id, {
+      status: 'in_progress',
+      installation: {
+        ...order.installation,
+        technicianId: selectedTechId,
+        startTime: new Date(),
+      },
+      dispatchId: newDispatch.id,
+    });
+
+    addLog(order.id, {
+      entityType: 'dispatch',
+      entityId: newDispatch.id,
+      operator: { id: 'M001', name: '店长王明', role: '店长' },
+      action: '派工',
+      timestamp: new Date(),
+      changes: [
+        {
+          field: '状态',
+          before: '待处理',
+          after: '进行中',
+        },
+        {
+          field: '技师',
+          before: '无',
+          after: selectedTechId,
+        },
+      ],
+    });
+
+    setShowDispatchModal(false);
+    setSelectedTechId('');
   };
 
   const handleReportException = () => {
     setShowExceptionModal(true);
+    setExceptionType('wrong_model');
+    setExceptionDesc('');
+  };
+
+  const handleConfirmException = () => {
+    if (!exceptionDesc) return;
+
+    const newException = addException({
+      workOrderId: order.id,
+      type: exceptionType as any,
+      description: exceptionDesc,
+      severity: 'high',
+      discoveredAt: new Date(),
+      discoveredBy: 'M001',
+      details: {
+        evidence: [],
+      },
+      status: 'open',
+    });
+
+    updateOrder(order.id, {
+      status: 'suspended',
+      exceptions: [...order.exceptions, newException],
+    });
+
+    addLog(order.id, {
+      entityType: 'exception',
+      entityId: newException.id,
+      operator: { id: 'M001', name: '店长王明', role: '店长' },
+      action: '上报异常',
+      timestamp: new Date(),
+      changes: [
+        {
+          field: '异常类型',
+          before: '',
+          after: exceptionType === 'wrong_model' ? '型号拿错' :
+                 exceptionType === 'warranty_dispute' ? '补胎争议' :
+                 exceptionType === 'inventory_issue' ? '库存批次问题' : '其他',
+        },
+        {
+          field: '状态',
+          before: order.status,
+          after: 'suspended',
+        },
+      ],
+    });
+
+    setShowExceptionModal(false);
+    setExceptionDesc('');
   };
 
   const handlePause = () => {
+    const previousStatus = order.status;
     updateOrder(order.id, { status: 'suspended' });
+
+    addLog(order.id, {
+      entityType: 'work_order',
+      entityId: order.id,
+      operator: { id: 'M001', name: '店长王明', role: '店长' },
+      action: '工单暂停',
+      timestamp: new Date(),
+      changes: [
+        {
+          field: '状态',
+          before: previousStatus,
+          after: 'suspended',
+        },
+      ],
+    });
   };
 
   const handleResume = () => {
+    const previousStatus = order.status;
     updateOrder(order.id, { status: 'in_progress' });
+
+    addLog(order.id, {
+      entityType: 'work_order',
+      entityId: order.id,
+      operator: { id: 'M001', name: '店长王明', role: '店长' },
+      action: '继续施工',
+      timestamp: new Date(),
+      changes: [
+        {
+          field: '状态',
+          before: previousStatus,
+          after: 'in_progress',
+        },
+      ],
+    });
   };
 
   const handleComplete = () => {
-    updateOrder(order.id, { status: 'completed' });
+    const previousStatus = order.status;
+    const currentDispatch = dispatches.find(d => d.workOrderId === order.id && d.status === 'in_progress');
+
+    updateOrder(order.id, {
+      status: 'completed',
+      installation: {
+        ...order.installation,
+        endTime: new Date(),
+        result: '安装完成',
+      },
+    });
+
+    if (currentDispatch) {
+      const { updateDispatchStatus } = useDispatchStore.getState();
+      updateDispatchStatus(currentDispatch.id, 'completed');
+    }
+
+    addLog(order.id, {
+      entityType: 'work_order',
+      entityId: order.id,
+      operator: { id: 'M001', name: '店长王明', role: '店长' },
+      action: '工单完成',
+      timestamp: new Date(),
+      changes: [
+        {
+          field: '状态',
+          before: previousStatus,
+          after: 'completed',
+        },
+      ],
+    });
   };
 
   return (
@@ -521,11 +691,130 @@ export default function OrderDetail({ order }: OrderDetailProps) {
           </div>
         </div>
       </div>
-    </div>
+
+      {showDispatchModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#16213e] rounded-lg p-6 w-full max-w-md border border-[#1a1a2e]">
+            <h3 className="text-lg font-semibold text-[#eaeaea] mb-4">派工</h3>
+
+            <div className="mb-4">
+              <label className="block text-sm text-[#a0a0a0] mb-2">选择技师</label>
+              <div className="space-y-2">
+                {availableTechnicians.length === 0 ? (
+                  <p className="text-sm text-[#f39c12]">暂无可用技师</p>
+                ) : (
+                  availableTechnicians.map((tech) => (
+                    <div
+                      key={tech.id}
+                      onClick={() => setSelectedTechId(tech.id)}
+                      className={clsx(
+                        'p-3 rounded-lg cursor-pointer transition-colors',
+                        selectedTechId === tech.id
+                          ? 'bg-[#0f3460] border border-[#3498db]'
+                          : 'bg-[#1a1a2e] border border-[#1a1a2e] hover:border-[#0f3460]'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-[#0f3460] rounded-full flex items-center justify-center">
+                          <span className="text-sm font-semibold text-[#eaeaea]">
+                            {tech.name[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-[#eaeaea]">{tech.name}</p>
+                          <p className="text-xs text-[#a0a0a0]">
+                            今日 {tech.stats.todayOrders} 单 · {tech.specialties.join(', ')}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDispatchModal(false)}
+                className="flex-1 px-4 py-2 bg-[#1a1a2e] text-[#a0a0a0] rounded-lg hover:bg-[#0f3460] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmDispatch}
+                disabled={!selectedTechId}
+                className="flex-1 px-4 py-2 bg-[#0f3460] text-white rounded-lg hover:bg-[#3498db] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                确认派工
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExceptionModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[#16213e] rounded-lg p-6 w-full max-w-md border border-[#1a1a2e]">
+            <h3 className="text-lg font-semibold text-[#eaeaea] mb-4">上报异常</h3>
+
+            <div className="mb-4">
+              <label className="block text-sm text-[#a0a0a0] mb-2">异常类型</label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { value: 'wrong_model', label: '型号拿错' },
+                  { value: 'warranty_dispute', label: '补胎争议' },
+                  { value: 'inventory_issue', label: '库存批次问题' },
+                  { value: 'other', label: '其他' },
+                ].map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setExceptionType(type.value)}
+                    className={clsx(
+                      'px-3 py-2 rounded-lg text-sm transition-colors',
+                      exceptionType === type.value
+                        ? 'bg-[#e94560] text-white'
+                        : 'bg-[#1a1a2e] text-[#a0a0a0] hover:bg-[#0f3460]'
+                    )}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm text-[#a0a0a0] mb-2">异常描述</label>
+              <textarea
+                value={exceptionDesc}
+                onChange={(e) => setExceptionDesc(e.target.value)}
+                placeholder="请描述异常情况..."
+                className="w-full px-3 py-2 bg-[#1a1a2e] border border-[#1a1a2e] rounded-lg text-sm text-[#eaeaea] placeholder-[#a0a0a0] focus:border-[#e94560] focus:outline-none"
+                rows={4}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowExceptionModal(false)}
+                className="flex-1 px-4 py-2 bg-[#1a1a2e] text-[#a0a0a0] rounded-lg hover:bg-[#0f3460] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleConfirmException}
+                disabled={!exceptionDesc.trim()}
+                className="flex-1 px-4 py-2 bg-[#e94560] text-white rounded-lg hover:bg-[#c0392b] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                确认上报
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(isPending || isInProgress || isSuspended) && (
-        <div className="fixed bottom-0 left-96 right-0 bg-[#16213e] border-t border-[#1a1a2e] p-4">
-          <div className="flex items-center justify-between max-w-4xl">
+        <div className="fixed bottom-0 left-96 right-0 bg-[#16213e] border-t border-[#1a1a2e] p-4 z-10">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
             <div className="flex items-center gap-3">
               <span className="text-sm text-[#a0a0a0]">快速操作:</span>
               {isPending && !hasTechnician && (

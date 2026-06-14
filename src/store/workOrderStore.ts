@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { WorkOrder, OrderStatus, Priority, Exception } from '../types';
+import { WorkOrder, OrderStatus, Priority, Exception, OperationLog } from '../types';
 import { mockWorkOrders } from '../data/mockData';
 
 interface WorkOrderFilters {
@@ -17,9 +17,11 @@ interface WorkOrderStore {
   selectOrder: (id: string | null) => void;
   updateOrder: (id: string, updates: Partial<WorkOrder>) => void;
   addException: (orderId: string, exception: Exception) => void;
+  addLog: (orderId: string, log: Omit<OperationLog, 'id'>) => void;
   setFilters: (filters: Partial<WorkOrderFilters>) => void;
   getFilteredOrders: () => WorkOrder[];
   getSelectedOrder: () => WorkOrder | undefined;
+  getOrderById: (id: string) => WorkOrder | undefined;
 }
 
 export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
@@ -64,6 +66,24 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
     }));
   },
 
+  addLog: (orderId, logData) => {
+    const newLog: OperationLog = {
+      ...logData,
+      id: `LOG${Date.now()}`,
+    };
+    set((state) => ({
+      orders: state.orders.map((order) =>
+        order.id === orderId
+          ? {
+              ...order,
+              logs: [...order.logs, newLog],
+              updatedAt: new Date(),
+            }
+          : order
+      ),
+    }));
+  },
+
   setFilters: (filters) => {
     set((state) => ({
       filters: { ...state.filters, ...filters },
@@ -94,5 +114,10 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
   getSelectedOrder: () => {
     const { orders, selectedOrderId } = get();
     return orders.find((order) => order.id === selectedOrderId);
+  },
+
+  getOrderById: (id) => {
+    const { orders } = get();
+    return orders.find((order) => order.id === id);
   },
 }));
