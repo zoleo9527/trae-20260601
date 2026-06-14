@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, Filter, Calendar, User, ChevronRight, MessageSquare } from 'lucide-react';
+import { Search, Filter, Calendar, User, ChevronRight, MessageSquare, Clock, AlertTriangle, CheckCircle, AlertCircle } from 'lucide-react';
 import { useCommunicationStore, useUserStore } from '../store';
 import { fetchCommunications, addCommunicationHistory, updateCommunicationStatus } from '../api/client';
 import { StatusBadge } from '../components/StatusBadge';
@@ -21,6 +21,14 @@ const priorityOptions = [
   { value: 'medium', label: '中优先级' },
   { value: 'low', label: '低优先级' },
 ];
+
+const exceptionReasonLabels: Record<string, string> = {
+  no_response: '家长未回应',
+  refuse: '拒绝沟通',
+  schedule_conflict: '时间冲突',
+  emergency: '紧急情况',
+  other: '其他',
+};
 
 export function CommunicationsList() {
   const { communications, setCommunications, filter, setFilter, updateCommunication } = useCommunicationStore();
@@ -56,6 +64,12 @@ export function CommunicationsList() {
     if (currentRole !== 'admin') {
       filtered = filtered.filter(c => c.responsibleRole === currentRole);
     }
+    
+    filtered.sort((a, b) => {
+      const timeA = new Date(a.updatedAt).getTime();
+      const timeB = new Date(b.updatedAt).getTime();
+      return timeB - timeA;
+    });
     
     return filtered;
   }, [communications, searchTerm, currentRole]);
@@ -166,24 +180,72 @@ export function CommunicationsList() {
             filteredCommunications.map(communication => (
               <div
                 key={communication.id}
-                className="px-6 py-4 hover:bg-gray-50 transition-colors flex items-center gap-4 group"
+                className={`px-6 py-4 transition-colors flex items-center gap-4 group ${
+                  communication.status === 'completed' 
+                    ? 'bg-green-50 hover:bg-green-100' 
+                    : communication.exceptionReason 
+                    ? 'bg-red-50 hover:bg-red-100'
+                    : 'hover:bg-gray-50'
+                }`}
               >
                 <Link
                   to={`/communications/${communication.id}`}
                   className="flex items-center gap-4 flex-1 min-w-0"
                 >
-                  <img
-                    src={communication.studentAvatar}
-                    alt={communication.studentName}
-                    className="w-14 h-14 rounded-full bg-gray-100"
-                  />
+                  <div className="relative">
+                    <img
+                      src={communication.studentAvatar}
+                      alt={communication.studentName}
+                      className="w-14 h-14 rounded-full bg-gray-100"
+                    />
+                    {communication.status === 'completed' && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-600 flex items-center justify-center">
+                        <CheckCircle className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                    {communication.exceptionReason && communication.status !== 'completed' && (
+                      <div className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
+                        <AlertTriangle className="w-3 h-3 text-white" />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-gray-800">{communication.studentName}</span>
                       <PriorityBadge priority={communication.priority} />
+                      {communication.status === 'completed' && (
+                        <span className="px-2 py-0.5 bg-green-200 text-green-800 text-xs font-medium rounded-full">
+                          已完成
+                        </span>
+                      )}
+                      {communication.exceptionReason && communication.status !== 'completed' && (
+                        <span className="px-2 py-0.5 bg-red-200 text-red-800 text-xs font-medium rounded-full flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          异常
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-gray-500 mt-1">{communication.subject}</p>
-                    <div className="flex items-center gap-4 mt-2">
+                    
+                    {communication.result && (
+                      <div className="mt-2 p-2 bg-green-100 rounded-lg border border-green-200">
+                        <p className="text-xs text-green-800 line-clamp-2">
+                          <CheckCircle className="w-3 h-3 inline mr-1" />
+                          {communication.result}
+                        </p>
+                      </div>
+                    )}
+                    
+                    {communication.exceptionReason && !communication.result && (
+                      <div className="mt-2 p-2 bg-red-100 rounded-lg border border-red-200">
+                        <p className="text-xs text-red-800">
+                          <AlertTriangle className="w-3 h-3 inline mr-1" />
+                          {exceptionReasonLabels[communication.exceptionReason]}: {communication.exceptionDescription}
+                        </p>
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-wrap items-center gap-4 mt-2">
                       <span className="text-xs text-gray-400 flex items-center gap-1">
                         <User className="w-3 h-3" />
                         {communication.responsibleName}
@@ -191,9 +253,18 @@ export function CommunicationsList() {
                       {communication.lastContactAt && (
                         <span className="text-xs text-gray-400 flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {communication.lastContactAt}
+                          最后联系: {communication.lastContactAt}
                         </span>
                       )}
+                      {communication.nextFollowUpAt && communication.status !== 'completed' && (
+                        <span className="text-xs text-amber-600 flex items-center gap-1 font-medium">
+                          <Clock className="w-3 h-3" />
+                          下次跟进: {communication.nextFollowUpAt}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        更新于 {communication.updatedAt}
+                      </span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
