@@ -222,6 +222,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("预约不存在"));
         
+        appointment.setStatus(AppointmentStatus.PROCESSING);
         appointment.setMaterialStatus("已补全: " + resolvedDocs);
         
         String fullRemarks = remarks != null ? remarks : "";
@@ -231,6 +232,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         appointment = appointmentRepository.save(appointment);
         createHistoryRecord(id, "RESOLVE_MATERIAL", "资料补齐", "补全资料: " + resolvedDocs);
+        createHistoryRecord(id, "START_PROCESS", "恢复办理", "资料补齐后继续业务处理");
         
         return convertToResponse(appointment);
     }
@@ -241,6 +243,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("预约不存在"));
         
+        appointment.setStatus(AppointmentStatus.PROCESSING);
         appointment.setDueDiligenceStatus("已完成: " + completedItems);
         
         String fullRemarks = remarks != null ? remarks : "";
@@ -250,6 +253,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         appointment = appointmentRepository.save(appointment);
         createHistoryRecord(id, "RESOLVE_DUE_DILIGENCE", "尽调完成", "完成项: " + completedItems);
+        createHistoryRecord(id, "START_PROCESS", "恢复办理", "尽调完成后继续业务处理");
         
         return convertToResponse(appointment);
     }
@@ -260,6 +264,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("预约不存在"));
         
+        appointment.setStatus(AppointmentStatus.PROCESSING);
         appointment.setComplaintStatus("已处理: " + resolution);
         
         String fullRemarks = remarks != null ? remarks : "";
@@ -269,6 +274,7 @@ public class AppointmentServiceImpl implements AppointmentService {
         
         appointment = appointmentRepository.save(appointment);
         createHistoryRecord(id, "RESOLVE_COMPLAINT", "投诉处理完成", "处理结果: " + resolution);
+        createHistoryRecord(id, "START_PROCESS", "恢复办理", "投诉处理完成后继续业务处理");
         
         return convertToResponse(appointment);
     }

@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>银行网点预约取号与业务分流系统</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f7fa; min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 24px; }
+        .header .user-info { float: right; text-align: right; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #1e3a5f; color: white; }
+        .btn-primary:hover { background: #2d5a87; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+        .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 20px; }
+        .card-title { font-size: 18px; font-weight: 600; color: #333; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #f0f0f0; }
+        .login-box { max-width: 400px; margin: 100px auto; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .form-group textarea { resize: vertical; min-height: 80px; }
+        .role-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .role-card { background: white; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; border: 2px solid transparent; }
+        .role-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.1); border-color: #1e3a5f; }
+        .role-card .icon { font-size: 48px; margin-bottom: 15px; }
+        .role-card .title { font-size: 18px; font-weight: 600; color: #333; }
+        .role-card .desc { color: #666; font-size: 14px; margin-top: 5px; }
+        .table { width: 100%; border-collapse: collapse; }
+        .table th, .table td { padding: 12px; text-align: left; border-bottom: 1px solid #eee; }
+        .table th { background: #f8f9fa; font-weight: 600; color: #333; }
+        .table tr:hover { background: #f8f9fa; }
+        .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+        .badge-pending { background: #fff3cd; color: #856404; }
+        .badge-checked-in { background: #e7f3ff; color: #0c63e4; }
+        .badge-processing { background: #d4edda; color: #155724; }
+        .badge-material { background: #f8d7da; color: #721c24; }
+        .badge-due { background: #fff3cd; color: #856404; }
+        .badge-complaint { background: #dc3545; color: white; }
+        .badge-completed { background: #28a745; color: white; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-content { background: white; border-radius: 12px; width: 90%; max-width: 500px; padding: 25px; position: relative; }
+        .modal-title { font-size: 20px; font-weight: 600; margin-bottom: 20px; }
+        .modal-close { position: absolute; right: 15px; top: 15px; font-size: 24px; cursor: pointer; color: #999; }
+        .modal-close:hover { color: #333; }
+        .status-flow { display: flex; justify-content: space-between; padding: 20px 0; border-bottom: 1px solid #eee; }
+        .status-step { text-align: center; flex: 1; }
+        .status-step .circle { width: 40px; height: 40px; border-radius: 50%; background: #ddd; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px; font-weight: bold; color: white; }
+        .status-step.active .circle { background: #1e3a5f; }
+        .status-step.done .circle { background: #28a745; }
+        .status-step.completed .circle { background: #28a745; }
+        .history-list { max-height: 300px; overflow-y: auto; }
+        .history-item { padding: 12px; border-left: 3px solid #1e3a5f; background: #f8f9fa; margin-bottom: 10px; border-radius: 0 8px 8px 0; }
+        .history-item .action { font-weight: 600; color: #333; }
+        .history-item .time { color: #999; font-size: 12px; margin-top: 4px; }
+        .history-item .detail { color: #666; font-size: 14px; margin-top: 5px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: white; border-radius: 10px; padding: 20px; text-align: center; }
+        .stat-card .number { font-size: 32px; font-weight: bold; color: #1e3a5f; }
+        .stat-card .label { color: #666; font-size: 14px; margin-top: 5px; }
+        .nav-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .nav-tab { padding: 10px 20px; border-radius: 8px; cursor: pointer; background: white; border: none; font-size: 14px; font-weight: 500; }
+        .nav-tab.active { background: #1e3a5f; color: white; }
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .filter-bar select, .filter-bar input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; }
+        .empty-state { text-align: center; padding: 50px; color: #999; }
+        .empty-state .icon { font-size: 48px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="login-screen">
+            <div class="card login-box">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <div style="font-size: 48px; margin-bottom: 15px;">🏦</div>
+                    <h2 style="color: #1e3a5f;">银行网点预约系统</h2>
+                    <p style="color: #666;">请登录系统</p>
+                </div>
+                <form id="login-form">
+                    <div class="form-group">
+                        <label>用户名</label>
+                        <input type="text" id="username" placeholder="请输入用户名" required>
+                    </div>
+                    <div class="form-group">
+                        <label>密码</label>
+                        <input type="password" id="password" placeholder="请输入密码" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;">登录</button>
+                </form>
+                <div style="margin-top: 20px; text-align: center; color: #666; font-size: 13px;">
+                    <p>测试账号：</p>
+                    <p>大堂经理: lobby001 / 123456</p>
+                    <p>客户经理: account001 / 123456</p>
+                    <p>运营主管: supervisor001 / 123456</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="role-selection" style="display: none;">
+            <div class="header">
+                <h1>🏦 银行网点预约取号与业务分流系统</h1>
+            </div>
+            <h2 style="margin-bottom: 20px; color: #333;">选择您的角色</h2>
+            <div class="role-cards">
+                <div class="role-card" onclick="selectRole('LOBBY_MANAGER')">
+                    <div class="icon">👨‍💼</div>
+                    <div class="title">大堂经理</div>
+                    <div class="desc">客户签到、分配窗口</div>
+                </div>
+                <div class="role-card" onclick="selectRole('ACCOUNT_MANAGER')">
+                    <div class="icon">📋</div>
+                    <div class="title">客户经理</div>
+                    <div class="desc">业务办理、问题处理</div>
+                </div>
+                <div class="role-card" onclick="selectRole('OPERATION_SUPERVISOR')">
+                    <div class="icon">🎯</div>
+                    <div class="title">运营主管</div>
+                    <div class="desc">全局监控、统计分析</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="main-screen" style="display: none;">
+            <div class="header">
+                <h1>🏦 银行网点预约取号与业务分流系统</h1>
+                <div class="user-info">
+                    <div id="current-user"></div>
+                    <button class="btn btn-info" style="margin-top: 10px;" onclick="logout()">退出登录</button>
+                </div>
+            </div>
+
+            <div class="nav-tabs">
+                <button class="nav-tab active" onclick="switchTab('todo')">待办任务</button>
+                <button class="nav-tab" onclick="switchTab('all')">全部预约</button>
+                <button class="nav-tab" onclick="switchTab('issues')">问题处理</button>
+                <button class="nav-tab" onclick="switchTab('export')">数据导出</button>
+            </div>
+
+            <div id="todo-tab">
+                <div id="stats-section"></div>
+                <div class="filter-bar">
+                    <select id="status-filter" onchange="filterTable()">
+                        <option value="all">全部状态</option>
+                        <option value="PENDING">待签到</option>
+                        <option value="CHECKED_IN">已签到</option>
+                        <option value="PROCESSING">处理中</option>
+                        <option value="MATERIAL_INCOMPLETE">资料缺页</option>
+                        <option value="DUE_DILIGENCE_PENDING">尽调待补</option>
+                        <option value="COMPLAINT_RECORDED">投诉记录</option>
+                    </select>
+                    <input type="text" id="search-input" placeholder="搜索客户姓名/预约号" onkeyup="filterTable()">
+                </div>
+                <div class="card">
+                    <div class="card-title">任务列表</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>预约号</th>
+                                <th>客户姓名</th>
+                                <th>业务类型</th>
+                                <th>状态</th>
+                                <th>优先级</th>
+                                <th>预约时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="task-table-body"></tbody>
+                    </table>
+                    <div id="empty-todo" class="empty-state" style="display: none;">
+                        <div class="icon">📭</div>
+                        <p>暂无待办任务</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="all-tab" style="display: none;">
+                <div class="card">
+                    <div class="card-title">全部预约记录</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>预约号</th>
+                                <th>客户姓名</th>
+                                <th>业务类型</th>
+                                <th>状态</th>
+                                <th>优先级</th>
+                                <th>办理窗口</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="all-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="issues-tab" style="display: none;">
+                <div class="card">
+                    <div class="card-title">问题处理</div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>预约号</th>
+                                <th>客户姓名</th>
+                                <th>问题类型</th>
+                                <th>状态</th>
+                                <th>优先级</th>
+                                <th>问题描述</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="issues-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="export-tab" style="display: none;">
+                <div class="card">
+                    <div class="card-title">数据导出</div>
+                    <div style="margin-bottom: 20px;">
+                        <button class="btn btn-primary" onclick="createExportTask()">创建导出任务</button>
+                    </div>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>任务编号</th>
+                                <th>导出类型</th>
+                                <th>状态</th>
+                                <th>记录数</th>
+                                <th>创建时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="export-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-close" onclick="closeDetailModal()">×</div>
+            <div class="modal-title" id="detail-title"></div>
+            <div id="detail-content"></div>
+        </div>
+    </div>
+
+    <div id="action-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-close" onclick="closeActionModal()">×</div>
+            <div class="modal-title" id="action-title"></div>
+            <form id="action-form">
+                <div id="action-fields"></div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 20px;">确认操作</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        let currentUser = null;
+        let currentRole = null;
+        let currentAppointmentId = null;
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            try {
+                const response = await fetch(`${API_BASE}/users/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (response.ok) {
+                    currentUser = await response.json();
+                    document.getElementById('login-screen').style.display = 'none';
+                    document.getElementById('role-selection').style.display = 'block';
+                } else {
+                    alert('登录失败，请检查用户名和密码');
+                }
+            } catch (error) {
+                alert('登录失败: ' + error.message);
+            }
+        });
+
+        function selectRole(role) {
+            currentRole = role;
+            document.getElementById('role-selection').style.display = 'none';
+            document.getElementById('main-screen').style.display = 'block';
+            document.getElementById('current-user').innerHTML = 
+                `用户: ${currentUser.realName} (${getRoleName(role)})`;
+            loadTasks();
+        }
+
+        function getRoleName(role) {
+            const names = {
+                LOBBY_MANAGER: '大堂经理',
+                ACCOUNT_MANAGER: '客户经理',
+                OPERATION_SUPERVISOR: '运营主管'
+            };
+            return names[role] || role;
+        }
+
+        function logout() {
+            currentUser = null;
+            currentRole = null;
+            document.getElementById('main-screen').style.display = 'none';
+            document.getElementById('login-screen').style.display = 'block';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.nav-tab:nth-child(${['todo', 'all', 'issues', 'export'].indexOf(tab) + 1})`).classList.add('active');
+            document.getElementById('todo-tab').style.display = 'none';
+            document.getElementById('all-tab').style.display = 'none';
+            document.getElementById('issues-tab').style.display = 'none';
+            document.getElementById('export-tab').style.display = 'none';
+            document.getElementById(`${tab}-tab`).style.display = 'block';
+            
+            if (tab === 'todo') loadTasks();
+            else if (tab === 'all') loadAllAppointments();
+            else if (tab === 'issues') loadIssues();
+            else if (tab === 'export') loadExportTasks();
+        }
+
+        async function loadTasks() {
+            let url = '';
+            if (currentRole === 'LOBBY_MANAGER') {
+                url = `${API_BASE}/tasks/lobby-manager`;
+            } else if (currentRole === 'ACCOUNT_MANAGER') {
+                url = `${API_BASE}/tasks/account-manager/${currentUser.id}`;
+            } else {
+                url = `${API_BASE}/tasks/operation-supervisor`;
+            }
+            
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                renderTasks(data);
+                if (currentRole === 'OPERATION_SUPERVISOR') {
+                    renderStats(data.statistics);
+                }
+            } catch (error) {
+                console.error('加载任务失败:', error);
+            }
+        }
+
+        function renderStats(stats) {
+            const html = `
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="number">${stats.pendingCount}</div>
+                        <div class="label">待处理</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">${stats.processingCount}</div>
+                        <div class="label">处理中</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">${stats.completedCount}</div>
+                        <div class="label">已完成</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="number">${stats.issueCount}</div>
+                        <div class="label">问题件</div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('stats-section').innerHTML = html;
+        }
+
+        function renderTasks(data) {
+            let tasks = [];
+            if (currentRole === 'LOBBY_MANAGER') {
+                tasks = [...data.pendingCheckIn, ...data.checkedInUnassigned];
+            } else if (currentRole === 'ACCOUNT_MANAGER') {
+                tasks = data.myTasks;
+            } else {
+                tasks = data.allAppointments;
+            }
+            renderTaskTable(tasks, 'task-table-body');
+        }
+
+        function renderTaskTable(tasks, tbodyId) {
+            const tbody = document.getElementById(tbodyId);
+            if (!tasks || tasks.length === 0) {
+                tbody.innerHTML = '';
+                document.getElementById('empty-todo').style.display = 'block';
+                return;
+            }
+            document.getElementById('empty-todo').style.display = 'none';
+            
+            tbody.innerHTML = tasks.map(task => `
+                <tr>
+                    <td>${task.appointmentNo}</td>
+                    <td>${task.customerName}</td>
+                    <td>${task.businessTypeName}</td>
+                    <td><span class="badge ${getBadgeClass(task.status)}">${task.statusName}</span></td>
+                    <td>${getPriorityStars(task.urgentLevel)}</td>
+                    <td>${formatDateTime(task.appointmentTime)}</td>
+                    <td>
+                        <button class="btn btn-info" style="padding: 6px 12px; font-size: 12px;" onclick="showDetail(${task.id})">详情</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getBadgeClass(status) {
+            const classes = {
+                PENDING: 'badge-pending',
+                CHECKED_IN: 'badge-checked-in',
+                PROCESSING: 'badge-processing',
+                MATERIAL_INCOMPLETE: 'badge-material',
+                DUE_DILIGENCE_PENDING: 'badge-due',
+                COMPLAINT_RECORDED: 'badge-complaint',
+                COMPLETED: 'badge-completed'
+            };
+            return classes[status] || 'badge-pending';
+        }
+
+        function getPriorityStars(level) {
+            return '⭐'.repeat(Math.min(level || 1, 5));
+        }
+
+        function formatDateTime(dt) {
+            if (!dt) return '-';
+            const date = new Date(dt);
+            return date.toLocaleString('zh-CN', {
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        async function showDetail(id) {
+            currentAppointmentId = id;
+            try {
+                const response = await fetch(`${API_BASE}/appointments/${id}`);
+                const data = await response.json();
+                renderDetail(data);
+                document.getElementById('detail-modal').classList.add('show');
+            } catch (error) {
+                alert('加载详情失败: ' + error.message);
+            }
+        }
+
+        function renderDetail(data) {
+            document.getElementById('detail-title').textContent = `预约详情 - ${data.appointmentNo}`;
+            const statusFlow = getStatusFlow(data.status);
+            const actions = getAvailableActions(data);
+            
+            document.getElementById('detail-content').innerHTML = `
+                <div class="status-flow">${statusFlow}</div>
+                <div style="margin-top: 20px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">客户信息</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div><strong>姓名:</strong> ${data.customerName}</div>
+                        <div><strong>身份证:</strong> ${data.customerId}</div>
+                        <div><strong>手机号:</strong> ${data.customerPhone}</div>
+                        <div><strong>业务类型:</strong> ${data.businessTypeName}</div>
+                        <div><strong>预约时间:</strong> ${formatDateTime(data.appointmentTime)}</div>
+                        <div><strong>状态:</strong> <span class="badge ${getBadgeClass(data.status)}">${data.statusName}</span></div>
+                        <div><strong>办理窗口:</strong> ${data.windowNo || '-'}</div>
+                        <div><strong>优先级:</strong> ${getPriorityStars(data.urgentLevel)}</div>
+                    </div>
+                </div>
+                ${data.materialStatus ? `<div style="margin-top: 15px; padding: 10px; background: #f8d7da; border-radius: 8px;"><strong>资料状态:</strong> ${data.materialStatus}</div>` : ''}
+                ${data.dueDiligenceStatus ? `<div style="margin-top: 15px; padding: 10px; background: #fff3cd; border-radius: 8px;"><strong>尽调状态:</strong> ${data.dueDiligenceStatus}</div>` : ''}
+                ${data.complaintStatus ? `<div style="margin-top: 15px; padding: 10px; background: #dc3545; color: white; border-radius: 8px;"><strong>投诉状态:</strong> ${data.complaintStatus}</div>` : ''}
+                ${data.remarks ? `<div style="margin-top: 15px;"><strong>备注:</strong> ${data.remarks}</div>` : ''}
+                
+                <div style="margin-top: 25px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">操作</h3>
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                        ${actions}
+                    </div>
+                </div>
+                
+                <div style="margin-top: 25px;">
+                    <h3 style="margin-bottom: 15px; color: #333;">处理历史</h3>
+                    <div class="history-list">
+                        ${data.historyRecords?.map(r => `
+                            <div class="history-item">
+                                <div class="action">${r.actionName}</div>
+                                <div class="detail">${r.detail || '-'}</div>
+                                <div class="time">${formatDateTime(r.createdAt)}</div>
+                            </div>
+                        `).join('') || '<p style="text-align: center; color: #999;">暂无记录</p>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        function getStatusFlow(currentStatus) {
+            const steps = [
+                { key: 'PENDING', label: '待签到' },
+                { key: 'CHECKED_IN', label: '已签到' },
+                { key: 'PROCESSING', label: '处理中' },
+                { key: 'COMPLETED', label: '已完成' }
+            ];
+            return steps.map((step, index) => {
+                let className = '';
+                if (step.key === currentStatus) className = 'active';
+                else if (steps.findIndex(s => s.key === currentStatus) > index) className = 'done';
+                return `
+                    <div class="status-step ${className}">
+                        <div class="circle">${index + 1}</div>
+                        <div>${step.label}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function getAvailableActions(data) {
+            const actions = [];
+            const status = data.status;
+            
+            if (currentRole === 'LOBBY_MANAGER') {
+                if (status === 'PENDING') {
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('checkIn', ${data.id})">签到</button>`);
+                }
+                if (status === 'CHECKED_IN' && !data.assignedUserId) {
+                    actions.push(`<button class="btn btn-primary" onclick="showActionModal('assign', ${data.id})">分配窗口</button>`);
+                }
+            }
+            
+            if (currentRole === 'ACCOUNT_MANAGER' || currentRole === 'OPERATION_SUPERVISOR') {
+                if (status === 'CHECKED_IN' && data.assignedUserId === currentUser?.id) {
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('startProcessing', ${data.id})">开始办理</button>`);
+                }
+                if (status === 'PROCESSING') {
+                    actions.push(`<button class="btn btn-warning" onclick="showActionModal('markMaterialIncomplete', ${data.id})">资料缺页</button>`);
+                    actions.push(`<button class="btn btn-warning" onclick="showActionModal('markDueDiligencePending', ${data.id})">尽调补件</button>`);
+                    actions.push(`<button class="btn btn-danger" onclick="showActionModal('recordComplaint', ${data.id})">投诉记录</button>`);
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('complete', ${data.id})">完成业务</button>`);
+                }
+                if (status === 'MATERIAL_INCOMPLETE' && data.assignedUserId === currentUser?.id) {
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('resolveMaterial', ${data.id})">补齐资料</button>`);
+                    actions.push(`<button class="btn btn-info" onclick="showActionModal('resumeProcessing', ${data.id})">恢复办理</button>`);
+                }
+                if (status === 'DUE_DILIGENCE_PENDING' && data.assignedUserId === currentUser?.id) {
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('resolveDueDiligence', ${data.id})">完成尽调</button>`);
+                    actions.push(`<button class="btn btn-info" onclick="showActionModal('resumeProcessing', ${data.id})">恢复办理</button>`);
+                }
+                if (status === 'COMPLAINT_RECORDED') {
+                    actions.push(`<button class="btn btn-success" onclick="showActionModal('resolveComplaint', ${data.id})">处理投诉</button>`);
+                    actions.push(`<button class="btn btn-info" onclick="showActionModal('resumeProcessing', ${data.id})">恢复办理</button>`);
+                }
+            }
+            
+            actions.push(`<button class="btn btn-info" onclick="showActionModal('export', ${data.id})">导出记录</button>`);
+            
+            return actions.join('');
+        }
+
+        function showActionModal(action, id) {
+            currentAppointmentId = id;
+            document.getElementById('action-modal').classList.add('show');
+            
+            const configs = {
+                checkIn: { title: '客户签到', fields: [] },
+                assign: { title: '分配窗口', fields: [
+                    { name: 'userId', type: 'select', label: '分配给', options: [{ value: 2, label: '客户经理-李芳' }] },
+                    { name: 'windowNo', type: 'select', label: '选择窗口', options: [
+                        { value: '1号窗口', label: '1号窗口' },
+                        { value: '2号窗口', label: '2号窗口' },
+                        { value: '3号窗口', label: '3号窗口' },
+                        { value: '4号窗口', label: '4号窗口' }
+                    ]}
+                ]},
+                startProcessing: { title: '开始办理', fields: [] },
+                markMaterialIncomplete: { title: '标记资料缺页', fields: [
+                    { name: 'missingDocs', type: 'text', label: '缺失资料', placeholder: '例如：收入证明、资产证明' },
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '补充说明' }
+                ]},
+                markDueDiligencePending: { title: '标记尽调补件', fields: [
+                    { name: 'pendingItems', type: 'text', label: '待补项目', placeholder: '例如：工作证明、银行流水' },
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '补充说明' }
+                ]},
+                recordComplaint: { title: '记录投诉', fields: [
+                    { name: 'complaintReason', type: 'text', label: '投诉原因', placeholder: '例如：业务处理超时' },
+                    { name: 'remarks', type: 'textarea', label: '处理说明', placeholder: '补充说明' }
+                ]},
+                resolveMaterial: { title: '补齐资料', fields: [
+                    { name: 'resolvedDocs', type: 'text', label: '补齐资料', placeholder: '例如：收入证明、资产证明' },
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '补充说明' }
+                ]},
+                resolveDueDiligence: { title: '完成尽调', fields: [
+                    { name: 'completedItems', type: 'text', label: '完成项目', placeholder: '例如：工作证明、银行流水' },
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '补充说明' }
+                ]},
+                resolveComplaint: { title: '处理投诉', fields: [
+                    { name: 'resolution', type: 'text', label: '处理结果', placeholder: '例如：致歉并优先办理' },
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '补充说明' }
+                ]},
+                resumeProcessing: { title: '恢复办理', fields: [] },
+                complete: { title: '完成业务', fields: [
+                    { name: 'remarks', type: 'textarea', label: '备注', placeholder: '办理说明' }
+                ]},
+                export: { title: '导出记录', fields: [] }
+            };
+            
+            const config = configs[action];
+            document.getElementById('action-title').textContent = config.title;
+            document.getElementById('action-fields').innerHTML = config.fields.map(f => `
+                <div class="form-group">
+                    <label>${f.label}</label>
+                    ${f.type === 'select' ? `
+                        <select name="${f.name}" required>
+                            ${f.options.map(o => `<option value="${o.value}">${o.label}</option>`).join('')}
+                        </select>
+                    ` : f.type === 'textarea' ? `
+                        <textarea name="${f.name}" placeholder="${f.placeholder}"></textarea>
+                    ` : `
+                        <input type="text" name="${f.name}" placeholder="${f.placeholder}" required>
+                    `}
+                </div>
+            `).join('');
+            
+            document.getElementById('action-form').onsubmit = (e) => {
+                e.preventDefault();
+                submitAction(action, id);
+            };
+        }
+
+        async function submitAction(action, id) {
+            const form = document.getElementById('action-form');
+            const formData = new FormData(form);
+            let url = '';
+            let method = 'POST';
+            
+            switch (action) {
+                case 'checkIn':
+                    url = `${API_BASE}/appointments/${id}/check-in`;
+                    break;
+                case 'assign':
+                    url = `${API_BASE}/appointments/${id}/assign?userId=${formData.get('userId')}&windowNo=${formData.get('windowNo')}`;
+                    break;
+                case 'startProcessing':
+                    url = `${API_BASE}/appointments/${id}/start-processing`;
+                    break;
+                case 'markMaterialIncomplete':
+                    url = `${API_BASE}/tasks/${id}/mark-material-incomplete?missingDocs=${encodeURIComponent(formData.get('missingDocs'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'markDueDiligencePending':
+                    url = `${API_BASE}/tasks/${id}/mark-due-diligence-pending?pendingItems=${encodeURIComponent(formData.get('pendingItems'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'recordComplaint':
+                    url = `${API_BASE}/tasks/${id}/record-complaint?complaintReason=${encodeURIComponent(formData.get('complaintReason'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'resolveMaterial':
+                    url = `${API_BASE}/tasks/${id}/resolve-material?resolvedDocs=${encodeURIComponent(formData.get('resolvedDocs'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'resolveDueDiligence':
+                    url = `${API_BASE}/tasks/${id}/resolve-due-diligence?completedItems=${encodeURIComponent(formData.get('completedItems'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'resolveComplaint':
+                    url = `${API_BASE}/tasks/${id}/resolve-complaint?resolution=${encodeURIComponent(formData.get('resolution'))}&remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'resumeProcessing':
+                    url = `${API_BASE}/appointments/${id}/start-processing`;
+                    break;
+                case 'complete':
+                    url = `${API_BASE}/appointments/${id}/complete?remarks=${encodeURIComponent(formData.get('remarks') || '')}`;
+                    break;
+                case 'export':
+                    url = `${API_BASE}/export/tasks`;
+                    break;
+            }
+            
+            try {
+                const response = await fetch(url, { method });
+                if (response.ok) {
+                    alert('操作成功');
+                    closeActionModal();
+                    closeDetailModal();
+                    loadTasks();
+                } else {
+                    alert('操作失败');
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        }
+
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.remove('show');
+        }
+
+        function closeActionModal() {
+            document.getElementById('action-modal').classList.remove('show');
+            document.getElementById('action-form').reset();
+        }
+
+        async function loadAllAppointments() {
+            try {
+                const response = await fetch(`${API_BASE}/appointments`);
+                const data = await response.json();
+                renderTaskTable(data, 'all-table-body');
+            } catch (error) {
+                console.error('加载失败:', error);
+            }
+        }
+
+        async function loadIssues() {
+            try {
+                const response = await fetch(`${API_BASE}/tasks/issues`);
+                const data = await response.json();
+                const issues = [
+                    ...data.materialIssues.map(i => ({ ...i, issueType: '资料缺页' })),
+                    ...data.dueDiligenceIssues.map(i => ({ ...i, issueType: '尽调补件' })),
+                    ...data.complaintIssues.map(i => ({ ...i, issueType: '投诉记录' }))
+                ];
+                const tbody = document.getElementById('issues-table-body');
+                tbody.innerHTML = issues.map(issue => `
+                    <tr>
+                        <td>${issue.appointmentNo}</td>
+                        <td>${issue.customerName}</td>
+                        <td><span class="badge ${issue.issueType === '投诉记录' ? 'badge-complaint' : 'badge-warning'}">${issue.issueType}</span></td>
+                        <td><span class="badge ${getBadgeClass(issue.status)}">${issue.statusName}</span></td>
+                        <td>${getPriorityStars(issue.urgentLevel)}</td>
+                        <td>${issue.materialStatus || issue.dueDiligenceStatus || issue.complaintStatus || '-'}</td>
+                        <td>
+                            <button class="btn btn-info" style="padding: 6px 12px; font-size: 12px;" onclick="showDetail(${issue.id})">详情</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载失败:', error);
+            }
+        }
+
+        async function loadExportTasks() {
+            try {
+                const response = await fetch(`${API_BASE}/export/tasks`);
+                const data = await response.json();
+                const tbody = document.getElementById('export-table-body');
+                tbody.innerHTML = data.map(task => `
+                    <tr>
+                        <td>${task.taskNo}</td>
+                        <td>${task.exportType}</td>
+                        <td><span class="badge ${task.status === 'COMPLETED' ? 'badge-completed' : task.status === 'PROCESSING' ? 'badge-processing' : 'badge-pending'}">${task.status}</span></td>
+                        <td>${task.recordCount || '-'}</td>
+                        <td>${formatDateTime(task.createdAt)}</td>
+                        <td>
+                            ${task.status === 'PENDING' ? `<button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;" onclick="executeExport(${task.id})">执行导出</button>` : ''}
+                            ${task.status === 'COMPLETED' ? `<a href="#" class="btn btn-success" style="padding: 6px 12px; font-size: 12px;">下载</a>` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            } catch (error) {
+                console.error('加载失败:', error);
+            }
+        }
+
+        async function createExportTask() {
+            try {
+                const response = await fetch(`${API_BASE}/export/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exportType: 'ALL' })
+                });
+                if (response.ok) {
+                    alert('导出任务创建成功');
+                    loadExportTasks();
+                }
+            } catch (error) {
+                alert('创建失败: ' + error.message);
+            }
+        }
+
+        async function executeExport(taskId) {
+            try {
+                const response = await fetch(`${API_BASE}/export/tasks/${taskId}/execute`);
+                if (response.ok) {
+                    alert('导出成功');
+                    loadExportTasks();
+                }
+            } catch (error) {
+                alert('导出失败: ' + error.message);
+            }
+        }
+
+        function filterTable() {
+            const statusFilter = document.getElementById('status-filter').value;
+            const searchText = document.getElementById('search-input').value.toLowerCase();
+            const rows = document.querySelectorAll('#task-table-body tr');
+            
+            rows.forEach(row => {
+                const status = row.querySelector('.badge').textContent;
+                const text = row.textContent.toLowerCase();
+                const statusMatch = statusFilter === 'all' || 
+                    (statusFilter === 'PENDING' && status === '待签到') ||
+                    (statusFilter === 'CHECKED_IN' && status === '已签到') ||
+                    (statusFilter === 'PROCESSING' && status === '处理中') ||
+                    (statusFilter === 'MATERIAL_INCOMPLETE' && status === '资料缺页') ||
+                    (statusFilter === 'DUE_DILIGENCE_PENDING' && status === '尽调待补') ||
+                    (statusFilter === 'COMPLAINT_RECORDED' && status === '投诉记录');
+                const searchMatch = text.includes(searchText);
+                row.style.display = (statusMatch && searchMatch) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>
