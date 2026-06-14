@@ -55,9 +55,15 @@
   
   async function handleCheckIn(studentId: string, status: 'PRESENT' | 'ABSENT' | 'LATE') {
     try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : '';
+      
       const response = await fetch(`/api/checkin/${id}/check`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
         body: JSON.stringify({ studentId, status })
       });
       
@@ -91,9 +97,15 @@
     if (selectedStudents.length === 0) return;
     
     try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : '';
+      
       const response = await fetch(`/api/checkin/${id}/batch-check`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
         body: JSON.stringify({
           students: selectedStudents.map(id => ({ studentId: id, status }))
         })
@@ -117,9 +129,15 @@
   
   async function handleReportAnomaly() {
     try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : '';
+      
       const response = await fetch(`/api/checkin/${id}/report-anomaly`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
         body: JSON.stringify({
           type: anomalyType,
           description: anomalyDescription,

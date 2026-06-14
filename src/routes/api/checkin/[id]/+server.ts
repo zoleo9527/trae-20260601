@@ -6,8 +6,8 @@ export const GET: RequestHandler = async ({ params }) => {
     const arrangement = await prisma.arrangement.findUnique({
       where: { id: params.id },
       include: {
-        exam: { select: { name: true } },
-        examRoom: { select: { building: true, roomNumber: true } }
+        exam: { select: { name: true, id: true } },
+        examRoom: { select: { building: true, roomNumber: true, id: true } }
       }
     });
     
@@ -18,8 +18,11 @@ export const GET: RequestHandler = async ({ params }) => {
       );
     }
     
-    const checkInRecords = await prisma.checkInRecord.findMany({
-      where: { arrangementId: params.id },
+    const examSeats = await prisma.examSeat.findMany({
+      where: {
+        examId: arrangement.exam.id,
+        examRoomId: arrangement.examRoom.id
+      },
       include: {
         student: {
           select: {
@@ -31,20 +34,39 @@ export const GET: RequestHandler = async ({ params }) => {
             major: true
           }
         }
+      },
+      orderBy: { seatNumber: 'asc' }
+    });
+    
+    const checkInRecords = await prisma.checkInRecord.findMany({
+      where: { arrangementId: params.id },
+      select: {
+        studentId: true,
+        status: true,
+        checkedAt: true,
+        note: true
       }
     });
     
-    const students = checkInRecords.map(record => ({
-      ...record.student,
-      seatNumber: record.seatNumber,
-      checkInStatus: record.status
-    }));
+    const recordMap = new Map(checkInRecords.map(r => [r.studentId, r]));
+    
+    const students = examSeats.map(seat => {
+      const record = recordMap.get(seat.student.id);
+      return {
+        ...seat.student,
+        seatNumber: seat.seatNumber,
+        checkInStatus: record?.status || 'PENDING',
+        checkedAt: record?.checkedAt,
+        note: record?.note
+      };
+    });
     
     return new Response(
       JSON.stringify({ arrangement, students }),
       { status: 200 }
     );
   } catch (error) {
+    console.error('获取签到详情失败:', error);
     return new Response(
       JSON.stringify({ error: '获取签到详情失败' }),
       { status: 500 }

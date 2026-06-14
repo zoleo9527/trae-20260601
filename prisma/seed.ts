@@ -248,6 +248,88 @@ async function main() {
 
   console.log('创建监考安排:', arrangements.length);
 
+  const examSeats = await Promise.all([
+    prisma.examSeat.upsert({
+      where: { id: 'seat-1' },
+      update: {},
+      create: {
+        id: 'seat-1',
+        examId: 'exam-1',
+        examRoomId: 'room-1',
+        studentId: 'student-1',
+        seatNumber: '01'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-2' },
+      update: {},
+      create: {
+        id: 'seat-2',
+        examId: 'exam-1',
+        examRoomId: 'room-1',
+        studentId: 'student-2',
+        seatNumber: '02'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-3' },
+      update: {},
+      create: {
+        id: 'seat-3',
+        examId: 'exam-1',
+        examRoomId: 'room-1',
+        studentId: 'student-5',
+        seatNumber: '03'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-4' },
+      update: {},
+      create: {
+        id: 'seat-4',
+        examId: 'exam-2',
+        examRoomId: 'room-3',
+        studentId: 'student-3',
+        seatNumber: '01'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-5' },
+      update: {},
+      create: {
+        id: 'seat-5',
+        examId: 'exam-2',
+        examRoomId: 'room-3',
+        studentId: 'student-4',
+        seatNumber: '02'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-6' },
+      update: {},
+      create: {
+        id: 'seat-6',
+        examId: 'exam-1',
+        examRoomId: 'room-2',
+        studentId: 'student-1',
+        seatNumber: '01'
+      }
+    }),
+    prisma.examSeat.upsert({
+      where: { id: 'seat-7' },
+      update: {},
+      create: {
+        id: 'seat-7',
+        examId: 'exam-1',
+        examRoomId: 'room-2',
+        studentId: 'student-3',
+        seatNumber: '02'
+      }
+    })
+  ]);
+
+  console.log('创建考试座位:', examSeats.length);
+
   const todoItems = await Promise.all([
     prisma.todoItem.upsert({
       where: { id: 'todo-1' },

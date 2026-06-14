@@ -47,9 +47,15 @@
   async function handleConfirm(status: 'CONFIRMED' | 'REJECTED') {
     confirming = true;
     try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : '';
+      
       const response = await fetch(`/api/arrangements/${id}/confirm`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
         body: JSON.stringify({ status, note })
       });
       

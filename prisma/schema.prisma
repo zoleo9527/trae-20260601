@@ -37,6 +37,7 @@ model Exam {
   updatedAt   DateTime @updatedAt
   
   arrangements Arrangement[]
+  examSeats    ExamSeat[]
 }
 
 model ExamRoom {
@@ -50,6 +51,7 @@ model ExamRoom {
   updatedAt   DateTime @updatedAt
   
   arrangements Arrangement[]
+  examSeats    ExamSeat[]
 }
 
 model Arrangement {
@@ -91,6 +93,27 @@ model Student {
   updatedAt       DateTime @updatedAt
   
   checkInRecords  CheckInRecord[]
+  examSeats       ExamSeat[]
+}
+
+model ExamSeat {
+  id             String   @id @default(uuid())
+  examId         String
+  examRoomId     String
+  studentId      String
+  seatNumber     String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  exam           Exam     @relation(fields: [examId], references: [id])
+  examRoom       ExamRoom @relation(fields: [examRoomId], references: [id])
+  student        Student  @relation(fields: [studentId], references: [id])
+  
+  @@unique([examId, examRoomId, studentId])
+  @@unique([examId, examRoomId, seatNumber])
+  @@index([examId])
+  @@index([examRoomId])
+  @@index([studentId])
 }
 
 model CheckInRecord {
