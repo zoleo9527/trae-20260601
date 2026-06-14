@@ -1,5 +1,6 @@
-import { defineEventHandler, createRouter, useRouter } from 'h3'
-import type { PrizeRecord, StatusChange } from '~/types'
+import { defineEventHandler } from 'h3'
+import type { PrizeRecord, StatusChange, ProcessStage } from '~/types'
+import { stageLabels } from '~/types'
 
 const prizeRecords: PrizeRecord[] = [
   {
@@ -15,7 +16,7 @@ const prizeRecords: PrizeRecord[] = [
     createdAt: '2024-12-01 09:15:30',
     lastUpdatedAt: '2024-12-01 09:15:30',
     statusChanges: [
-      { status: 'pending', operator: '张三', operatorRole: '店员', time: '2024-12-01 09:15:30', remark: '顾客持彩票到店申请兑奖' }
+      { status: 'pending', operator: '张三', operatorRole: '店员', time: '2024-12-01 09:15:30', remark: '顾客持彩票到店申请兑奖', stage: 'registration' }
     ],
     customerName: '李四',
     customerId: '110101199001011234',
@@ -26,7 +27,8 @@ const prizeRecords: PrizeRecord[] = [
       { type: '彩票原件', uploaded: false, uploadedBy: '', uploadedAt: '' },
       { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
     ],
-    remark: '顾客表示急需用钱，希望尽快处理'
+    remark: '顾客表示急需用钱，希望尽快处理',
+    currentStage: 'registration'
   },
   {
     id: 'P002',
@@ -41,8 +43,8 @@ const prizeRecords: PrizeRecord[] = [
     createdAt: '2024-12-01 10:20:00',
     lastUpdatedAt: '2024-12-01 14:30:00',
     statusChanges: [
-      { status: 'pending', operator: '赵六', operatorRole: '店员', time: '2024-12-01 10:20:00', remark: '顾客到店兑奖' },
-      { status: 'processing', operator: '王五', operatorRole: '店长', time: '2024-12-01 14:30:00', remark: '已审核彩票信息，进入处理流程' }
+      { status: 'pending', operator: '赵六', operatorRole: '店员', time: '2024-12-01 10:20:00', remark: '顾客到店兑奖', stage: 'registration' },
+      { status: 'processing', operator: '王五', operatorRole: '店长', time: '2024-12-01 14:30:00', remark: '已审核彩票信息，进入处理流程', stage: 'verification' }
     ],
     customerName: '钱七',
     customerId: '110102198505156789',
@@ -53,7 +55,8 @@ const prizeRecords: PrizeRecord[] = [
       { type: '彩票原件', uploaded: true, uploadedBy: '赵六', uploadedAt: '2024-12-01 10:27:00' },
       { type: '兑奖申请表', uploaded: true, uploadedBy: '赵六', uploadedAt: '2024-12-01 10:28:00' }
     ],
-    remark: ''
+    remark: '',
+    currentStage: 'verification'
   },
   {
     id: 'P003',
@@ -68,9 +71,9 @@ const prizeRecords: PrizeRecord[] = [
     createdAt: '2024-12-02 11:00:00',
     lastUpdatedAt: '2024-12-02 15:45:00',
     statusChanges: [
-      { status: 'pending', operator: '周九', operatorRole: '店员', time: '2024-12-02 11:00:00', remark: '大额兑奖申请' },
-      { status: 'processing', operator: '吴十', operatorRole: '店长', time: '2024-12-02 11:30:00', remark: '已初审，上报片区管理员' },
-      { status: 'exception', operator: '孙八', operatorRole: '片区管理员', time: '2024-12-02 15:45:00', remark: '彩票信息与系统不符，需进一步核实' }
+      { status: 'pending', operator: '周九', operatorRole: '店员', time: '2024-12-02 11:00:00', remark: '大额兑奖申请', stage: 'registration' },
+      { status: 'processing', operator: '吴十', operatorRole: '店长', time: '2024-12-02 11:30:00', remark: '已初审，上报片区管理员', stage: 'verification' },
+      { status: 'exception', operator: '孙八', operatorRole: '片区管理员', time: '2024-12-02 15:45:00', remark: '彩票信息与系统不符，需进一步核实', stage: 'exception' }
     ],
     customerName: '郑十一',
     customerId: '110103197808201122',
@@ -81,7 +84,8 @@ const prizeRecords: PrizeRecord[] = [
       { type: '彩票原件', uploaded: true, uploadedBy: '周九', uploadedAt: '2024-12-02 11:07:00' },
       { type: '兑奖申请表', uploaded: true, uploadedBy: '周九', uploadedAt: '2024-12-02 11:08:00' }
     ],
-    remark: '彩票序列号存在疑问，需联系省中心核实'
+    remark: '彩票序列号存在疑问，需联系省中心核实',
+    currentStage: 'exception'
   },
   {
     id: 'P004',
@@ -96,9 +100,10 @@ const prizeRecords: PrizeRecord[] = [
     createdAt: '2024-12-02 08:30:00',
     lastUpdatedAt: '2024-12-02 09:15:00',
     statusChanges: [
-      { status: 'pending', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 08:30:00', remark: '顾客到店兑奖' },
-      { status: 'processing', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 08:45:00', remark: '审核通过，准备打款' },
-      { status: 'completed', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 09:15:00', remark: '兑奖完成，奖金已发放' }
+      { status: 'pending', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 08:30:00', remark: '顾客到店兑奖', stage: 'registration' },
+      { status: 'processing', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 08:45:00', remark: '审核通过，准备打款', stage: 'verification' },
+      { status: 'processing', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 09:00:00', remark: '奖金已转账', stage: 'payment' },
+      { status: 'completed', operator: '郑十二', operatorRole: '店员', time: '2024-12-02 09:15:00', remark: '兑奖完成，奖金已发放', stage: 'completed' }
     ],
     customerName: '王十三',
     customerId: '110104199512123456',
@@ -109,7 +114,8 @@ const prizeRecords: PrizeRecord[] = [
       { type: '彩票原件', uploaded: true, uploadedBy: '郑十二', uploadedAt: '2024-12-02 08:37:00' },
       { type: '兑奖申请表', uploaded: true, uploadedBy: '郑十二', uploadedAt: '2024-12-02 08:38:00' }
     ],
-    remark: ''
+    remark: '',
+    currentStage: 'completed'
   },
   {
     id: 'P005',
@@ -124,7 +130,7 @@ const prizeRecords: PrizeRecord[] = [
     createdAt: '2024-12-03 14:20:00',
     lastUpdatedAt: '2024-12-03 14:20:00',
     statusChanges: [
-      { status: 'pending', operator: '张三', operatorRole: '店员', time: '2024-12-03 14:20:00', remark: '顾客持彩票到店申请兑奖' }
+      { status: 'pending', operator: '张三', operatorRole: '店员', time: '2024-12-03 14:20:00', remark: '顾客持彩票到店申请兑奖', stage: 'registration' }
     ],
     customerName: '刘十四',
     customerId: '110105199203156789',
@@ -135,9 +141,22 @@ const prizeRecords: PrizeRecord[] = [
       { type: '彩票原件', uploaded: false, uploadedBy: '', uploadedAt: '' },
       { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
     ],
-    remark: '顾客身份证照片模糊，需要重新上传'
+    remark: '顾客身份证照片模糊，需要重新上传',
+    currentStage: 'registration'
   }
 ]
+
+const getNextStage = (currentStage: ProcessStage, newStatus: string): ProcessStage => {
+  if (newStatus === 'completed') return 'completed'
+  if (newStatus === 'exception') return 'exception'
+  
+  const stages: ProcessStage[] = ['registration', 'verification', 'payment', 'completed']
+  const currentIndex = stages.indexOf(currentStage)
+  if (currentIndex < stages.length - 1) {
+    return stages[currentIndex + 1]
+  }
+  return currentStage
+}
 
 export default defineEventHandler(async (event) => {
   const { method } = event.node.req
@@ -177,23 +196,20 @@ export default defineEventHandler(async (event) => {
       second: '2-digit'
     }).replace(/\//g, '-')
     
-    const statusMap: Record<string, string> = {
-      'pending': '待处理',
-      'processing': '处理中',
-      'completed': '已完成',
-      'exception': '异常'
-    }
+    const newStage = getNextStage(prizeRecords[recordIndex].currentStage, status)
     
     prizeRecords[recordIndex].status = status
     prizeRecords[recordIndex].currentHandler = operatorRole
     prizeRecords[recordIndex].currentHandlerName = operator
     prizeRecords[recordIndex].lastUpdatedAt = now
+    prizeRecords[recordIndex].currentStage = newStage
     prizeRecords[recordIndex].statusChanges.push({
       status,
       operator,
       operatorRole,
       time: now,
-      remark
+      remark,
+      stage: newStage
     })
     
     return { success: true, data: prizeRecords[recordIndex] }
@@ -225,7 +241,7 @@ export default defineEventHandler(async (event) => {
       createdAt: now,
       lastUpdatedAt: now,
       statusChanges: [
-        { status: 'pending', operator: body.operator || '系统', operatorRole: '店员', time: now, remark: '新建兑奖申请' }
+        { status: 'pending', operator: body.operator || '系统', operatorRole: '店员', time: now, remark: '新建兑奖申请', stage: 'registration' }
       ],
       customerName,
       customerId,
@@ -236,7 +252,8 @@ export default defineEventHandler(async (event) => {
         { type: '彩票原件', uploaded: false, uploadedBy: '', uploadedAt: '' },
         { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
       ],
-      remark: ''
+      remark: '',
+      currentStage: 'registration'
     }
     
     prizeRecords.push(newRecord)

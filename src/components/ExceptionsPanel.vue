@@ -17,6 +17,7 @@
             <th>金额</th>
             <th>门店</th>
             <th>顾客</th>
+            <th>当前环节</th>
             <th>当前处理人</th>
             <th>异常时间</th>
             <th>异常原因</th>
@@ -31,6 +32,11 @@
             <td>{{ formatAmount(record.prizeAmount) }}</td>
             <td>{{ record.storeName }}</td>
             <td>{{ record.customerName }}</td>
+            <td>
+              <span :class="['stage-badge', `stage-${record.currentStage}`]">
+                {{ stageText(record.currentStage) }}
+              </span>
+            </td>
             <td>{{ record.currentHandlerName }}（{{ record.currentHandler }}）</td>
             <td>{{ record.lastUpdatedAt }}</td>
             <td>
@@ -52,9 +58,10 @@
 </template>
 
 <script setup lang="ts">
-import type { PrizeRecord, User } from '~/types'
+import type { PrizeRecord, User, ProcessStage } from '~/types'
+import { stageLabels } from '~/types'
 
-const props = defineProps<{
+defineProps<{
   records: PrizeRecord[]
   user: User | null
 }>()
@@ -63,6 +70,10 @@ const emit = defineEmits(['handle'])
 
 const formatAmount = (amount: number) => {
   return `¥${amount.toLocaleString()}`
+}
+
+const stageText = (stage: string) => {
+  return stageLabels[stage as ProcessStage] || stage
 }
 
 const handleException = (record: PrizeRecord) => {
@@ -126,5 +137,38 @@ const handleException = (record: PrizeRecord) => {
 .empty-text {
   color: #999;
   font-size: 14px;
+}
+
+.stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stage-registration {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.stage-verification {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.stage-payment {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.stage-completed {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.stage-exception {
+  background-color: #fff2f0;
+  color: #ff4d4f;
 }
 </style>

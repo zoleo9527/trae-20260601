@@ -52,6 +52,7 @@
             <th>金额</th>
             <th>门店</th>
             <th>顾客</th>
+            <th>当前环节</th>
             <th>资料状态</th>
             <th>资料完成度</th>
             <th>最后更新</th>
@@ -66,6 +67,11 @@
             <td>{{ formatAmount(record.prizeAmount) }}</td>
             <td>{{ record.storeName }}</td>
             <td>{{ record.customerName }}</td>
+            <td>
+              <span :class="['stage-badge', `stage-${record.currentStage}`]">
+                {{ stageText(record.currentStage) }}
+              </span>
+            </td>
             <td>
               <span :class="['status-badge', `status-${record.materialsStatus}`]">
                 {{ materialsStatusText(record.materialsStatus) }}
@@ -112,6 +118,12 @@
             <span>{{ selectedRecord?.customerName }}（{{ selectedRecord?.customerId }}）</span>
           </div>
           <div class="detail-row">
+            <span class="detail-label">当前环节：</span>
+            <span :class="['stage-badge', `stage-${selectedRecord?.currentStage}`]">
+              {{ stageText(selectedRecord?.currentStage || '') }}
+            </span>
+          </div>
+          <div class="detail-row">
             <span class="detail-label">资料状态：</span>
             <span :class="['status-badge', `status-${selectedRecord?.materialsStatus}`]">
               {{ materialsStatusText(selectedRecord?.materialsStatus || '') }}
@@ -155,9 +167,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { PrizeRecord, User } from '~/types'
+import type { PrizeRecord, User, ProcessStage } from '~/types'
+import { stageLabels } from '~/types'
 
-defineProps<{
+const props = defineProps<{
   records: PrizeRecord[]
   user: User | null
 }>()
@@ -179,8 +192,7 @@ const stats = computed(() => {
 })
 
 const filteredRecords = computed(() => {
-  const records = useProps().records
-  return records.filter(r => {
+  return props.records.filter(r => {
     if (statusFilter.value && r.materialsStatus !== statusFilter.value) return false
     if (searchKeyword.value) {
       const keyword = searchKeyword.value.toLowerCase()
@@ -191,13 +203,6 @@ const filteredRecords = computed(() => {
   })
 })
 
-function useProps() {
-  return defineProps<{
-    records: PrizeRecord[]
-    user: User | null
-  }>()
-}
-
 const materialsStatusText = (status: string) => {
   const map: Record<string, string> = {
     uploading: '上传中',
@@ -206,6 +211,10 @@ const materialsStatusText = (status: string) => {
     exception: '异常'
   }
   return map[status] || status
+}
+
+const stageText = (stage: string) => {
+  return stageLabels[stage as ProcessStage] || stage
 }
 
 const formatAmount = (amount: number) => {
@@ -418,5 +427,38 @@ const getIncompleteReason = (record: PrizeRecord | null) => {
 .reason-box.reason-complete {
   background-color: #f6ffed;
   color: #52c41a;
+}
+
+.stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.stage-registration {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.stage-verification {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.stage-payment {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.stage-completed {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.stage-exception {
+  background-color: #fff2f0;
+  color: #ff4d4f;
 }
 </style>

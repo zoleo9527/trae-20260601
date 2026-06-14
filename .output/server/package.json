@@ -12,7 +12,7 @@
     "@vue/compiler-dom": "3.4.0",
     "@vue/compiler-ssr": "3.5.38",
     "@vue/devtools-api": "6.6.4",
-    "@vue/reactivity": "3.5.38",
+    "@vue/reactivity": "3.4.0",
     "@vue/runtime-core": "3.4.0",
     "@vue/runtime-dom": "3.4.0",
     "@vue/server-renderer": "3.5.38",

@@ -11,6 +11,14 @@
         <option value="pending">待处理</option>
         <option value="processing">处理中</option>
       </select>
+      <select v-model="stageFilter">
+        <option value="">全部环节</option>
+        <option value="registration">登记</option>
+        <option value="verification">审核</option>
+        <option value="payment">打款</option>
+        <option value="completed">完成</option>
+        <option value="exception">异常</option>
+      </select>
       <select v-model="handlerFilter">
         <option value="">全部责任人</option>
         <option value="店员">店员</option>
@@ -34,6 +42,7 @@
             <th>金额</th>
             <th>门店</th>
             <th>顾客</th>
+            <th>当前环节</th>
             <th>当前状态</th>
             <th>当前处理人</th>
             <th>创建时间</th>
@@ -49,6 +58,11 @@
             <td>{{ record.storeName }}</td>
             <td>{{ record.customerName }}</td>
             <td>
+              <span :class="['stage-badge', `stage-${record.currentStage}`]">
+                {{ stageText(record.currentStage) }}
+              </span>
+            </td>
+            <td>
               <span :class="['status-badge', `status-${record.status}`]">
                 {{ statusText(record.status) }}
               </span>
@@ -59,7 +73,7 @@
               <button class="btn btn-sm btn-primary" @click="viewRecord(record)">详情</button>
               <button 
                 class="btn btn-sm btn-secondary" 
-                @click="updateStatus(record)"
+                @click="handleUpdateStatus(record)"
                 :disabled="!canHandle(record)"
               >
                 {{ getActionText(record) }}
@@ -96,6 +110,12 @@
             <span>{{ selectedRecord?.customerName }}（{{ selectedRecord?.customerId }}）</span>
           </div>
           <div class="detail-row">
+            <span class="detail-label">当前环节：</span>
+            <span :class="['stage-badge', `stage-${selectedRecord?.currentStage}`]">
+              {{ stageText(selectedRecord?.currentStage || '') }}
+            </span>
+          </div>
+          <div class="detail-row">
             <span class="detail-label">当前状态：</span>
             <span :class="['status-badge', `status-${selectedRecord?.status}`]">
               {{ statusText(selectedRecord?.status || '') }}
@@ -115,7 +135,10 @@
           <div class="timeline">
             <div v-for="(change, index) in selectedRecord?.statusChanges" :key="index" class="timeline-item">
               <div class="timeline-time">{{ change.time }}</div>
-              <div class="timeline-content">{{ statusText(change.status) }}</div>
+              <div class="timeline-content">
+                <span :class="['stage-badge', `stage-${change.stage}`]">{{ stageText(change.stage) }}</span>
+                <span :class="['status-badge', `status-${change.status}`]">{{ statusText(change.status) }}</span>
+              </div>
               <div class="timeline-operator">{{ change.operator }}（{{ change.operatorRole }}）</div>
               <div v-if="change.remark" class="timeline-remark">{{ change.remark }}</div>
             </div>
@@ -177,15 +200,15 @@
         <h3>处理兑奖 - {{ updatingRecord?.id }}</h3>
         <div class="form-group">
           <label>操作</label>
-          <select v-model="updateStatus">
-            <option value="processing">开始处理</option>
+          <select v-model="updateAction.status">
+            <option value="processing">开始处理/下一步</option>
             <option value="completed">完成兑奖</option>
             <option value="exception">标记异常</option>
           </select>
         </div>
         <div class="form-group">
           <label>备注</label>
-          <textarea v-model="updateRemark"></textarea>
+          <textarea v-model="updateAction.remark"></textarea>
         </div>
         <button class="btn btn-primary" @click="handleUpdate">确认处理</button>
         <button class="btn btn-secondary" @click="showUpdateModal = false">取消</button>
@@ -196,7 +219,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { PrizeRecord, User } from '~/types'
+import type { PrizeRecord, User, ProcessStage } from '~/types'
+import { stageLabels } from '~/types'
 
 const props = defineProps<{
   records: PrizeRecord[]
@@ -206,6 +230,7 @@ const props = defineProps<{
 const emit = defineEmits(['update'])
 
 const statusFilter = ref('')
+const stageFilter = ref('')
 const handlerFilter = ref('')
 const searchKeyword = ref('')
 const showDetailModal = ref(false)
@@ -213,8 +238,10 @@ const showAddModal = ref(false)
 const showUpdateModal = ref(false)
 const selectedRecord = ref<PrizeRecord | null>(null)
 const updatingRecord = ref<PrizeRecord | null>(null)
-const updateStatus = ref('processing')
-const updateRemark = ref('')
+const updateAction = ref({
+  status: 'processing' as string,
+  remark: ''
+})
 
 const newRecord = ref({
   ticketNumber: '',
@@ -242,6 +269,10 @@ const statusText = (status: string) => {
   return map[status] || status
 }
 
+const stageText = (stage: string) => {
+  return stageLabels[stage as ProcessStage] || stage
+}
+
 const formatAmount = (amount: number) => {
   return `¥${amount.toLocaleString()}`
 }
@@ -249,6 +280,7 @@ const formatAmount = (amount: number) => {
 const filteredRecords = computed(() => {
   return props.records.filter(r => {
     if (statusFilter.value && r.status !== statusFilter.value) return false
+    if (stageFilter.value && r.currentStage !== stageFilter.value) return false
     if (handlerFilter.value && r.currentHandler !== handlerFilter.value) return false
     if (searchKeyword.value) {
       const keyword = searchKeyword.value.toLowerCase()
@@ -279,10 +311,12 @@ const viewRecord = (record: PrizeRecord) => {
   showDetailModal.value = true
 }
 
-const updateStatus = (record: PrizeRecord) => {
+const handleUpdateStatus = (record: PrizeRecord) => {
   updatingRecord.value = record
-  updateStatus.value = record.status === 'pending' ? 'processing' : 'completed'
-  updateRemark.value = ''
+  updateAction.value = {
+    status: record.status === 'pending' ? 'processing' : 'completed',
+    remark: ''
+  }
   showUpdateModal.value = true
 }
 
@@ -319,10 +353,10 @@ const handleUpdate = async () => {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       id: updatingRecord.value.id,
-      status: updateStatus.value,
+      status: updateAction.value.status,
       operator: props.user?.name || '',
       operatorRole: props.user?.role || '',
-      remark: updateRemark.value
+      remark: updateAction.value.remark
     })
   })
   
@@ -384,5 +418,39 @@ const handleUpdate = async () => {
   display: inline-block;
   width: 100px;
   color: #666;
+}
+
+.stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.stage-registration {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.stage-verification {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.stage-payment {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.stage-completed {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.stage-exception {
+  background-color: #fff2f0;
+  color: #ff4d4f;
 }
 </style>

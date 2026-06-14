@@ -40,6 +40,12 @@
             <span class="info-label">顾客</span>
             <span class="info-value">{{ record?.customerName }}（{{ record?.customerId }}）</span>
           </div>
+          <div class="info-row">
+            <span class="info-label">当前环节</span>
+            <span :class="['stage-badge', `stage-${record?.currentStage}`]">
+              {{ stageText(record?.currentStage || '') }}
+            </span>
+          </div>
         </div>
 
         <div class="section">
@@ -56,6 +62,7 @@
             <div v-for="(change, index) in record?.statusChanges" :key="index" class="timeline-item">
               <div class="timeline-time">{{ change.time }}</div>
               <div class="timeline-content">
+                <span :class="['stage-badge', `stage-${change.stage}`]">{{ stageText(change.stage) }}</span>
                 <span :class="['status-badge', `status-${change.status}`]">
                   {{ statusText(change.status) }}
                 </span>
@@ -92,7 +99,8 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import type { PrizeRecord, User } from '~/types'
+import type { PrizeRecord, User, ProcessStage } from '~/types'
+import { stageLabels } from '~/types'
 
 const props = defineProps<{
   record: PrizeRecord | null
@@ -124,6 +132,10 @@ const statusText = (status: string) => {
     exception: '异常'
   }
   return map[status] || status
+}
+
+const stageText = (stage: string) => {
+  return stageLabels[stage as ProcessStage] || stage
 }
 
 const handleClose = () => {
@@ -238,5 +250,39 @@ const handleReject = async () => {
 
 .action-buttons .btn {
   flex: 1;
+}
+
+.stage-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+.stage-registration {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.stage-verification {
+  background-color: #fff7e6;
+  color: #d48806;
+}
+
+.stage-payment {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+.stage-completed {
+  background-color: #f0f0f0;
+  color: #666;
+}
+
+.stage-exception {
+  background-color: #fff2f0;
+  color: #ff4d4f;
 }
 </style>
