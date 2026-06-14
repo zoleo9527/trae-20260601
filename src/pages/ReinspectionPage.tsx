@@ -64,17 +64,33 @@ export default function ReinspectionPage() {
   const [tab, setTab] = useState<TabKey>(initialTab)
 
   useEffect(() => {
-    setTab(initialTab)
+    const defaultKey = roleDefaultTab[currentUser.role] || 'pending'
+    searchParams.delete('tab')
+    setSearchParams(searchParams, { replace: true })
+    setTab(defaultKey)
   }, [currentUser.id])
 
   useEffect(() => {
-    if (tab === roleDefaultTab[currentUser.role]) {
-      searchParams.delete('tab')
+    const urlTab = searchParams.get('tab') as TabKey | null
+    const target = urlTab || roleDefaultTab[currentUser.role] || 'pending'
+    setTab(prev => (prev === target ? prev : target))
+  }, [searchParams])
+
+  useEffect(() => {
+    const shouldDelete = tab === roleDefaultTab[currentUser.role]
+    const currentUrl = searchParams.get('tab')
+    if (shouldDelete) {
+      if (currentUrl) {
+        searchParams.delete('tab')
+        setSearchParams(searchParams, { replace: true })
+      }
     } else {
-      searchParams.set('tab', tab)
+      if (currentUrl !== tab) {
+        searchParams.set('tab', tab)
+        setSearchParams(searchParams, { replace: true })
+      }
     }
-    setSearchParams(searchParams, { replace: true })
-  }, [tab, currentUser.role])
+  }, [tab])
 
   const roleQueueLabel = useMemo(() => {
     if (currentUser.role === 'receiver') return { title: '复检进度', sub: '查看与你相关车辆的复检进度，及时配合完成复检' }

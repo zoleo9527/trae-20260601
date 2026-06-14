@@ -51,6 +51,12 @@ export default function RectificationPage() {
     auditor: 'submitted',
   }
 
+  const roleVisibleStatuses: Record<string, RectificationStatus[]> = {
+    receiver: ['pending', 'rejected', 'submitted', 'passed'],
+    auditor: ['submitted', 'rejected', 'passed'],
+    inspector: ['pending', 'rejected', 'submitted'],
+  }
+
   const initialFilter = (searchParams.get('status') as FilterKey) || roleDefault[currentUser.role] || 'all'
   const [filter, setFilter] = useState<FilterKey>(initialFilter)
   const [keyword, setKeyword] = useState('')
@@ -65,28 +71,47 @@ export default function RectificationPage() {
   const [batchText, setBatchText] = useState('')
 
   useEffect(() => {
-    setFilter(initialFilter)
+    const defaultKey = roleDefault[currentUser.role] || 'pending'
+    searchParams.delete('status')
+    setSearchParams(searchParams, { replace: true })
+    setFilter(defaultKey)
   }, [currentUser.id])
 
   useEffect(() => {
-    if (filter === roleDefault[currentUser.role] || filter === 'all') {
-      searchParams.delete('status')
+    const urlStatus = searchParams.get('status') as FilterKey | null
+    const target = urlStatus || roleDefault[currentUser.role] || 'all'
+    setFilter(prev => (prev === target ? prev : target))
+  }, [searchParams])
+
+  useEffect(() => {
+    const shouldDelete = filter === roleDefault[currentUser.role] || filter === 'all'
+    const currentUrl = searchParams.get('status')
+    if (shouldDelete) {
+      if (currentUrl) {
+        searchParams.delete('status')
+        setSearchParams(searchParams, { replace: true })
+      }
     } else {
-      searchParams.set('status', filter)
+      if (currentUrl !== filter) {
+        searchParams.set('status', filter)
+        setSearchParams(searchParams, { replace: true })
+      }
     }
-    setSearchParams(searchParams, { replace: true })
-  }, [filter, currentUser.role])
+  }, [filter])
+
+  const visibleStatuses = roleVisibleStatuses[currentUser.role] || []
 
   const roleQueueLabel = useMemo(() => {
     if (currentUser.role === 'receiver') return { title: '我的整改任务', sub: '只显示分配给你的待提交/被驳回整改' }
-    if (currentUser.role === 'auditor') return { title: '待审核整改队列', sub: '所有已提交待审核的整改任务' }
-    return { title: '检测员跟进整改', sub: '全部待处理整改，便于现场确认进度' }
+    if (currentUser.role === 'auditor') return { title: '审核工作台', sub: '待审核、已驳回、已通过的整改记录' }
+    return { title: '需跟进整改', sub: '待处理/被驳回/已提交的整改，便于现场跟进进度' }
   }, [currentUser])
 
   const list = useMemo(() => {
     return rectifications
       .filter(r => {
         if (currentUser.role === 'receiver' && r.handlerId !== currentUser.id) return false
+        if (!visibleStatuses.includes(r.status)) return false
         if (filter !== 'all' && r.status !== filter) return false
         if (keyword.trim()) {
           const v = vehicles.find(x => x.id === r.vehicleId)
@@ -97,19 +122,25 @@ export default function RectificationPage() {
         return true
       })
       .sort((a, b) => {
-        const order = { rejected: 0, pending: 1, submitted: 2, passed: 3 }
+        const order: Record<string, number> = { rejected: 0, pending: 1, submitted: 2, passed: 3 }
         if (order[a.status] !== order[b.status]) return order[a.status] - order[b.status]
         return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
       })
-  }, [rectifications, filter, keyword, vehicles, currentUser])
+  }, [rectifications, filter, keyword, vehicles, currentUser, visibleStatuses])
 
-  const allCounts = useMemo(() => ({
-    all: rectifications.filter(r => !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
-    pending: rectifications.filter(r => r.status === 'pending' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
-    rejected: rectifications.filter(r => r.status === 'rejected' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
-    submitted: rectifications.filter(r => r.status === 'submitted' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
-    passed: rectifications.filter(r => r.status === 'passed' && !(currentUser.role === 'receiver' && r.handlerId !== currentUser.id)).length,
-  }), [rectifications, currentUser])
+  const allCounts = useMemo(() => {
+    const base = rectifications.filter(r => {
+      if (currentUser.role === 'receiver' && r.handlerId !== currentUser.id) return false
+      return visibleStatuses.includes(r.status)
+    })
+    return {
+      all: base.length,
+      pending: base.filter(r => r.status === 'pending').length,
+      rejected: base.filter(r => r.status === 'rejected').length,
+      submitted: base.filter(r => r.status === 'submitted').length,
+      passed: base.filter(r => r.status === 'passed').length,
+    }
+  }, [rectifications, currentUser, visibleStatuses])
 
   const queueStats = useMemo(() => {
     if (currentUser.role === 'receiver') {
@@ -129,28 +160,34 @@ export default function RectificationPage() {
     }
     return [
       { label: '待处理整改', value: allCounts.pending, tone: 'warn' as const },
-      { label: '被驳回', value: allCounts.rejected, tone: allCounts.rejected > 0 ? 'danger' as const : 'safe' as const },
-      { label: '已审核通过', value: allCounts.passed, tone: 'safe' as const },
+      { label: '被驳回需重跟', value: allCounts.rejected, tone: allCounts.rejected > 0 ? 'danger' as const : 'safe' as const },
+      { label: '已提交待审', value: allCounts.submitted, tone: allCounts.submitted > 0 ? 'info' as const : 'safe' as const },
     ]
   }, [rectifications, allCounts, currentUser])
 
+  const visibleFilterOptions = useMemo(() => {
+    return [
+      { key: 'all' as const, label: '全部' },
+      ...filterOptions
+        .filter(o => o.key !== 'all' && visibleStatuses.includes(o.key as RectificationStatus)),
+    ]
+  }, [visibleStatuses])
+
   const emptyStateConfig = useMemo(() => {
-    const map: Record<string, { icon: React.ComponentType<{ className?: string }>; title: string; desc: string }> = {
+    const map: Record<string, { icon: React.ComponentType<{ className?: string }>; title: string; desc: string; action?: string; actionTo?: string }> = {
       receiver_pending: { icon: ClipboardCheck, title: '暂无待提交整改', desc: '你当前没有需要处理的整改任务，真棒！' },
       receiver_rejected: { icon: RefreshCcw, title: '没有被驳回的整改', desc: '所有整改都已一次性通过或无待办。' },
       receiver_submitted: { icon: CheckCircle2, title: '暂无可查看的已提交', desc: '先去"待处理"提交整改吧。' },
       receiver_passed: { icon: UserCircle, title: '暂无已通过记录', desc: '继续努力，完成更多整改！' },
       receiver_all: { icon: UserCircle, title: '你还没有整改任务', desc: '等待调度分配或联系审核员。' },
-      auditor_submitted: { icon: ClipboardCheck, title: '暂无待审核整改', desc: '所有整改已审核完毕，状态良好！' },
-      auditor_pending: { icon: Clock, title: '暂无待处理整改', desc: '等待接车员提交整改材料。' },
-      auditor_rejected: { icon: AlertOctagon, title: '暂无需补录项', desc: '没有被驳回的整改，很棒。' },
-      auditor_passed: { icon: CheckCircle2, title: '暂无已通过记录', desc: '开始今天的审核工作吧。' },
-      auditor_all: { icon: UserCircle, title: '暂无整改数据', desc: '等待检测员生成不合格整改。' },
+      auditor_submitted: { icon: ClipboardCheck, title: '暂无待审核整改', desc: '所有整改已审核完毕，状态良好！', action: '去安排复检', actionTo: '/reinspection?tab=pending' },
+      auditor_rejected: { icon: AlertOctagon, title: '暂无需补录项', desc: '没有被驳回的整改，很棒。', action: '查看待审核', actionTo: '/rectification?status=submitted' },
+      auditor_passed: { icon: CheckCircle2, title: '暂无已通过记录', desc: '开始今天的审核工作吧。', action: '待审核整改', actionTo: '/rectification?status=submitted' },
+      auditor_all: { icon: UserCircle, title: '暂无审核相关整改', desc: '等待接车员提交整改材料进入审核流程。' },
       inspector_pending: { icon: Clock, title: '暂无待处理整改', desc: '现场车况良好，没有待跟进的不合格项。' },
       inspector_rejected: { icon: RefreshCcw, title: '没有被驳回的整改', desc: '接车员提交的材料质量不错。' },
-      inspector_submitted: { icon: CheckCircle2, title: '暂无已提交整改', desc: '等待接车员补充材料。' },
-      inspector_passed: { icon: CheckCircle2, title: '暂无已通过整改', desc: '继续保持现场检测质量。' },
-      inspector_all: { icon: UserCircle, title: '暂无整改数据', desc: '今日检测全部合格，状态极佳！' },
+      inspector_submitted: { icon: CheckCircle2, title: '暂无已提交整改', desc: '等待接车员补充材料后进入审核。' },
+      inspector_all: { icon: UserCircle, title: '暂无需跟进整改', desc: '今日检测全部合格，没有需要跟进的不合格项。' },
     }
     return map[`${currentUser.role}_${filter}`] || map[`${currentUser.role}_all`]
   }, [currentUser, filter])
@@ -311,14 +348,14 @@ export default function RectificationPage() {
 
       <div className="px-5 py-3 border-b border-ink-700/50 flex items-center gap-3 flex-wrap bg-ink-800/30">
         <div className="flex items-center rounded-sm border border-ink-600 overflow-hidden">
-          {filterOptions.map(opt => (
+          {visibleFilterOptions.map(opt => (
             <button key={opt.key}
               onClick={() => setFilter(opt.key)}
               className={`px-3 py-1.5 text-xs transition-colors ${
                 filter === opt.key ? 'bg-info-500/15 text-info-400' : 'text-ink-300 hover:bg-ink-700'
               }`}>
               {opt.label}
-              <span className="ml-1 text-[10px] text-ink-400">({allCounts[opt.key]})</span>
+              <span className="ml-1 text-[10px] text-ink-400">({allCounts[opt.key as keyof typeof allCounts]})</span>
             </button>
           ))}
         </div>
@@ -372,10 +409,10 @@ export default function RectificationPage() {
                           <Plus className="w-3 h-3 inline mr-0.5" /> 新增整改任务
                         </button>
                       )}
-                      {canAudit && (filter === 'submitted' || filter === 'all') && (
-                        <Link to="/reinspection"
+                      {emptyStateConfig.action && emptyStateConfig.actionTo && (
+                        <Link to={emptyStateConfig.actionTo}
                           className="mt-4 inline-flex text-[11px] px-3 py-1.5 rounded-sm border border-info-500/40 text-info-400 hover:bg-info-500/10">
-                          <ChevronRight className="w-3 h-3 inline mr-0.5" /> 去安排复检
+                          <ChevronRight className="w-3 h-3 inline mr-0.5" /> {emptyStateConfig.action}
                         </Link>
                       )}
                     </td>
@@ -567,8 +604,8 @@ export default function RectificationPage() {
           {currentUser.role === 'receiver'
             ? '提示：被驳回的记录带醒目背景和原因，点击「补录」可直接上传新材料。'
             : currentUser.role === 'auditor'
-              ? '提示：点击「通过/驳回」直接处理，多选可批量通过。驳回请填写具体原因，方便接车员补录。'
-              : '提示：检测员视图显示全部整改，便于现场跟进不合格项整改进度。'}
+              ? '提示：只展示进入审核流程的整改（待审核/已驳回/已通过）。点击「通过/驳回」直接处理，多选可批量通过。'
+              : '提示：只展示需跟进的整改（待处理/被驳回/已提交），便于现场跟进不合格项整改进度。'}
         </p>
       </div>
 
