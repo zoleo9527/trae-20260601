@@ -102,6 +102,8 @@ export function SidebarDetail() {
   const canAddRemark = currentUser.role === 'clerk' || currentUser.role === 'manager' || currentUser.role === 'admin'
   const canSupplement = currentUser.role === 'clerk' && selectedTicket.status === 'rejected'
 
+  const canConfirmAction = selectedAction !== 'rejected' || actionRemark.trim() !== ''
+
   return (
     <div className="w-96 bg-white border-l border-gray-200 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
@@ -271,7 +273,17 @@ export function SidebarDetail() {
               <XCircle className="w-5 h-5 text-red-600" />
               <h4 className="text-sm font-semibold text-red-900">退回原因</h4>
             </div>
-            <p className="text-xs text-red-700">{selectedTicket.rejectedReason}</p>
+            <p className="text-sm text-red-700">{selectedTicket.rejectedReason}</p>
+          </div>
+        )}
+
+        {selectedTicket.status === 'rejected' && !selectedTicket.rejectedReason && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center gap-2 mb-2">
+              <XCircle className="w-5 h-5 text-red-600" />
+              <h4 className="text-sm font-semibold text-red-900">退回原因</h4>
+            </div>
+            <p className="text-sm text-red-600">未填写退回原因</p>
           </div>
         )}
 
@@ -311,7 +323,9 @@ export function SidebarDetail() {
                       )}
                     </div>
                     {step.remark && (
-                      <p className="text-xs text-gray-600 mt-2 bg-white rounded p-2">{step.remark}</p>
+                      <p className="text-xs text-gray-600 mt-2 bg-white rounded p-2">
+                        {step.action.includes('退回') ? `退回原因: ${step.remark}` : step.remark}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -481,8 +495,13 @@ export function SidebarDetail() {
               value={actionRemark}
               onChange={(e) => setActionRemark(e.target.value)}
               placeholder={selectedAction === 'rejected' ? '请输入退回原因...' : '可选：添加操作备注...'}
-              className="w-full border border-gray-200 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none h-24"
+              className={`w-full border rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:border-transparent resize-none h-24 ${
+                selectedAction === 'rejected' && !actionRemark.trim() ? 'border-red-500' : 'border-gray-200 focus:ring-blue-500'
+              }`}
             />
+            {selectedAction === 'rejected' && !actionRemark.trim() && (
+              <p className="text-xs text-red-500 mt-1">退回原因不能为空</p>
+            )}
             <div className="flex gap-3 mt-4">
               <button
                 onClick={() => setShowActionModal(false)}
@@ -492,7 +511,14 @@ export function SidebarDetail() {
               </button>
               <button
                 onClick={confirmAction}
-                className={`flex-1 ${selectedAction === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'} text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors`}
+                disabled={!canConfirmAction}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  !canConfirmAction
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : selectedAction === 'rejected'
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                }`}
               >
                 确认
               </button>
