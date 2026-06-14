@@ -118,7 +118,7 @@
             <h3 class="text-lg font-semibold text-gray-900 mb-4">可执行操作</h3>
             <div class="space-y-2">
               <button
-                v-if="canChangeStatus"
+                v-if="canChangeStatus && vehicle.status !== 'following'"
                 @click="showActionModal = true"
                 class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
@@ -145,6 +145,20 @@
               >
                 客户跟进
               </button>
+              <div v-if="vehicle.status === 'following' && isCurrentResponsible" class="flex gap-2 pt-2">
+                <button
+                  @click="handleComplete('sold')"
+                  class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  标记成交
+                </button>
+                <button
+                  @click="handleComplete('unlisted')"
+                  class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                >
+                  标记失败
+                </button>
+              </div>
             </div>
           </div>
 
@@ -308,6 +322,12 @@ const handleStatusChange = async () => {
   await changeStatus(vehicle.value.id, nextStatus, actionRemark.value, handoverTo, undefined, currentUser.value)
   showActionModal.value = false
   actionRemark.value = ''
+}
+
+const handleComplete = async (status: 'sold' | 'unlisted') => {
+  if (!vehicle.value) return
+  const remark = status === 'sold' ? '客户成交，感谢购买！' : '跟进失败，已下架'
+  await changeStatus(vehicle.value.id, status, remark, undefined, undefined, currentUser.value)
 }
 
 const formatDateTime = (dateStr: string) => {

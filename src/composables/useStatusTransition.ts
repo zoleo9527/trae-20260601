@@ -25,13 +25,12 @@ export function useStatusTransition() {
   const getAvailableTransitions = (currentStatus: VehicleStatus, userRole: string) => {
     const config = statusConfig[currentStatus]
     if (!config) return []
-    return config.canTransitionTo
-      .filter(status => statusConfig[status].requiredRole === userRole)
-      .map(status => ({
-        status,
-        label: statusConfig[status].label,
-        action: statusConfig[status].action
-      }))
+    if (config.requiredRole !== userRole) return []
+    return config.canTransitionTo.map(status => ({
+      status,
+      label: statusConfig[status].label,
+      action: statusConfig[status].action
+    }))
   }
 
   const getRequiredRole = (status: VehicleStatus): string => {
