@@ -122,7 +122,7 @@ export class AssessmentService extends BaseService<DamageAssessment> {
     this.saveAll(assessments);
 
     if (action === 'approve') {
-      this.taskService.completeSurvey(assessments[assessmentIndex].taskId, '定损审核通过');
+      this.taskService.updateTaskStatus(assessments[assessmentIndex].taskId, TaskStatus.COMPLETED, '定损审核通过，任务完成');
     }
 
     this.logService.createLog({
