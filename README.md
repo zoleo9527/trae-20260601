@@ -154,11 +154,24 @@ curl -s http://localhost:3001/api/dashboard | python3 -m json.tool
 
 #### 3. 手动标记环节完成（admin 权限）
 
+**支持的环节**：`registration`（报名数据）、`room-arrangement`（考场编排）、`invigilator-assignment`（监考名单）、`absence-violation`（缺考违纪）、`score-publish`（成绩发布）
+
+**前置条件**：该环节 `stageProgress.canProceed === true`（所有阻塞项已清除），否则会返回 `[流程错误]`。
+
 ```bash
+# 示例 1：标记「报名数据」为完成
 curl -s -X PUT http://localhost:3001/api/dashboard/stages/registration/complete \
   -H 'Content-Type: application/json' \
   -d '{"operatorRole":"admin","operatorName":"考务专员"}' | python3 -m json.tool
+
+# 示例 2：先把所有缺考违纪审核通过，再标记「缺考违纪」为完成
+# （先执行若干条 review 接口把 pending 全部处理，再调用此接口）
+curl -s -X PUT http://localhost:3001/api/dashboard/stages/absence-violation/complete \
+  -H 'Content-Type: application/json' \
+  -d '{"operatorRole":"admin","operatorName":"考务专员"}' | python3 -m json.tool
 ```
+
+**前端 UI 说明**：Dashboard 环节卡片上的「标记本环节完成」按钮目前仅对 `absence-violation` 和 `score-publish` 显示（这两个是考务专员日常操作的核心环节）；其他三个环节（报名/考场/监考）在种子数据中已预设为完成状态，如需测试手动标记请用 curl 调用。
 
 ---
 

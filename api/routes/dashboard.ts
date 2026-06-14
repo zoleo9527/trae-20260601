@@ -61,20 +61,29 @@ router.put('/stages/:stage/complete', (req: Request, res: Response): void => {
     const { operatorRole, operatorName } = req.body
     assertPermission(operatorRole as Role, 'manage:stage')
 
-    const validStages: StageName[] = ['absence-violation', 'score-publish']
+    const validStages: StageName[] = ['registration', 'room-arrangement', 'invigilator-assignment', 'absence-violation', 'score-publish']
     if (!validStages.includes(stage as StageName)) {
-      res.status(400).json({ error: '无效环节，仅允许手动标记缺考违纪、成绩发布为完成' })
+      res.status(400).json({ error: '[参数错误] 无效环节，仅支持：registration/room-arrangement/invigilator-assignment/absence-violation/score-publish' })
       return
     }
 
     const progress = getStageProgress().find(p => p.stage === stage)
     if (progress && !progress.canProceed) {
-      res.status(400).json({ error: `环节未满足完成条件：${progress.blockers.join('；')}` })
+      res.status(400).json({ error: `[流程错误] 环节未满足完成条件：${progress.blockers.join('；')}` })
       return
     }
 
     setStageStatus(stage as StageName, 'completed', operatorName)
     const now = new Date().toISOString()
+
+    const stageNameMap: Record<StageName, string> = {
+      'registration': '报名数据',
+      'room-arrangement': '考场编排',
+      'invigilator-assignment': '监考名单',
+      'absence-violation': '缺考违纪',
+      'score-publish': '成绩发布',
+    }
+
     addAuditLog({
       id: nextId('log'),
       targetType: 'stage',
@@ -82,10 +91,10 @@ router.put('/stages/:stage/complete', (req: Request, res: Response): void => {
       action: 'manual-complete',
       operatorRole: operatorRole as Role,
       operatorName,
-      detail: `手动标记环节完成：${stage}`,
+      detail: `手动标记环节完成：${stageNameMap[stage as StageName]}`,
       createdAt: now,
     })
-    res.json({ success: true, message: '环节已标记为完成' })
+    res.json({ success: true, message: `环节「${stageNameMap[stage as StageName]}」已标记为完成` })
   } catch (e: any) {
     res.status(400).json({ error: e.message })
   }
