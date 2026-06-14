@@ -1,18 +1,45 @@
 import { Table, Tag, Card, Button, Modal, Form, Input, Select, DatePicker, TimePicker, Checkbox } from 'antd';
 import { PlusOutlined, EditOutlined, CheckOutlined } from '@ant-design/icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useStore } from '../store';
 import dayjs from 'dayjs';
 
 export default function MakeupTraining() {
-  const { students, programs, makeupTrainings, addMakeupTraining, updateMakeupTraining, userRole } = useStore();
+  const { students, programs, attendances, rehearsals, makeupTrainings, addMakeupTraining, updateMakeupTraining, userRole } = useStore();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentTraining, setCurrentTraining] = useState<any>(null);
+  const [selectedStudent, setSelectedStudent] = useState<string>('');
+  const [selectedProgram, setSelectedProgram] = useState<string>('');
   const [form] = Form.useForm();
 
   const studentOptions = students.map((s) => ({ value: s.id, label: s.name }));
   const programOptions = programs.map((p) => ({ value: p.id, label: p.name }));
+
+  const getAbsentAttendances = useMemo(() => {
+    const absent = attendances.filter((a) => !a.present);
+    const assignedIds = makeupTrainings.map((m) => m.attendanceId).filter(Boolean);
+    return absent.filter((a) => !assignedIds.includes(a.id));
+  }, [attendances, makeupTrainings]);
+
+  const attendanceOptions = useMemo(() => {
+    let filtered = getAbsentAttendances;
+    if (selectedStudent) {
+      filtered = filtered.filter((a) => a.studentId === selectedStudent);
+    }
+    if (selectedProgram) {
+      const programRehearsals = rehearsals.filter((r) => r.programId === selectedProgram);
+      filtered = filtered.filter((a) => programRehearsals.some((r) => r.id === a.rehearsalId));
+    }
+    return filtered.map((a) => {
+      const rehearsal = rehearsals.find((r) => r.id === a.rehearsalId);
+      const student = students.find((s) => s.id === a.studentId);
+      return {
+        value: a.id,
+        label: `${student?.name || ''} - ${rehearsal?.date || ''} ${rehearsal?.startTime || ''} (${a.reason})`,
+      };
+    });
+  }, [getAbsentAttendances, selectedStudent, selectedProgram, rehearsals, students]);
 
   const getStudentName = (studentId: string) => {
     return students.find((s) => s.id === studentId)?.name || '';
@@ -25,6 +52,8 @@ export default function MakeupTraining() {
   const handleAdd = () => {
     setIsEditing(false);
     setCurrentTraining(null);
+    setSelectedStudent('');
+    setSelectedProgram('');
     form.resetFields();
     setIsModalVisible(true);
   };
@@ -32,6 +61,8 @@ export default function MakeupTraining() {
   const handleEdit = (record: any) => {
     setIsEditing(true);
     setCurrentTraining(record);
+    setSelectedStudent(record.studentId);
+    setSelectedProgram(record.programId);
     form.setFieldsValue({
       ...record,
       date: dayjs(record.date),
@@ -41,13 +72,25 @@ export default function MakeupTraining() {
     setIsModalVisible(true);
   };
 
+  const handleStudentChange = (value: string) => {
+    setSelectedStudent(value);
+    form.setFieldsValue({ studentId: value });
+  };
+
+  const handleProgramChange = (value: string) => {
+    setSelectedProgram(value);
+    form.setFieldsValue({ programId: value });
+  };
+
   const handleSave = () => {
     form.validateFields().then((values) => {
+      const attendanceValue = values.attendanceId;
       const data = {
         ...values,
         date: values.date.format('YYYY-MM-DD'),
         startTime: values.startTime ? values.startTime.format('HH:mm') : '',
         endTime: values.endTime ? values.endTime.format('HH:mm') : '',
+        attendanceId: attendanceValue || undefined,
       };
       if (isEditing) {
         updateMakeupTraining(currentTraining.id, data);
@@ -120,10 +163,27 @@ export default function MakeupTraining() {
       >
         <Form form={form} layout="vertical">
           <Form.Item label="学生" name="studentId" rules={[{ required: true, message: '请选择学生' }]}>
-            <Select options={studentOptions} placeholder="请选择学生" />
+            <Select 
+              options={studentOptions} 
+              placeholder="请选择学生" 
+              onChange={handleStudentChange}
+              value={selectedStudent || undefined}
+            />
           </Form.Item>
           <Form.Item label="节目" name="programId" rules={[{ required: true, message: '请选择节目' }]}>
-            <Select options={programOptions} placeholder="请选择节目" />
+            <Select 
+              options={programOptions} 
+              placeholder="请选择节目" 
+              onChange={handleProgramChange}
+              value={selectedProgram || undefined}
+            />
+          </Form.Item>
+          <Form.Item label="关联缺勤记录" name="attendanceId">
+            <Select 
+              options={attendanceOptions} 
+              placeholder="选择关联的缺勤记录（可选）"
+              allowClear
+            />
           </Form.Item>
           <Form.Item label="补训日期" name="date" rules={[{ required: true, message: '请选择日期' }]}>
             <DatePicker style={{ width: '100%' }} />

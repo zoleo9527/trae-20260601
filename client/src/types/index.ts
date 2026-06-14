@@ -44,6 +44,7 @@ export interface MakeupTraining {
   id: string;
   studentId: string;
   programId: string;
+  attendanceId?: string;
   date: string;
   startTime: string;
   endTime: string;

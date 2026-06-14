@@ -40,9 +40,27 @@ export const useStore = create<Store>((set) => ({
     makeupTrainings: [...state.makeupTrainings, { ...training, id: `m${Date.now()}` }],
   })),
   
-  updateMakeupTraining: (id, updates) => set((state) => ({
-    makeupTrainings: state.makeupTrainings.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-  })),
+  updateMakeupTraining: (id, updates) => set((state) => {
+    const updatedTrainings = state.makeupTrainings.map((m) => 
+      m.id === id ? { ...m, ...updates } : m
+    );
+    
+    if (updates.completed === true) {
+      const training = updatedTrainings.find((m) => m.id === id);
+      if (training?.attendanceId) {
+        return {
+          makeupTrainings: updatedTrainings,
+          attendances: state.attendances.map((a) => 
+            a.id === training.attendanceId 
+              ? { ...a, makeupCompleted: true }
+              : a
+          ),
+        };
+      }
+    }
+    
+    return { makeupTrainings: updatedTrainings };
+  }),
   
   updateProgram: (id, updates) => set((state) => ({
     programs: state.programs.map((p) => (p.id === id ? { ...p, ...updates } : p)),

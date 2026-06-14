@@ -81,8 +81,8 @@ export const mockAttendances: Attendance[] = [
 ];
 
 export const mockMakeupTrainings: MakeupTraining[] = [
-  { id: 'm1', studentId: 's2', programId: 'p1', date: '2024-01-17', startTime: '10:00', endTime: '11:30', content: '复习第一段舞蹈动作', completed: true, teacher: '王老师' },
-  { id: 'm2', studentId: 's5', programId: 'p1', date: '2024-01-22', startTime: '14:00', endTime: '16:00', content: '补训完整节目动作', completed: false, teacher: '李老师' },
-  { id: 'm3', studentId: 's3', programId: 'p1', date: '2024-01-20', startTime: '09:00', endTime: '10:30', content: '复习队形变化', completed: true, teacher: '王老师' },
-  { id: 'm4', studentId: 's4', programId: 'p2', date: '2024-01-18', startTime: '15:00', endTime: '16:30', content: '练习跳跃动作', completed: true, teacher: '张老师' },
+  { id: 'm1', studentId: 's2', programId: 'p1', attendanceId: 'a2', date: '2024-01-17', startTime: '10:00', endTime: '11:30', content: '复习第一段舞蹈动作', completed: true, teacher: '王老师' },
+  { id: 'm2', studentId: 's5', programId: 'p1', attendanceId: 'a5', date: '2024-01-22', startTime: '14:00', endTime: '16:00', content: '补训完整节目动作', completed: false, teacher: '李老师' },
+  { id: 'm3', studentId: 's3', programId: 'p1', attendanceId: 'a9', date: '2024-01-20', startTime: '09:00', endTime: '10:30', content: '复习队形变化', completed: true, teacher: '王老师' },
+  { id: 'm4', studentId: 's4', programId: 'p2', attendanceId: 'a16', date: '2024-01-18', startTime: '15:00', endTime: '16:30', content: '练习跳跃动作', completed: true, teacher: '张老师' },
 ];
