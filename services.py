@@ -362,6 +362,7 @@ class FeeService:
         if not fee:
             raise StateTransitionError(ErrorCode.FEE_NOT_FOUND, f"费用记录 {fee_id} 不存在")
 
+        old_fee_status = fee.status.value
         StateMachine.validate_fee_transition(fee.status, FeeStatus.REJECTED)
 
         fee.status = FeeStatus.REJECTED
@@ -369,7 +370,7 @@ class FeeService:
 
         StatusChangeService.record_change(
             "fee", fee_id, "status",
-            fee.status.value, FeeStatus.REJECTED.value,
+            old_fee_status, FeeStatus.REJECTED.value,
             rejected_by, reject_reason
         )
 
@@ -481,6 +482,7 @@ class ProblemService:
                             f"原始数据: {original_data or '无'}\n" \
                             f"新数据: {new_data or '无'}"
 
+            feedback = None
             if feedback_id:
                 feedback = db.get("feedback", feedback_id)
                 if feedback:
@@ -497,6 +499,9 @@ class ProblemService:
                 problem_id=problem.id,
                 inherited_notes=inherited_notes
             )
+
+            if feedback:
+                feedback.related_fee_id = fee.id
 
             result["fee"] = fee
             result["message"] = f"问题单创建成功，已自动创建关联的待确认费用"

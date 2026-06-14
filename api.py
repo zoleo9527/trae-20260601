@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, Query, Body
+from fastapi import FastAPI, HTTPException, Query, Body, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
@@ -19,13 +20,35 @@ class ErrorResponse(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
+ERROR_CODE_TO_HTTP_STATUS = {
+    ErrorCode.INVALID_STATUS_TRANSITION: 400,
+    ErrorCode.FEEDBACK_NOT_HANDLED: 400,
+    ErrorCode.FEE_ALREADY_CONFIRMED: 400,
+    ErrorCode.UNAUTHORIZED_ACCESS: 403,
+    ErrorCode.PROJECT_NOT_FOUND: 404,
+    ErrorCode.FEEDBACK_NOT_FOUND: 404,
+    ErrorCode.FEE_NOT_FOUND: 404,
+    ErrorCode.INVALID_ROLE: 403,
+    ErrorCode.MISSING_REQUIRED_FIELD: 400,
+    ErrorCode.DUPLICATE_OPERATION: 409,
+    ErrorCode.RESCHEDULE_NOT_ALLOWED: 400,
+    ErrorCode.SUPPLEMENT_NOT_ALLOWED: 400,
+    ErrorCode.REJECT_REASON_REQUIRED: 400,
+}
+
+
 @app.exception_handler(StateTransitionError)
-async def state_transition_error_handler(request, exc: StateTransitionError):
-    return ErrorResponse(
+async def state_transition_error_handler(request: Request, exc: StateTransitionError):
+    http_status = ERROR_CODE_TO_HTTP_STATUS.get(exc.error_code, 400)
+    error_response = ErrorResponse(
         code=exc.error_code.value,
         message=exc.message,
         details=exc.details,
         timestamp=datetime.now()
+    )
+    return JSONResponse(
+        status_code=http_status,
+        content=error_response.model_dump()
     )
 
 
@@ -354,9 +377,10 @@ async def reviewer_reject_fee(
     if fee.problem_id:
         problem = db.get("problem", fee.problem_id)
         if problem:
+            old_problem_status = problem.status
             StatusChangeService.record_change(
                 "problem", problem.id, "status",
-                "open", "resolved",
+                old_problem_status, "resolved",
                 rejected_by, f"费用驳回: {reject_reason}"
             )
             problem.status = "resolved"
@@ -434,15 +458,27 @@ async def get_feedback(feedback_id: str):
         raise HTTPException(status_code=404, detail=f"反馈 {feedback_id} 不存在")
 
     related_fee = None
+    related_problem = None
     if feedback.related_fee_id:
         related_fee = FeeService.get_fee(feedback.related_fee_id)
+        if related_fee and related_fee.problem_id:
+            related_problem = db.get("problem", related_fee.problem_id)
 
-    status_changes = StatusChangeService.get_changes_by_entity("feedback", feedback_id)
+    feedback_status_changes = StatusChangeService.get_changes_by_entity("feedback", feedback_id)
+    fee_status_changes = []
+    if related_fee:
+        fee_status_changes = StatusChangeService.get_changes_by_entity("fee", related_fee.id)
+    problem_status_changes = []
+    if related_problem:
+        problem_status_changes = StatusChangeService.get_changes_by_entity("problem", related_problem.id)
 
     return {
         "feedback": feedback,
         "related_fee": related_fee,
-        "status_changes": status_changes
+        "related_problem": related_problem,
+        "feedback_status_changes": sorted(feedback_status_changes, key=lambda x: x.created_at),
+        "fee_status_changes": sorted(fee_status_changes, key=lambda x: x.created_at),
+        "problem_status_changes": sorted(problem_status_changes, key=lambda x: x.created_at)
     }
 
 
