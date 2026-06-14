@@ -4,7 +4,7 @@ export type UploadStatus = 'NOT_UPLOADED' | 'UPLOADED' | 'CONFIRMED'
 
 export type Role = 'CLAIM_AGENT' | 'SURVEYOR' | 'UNDERWRITER'
 
-export type ActionType = 'SUBMIT' | 'VERIFY' | 'REJECT' | 'SUPPLEMENT' | 'CONFIRM'
+export type ActionType = 'SUBMIT' | 'VERIFY' | 'REJECT' | 'SUPPLEMENT' | 'CONFIRM' | 'REVIEW_FAIL'
 
 export interface CaseReport {
   id: string
@@ -103,7 +103,8 @@ export const actionLabels: Record<ActionType, string> = {
   VERIFY: '审核',
   REJECT: '驳回',
   SUPPLEMENT: '补录',
-  CONFIRM: '确认'
+  CONFIRM: '确认',
+  REVIEW_FAIL: '复核不通过'
 }
 
 export const uploadStatusLabels: Record<UploadStatus, string> = {

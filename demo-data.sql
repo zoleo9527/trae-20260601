@@ -122,7 +122,7 @@ VALUES
 ('log-failed-103', 'case-review-failed-001', 'mat-failed-002', 'user-002', 'SURVEYOR', 'VERIFY', 'UPLOADED', 'CONFIRMED', '查勘员确认保单复印件', '2024-06-04 15:00:00'),
 ('log-failed-104', 'case-review-failed-001', 'mat-failed-003', 'user-002', 'SURVEYOR', 'VERIFY', 'UPLOADED', 'CONFIRMED', '查勘员确认身份证明', '2024-06-04 15:00:00'),
 ('log-failed-105', 'case-review-failed-001', NULL, 'user-002', 'SURVEYOR', 'SUBMIT', 'SUBMITTED', 'PENDING_REVIEW', '查勘员确认材料清单完成，提交核赔', '2024-06-04 16:00:00'),
-('log-failed-106', 'case-review-failed-001', NULL, 'user-003', 'UNDERWRITER', 'REJECT', 'PENDING_REVIEW', 'REVIEW_FAILED', '复核不通过：事故经过描述不够详细，损失清单未提供，请补充后重新提交', '2024-06-04 18:00:00');
+('log-failed-106', 'case-review-failed-001', NULL, 'user-003', 'UNDERWRITER', 'REVIEW_FAIL', 'PENDING_REVIEW', 'REVIEW_FAILED', '复核不通过：事故经过描述不够详细，损失清单未提供，请补充后重新提交', '2024-06-04 18:00:00');
 
 -- 5. 待提交的案例（用于演示新流程）
 INSERT INTO CaseReport (id, reportNo, policyNo, policyHolder, accidentDesc, reporterId, status, createdAt, updatedAt)

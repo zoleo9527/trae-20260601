@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
     id,
     operatorId,
     'UNDERWRITER',
-    'REJECT',
+    'REVIEW_FAIL',
     currentCase.status,
     'REVIEW_FAILED',
     reason

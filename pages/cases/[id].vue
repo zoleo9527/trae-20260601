@@ -293,7 +293,8 @@ async function handleApprove() {
                   {{ log.actionType === 'SUBMIT' ? '提交' : 
                      log.actionType === 'VERIFY' ? '审核' : 
                      log.actionType === 'REJECT' ? '驳回' : 
-                     log.actionType === 'CONFIRM' ? '确认' : '补录' }}
+                     log.actionType === 'CONFIRM' ? '确认' : 
+                     log.actionType === 'REVIEW_FAIL' ? '复核不通过' : '补录' }}
                   <CommonRoleTag :role="log.operatorRole" />
                 </div>
                 <div v-if="log.remark" class="timeline-description">
