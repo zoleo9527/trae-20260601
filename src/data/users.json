@@ -1,0 +1,26 @@
+[
+  {
+    "id": "U001",
+    "name": "张伟",
+    "role": "collector",
+    "roleLabel": "收车经理"
+  },
+  {
+    "id": "U002",
+    "name": "李明",
+    "role": "evaluator",
+    "roleLabel": "评估师"
+  },
+  {
+    "id": "U003",
+    "name": "王芳",
+    "role": "finance",
+    "roleLabel": "金融专员"
+  },
+  {
+    "id": "U004",
+    "name": "赵强",
+    "role": "sales",
+    "roleLabel": "销售顾问"
+  }
+]

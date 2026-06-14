@@ -1,0 +1,58 @@
+{
+  "pending_evaluation": {
+    "label": "入库待评估",
+    "color": "orange",
+    "canTransitionTo": ["evaluating"],
+    "requiredRole": "collector",
+    "action": "提交评估"
+  },
+  "evaluating": {
+    "label": "评估中",
+    "color": "blue",
+    "canTransitionTo": ["pending_pricing"],
+    "requiredRole": "evaluator",
+    "action": "完成评估"
+  },
+  "pending_pricing": {
+    "label": "待定价",
+    "color": "purple",
+    "canTransitionTo": ["pricing_pending"],
+    "requiredRole": "collector",
+    "action": "提交定价"
+  },
+  "pricing_pending": {
+    "label": "定价待确认",
+    "color": "indigo",
+    "canTransitionTo": ["listed"],
+    "requiredRole": "finance",
+    "action": "确认定价"
+  },
+  "listed": {
+    "label": "已上架",
+    "color": "green",
+    "canTransitionTo": ["following"],
+    "requiredRole": "sales",
+    "action": "发起跟进"
+  },
+  "following": {
+    "label": "客户跟进中",
+    "color": "cyan",
+    "canTransitionTo": ["sold", "unlisted"],
+    "requiredRole": "sales",
+    "action": "成交/下架"
+  },
+  "sold": {
+    "label": "已成交",
+    "color": "emerald",
+    "canTransitionTo": [],
+    "requiredRole": "sales",
+    "action": ""
+  },
+  "unlisted": {
+    "label": "已下架",
+    "color": "gray",
+    "canTransitionTo": [],
+    "requiredRole": "sales",
+    "action": ""
+  }
+}

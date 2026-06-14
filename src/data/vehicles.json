@@ -1,0 +1,1118 @@
+[
+  {
+    "id": "VEH-2024-001",
+    "plate": "京A12345",
+    "model": "宝马5系 2022款 530Li 尊享型",
+    "brand": "宝马",
+    "year": 2022,
+    "mileage": 32000,
+    "purchasePrice": 320000,
+    "listedPrice": null,
+    "status": "pending_evaluation",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": null,
+    "financeStaff": null,
+    "salesRep": null,
+    "timeline": [
+      {
+        "id": "TL-001-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-14 09:30",
+        "remark": "客户置换，车况良好，无事故记录，已做初检。右前保险杠有轻微划痕。",
+        "type": "status_change"
+      }
+    ],
+    "followups": [],
+    "createdAt": "2024-06-14 09:30",
+    "updatedAt": "2024-06-14 09:30"
+  },
+  {
+    "id": "VEH-2024-002",
+    "plate": "沪B67890",
+    "model": "奔驰E级 2023款 E300L 豪华型",
+    "brand": "奔驰",
+    "year": 2023,
+    "mileage": 15000,
+    "purchasePrice": 420000,
+    "listedPrice": 453000,
+    "status": "following",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": {
+      "id": "U003",
+      "name": "王芳",
+      "role": "finance"
+    },
+    "salesRep": {
+      "id": "U004",
+      "name": "赵强",
+      "role": "sales"
+    },
+    "timeline": [
+      {
+        "id": "TL-002-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-10 10:00",
+        "remark": "个人一手车，车况优秀，行驶1.5万公里，定期保养",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-002-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-10 10:15",
+        "remark": "交接给评估师进行专业检测",
+        "type": "handover"
+      },
+      {
+        "id": "TL-002-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-10 15:30",
+        "remark": "评估完成：外观良好，内饰干净，发动机无异响，底盘无异常。轻微左后轮毂划痕。检测报告显示无重大事故、火烧、水泡。",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-002-4",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "toUser": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-10 16:00",
+        "remark": "评估完成，交接给收车经理进行定价",
+        "type": "handover"
+      },
+      {
+        "id": "TL-002-5",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-11 09:00",
+        "remark": "提交定价建议：收车价42万，预期售价45.8万，金融方案建议走奔驰金融贴息",
+        "type": "pricing",
+        "data": {
+          "purchasePrice": 420000,
+          "suggestedPrice": 458000
+        }
+      },
+      {
+        "id": "TL-002-6",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-11 09:10",
+        "remark": "定价提交，移交金融专员审核",
+        "type": "handover"
+      },
+      {
+        "id": "TL-002-7",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-11 14:00",
+        "remark": "金融方案确认：首付30%可做，贴息政策确认，可给客户再优惠5000元",
+        "type": "pricing",
+        "data": {
+          "finalPrice": 453000
+        }
+      },
+      {
+        "id": "TL-002-8",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-11 14:30",
+        "remark": "确认上架定价：45.3万，金融方案已准备好",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-002-9",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "toUser": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-11 15:00",
+        "remark": "车辆上架，移交销售顾问进行客户跟进",
+        "type": "handover"
+      },
+      {
+        "id": "TL-002-10",
+        "status": "following",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-11 15:30",
+        "remark": "开始客户跟进，目标客群：企业高管置换",
+        "type": "status_change"
+      }
+    ],
+    "followups": [
+      {
+        "id": "FU-002-1",
+        "vehicleId": "VEH-2024-002",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-12 10:00",
+        "method": "phone",
+        "customerInfo": "李先生 138****8888",
+        "content": "首次联系，客户表示对车型感兴趣，但价格超出预算5万。客户现有车辆可参与置换评估。已约下周二到店看车。",
+        "nextFollowupTime": "2024-06-18 14:00",
+        "result": "interested",
+        "attachments": []
+      },
+      {
+        "id": "FU-002-2",
+        "vehicleId": "VEH-2024-002",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-18 14:30",
+        "method": "visit",
+        "customerInfo": "李先生",
+        "content": "客户到店看车，对车况非常满意。现场评估了客户的旧车（奥迪A4L 2020款），残值约18万。综合考虑后，客户对含置换的总价敏感。正在和金融专员协商更优方案。",
+        "nextFollowupTime": "2024-06-20 10:00",
+        "result": "negotiating",
+        "attachments": []
+      },
+      {
+        "id": "FU-002-3",
+        "vehicleId": "VEH-2024-002",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-20 11:00",
+        "method": "wechat",
+        "customerInfo": "李先生",
+        "content": "发送了新的金融方案：首付25%+置换补贴+3年0息。客户表示方案可以接受，但希望再送一次保养。已向领导申请。",
+        "nextFollowupTime": "2024-06-21 09:00",
+        "result": "negotiating",
+        "attachments": []
+      }
+    ],
+    "createdAt": "2024-06-10 10:00",
+    "updatedAt": "2024-06-20 11:00"
+  },
+  {
+    "id": "VEH-2024-003",
+    "plate": "粤C55555",
+    "model": "奥迪A6L 2023款 45 TFSI  quattro",
+    "brand": "奥迪",
+    "year": 2023,
+    "mileage": 28000,
+    "purchasePrice": 350000,
+    "listedPrice": 385000,
+    "status": "sold",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": {
+      "id": "U003",
+      "name": "王芳",
+      "role": "finance"
+    },
+    "salesRep": {
+      "id": "U004",
+      "name": "赵强",
+      "role": "sales"
+    },
+    "timeline": [
+      {
+        "id": "TL-003-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-05-20 09:00",
+        "remark": "朋友置换，车况很好，全程4S店保养",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-003-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-05-20 09:30",
+        "remark": "交接给评估师",
+        "type": "handover"
+      },
+      {
+        "id": "TL-003-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-05-20 14:00",
+        "remark": "评估完成：车况优秀，无事故记录，公里数正常",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-003-4",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "toUser": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-05-20 15:00",
+        "remark": "评估完成，交接给收车经理",
+        "type": "handover"
+      },
+      {
+        "id": "TL-003-5",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-05-21 10:00",
+        "remark": "提交定价建议：收车价35万，预期售价38.5万",
+        "type": "pricing",
+        "data": {
+          "purchasePrice": 350000,
+          "suggestedPrice": 385000
+        }
+      },
+      {
+        "id": "TL-003-6",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-05-21 10:30",
+        "remark": "定价提交，移交金融专员",
+        "type": "handover"
+      },
+      {
+        "id": "TL-003-7",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-05-21 15:00",
+        "remark": "确认定价：38.5万，金融方案已准备好",
+        "type": "pricing",
+        "data": {
+          "finalPrice": 385000
+        }
+      },
+      {
+        "id": "TL-003-8",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-05-21 15:30",
+        "remark": "确认上架",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-003-9",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "toUser": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-05-21 16:00",
+        "remark": "车辆上架，移交销售顾问",
+        "type": "handover"
+      },
+      {
+        "id": "TL-003-10",
+        "status": "following",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-05-21 16:30",
+        "remark": "开始客户跟进",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-003-11",
+        "status": "following",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-05-25 10:00",
+        "remark": "客户王先生到店看车，对车辆非常满意，现场谈价",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-003-12",
+        "status": "sold",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-05-28 16:00",
+        "remark": "成交！客户王先生全款购买，赠送一年全险",
+        "type": "status_change"
+      }
+    ],
+    "followups": [
+      {
+        "id": "FU-003-1",
+        "vehicleId": "VEH-2024-003",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-05-22 09:00",
+        "method": "phone",
+        "customerInfo": "王先生 139****6666",
+        "content": "首次电话联系，客户表示在对比几个车型，对奥迪品牌有好感",
+        "nextFollowupTime": "2024-05-24 10:00",
+        "result": "interested",
+        "attachments": []
+      },
+      {
+        "id": "FU-003-2",
+        "vehicleId": "VEH-2024-003",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-05-25 11:00",
+        "method": "visit",
+        "customerInfo": "王先生",
+        "content": "客户到店试驾，对车辆性能非常满意。开始谈价，表示希望优惠到37.5万以内",
+        "nextFollowupTime": "2024-05-26 15:00",
+        "result": "negotiating",
+        "attachments": []
+      },
+      {
+        "id": "FU-003-3",
+        "vehicleId": "VEH-2024-003",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-05-27 14:00",
+        "method": "wechat",
+        "customerInfo": "王先生",
+        "content": "客户同意38.5万的价格，要求赠送一年全险。已向领导申请，同意。",
+        "nextFollowupTime": "2024-05-28 10:00",
+        "result": "negotiating",
+        "attachments": []
+      },
+      {
+        "id": "FU-003-4",
+        "vehicleId": "VEH-2024-003",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-05-28 16:00",
+        "method": "visit",
+        "customerInfo": "王先生",
+        "content": "成交！客户全款支付，现场签订合同，约定下周一提车",
+        "nextFollowupTime": null,
+        "result": "success",
+        "attachments": []
+      }
+    ],
+    "createdAt": "2024-05-20 09:00",
+    "updatedAt": "2024-05-28 16:00"
+  },
+  {
+    "id": "VEH-2024-004",
+    "plate": "浙D77777",
+    "model": "特斯拉 Model 3 2023款 Performance",
+    "brand": "特斯拉",
+    "year": 2023,
+    "mileage": 18000,
+    "purchasePrice": 280000,
+    "listedPrice": 299000,
+    "status": "following",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": {
+      "id": "U003",
+      "name": "王芳",
+      "role": "finance"
+    },
+    "salesRep": {
+      "id": "U004",
+      "name": "赵强",
+      "role": "sales"
+    },
+    "timeline": [
+      {
+        "id": "TL-004-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-01 10:00",
+        "remark": "客户置换新能源，车况良好，电池健康度98%",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-004-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-01 10:30",
+        "remark": "交接给评估师",
+        "type": "handover"
+      },
+      {
+        "id": "TL-004-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-01 15:00",
+        "remark": "评估完成：新能源车况良好，电池健康度98%，无事故，无火烧痕迹。轮毂有轻微划痕。",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-004-4",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "toUser": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-01 16:00",
+        "remark": "评估完成，交接给收车经理",
+        "type": "handover"
+      },
+      {
+        "id": "TL-004-5",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-02 09:00",
+        "remark": "提交定价建议：收车价28万，预期售价29.9万",
+        "type": "pricing",
+        "data": {
+          "purchasePrice": 280000,
+          "suggestedPrice": 299000
+        }
+      },
+      {
+        "id": "TL-004-6",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-02 09:30",
+        "remark": "定价提交，移交金融专员",
+        "type": "handover"
+      },
+      {
+        "id": "TL-004-7",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-02 14:00",
+        "remark": "确认定价：29.9万，特斯拉金融方案已准备好",
+        "type": "pricing",
+        "data": {
+          "finalPrice": 299000
+        }
+      },
+      {
+        "id": "TL-004-8",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-02 14:30",
+        "remark": "确认上架",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-004-9",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "toUser": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-02 15:00",
+        "remark": "车辆上架，移交销售顾问",
+        "type": "handover"
+      },
+      {
+        "id": "TL-004-10",
+        "status": "following",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-02 15:30",
+        "remark": "开始客户跟进",
+        "type": "status_change"
+      }
+    ],
+    "followups": [
+      {
+        "id": "FU-004-1",
+        "vehicleId": "VEH-2024-004",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-03 10:00",
+        "method": "phone",
+        "customerInfo": "陈先生 136****8888",
+        "content": "首次联系，客户对新能源车感兴趣，特别是特斯拉的自动驾驶功能",
+        "nextFollowupTime": "2024-06-05 11:00",
+        "result": "interested",
+        "attachments": []
+      },
+      {
+        "id": "FU-004-2",
+        "vehicleId": "VEH-2024-004",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-05 11:30",
+        "method": "wechat",
+        "customerInfo": "陈先生",
+        "content": "客户询问能否试驾，已预约周六下午",
+        "nextFollowupTime": "2024-06-08 14:00",
+        "result": "interested",
+        "attachments": []
+      }
+    ],
+    "createdAt": "2024-06-01 10:00",
+    "updatedAt": "2024-06-05 11:30"
+  },
+  {
+    "id": "VEH-2024-005",
+    "plate": "苏E99999",
+    "model": "保时捷 Panamera 2022款 4S Sport Turismo",
+    "brand": "保时捷",
+    "year": 2022,
+    "mileage": 25000,
+    "purchasePrice": 850000,
+    "listedPrice": 920000,
+    "status": "following",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": {
+      "id": "U003",
+      "name": "王芳",
+      "role": "finance"
+    },
+    "salesRep": {
+      "id": "U004",
+      "name": "赵强",
+      "role": "sales"
+    },
+    "timeline": [
+      {
+        "id": "TL-005-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-05 14:00",
+        "remark": "高端客户置换，车况极佳，配置丰富：SC组件、BOSE音响、全景天窗等",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-005-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-05 14:30",
+        "remark": "交接给评估师进行专业检测",
+        "type": "handover"
+      },
+      {
+        "id": "TL-005-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-06 11:00",
+        "remark": "评估完成：车况优秀，配置完整，无事故记录，底盘无异响。轻微左前轮毂有划痕。",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-005-4",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "toUser": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-06 12:00",
+        "remark": "评估完成，交接给收车经理",
+        "type": "handover"
+      },
+      {
+        "id": "TL-005-5",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-07 09:00",
+        "remark": "提交定价建议：收车价85万，预期售价92万，保时捷金融方案可做",
+        "type": "pricing",
+        "data": {
+          "purchasePrice": 850000,
+          "suggestedPrice": 920000
+        }
+      },
+      {
+        "id": "TL-005-6",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-07 09:30",
+        "remark": "定价提交，移交金融专员审核",
+        "type": "handover"
+      },
+      {
+        "id": "TL-005-7",
+        "status": "pricing_pending",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-07 15:00",
+        "remark": "确认定价：92万，保时捷金融方案已确认，首付40%可做",
+        "type": "pricing",
+        "data": {
+          "finalPrice": 920000
+        }
+      },
+      {
+        "id": "TL-005-8",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "time": "2024-06-07 15:30",
+        "remark": "确认上架",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-005-9",
+        "status": "listed",
+        "operator": {
+          "id": "U003",
+          "name": "王芳",
+          "role": "finance"
+        },
+        "toUser": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-07 16:00",
+        "remark": "车辆上架，移交销售顾问",
+        "type": "handover"
+      },
+      {
+        "id": "TL-005-10",
+        "status": "following",
+        "operator": {
+          "id": "U004",
+          "name": "赵强",
+          "role": "sales"
+        },
+        "time": "2024-06-07 16:30",
+        "remark": "开始客户跟进，定位高端客户群体",
+        "type": "status_change"
+      }
+    ],
+    "followups": [
+      {
+        "id": "FU-005-1",
+        "vehicleId": "VEH-2024-005",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-08 10:00",
+        "method": "phone",
+        "customerInfo": "林先生 135****9999",
+        "content": "首次联系，客户表示对Panamera猎装版很感兴趣，目前在对比同级别车型",
+        "nextFollowupTime": "2024-06-10 11:00",
+        "result": "interested",
+        "attachments": []
+      },
+      {
+        "id": "FU-005-2",
+        "vehicleId": "VEH-2024-005",
+        "operator": {
+          "id": "U004",
+          "name": "赵强"
+        },
+        "time": "2024-06-10 11:30",
+        "method": "visit",
+        "customerInfo": "林先生",
+        "content": "客户到店看车，对车辆外观和配置非常满意。客户表示需要考虑置换方案。",
+        "nextFollowupTime": "2024-06-12 15:00",
+        "result": "interested",
+        "attachments": []
+      }
+    ],
+    "createdAt": "2024-06-05 14:00",
+    "updatedAt": "2024-06-10 11:30"
+  },
+  {
+    "id": "VEH-2024-006",
+    "plate": "川A11111",
+    "model": "大众途昂 2023款 530 V6 四驱旗舰版",
+    "brand": "大众",
+    "year": 2023,
+    "mileage": 22000,
+    "purchasePrice": 260000,
+    "listedPrice": null,
+    "status": "evaluating",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": null,
+    "salesRep": null,
+    "timeline": [
+      {
+        "id": "TL-006-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-13 10:00",
+        "remark": "家庭置换，需要7座车型，车况良好",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-006-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-13 10:30",
+        "remark": "交接给评估师进行专业检测",
+        "type": "handover"
+      },
+      {
+        "id": "TL-006-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-13 15:30",
+        "remark": "评估进行中：外观检查完成，内饰检查正常，发动机检查正常，正在进行底盘检测",
+        "type": "status_change"
+      }
+    ],
+    "followups": [],
+    "createdAt": "2024-06-13 10:00",
+    "updatedAt": "2024-06-13 15:30"
+  },
+  {
+    "id": "VEH-2024-007",
+    "plate": "鲁B22222",
+    "model": "蔚来 ET7 2023款 100kWh",
+    "brand": "蔚来",
+    "year": 2023,
+    "mileage": 12000,
+    "purchasePrice": 320000,
+    "listedPrice": null,
+    "status": "pending_pricing",
+    "collector": {
+      "id": "U001",
+      "name": "张伟",
+      "role": "collector"
+    },
+    "evaluator": {
+      "id": "U002",
+      "name": "李明",
+      "role": "evaluator"
+    },
+    "financeStaff": null,
+    "salesRep": null,
+    "timeline": [
+      {
+        "id": "TL-007-1",
+        "status": "pending_evaluation",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-08 11:00",
+        "remark": "新能源置换，蔚来ET7顶配，电池租用模式",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-007-2",
+        "status": "evaluating",
+        "operator": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "toUser": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-08 11:30",
+        "remark": "交接给评估师",
+        "type": "handover"
+      },
+      {
+        "id": "TL-007-3",
+        "status": "evaluating",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "time": "2024-06-08 16:00",
+        "remark": "评估完成：新能源车况良好，电池健康度99%，无事故。配置丰富：NOMI、抬头显示、全配座椅等",
+        "type": "status_change"
+      },
+      {
+        "id": "TL-007-4",
+        "status": "pending_pricing",
+        "operator": {
+          "id": "U002",
+          "name": "李明",
+          "role": "evaluator"
+        },
+        "toUser": {
+          "id": "U001",
+          "name": "张伟",
+          "role": "collector"
+        },
+        "time": "2024-06-08 16:30",
+        "remark": "评估完成，交接给收车经理进行定价",
+        "type": "handover"
+      }
+    ],
+    "followups": [],
+    "createdAt": "2024-06-08 11:00",
+    "updatedAt": "2024-06-08 16:30"
+  }
+]
