@@ -221,8 +221,15 @@ export function executeTransition(orderId, action, role, roleName, notes, abnorm
   const flow = FLOW.find(f => f.action === action && f.from === order.current_status && f.actor === role);
   if (!flow) throw new Error('无权执行此操作或状态不匹配');
 
+  if (flow.isAbnormal && !abnormalTrigger) {
+    throw new Error('异常退回必须指定异常类型');
+  }
+
   const alertMsg = abnormalTrigger ? abnormalTrigger.alertMessage : null;
   const hasAlert = abnormalTrigger ? 1 : 0;
+  const abnormalType = abnormalTrigger ? abnormalTrigger.key : null;
+  const abnormalLabel = abnormalTrigger ? abnormalTrigger.label : null;
+  const abnormalSeverity = abnormalTrigger ? (abnormalTrigger.severity || 'medium') : null;
 
   const tId = ++s._seq.status_transitions;
   const created = now();
@@ -237,6 +244,10 @@ export function executeTransition(orderId, action, role, roleName, notes, abnorm
     notes: notes || '',
     has_alert: hasAlert,
     alert_message: alertMsg,
+    abnormal_type: abnormalType,
+    abnormal_label: abnormalLabel,
+    abnormal_severity: abnormalSeverity,
+    is_abnormal: flow.isAbnormal ? 1 : 0,
     created_at: created
   });
 

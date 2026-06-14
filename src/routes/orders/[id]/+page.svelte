@@ -29,8 +29,9 @@
   $: role = $currentRole;
   $: orderId = parseInt($page.params.id);
 
-  $: availableActions = data ? FLOW.filter(f => f.from === data.order.current_status && f.actor === role) : [];
-  $: abnormalOptions = data ? ABNORMAL_TRIGGERS.filter(a => a.applyTo.includes(data.order.current_status) && a.targetRole === role) : [];
+  $: availableActions = data ? FLOW.filter(f => f.from === data.order.current_status && f.actor === role && !f.hiddenFromMain) : [];
+  $: abnormalOptions = data ? ABNORMAL_TRIGGERS.filter(a => a.applyTo.includes(data.order.current_status) && a.triggerRole === role) : [];
+  $: hasAbnormal = data && abnormalOptions.length > 0;
 
   $: notifyTemplates = data ? {
     FORMAL: `【XX典当】${data.order.customer_name}先生/女士您好，您于${data.order.pawn_date}典当的【${data.order.item_name}】（单号：${data.order.order_no}），现已逾期，请您尽快携带本人身份证及当票前往门店办理赎当/续当手续。如有疑问请联系您的柜台评估师。`,
@@ -175,6 +176,44 @@
     showAbnormalModal = true;
   }
 
+  async function confirmAbnormal() {
+    if (!selectedAbnormal) {
+      showToast('请选择异常类型', 'warn');
+      return;
+    }
+    if (!abnormalNotes.trim()) {
+      showToast('请填写异常详情说明', 'warn');
+      return;
+    }
+    const userName = { APPRAISER: '李评估', STORAGE: '王库管', FINANCE: '陈财务' }[role];
+    const notes = `【异常·${selectedAbnormal.label}】${abnormalNotes}`;
+    const res = await fetch(`/api/orders/${orderId}/transition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: selectedAbnormal.returnAction,
+        role,
+        roleName: userName,
+        notes,
+        abnormalTrigger: {
+          key: selectedAbnormal.key,
+          label: selectedAbnormal.label,
+          alertMessage: selectedAbnormal.alertMessage,
+          severity: selectedAbnormal.severity
+        }
+      })
+    }).then(r => r.json());
+    if (res.success) {
+      showToast(`异常已上报：${selectedAbnormal.label}，已退回至 ${STATUS[selectedAbnormal.returnTo]?.label}`, 'success');
+      showAbnormalModal = false;
+      selectedAbnormal = null;
+      abnormalNotes = '';
+      load();
+    } else {
+      showToast(res.message || '操作失败', 'error');
+    }
+  }
+
   const FLOW_NODES = [
     { key: 'NORMAL', label: '正常在当' },
     { key: 'OVERDUE_PENDING', label: '逾期待处理' },
@@ -312,24 +351,37 @@
             {:else}
               {#each data.timeline as item}
                 {#if item.type === 'transition'}
-                  <div class="timeline-item">
-                    <div class="timeline-dot {item.data.has_alert ? 'alert' : ''}" style="background: {item.data.has_alert ? '#dc2626' : STATUS[item.data.to_status]?.color || '#64748b'}"></div>
+                  <div class="timeline-item {item.data.is_abnormal ? 'is-abnormal' : ''}">
+                    <div class="timeline-dot {item.data.has_alert ? 'alert' : ''}" style="background: {item.data.is_abnormal ? '#dc2626' : STATUS[item.data.to_status]?.color || '#64748b'}"></div>
                     <div class="mb-1.5 flex flex-wrap items-center gap-2">
-                      <span class="status-pill" style="background: {STATUS[item.data.to_status]?.color}">→ {STATUS[item.data.to_status]?.label}</span>
+                      <span class="status-pill" style="background: {item.data.is_abnormal ? '#dc2626' : STATUS[item.data.to_status]?.color}">
+                        {item.data.is_abnormal ? '↩ ' : '→ '}{STATUS[item.data.to_status]?.label}
+                      </span>
                       <span class="role-badge" style="background: {ROLES[item.data.actor_role]?.color}">{ROLES[item.data.actor_role]?.name} · {item.data.actor_name}</span>
-                      {#if item.data.has_alert}
-                        <span class="status-pill bg-red-600">⚠️ 异常提醒</span>
+                      {#if item.data.is_abnormal && item.data.abnormal_label}
+                        <span class="status-pill bg-red-600">🚨 {item.data.abnormal_label}</span>
+                      {/if}
+                      {#if item.data.is_abnormal && item.data.abnormal_severity}
+                        <span class="status-pill {item.data.abnormal_severity === 'critical' ? 'bg-rose-700' : item.data.abnormal_severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}">
+                          {item.data.abnormal_severity === 'critical' ? '🔴 严重' : item.data.abnormal_severity === 'high' ? '🟠 高' : '🟡 中'}
+                        </span>
                       {/if}
                     </div>
                     {#if item.data.from_status}
                       <div class="text-xs text-slate-500 mb-1">
-                        {STATUS[item.data.from_status]?.label} → {STATUS[item.data.to_status]?.label}
+                        {STATUS[item.data.from_status]?.label} {item.data.is_abnormal ? '⟵ 退回自' : '→'} {STATUS[item.data.to_status]?.label}
+                        {#if item.data.is_abnormal}
+                          <span class="ml-2 text-red-600 font-medium">（异常退回，退回上一环节重办）</span>
+                        {/if}
                       </div>
                     {/if}
                     {#if item.data.alert_message}
                       <div class="alert-banner mb-2 text-xs">
                         <span>🚨</span>
-                        <div>{item.data.alert_message}</div>
+                        <div>
+                          <div class="font-semibold mb-0.5">异常提醒</div>
+                          <div>{item.data.alert_message}</div>
+                        </div>
                       </div>
                     {/if}
                     {#if item.data.notes}
@@ -617,8 +669,8 @@
       <div class="modal-mask" on:click|self={() => showAbnormalModal = false}>
         <div class="modal max-w-lg">
           <div class="p-5 border-b border-slate-100">
-            <h3 class="font-bold text-lg text-red-700">🚨 异常上报（直接触发提醒/退回）</h3>
-            <p class="text-xs text-slate-500 mt-1">选择异常类型后，系统将自动退回对应环节并标记异常</p>
+            <h3 class="font-bold text-lg text-red-700">🚨 异常上报（强制触发提醒 + 退回）</h3>
+            <p class="text-xs text-slate-500 mt-1">必须选择异常类型，系统将自动退回对应环节并全程标记异常</p>
           </div>
           <div class="p-5 space-y-4">
             {#if abnormalOptions.length === 0}
@@ -630,37 +682,50 @@
             <div class="space-y-2">
               {#each abnormalOptions as abn}
                 <label class={`block p-4 rounded-lg border-2 cursor-pointer transition ${selectedAbnormal?.key === abn.key ? 'border-red-500 bg-red-50' : 'border-slate-200 hover:border-slate-300'}`}>
-                  <div class="flex items-start gap-2">
+                  <div class="flex items-start gap-3">
                     <input type="radio" bind:group={selectedAbnormal} value={abn} class="mt-1" />
                     <div class="flex-1">
-                      <div class="text-sm font-semibold text-slate-800 mb-1">🔴 {abn.label}</div>
-                      <div class="text-xs text-red-600">{abn.alertMessage}</div>
+                      <div class="flex items-center gap-2 mb-1">
+                        <span class="text-sm font-semibold text-slate-800">{abn.label}</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full {abn.severity === 'critical' ? 'bg-rose-100 text-rose-700' : abn.severity === 'high' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">
+                          {abn.severity === 'critical' ? '严重' : abn.severity === 'high' ? '高' : '中'}
+                        </span>
+                      </div>
+                      <div class="text-xs text-red-600 mb-2">{abn.alertMessage}</div>
+                      <div class="text-xs text-slate-500 flex items-center gap-1">
+                        <span>↩️ 退回至：</span>
+                        <span class="font-medium text-slate-700">{STATUS[abn.returnTo]?.label}</span>
+                        <span class="text-slate-400">·</span>
+                        <span>由</span>
+                        <span class="font-medium text-slate-700">{ROLES[STATUS[abn.returnTo]?.role]?.name || '相关角色'}</span>
+                        <span>重新处理</span>
+                      </div>
                     </div>
                   </div>
                 </label>
               {/each}
             </div>
             <div>
-              <label class="label">异常详情说明</label>
-              <textarea bind:value={abnormalNotes} class="textarea" placeholder="请详细描述异常情况，如：损坏位置、封签号、缺失证件名称等"></textarea>
+              <label class="label">异常详情说明 <span class="text-slate-400 font-normal">（必填，留痕可追溯）</span></label>
+              <textarea bind:value={abnormalNotes} class="textarea" rows="4" placeholder="请详细描述异常情况，如：损坏位置、封签编号、缺失证件名称、客户申诉内容、现场发现过程等"></textarea>
             </div>
+            {#if selectedAbnormal}
+              <div class="alert-banner">
+                <span>⚠️</span>
+                <div>
+                  <div class="font-semibold mb-0.5">提交后将立即生效</div>
+                  <div class="text-xs">
+                    状态从 <span class="font-medium">{STATUS[data.order.current_status]?.label}</span>
+                    退回至 <span class="font-medium text-red-700">{STATUS[selectedAbnormal.returnTo]?.label}</span>，
+                    时间线将永久标记【{selectedAbnormal.label}】异常。
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
           <div class="p-5 border-t border-slate-100 flex justify-end gap-3">
             <button class="btn btn-secondary" on:click={() => showAbnormalModal = false}>取消</button>
-            <button class="btn btn-danger" disabled={!selectedAbnormal} on:click={() => {
-              if (!selectedAbnormal) return;
-              const rejectAction = abnormalOptions.find(a => a.key === selectedAbnormal.key)?.targetRole === 'STORAGE' ? 'REJECT_TO_STORAGE' :
-                                   selectedAbnormal.key === 'AMOUNT_MISMATCH' ? 'REJECT_TO_FINANCE' : 'REJECT_TO_APPRAISER';
-              const flowAction = FLOW.find(f => f.action === rejectAction);
-              if (flowAction) {
-                selectedAction = flowAction;
-                actionNotes = `【异常上报·${selectedAbnormal.label}】${abnormalNotes || selectedAbnormal.alertMessage}`;
-                showAbnormalModal = false;
-                showActionModal = true;
-              } else {
-                showToast('未找到对应的退回操作');
-              }
-            }}>
+            <button class="btn btn-danger" disabled={!selectedAbnormal || !abnormalNotes.trim()} on:click={confirmAbnormal}>
               确认上报并退回
             </button>
           </div>
