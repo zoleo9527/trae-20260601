@@ -94,6 +94,7 @@ model Student {
   
   checkInRecords  CheckInRecord[]
   examSeats       ExamSeat[]
+  anomalies       Anomaly[]
 }
 
 model ExamSeat {
@@ -142,6 +143,7 @@ model Anomaly {
   type           String
   description    String
   arrangementId  String
+  studentId      String?
   reportedBy     String
   status         String
   processedBy    String?
@@ -151,10 +153,12 @@ model Anomaly {
   updatedAt      DateTime  @updatedAt
   
   arrangement    Arrangement @relation(fields: [arrangementId], references: [id])
+  student        Student?    @relation(fields: [studentId], references: [id])
   reporter       User       @relation("ReportedBy", fields: [reportedBy], references: [id])
   processor      User?      @relation("ProcessedBy", fields: [processedBy], references: [id])
   
   @@index([arrangementId])
+  @@index([studentId])
   @@index([status])
 }
 

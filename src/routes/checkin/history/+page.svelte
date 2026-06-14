@@ -18,6 +18,7 @@
       invigilator?: { name: string };
     };
     student?: Student;
+    studentId?: string;
     seatNumber: string;
     status: string;
     checkedAt?: string;
@@ -45,6 +46,7 @@
       const params = new URLSearchParams();
       if (filterExam) params.append('examId', filterExam);
       if (filterStatus) params.append('status', filterStatus);
+      if (filterType) params.append('type', filterType);
       
       const response = await fetch(`/api/checkin/history?${params}`);
       if (response.ok) {

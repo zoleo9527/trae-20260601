@@ -9,8 +9,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const arrangement = await prisma.arrangement.findUnique({
       where: { id: params.id },
       include: {
-        exam: { select: { id: true } },
-        examRoom: { select: { id: true } }
+        exam: { select: { id: true, name: true } },
+        examRoom: { select: { id: true, roomNumber: true } }
       }
     });
     
@@ -34,6 +34,19 @@ export const POST: RequestHandler = async ({ params, request }) => {
     });
     
     const seatMap = new Map(examSeats.map(s => [s.studentId, s.seatNumber]));
+    
+    const missingStudents = students.filter(s => !seatMap.has(s.studentId));
+    if (missingStudents.length > 0) {
+      return new Response(
+        JSON.stringify({
+          error: '部分考生座位映射不存在',
+          detail: `以下考生在考场 ${arrangement.examRoom.roomNumber} 中未找到座位安排：${missingStudents.map(s => s.studentId).join(', ')}`,
+          missingStudents: missingStudents.map(s => s.studentId),
+          suggestion: '请检查考生是否被正确分配到此考场'
+        }),
+        { status: 400 }
+      );
+    }
     
     const results = await Promise.all(
       students.map(async ({ studentId, status }) => {
@@ -73,9 +86,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
             }
           });
           
-          return { success: true, studentId };
+          return { success: true, studentId, seatNumber };
         } catch (e) {
-          return { success: false, studentId };
+          return { success: false, studentId, error: e.message };
         }
       })
     );
@@ -84,7 +97,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const failed = results.filter(r => !r.success).length;
     
     return new Response(
-      JSON.stringify({ success, failed }),
+      JSON.stringify({ success, failed, results }),
       { status: 200 }
     );
   } catch (error) {
