@@ -121,6 +121,7 @@ type IdempotentSubmitRequest struct {
 	LoanApplicationID uint   `json:"loan_application_id" binding:"required"`
 	OperatorID        string `json:"operator_id" binding:"required"`
 	OperatorRole      models.RoleType `json:"operator_role" binding:"required"`
+	Remark            string `json:"remark"`
 	IPAddress         string `json:"ip_address"`
 	UserAgent         string `json:"user_agent"`
 }
@@ -132,6 +133,8 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 	}
 
 	fromStatus := string(loan.Status)
+	fromHandler := loan.CurrentHandler
+	
 	if loan.Status != models.LoanStatusCollecting {
 		return errors.New("当前状态不允许提交资料")
 	}
@@ -159,10 +162,16 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 	}
 
 	currentTime := time.Now()
+	submitRemark := req.Remark
+	if submitRemark == "" {
+		submitRemark = "资料提交完成，转入风控审核"
+	}
+	
 	loan.Status = models.LoanStatusRiskAuditing
 	loan.StatusUpdatedAt = currentTime
-	loan.CurrentHandler = req.OperatorID
+	loan.CurrentHandler = ""
 	loan.UpdatedBy = req.OperatorID
+	loan.Remark = submitRemark
 
 	err = s.loanRepo.Update(loan)
 	if err != nil {
@@ -175,18 +184,19 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 		ToStatus:          string(models.LoanStatusRiskAuditing),
 		ChangedBy:         req.OperatorID,
 		ChangedAt:         currentTime,
-		Remark:            "资料提交完成，转入风控审核",
+		Remark:            submitRemark,
 	}
 	s.loanRepo.CreateStatusHistory(statusHistory)
 
 	beforeData, _ := json.Marshal(map[string]interface{}{
 		"status":          fromStatus,
-		"current_handler": loan.CurrentHandler,
+		"current_handler": fromHandler,
 	})
 	afterData, _ := json.Marshal(map[string]interface{}{
 		"status":          string(models.LoanStatusRiskAuditing),
-		"current_handler": req.OperatorID,
+		"current_handler": "",
 		"submit_time":     currentTime.Format(time.RFC3339),
+		"remark":          submitRemark,
 	})
 
 	s.createAuditLog("SUBMIT_DOCUMENTS", req.OperatorID, req.OperatorRole, &req.LoanApplicationID,

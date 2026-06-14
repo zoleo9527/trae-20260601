@@ -183,11 +183,13 @@ func (s *LoanService) RiskAuditUpdateStatus(req *RiskAuditStatusRequest) error {
 	}
 
 	fromStatus := string(loan.Status)
+	fromHandler := loan.CurrentHandler
+	
 	if loan.Status != models.LoanStatusRiskAuditing {
 		return fmt.Errorf("当前状态不是风控审核中，无法进行风控审核操作: %s", fromStatus)
 	}
 
-	validStatuses := []string{"approved", "rejected", "risk_auditing"}
+	validStatuses := []string{"approved", "rejected"}
 	isValid := false
 	for _, status := range validStatuses {
 		if req.ToStatus == status {
@@ -196,27 +198,16 @@ func (s *LoanService) RiskAuditUpdateStatus(req *RiskAuditStatusRequest) error {
 		}
 	}
 	if !isValid {
-		return fmt.Errorf("无效的风控审核状态转换: %s -> %s", fromStatus, req.ToStatus)
+		return fmt.Errorf("无效的风控审核状态转换: %s -> %s，仅支持转换为 approved 或 rejected", fromStatus, req.ToStatus)
 	}
 
 	currentTime := time.Now()
-	var handler string
+	handler := ""
 	var updateData map[string]interface{} = map[string]interface{}{
 		"status":            models.LoanStatus(req.ToStatus),
 		"status_updated_at": currentTime,
+		"current_handler":   handler,
 		"updated_by":        req.AuditorID,
-	}
-
-	switch models.LoanStatus(req.ToStatus) {
-	case models.LoanStatusApproved:
-		handler = ""
-		updateData["current_handler"] = handler
-	case models.LoanStatusRejected:
-		handler = ""
-		updateData["current_handler"] = handler
-	case models.LoanStatusRiskAuditing:
-		handler = req.AuditorID
-		updateData["current_handler"] = handler
 	}
 
 	if req.Remark != "" {
@@ -240,7 +231,7 @@ func (s *LoanService) RiskAuditUpdateStatus(req *RiskAuditStatusRequest) error {
 
 	beforeData, _ := json.Marshal(map[string]interface{}{
 		"status":           fromStatus,
-		"current_handler":  loan.CurrentHandler,
+		"current_handler":  fromHandler,
 	})
 	afterData, _ := json.Marshal(map[string]interface{}{
 		"status":           req.ToStatus,
