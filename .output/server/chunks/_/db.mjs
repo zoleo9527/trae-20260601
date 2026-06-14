@@ -2,9 +2,11 @@ import process from 'node:process';globalThis._importMeta_=globalThis._importMet
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const __dirname$1 = path.dirname(fileURLToPath(globalThis._importMeta_.url));
+const __filename$1 = fileURLToPath(globalThis._importMeta_.url);
+path.dirname(__filename$1);
 const prismaClientSingleton = () => {
-  const dbPath = path.join(__dirname$1, "..", "..", "prisma", "dev.db");
+  const projectRoot = process.cwd();
+  const dbPath = path.join(projectRoot, "prisma", "dev.db");
   return new PrismaClient({
     datasources: {
       db: {

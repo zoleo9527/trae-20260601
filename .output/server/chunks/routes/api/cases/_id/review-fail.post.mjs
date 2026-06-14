@@ -21,11 +21,17 @@ const reviewFail_post = defineEventHandler(async (event) => {
       message: "\u7F3A\u5C11\u6848\u4EF6ID"
     });
   }
-  const { operatorId, reason } = body;
+  const { operatorId, operatorRole, reason } = body;
   if (!operatorId) {
     throw createError({
       statusCode: 400,
       message: "\u7F3A\u5C11\u64CD\u4F5C\u4EBAID"
+    });
+  }
+  if (operatorRole !== "UNDERWRITER") {
+    throw createError({
+      statusCode: 403,
+      message: "\u53EA\u6709\u6838\u8D54\u4E3B\u7BA1\u624D\u80FD\u6267\u884C\u590D\u6838\u4E0D\u901A\u8FC7"
     });
   }
   if (!reason) {
@@ -41,6 +47,12 @@ const reviewFail_post = defineEventHandler(async (event) => {
     throw createError({
       statusCode: 404,
       message: "\u6848\u4EF6\u4E0D\u5B58\u5728"
+    });
+  }
+  if (currentCase.status !== "PENDING_REVIEW") {
+    throw createError({
+      statusCode: 400,
+      message: "\u6848\u4EF6\u72B6\u6001\u4E0D\u7B26\u5408\u8981\u6C42\uFF0C\u5FC5\u987B\u5148\u63D0\u4EA4\u6838\u8D54"
     });
   }
   const updatedCase = await prisma.caseReport.update({

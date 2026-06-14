@@ -2,10 +2,12 @@ import { PrismaClient } from '@prisma/client'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const prismaClientSingleton = () => {
-  const dbPath = path.join(__dirname, '..', '..', 'prisma', 'dev.db')
+  const projectRoot = process.cwd()
+  const dbPath = path.join(projectRoot, 'prisma', 'dev.db')
   
   return new PrismaClient({
     datasources: {

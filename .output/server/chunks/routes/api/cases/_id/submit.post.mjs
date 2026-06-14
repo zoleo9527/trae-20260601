@@ -28,6 +28,12 @@ const submit_post = defineEventHandler(async (event) => {
       message: "\u7F3A\u5C11\u64CD\u4F5C\u4EBAID"
     });
   }
+  if (operatorRole !== "CLAIM_AGENT") {
+    throw createError({
+      statusCode: 403,
+      message: "\u53EA\u6709\u7406\u8D54\u4E13\u5458\u624D\u80FD\u63D0\u4EA4\u62A5\u6848"
+    });
+  }
   const currentCase = await prisma.caseReport.findUnique({
     where: { id }
   });
@@ -58,11 +64,11 @@ const submit_post = defineEventHandler(async (event) => {
   await createOperationLog(
     id,
     operatorId,
-    operatorRole || "CLAIM_AGENT",
+    "CLAIM_AGENT",
     "SUBMIT",
     currentCase.status,
     "SUBMITTED",
-    "\u63D0\u4EA4\u62A5\u6848"
+    "\u7406\u8D54\u4E13\u5458\u63D0\u4EA4\u62A5\u6848"
   );
   return { case: updatedCase };
 });

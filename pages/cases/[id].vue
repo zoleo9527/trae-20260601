@@ -66,11 +66,14 @@ async function handleSubmit() {
 async function handleReject() {
   if (!rejectReason.value || !authStore.currentUser) return
   try {
-    await caseStore.rejectCase(
-      caseId.value,
-      authStore.currentUser.id,
-      rejectReason.value
-    )
+    const response = await $fetch(`/api/cases/${caseId.value}/reject`, {
+      method: 'POST',
+      body: {
+        operatorId: authStore.currentUser.id,
+        operatorRole: authStore.currentUser.role,
+        reason: rejectReason.value
+      }
+    })
     showRejectModal.value = false
     rejectReason.value = ''
     await caseStore.fetchCase(caseId.value)
@@ -82,11 +85,14 @@ async function handleReject() {
 async function handleReviewFail() {
   if (!reviewFailReason.value || !authStore.currentUser) return
   try {
-    await caseStore.reviewFailCase(
-      caseId.value,
-      authStore.currentUser.id,
-      reviewFailReason.value
-    )
+    const response = await $fetch(`/api/cases/${caseId.value}/review-fail`, {
+      method: 'POST',
+      body: {
+        operatorId: authStore.currentUser.id,
+        operatorRole: authStore.currentUser.role,
+        reason: reviewFailReason.value
+      }
+    })
     showReviewFailModal.value = false
     reviewFailReason.value = ''
     await caseStore.fetchCase(caseId.value)

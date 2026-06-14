@@ -20,6 +20,13 @@ export default defineEventHandler(async (event) => {
     })
   }
   
+  if (operatorRole !== 'CLAIM_AGENT') {
+    throw createError({
+      statusCode: 403,
+      message: '只有理赔专员才能提交报案'
+    })
+  }
+  
   const currentCase = await prisma.caseReport.findUnique({
     where: { id }
   })
@@ -54,11 +61,11 @@ export default defineEventHandler(async (event) => {
   await createOperationLog(
     id,
     operatorId,
-    operatorRole || 'CLAIM_AGENT',
+    'CLAIM_AGENT',
     'SUBMIT',
     currentCase.status,
     'SUBMITTED',
-    '提交报案'
+    '理赔专员提交报案'
   )
   
   return { case: updatedCase }
