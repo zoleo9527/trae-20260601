@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useParams, Navigate } from "react-router-dom";
+import { useParams, Navigate, useSearchParams } from "react-router-dom";
 import {
   Calendar,
   Users,
@@ -33,13 +33,27 @@ import SizeHistoryModal from "@/components/costume/SizeHistoryModal";
 import ActionBar from "@/components/costume/ActionBar";
 
 export default function CostumeDetail() {
-  const { id = "" } = useParams();
-  const { getCostumeById, addRecentOpened, sizeHistoryStudentId } = useAppStore();
+  const { id = "", studentId: routeStudentId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { getCostumeById, addRecentOpened, sizeHistoryCostumeId, sizeHistoryStudentId, openSizeHistory } = useAppStore();
   const costume = getCostumeById(id);
 
   useEffect(() => {
     if (id) addRecentOpened(id);
   }, [id, addRecentOpened]);
+
+  useEffect(() => {
+    const studentId = routeStudentId || searchParams.get("student");
+    if (studentId && costume) {
+      const student = costume.studentSizes.find((s) => s.id === studentId);
+      if (student) {
+        openSizeHistory(costume.id, studentId);
+        if (searchParams.get("student")) {
+          setSearchParams({}, { replace: true });
+        }
+      }
+    }
+  }, [routeStudentId, searchParams, costume, openSizeHistory, setSearchParams]);
 
   if (!costume) {
     return <Navigate to="/" replace />;
@@ -209,7 +223,7 @@ export default function CostumeDetail() {
 
       <ActionBar costume={costume} />
 
-      {sizeHistoryStudentId && <SizeHistoryModal costume={costume} />}
+      {sizeHistoryStudentId && sizeHistoryCostumeId === id && <SizeHistoryModal costume={costume} />}
     </div>
   );
 }

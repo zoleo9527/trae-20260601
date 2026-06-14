@@ -1,4 +1,5 @@
 import type { Costume } from "@/types";
+import { STATUS_META, USERS } from "@/constants";
 import { genId, nowISO } from "@/utils";
 
 const makeTimeline = (
@@ -9,12 +10,16 @@ const makeTimeline = (
     const d = new Date();
     d.setDate(d.getDate() - e.daysAgo);
     d.setHours(9 + i, 30 + i * 10);
+    const assigneeRole = STATUS_META[e.status].assigneeRole;
+    const assignee = USERS[assigneeRole][0];
     return {
       id: genId("tl_"),
       costumeId,
       status: e.status,
       operatorName: e.operatorName,
       operatorRole: e.operatorRole,
+      assigneeName: assignee.name,
+      assigneeRole,
       timestamp: d.toISOString(),
       remark: e.remark,
     };

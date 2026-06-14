@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   Plus,
@@ -12,13 +13,15 @@ import {
   History,
   AlertOctagon,
   Zap,
+  UserRound,
 } from "lucide-react";
 import { useAppStore } from "@/store";
 import { STUCK_PRESET_FILTERS } from "@/constants";
 import type { CostumeStatus, UserRole, SizeConfirmStatus } from "@/types";
-import { cn, isNodeStuck } from "@/utils";
+import { cn, isNodeStuck, formatDateTime } from "@/utils";
 import StatCard from "@/components/common/StatCard";
 import CostumeCard from "@/components/costume/CostumeCard";
+import Avatar from "@/components/common/Avatar";
 
 const STATUS_FILTERS: { key: CostumeStatus | "all"; label: string }[] = [
   { key: "all", label: "全部" },
@@ -45,6 +48,7 @@ const SIZE_CONFIRM_FILTERS: { key: SizeConfirmStatus | "all"; label: string }[] 
 ];
 
 export default function Home() {
+  const navigate = useNavigate();
   const {
     costumes,
     filters,
@@ -53,6 +57,7 @@ export default function Home() {
     getFilteredCostumes,
     getRecentCostumes,
     createCostume,
+    recentStudents,
   } = useAppStore();
 
   const [showCreate, setShowCreate] = useState(false);
@@ -193,6 +198,40 @@ export default function Home() {
             {recent.map((c) => (
               <CostumeCard key={c.id} costume={c} compact />
             ))}
+          </div>
+        </section>
+      )}
+
+      {recentStudents.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <UserRound size={16} className="text-ochre-700" />
+            <h2 className="font-serif text-lg font-semibold text-ink-800">最近查看学生</h2>
+            <span className="text-xs text-ink-400">（最多保留 10 条）</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            {recentStudents.map((r) => {
+              const costume = costumes.find((c) => c.id === r.costumeId);
+              if (!costume) return null;
+              const student = costume.studentSizes.find((s) => s.id === r.studentId);
+              if (!student) return null;
+              return (
+                <div
+                  key={`${r.costumeId}-${r.studentId}`}
+                  onClick={() => navigate(`/costumes/${r.costumeId}/student/${r.studentId}`)}
+                  className="card card-hover p-3 cursor-pointer group"
+                >
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <Avatar name={r.studentName} role="teacher" size="sm" />
+                    <span className="font-medium text-sm text-ink-800 truncate">{r.studentName}</span>
+                  </div>
+                  <p className="text-xs text-ink-500 truncate">{costume.name}</p>
+                  <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-ink-400">
+                    <span>{formatDateTime(r.timestamp)}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

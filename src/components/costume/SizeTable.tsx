@@ -48,6 +48,7 @@ export default function SizeTable({ costume }: Props) {
     addStudent,
     removeStudent,
     openSizeHistory,
+    addRecentStudent,
     bulkConfirmAllSizes,
   } = useAppStore();
 
@@ -299,7 +300,10 @@ export default function SizeTable({ costume }: Props) {
             )}
             {student.changeLogs.length > 0 && (
               <button
-                onClick={() => openSizeHistory(student.id)}
+                onClick={() => {
+                  addRecentStudent(costume.id, student.id, student.studentName);
+                  openSizeHistory(costume.id, student.id);
+                }}
                 className="p-1.5 rounded hover:bg-wine-50 text-wine-700 transition-colors"
                 title="查看修改历史"
               >

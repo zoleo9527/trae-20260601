@@ -9,6 +9,7 @@ import type {
   SizeChangeLog,
   TimelineEntry,
   UserRole,
+  RecentStudentRef,
 } from "@/types";
 import { STATUS_META, USERS, STUCK_PRESET_FILTERS } from "@/constants";
 import { genId, nowISO, getDaysInCurrentNode, isNodeStuck } from "@/utils";
@@ -22,8 +23,10 @@ interface SizeFieldUpdate {
 interface AppState {
   costumes: Costume[];
   recentOpenedIds: string[];
+  recentStudents: RecentStudentRef[];
   currentUser: Operator;
   filters: AppFilters;
+  sizeHistoryCostumeId: string | null;
   sizeHistoryStudentId: string | null;
 
   setCurrentUser: (user: Operator) => void;
@@ -31,7 +34,8 @@ interface AppState {
   resetFilters: () => void;
 
   addRecentOpened: (costumeId: string) => void;
-  openSizeHistory: (studentId: string | null) => void;
+  addRecentStudent: (costumeId: string, studentId: string, studentName: string) => void;
+  openSizeHistory: (costumeId: string | null, studentId: string | null) => void;
 
   getCostumeById: (id: string) => Costume | undefined;
   getFilteredCostumes: () => Costume[];
@@ -66,8 +70,10 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       costumes: seedCostumes,
       recentOpenedIds: [],
+      recentStudents: [],
       currentUser: USERS.admin[0],
       filters: {},
+      sizeHistoryCostumeId: null,
       sizeHistoryStudentId: null,
 
       setCurrentUser: (user) => set({ currentUser: user }),
@@ -83,7 +89,18 @@ export const useAppStore = create<AppState>()(
           return { recentOpenedIds: [costumeId, ...rest].slice(0, 5) };
         }),
 
-      openSizeHistory: (studentId) => set({ sizeHistoryStudentId: studentId }),
+      addRecentStudent: (costumeId, studentId, studentName) =>
+        set((state) => {
+          const rest = state.recentStudents.filter(
+            (r) => !(r.costumeId === costumeId && r.studentId === studentId)
+          );
+          return {
+            recentStudents: [{ costumeId, studentId, studentName, timestamp: nowISO() }, ...rest].slice(0, 10),
+          };
+        }),
+
+      openSizeHistory: (costumeId, studentId) =>
+        set({ sizeHistoryCostumeId: costumeId, sizeHistoryStudentId: studentId }),
 
       getCostumeById: (id) => get().costumes.find((c) => c.id === id),
 
@@ -143,6 +160,8 @@ export const useAppStore = create<AppState>()(
           status,
           operatorName: currentUser.name,
           operatorRole: currentUser.role,
+          assigneeName: assignee.name,
+          assigneeRole: assigneeRole,
           timestamp: now,
           remark: data.remark || "新建演出服装任务",
         };
@@ -183,6 +202,8 @@ export const useAppStore = create<AppState>()(
                 status: nextStatus,
                 operatorName: currentUser.name,
                 operatorRole: currentUser.role,
+                assigneeName: nextAssignee.name,
+                assigneeRole: nextMeta.assigneeRole,
                 timestamp: nowISO(),
                 remark,
               };
@@ -304,6 +325,7 @@ export const useAppStore = create<AppState>()(
                   return {
                     ...s,
                     confirmStatus: "confirmed",
+                    remark: remark || s.remark,
                     updatedAt: nowISO(),
                     changeLogs: [...s.changeLogs, log],
                   };
@@ -354,8 +376,11 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         costumes: state.costumes,
         recentOpenedIds: state.recentOpenedIds,
+        recentStudents: state.recentStudents,
         currentUser: state.currentUser,
         filters: state.filters,
+        sizeHistoryCostumeId: state.sizeHistoryCostumeId,
+        sizeHistoryStudentId: state.sizeHistoryStudentId,
       }),
     }
   )

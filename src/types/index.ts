@@ -28,6 +28,8 @@ export interface TimelineEntry {
   status: CostumeStatus;
   operatorName: string;
   operatorRole: UserRole;
+  assigneeName: string;
+  assigneeRole: UserRole;
   timestamp: string;
   remark: string;
 }
@@ -84,6 +86,13 @@ export interface AppFilters {
   keyword?: string;
   stuckPreset?: string;
   sizeConfirmStatus?: SizeConfirmStatus;
+}
+
+export interface RecentStudentRef {
+  costumeId: string;
+  studentId: string;
+  studentName: string;
+  timestamp: string;
 }
 
 export interface StatusMeta {

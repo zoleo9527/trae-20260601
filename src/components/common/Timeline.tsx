@@ -85,7 +85,12 @@ export default function Timeline({ currentStatus, entries, className }: Props) {
               {relatedEntry && (
                 <div className="mt-3 p-3 rounded-md bg-cream-100 border border-cream-200">
                   <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <Avatar name={relatedEntry.operatorName} role={relatedEntry.operatorRole} size="sm" showName />
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Avatar name={relatedEntry.operatorName} role={relatedEntry.operatorRole} size="sm" showName />
+                      <span className="text-xs text-ink-400">→</span>
+                      <Avatar name={relatedEntry.assigneeName} role={relatedEntry.assigneeRole} size="sm" showName />
+                      <span className="text-[10px] text-ink-400">接手</span>
+                    </div>
                     <span className="text-xs text-ink-400">{formatDateTime(relatedEntry.timestamp)}</span>
                   </div>
                   {relatedEntry.remark && (
