@@ -84,7 +84,7 @@ const handleSubmit = async (data: { suggestedPrice?: number; finalPrice?: number
   await changeStatus(
     vehicle.value.id,
     'pricing_pending',
-    data.remark,
+    `提交建议价¥${data.suggestedPrice.toLocaleString()}，${data.financePlan || '无'}金融方案`,
     undefined,
     { suggestedPrice: data.suggestedPrice, financePlan: data.financePlan },
     currentUser.value
@@ -95,7 +95,7 @@ const handleSubmit = async (data: { suggestedPrice?: number; finalPrice?: number
     await createHandover(
       vehicle.value.id,
       financeUsers[0],
-      `收车经理${currentUser.value.name}提交定价，等待金融专员${financeUsers[0].name}确认`,
+      `建议价¥${data.suggestedPrice.toLocaleString()}，交接给金融专员${financeUsers[0].name}确认`,
       'pricing_pending'
     )
   }
@@ -109,7 +109,7 @@ const handleConfirm = async (data: { finalPrice: number; financePlan: string; re
   await changeStatus(
     vehicle.value.id,
     'listed',
-    data.remark,
+    `确认最终价¥${data.finalPrice.toLocaleString()}，${data.financePlan || '无'}金融方案`,
     undefined,
     { finalPrice: data.finalPrice, financePlan: data.financePlan },
     currentUser.value
@@ -120,7 +120,7 @@ const handleConfirm = async (data: { finalPrice: number; financePlan: string; re
     await createHandover(
       vehicle.value.id,
       salesUsers[0],
-      `金融专员${currentUser.value.name}确认上架，等待销售顾问${salesUsers[0].name}跟进客户`,
+      `最终价¥${data.finalPrice.toLocaleString()}，交接给销售顾问${salesUsers[0].name}跟进客户`,
       'listed'
     )
   }

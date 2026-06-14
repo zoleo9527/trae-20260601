@@ -118,7 +118,7 @@
             <h3 class="text-lg font-semibold text-gray-900 mb-4">可执行操作</h3>
             <div class="space-y-2">
               <button
-                v-if="canChangeStatus && vehicle.status !== 'following'"
+                v-if="canChangeStatus && vehicle.status !== 'following' && vehicle.status !== 'pending_pricing'"
                 @click="showActionModal = true"
                 class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
@@ -280,6 +280,7 @@ const isCurrentResponsible = computed(() => {
 const canChangeStatus = computed(() => {
   if (!vehicle.value) return false
   if (!isCurrentResponsible.value) return false
+  if (['pending_pricing', 'pricing_pending'].includes(vehicle.value.status)) return false
   const transitions = getAvailableTransitions(vehicle.value.status, currentUser.value.role)
   return transitions.length > 0
 })
