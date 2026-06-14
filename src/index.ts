@@ -3,6 +3,7 @@ import { userRoutes } from './routes/user.routes';
 import { applicationRoutes } from './routes/application.routes';
 import { paymentRoutes } from './routes/payment.routes';
 import { certificateRoutes } from './routes/certificate.routes';
+import { handoverRoutes } from './routes/handover.routes';
 import { seedData } from './seed';
 import { db } from './database';
 
@@ -35,6 +36,7 @@ app.get('/', (req: Request, res: Response) => {
       applications: '/api/applications',
       payments: '/api/payments',
       certificates: '/api/certificates',
+      handover: '/api/handover/todo',
     },
     documentation: '请使用 x-user-id 请求头进行身份认证',
     testAccounts: {
@@ -49,6 +51,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/certificates', certificateRoutes);
+app.use('/api/handover', handoverRoutes);
 
 app.use((err: Error, req: Request, res: Response) => {
   console.error('服务器错误:', err);
@@ -86,6 +89,8 @@ function startServer() {
   console.log('  POST /api/certificates/issue - 发证 (档案员)');
   console.log('  GET  /api/certificates/:id/review - 流程回看');
   console.log('  GET  /api/applications/:id/logs - 操作日志');
+  console.log('  GET  /api/handover/todo - 交接待办总览');
+  console.log('  GET  /api/handover/todo?role=WINDOW_STAFF - 按角色查待办');
   console.log('\n' + '='.repeat(60) + '\n');
 
   app.listen(PORT, () => {

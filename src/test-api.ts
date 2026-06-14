@@ -4,6 +4,7 @@ import { ApplicationService } from './services/application.service';
 import { PaymentService } from './services/payment.service';
 import { CertificateService } from './services/certificate.service';
 import { OperationLogService } from './services/operationLog.service';
+import { HandoverService } from './services/handover.service';
 import { FeeItem } from './types';
 
 interface TestResult {
@@ -421,6 +422,97 @@ async function main() {
         assert(log.operatorId !== undefined && log.operatorId.length > 0, '日志缺少操作人ID');
         assert(log.operatorName !== undefined && log.operatorName.length > 0, '日志缺少操作人姓名');
         assert(['WINDOW_STAFF', 'NOTARY', 'ARCHIVIST'].includes(log.operatorRole), '日志角色不正确');
+      }
+    }
+  });
+
+  console.log('\n' + '-'.repeat(70));
+  console.log('测试用例 5: 交接待办总览');
+  console.log('-'.repeat(70));
+
+  await runTest('5.1 总览接口返回三个角色分组', () => {
+    const overview = HandoverService.getTodoOverview();
+    assert(overview.WINDOW_STAFF !== undefined, '应有 WINDOW_STAFF 分组');
+    assert(overview.NOTARY !== undefined, '应有 NOTARY 分组');
+    assert(overview.ARCHIVIST !== undefined, '应有 ARCHIVIST 分组');
+    assert(typeof overview.WINDOW_STAFF.count === 'number', 'WINDOW_STAFF 应有 count');
+    assert(typeof overview.NOTARY.count === 'number', 'NOTARY 应有 count');
+    assert(typeof overview.ARCHIVIST.count === 'number', 'ARCHIVIST 应有 count');
+    assert(overview.totalCount === overview.WINDOW_STAFF.count + overview.NOTARY.count + overview.ARCHIVIST.count, 'totalCount 应等于各组之和');
+  });
+
+  await runTest('5.2 窗口人员待办包含待提交材料和待缴费登记', () => {
+    const overview = HandoverService.getTodoOverview();
+    const winItems = overview.WINDOW_STAFF.items;
+    const statuses = winItems.map(i => i.status);
+    const hasMaterialsOrPayment = statuses.some(s => ['PENDING_MATERIALS', 'PENDING_PAYMENT', 'SUPPLEMENT_NEEDED'].includes(s));
+    assert(hasMaterialsOrPayment, '窗口人员待办应包含待提交材料/待缴费登记/待补正');
+  });
+
+  await runTest('5.3 公证员待办包含待审核和待确认缴费', () => {
+    const overview = HandoverService.getTodoOverview();
+    const notaryItems = overview.NOTARY.items;
+    const statuses = notaryItems.map(i => i.status);
+    const hasReviewOrConfirm = statuses.some(s => ['MATERIALS_SUBMITTED', 'PAYMENT_REGISTERED'].includes(s));
+    assert(hasReviewOrConfirm, '公证员待办应包含待审核/待确认缴费');
+  });
+
+  await runTest('5.4 档案员待办包含待出证安排和待发证', () => {
+    const overview = HandoverService.getTodoOverview();
+    const archItems = overview.ARCHIVIST.items;
+    const statuses = archItems.map(i => i.status);
+    const hasArrangeOrIssue = statuses.some(s => ['PENDING_CERTIFICATE_ARRANGEMENT', 'CERTIFICATE_ARRANGED'].includes(s));
+    assert(hasArrangeOrIssue, '档案员待办应包含待出证安排/待发证');
+  });
+
+  await runTest('5.5 每条待办记录包含卡住环节、最近操作人', () => {
+    const overview = HandoverService.getTodoOverview();
+    const allItems = [...overview.WINDOW_STAFF.items, ...overview.NOTARY.items, ...overview.ARCHIVIST.items];
+    assert(allItems.length > 0, '应有待办记录');
+
+    for (const item of allItems) {
+      assert(item.stuckStep !== undefined && item.stuckStep.length > 0, `申请 ${item.applicationNo} 缺少卡住环节`);
+      assert(item.lastOperatorName !== undefined && item.lastOperatorName.length > 0, `申请 ${item.applicationNo} 缺少最近操作人`);
+      assert(['WINDOW_STAFF', 'NOTARY', 'ARCHIVIST'].includes(item.lastOperatorRole), `申请 ${item.applicationNo} 最近操作人角色不正确`);
+      assert(item.lastOperationTime !== undefined, `申请 ${item.applicationNo} 缺少最近操作时间`);
+    }
+  });
+
+  await runTest('5.6 补正状态的待办包含补正原因和截止日期', () => {
+    const overview = HandoverService.getTodoOverview();
+    const supplementItems = overview.WINDOW_STAFF.items.filter(i => i.status === 'SUPPLEMENT_NEEDED');
+    if (supplementItems.length > 0) {
+      for (const item of supplementItems) {
+        assert(item.supplementReason !== undefined && item.supplementReason.length > 0, `申请 ${item.applicationNo} 补正状态应含补正原因`);
+        assert(item.supplementDeadline !== undefined, `申请 ${item.applicationNo} 补正状态应含截止日期`);
+      }
+    }
+  });
+
+  await runTest('5.7 按角色查询待办', () => {
+    const notaryTodo = HandoverService.getTodoByRole('NOTARY');
+    assert(notaryTodo.count >= 0, '应返回公证员待办数量');
+    assert(Array.isArray(notaryTodo.items), '应返回待办列表');
+    notaryTodo.items.forEach(item => {
+      assert(['MATERIALS_SUBMITTED', 'PAYMENT_REGISTERED'].includes(item.status), '公证员待办只含待审核/待确认');
+    });
+  });
+
+  await runTest('5.8 已完成申请不出现在待办中', () => {
+    const overview = HandoverService.getTodoOverview();
+    const allItems = [...overview.WINDOW_STAFF.items, ...overview.NOTARY.items, ...overview.ARCHIVIST.items];
+    const completedItems = allItems.filter(i => i.status === 'COMPLETED' || i.status === 'REJECTED');
+    assert(completedItems.length === 0, '已完成和已驳回申请不应出现在待办中');
+  });
+
+  await runTest('5.9 待办数据与留痕链路一致', () => {
+    const overview = HandoverService.getTodoOverview();
+    const allItems = [...overview.WINDOW_STAFF.items, ...overview.NOTARY.items, ...overview.ARCHIVIST.items];
+    for (const item of allItems) {
+      const logs = OperationLogService.getApplicationLogs(item.applicationId);
+      if (logs.length > 0) {
+        assert(item.lastOperatorName === logs[0].operatorName, `申请 ${item.applicationNo} 最近操作人与日志不一致`);
+        assert(item.lastOperatorRole === logs[0].operatorRole, `申请 ${item.applicationNo} 最近操作人角色与日志不一致`);
       }
     }
   });

@@ -324,6 +324,20 @@ export const testRequests = {
       scheduledPickupDate: new Date().toISOString(),
     },
   },
+
+  getHandoverTodo: {
+    method: 'GET',
+    url: 'http://localhost:3000/api/handover/todo',
+    description: '交接待办总览 - 按角色分组返回待处理列表',
+    headers: { 'x-user-id': 'WIN001' },
+  },
+
+  getHandoverTodoByRole: {
+    method: 'GET',
+    url: 'http://localhost:3000/api/handover/todo?role=WINDOW_STAFF',
+    description: '按角色查询待办 (WINDOW_STAFF / NOTARY / ARCHIVIST)',
+    headers: { 'x-user-id': 'NOT001' },
+  },
 };
 
 export const curlExamples: Record<string, string> = {
@@ -341,6 +355,8 @@ export const curlExamples: Record<string, string> = {
   getCompleted: 'curl -H "x-user-id: ARC001" http://localhost:3000/api/certificates/completed',
   getLogs: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/applications/{id}/logs',
   getReview: 'curl -H "x-user-id: ARC001" http://localhost:3000/api/certificates/{id}/review',
+  getHandoverTodo: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/handover/todo',
+  getHandoverTodoByRole: 'curl -H "x-user-id: NOT001" "http://localhost:3000/api/handover/todo?role=NOTARY"',
 };
 
 export default testRequests;
