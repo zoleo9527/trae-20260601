@@ -1,4 +1,4 @@
-import { ActionFunctionArgs, json, LoaderFunctionArgs } from "@remix-run/node";
+import { ActionFunctionArgs, json, LoaderFunctionArgs, redirect } from "@remix-run/node";
 import { Form, useActionData } from "@remix-run/react";
 import { authenticate, createSession } from "../auth/session";
 
@@ -21,10 +21,9 @@ export async function action({ request }: ActionFunctionArgs) {
   
   const session = await createSession(user.id, user.role);
   
-  return json({ success: true }, {
+  return redirect("/", {
     headers: {
       "Set-Cookie": session,
-      "Location": "/",
     },
   });
 }

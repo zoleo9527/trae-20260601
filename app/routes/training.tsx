@@ -1,4 +1,4 @@
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
+import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
 import { Form, useActionData, useLoaderData } from "@remix-run/react";
 import { requireUser } from "../auth/session";
 import { getStudents, getTrainingRecords, createTrainingRecord, updateTrainingRecord, addOperationLog } from "../db/queries";
@@ -39,15 +39,26 @@ export async function action({ request }: ActionFunctionArgs) {
     
     const result = await createTrainingRecord(studentId, userId, date, duration, content);
     
+    const student = await require("../db/connection").pool.query(
+      "SELECT name FROM students WHERE id = $1",
+      [studentId]
+    );
+    
     await addOperationLog(
       userId,
       "开始场地训练",
       "training_record",
-      result[0].id,
-      { student_id: studentId, date, duration, content }
+      result.id,
+      { 
+        student_id: studentId, 
+        student_name: student.rows[0]?.name,
+        date, 
+        duration, 
+        content 
+      }
     );
     
-    return json({ success: true });
+    return redirect("/training");
   } else if (actionType === "complete_training") {
     const recordId = parseInt(formData.get("record_id") as string);
     const notes = formData.get("notes") as string;
@@ -62,7 +73,7 @@ export async function action({ request }: ActionFunctionArgs) {
       { notes }
     );
     
-    return json({ success: true });
+    return redirect("/training");
   }
   
   return json({ success: false });
@@ -143,6 +154,7 @@ export default function TrainingPage() {
                     <th>内容</th>
                     <th>教练</th>
                     <th>状态</th>
+                    <th>备注</th>
                     <th>操作</th>
                   </tr>
                 </thead>
@@ -163,6 +175,7 @@ export default function TrainingPage() {
                           {statusNames[record.status]}
                         </span>
                       </td>
+                      <td style={styles.contentCell}>{record.notes || "-"}</td>
                       <td>
                         {record.status === "in_progress" && (
                           <Form method="post" style={styles.inlineForm}>
@@ -296,7 +309,7 @@ const styles = {
     fontSize: "14px",
   },
   contentCell: {
-    maxWidth: "200px",
+    maxWidth: "150px",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

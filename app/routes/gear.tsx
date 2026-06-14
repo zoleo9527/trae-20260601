@@ -1,7 +1,7 @@
-import { ActionFunctionArgs, LoaderFunctionArgs, json } from "@remix-run/node";
-import { Form, useActionData, useLoaderData } from "@remix-run/react";
+import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
+import { Form, useActionData, useLoaderData, useState } from "@remix-run/react";
 import { requireUser } from "../auth/session";
-import { getStudents, getTrainingRecords, getGearIssues, createGearIssue, returnGear, addOperationLog } from "../db/queries";
+import { getStudents, getTrainingRecords, getGearIssues, createGearIssue, returnGear, addOperationLog, getTrainingRecordById } from "../db/queries";
 import Layout from "../components/Layout";
 import { statusNames, roleNames } from "../utils/roles";
 
@@ -43,6 +43,12 @@ export async function action({ request }: ActionFunctionArgs) {
     const gloves = formData.get("gloves") === "on";
     const boots = formData.get("boots") === "on";
     
+    const trainingRecord = await getTrainingRecordById(trainingRecordId);
+    
+    if (!trainingRecord || trainingRecord.student_id !== studentId) {
+      return json({ error: "训练记录与学员不匹配" });
+    }
+    
     const result = await createGearIssue(studentId, userId, trainingRecordId, helmet, jacket, gloves, boots);
     
     const student = await require("../db/connection").pool.query(
@@ -54,16 +60,17 @@ export async function action({ request }: ActionFunctionArgs) {
       userId,
       "发放护具",
       "gear_issue",
-      result[0].id,
+      result.id,
       { 
         student_id: studentId, 
-        student_name: student[0]?.name,
+        student_name: student.rows[0]?.name,
         training_record_id: trainingRecordId,
+        trainer_name: trainingRecord.trainer_name,
         items: { helmet, jacket, gloves, boots }
       }
     );
     
-    return json({ success: true });
+    return redirect("/gear");
   } else if (actionType === "return_gear") {
     const gearId = parseInt(formData.get("gear_id") as string);
     
@@ -77,7 +84,7 @@ export async function action({ request }: ActionFunctionArgs) {
       {}
     );
     
-    return json({ success: true });
+    return redirect("/gear");
   }
   
   return json({ success: false });
@@ -86,6 +93,7 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function GearPage() {
   const { user, students, trainingRecords, gearIssues } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
+  const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -96,8 +104,8 @@ export default function GearPage() {
     }
   };
   
-  const getTrainingForStudent = (studentId: number) => {
-    return trainingRecords.find(r => r.student_id === studentId);
+  const getTrainingOptionsForStudent = (studentId: number) => {
+    return trainingRecords.filter(r => r.student_id === studentId);
   };
   
   return (
@@ -117,7 +125,12 @@ export default function GearPage() {
               <div style={styles.formGrid}>
                 <div style={styles.formGroup}>
                   <label style={styles.label}>学员</label>
-                  <select name="student_id" style={styles.select} required>
+                  <select 
+                    name="student_id" 
+                    style={styles.select} 
+                    required
+                    onChange={(e) => setSelectedStudentId(parseInt(e.target.value) || null)}
+                  >
                     <option value="">请选择学员</option>
                     {students.map(student => (
                       <option key={student.id} value={student.id}>
@@ -131,9 +144,9 @@ export default function GearPage() {
                   <label style={styles.label}>关联训练</label>
                   <select name="training_record_id" style={styles.select} required>
                     <option value="">请选择训练记录</option>
-                    {trainingRecords.map(record => (
+                    {selectedStudentId && getTrainingOptionsForStudent(selectedStudentId).map(record => (
                       <option key={record.id} value={record.id}>
-                        {record.student_name} - {record.date}
+                        {record.date} - {record.trainer_name || "未分配教练"}
                       </option>
                     ))}
                   </select>
@@ -162,6 +175,10 @@ export default function GearPage() {
                 </div>
               </div>
               
+              {actionData?.error && (
+                <p style={styles.error}>{actionData.error}</p>
+              )}
+              
               <button type="submit" style={styles.button}>
                 确认发放
               </button>
@@ -176,6 +193,8 @@ export default function GearPage() {
                   <tr>
                     <th>学员</th>
                     <th>关联训练</th>
+                    <th>教练</th>
+                    <th>训练备注</th>
                     <th>发放物品</th>
                     <th>发放人</th>
                     <th>发放时间</th>
@@ -188,6 +207,8 @@ export default function GearPage() {
                     <tr key={issue.id}>
                       <td>{issue.student_name}</td>
                       <td>{issue.training_date || "-"}</td>
+                      <td>{issue.trainer_name || "-"}</td>
+                      <td style={styles.contentCell}>{issue.training_notes || "-"}</td>
                       <td>
                         <div style={styles.itemsList}>
                           {issue.helmet && <span style={styles.itemTag}>头盔</span>}
@@ -327,6 +348,11 @@ const styles = {
     fontWeight: "500",
     cursor: "pointer",
   },
+  error: {
+    color: "#e74c3c",
+    fontSize: "14px",
+    textAlign: "center",
+  },
   tableContainer: {
     overflowX: "auto",
   },
@@ -334,6 +360,12 @@ const styles = {
     width: "100%",
     borderCollapse: "collapse",
     fontSize: "14px",
+  },
+  contentCell: {
+    maxWidth: "150px",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   itemsList: {
     display: "flex",
