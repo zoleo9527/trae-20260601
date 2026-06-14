@@ -112,4 +112,105 @@ function generateReturnComment(registrationId) {
   return parts.join('。');
 }
 
-module.exports = { getRegistrationProblems, generateReturnComment, docLabel };
+function resubmitterLabel(who) {
+  const map = { parent: '家长', teacher: '任课老师', student: '学员' };
+  return map[who] || who;
+}
+
+function getResubmissionSummary(registrationId) {
+  const db = getDb();
+
+  const total = db.prepare(
+    'SELECT COUNT(*) as cnt FROM resubmission_logs WHERE registration_id = ?'
+  ).get(registrationId).cnt;
+
+  const unconfirmed = db.prepare(
+    'SELECT COUNT(*) as cnt FROM resubmission_logs WHERE registration_id = ? AND confirmed_at IS NULL'
+  ).get(registrationId).cnt;
+
+  const confirmed = db.prepare(
+    'SELECT COUNT(*) as cnt FROM resubmission_logs WHERE registration_id = ? AND confirmed_at IS NOT NULL'
+  ).get(registrationId).cnt;
+
+  const latestResubmit = db.prepare(`
+    SELECT rl.*, rd.document_type, t.name as confirmer_name
+    FROM resubmission_logs rl
+    JOIN registration_documents rd ON rl.document_id = rd.id
+    LEFT JOIN teachers t ON rl.confirmed_by = t.id
+    WHERE rl.registration_id = ?
+    ORDER BY rl.resubmitted_at DESC
+    LIMIT 1
+  `).get(registrationId);
+
+  const latestConfirmed = db.prepare(`
+    SELECT rl.*, rd.document_type, t.name as confirmer_name
+    FROM resubmission_logs rl
+    JOIN registration_documents rd ON rl.document_id = rd.id
+    JOIN teachers t ON rl.confirmed_by = t.id
+    WHERE rl.registration_id = ? AND rl.confirmed_at IS NOT NULL
+    ORDER BY rl.confirmed_at DESC
+    LIMIT 1
+  `).get(registrationId);
+
+  const resubmitDocTypes = db.prepare(`
+    SELECT DISTINCT rd.document_type
+    FROM resubmission_logs rl
+    JOIN registration_documents rd ON rl.document_id = rd.id
+    WHERE rl.registration_id = ?
+    ORDER BY rl.resubmitted_at DESC
+  `).all(registrationId).map(r => docLabel(r.document_type));
+
+  let latest_resubmit = null;
+  if (latestResubmit) {
+    latest_resubmit = {
+      resubmitted_at: latestResubmit.resubmitted_at,
+      resubmitted_by: latestResubmit.resubmitted_by,
+      resubmitted_by_label: resubmitterLabel(latestResubmit.resubmitted_by),
+      document_id: latestResubmit.document_id,
+      document_type: latestResubmit.document_type,
+      document_type_label: docLabel(latestResubmit.document_type),
+      note: latestResubmit.note,
+      is_confirmed: !!latestResubmit.confirmed_at,
+      confirmed_at: latestResubmit.confirmed_at,
+      confirmed_by: latestResubmit.confirmed_by,
+      confirmed_by_name: latestResubmit.confirmer_name
+    };
+  }
+
+  let latest_confirm = null;
+  if (latestConfirmed) {
+    latest_confirm = {
+      confirmed_at: latestConfirmed.confirmed_at,
+      confirmed_by: latestConfirmed.confirmed_by,
+      confirmed_by_name: latestConfirmed.confirmer_name,
+      document_id: latestConfirmed.document_id,
+      document_type: latestConfirmed.document_type,
+      document_type_label: docLabel(latestConfirmed.document_type),
+      resubmitted_at: latestConfirmed.resubmitted_at,
+      resubmitted_by_label: resubmitterLabel(latestConfirmed.resubmitted_by)
+    };
+  }
+
+  let status_text = '无补件记录';
+  if (total > 0) {
+    if (unconfirmed === 0) {
+      status_text = `共${total}次补件，全部已确认`;
+    } else if (confirmed === 0) {
+      status_text = `共${total}次补件，${unconfirmed}次待确认`;
+    } else {
+      status_text = `共${total}次补件，${confirmed}次已确认，${unconfirmed}次待确认`;
+    }
+  }
+
+  return {
+    total_resubmit_count: total,
+    unconfirmed_resubmit_count: unconfirmed,
+    confirmed_resubmit_count: confirmed,
+    resubmitted_document_types: resubmitDocTypes,
+    latest_resubmit: latest_resubmit,
+    latest_confirm: latest_confirm,
+    status_text: status_text
+  };
+}
+
+module.exports = { getRegistrationProblems, generateReturnComment, docLabel, getResubmissionSummary };

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
-const { getRegistrationProblems, generateReturnComment } = require('../validation');
+const { getRegistrationProblems, generateReturnComment, getResubmissionSummary } = require('../validation');
 
 router.post('/review', (req, res) => {
   const db = getDb();
@@ -170,6 +170,15 @@ router.get('/returned', (req, res) => {
     if (item.payment_status !== 'paid') infoProblems.push('未缴费');
     item.info_problems = infoProblems;
     item.total_blocking_count = item.blocking_doc_count + infoProblems.length;
+
+    const resubmissionSummary = getResubmissionSummary(item.registration_id);
+    item.resubmission_total_count = resubmissionSummary.total_resubmit_count;
+    item.resubmission_unconfirmed_count = resubmissionSummary.unconfirmed_resubmit_count;
+    item.resubmission_confirmed_count = resubmissionSummary.confirmed_resubmit_count;
+    item.resubmission_document_types = resubmissionSummary.resubmitted_document_types;
+    item.resubmission_status_text = resubmissionSummary.status_text;
+    item.latest_resubmit = resubmissionSummary.latest_resubmit;
+    item.latest_confirm = resubmissionSummary.latest_confirm;
   }
 
   res.json({ code: 0, data: returned });

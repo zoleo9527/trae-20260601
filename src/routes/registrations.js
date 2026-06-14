@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getDb } = require('../db');
+const { getResubmissionSummary } = require('../validation');
 
 router.post('/', (req, res) => {
   const { student_id, exam_session_id, costume_size, track_name, remark } = req.body;
@@ -171,6 +172,8 @@ router.get('/:id', (req, res) => {
     'SELECT * FROM notifications WHERE registration_id = ? ORDER BY sent_at DESC'
   ).all(req.params.id);
 
+  const resubmissionSummary = getResubmissionSummary(req.params.id);
+
   res.json({
     code: 0,
     data: {
@@ -178,6 +181,7 @@ router.get('/:id', (req, res) => {
       documents,
       auditLogs,
       resubmissionLogs,
+      resubmissionSummary,
       notifications
     }
   });
