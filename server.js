@@ -167,18 +167,19 @@ app.get('/api/versions/:id', (req, res) => {
   const reviewComments = prepareResult(reviewCommentsResult);
   
   const reworkRecordsResult = db.exec(`
-    SELECT rr.*, v.version_number as rework_version_number 
+    SELECT rr.*, v.version_number as rework_version_number, v.file_name as rework_file_name 
     FROM rework_records rr 
     LEFT JOIN versions v ON rr.rework_version_id = v.id 
     WHERE rr.version_id = ? 
     ORDER BY rr.created_at DESC
+    LIMIT 1
   `, [versionId]);
-  const reworkRecords = prepareResult(reworkRecordsResult);
+  const reworkRecord = prepareOne(reworkRecordsResult);
   
   res.json({
     ...version,
     reviewComments,
-    reworkRecords
+    reworkRecord
   });
 });
 
@@ -256,6 +257,18 @@ app.post('/api/versions/:id/decide', (req, res) => {
       SET status = 'completed', completed_at = CURRENT_TIMESTAMP 
       WHERE version_id = ? AND status = 'pending'
     `, [versionId]);
+    
+    db.run(`
+      UPDATE rework_records 
+      SET status = 'completed', 
+          rework_version_id = ?, 
+          completed_at = CURRENT_TIMESTAMP, 
+          updated_at = CURRENT_TIMESTAMP
+      WHERE version_id IN (
+        SELECT id FROM versions 
+        WHERE manuscript_id = ? AND review_status = 'rejected'
+      ) AND status = 'pending'
+    `, [versionId, version.manuscript_id]);
   } else if (decision === 'rejected') {
     if (!rework_reason) {
       return res.status(400).json({ error: '退回时必须提供 rework_reason' });
@@ -358,11 +371,16 @@ app.post('/api/review-comments', (req, res) => {
 app.get('/api/rework-records', (req, res) => {
   const { version_id, status, manuscript_id } = req.query;
   let sql = `
-    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number
+    SELECT rr.*, v.version_number, v.manuscript_id, rv.version_number as rework_version_number, rv.file_name as rework_file_name
     FROM rework_records rr 
     LEFT JOIN versions v ON rr.version_id = v.id
     LEFT JOIN versions rv ON rr.rework_version_id = rv.id
-    WHERE 1=1
+    WHERE rr.id = (
+      SELECT id FROM rework_records r2 
+      WHERE r2.version_id = rr.version_id 
+      ORDER BY r2.created_at DESC 
+      LIMIT 1
+    )
   `;
   const params = [];
   
@@ -415,9 +433,30 @@ app.put('/api/rework-records/:id', (req, res) => {
   const { status, rework_version_id } = req.body;
   const recordId = parseInt(req.params.id);
   
-  let completedAt = null;
-  if (status === 'completed') {
+  const currentRecordResult = db.exec('SELECT * FROM rework_records WHERE id = ?', [recordId]);
+  const currentRecord = prepareOne(currentRecordResult);
+  
+  if (!currentRecord) {
+    return res.status(404).json({ error: '返工记录不存在' });
+  }
+  
+  let completedAt = currentRecord.completed_at;
+  if (status === 'completed' && !completedAt) {
     completedAt = new Date().toISOString();
+    
+    if (rework_version_id) {
+      db.run(`
+        UPDATE rework_records 
+        SET status = 'completed', completed_at = ?, rework_version_id = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE version_id = ? AND status = 'pending' AND id != ?
+      `, [completedAt, rework_version_id, currentRecord.version_id, recordId]);
+    } else {
+      db.run(`
+        UPDATE rework_records 
+        SET status = 'completed', completed_at = ?, updated_at = CURRENT_TIMESTAMP 
+        WHERE version_id = ? AND status = 'pending' AND id != ?
+      `, [completedAt, currentRecord.version_id, recordId]);
+    }
   }
   
   db.run('UPDATE rework_records SET status = ?, rework_version_id = ?, completed_at = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
@@ -561,9 +600,10 @@ app.get('/api/manuscripts/:id/history', (req, res) => {
       FROM rework_records rr 
       LEFT JOIN versions rv ON rr.rework_version_id = rv.id
       WHERE rr.version_id = ? 
-      ORDER BY rr.created_at ASC
+      ORDER BY rr.created_at DESC
+      LIMIT 1
     `, [versionId]);
-    const reworkRecords = prepareResult(reworkRecordsResult);
+    const reworkRecord = prepareOne(reworkRecordsResult);
     
     const deliveriesResult = db.exec(`
       SELECT dr.*, dr.client_feedback, dr.feedback_time
@@ -575,7 +615,7 @@ app.get('/api/manuscripts/:id/history', (req, res) => {
     return {
       ...version,
       reviewComments,
-      reworkRecords,
+      reworkRecord,
       deliveries
     };
   });
@@ -606,7 +646,7 @@ app.get('/api/manuscripts/:id/history', (req, res) => {
     allDeliveries,
     summary: {
       totalVersions: versions.length,
-      totalReworks: history.reduce((sum, v) => sum + (v.reworkRecords?.length || 0), 0),
+      totalReworks: history.reduce((sum, v) => sum + (v.reworkRecord ? 1 : 0), 0),
       totalDeliveries: allDeliveries.length,
       hasApprovedVersion: !!finalApprovedVersion
     }
