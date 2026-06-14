@@ -9,6 +9,28 @@ import { LogService } from './log.service';
 import { OperationType } from '../types/log.types';
 import { UserService } from './user.service';
 
+const TASK_STATUS_FLOW: Record<TaskStatus, TaskStatus[]> = {
+  [TaskStatus.PENDING_ASSIGN]: [TaskStatus.PENDING_PROCESS, TaskStatus.CANCELLED],
+  [TaskStatus.PENDING_PROCESS]: [TaskStatus.PROCESSING, TaskStatus.CANCELLED],
+  [TaskStatus.PROCESSING]: [TaskStatus.PENDING_ASSESSMENT, TaskStatus.CANCELLED],
+  [TaskStatus.PENDING_ASSESSMENT]: [TaskStatus.COMPLETED, TaskStatus.CANCELLED],
+  [TaskStatus.COMPLETED]: [],
+  [TaskStatus.CANCELLED]: []
+};
+
+const STATUS_TRANSITION_ERRORS: Record<string, string> = {
+  'PENDING_ASSIGN -> PROCESSING': '任务尚未分配，不能开始处理',
+  'PENDING_ASSIGN -> PENDING_ASSESSMENT': '任务尚未分配，不能进行定损',
+  'PENDING_ASSIGN -> COMPLETED': '任务尚未完成查勘，不能完成',
+  'PENDING_PROCESS -> PENDING_ASSESSMENT': '查勘员尚未接单，不能完成查勘',
+  'PENDING_PROCESS -> COMPLETED': '查勘员尚未接单，不能完成',
+  'PROCESSING -> PENDING_PROCESS': '任务已接单，不能返回待处理',
+  'PROCESSING -> COMPLETED': '查勘尚未完成，不能完成任务',
+  'PENDING_ASSESSMENT -> PROCESSING': '查勘已完成，不能返回处理中',
+  'COMPLETED -> *': '已完成的任务不能变更状态',
+  'CANCELLED -> *': '已取消的任务不能变更状态'
+};
+
 export class TaskService extends BaseService<SurveyTask> {
   private logService: LogService;
   private userService: UserService;
@@ -25,6 +47,37 @@ export class TaskService extends BaseService<SurveyTask> {
     if (!existingData) {
       setStorageData(this.storageKey, mockTasks);
     }
+  }
+
+  private validateStatusTransition(fromStatus: TaskStatus, toStatus: TaskStatus): void {
+    if (fromStatus === toStatus) {
+      throw new Error(`任务已是【${this.getStatusLabel(fromStatus)}】状态`);
+    }
+
+    const allowedStatuses = TASK_STATUS_FLOW[fromStatus];
+    if (!allowedStatuses.includes(toStatus)) {
+      const errorKey = `${fromStatus} -> ${toStatus}`;
+      const errorMessage = STATUS_TRANSITION_ERRORS[errorKey] ||
+                          STATUS_TRANSITION_ERRORS[`${fromStatus} -> *`] ||
+                          `状态不能从【${this.getStatusLabel(fromStatus)}】变更为【${this.getStatusLabel(toStatus)}】`;
+      throw new Error(errorMessage);
+    }
+  }
+
+  private getStatusLabel(status: TaskStatus): string {
+    const labels: Record<TaskStatus, string> = {
+      [TaskStatus.PENDING_ASSIGN]: '待分配',
+      [TaskStatus.PENDING_PROCESS]: '待处理',
+      [TaskStatus.PROCESSING]: '处理中',
+      [TaskStatus.PENDING_ASSESSMENT]: '待定损',
+      [TaskStatus.COMPLETED]: '已完成',
+      [TaskStatus.CANCELLED]: '已取消'
+    };
+    return labels[status];
+  }
+
+  getTaskStatusLabel(status: TaskStatus): string {
+    return this.getStatusLabel(status);
   }
 
   createTask(params: CreateTaskParams): SurveyTask {
@@ -75,16 +128,19 @@ export class TaskService extends BaseService<SurveyTask> {
       throw new Error('任务不存在');
     }
 
+    const task = tasks[taskIndex];
+    this.validateStatusTransition(task.status, TaskStatus.PENDING_PROCESS);
+
     const surveyor = this.userService.getUserById(surveyorId);
     if (!surveyor) {
       throw new Error('查勘员不存在');
     }
 
     const currentUser = this.userService.getCurrentUser();
-    const oldStatus = tasks[taskIndex].status;
+    const oldStatus = task.status;
 
     tasks[taskIndex] = {
-      ...tasks[taskIndex],
+      ...task,
       assignedSurveyorId: surveyor.userId,
       assignedSurveyorName: surveyor.realName,
       assignedTime: this.getCurrentTime(),
@@ -116,11 +172,14 @@ export class TaskService extends BaseService<SurveyTask> {
       throw new Error('任务不存在');
     }
 
+    const task = tasks[taskIndex];
+    this.validateStatusTransition(task.status, TaskStatus.PROCESSING);
+
     const currentUser = this.userService.getCurrentUser();
-    const oldStatus = tasks[taskIndex].status;
+    const oldStatus = task.status;
 
     tasks[taskIndex] = {
-      ...tasks[taskIndex],
+      ...task,
       status: TaskStatus.PROCESSING,
       updatedTime: this.getCurrentTime()
     };
@@ -149,11 +208,15 @@ export class TaskService extends BaseService<SurveyTask> {
       throw new Error('任务不存在');
     }
 
+    const task = tasks[taskIndex];
+    if (task.status !== TaskStatus.PROCESSING) {
+      throw new Error(`当前状态为【${this.getStatusLabel(task.status)}】，只能从【处理中】状态开始查勘`);
+    }
+
     const currentUser = this.userService.getCurrentUser();
 
     tasks[taskIndex] = {
-      ...tasks[taskIndex],
-      status: TaskStatus.PROCESSING,
+      ...task,
       surveyStartTime: this.getCurrentTime(),
       updatedTime: this.getCurrentTime()
     };
@@ -180,11 +243,14 @@ export class TaskService extends BaseService<SurveyTask> {
       throw new Error('任务不存在');
     }
 
+    const task = tasks[taskIndex];
+    this.validateStatusTransition(task.status, TaskStatus.PENDING_ASSESSMENT);
+
     const currentUser = this.userService.getCurrentUser();
-    const oldStatus = tasks[taskIndex].status;
+    const oldStatus = task.status;
 
     tasks[taskIndex] = {
-      ...tasks[taskIndex],
+      ...task,
       status: TaskStatus.PENDING_ASSESSMENT,
       surveyEndTime: this.getCurrentTime(),
       updatedTime: this.getCurrentTime()
@@ -202,6 +268,78 @@ export class TaskService extends BaseService<SurveyTask> {
       beforeStatus: oldStatus,
       afterStatus: TaskStatus.PENDING_ASSESSMENT,
       remark: remark || '查勘完成，等待定损'
+    });
+
+    return tasks[taskIndex];
+  }
+
+  cancelTask(taskId: string, remark?: string): SurveyTask {
+    const tasks = this.getAll();
+    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
+    if (taskIndex === -1) {
+      throw new Error('任务不存在');
+    }
+
+    const task = tasks[taskIndex];
+    this.validateStatusTransition(task.status, TaskStatus.CANCELLED);
+
+    const currentUser = this.userService.getCurrentUser();
+    const oldStatus = task.status;
+
+    tasks[taskIndex] = {
+      ...task,
+      status: TaskStatus.CANCELLED,
+      updatedTime: this.getCurrentTime()
+    };
+
+    this.saveAll(tasks);
+
+    this.logService.createLog({
+      taskId,
+      operationType: OperationType.CANCEL_TASK,
+      operationDesc: '取消任务',
+      operatorId: currentUser.userId,
+      operatorName: currentUser.realName,
+      operatorRole: currentUser.role,
+      beforeStatus: oldStatus,
+      afterStatus: TaskStatus.CANCELLED,
+      remark: remark || '任务已取消'
+    });
+
+    return tasks[taskIndex];
+  }
+
+  updateTaskStatus(taskId: string, newStatus: TaskStatus, remark?: string): SurveyTask {
+    const tasks = this.getAll();
+    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
+    if (taskIndex === -1) {
+      throw new Error('任务不存在');
+    }
+
+    const task = tasks[taskIndex];
+    this.validateStatusTransition(task.status, newStatus);
+
+    const currentUser = this.userService.getCurrentUser();
+    const oldStatus = task.status;
+
+    tasks[taskIndex] = {
+      ...task,
+      status: newStatus,
+      updatedTime: this.getCurrentTime()
+    };
+
+    this.saveAll(tasks);
+
+    this.logService.createLog({
+      taskId,
+      operationType: OperationType.UPDATE_TASK_STATUS,
+      operationDesc: '更新任务状态',
+      operatorId: currentUser.userId,
+      operatorName: currentUser.realName,
+      operatorRole: currentUser.role,
+      beforeStatus: oldStatus,
+      afterStatus: newStatus,
+      remark: remark || `状态变更: ${oldStatus} -> ${newStatus}`
     });
 
     return tasks[taskIndex];
@@ -275,72 +413,6 @@ export class TaskService extends BaseService<SurveyTask> {
       processing: tasks.filter(t => t.status === TaskStatus.PROCESSING || t.status === TaskStatus.PENDING_ASSESSMENT).length,
       completed: tasks.filter(t => t.status === TaskStatus.COMPLETED).length
     };
-  }
-
-  cancelTask(taskId: string, remark?: string): SurveyTask {
-    const tasks = this.getAll();
-    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
-    if (taskIndex === -1) {
-      throw new Error('任务不存在');
-    }
-
-    const currentUser = this.userService.getCurrentUser();
-    const oldStatus = tasks[taskIndex].status;
-
-    tasks[taskIndex] = {
-      ...tasks[taskIndex],
-      status: TaskStatus.CANCELLED,
-      updatedTime: this.getCurrentTime()
-    };
-
-    this.saveAll(tasks);
-
-    this.logService.createLog({
-      taskId,
-      operationType: OperationType.CANCEL_TASK,
-      operationDesc: '取消任务',
-      operatorId: currentUser.userId,
-      operatorName: currentUser.realName,
-      operatorRole: currentUser.role,
-      beforeStatus: oldStatus,
-      afterStatus: TaskStatus.CANCELLED,
-      remark: remark || '任务已取消'
-    });
-
-    return tasks[taskIndex];
-  }
-
-  updateTaskStatus(taskId: string, newStatus: TaskStatus, remark?: string): SurveyTask {
-    const tasks = this.getAll();
-    const taskIndex = tasks.findIndex(t => t.taskId === taskId);
-    if (taskIndex === -1) {
-      throw new Error('任务不存在');
-    }
-
-    const currentUser = this.userService.getCurrentUser();
-    const oldStatus = tasks[taskIndex].status;
-
-    tasks[taskIndex] = {
-      ...tasks[taskIndex],
-      status: newStatus,
-      updatedTime: this.getCurrentTime()
-    };
-
-    this.saveAll(tasks);
-
-    this.logService.createLog({
-      taskId,
-      operationType: OperationType.UPDATE_TASK_STATUS,
-      operationDesc: '更新任务状态',
-      operatorId: currentUser.userId,
-      operatorName: currentUser.realName,
-      operatorRole: currentUser.role,
-      beforeStatus: oldStatus,
-      afterStatus: newStatus,
-      remark: remark || `状态变更: ${oldStatus} -> ${newStatus}`
-    });
-
-    return tasks[taskIndex];
   }
 
   getTaskTimeline(taskId: string): Array<{

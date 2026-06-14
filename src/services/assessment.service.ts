@@ -11,6 +11,18 @@ import { UserService } from './user.service';
 import { TaskStatus } from '../types/task.types';
 import { TaskService } from './task.service';
 
+const ASSESSMENT_STATUS_FLOW: Record<AssessmentStatus, AssessmentStatus[]> = {
+  [AssessmentStatus.DRAFT]: [AssessmentStatus.PENDING_REVIEW],
+  [AssessmentStatus.PENDING_REVIEW]: [AssessmentStatus.APPROVED, AssessmentStatus.REJECTED],
+  [AssessmentStatus.APPROVED]: [],
+  [AssessmentStatus.REJECTED]: [AssessmentStatus.PENDING_REVIEW]
+};
+
+const ASSESSMENT_STATUS_TRANSITION_ERRORS: Record<string, string> = {
+  'APPROVED -> *': '已审核通过的定损意见不能变更状态',
+  'PENDING_REVIEW -> DRAFT': '已提交的定损意见不能返回草稿'
+};
+
 export class AssessmentService extends BaseService<DamageAssessment> {
   private logService: LogService;
   private userService: UserService;
@@ -38,7 +50,45 @@ export class AssessmentService extends BaseService<DamageAssessment> {
     }
   }
 
+  private validateStatusTransition(fromStatus: AssessmentStatus, toStatus: AssessmentStatus): void {
+    if (fromStatus === toStatus) {
+      throw new Error(`定损意见已是【${this.getStatusLabel(fromStatus)}】状态`);
+    }
+
+    const allowedStatuses = ASSESSMENT_STATUS_FLOW[fromStatus];
+    if (!allowedStatuses.includes(toStatus)) {
+      const errorKey = `${fromStatus} -> ${toStatus}`;
+      const errorMessage = ASSESSMENT_STATUS_TRANSITION_ERRORS[errorKey] ||
+                          `定损状态不能从【${this.getStatusLabel(fromStatus)}】变更为【${this.getStatusLabel(toStatus)}】`;
+      throw new Error(errorMessage);
+    }
+  }
+
+  private getStatusLabel(status: AssessmentStatus): string {
+    const labels: Record<AssessmentStatus, string> = {
+      [AssessmentStatus.DRAFT]: '草稿',
+      [AssessmentStatus.PENDING_REVIEW]: '待审核',
+      [AssessmentStatus.APPROVED]: '已确认',
+      [AssessmentStatus.REJECTED]: '已拒绝'
+    };
+    return labels[status];
+  }
+
   createAssessment(params: CreateAssessmentParams): DamageAssessment {
+    const task = this.taskService.getTaskById(params.taskId);
+    if (!task) {
+      throw new Error('关联的任务不存在');
+    }
+
+    if (task.status !== TaskStatus.PENDING_ASSESSMENT) {
+      throw new Error(`任务状态为【${this.taskService.getTaskStatusLabel(task.status)}】，只能在【待定损】状态下创建定损意见`);
+    }
+
+    const existingAssessment = this.getAssessmentByTaskId(params.taskId);
+    if (existingAssessment) {
+      throw new Error('该任务已有定损意见，不能重复创建');
+    }
+
     const currentUser = this.userService.getCurrentUser();
     const totalAmount = params.partsFee + params.laborFee + (params.materialFee || 0);
 
@@ -98,6 +148,43 @@ export class AssessmentService extends BaseService<DamageAssessment> {
     return newAssessment;
   }
 
+  submitAssessment(assessmentId: string, remark?: string): DamageAssessment {
+    const assessments = this.getAll();
+    const assessmentIndex = assessments.findIndex(a => a.assessmentId === assessmentId);
+    if (assessmentIndex === -1) {
+      throw new Error('定损意见不存在');
+    }
+
+    const assessment = assessments[assessmentIndex];
+    this.validateStatusTransition(assessment.status, AssessmentStatus.PENDING_REVIEW);
+
+    const currentUser = this.userService.getCurrentUser();
+    const oldStatus = assessment.status;
+
+    assessments[assessmentIndex] = {
+      ...assessment,
+      status: AssessmentStatus.PENDING_REVIEW,
+      updatedTime: this.getCurrentTime()
+    };
+
+    this.saveAll(assessments);
+
+    this.logService.createLog({
+      taskId: assessment.taskId,
+      assessmentId,
+      operationType: OperationType.SUBMIT_ASSESSMENT,
+      operationDesc: '提交定损意见',
+      operatorId: currentUser.userId,
+      operatorName: currentUser.realName,
+      operatorRole: currentUser.role,
+      beforeStatus: oldStatus,
+      afterStatus: AssessmentStatus.PENDING_REVIEW,
+      remark: remark || '已提交审核'
+    });
+
+    return assessments[assessmentIndex];
+  }
+
   reviewAssessment(assessmentId: string, action: 'approve' | 'reject', reviewComment: string, remark?: string): DamageAssessment {
     const assessments = this.getAll();
     const assessmentIndex = assessments.findIndex(a => a.assessmentId === assessmentId);
@@ -105,12 +192,22 @@ export class AssessmentService extends BaseService<DamageAssessment> {
       throw new Error('定损意见不存在');
     }
 
+    const assessment = assessments[assessmentIndex];
+
+    if (assessment.status === AssessmentStatus.APPROVED) {
+      throw new Error('该定损意见已审核通过，不能重复审核');
+    }
+
+    if (assessment.status !== AssessmentStatus.PENDING_REVIEW) {
+      throw new Error(`当前状态为【${this.getStatusLabel(assessment.status)}】，只能审核【待审核】状态的定损意见`);
+    }
+
     const currentUser = this.userService.getCurrentUser();
-    const oldStatus = assessments[assessmentIndex].status;
+    const oldStatus = assessment.status;
     const newStatus = action === 'approve' ? AssessmentStatus.APPROVED : AssessmentStatus.REJECTED;
 
     assessments[assessmentIndex] = {
-      ...assessments[assessmentIndex],
+      ...assessment,
       status: newStatus,
       reviewerId: currentUser.userId,
       reviewerName: currentUser.realName,
@@ -122,11 +219,11 @@ export class AssessmentService extends BaseService<DamageAssessment> {
     this.saveAll(assessments);
 
     if (action === 'approve') {
-      this.taskService.updateTaskStatus(assessments[assessmentIndex].taskId, TaskStatus.COMPLETED, '定损审核通过，任务完成');
+      this.taskService.updateTaskStatus(assessment.taskId, TaskStatus.COMPLETED, '定损审核通过，任务完成');
     }
 
     this.logService.createLog({
-      taskId: assessments[assessmentIndex].taskId,
+      taskId: assessment.taskId,
       assessmentId,
       operationType: action === 'approve' ? OperationType.APPROVE_ASSESSMENT : OperationType.REJECT_ASSESSMENT,
       operationDesc: action === 'approve' ? '审核通过' : '审核拒绝',
@@ -139,6 +236,68 @@ export class AssessmentService extends BaseService<DamageAssessment> {
     });
 
     return assessments[assessmentIndex];
+  }
+
+  updateAssessment(assessmentId: string, params: Partial<CreateAssessmentParams>): DamageAssessment {
+    const assessments = this.getAll();
+    const assessmentIndex = assessments.findIndex(a => a.assessmentId === assessmentId);
+    if (assessmentIndex === -1) {
+      throw new Error('定损意见不存在');
+    }
+
+    const currentUser = this.userService.getCurrentUser();
+    const assessment = assessments[assessmentIndex];
+
+    if (assessment.status === AssessmentStatus.APPROVED) {
+      throw new Error('已审核通过的定损意见不能修改');
+    }
+
+    const updatedAssessment = {
+      ...assessment,
+      ...(params.partsFee !== undefined && { partsFee: params.partsFee }),
+      ...(params.laborFee !== undefined && { laborFee: params.laborFee }),
+      ...(params.materialFee !== undefined && { materialFee: params.materialFee }),
+      ...(params.repairMethod !== undefined && { repairMethod: params.repairMethod }),
+      ...(params.repairPlan !== undefined && { repairPlan: params.repairPlan }),
+      totalAmount: (params.partsFee || assessment.partsFee) +
+                   (params.laborFee || assessment.laborFee) +
+                   ((params.materialFee || assessment.materialFee) || 0),
+      updatedTime: this.getCurrentTime()
+    };
+
+    assessments[assessmentIndex] = updatedAssessment;
+    this.saveAll(assessments);
+
+    if (params.details && params.details.length > 0) {
+      const existingDetails = getStorageData<DamageDetail[]>(this.detailsKey) || [];
+      const filteredDetails = existingDetails.filter(d => d.assessmentId !== assessmentId);
+      const newDetails = params.details.map(d => ({
+        detailId: this.generateId(),
+        assessmentId,
+        partName: d.partName,
+        damageType: d.damageType,
+        damageLevel: d.damageLevel,
+        repairMethod: d.repairMethod,
+        partFee: d.partFee,
+        laborFee: d.laborFee,
+        remark: d.remark,
+        createdTime: this.getCurrentTime()
+      }));
+      setStorageData(this.detailsKey, [...filteredDetails, ...newDetails]);
+    }
+
+    this.logService.createLog({
+      taskId: updatedAssessment.taskId,
+      assessmentId,
+      operationType: OperationType.UPDATE_ASSESSMENT,
+      operationDesc: '修改定损意见',
+      operatorId: currentUser.userId,
+      operatorName: currentUser.realName,
+      operatorRole: currentUser.role,
+      remark: params.remark || '修改了定损意见'
+    });
+
+    return updatedAssessment;
   }
 
   getAssessmentById(assessmentId: string): DamageAssessment | undefined {
@@ -214,104 +373,6 @@ export class AssessmentService extends BaseService<DamageAssessment> {
       approved: assessments.filter(a => a.status === AssessmentStatus.APPROVED).length,
       rejected: assessments.filter(a => a.status === AssessmentStatus.REJECTED).length
     };
-  }
-
-  updateAssessment(assessmentId: string, params: Partial<CreateAssessmentParams>): DamageAssessment {
-    const assessments = this.getAll();
-    const assessmentIndex = assessments.findIndex(a => a.assessmentId === assessmentId);
-    if (assessmentIndex === -1) {
-      throw new Error('定损意见不存在');
-    }
-
-    const currentUser = this.userService.getCurrentUser();
-    const oldStatus = assessments[assessmentIndex].status;
-
-    if (oldStatus === AssessmentStatus.APPROVED) {
-      throw new Error('已审核通过的定损意见不能修改');
-    }
-
-    const updatedAssessment = {
-      ...assessments[assessmentIndex],
-      ...(params.partsFee !== undefined && { partsFee: params.partsFee }),
-      ...(params.laborFee !== undefined && { laborFee: params.laborFee }),
-      ...(params.materialFee !== undefined && { materialFee: params.materialFee }),
-      ...(params.repairMethod !== undefined && { repairMethod: params.repairMethod }),
-      ...(params.repairPlan !== undefined && { repairPlan: params.repairPlan }),
-      totalAmount: (params.partsFee || assessments[assessmentIndex].partsFee) + 
-                   (params.laborFee || assessments[assessmentIndex].laborFee) + 
-                   ((params.materialFee || assessments[assessmentIndex].materialFee) || 0),
-      updatedTime: this.getCurrentTime()
-    };
-
-    assessments[assessmentIndex] = updatedAssessment;
-    this.saveAll(assessments);
-
-    if (params.details && params.details.length > 0) {
-      const existingDetails = getStorageData<DamageDetail[]>(this.detailsKey) || [];
-      const filteredDetails = existingDetails.filter(d => d.assessmentId !== assessmentId);
-      const newDetails = params.details.map(d => ({
-        detailId: this.generateId(),
-        assessmentId,
-        partName: d.partName,
-        damageType: d.damageType,
-        damageLevel: d.damageLevel,
-        repairMethod: d.repairMethod,
-        partFee: d.partFee,
-        laborFee: d.laborFee,
-        remark: d.remark,
-        createdTime: this.getCurrentTime()
-      }));
-      setStorageData(this.detailsKey, [...filteredDetails, ...newDetails]);
-    }
-
-    this.logService.createLog({
-      taskId: updatedAssessment.taskId,
-      assessmentId,
-      operationType: OperationType.UPDATE_ASSESSMENT,
-      operationDesc: '修改定损意见',
-      operatorId: currentUser.userId,
-      operatorName: currentUser.realName,
-      operatorRole: currentUser.role,
-      beforeStatus: oldStatus,
-      afterStatus: updatedAssessment.status,
-      remark: params.remark || '修改了定损意见'
-    });
-
-    return updatedAssessment;
-  }
-
-  submitAssessment(assessmentId: string, remark?: string): DamageAssessment {
-    const assessments = this.getAll();
-    const assessmentIndex = assessments.findIndex(a => a.assessmentId === assessmentId);
-    if (assessmentIndex === -1) {
-      throw new Error('定损意见不存在');
-    }
-
-    const currentUser = this.userService.getCurrentUser();
-    const oldStatus = assessments[assessmentIndex].status;
-
-    assessments[assessmentIndex] = {
-      ...assessments[assessmentIndex],
-      status: AssessmentStatus.PENDING_REVIEW,
-      updatedTime: this.getCurrentTime()
-    };
-
-    this.saveAll(assessments);
-
-    this.logService.createLog({
-      taskId: assessments[assessmentIndex].taskId,
-      assessmentId,
-      operationType: OperationType.SUBMIT_ASSESSMENT,
-      operationDesc: '提交定损意见',
-      operatorId: currentUser.userId,
-      operatorName: currentUser.realName,
-      operatorRole: currentUser.role,
-      beforeStatus: oldStatus,
-      afterStatus: AssessmentStatus.PENDING_REVIEW,
-      remark: remark || '已提交审核'
-    });
-
-    return assessments[assessmentIndex];
   }
 
   getAssessmentHistory(assessmentId: string): OperationLog[] {

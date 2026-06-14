@@ -8,6 +8,26 @@ export const taskRoutes: Router[] = [
     handler: taskController.createTask
   },
   {
+    method: 'GET',
+    path: '/api/tasks',
+    handler: taskController.getTaskList
+  },
+  {
+    method: 'GET',
+    path: '/api/tasks/stats',
+    handler: taskController.getTaskStats
+  },
+  {
+    method: 'GET',
+    path: '/api/tasks/:taskId/timeline',
+    handler: taskController.getTaskTimeline
+  },
+  {
+    method: 'GET',
+    path: '/api/tasks/:taskId',
+    handler: taskController.getTaskDetail
+  },
+  {
     method: 'PUT',
     path: '/api/tasks/:taskId/assign',
     handler: taskController.assignTask
@@ -31,25 +51,5 @@ export const taskRoutes: Router[] = [
     method: 'PUT',
     path: '/api/tasks/:taskId/cancel',
     handler: taskController.cancelTask
-  },
-  {
-    method: 'GET',
-    path: '/api/tasks/:taskId',
-    handler: taskController.getTaskDetail
-  },
-  {
-    method: 'GET',
-    path: '/api/tasks/:taskId/timeline',
-    handler: taskController.getTaskTimeline
-  },
-  {
-    method: 'GET',
-    path: '/api/tasks',
-    handler: taskController.getTaskList
-  },
-  {
-    method: 'GET',
-    path: '/api/tasks/stats',
-    handler: taskController.getTaskStats
   }
 ];

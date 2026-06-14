@@ -8,31 +8,6 @@ export const assessmentRoutes: Router[] = [
     handler: assessmentController.createAssessment
   },
   {
-    method: 'PUT',
-    path: '/api/assessments/:assessmentId/submit',
-    handler: assessmentController.submitAssessment
-  },
-  {
-    method: 'PUT',
-    path: '/api/assessments/:assessmentId/review',
-    handler: assessmentController.reviewAssessment
-  },
-  {
-    method: 'PUT',
-    path: '/api/assessments/:assessmentId',
-    handler: assessmentController.updateAssessment
-  },
-  {
-    method: 'GET',
-    path: '/api/assessments/:assessmentId',
-    handler: assessmentController.getAssessmentDetail
-  },
-  {
-    method: 'GET',
-    path: '/api/assessments/:assessmentId/history',
-    handler: assessmentController.getAssessmentHistory
-  },
-  {
     method: 'GET',
     path: '/api/assessments',
     handler: assessmentController.getAssessmentList
@@ -41,5 +16,30 @@ export const assessmentRoutes: Router[] = [
     method: 'GET',
     path: '/api/assessments/stats',
     handler: assessmentController.getAssessmentStats
+  },
+  {
+    method: 'GET',
+    path: '/api/assessments/:assessmentId/history',
+    handler: assessmentController.getAssessmentHistory
+  },
+  {
+    method: 'GET',
+    path: '/api/assessments/:assessmentId',
+    handler: assessmentController.getAssessmentDetail
+  },
+  {
+    method: 'PUT',
+    path: '/api/assessments/:assessmentId',
+    handler: assessmentController.updateAssessment
+  },
+  {
+    method: 'PUT',
+    path: '/api/assessments/:assessmentId/submit',
+    handler: assessmentController.submitAssessment
+  },
+  {
+    method: 'PUT',
+    path: '/api/assessments/:assessmentId/review',
+    handler: assessmentController.reviewAssessment
   }
 ];
