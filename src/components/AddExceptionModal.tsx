@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, User, AlertTriangle, Tag, Send } from 'lucide-react';
 import { ExceptionType, ExceptionPriority } from '@/types';
 import { useStudentStore } from '@/store/useStudentStore';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 interface AddExceptionModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultStudentId?: string;
 }
 
 const typeOptions: { value: ExceptionType; label: string }[] = [
@@ -28,6 +29,7 @@ const priorityOptions: { value: ExceptionPriority; label: string; color: string 
 export const AddExceptionModal: React.FC<AddExceptionModalProps> = ({
   isOpen,
   onClose,
+  defaultStudentId,
 }) => {
   const { students } = useStudentStore();
   const { addException } = useExceptionStore();
@@ -39,6 +41,16 @@ export const AddExceptionModal: React.FC<AddExceptionModalProps> = ({
   const [studentId, setStudentId] = useState('');
   const [className, setClassName] = useState('');
   const [reportedBy, setReportedBy] = useState('前台教务-小王');
+
+  useEffect(() => {
+    if (isOpen && defaultStudentId) {
+      setStudentId(defaultStudentId);
+      const student = students.find(s => s.id === defaultStudentId);
+      if (student) {
+        setClassName(student.className);
+      }
+    }
+  }, [isOpen, defaultStudentId, students]);
 
   const handleStudentSelect = (id: string) => {
     setStudentId(id);

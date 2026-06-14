@@ -12,16 +12,21 @@ import {
   ChevronRight,
   User,
   BarChart3,
+  Plus,
+  AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Avatar } from '@/components/Avatar';
 import { Timeline } from '@/components/Timeline';
+import { AddFeedbackModal } from '@/components/AddFeedbackModal';
+import { AddExceptionModal } from '@/components/AddExceptionModal';
 import { useStudentStore } from '@/store/useStudentStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { useRenewalStore } from '@/store/useRenewalStore';
 import { useExceptionStore } from '@/store/useExceptionStore';
 import { useOperationLogStore } from '@/store/useOperationLogStore';
-import { formatDate } from '@/utils/date';
+import { formatDate, formatRelativeTime } from '@/utils/date';
 import { cn } from '@/lib/utils';
 
 type TabType = 'feedback' | 'renewal' | 'exam' | 'costume';
@@ -43,6 +48,8 @@ const StudentDetail: React.FC = () => {
   const { getLogsByTarget } = useOperationLogStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('feedback');
+  const [showAddFeedback, setShowAddFeedback] = useState(false);
+  const [showAddException, setShowAddException] = useState(false);
 
   const student = getStudentById(id || '');
   const feedbackList = id ? getFeedbackByStudentId(id) : [];
@@ -244,7 +251,11 @@ const StudentDetail: React.FC = () => {
                 <p className="text-sm text-ink-500">
                   共 {feedbackList.length} 条反馈记录
                 </p>
-                <button className="btn-ghost text-sm">
+                <button
+                  onClick={() => setShowAddFeedback(true)}
+                  className="btn-primary text-sm flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" />
                   新增反馈
                 </button>
               </div>
@@ -305,6 +316,13 @@ const StudentDetail: React.FC = () => {
                       查看跟进详情
                       <ChevronRight className="w-4 h-4" />
                     </Link>
+                    <button
+                      onClick={() => setShowAddException(true)}
+                      className="mt-2 btn-secondary w-full flex items-center justify-center gap-2 text-rose-600 border-rose-200 hover:bg-rose-50"
+                    >
+                      <AlertTriangle className="w-4 h-4" />
+                      登记异常
+                    </button>
                   </div>
 
                   {renewal.followUpRecords.length > 0 && (
@@ -338,7 +356,14 @@ const StudentDetail: React.FC = () => {
               ) : (
                 <div className="text-center py-12">
                   <BarChart3 className="w-12 h-12 text-ink-300 mx-auto mb-3" />
-                  <p className="text-ink-400 text-sm">暂无续费记录</p>
+                  <p className="text-ink-400 text-sm mb-4">暂无续费记录</p>
+                  <button
+                    onClick={() => setShowAddException(true)}
+                    className="btn-secondary text-sm flex items-center gap-1.5 mx-auto text-rose-600 border-rose-200 hover:bg-rose-50"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    登记异常
+                  </button>
                 </div>
               )}
             </div>
@@ -445,6 +470,74 @@ const StudentDetail: React.FC = () => {
         </div>
       </div>
 
+      {/* 最近变更摘要 */}
+      <div className="card-base p-6 border-l-4 border-l-sky-400">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-serif text-lg font-semibold text-ink-900 flex items-center gap-2">
+            <RefreshCw className="w-5 h-5 text-sky-500" />
+            最近变更摘要
+          </h3>
+          {allTimelineItems.length > 5 && (
+            <span className="text-xs text-ink-400">
+              共 {allTimelineItems.length} 条记录
+            </span>
+          )}
+        </div>
+        {allTimelineItems.length > 0 ? (
+          <div className="space-y-3">
+            {allTimelineItems.slice(0, 5).map((item) => {
+              const typeLabel =
+                item.type === 'feedback' ? '课堂反馈' :
+                item.type === 'renewal' ? '续费跟进' :
+                item.type === 'exception' ? '异常处理' :
+                item.type === 'student' ? '学员管理' : '系统';
+              const typeColor =
+                item.type === 'feedback' ? 'text-sky-600 bg-sky-50' :
+                item.type === 'renewal' ? 'text-gold-600 bg-gold-50' :
+                item.type === 'exception' ? 'text-rose-600 bg-rose-50' :
+                item.type === 'student' ? 'text-emerald-600 bg-emerald-50' : 'text-ink-600 bg-ink-50';
+              return (
+                <div
+                  key={item.id}
+                  className="flex items-start gap-3 p-3 rounded-lg hover:bg-cream-50 cursor-pointer transition-colors group"
+                  onClick={item.onClick}
+                >
+                  <span className={cn(
+                    'text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 mt-0.5',
+                    typeColor
+                  )}>
+                    {typeLabel}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-ink-800">
+                        {item.operator}
+                      </span>
+                      <span className="text-sm text-ink-500">
+                        {item.action}
+                      </span>
+                    </div>
+                    <p className="text-sm text-ink-600 mt-0.5 line-clamp-1">
+                      {item.details}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="text-xs text-ink-400">
+                      {formatRelativeTime(item.timestamp)}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-ink-300 group-hover:text-wine-500 transition-colors" />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-ink-400 text-center py-6">
+            暂无变更记录
+          </p>
+        )}
+      </div>
+
       {/* 完整操作轨迹 */}
       <div className="card-base p-6">
         <h3 className="font-serif text-lg font-semibold text-ink-900 mb-4 flex items-center gap-2">
@@ -459,6 +552,18 @@ const StudentDetail: React.FC = () => {
           </p>
         )}
       </div>
+
+      {/* 弹窗 */}
+      <AddFeedbackModal
+        isOpen={showAddFeedback}
+        onClose={() => setShowAddFeedback(false)}
+        defaultStudentId={id}
+      />
+      <AddExceptionModal
+        isOpen={showAddException}
+        onClose={() => setShowAddException(false)}
+        defaultStudentId={id}
+      />
     </div>
   );
 };
