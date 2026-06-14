@@ -1,5 +1,6 @@
 import { useDispatchStore } from '@/stores/dispatchStore';
 import type { Case } from '@/types';
+import { useMemo } from 'react';
 import { Eye, EyeOff, SkipBack, SkipForward, RotateCcw } from 'lucide-react';
 
 interface Props {
@@ -13,14 +14,24 @@ export default function ReplayControls({ caseData }: Props) {
   const toggleReplayMode = useDispatchStore((s) => s.toggleReplayMode);
 
   const maxSteps = 4;
+  const currentStep = useMemo(() => {
+    const hasPassed =
+      caseData.reviews.some((r) => r.status === 'completed' && r.rejectedItems.length === 0) ||
+      ['dispatch_notice', 'dispatch_sign', 'archived'].includes(caseData.currentStage);
+    if (!caseData.dispatch) return hasPassed ? 1 : 0;
+    if (caseData.currentStage === 'archived' && caseData.dispatch.archiveDate) return 4;
+    if (caseData.dispatch.receiverIdCard && caseData.dispatch.pickupDate) return 3;
+    if (caseData.dispatch.noticeDate) return 2;
+    return hasPassed ? 1 : 0;
+  }, [caseData]);
 
   return (
     <div className="flex items-center gap-1.5">
       {replayMode && (
         <>
           <button
-            onClick={() => setReplayStepIndex(Math.max(0, replayStepIndex - 1))}
-            disabled={replayStepIndex <= 0}
+            onClick={() => setReplayStepIndex(Math.max(1, replayStepIndex - 1))}
+            disabled={replayStepIndex <= 1}
             className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-40"
             title="上一步骤"
           >
@@ -38,7 +49,7 @@ export default function ReplayControls({ caseData }: Props) {
             <SkipForward className="h-3.5 w-3.5" />
           </button>
           <button
-            onClick={() => setReplayStepIndex(maxSteps)}
+            onClick={() => setReplayStepIndex(currentStep)}
             className="flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2 text-[11px] text-slate-600 hover:bg-slate-50"
             title="跳至当前状态"
           >

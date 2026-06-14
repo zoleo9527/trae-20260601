@@ -1,9 +1,21 @@
 import { create } from 'zustand';
-import type { BlockReason } from '@/types';
+import type { BlockReason, Case } from '@/types';
 import { useCaseStore } from '@/stores/caseStore';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { uid } from '@/utils/timeUtils';
 import { BLOCK_REASON_META } from '@/data/constants';
+
+function getCurrentStepIndex(c: Case): number {
+  if (!c.dispatch) return 0;
+  if (c.currentStage === 'archived' && c.dispatch.archiveDate) return 4;
+  if (c.dispatch.receiverIdCard && c.dispatch.pickupDate) return 3;
+  if (c.dispatch.noticeDate) return 2;
+  const hasPassed =
+    c.reviews.some((r) => r.status === 'completed' && r.rejectedItems.length === 0) ||
+    ['dispatch_notice', 'dispatch_sign', 'archived'].includes(c.currentStage);
+  if (hasPassed) return 1;
+  return 0;
+}
 
 interface DispatchStore {
   dispatchCaseId: string | null;
@@ -15,6 +27,7 @@ interface DispatchStore {
   setReplayStepIndex: (idx: number) => void;
   toggleDiagnosis: (open?: boolean) => void;
   diagnoseBlockReason: (caseId: string) => BlockReason[];
+  getCurrentStepIndex: () => number;
   markNoticeSent: (caseId: string) => void;
   markSignReceived: (caseId: string, receiver: string, idCard: string) => void;
   markArchived: (caseId: string) => void;
@@ -28,10 +41,35 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
   replayStepIndex: 0,
   diagnosisOpen: true,
 
-  setDispatchCaseId: (id) => set({ dispatchCaseId: id, replayStepIndex: 0, replayMode: false }),
-  toggleReplayMode: () => set((s) => ({ replayMode: !s.replayMode, replayStepIndex: s.replayMode ? 0 : 3 })),
+  setDispatchCaseId: (id) => {
+    if (!id) {
+      set({ dispatchCaseId: null, replayStepIndex: 0, replayMode: false });
+      return;
+    }
+    const cs = useCaseStore.getState();
+    const c = cs.cases.find((x) => x.id === id);
+    const stepIdx = c ? getCurrentStepIndex(c) : 0;
+    set({ dispatchCaseId: id, replayStepIndex: stepIdx, replayMode: false });
+  },
+  toggleReplayMode: () => {
+    const s = get();
+    if (s.replayMode) {
+      set({ replayMode: false, replayStepIndex: 0 });
+    } else {
+      const cs = useCaseStore.getState();
+      const c = s.dispatchCaseId ? cs.cases.find((x) => x.id === s.dispatchCaseId) : null;
+      const stepIdx = c ? getCurrentStepIndex(c) : 0;
+      set({ replayMode: true, replayStepIndex: stepIdx });
+    }
+  },
   setReplayStepIndex: (idx) => set({ replayStepIndex: idx }),
   toggleDiagnosis: (open) => set((s) => ({ diagnosisOpen: typeof open === 'boolean' ? open : !s.diagnosisOpen })),
+  getCurrentStepIndex: () => {
+    const s = get();
+    const cs = useCaseStore.getState();
+    const c = s.dispatchCaseId ? cs.cases.find((x) => x.id === s.dispatchCaseId) : null;
+    return c ? getCurrentStepIndex(c) : 0;
+  },
 
   diagnoseBlockReason: (caseId) => {
     const cs = useCaseStore.getState();

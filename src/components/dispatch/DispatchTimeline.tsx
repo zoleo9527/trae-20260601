@@ -1,8 +1,7 @@
 import { useMemo } from 'react';
 import type { Case } from '@/types';
 import { useDispatchStore } from '@/stores/dispatchStore';
-import { DISPATCH_STEPS, ROLE_META } from '@/data/constants';
-import { CheckCircle2, Circle, Bell, Signature, Archive, Eye, GitPullRequest, User, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Bell, Signature, Archive, Eye, User, ShieldCheck } from 'lucide-react';
 import { formatDateTime } from '@/utils/timeUtils';
 import RoleAvatar from '@/components/common/RoleAvatar';
 
@@ -84,8 +83,23 @@ export default function DispatchTimeline({ caseData }: Props) {
     ];
   }, [caseData, dispatch]);
 
-  const effectiveIndex = replayMode ? replayStepIndex : steps.findIndex((s) => !s.done);
-  const displayUpTo = effectiveIndex === -1 ? steps.length : effectiveIndex;
+  const nonReplayStepIndex = useMemo(() => {
+    if (!dispatch) {
+      const hasPassed =
+        caseData.reviews.some((r) => r.status === 'completed' && r.rejectedItems.length === 0) ||
+        ['dispatch_notice', 'dispatch_sign', 'archived'].includes(caseData.currentStage);
+      return hasPassed ? 1 : 0;
+    }
+    if (caseData.currentStage === 'archived' && dispatch.archiveDate) return 4;
+    if (dispatch.receiverIdCard && dispatch.pickupDate) return 3;
+    if (dispatch.noticeDate) return 2;
+    const hasPassed =
+      caseData.reviews.some((r) => r.status === 'completed' && r.rejectedItems.length === 0) ||
+      ['dispatch_notice', 'dispatch_sign', 'archived'].includes(caseData.currentStage);
+    return hasPassed ? 1 : 0;
+  }, [caseData, dispatch]);
+
+  const displayUpTo = replayMode ? replayStepIndex : nonReplayStepIndex;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -110,18 +124,16 @@ export default function DispatchTimeline({ caseData }: Props) {
             <div
               className="absolute inset-x-0 top-0 bg-emerald-500 transition-all duration-500"
               style={{
-                height: replayMode
-                  ? `${(displayUpTo / steps.length) * 100}%`
-                  : `${(steps.filter((s) => s.done).length / steps.length) * 100}%`,
+                height: `${(displayUpTo / steps.length) * 100}%`,
               }}
             />
           </div>
 
           <div className="space-y-4">
             {steps.map((step, idx) => {
-              const isDone = replayMode ? idx < displayUpTo : step.done;
-              const isCurrent = replayMode ? idx === displayUpTo - 1 : idx === effectiveIndex - 1;
-              const isFuture = replayMode ? idx >= displayUpTo : !isDone && !isCurrent;
+              const isDone = idx < displayUpTo;
+              const isCurrent = idx === displayUpTo - 1;
+              const isFuture = idx >= displayUpTo && !isCurrent;
               const Icon = step.icon;
               const canClick = replayMode || isDone;
 
