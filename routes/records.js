@@ -117,6 +117,14 @@ router.put('/:id/assign', async (req, res) => {
     if (!line) return res.json(error('LINE_NOT_FOUND'))
     if (line.status === 'MAINTENANCE') return res.json(error('LINE_MAINTENANCE'))
 
+    const busyRecords = await prisma.inspectionRecord.count({
+      where: {
+        lineId: parseInt(lineId),
+        status: { in: ['ASSIGNED', 'INSPECTING'] }
+      }
+    })
+    if (busyRecords > 0) return res.json(error('LINE_BUSY'))
+
     const updatedRecord = await prisma.inspectionRecord.update({
       where: { id: parseInt(id) },
       data: {

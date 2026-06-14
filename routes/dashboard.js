@@ -7,49 +7,43 @@ router.get('/', async (req, res) => {
   try {
     const today = new Date(new Date().toDateString())
 
-    const todayRecords = await prisma.inspectionRecord.count({
-      where: { createdAt: { gte: today } }
+    const todayPendingRecords = await prisma.inspectionRecord.findMany({
+      where: {
+        createdAt: { gte: today },
+        status: { in: ['QUEUING', 'ASSIGNED'] }
+      },
+      include: { vehicle: true, line: true },
+      orderBy: { createdAt: 'asc' }
     })
 
-    const queuingRecords = await prisma.inspectionRecord.findMany({
-      where: { status: 'QUEUING' },
-      include: { vehicle: true },
-      orderBy: { createdAt: 'asc' },
-      take: 20
-    })
-
-    const inspectingRecords = await prisma.inspectionRecord.findMany({
-      where: { status: 'INSPECTING' },
+    const todayInspectingRecords = await prisma.inspectionRecord.findMany({
+      where: {
+        createdAt: { gte: today },
+        status: 'INSPECTING'
+      },
       include: { vehicle: true, line: true, items: true },
       orderBy: { startedAt: 'asc' }
     })
 
-    const timeoutRecords = inspectingRecords.filter(record => {
+    const todayTimeoutRecords = todayInspectingRecords.filter(record => {
       if (!record.startedAt) return false
       const diff = (new Date() - new Date(record.startedAt)) / (1000 * 60)
       return diff > 30
     })
 
-    const recentlyRejected = await prisma.inspectionRecord.findMany({
+    const todayRejectedRecords = await prisma.inspectionRecord.findMany({
       where: {
-        status: 'REJECTED',
-        rejectedAt: { gte: new Date(Date.now() - 2 * 60 * 60 * 1000) }
+        rejectedAt: { gte: today },
+        status: 'REJECTED'
       },
-      include: { vehicle: true },
+      include: { vehicle: true, line: true },
       orderBy: { rejectedAt: 'desc' }
     })
 
-    const completedToday = await prisma.inspectionRecord.count({
+    const todayCompletedCount = await prisma.inspectionRecord.count({
       where: {
-        status: 'COMPLETED',
-        completedAt: { gte: today }
-      }
-    })
-
-    const rejectedToday = await prisma.inspectionRecord.count({
-      where: {
-        status: 'REJECTED',
-        rejectedAt: { gte: today }
+        completedAt: { gte: today },
+        status: 'COMPLETED'
       }
     })
 
@@ -70,17 +64,13 @@ router.get('/', async (req, res) => {
     }))
 
     const result = {
-      todayRecords,
-      completedToday,
-      rejectedToday,
-      queuingCount: queuingRecords.length,
-      inspectingCount: inspectingRecords.length,
-      timeoutCount: timeoutRecords.length,
-      recentlyRejectedCount: recentlyRejected.length,
-      queuingRecords,
-      inspectingRecords,
-      timeoutRecords,
-      recentlyRejected,
+      todayPendingCount: todayPendingRecords.length,
+      todayTimeoutCount: todayTimeoutRecords.length,
+      todayRejectedCount: todayRejectedRecords.length,
+      todayCompletedCount,
+      todayPendingRecords,
+      todayTimeoutRecords,
+      todayRejectedRecords,
       lineStats
     }
 
