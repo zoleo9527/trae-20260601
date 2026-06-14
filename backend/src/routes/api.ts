@@ -193,17 +193,32 @@ router.put('/inspections/:id/complete', (req, res) => {
 
   const orderIdx = store.orders.findIndex(o => o.id === old.orderId);
   if (orderIdx >= 0) {
+    const order = store.orders[orderIdx];
+    const hasPreviousStage = !!order.previousStage;
+    const recoveredStage: TransferStage = hasPreviousStage ? order.previousStage! : order.stage;
+    const recoveredRole: Role = STAGE_FLOW[recoveredStage].role;
+
     store.orders[orderIdx] = {
-      ...store.orders[orderIdx],
+      ...order,
+      stage: recoveredStage,
+      previousStage: undefined,
       urgencyAction: 'none',
       urgencyBy: undefined,
       urgencyAt: undefined,
       urgencyNote: undefined,
-      currentHandlerRole: STAGE_FLOW[store.orders[orderIdx].stage].role,
-      currentHandler: DEMO_ACCOUNTS[STAGE_FLOW[store.orders[orderIdx].stage].role].user,
+      currentHandlerRole: recoveredRole,
+      currentHandler: DEMO_ACCOUNTS[recoveredRole].user,
       updatedAt: now(),
     };
-    addStatusLog(old.orderId, store.orders[orderIdx].stage, 'pass', operator, operatorRole, `复检完成：${resultSummary || old.resultSummary || '通过复检'}`);
+    addStatusLog(
+      old.orderId,
+      recoveredStage,
+      'pass',
+      operator,
+      operatorRole,
+      `复检完成${hasPreviousStage ? `，转回${DEMO_ACCOUNTS[recoveredRole].name}继续处理` : ''}：${resultSummary || old.resultSummary || '通过复检'}`,
+      hasPreviousStage ? order.stage : undefined
+    );
   }
 
   res.json(ok(store.inspections[idx], '复检完成，订单已恢复正常流转'));
@@ -250,8 +265,18 @@ router.put('/loans/:id/complete', (req, res) => {
     return d;
   });
 
+  const orderIdx = store.orders.findIndex(o => o.id === old.orderId);
+  const orderStage = orderIdx >= 0 ? store.orders[orderIdx].stage : 'loan_review';
   const allSubmitted = updatedDocs.every(d => d.submitted);
-  const newStatus: LoanApplication['status'] = allSubmitted ? 'pending' : old.status;
+
+  let newStatus: LoanApplication['status'] = old.status;
+  if (allSubmitted) {
+    if (orderStage === 'loan_funding' || old.approvedAt) {
+      newStatus = 'approved';
+    } else {
+      newStatus = 'pending';
+    }
+  }
 
   store.loans[idx] = {
     ...old,
@@ -260,26 +285,29 @@ router.put('/loans/:id/complete', (req, res) => {
     updatedAt: now(),
   };
 
-  const orderIdx = store.orders.findIndex(o => o.id === old.orderId);
   if (orderIdx >= 0) {
-    const orderStage = store.orders[orderIdx].stage;
+    const resolvedOrderStage = store.orders[orderIdx].stage;
     store.orders[orderIdx] = {
       ...store.orders[orderIdx],
       urgencyAction: allSubmitted ? 'none' : store.orders[orderIdx].urgencyAction,
       urgencyBy: allSubmitted ? undefined : store.orders[orderIdx].urgencyBy,
       urgencyAt: allSubmitted ? undefined : store.orders[orderIdx].urgencyAt,
       urgencyNote: allSubmitted ? undefined : store.orders[orderIdx].urgencyNote,
-      currentHandlerRole: STAGE_FLOW[orderStage].role,
-      currentHandler: DEMO_ACCOUNTS[STAGE_FLOW[orderStage].role].user,
+      currentHandlerRole: STAGE_FLOW[resolvedOrderStage].role,
+      currentHandler: DEMO_ACCOUNTS[STAGE_FLOW[resolvedOrderStage].role].user,
       updatedAt: now(),
     };
     const submittedNames = docIds && docIds.length > 0
       ? updatedDocs.filter(d => docIds.includes(d.id)).map(d => d.name).join('、')
       : '相关资料';
-    addStatusLog(old.orderId, orderStage, 'pass', operator, operatorRole, `贷款补件完成（${submittedNames}）${remark ? '：' + remark : ''}`);
+    const logRemark = `贷款补件完成（${submittedNames}）${allSubmitted ? '，资料齐全恢复流转' : ''}${remark ? '：' + remark : ''}`;
+    addStatusLog(old.orderId, resolvedOrderStage, 'pass', operator, operatorRole, logRemark);
   }
 
-  res.json(ok(store.loans[idx], allSubmitted ? '贷款补件全部完成，订单已恢复正常流转' : '部分资料已补件完成'));
+  const responseMsg = allSubmitted
+    ? (orderStage === 'loan_funding' ? '贷款补件全部完成，已恢复确认放款入口' : '贷款补件全部完成，订单已恢复正常流转')
+    : '部分资料已补件完成，仍有待补资料';
+  res.json(ok(store.loans[idx], responseMsg));
 });
 
 router.get('/orders', (req, res) => {
@@ -389,7 +417,27 @@ router.put('/orders/:id/urgency', (req, res) => {
           resultSummary: note || store.inspections[inspIdx].resultSummary,
           updatedAt: now(),
         };
-        addStatusLog(old.id, old.stage, 'supplement', operator, operatorRole, `检测报告标记复检：${note || '需复检确认'}`);
+
+        const needSwitchStage = old.stage === 'transfer';
+        const targetStage: TransferStage = needSwitchStage ? 'appraisal' : old.stage;
+        const targetRole: Role = STAGE_FLOW[targetStage].role;
+
+        store.orders[idx] = {
+          ...old,
+          stage: targetStage,
+          previousStage: needSwitchStage ? old.stage : undefined,
+          currentHandlerRole: targetRole,
+          currentHandler: DEMO_ACCOUNTS[targetRole].user,
+          urgencyAction: action,
+          urgencyBy: operator,
+          urgencyAt: now(),
+          urgencyNote: note,
+          updatedAt: now(),
+        };
+
+        addStatusLog(old.id, targetStage, 'supplement', operator, operatorRole, `检测报告标记复检${needSwitchStage ? '，转交评估师处理' : ''}：${note || '需复检确认'}`, needSwitchStage ? old.stage : undefined);
+        const actionLabel = needSwitchStage ? '标记复检并转交评估师处理' : '标记复检';
+        return res.json(ok(store.orders[idx], `已${actionLabel}${note ? '：' + note : ''}`));
       }
     }
     if (old.stage === 'loan_review' || old.stage === 'loan_funding') {
@@ -410,7 +458,18 @@ router.put('/orders/:id/urgency', (req, res) => {
         const docNames = docIds && docIds.length > 0
           ? store.loans[loanIdx].docs.filter(d => docIds.includes(d.id)).map(d => d.name).join('、')
           : '相关资料';
+
+        store.orders[idx] = {
+          ...old,
+          urgencyAction: action,
+          urgencyBy: operator,
+          urgencyAt: now(),
+          urgencyNote: note,
+          updatedAt: now(),
+        };
+
         addStatusLog(old.id, old.stage, 'supplement', operator, operatorRole, `贷款资料补件（${docNames}）：${note || '需补充材料'}`);
+        return res.json(ok(store.orders[idx], `已标记贷款补件${note ? '：' + note : ''}`));
       }
     }
   }

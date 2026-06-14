@@ -126,6 +126,7 @@ export interface TransferOrder {
   buyerPhone: string;
   dealPrice: number;
   stage: TransferStage;
+  previousStage?: TransferStage;
   currentHandlerRole: Role;
   currentHandler: string;
   purchaseManager: string;
