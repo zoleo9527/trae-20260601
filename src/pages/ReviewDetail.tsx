@@ -56,7 +56,7 @@ export function ReviewDetail() {
     setIsSubmitting(false);
     setExceptionNote(application?.exceptionNote || '');
     setIsNoteSaving(false);
-  }, [id, application?.exceptionNote]);
+  }, [id]);
 
   if (!application) {
     return (
