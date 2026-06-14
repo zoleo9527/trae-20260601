@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Play, CheckCircle, XCircle, Edit3, FileText, AlertCircle } from 'lucide-react';
-import { ExamTrackRecord, ExamTrackStatus, UserRole, OperationLog, OperationType } from '../types';
+import { ExamTrackRecord, ExamTrackStatus, UserRole, OperationLog, OperationType, PracticePlan } from '../types';
 import { getStatusLabel, getStatusColor, formatDate, getTrackTypeLabel, getDayOfWeekLabel, getRoleLabel, getOperationLabel } from '../utils';
 import { api } from '../api';
 
@@ -32,6 +32,23 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     } catch (error) {
       console.error('Failed to fetch logs:', error);
     }
+  };
+
+  const calculateEndDate = (startDate: string, durationWeeks: number): string => {
+    const date = new Date(startDate);
+    date.setDate(date.getDate() + durationWeeks * 7);
+    return date.toISOString().split('T')[0];
+  };
+
+  const handlePlanChange = (field: string, value: number | string) => {
+    const newPlan = { ...supplementPlan, [field]: value };
+    
+    if (field === 'startDate' || field === 'durationWeeks') {
+      const startDate = newPlan.startDate || new Date().toISOString().split('T')[0];
+      newPlan.endDate = calculateEndDate(startDate, newPlan.durationWeeks);
+    }
+    
+    setSupplementPlan(newPlan);
   };
 
   const handleSubmit = async () => {
@@ -397,7 +414,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
               <div className="border-t border-gray-200 pt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-3">更新练习计划</label>
                 
-                <div className="grid grid-cols-3 gap-4 mb-4">
+                <div className="grid grid-cols-4 gap-4 mb-4">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">计划周期（周）</label>
                     <input
@@ -405,7 +422,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                       min="1"
                       max="52"
                       value={supplementPlan.durationWeeks}
-                      onChange={(e) => setSupplementPlan({ ...supplementPlan, durationWeeks: Number(e.target.value) })}
+                      onChange={(e) => handlePlanChange('durationWeeks', Number(e.target.value))}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
@@ -414,8 +431,17 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                     <input
                       type="date"
                       value={supplementPlan.startDate.split('T')[0]}
-                      onChange={(e) => setSupplementPlan({ ...supplementPlan, startDate: e.target.value })}
+                      onChange={(e) => handlePlanChange('startDate', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+                    <input
+                      type="date"
+                      value={supplementPlan.endDate.split('T')[0]}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                   <div>
