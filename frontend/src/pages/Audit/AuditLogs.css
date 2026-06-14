@@ -1,0 +1,152 @@
+.audit-logs-page {
+  animation: fadeIn 0.3s ease-in;
+}
+
+.logs-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-item {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--box-shadow);
+}
+
+.stat-value {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--text-color-secondary);
+}
+
+.logs-table {
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+  overflow: hidden;
+}
+
+.logs-table table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.logs-table thead {
+  background: #fafafa;
+}
+
+.logs-table th {
+  padding: 16px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logs-table td {
+  padding: 14px 16px;
+  font-size: 13px;
+  color: var(--text-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logs-table tbody tr:hover {
+  background: #fafafa;
+}
+
+.time-cell {
+  white-space: nowrap;
+  color: var(--text-color-secondary);
+}
+
+.action-badge {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 12px;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.delegation-link {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.delegation-link:hover {
+  text-decoration: underline;
+}
+
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-text {
+  font-size: 12px;
+  color: var(--text-color);
+}
+
+.arrow {
+  color: var(--text-color-secondary);
+}
+
+.no-status {
+  color: var(--text-color-secondary);
+}
+
+.operator-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.operator-name {
+  font-weight: 500;
+  color: var(--text-color);
+}
+
+.operator-role {
+  font-size: 11px;
+  color: var(--text-color-secondary);
+}
+
+.remarks-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-color-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: var(--border-radius);
+  box-shadow: var(--box-shadow);
+}
+
+.empty-state p {
+  font-size: 16px;
+  color: var(--text-color-secondary);
+}
+
+@media (max-width: 768px) {
+  .logs-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
