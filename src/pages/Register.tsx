@@ -1,12 +1,13 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAppStore } from '../store';
 import { CATEGORIES, CONDITIONS } from '../types';
-import { ArrowLeft, Camera, Plus, Trash2, Save } from 'lucide-react';
+import { ArrowLeft, Camera, Plus, Trash2, Save, AlertCircle } from 'lucide-react';
 
 const Register = () => {
+  const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { addRecord, addHistory, user } = useAppStore();
+  const { addRecord, updateRecord, addHistory, getRecordDetail, user } = useAppStore();
 
   const [category, setCategory] = useState('');
   const [brand, setBrand] = useState('');
@@ -15,6 +16,25 @@ const Register = () => {
   const [weight, setWeight] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [remark, setRemark] = useState('');
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [originalRecord, setOriginalRecord] = useState<ReturnType<typeof getRecordDetail> | null>(null);
+
+  useEffect(() => {
+    if (id) {
+      const record = getRecordDetail(id);
+      if (record && record.status === 'rejected') {
+        setIsEditMode(true);
+        setOriginalRecord(record);
+        setCategory(record.category);
+        setBrand(record.brand);
+        setModel(record.model);
+        setCondition(record.condition);
+        setWeight(record.weight.toString());
+        setPhotos(record.photos);
+        setRemark(record.remark);
+      }
+    }
+  }, [id, getRecordDetail]);
 
   const handlePhotoAdd = () => {
     const prompt = encodeURIComponent(`${category || 'item'} product photo elegant`);
@@ -39,38 +59,66 @@ const Register = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const id = `REC${String(now.getTime()).slice(-4)}`;
 
-    addRecord({
-      id,
-      category,
-      brand,
-      model,
-      condition,
-      weight: parseFloat(weight) || 0,
-      photos,
-      estimatedValue: null,
-      status: 'pending',
-      rejectReason: null,
-      remark,
-      operatorId: user.id,
-      operatorName: user.name,
-      createdAt: timeStr,
-      updatedAt: timeStr,
-    });
+    if (isEditMode && originalRecord) {
+      updateRecord(id || '', {
+        category,
+        brand,
+        model,
+        condition,
+        weight: parseFloat(weight) || 0,
+        photos,
+        status: 'pending',
+        rejectReason: null,
+        remark,
+      });
 
-    addHistory({
-      id: `H${String(now.getTime()).slice(-4)}`,
-      recordId: id,
-      statusFrom: null,
-      statusTo: 'pending',
-      operatorId: user.id,
-      operatorName: user.name,
-      remark: '新增当品登记',
-      createdAt: timeStr,
-    });
+      addHistory({
+        id: `H${String(now.getTime()).slice(-4)}`,
+        recordId: id || '',
+        statusFrom: 'rejected',
+        statusTo: 'pending',
+        operatorId: user.id,
+        operatorName: user.name,
+        remark: `修改后重新提交，原退回原因: ${originalRecord.rejectReason || '无'}`,
+        createdAt: timeStr,
+      });
 
-    alert('登记成功！');
+      alert('修改成功，已重新提交审核！');
+    } else {
+      const recordId = `REC${String(now.getTime()).slice(-4)}`;
+
+      addRecord({
+        id: recordId,
+        category,
+        brand,
+        model,
+        condition,
+        weight: parseFloat(weight) || 0,
+        photos,
+        estimatedValue: null,
+        status: 'pending',
+        rejectReason: null,
+        remark,
+        operatorId: user.id,
+        operatorName: user.name,
+        createdAt: timeStr,
+        updatedAt: timeStr,
+      });
+
+      addHistory({
+        id: `H${String(now.getTime()).slice(-4)}`,
+        recordId,
+        statusFrom: null,
+        statusTo: 'pending',
+        operatorId: user.id,
+        operatorName: user.name,
+        remark: '新增当品登记',
+        createdAt: timeStr,
+      });
+
+      alert('登记成功！');
+    }
     navigate('/');
   };
 
@@ -86,25 +134,43 @@ const Register = () => {
               <ArrowLeft className="w-5 h-5" />
               <span>返回</span>
             </button>
-            <h1 className="text-lg font-bold text-gray-900">当品登记</h1>
+            <h1 className="text-lg font-bold text-gray-900">
+              {isEditMode ? '修改当品信息' : '当品登记'}
+            </h1>
             <button
               onClick={handleSubmit}
               className="btn-gold flex items-center gap-2"
             >
               <Save className="w-4 h-4" />
-              保存登记
+              {isEditMode ? '保存修改' : '保存登记'}
             </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {isEditMode && originalRecord && (
+          <div className="card mb-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-700">退回原因</p>
+                <p className="text-sm text-gray-600 mt-1">{originalRecord.rejectReason}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="card">
-          <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-3 border-b border-gray-100">基本信息</h2>
-          
+          <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-3 border-b border-gray-100">
+            基本信息
+          </h2>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">品类 <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                品类 <span className="text-red-500">*</span>
+              </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
@@ -112,7 +178,9 @@ const Register = () => {
               >
                 <option value="">请选择品类</option>
                 {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
                 ))}
               </select>
             </div>
@@ -129,7 +197,9 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">型号 <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                型号 <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 placeholder="产品型号"
@@ -140,7 +210,9 @@ const Register = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">成色 <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                成色 <span className="text-red-500">*</span>
+              </label>
               <select
                 value={condition}
                 onChange={(e) => setCondition(e.target.value)}
@@ -148,7 +220,9 @@ const Register = () => {
               >
                 <option value="">请选择成色</option>
                 {CONDITIONS.map((cond) => (
-                  <option key={cond} value={cond}>{cond}</option>
+                  <option key={cond} value={cond}>
+                    {cond}
+                  </option>
                 ))}
               </select>
             </div>

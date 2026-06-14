@@ -1,12 +1,27 @@
-import { useState } from 'react';
+import { Edit3, Eye, Filter, LogOut, Plus, Search, Store, Wifi, WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAppStore } from '../store';
-import { RecordStatus, STATUS_LABELS, STATUS_COLORS, ROLE_CONFIG, FilterParams } from '../types';
-import { Store, Search, Filter, Plus, LogOut, Wifi, WifiOff, Eye, Edit3 } from 'lucide-react';
+import { useAppStore, useOfflineStatus } from '../store';
+import { FilterParams, RecordStatus, ROLE_CONFIG, STATUS_COLORS, STATUS_LABELS } from '../types';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user, logout, getFilteredRecords, getStatusStats, setFilters, filters, isOnline, clearFilters } = useAppStore();
+  const { user, logout, getFilteredRecords, getStatusStats, setFilters, filters, clearFilters, setOnline } = useAppStore();
+  
+  const isOnline = useOfflineStatus();
+  
+  useEffect(() => {
+    const handleOnline = () => setOnline(true);
+    const handleOffline = () => setOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [setOnline]);
   
   const [searchKeyword, setSearchKeyword] = useState(filters.keyword || '');
   const [selectedStatus, setSelectedStatus] = useState<RecordStatus | ''>(filters.status || '');
@@ -53,6 +68,10 @@ const Home = () => {
 
   const handleRegister = () => {
     navigate('/register');
+  };
+
+  const handleEditRejected = (id: string) => {
+    navigate(`/register/${id}`);
   };
 
   const statusOrder: RecordStatus[] = ['pending', 'reviewing', 'approved', 'rejected', 'closed', 'recheck'];
@@ -285,7 +304,7 @@ const Home = () => {
                         )}
                         {user && user.role === 'counter' && record.status === 'rejected' && (
                           <button
-                            onClick={() => handleReview(record.id)}
+                            onClick={() => handleEditRejected(record.id)}
                             className="btn-primary flex items-center gap-1 text-sm"
                           >
                             <Edit3 className="w-3 h-3" />

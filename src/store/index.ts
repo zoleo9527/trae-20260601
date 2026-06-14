@@ -152,7 +152,10 @@ export const useAppStore = create<AppState>()(
         }
 
         if (state.filters.endDate) {
-          filtered = filtered.filter(r => r.createdAt <= state.filters.endDate);
+          const endDatePlusOne = new Date(state.filters.endDate);
+          endDatePlusOne.setDate(endDatePlusOne.getDate() + 1);
+          const endDateStr = endDatePlusOne.toISOString().split('T')[0];
+          filtered = filtered.filter(r => r.createdAt < endDateStr);
         }
 
         return filtered.sort((a, b) =>

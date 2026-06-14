@@ -26,8 +26,27 @@ const Review = () => {
         setRejectReason(detail.rejectReason);
       }
       setRemark(detail.remark);
+
+      if (user && user.role === 'warehouse' && detail.status === 'pending') {
+        const now = new Date();
+        const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
+        const historyId = `H${String(now.getTime()).slice(-4)}`;
+        
+        updateRecord(id || '', { status: 'reviewing' });
+        
+        addHistory({
+          id: historyId,
+          recordId: id || '',
+          statusFrom: 'pending',
+          statusTo: 'reviewing',
+          operatorId: user.id,
+          operatorName: user.name,
+          remark: '开始估价复核',
+          createdAt: timeStr,
+        });
+      }
     }
-  }, [id, getRecordDetail]);
+  }, [id, getRecordDetail, user, updateRecord, addHistory]);
 
   const handleApprove = () => {
     if (!user) {
