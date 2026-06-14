@@ -6,8 +6,9 @@ import {
 import {
   SwapOutlined, PlusOutlined, FileTextOutlined, MedicineBoxOutlined,
   WarningOutlined, CheckCircleOutlined, UserOutlined, ClockCircleOutlined,
+  FlagOutlined, ExclamationCircleOutlined,
 } from '@ant-design/icons';
-import type { Role, HandoverLog, DashboardStats, ExceptionRecord, Registration, PhysicalCheck } from 'shared';
+import type { Role, HandoverLog, DashboardStats, ExceptionRecord, Registration, PhysicalCheck, ResponsibilityWarning } from 'shared';
 import {
   getHandoverLogs,
   createHandover,
@@ -23,6 +24,7 @@ import {
   exceptionLevelMap,
   registrationStatusMap,
   physicalStatusMap,
+  responsibilityMap,
 } from '../utils/constants';
 
 interface Props {
@@ -45,6 +47,8 @@ export default function Handover({ role }: Props) {
   const [pendingExceptions, setPendingExceptions] = useState<ExceptionRecord[]>([]);
   const [pendingRegs, setPendingRegs] = useState<Registration[]>([]);
   const [pendingPhysicals, setPendingPhysicals] = useState<PhysicalCheck[]>([]);
+  const [respWarnings, setRespWarnings] = useState<{ reg: Registration; warning: ResponsibilityWarning }[]>([]);
+  const [respPhysicals, setRespPhysicals] = useState<PhysicalCheck[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [form] = Form.useForm();
 
@@ -67,6 +71,12 @@ export default function Handover({ role }: Props) {
       setPendingExceptions(exs);
       setPendingRegs(regs.filter(r => r.status === 'pending' || r.status === 'supplement' || r.status === 'delayed'));
       setPendingPhysicals(phys.filter(p => p.status === 'pending' || p.status === 'review' || p.status === 'recheck'));
+      const warnings: { reg: Registration; warning: ResponsibilityWarning }[] = [];
+      regs.forEach(r => {
+        if (r.responsibilityWarning?.triggered) warnings.push({ reg: r, warning: r.responsibilityWarning });
+      });
+      setRespWarnings(warnings);
+      setRespPhysicals(phys.filter(p => p.responsibilityMark !== 'none'));
     } finally {
       setLoading(false);
     }
@@ -82,6 +92,21 @@ export default function Handover({ role }: Props) {
         summary: values.summary,
         pendingItems: pendingRegs.length + pendingPhysicals.length,
         exceptionItems: pendingExceptions.length,
+        responsibilityItems: respWarnings.length + respPhysicals.length,
+        responsibilityDetails: [
+          ...respWarnings.map(({ reg, warning }) => ({
+            studentName: reg.studentName,
+            registrationId: reg.id,
+            mark: 'registrar_issue' as const,
+            description: `缺${warning.missingDocs.length}项资料（${warning.missingDocs.join('、')}），报名员：${warning.registrarName}`,
+          })),
+          ...respPhysicals.map(p => ({
+            studentName: p.studentName,
+            registrationId: p.registrationId,
+            mark: p.responsibilityMark,
+            description: p.responsibilityNote || '已标记责任归属',
+          })),
+        ],
       });
       message.success('交班记录已创建');
       setCreateOpen(false);
@@ -98,6 +123,18 @@ export default function Handover({ role }: Props) {
     if (pendingRegs.length > 0) parts.push(`待处理报名资料 ${pendingRegs.length} 项：${pendingRegs.map(r => r.studentName).join('、')}`);
     if (pendingPhysicals.length > 0) parts.push(`待处理体检 ${pendingPhysicals.length} 项：${pendingPhysicals.map(p => p.studentName).join('、')}`);
     if (pendingExceptions.length > 0) parts.push(`未处理异常 ${pendingExceptions.length} 项：${pendingExceptions.map(e => `${e.studentName}(${e.content.slice(0, 20)})`).join('；')}`);
+    if (respWarnings.length > 0) {
+      parts.push(`责任预警（报名缺项流转）${respWarnings.length} 项：`);
+      respWarnings.forEach(({ reg, warning }) => {
+        parts.push(`  - ${reg.studentName}：缺${warning.missingDocs.length}项资料（${warning.missingDocs.join('、')}），报名员：${warning.registrarName}`);
+      });
+    }
+    if (respPhysicals.length > 0) {
+      parts.push(`责任归属已标记 ${respPhysicals.length} 条体检：`);
+      respPhysicals.forEach(p => {
+        parts.push(`  - ${p.studentName}（${responsibilityMap[p.responsibilityMark].label}）：${p.responsibilityNote?.slice(0, 40) || ''}`);
+      });
+    }
     if (parts.length === 1) parts.push('无未完成事项，流程顺畅。');
     return parts.join('\n');
   };
@@ -142,7 +179,14 @@ export default function Handover({ role }: Props) {
           <Card size="small"><Statistic title="未处理异常" value={pendingExceptions.length} prefix={<WarningOutlined />} valueStyle={{ color: pendingExceptions.length > 0 ? '#eb2f96' : '#8c8c8c' }} /></Card>
         </Col>
         <Col xs={12} md={6}>
-          <Card size="small"><Statistic title="今日完成" value={stats?.todayCompleted || 0} prefix={<CheckCircleOutlined />} valueStyle={{ color: '#52c41a' }} /></Card>
+          <Card size="small">
+            <Statistic
+              title="责任预警"
+              value={respWarnings.length + respPhysicals.length}
+              prefix={<FlagOutlined />}
+              valueStyle={{ color: (respWarnings.length + respPhysicals.length) > 0 ? '#eb2f96' : '#8c8c8c' }}
+            />
+          </Card>
         </Col>
       </Row>
 
@@ -266,6 +310,83 @@ export default function Handover({ role }: Props) {
         </Card>
       )}
 
+      {(respWarnings.length > 0 || respPhysicals.length > 0) && (
+        <Card
+          size="small"
+          style={{ marginBottom: 16, borderRadius: 8, borderColor: '#ffadd2' }}
+          title={
+            <span style={{ color: '#eb2f96' }}>
+              <FlagOutlined /> 🚩 责任预警清单（共 {respWarnings.length + respPhysicals.length} 项）
+            </span>
+          }
+          bodyStyle={{ padding: 0 }}
+        >
+          {respWarnings.length > 0 && (
+            <div>
+              <div style={{ padding: '8px 16px', background: '#fff0f6', fontWeight: 600, color: '#eb2f96', fontSize: 13 }}>
+                报名缺项流转预警 ({respWarnings.length})
+              </div>
+              <List
+                dataSource={respWarnings}
+                renderItem={({ reg, warning }) => (
+                  <List.Item style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<ExclamationCircleOutlined />} style={{ background: '#eb2f96' }} />}
+                      title={
+                        <Space>
+                          <strong>{reg.studentName}</strong>
+                          <Tag color="error">缺{warning.missingDocs.length}项资料</Tag>
+                          <Tag color="blue">{warning.triggerType}</Tag>
+                          {warning.syncedToException && <Tag color="red">已同步异常</Tag>}
+                        </Space>
+                      }
+                      description={
+                        <div style={{ fontSize: 12, color: '#595959', lineHeight: 1.8 }}>
+                          <div>📋 缺项：{warning.missingDocs.join('、')}</div>
+                          <div>👤 报名员：{warning.registrarName} · 流转时间：{formatDateTime(warning.flowTime)}</div>
+                          <div>📝 {warning.description}</div>
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+          {respPhysicals.length > 0 && (
+            <div>
+              <div style={{ padding: '8px 16px', background: '#f9f0ff', fontWeight: 600, color: '#722ed1', fontSize: 13 }}>
+                体检责任已标记 ({respPhysicals.length})
+              </div>
+              <List
+                dataSource={respPhysicals}
+                renderItem={(p) => (
+                  <List.Item style={{ padding: '12px 16px', borderBottom: '1px solid #f0f0f0' }}>
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<FlagOutlined />} style={{ background: responsibilityMap[p.responsibilityMark].color?.startsWith('#') ? responsibilityMap[p.responsibilityMark].color : '#722ed1' }} />}
+                      title={
+                        <Space>
+                          <strong>{p.studentName}</strong>
+                          <Tag color={responsibilityMap[p.responsibilityMark].color}>
+                            {responsibilityMap[p.responsibilityMark].label}
+                          </Tag>
+                          <Tag color={physicalStatusMap[p.status].color}>{physicalStatusMap[p.status].label}</Tag>
+                        </Space>
+                      }
+                      description={
+                        <div style={{ fontSize: 12, color: '#595959' }}>
+                          🏷️ {p.responsibilityNote || '无详细说明'}
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            </div>
+          )}
+        </Card>
+      )}
+
       <Card
         size="small"
         title={<span><SwapOutlined /> 交班历史时间线</span>}
@@ -281,16 +402,45 @@ export default function Handover({ role }: Props) {
               label: <div style={{ fontSize: 12, color: '#8c8c8c' }}>{formatDateTime(log.createdAt)}</div>,
               children: (
                 <Card size="small" style={{ marginBottom: 8, borderRadius: 6 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                     <span className={`role-badge ${log.fromRole}`} style={{ fontSize: 11 }}>{roleMap[log.fromRole].label} · {log.fromUser}</span>
                     <SwapOutlined style={{ fontSize: 12, color: '#8c8c8c' }} />
                     <span className={`role-badge ${log.toRole}`} style={{ fontSize: 11 }}>{roleMap[log.toRole].label} · {log.toUser}</span>
+                    {log.responsibilityItems > 0 && (
+                      <Tag color="magenta" style={{ marginLeft: 8 }}>
+                        <FlagOutlined /> 含 {log.responsibilityItems} 项责任预警
+                      </Tag>
+                    )}
                   </div>
                   <Descriptions column={3} size="small">
                     <Descriptions.Item label="待办事项">{log.pendingItems} 项</Descriptions.Item>
                     <Descriptions.Item label="异常事项">{log.exceptionItems} 项</Descriptions.Item>
+                    <Descriptions.Item label="责任预警">{log.responsibilityItems || 0} 项</Descriptions.Item>
                     <Descriptions.Item label="记录编号" span={3}>{log.id}</Descriptions.Item>
                   </Descriptions>
+                  {log.responsibilityDetails && log.responsibilityDetails.length > 0 && (
+                    <>
+                      <Divider style={{ margin: '8px 0' }} />
+                      <div style={{ fontSize: 12, fontWeight: 600, color: '#eb2f96', marginBottom: 8 }}>
+                        <FlagOutlined /> 责任预警明细：
+                      </div>
+                      <List
+                        size="small"
+                        dataSource={log.responsibilityDetails}
+                        renderItem={(item: any) => (
+                          <List.Item style={{ padding: '4px 0' }}>
+                            <Space size="small" wrap>
+                              <Tag color={responsibilityMap[item.mark]?.color || 'warning'}>
+                                {responsibilityMap[item.mark]?.label || item.mark}
+                              </Tag>
+                              <strong>{item.studentName}</strong>
+                              <span style={{ fontSize: 12, color: '#595959' }}>{item.description}</span>
+                            </Space>
+                          </List.Item>
+                        )}
+                      />
+                    </>
+                  )}
                   <Divider style={{ margin: '8px 0' }} />
                   <div style={{
                     fontSize: 13,

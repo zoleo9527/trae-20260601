@@ -42,6 +42,19 @@ export interface Registration {
   rejectReason?: string;
   supplementNote?: string;
   delayHours?: number;
+  responsibilityWarning?: ResponsibilityWarning;
+}
+
+export interface ResponsibilityWarning {
+  triggered: boolean;
+  triggerType: 'missing_docs' | 'early_flow' | 'rejected_flow' | 'other';
+  mark: ResponsibilityMark;
+  missingDocs: string[];
+  registrarName: string;
+  flowTime: string;
+  description: string;
+  syncedToException: boolean;
+  exceptionId?: string;
 }
 
 export interface PhysicalCheck {
@@ -64,6 +77,38 @@ export interface PhysicalCheck {
   recheckNote?: string;
   responsibilityMark: ResponsibilityMark;
   responsibilityNote?: string;
+  version: number;
+  isLatest: boolean;
+}
+
+export interface PhysicalHistory {
+  id: string;
+  physicalId: string;
+  registrationId: string;
+  studentName: string;
+  version: number;
+  action: 'create' | 'submit' | 'review' | 'recheck' | 'update_responsibility';
+  status: PhysicalStatus;
+  previousStatus: PhysicalStatus;
+  eyesightLeft: number | null;
+  eyesightRight: number | null;
+  hearing: 'normal' | 'abnormal' | null;
+  bloodPressure: string | null;
+  heartRate: number | null;
+  height: number | null;
+  limbsCheck: 'normal' | 'abnormal' | null;
+  medicalHistory: string;
+  examiner: string;
+  examinerRole: Role;
+  checkedAt: string | null;
+  reviewNote?: string;
+  recheckNote?: string;
+  responsibilityMark: ResponsibilityMark;
+  responsibilityNote?: string;
+  operator: string;
+  operatorRole: Role;
+  operatedAt: string;
+  changeSummary?: string;
 }
 
 export interface ExceptionRecord {
@@ -90,6 +135,13 @@ export interface HandoverLog {
   summary: string;
   pendingItems: number;
   exceptionItems: number;
+  responsibilityItems: number;
+  responsibilityDetails?: {
+    studentName: string;
+    registrationId: string;
+    mark: ResponsibilityMark;
+    description: string;
+  }[];
   createdAt: string;
 }
 

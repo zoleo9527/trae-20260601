@@ -1,12 +1,17 @@
 import type {
   Registration,
   PhysicalCheck,
+  PhysicalHistory,
   ExceptionRecord,
   HandoverLog,
   TrainingSchedule,
   ExamBatch,
   PhysicalForm,
   RegistrationDoc,
+  ResponsibilityWarning,
+  ResponsibilityMark,
+  PhysicalStatus,
+  Role,
 } from 'shared';
 
 const now = () => new Date().toISOString();
@@ -16,6 +21,20 @@ const doc = (id: string, name: string, submitted: boolean, note?: string): Regis
   name,
   submitted,
   note,
+});
+
+const makeRespWarning = (opts: {
+  triggerType: ResponsibilityWarning['triggerType'];
+  mark: ResponsibilityMark;
+  missingDocs: string[];
+  registrarName: string;
+  flowTime: string;
+  description: string;
+  syncedToException: boolean;
+  exceptionId?: string;
+}): ResponsibilityWarning => ({
+  triggered: true,
+  ...opts,
 });
 
 export const defaultRegistrations: Registration[] = [
@@ -34,7 +53,17 @@ export const defaultRegistrations: Registration[] = [
     registrarName: '李报名',
     createdAt: '2026-06-10T09:15:00.000Z',
     updatedAt: '2026-06-10T09:45:00.000Z',
-    remark: '增驾D照，资料齐全',
+    remark: '增驾D照，资料基本齐全，缺原驾驶证但学员说可以后补',
+    responsibilityWarning: makeRespWarning({
+      triggerType: 'missing_docs',
+      mark: 'registrar_issue',
+      missingDocs: ['原驾驶证（增驾）'],
+      registrarName: '李报名',
+      flowTime: '2026-06-10T09:45:00.000Z',
+      description: '缺原驾驶证（增驾），报名员确认学员后续补交，提前流转体检。',
+      syncedToException: true,
+      exceptionId: 'E20260601006',
+    }),
   },
   {
     id: 'R20260601002',
@@ -116,6 +145,16 @@ export const defaultRegistrations: Registration[] = [
     createdAt: '2026-06-13T16:00:00.000Z',
     updatedAt: '2026-06-13T16:45:00.000Z',
     rejectReason: '身份证复印件不清晰且照片缺失，不符合报名要求',
+    responsibilityWarning: makeRespWarning({
+      triggerType: 'rejected_flow',
+      mark: 'registrar_issue',
+      missingDocs: ['身份证复印件', '一寸照片4张'],
+      registrarName: '李报名',
+      flowTime: '2026-06-13T16:30:00.000Z',
+      description: '报名资料已被驳回，但学员仍被错误流转到体检环节，属于报名员操作失误。',
+      syncedToException: true,
+      exceptionId: 'E20260601003',
+    }),
   },
   {
     id: 'R20260601007',
@@ -151,120 +190,161 @@ export const defaultRegistrations: Registration[] = [
   },
 ];
 
+const physTemplate = (
+  id: string,
+  registrationId: string,
+  studentName: string,
+  status: PhysicalStatus,
+  version: number,
+  examiner: string,
+  examinerRole: Role,
+  checkedAt: string | null,
+  extra: Partial<PhysicalCheck> = {}
+): PhysicalCheck => ({
+  id,
+  registrationId,
+  studentName,
+  status,
+  eyesightLeft: null,
+  eyesightRight: null,
+  hearing: null,
+  bloodPressure: null,
+  heartRate: null,
+  height: null,
+  limbsCheck: null,
+  medicalHistory: '',
+  examiner,
+  examinerRole,
+  checkedAt,
+  responsibilityMark: 'none',
+  version,
+  isLatest: true,
+  ...extra,
+});
+
 export const defaultPhysicals: PhysicalCheck[] = [
-  {
-    id: 'P20260601001',
-    registrationId: 'R20260601001',
-    studentName: '张伟',
-    status: 'passed',
-    eyesightLeft: 5.0,
-    eyesightRight: 5.0,
-    hearing: 'normal',
-    bloodPressure: '120/80',
-    heartRate: 72,
-    height: 175,
-    limbsCheck: 'normal',
+  physTemplate('P20260601001', 'R20260601001', '张伟', 'passed', 2, '王教练', 'fieldCoach', '2026-06-10T11:00:00.000Z', {
+    eyesightLeft: 5.0, eyesightRight: 5.0, hearing: 'normal',
+    bloodPressure: '120/80', heartRate: 72, height: 175, limbsCheck: 'normal',
     medicalHistory: '无',
-    examiner: '王教练',
-    examinerRole: 'fieldCoach',
-    checkedAt: '2026-06-10T11:00:00.000Z',
-    responsibilityMark: 'none',
-  },
-  {
-    id: 'P20260601002',
-    registrationId: 'R20260601002',
-    studentName: '王芳',
-    status: 'passed',
-    eyesightLeft: 4.9,
-    eyesightRight: 5.0,
-    hearing: 'normal',
-    bloodPressure: '115/75',
-    heartRate: 68,
-    height: 162,
-    limbsCheck: 'normal',
+  }),
+  physTemplate('P20260601002', 'R20260601002', '王芳', 'passed', 1, '钱教练', 'fieldCoach', '2026-06-11T14:00:00.000Z', {
+    eyesightLeft: 4.9, eyesightRight: 5.0, hearing: 'normal',
+    bloodPressure: '115/75', heartRate: 68, height: 162, limbsCheck: 'normal',
     medicalHistory: '无',
-    examiner: '钱教练',
-    examinerRole: 'fieldCoach',
-    checkedAt: '2026-06-11T14:00:00.000Z',
-    responsibilityMark: 'none',
-  },
-  {
-    id: 'P20260601003',
-    registrationId: 'R20260601003',
-    studentName: '刘强',
-    status: 'passed',
-    eyesightLeft: 5.0,
-    eyesightRight: 4.8,
-    hearing: 'normal',
-    bloodPressure: '130/85',
-    heartRate: 75,
-    height: 180,
-    limbsCheck: 'normal',
+  }),
+  physTemplate('P20260601003', 'R20260601003', '刘强', 'passed', 2, '孙安全', 'safetyOfficer', '2026-06-12T10:30:00.000Z', {
+    eyesightLeft: 5.0, eyesightRight: 4.8, hearing: 'normal',
+    bloodPressure: '130/85', heartRate: 75, height: 180, limbsCheck: 'normal',
     medicalHistory: '高血压（服药控制）',
-    examiner: '孙安全',
-    examinerRole: 'safetyOfficer',
-    checkedAt: '2026-06-12T10:30:00.000Z',
-    responsibilityMark: 'none',
-  },
-  {
-    id: 'P20260601004',
-    registrationId: 'R20260601004',
-    studentName: '陈敏',
-    status: 'review',
-    eyesightLeft: 4.6,
-    eyesightRight: 4.7,
-    hearing: 'normal',
-    bloodPressure: '140/90',
-    heartRate: 88,
-    height: 165,
-    limbsCheck: 'normal',
+  }),
+  physTemplate('P20260601004', 'R20260601004', '陈敏', 'review', 1, '王教练', 'fieldCoach', '2026-06-13T09:15:00.000Z', {
+    eyesightLeft: 4.6, eyesightRight: 4.7, hearing: 'normal',
+    bloodPressure: '140/90', heartRate: 88, height: 165, limbsCheck: 'normal',
     medicalHistory: '近视，血压偏高',
-    examiner: '王教练',
-    examinerRole: 'fieldCoach',
-    checkedAt: '2026-06-13T09:15:00.000Z',
     reviewNote: '视力未达标准（要求单眼4.9以上），血压临界值。需安全员复核确认是否可报名。',
     responsibilityMark: 'borderline',
     responsibilityNote: '视力和血压均处于临界值，报名员未提前告知学员矫正视力要求，教练也未现场复测确认，双方责任需明确。',
-  },
-  {
-    id: 'P20260601005',
-    registrationId: 'R20260601005',
-    studentName: '杨帆',
-    status: 'recheck',
-    eyesightLeft: 5.0,
-    eyesightRight: 5.0,
-    hearing: 'abnormal',
-    bloodPressure: '118/78',
-    heartRate: 70,
-    height: 172,
-    limbsCheck: 'normal',
+  }),
+  physTemplate('P20260601005', 'R20260601005', '杨帆', 'recheck', 2, '钱教练', 'fieldCoach', '2026-06-13T16:30:00.000Z', {
+    eyesightLeft: 5.0, eyesightRight: 5.0, hearing: 'abnormal',
+    bloodPressure: '118/78', heartRate: 70, height: 172, limbsCheck: 'normal',
     medicalHistory: '右耳听力下降',
-    examiner: '钱教练',
-    examinerRole: 'fieldCoach',
-    checkedAt: '2026-06-13T16:30:00.000Z',
     recheckNote: '听力测试未通过，建议去医院做纯音测听后复诊。',
     responsibilityMark: 'coach_issue',
     responsibilityNote: '场地教练在初检时发现听力问题未及时登记，直到学员完成多项检测后才补录，导致流程拖延。',
-  },
-  {
-    id: 'P20260601006',
-    registrationId: 'R20260601006',
-    studentName: '周磊',
-    status: 'failed',
-    eyesightLeft: null,
-    eyesightRight: null,
-    hearing: null,
-    bloodPressure: null,
-    heartRate: null,
-    height: null,
-    limbsCheck: null,
+  }),
+  physTemplate('P20260601006', 'R20260601006', '周磊', 'failed', 1, '', 'fieldCoach', null, {
     medicalHistory: '未完成体检',
-    examiner: '',
-    examinerRole: 'fieldCoach',
-    checkedAt: null,
     responsibilityMark: 'registrar_issue',
     responsibilityNote: '报名资料被驳回，但报名员仍将该学员流转至体检环节，导致流程混乱。',
-  },
+  }),
+];
+
+const historyFromPhys = (
+  p: PhysicalCheck,
+  action: PhysicalHistory['action'],
+  previousStatus: PhysicalStatus,
+  operator: string,
+  operatorRole: Role,
+  operatedAt: string,
+  changeSummary?: string
+): PhysicalHistory => ({
+  id: `H${p.id}-V${p.version}`,
+  physicalId: p.id,
+  registrationId: p.registrationId,
+  studentName: p.studentName,
+  version: p.version,
+  action,
+  status: p.status,
+  previousStatus,
+  eyesightLeft: p.eyesightLeft,
+  eyesightRight: p.eyesightRight,
+  hearing: p.hearing,
+  bloodPressure: p.bloodPressure,
+  heartRate: p.heartRate,
+  height: p.height,
+  limbsCheck: p.limbsCheck,
+  medicalHistory: p.medicalHistory,
+  examiner: p.examiner,
+  examinerRole: p.examinerRole,
+  checkedAt: p.checkedAt,
+  reviewNote: p.reviewNote,
+  recheckNote: p.recheckNote,
+  responsibilityMark: p.responsibilityMark,
+  responsibilityNote: p.responsibilityNote,
+  operator,
+  operatorRole,
+  operatedAt,
+  changeSummary,
+});
+
+export const defaultPhysicalHistories: PhysicalHistory[] = [
+  historyFromPhys(
+    { ...defaultPhysicals[0], version: 1 },
+    'create', 'pending', '李报名', 'registrar', '2026-06-10T09:45:00.000Z',
+    '报名资料完成，自动创建体检待办（缺原驾驶证，责任预警已记录）'
+  ),
+  historyFromPhys(
+    defaultPhysicals[0],
+    'submit', 'pending', '王教练', 'fieldCoach', '2026-06-10T11:00:00.000Z',
+    '体检完成，各项指标正常，通过'
+  ),
+  historyFromPhys(
+    defaultPhysicals[1],
+    'submit', 'pending', '钱教练', 'fieldCoach', '2026-06-11T14:00:00.000Z',
+    '体检一次通过'
+  ),
+  historyFromPhys(
+    { ...defaultPhysicals[2], version: 1, status: 'review', responsibilityMark: 'borderline', responsibilityNote: '初次体检视力4.8，安全员需复核', reviewNote: '右眼视力4.8，临界值，建议复核' },
+    'submit', 'pending', '王教练', 'fieldCoach', '2026-06-12T08:30:00.000Z',
+    '视力临界，提交安全员复核'
+  ),
+  historyFromPhys(
+    defaultPhysicals[2],
+    'review', 'review', '孙安全', 'safetyOfficer', '2026-06-12T10:30:00.000Z',
+    '安全员复核通过，视力4.8在可接受范围内'
+  ),
+  historyFromPhys(
+    defaultPhysicals[3],
+    'submit', 'pending', '王教练', 'fieldCoach', '2026-06-13T09:15:00.000Z',
+    '视力和血压均临界，提交待复核，责任标记为边界不清'
+  ),
+  historyFromPhys(
+    { ...defaultPhysicals[4], version: 1, status: 'pending' },
+    'create', 'pending', '赵登记', 'registrar', '2026-06-13T11:10:00.000Z',
+    '报名补录中创建体检待办'
+  ),
+  historyFromPhys(
+    defaultPhysicals[4],
+    'recheck', 'pending', '钱教练', 'fieldCoach', '2026-06-13T16:30:00.000Z',
+    '听力异常，需重检；教练延迟补录责任已标记'
+  ),
+  historyFromPhys(
+    defaultPhysicals[5],
+    'create', 'pending', '李报名', 'registrar', '2026-06-13T16:30:00.000Z',
+    '驳回的报名资料错误流转到体检，自动标记报名员责任'
+  ),
 ];
 
 export const defaultExceptions: ExceptionRecord[] = [
@@ -298,7 +378,7 @@ export const defaultExceptions: ExceptionRecord[] = [
     studentName: '周磊',
     type: 'handover',
     level: 'error',
-    content: '报名资料已驳回，但系统仍流转至体检环节，责任归属不清',
+    content: '报名资料已驳回，但系统仍流转至体检环节，责任归属不清（报名员责任预警已同步）',
     handler: '李报名',
     handlerRole: 'registrar',
     resolved: false,
@@ -322,11 +402,23 @@ export const defaultExceptions: ExceptionRecord[] = [
     studentName: '杨帆',
     type: 'physical',
     level: 'warning',
-    content: '听力异常，流程记录延迟补录',
+    content: '听力异常，流程记录延迟补录（教练责任已标记）',
     handler: '钱教练',
     handlerRole: 'fieldCoach',
     resolved: false,
     createdAt: '2026-06-13T17:00:00.000Z',
+  },
+  {
+    id: 'E20260601006',
+    registrationId: 'R20260601001',
+    studentName: '张伟',
+    type: 'handover',
+    level: 'warning',
+    content: '缺原驾驶证（增驾）提前流转体检，报名员责任预警',
+    handler: '李报名',
+    handlerRole: 'registrar',
+    resolved: false,
+    createdAt: '2026-06-10T09:45:00.000Z',
   },
 ];
 
@@ -337,9 +429,18 @@ export const defaultHandoverLogs: HandoverLog[] = [
     toRole: 'fieldCoach',
     fromUser: '李报名',
     toUser: '王教练',
-    summary: '6月10日白班交接，共完成3人报名，1人待体检',
+    summary: '6月10日白班交接，共完成3人报名，1人待体检\n注意：张伟缺原驾驶证（增驾），已标记报名员责任预警。',
     pendingItems: 1,
-    exceptionItems: 0,
+    exceptionItems: 1,
+    responsibilityItems: 1,
+    responsibilityDetails: [
+      {
+        studentName: '张伟',
+        registrationId: 'R20260601001',
+        mark: 'registrar_issue',
+        description: '缺原驾驶证（增驾），报名员确认学员后续补交，提前流转体检。',
+      },
+    ],
     createdAt: '2026-06-10T18:00:00.000Z',
   },
   {
@@ -348,9 +449,24 @@ export const defaultHandoverLogs: HandoverLog[] = [
     toRole: 'safetyOfficer',
     fromUser: '王教练',
     toUser: '孙安全',
-    summary: '6月12日体检完成2人，1人需安全员复核',
+    summary: '6月12日体检完成2人，1人需安全员复核\n陈敏视力血压临界，责任边界不清；\n周磊为驳回资料错误流转，报名员责任。',
     pendingItems: 1,
-    exceptionItems: 1,
+    exceptionItems: 3,
+    responsibilityItems: 2,
+    responsibilityDetails: [
+      {
+        studentName: '陈敏',
+        registrationId: 'R20260601004',
+        mark: 'borderline',
+        description: '视力和血压均临界，报名员未提前告知矫正要求，教练未复测，边界不清。',
+      },
+      {
+        studentName: '周磊',
+        registrationId: 'R20260601006',
+        mark: 'registrar_issue',
+        description: '报名资料已驳回仍流转到体检，属于报名员操作失误。',
+      },
+    ],
     createdAt: '2026-06-12T18:00:00.000Z',
   },
 ];
@@ -377,6 +493,7 @@ export const defaultPhysicalForms: PhysicalForm[] = [
 export interface DataStore {
   registrations: Registration[];
   physicals: PhysicalCheck[];
+  physicalHistories: PhysicalHistory[];
   exceptions: ExceptionRecord[];
   handoverLogs: HandoverLog[];
   schedules: TrainingSchedule[];
@@ -388,6 +505,7 @@ export interface DataStore {
 export const createDefaultStore = (): DataStore => ({
   registrations: JSON.parse(JSON.stringify(defaultRegistrations)),
   physicals: JSON.parse(JSON.stringify(defaultPhysicals)),
+  physicalHistories: JSON.parse(JSON.stringify(defaultPhysicalHistories)),
   exceptions: JSON.parse(JSON.stringify(defaultExceptions)),
   handoverLogs: JSON.parse(JSON.stringify(defaultHandoverLogs)),
   schedules: JSON.parse(JSON.stringify(defaultSchedules)),

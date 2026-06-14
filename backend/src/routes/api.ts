@@ -7,6 +7,7 @@ import {
 import type {
   Registration,
   PhysicalCheck,
+  PhysicalHistory,
   ExceptionRecord,
   HandoverLog,
   ApiResponse,
@@ -15,6 +16,7 @@ import type {
   PhysicalStatus,
   Role,
   ResponsibilityMark,
+  ResponsibilityWarning,
 } from 'shared';
 
 const router = Router();
@@ -23,6 +25,91 @@ const ok = <T>(data: T, message = 'ok'): ApiResponse<T> => ({ success: true, dat
 const fail = (error: string, message = '操作失败'): ApiResponse => ({ success: false, error, message });
 
 const now = () => new Date().toISOString();
+
+const genId = (prefix: string) => `${prefix}${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+const addPhysicalHistory = (
+  physical: PhysicalCheck,
+  action: PhysicalHistory['action'],
+  previousStatus: PhysicalStatus,
+  operator: string,
+  operatorRole: Role,
+  changeSummary?: string
+): PhysicalHistory => {
+  const history: PhysicalHistory = {
+    id: genId('PH'),
+    physicalId: physical.id,
+    registrationId: physical.registrationId,
+    studentName: physical.studentName,
+    version: physical.version,
+    action,
+    status: physical.status,
+    previousStatus,
+    eyesightLeft: physical.eyesightLeft,
+    eyesightRight: physical.eyesightRight,
+    hearing: physical.hearing,
+    bloodPressure: physical.bloodPressure,
+    heartRate: physical.heartRate,
+    height: physical.height,
+    limbsCheck: physical.limbsCheck,
+    medicalHistory: physical.medicalHistory,
+    examiner: physical.examiner,
+    examinerRole: physical.examinerRole,
+    checkedAt: physical.checkedAt,
+    reviewNote: physical.reviewNote,
+    recheckNote: physical.recheckNote,
+    responsibilityMark: physical.responsibilityMark,
+    responsibilityNote: physical.responsibilityNote,
+    operator,
+    operatorRole,
+    operatedAt: now(),
+    changeSummary,
+  };
+  store.physicalHistories.push(history);
+  return history;
+};
+
+const createResponsibilityWarning = (
+  registration: Registration,
+  opts: {
+    triggerType: ResponsibilityWarning['triggerType'];
+    mark: ResponsibilityMark;
+    missingDocs: string[];
+    description: string;
+    syncedToException?: boolean;
+  }
+): { warning: ResponsibilityWarning; exception?: ExceptionRecord } => {
+  const warning: ResponsibilityWarning = {
+    triggered: true,
+    triggerType: opts.triggerType,
+    mark: opts.mark,
+    missingDocs: opts.missingDocs,
+    registrarName: registration.registrarName,
+    flowTime: now(),
+    description: opts.description,
+    syncedToException: opts.syncedToException ?? true,
+  };
+
+  let exception: ExceptionRecord | undefined;
+  if (warning.syncedToException) {
+    exception = {
+      id: genId('E'),
+      registrationId: registration.id,
+      studentName: registration.studentName,
+      type: 'handover',
+      level: opts.mark === 'borderline' ? 'warning' : 'warning',
+      content: `【责任预警】${opts.description}（${opts.missingDocs.join('、')}）`,
+      handler: registration.registrarName,
+      handlerRole: 'registrar',
+      resolved: false,
+      createdAt: now(),
+    };
+    warning.exceptionId = exception.id;
+    store.exceptions.push(exception);
+  }
+
+  return { warning, exception };
+};
 
 router.get('/health', (_req, res) => {
   res.json(ok({ status: 'up', time: now() }));
@@ -55,7 +142,13 @@ router.get('/stats', (_req, res) => {
     p => p.status === 'passed' && p.checkedAt && p.checkedAt.slice(0, 10) === today
   ).length;
 
-  const stats: DashboardStats = {
+  const responsibilityCount = store.registrations.filter(
+    r => r.responsibilityWarning?.triggered
+  ).length + store.physicals.filter(
+    p => p.responsibilityMark !== 'none'
+  ).length;
+
+  const stats: DashboardStats & { responsibilityWarnings: number } = {
     totalRegistrations: store.registrations.length,
     registrationByStatus,
     totalPhysicals: store.physicals.length,
@@ -64,6 +157,7 @@ router.get('/stats', (_req, res) => {
       store.physicals.filter(p => p.status !== 'pending' || p.checkedAt).length,
     exceptions: store.exceptions.filter(e => !e.resolved).length,
     todayCompleted: Math.max(todayCompleted, 5),
+    responsibilityWarnings: responsibilityCount,
   };
   res.json(ok(stats));
 });
@@ -106,6 +200,8 @@ router.put('/registrations/:id/status', (req, res) => {
     delayHours?: number;
   };
   const old = store.registrations[idx];
+  const oldStatus = old.status;
+
   store.registrations[idx] = {
     ...old,
     status,
@@ -116,11 +212,16 @@ router.put('/registrations/:id/status', (req, res) => {
     updatedAt: now(),
   };
 
+  let responsibilityInfo: { warning?: ResponsibilityWarning } = {};
+
   if (status === 'completed') {
     const exists = store.physicals.find(p => p.registrationId === old.id);
     if (!exists) {
-      store.physicals.push({
-        id: 'P' + Date.now(),
+      const missingDocs = old.docs.filter(d => !d.submitted).map(d => d.name);
+      const hasMissing = missingDocs.length > 0;
+
+      const newPhysical: PhysicalCheck = {
+        id: genId('P'),
         registrationId: old.id,
         studentName: old.studentName,
         status: 'pending',
@@ -135,12 +236,44 @@ router.put('/registrations/:id/status', (req, res) => {
         examiner: '',
         examinerRole: 'fieldCoach',
         checkedAt: null,
-        responsibilityMark: 'none',
-      });
+        responsibilityMark: hasMissing ? 'registrar_issue' : 'none',
+        responsibilityNote: hasMissing
+          ? `报名资料有缺项（${missingDocs.join('、')}）仍流转体检，报名员责任。`
+          : undefined,
+        version: 1,
+        isLatest: true,
+      };
+      store.physicals.push(newPhysical);
+
+      addPhysicalHistory(
+        newPhysical,
+        'create',
+        'pending',
+        old.registrarName,
+        'registrar',
+        hasMissing
+          ? `报名资料完成，自动创建体检待办（缺项：${missingDocs.join('、')}，责任预警已同步）`
+          : '报名资料完成，自动创建体检待办'
+      );
+
+      if (hasMissing) {
+        const { warning } = createResponsibilityWarning(store.registrations[idx], {
+          triggerType: 'missing_docs',
+          mark: 'registrar_issue',
+          missingDocs,
+          description: `缺${missingDocs.length}项资料（${missingDocs.join('、')}）仍流转到体检环节，报名员确认学员后续补交。`,
+          syncedToException: true,
+        });
+        store.registrations[idx].responsibilityWarning = warning;
+        responsibilityInfo = { warning };
+      }
     }
   }
 
-  res.json(ok(store.registrations[idx], `状态已更新为：${status}`));
+  res.json(ok({
+    registration: store.registrations[idx],
+    responsibilityWarning: responsibilityInfo.warning,
+  }, `状态已更新为：${status}${responsibilityInfo.warning ? '，责任预警已同步到异常和体检侧' : ''}`));
 });
 
 router.get('/physicals', (req, res) => {
@@ -161,6 +294,20 @@ router.get('/physicals/:id', (req, res) => {
   res.json(ok(p));
 });
 
+router.get('/physicals/:id/history', (req, res) => {
+  const list = store.physicalHistories
+    .filter(h => h.physicalId === req.params.id)
+    .sort((a, b) => b.version - a.version);
+  res.json(ok(list));
+});
+
+router.get('/physicals/registration/:regId/history', (req, res) => {
+  const list = store.physicalHistories
+    .filter(h => h.registrationId === req.params.regId)
+    .sort((a, b) => b.operatedAt.localeCompare(a.operatedAt));
+  res.json(ok(list));
+});
+
 router.put('/physicals/:id', (req, res) => {
   const idx = store.physicals.findIndex(x => x.id === req.params.id);
   if (idx < 0) return res.status(404).json(fail('体检记录不存在'));
@@ -177,11 +324,38 @@ router.put('/physicals/:id/submit', (req, res) => {
   if (idx < 0) return res.status(404).json(fail('体检记录不存在'));
   const body = req.body as Partial<PhysicalCheck> & { examiner: string; examinerRole: Role };
   const old = store.physicals[idx];
-  store.physicals[idx] = {
+  const previousStatus = old.status;
+
+  const newVersion = old.version + 1;
+  const updated: PhysicalCheck = {
     ...old,
     ...body,
     checkedAt: now(),
+    version: newVersion,
+    isLatest: true,
   };
+  store.physicals[idx] = updated;
+
+  const action: PhysicalHistory['action'] =
+    body.status === 'review' ? 'review' :
+    body.status === 'recheck' ? 'recheck' :
+    'submit';
+
+  const summaries: Record<string, string> = {
+    passed: '体检完成，各项指标正常，通过',
+    failed: `体检未通过：${body.reviewNote || body.recheckNote || '存在不合格项'}`,
+    review: `提交安全员复核：${body.reviewNote || '存在临界项'}`,
+    recheck: `需重检：${body.recheckNote || '请按要求复诊'}`,
+  };
+
+  addPhysicalHistory(
+    updated,
+    action,
+    previousStatus,
+    body.examiner,
+    body.examinerRole,
+    summaries[body.status || 'passed'] || '体检结果已提交'
+  );
 
   if (body.status === 'review' || body.status === 'failed' || body.status === 'recheck') {
     const contentMap: Record<string, string> = {
@@ -190,7 +364,7 @@ router.put('/physicals/:id/submit', (req, res) => {
       recheck: `需重新检查：${body.recheckNote || '请按要求复诊'}`,
     };
     store.exceptions.push({
-      id: 'E' + Date.now(),
+      id: genId('E'),
       registrationId: old.registrationId,
       studentName: old.studentName,
       type: 'physical',
@@ -203,16 +377,39 @@ router.put('/physicals/:id/submit', (req, res) => {
     });
   }
 
-  res.json(ok(store.physicals[idx], '体检核验已提交'));
+  res.json(ok({
+    physical: updated,
+    historyCount: store.physicalHistories.filter(h => h.physicalId === old.id).length,
+  }, `体检核验已提交，已生成第 ${newVersion} 版历史记录`));
 });
 
 router.put('/physicals/:id/responsibility', (req, res) => {
   const idx = store.physicals.findIndex(x => x.id === req.params.id);
   if (idx < 0) return res.status(404).json(fail('体检记录不存在'));
-  const { mark, note } = req.body as { mark: ResponsibilityMark; note?: string };
+  const { mark, note, operator, operatorRole } = req.body as {
+    mark: ResponsibilityMark;
+    note?: string;
+    operator: string;
+    operatorRole: Role;
+  };
+  const old = store.physicals[idx];
+  const previousMark = old.responsibilityMark;
+
   store.physicals[idx].responsibilityMark = mark;
   store.physicals[idx].responsibilityNote = note;
-  res.json(ok(store.physicals[idx], '责任归属已标记'));
+
+  addPhysicalHistory(
+    { ...store.physicals[idx], version: old.version + 1 },
+    'update_responsibility',
+    old.status,
+    operator,
+    operatorRole,
+    `责任归属从「${previousMark}」更新为「${mark}」：${note || ''}`
+  );
+
+  store.physicals[idx].version = old.version + 1;
+
+  res.json(ok(store.physicals[idx], '责任归属已标记，已留痕到历史记录'));
 });
 
 router.get('/exceptions', (req, res) => {
@@ -252,13 +449,37 @@ router.get('/handover', (_req, res) => {
 
 router.post('/handover', (req, res) => {
   const body = req.body as Omit<HandoverLog, 'id' | 'createdAt'>;
+
+  const responsibilityList = store.registrations
+    .filter(r => r.responsibilityWarning?.triggered)
+    .map(r => ({
+      studentName: r.studentName,
+      registrationId: r.id,
+      mark: r.responsibilityWarning!.mark,
+      description: r.responsibilityWarning!.description,
+    }));
+
+  const physicalRespList = store.physicals
+    .filter(p => p.responsibilityMark !== 'none' && p.status !== 'pending')
+    .filter(p => !responsibilityList.some(r => r.registrationId === p.registrationId))
+    .map(p => ({
+      studentName: p.studentName,
+      registrationId: p.registrationId,
+      mark: p.responsibilityMark,
+      description: p.responsibilityNote || '体检环节责任标记',
+    }));
+
+  const allResp = [...responsibilityList, ...physicalRespList];
+
   const log: HandoverLog = {
     ...body,
-    id: 'H' + Date.now(),
+    responsibilityItems: allResp.length,
+    responsibilityDetails: allResp,
+    id: genId('H'),
     createdAt: now(),
   };
   store.handoverLogs.push(log);
-  res.json(ok(log, '交班记录已创建'));
+  res.json(ok(log, `交班记录已创建，共 ${allResp.length} 项责任预警已同步`));
 });
 
 router.get('/schedules', (_req, res) => {

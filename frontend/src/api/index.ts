@@ -4,6 +4,7 @@ import type {
   DashboardStats,
   Registration,
   PhysicalCheck,
+  PhysicalHistory,
   ExceptionRecord,
   HandoverLog,
   TrainingSchedule,
@@ -12,6 +13,7 @@ import type {
   RegistrationStatus,
   Role,
   ResponsibilityMark,
+  ResponsibilityWarning,
 } from 'shared';
 
 const api = axios.create({
@@ -67,7 +69,7 @@ export const updateRegistrationStatus = (
     supplementNote?: string;
     delayHours?: number;
   }
-) => unwrap<Registration>(api.put(`/registrations/${id}/status`, body));
+) => unwrap<{ registration: Registration; responsibilityWarning?: ResponsibilityWarning }>(api.put(`/registrations/${id}/status`, body));
 
 export const getPhysicals = (params?: { status?: string; registrationId?: string }) =>
   unwrap<PhysicalCheck[]>(api.get('/physicals', { params }));
@@ -75,17 +77,23 @@ export const getPhysicals = (params?: { status?: string; registrationId?: string
 export const getPhysical = (id: string) =>
   unwrap<PhysicalCheck>(api.get(`/physicals/${id}`));
 
+export const getPhysicalHistory = (id: string) =>
+  unwrap<PhysicalHistory[]>(api.get(`/physicals/${id}/history`));
+
+export const getPhysicalHistoryByReg = (regId: string) =>
+  unwrap<PhysicalHistory[]>(api.get(`/physicals/registration/${regId}/history`));
+
 export const updatePhysical = (id: string, patch: Partial<PhysicalCheck>) =>
   unwrap<PhysicalCheck>(api.put(`/physicals/${id}`, patch));
 
 export const submitPhysical = (
   id: string,
   body: Partial<PhysicalCheck> & { examiner: string; examinerRole: Role }
-) => unwrap<PhysicalCheck>(api.put(`/physicals/${id}/submit`, body));
+) => unwrap<{ physical: PhysicalCheck; historyCount: number }>(api.put(`/physicals/${id}/submit`, body));
 
 export const markResponsibility = (
   id: string,
-  body: { mark: ResponsibilityMark; note?: string }
+  body: { mark: ResponsibilityMark; note?: string; operator: string; operatorRole: Role }
 ) => unwrap<PhysicalCheck>(api.put(`/physicals/${id}/responsibility`, body));
 
 export const getExceptions = (params?: { resolved?: boolean; type?: string }) =>
