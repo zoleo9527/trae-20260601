@@ -144,6 +144,7 @@ def init_test_data():
             expected_complete_date=datetime.now() - timedelta(days=5),
             actual_complete_date=datetime.now() - timedelta(days=5),
             current_handler_id=clerk1.id,
+            status_changed_at=datetime.now() - timedelta(days=5),
         )
         material2 = ActivityMaterial(
             name="元宵节宣传单",
@@ -184,14 +185,18 @@ def init_test_data():
         material5 = ActivityMaterial(
             name="周末抽奖活动物料",
             code="MAT005",
-            description="周末抽奖活动相关物料",
+            description="周末抽奖活动物料",
             quantity=30,
             store_id=store1.id,
             status=MaterialStatus.PENDING,
             expected_complete_date=datetime.now() + timedelta(days=10),
+            status_changed_at=datetime.now(),
         )
 
         db.add_all([material1, material2, material3, material4, material5])
+        db.flush()
+        
+        material3.status_changed_at = datetime.now() - timedelta(days=6)
         db.commit()
 
         feedback1 = StoreFeedback(
@@ -205,6 +210,7 @@ def init_test_data():
             current_handler_id=manager1.id,
             resolution="已申请增加展示架，预计下周到货",
             resolved_at=datetime.now() - timedelta(days=2),
+            status_changed_at=datetime.now() - timedelta(days=2),
         )
         feedback2 = StoreFeedback(
             material_id=material3.id,
@@ -215,6 +221,8 @@ def init_test_data():
             status=FeedbackStatus.PROCESSING,
             priority=1,
             current_handler_id=clerk2.id,
+            stuck_reason="等待门店确认具体需求",
+            status_changed_at=datetime.now() - timedelta(days=5),
         )
         feedback3 = StoreFeedback(
             material_id=material4.id,
@@ -224,9 +232,13 @@ def init_test_data():
             feedback_type="问题",
             status=FeedbackStatus.PENDING,
             priority=2,
+            status_changed_at=datetime.now(),
         )
 
         db.add_all([feedback1, feedback2, feedback3])
+        db.flush()
+        
+        feedback2.status_changed_at = datetime.now() - timedelta(days=5)
         db.commit()
 
         record1 = ProcessingRecord(
@@ -302,7 +314,64 @@ def init_test_data():
             notes="物料损坏，等待补发",
         )
 
-        db.add_all([record1, record2, record3, record4, record5, record6, record7, record8, record9])
+        feedback_record1 = ProcessingRecord(
+            feedback_id=feedback1.id,
+            handler_id=clerk1.id,
+            from_status=None,
+            to_status=FeedbackStatus.PENDING.value,
+            action="提交反馈",
+            notes="海报展示位置问题",
+            created_at=datetime.now() - timedelta(days=4),
+        )
+        feedback_record2 = ProcessingRecord(
+            feedback_id=feedback1.id,
+            handler_id=clerk1.id,
+            from_status=FeedbackStatus.PENDING.value,
+            to_status=FeedbackStatus.PROCESSING.value,
+            action="开始处理",
+            notes="正在确认展示架位置",
+            created_at=datetime.now() - timedelta(days=3),
+        )
+        feedback_record3 = ProcessingRecord(
+            feedback_id=feedback1.id,
+            handler_id=manager1.id,
+            from_status=FeedbackStatus.PROCESSING.value,
+            to_status=FeedbackStatus.RESOLVED.value,
+            action="处理完成",
+            notes="已申请增加展示架，预计下周到货",
+            created_at=datetime.now() - timedelta(days=2),
+        )
+        feedback_record4 = ProcessingRecord(
+            feedback_id=feedback2.id,
+            handler_id=clerk2.id,
+            from_status=None,
+            to_status=FeedbackStatus.PENDING.value,
+            action="提交反馈",
+            notes="物料数量不足",
+            created_at=datetime.now() - timedelta(days=6),
+        )
+        feedback_record5 = ProcessingRecord(
+            feedback_id=feedback2.id,
+            handler_id=clerk2.id,
+            from_status=FeedbackStatus.PENDING.value,
+            to_status=FeedbackStatus.PROCESSING.value,
+            action="开始处理",
+            notes="正在与门店沟通确认需求",
+            created_at=datetime.now() - timedelta(days=5),
+        )
+        feedback_record6 = ProcessingRecord(
+            feedback_id=feedback3.id,
+            handler_id=clerk3.id,
+            from_status=None,
+            to_status=FeedbackStatus.PENDING.value,
+            action="提交反馈",
+            notes="展架安装困难",
+            created_at=datetime.now(),
+        )
+
+        db.add_all([record1, record2, record3, record4, record5, record6, record7, record8, record9,
+                     feedback_record1, feedback_record2, feedback_record3, feedback_record4,
+                     feedback_record5, feedback_record6])
         db.commit()
 
         alert1 = Alert(

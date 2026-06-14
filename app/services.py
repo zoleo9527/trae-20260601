@@ -30,6 +30,7 @@ class MaterialService:
     @staticmethod
     def create_material(db: Session, material: ActivityMaterialCreate) -> ActivityMaterial:
         db_material = ActivityMaterial(**material.model_dump())
+        db_material.status_changed_at = datetime.now()
         db.add(db_material)
         db.commit()
         db.refresh(db_material)
@@ -138,6 +139,7 @@ class FeedbackService:
     @staticmethod
     def create_feedback(db: Session, feedback: StoreFeedbackCreate) -> StoreFeedback:
         db_feedback = StoreFeedback(**feedback.model_dump())
+        db_feedback.status_changed_at = datetime.now()
         db.add(db_feedback)
         db.commit()
         db.refresh(db_feedback)
