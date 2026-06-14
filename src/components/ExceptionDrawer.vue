@@ -46,6 +46,18 @@
               {{ stageText(record?.currentStage || '') }}
             </span>
           </div>
+          <div class="info-row">
+            <span class="info-label">当前处理人</span>
+            <span class="info-value">{{ record?.currentHandlerName }}（{{ record?.currentHandler }}）</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">更新时间</span>
+            <span class="info-value">{{ record?.lastUpdatedAt }}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">摘要</span>
+            <span class="info-value summary-text">{{ record?.summary || '无摘要' }}</span>
+          </div>
         </div>
 
         <div class="section">

@@ -55,7 +55,9 @@
             <th>当前环节</th>
             <th>资料状态</th>
             <th>资料完成度</th>
-            <th>最后更新</th>
+            <th>处理人</th>
+            <th>更新时间</th>
+            <th>摘要</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -87,7 +89,9 @@
               </div>
               <span class="progress-text">{{ getProgress(record) }}%</span>
             </td>
+            <td>{{ record.currentHandlerName }}（{{ record.currentHandler }}）</td>
             <td>{{ record.lastUpdatedAt }}</td>
+            <td class="summary-cell">{{ record.summary || '无摘要' }}</td>
             <td>
               <button class="btn btn-sm btn-primary" @click="viewMaterials(record)">查看资料</button>
             </td>
@@ -132,6 +136,14 @@
           <div class="detail-row">
             <span class="detail-label">当前处理人：</span>
             <span>{{ selectedRecord?.currentHandlerName }}（{{ selectedRecord?.currentHandler }}）</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">更新时间：</span>
+            <span>{{ selectedRecord?.lastUpdatedAt }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">摘要：</span>
+            <span class="summary-text">{{ selectedRecord?.summary || '无摘要' }}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">备注：</span>

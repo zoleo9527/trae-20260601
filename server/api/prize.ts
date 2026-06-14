@@ -28,6 +28,7 @@ const prizeRecords: PrizeRecord[] = [
       { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
     ],
     remark: '顾客表示急需用钱，希望尽快处理',
+    summary: '店员张三已登记，等待审核',
     currentStage: 'registration'
   },
   {
@@ -56,6 +57,7 @@ const prizeRecords: PrizeRecord[] = [
       { type: '兑奖申请表', uploaded: true, uploadedBy: '赵六', uploadedAt: '2024-12-01 10:28:00' }
     ],
     remark: '',
+    summary: '店长王五审核中',
     currentStage: 'verification'
   },
   {
@@ -85,6 +87,7 @@ const prizeRecords: PrizeRecord[] = [
       { type: '兑奖申请表', uploaded: true, uploadedBy: '周九', uploadedAt: '2024-12-02 11:08:00' }
     ],
     remark: '彩票序列号存在疑问，需联系省中心核实',
+    summary: '片区管理员孙八标记异常',
     currentStage: 'exception'
   },
   {
@@ -115,6 +118,7 @@ const prizeRecords: PrizeRecord[] = [
       { type: '兑奖申请表', uploaded: true, uploadedBy: '郑十二', uploadedAt: '2024-12-02 08:38:00' }
     ],
     remark: '',
+    summary: '兑奖完成，奖金已发放',
     currentStage: 'completed'
   },
   {
@@ -142,6 +146,7 @@ const prizeRecords: PrizeRecord[] = [
       { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
     ],
     remark: '顾客身份证照片模糊，需要重新上传',
+    summary: '店员张三已登记，资料上传中',
     currentStage: 'registration'
   }
 ]
@@ -198,12 +203,30 @@ export default defineEventHandler(async (event) => {
     
     const newStage = getNextStage(prizeRecords[recordIndex].currentStage, status)
     
+    const statusLabels: Record<string, string> = {
+      pending: '待处理',
+      processing: '处理中',
+      completed: '已完成',
+      exception: '异常'
+    }
+    
+    const stageLabels: Record<ProcessStage, string> = {
+      registration: '登记',
+      verification: '审核',
+      payment: '打款',
+      completed: '完成',
+      exception: '异常'
+    }
+    
+    const summary = `${operatorRole}${operator}已${status === 'exception' ? '标记异常' : '处理'}，当前环节：${stageLabels[newStage]}，状态：${statusLabels[status]}`
+    
     prizeRecords[recordIndex].status = status
     prizeRecords[recordIndex].currentHandler = operatorRole
     prizeRecords[recordIndex].currentHandlerName = operator
     prizeRecords[recordIndex].lastUpdatedAt = now
     prizeRecords[recordIndex].currentStage = newStage
     prizeRecords[recordIndex].remark = remark !== undefined ? remark : ''
+    prizeRecords[recordIndex].summary = summary
     
     prizeRecords[recordIndex].statusChanges.push({
       status,
@@ -255,6 +278,7 @@ export default defineEventHandler(async (event) => {
         { type: '兑奖申请表', uploaded: false, uploadedBy: '', uploadedAt: '' }
       ],
       remark: '',
+      summary: `${body.operator || '系统'}已登记，等待处理`,
       currentStage: 'registration'
     }
     

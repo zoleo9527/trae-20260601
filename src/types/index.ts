@@ -42,6 +42,7 @@ export interface PrizeRecord {
   materialsStatus: 'uploading' | 'pending' | 'completed' | 'exception'
   materials: Material[]
   remark: string
+  summary: string
   currentStage: ProcessStage
 }
 

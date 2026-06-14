@@ -45,7 +45,8 @@
             <th>当前环节</th>
             <th>当前状态</th>
             <th>当前处理人</th>
-            <th>创建时间</th>
+            <th>更新时间</th>
+            <th>摘要</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -68,7 +69,8 @@
               </span>
             </td>
             <td>{{ record.currentHandlerName }}（{{ record.currentHandler }}）</td>
-            <td>{{ record.createdAt }}</td>
+            <td>{{ record.lastUpdatedAt }}</td>
+            <td class="summary-cell">{{ record.summary || '无摘要' }}</td>
             <td>
               <button class="btn btn-sm btn-primary" @click="viewRecord(record)">详情</button>
               <button 
@@ -124,6 +126,14 @@
           <div class="detail-row">
             <span class="detail-label">当前处理人：</span>
             <span>{{ selectedRecord?.currentHandlerName }}（{{ selectedRecord?.currentHandler }}）</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">更新时间：</span>
+            <span>{{ selectedRecord?.lastUpdatedAt }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">摘要：</span>
+            <span class="summary-text">{{ selectedRecord?.summary || '无摘要' }}</span>
           </div>
           <div class="detail-row">
             <span class="detail-label">备注：</span>

@@ -19,7 +19,8 @@
             <th>顾客</th>
             <th>当前环节</th>
             <th>当前处理人</th>
-            <th>异常时间</th>
+            <th>更新时间</th>
+            <th>摘要</th>
             <th>异常原因</th>
             <th>操作</th>
           </tr>
@@ -39,6 +40,7 @@
             </td>
             <td>{{ record.currentHandlerName }}（{{ record.currentHandler }}）</td>
             <td>{{ record.lastUpdatedAt }}</td>
+            <td class="summary-cell">{{ record.summary || '无摘要' }}</td>
             <td>
               <span class="exception-reason">{{ record.remark || '无备注' }}</span>
             </td>
