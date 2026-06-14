@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useWorkOrderStore } from '../../store/workOrderStore';
 import WorkOrderCard from './WorkOrderCard';
 import { Filter, AlertTriangle } from 'lucide-react';
@@ -19,13 +18,8 @@ export default function WorkOrderList() {
     getFilteredOrders,
     selectedOrderId,
     selectOrder,
-    loadOrders,
     orders,
   } = useWorkOrderStore();
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
 
   const filteredOrders = getFilteredOrders();
 

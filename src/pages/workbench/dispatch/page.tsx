@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useDispatchStore } from '../../../store/dispatchStore';
 import { useTechnicianStore } from '../../../store/technicianStore';
 import { useWorkOrderStore } from '../../../store/workOrderStore';
@@ -8,15 +7,9 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 
 export default function DispatchPage() {
-  const { loadDispatches, dispatches } = useDispatchStore();
-  const { loadTechnicians, technicians, selectTechnician, selectedTechnicianId } = useTechnicianStore();
-  const { loadOrders, orders } = useWorkOrderStore();
-
-  useEffect(() => {
-    loadDispatches();
-    loadTechnicians();
-    loadOrders();
-  }, [loadDispatches, loadTechnicians, loadOrders]);
+  const { dispatches } = useDispatchStore();
+  const { technicians, selectTechnician, selectedTechnicianId } = useTechnicianStore();
+  const { orders } = useWorkOrderStore();
 
   const stats = {
     total: dispatches.length,

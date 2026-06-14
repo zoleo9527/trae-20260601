@@ -243,8 +243,8 @@ export default function OrderDetail({ order }: OrderDetailProps) {
     });
 
     if (currentDispatch) {
-      const { updateDispatchStatus } = useDispatchStore.getState();
-      updateDispatchStatus(currentDispatch.id, 'completed');
+      const { completeDispatch } = useDispatchStore.getState();
+      completeDispatch(currentDispatch.id, 'success');
     }
 
     addLog(order.id, {

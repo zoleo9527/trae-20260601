@@ -6,8 +6,25 @@ import WorkbenchPage from './pages/workbench/page';
 import DispatchPage from './pages/workbench/dispatch/page';
 import ExceptionsPage from './pages/workbench/exceptions/page';
 import DashboardPage from './pages/workbench/dashboard/page';
+import { useEffect } from 'react';
+import { useWorkOrderStore } from './store/workOrderStore';
+import { useDispatchStore } from './store/dispatchStore';
+import { useTechnicianStore } from './store/technicianStore';
+import { useExceptionStore } from './store/exceptionStore';
 
 function App() {
+  const loadOrders = useWorkOrderStore((state) => state.loadOrders);
+  const loadDispatches = useDispatchStore((state) => state.loadDispatches);
+  const loadTechnicians = useTechnicianStore((state) => state.loadTechnicians);
+  const loadExceptions = useExceptionStore((state) => state.loadExceptions);
+
+  useEffect(() => {
+    loadOrders();
+    loadDispatches();
+    loadTechnicians();
+    loadExceptions();
+  }, [loadOrders, loadDispatches, loadTechnicians, loadExceptions]);
+
   return (
     <BrowserRouter>
       <div className="h-screen flex flex-col bg-[#1a1a2e]">

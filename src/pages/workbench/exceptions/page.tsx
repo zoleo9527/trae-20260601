@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useExceptionStore } from '../../../store/exceptionStore';
 import { useWorkOrderStore } from '../../../store/workOrderStore';
 import { useTechnicianStore } from '../../../store/technicianStore';
@@ -41,15 +41,10 @@ const statusColors = {
 };
 
 export default function ExceptionsPage() {
-  const { loadExceptions, exceptions, filterType, setFilterType } = useExceptionStore();
-  const { loadOrders, orders, selectOrder, getOrderById } = useWorkOrderStore();
-  const { loadTechnicians, getTechnicianById } = useTechnicianStore();
-
-  useEffect(() => {
-    loadExceptions();
-    loadOrders();
-    loadTechnicians();
-  }, [loadExceptions, loadOrders, loadTechnicians]);
+  const navigate = useNavigate();
+  const { exceptions, filterType, setFilterType } = useExceptionStore();
+  const { orders, selectOrder, getOrderById } = useWorkOrderStore();
+  const { getTechnicianById } = useTechnicianStore();
 
   const allExceptions = [
     ...exceptions,
@@ -74,6 +69,7 @@ export default function ExceptionsPage() {
 
   const handleExceptionClick = (exception: any) => {
     selectOrder(exception.workOrderId);
+    navigate('/workbench');
   };
 
   return (

@@ -1,8 +1,5 @@
 import { useEffect } from 'react';
 import { useWorkOrderStore } from '../../store/workOrderStore';
-import { useTechnicianStore } from '../../store/technicianStore';
-import { useDispatchStore } from '../../store/dispatchStore';
-import { useExceptionStore } from '../../store/exceptionStore';
 import WorkOrderList from '../../components/workbench/WorkOrderList';
 import RiskAlert from '../../components/workbench/RiskAlert';
 import RecentChanges from '../../components/workbench/RecentChanges';
@@ -10,21 +7,11 @@ import OrderDetail from '../../components/order/OrderDetail';
 import { AlertCircle } from 'lucide-react';
 
 export default function WorkbenchPage() {
-  const { selectedOrderId, getSelectedOrder, loadOrders, setFilters } = useWorkOrderStore();
-  const { loadTechnicians } = useTechnicianStore();
-  const { loadDispatches } = useDispatchStore();
-  const { loadExceptions } = useExceptionStore();
+  const { selectedOrderId, getSelectedOrder, setFilters } = useWorkOrderStore();
 
   useEffect(() => {
     setFilters({ status: 'pending' });
   }, [setFilters]);
-
-  useEffect(() => {
-    loadOrders();
-    loadTechnicians();
-    loadDispatches();
-    loadExceptions();
-  }, [loadOrders, loadTechnicians, loadDispatches, loadExceptions]);
 
   const selectedOrder = getSelectedOrder();
 
