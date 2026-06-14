@@ -183,7 +183,7 @@ export default function RepaymentPage() {
   };
 
   const handleExceptionAction = async () => {
-    if (!selectedException) return;
+    if (!selectedException || !selectedRepayment) return;
 
     try {
       const response = await fetch(
@@ -208,8 +208,14 @@ export default function RepaymentPage() {
         setHandleAction("REMIND");
         setHandleNote("");
         fetchRepayments();
-        if (selectedRepayment) {
-          await fetchOperationLogs(selectedRepayment.applicationId, getRepaymentLogFilter(selectedRepayment));
+
+        const repaymentResponse = await fetch(`/api/repayments?applicationId=${selectedRepayment.applicationId}`);
+        const allRepayments = await repaymentResponse.json();
+        const updatedRepayment = allRepayments.find((r: any) => r.id === selectedRepayment.id);
+        
+        if (updatedRepayment) {
+          setSelectedRepayment(updatedRepayment);
+          await fetchOperationLogs(updatedRepayment.applicationId, getRepaymentLogFilter(updatedRepayment));
         }
       }
     } catch (error) {
