@@ -98,9 +98,9 @@ const delegations = [
     abnormal_type: '超时',
     abnormal_reason: '超过预计完成时间15天',
     materials: [
-      { name: '委托书', type: '官方文书', required: 1, provided: 1 },
-      { name: '身份证明', type: '证件', required: 1, provided: 1 },
-      { name: '物证样本', type: '鉴定材料', required: 1, provided: 1 }
+      { name: '委托书', type: '官方文书', required: 1, provided: 1, verification_status: 'passed', verification_notes: '委托书完整，印章清晰', verified_by: 'appraiser01', verified_at: '2024-01-09 10:30:00' },
+      { name: '身份证明', type: '证件', required: 1, provided: 1, verification_status: 'passed', verification_notes: '身份证复印件清晰可辨', verified_by: 'appraiser01', verified_at: '2024-01-09 10:35:00' },
+      { name: '物证样本', type: '鉴定材料', required: 1, provided: 1, verification_status: 'passed', verification_notes: '物证样本包装完好，符合鉴定要求', verified_by: 'appraiser01', verified_at: '2024-01-09 10:40:00' }
     ]
   },
   {
@@ -170,10 +170,10 @@ const delegations = [
     created_by: 'acceptor01',
     is_abnormal: 0,
     materials: [
-      { name: '委托书', type: '官方文书', required: 1, provided: 1 },
-      { name: '身份证明', type: '证件', required: 1, provided: 1 },
-      { name: '遗嘱原件', type: '鉴定材料', required: 1, provided: 1 },
-      { name: '被继承人笔迹样本', type: '鉴定材料', required: 1, provided: 1 }
+      { name: '委托书', type: '官方文书', required: 1, provided: 1, verification_status: 'passed', verification_notes: '委托书格式规范，内容完整', verified_by: 'appraiser01', verified_at: '2024-01-04 09:00:00' },
+      { name: '身份证明', type: '证件', required: 1, provided: 1, verification_status: 'passed', verification_notes: '身份证明材料齐全', verified_by: 'appraiser01', verified_at: '2024-01-04 09:05:00' },
+      { name: '遗嘱原件', type: '鉴定材料', required: 1, provided: 1, verification_status: 'passed', verification_notes: '遗嘱原件保存完好，字迹清晰', verified_by: 'appraiser01', verified_at: '2024-01-04 09:10:00' },
+      { name: '被继承人笔迹样本', type: '鉴定材料', required: 1, provided: 1, verification_status: 'passed', verification_notes: '笔迹样本数量充足，符合比对要求', verified_by: 'appraiser01', verified_at: '2024-01-04 09:15:00' }
     ]
   },
   {
@@ -194,10 +194,10 @@ const delegations = [
     is_abnormal: 0,
     completion_date: '2024-01-18',
     materials: [
-      { name: '委托书', type: '官方文书', required: 1, provided: 1 },
-      { name: '身份证明', type: '证件', required: 1, provided: 1 },
-      { name: '病历资料', type: '医疗记录', required: 1, provided: 1 },
-      { name: '检查报告', type: '医疗记录', required: 1, provided: 1 }
+      { name: '委托书', type: '官方文书', required: 1, provided: 1, verification_status: 'passed', verification_notes: '委托书完整有效', verified_by: 'appraiser01', verified_at: '2023-12-21 14:00:00' },
+      { name: '身份证明', type: '证件', required: 1, provided: 1, verification_status: 'passed', verification_notes: '身份证明材料真实有效', verified_by: 'appraiser01', verified_at: '2023-12-21 14:05:00' },
+      { name: '病历资料', type: '医疗记录', required: 1, provided: 1, verification_status: 'passed', verification_notes: '病历资料完整，记录清晰', verified_by: 'appraiser01', verified_at: '2023-12-21 14:10:00' },
+      { name: '检查报告', type: '医疗记录', required: 1, provided: 1, verification_status: 'passed', verification_notes: '检查报告齐全，数据准确', verified_by: 'appraiser01', verified_at: '2023-12-21 14:15:00' }
     ]
   }
 ];
@@ -212,8 +212,8 @@ const insertDelegation = db.prepare(`
 `);
 
 const insertMaterial = db.prepare(`
-  INSERT INTO materials (delegation_id, material_name, material_type, is_required, is_provided)
-  VALUES (?, ?, ?, ?, ?)
+  INSERT INTO materials (delegation_id, material_name, material_type, is_required, is_provided, verification_status, verification_notes, verified_by, verified_at)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 const insertAuditLog = db.prepare(`
@@ -249,7 +249,17 @@ delegations.forEach((delegation, index) => {
   console.log(`✓ 创建委托单: ${delegation.delegation_number} (${delegation.status})`);
 
   delegation.materials.forEach(material => {
-    insertMaterial.run(delegationId, material.name, material.type, material.required, material.provided);
+    insertMaterial.run(
+      delegationId, 
+      material.name, 
+      material.type, 
+      material.required, 
+      material.provided,
+      material.verification_status || 'pending',
+      material.verification_notes || null,
+      material.verified_by || null,
+      material.verified_at || null
+    );
   });
 
   const logs = [
@@ -289,11 +299,45 @@ delegations.forEach((delegation, index) => {
       logs.push({
         action: 'VERIFY',
         from: 'MATERIAL_VERIFICATION',
-        to: 'VERIFICATION_PASSED',
+        to: 'MATERIAL_VERIFICATION',
         user: 'appraiser01',
         role: 'appraiser',
         name: '李鉴定',
-        remark: '材料核验通过'
+        remark: '核验材料：委托书 - 通过',
+        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed', notes: '材料完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:00:00' })
+      });
+
+      logs.push({
+        action: 'VERIFY',
+        from: 'MATERIAL_VERIFICATION',
+        to: 'MATERIAL_VERIFICATION',
+        user: 'appraiser01',
+        role: 'appraiser',
+        name: '李鉴定',
+        remark: '核验材料：身份证明 - 通过',
+        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed', notes: '身份证明真实有效', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:05:00' })
+      });
+
+      delegation.materials.slice(2).forEach((material, index) => {
+        if (material.verification_status === 'passed') {
+          logs.push({
+            action: 'VERIFY',
+            from: 'MATERIAL_VERIFICATION',
+            to: 'MATERIAL_VERIFICATION',
+            user: 'appraiser01',
+            role: 'appraiser',
+            name: '李鉴定',
+            remark: `核验材料：${material.name} - 通过`,
+            details: JSON.stringify({ 
+              materialId: index + 3, 
+              materialName: material.name, 
+              status: 'passed', 
+              notes: material.verification_notes, 
+              verifiedBy: 'appraiser01', 
+              verifiedAt: material.verified_at 
+            })
+          });
+        }
       });
     }
 
@@ -349,8 +393,8 @@ delegations.forEach((delegation, index) => {
         user: 'appraiser01',
         role: 'appraiser',
         name: '李鉴定',
-        remark: '核验材料：委托书',
-        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed' })
+        remark: '核验材料：委托书 - 通过',
+        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed', notes: '委托书完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:30:00' })
       });
 
       logs.push({
@@ -360,8 +404,8 @@ delegations.forEach((delegation, index) => {
         user: 'appraiser01',
         role: 'appraiser',
         name: '李鉴定',
-        remark: '核验材料：身份证明',
-        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed' })
+        remark: '核验材料：身份证明 - 通过',
+        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed', notes: '身份证复印件清晰可辨', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:35:00' })
       });
 
       logs.push({
@@ -371,8 +415,8 @@ delegations.forEach((delegation, index) => {
         user: 'appraiser01',
         role: 'appraiser',
         name: '李鉴定',
-        remark: '核验材料：物证样本',
-        details: JSON.stringify({ materialId: 3, materialName: '物证样本', status: 'passed' })
+        remark: '核验材料：物证样本 - 通过',
+        details: JSON.stringify({ materialId: 3, materialName: '物证样本', status: 'passed', notes: '物证样本包装完好，符合鉴定要求', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:40:00' })
       });
 
       logs.push({

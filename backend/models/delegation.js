@@ -343,6 +343,8 @@ export const materialService = {
       throw new Error('材料不存在');
     }
 
+    const verifiedAt = new Date().toISOString();
+
     const stmt = db.prepare(`
       UPDATE materials 
       SET verification_status = ?, verification_notes = ?, verified_by = ?, verified_at = ?, updated_at = ?
@@ -353,8 +355,8 @@ export const materialService = {
       verificationStatus,
       verificationNotes,
       operator.username,
-      new Date().toISOString(),
-      new Date().toISOString(),
+      verifiedAt,
+      verifiedAt,
       id
     );
 
@@ -363,14 +365,23 @@ export const materialService = {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
 
+    const details = {
+      materialId: id,
+      materialName: material.material_name,
+      status: verificationStatus,
+      notes: verificationNotes,
+      verifiedBy: operator.username,
+      verifiedAt: verifiedAt
+    };
+
     auditStmt.run(
       material.delegation_id,
       'VERIFY',
       operator.username,
       operator.role,
       operator.name,
-      `核验材料：${material.material_name}`,
-      JSON.stringify({ materialId: id, materialName: material.material_name, status: verificationStatus })
+      `核验材料：${material.material_name} - ${verificationStatus === 'passed' ? '通过' : '不通过'}`,
+      JSON.stringify(details)
     );
 
     return db.prepare('SELECT * FROM materials WHERE id = ?').get(id);

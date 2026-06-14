@@ -15,6 +15,10 @@ function DelegationDetail() {
   const [remarks, setRemarks] = useState('');
   const [showActionModal, setShowActionModal] = useState(false);
   const [actionType, setActionType] = useState('');
+  const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [materialVerificationStatus, setMaterialVerificationStatus] = useState('');
+  const [materialIdToVerify, setMaterialIdToVerify] = useState(null);
+  const [materialNotes, setMaterialNotes] = useState('');
 
   useEffect(() => {
     loadDelegation();
@@ -47,9 +51,18 @@ function DelegationDetail() {
   };
 
   const handleMaterialVerification = async (materialId, status) => {
+    setMaterialIdToVerify(materialId);
+    setMaterialVerificationStatus(status);
+    setMaterialNotes('');
+    setShowMaterialModal(true);
+  };
+
+  const submitMaterialVerification = async () => {
     try {
       setActionLoading(true);
-      await delegationService.updateMaterialVerification(id, materialId, status, '');
+      await delegationService.updateMaterialVerification(id, materialIdToVerify, materialVerificationStatus, materialNotes);
+      setShowMaterialModal(false);
+      setMaterialNotes('');
       await loadDelegation();
     } catch (error) {
       alert(error.message);
@@ -370,6 +383,49 @@ function DelegationDetail() {
                 disabled={actionLoading}
               >
                 {actionLoading ? '处理中...' : '确认'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showMaterialModal && (
+        <div className="modal-overlay" onClick={() => setShowMaterialModal(false)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>材料核验</h3>
+            </div>
+            <div className="modal-body">
+              <p>
+                核验结果：<strong style={{color: materialVerificationStatus === 'passed' ? '#52c41a' : '#ff4d4f'}}>
+                  {materialVerificationStatus === 'passed' ? '通过' : '不通过'}
+                </strong>
+              </p>
+              <div className="form-group">
+                <label>核验备注（必填）：</label>
+                <textarea
+                  value={materialNotes}
+                  onChange={(e) => setMaterialNotes(e.target.value)}
+                  placeholder="请输入核验备注，如：材料完整、清晰可辨、符合要求等"
+                  rows="4"
+                  required
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button
+                onClick={() => setShowMaterialModal(false)}
+                className="cancel-button"
+                disabled={actionLoading}
+              >
+                取消
+              </button>
+              <button
+                onClick={submitMaterialVerification}
+                className="confirm-button"
+                disabled={actionLoading || !materialNotes.trim()}
+              >
+                {actionLoading ? '处理中...' : '确认核验'}
               </button>
             </div>
           </div>
