@@ -9,9 +9,14 @@ const api = axios.create({
   }
 });
 
+const STORAGE_KEY = {
+  TOKEN: 'judicial_token',
+  USER: 'judicial_user'
+};
+
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem(STORAGE_KEY.TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -32,8 +37,8 @@ api.interceptors.response.use(
       console.error('API Error:', message);
       
       if (error.response.status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        localStorage.removeItem(STORAGE_KEY.TOKEN);
+        localStorage.removeItem(STORAGE_KEY.USER);
         window.location.href = '/login';
       }
       

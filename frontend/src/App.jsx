@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import LoginPage from './pages/Login/LoginPage.jsx';
@@ -8,10 +8,39 @@ import DelegationList from './pages/Delegation/DelegationList.jsx';
 import DelegationDetail from './pages/Delegation/DelegationDetail.jsx';
 import DelegationCreate from './pages/Delegation/DelegationCreate.jsx';
 import AuditLogs from './pages/Audit/AuditLogs.jsx';
+import { authService } from './services/authService.js';
 
 function PrivateRoute({ children }) {
-  const token = localStorage.getItem('token');
-  return token ? children : <Navigate to="/login" />;
+  const [isValidating, setIsValidating] = useState(true);
+  const [isValid, setIsValid] = useState(false);
+
+  useEffect(() => {
+    const validateToken = async () => {
+      const token = authService.getToken();
+      if (!token) {
+        setIsValid(false);
+        setIsValidating(false);
+        return;
+      }
+
+      try {
+        const isValidToken = await authService.verifyToken();
+        setIsValid(isValidToken);
+      } catch (error) {
+        setIsValid(false);
+      } finally {
+        setIsValidating(false);
+      }
+    };
+
+    validateToken();
+  }, []);
+
+  if (isValidating) {
+    return <div style={{display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh'}}>验证中...</div>;
+  }
+
+  return isValid ? children : <Navigate to="/login" />;
 }
 
 function App() {

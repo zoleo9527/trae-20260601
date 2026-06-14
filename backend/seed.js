@@ -323,13 +323,67 @@ delegations.forEach((delegation, index) => {
 
     if (delegation.status === 'ON_HOLD') {
       logs.push({
+        action: 'STATUS_CHANGE',
+        from: 'PENDING_ACCEPTANCE',
+        to: 'ACCEPTANCE_IN_PROGRESS',
+        user: 'acceptor01',
+        role: 'acceptor',
+        name: '张受理',
+        remark: '受理员接收委托'
+      });
+
+      logs.push({
+        action: 'STATUS_CHANGE',
+        from: 'ACCEPTANCE_IN_PROGRESS',
+        to: 'MATERIAL_VERIFICATION',
+        user: 'acceptor01',
+        role: 'acceptor',
+        name: '张受理',
+        remark: '提交材料核验'
+      });
+
+      logs.push({
+        action: 'VERIFY',
+        from: 'MATERIAL_VERIFICATION',
+        to: 'MATERIAL_VERIFICATION',
+        user: 'appraiser01',
+        role: 'appraiser',
+        name: '李鉴定',
+        remark: '核验材料：委托书',
+        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed' })
+      });
+
+      logs.push({
+        action: 'VERIFY',
+        from: 'MATERIAL_VERIFICATION',
+        to: 'MATERIAL_VERIFICATION',
+        user: 'appraiser01',
+        role: 'appraiser',
+        name: '李鉴定',
+        remark: '核验材料：身份证明',
+        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed' })
+      });
+
+      logs.push({
+        action: 'VERIFY',
+        from: 'MATERIAL_VERIFICATION',
+        to: 'MATERIAL_VERIFICATION',
+        user: 'appraiser01',
+        role: 'appraiser',
+        name: '李鉴定',
+        remark: '核验材料：物证样本',
+        details: JSON.stringify({ materialId: 3, materialName: '物证样本', status: 'passed' })
+      });
+
+      logs.push({
         action: 'ABNORMAL_FLAG',
         from: 'MATERIAL_VERIFICATION',
         to: 'ON_HOLD',
         user: 'appraiser01',
         role: 'appraiser',
         name: '李鉴定',
-        remark: delegation.abnormal_reason
+        remark: delegation.abnormal_reason,
+        details: JSON.stringify({ abnormalType: '超时', timeoutDays: 15 })
       });
     }
 

@@ -71,7 +71,7 @@ function DelegationDetail() {
           ] : [],
       'MATERIAL_VERIFICATION': user.role === 'appraiser' || user.role === 'admin'
         ? [
-            { action: 'VERIFICATION_PASSED', label: '核验通过' },
+            { action: 'QC_REVIEW_PENDING', label: '提交质控审核' },
             { action: 'VERIFICATION_FAILED', label: '核验不通过' },
             { action: 'MATERIAL_INCOMPLETE', label: '标记缺材料' }
           ] : [],
@@ -206,6 +206,31 @@ function DelegationDetail() {
                       {material.material_name}
                     </span>
                     <span className="material-type">{material.material_type}</span>
+                    {material.verification_status && material.verification_status !== 'pending' && (
+                      <div className="material-verification-detail">
+                        <span className="verification-result">
+                          核验结果：
+                          <span className={`verification-status ${material.verification_status}`}>
+                            {material.verification_status === 'passed' ? '通过' : '不通过'}
+                          </span>
+                        </span>
+                        {material.verified_by && (
+                          <span className="verification-info">
+                            核验人：{material.verified_by}
+                          </span>
+                        )}
+                        {material.verified_at && (
+                          <span className="verification-info">
+                            核验时间：{new Date(material.verified_at).toLocaleString('zh-CN')}
+                          </span>
+                        )}
+                        {material.verification_notes && (
+                          <span className="verification-notes">
+                            备注：{material.verification_notes}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="material-status">
                     <span className={`material-badge ${material.is_provided === 1 ? 'provided' : 'not-provided'}`}>
@@ -268,7 +293,14 @@ function DelegationDetail() {
                   <div className="timeline-marker"></div>
                   <div className="timeline-content">
                     <div className="timeline-header">
-                      <span className="timeline-action">{log.action_type}</span>
+                      <span className="timeline-action">
+                        {log.action_type === 'VERIFY' ? `材料核验 - ${log.details?.materialName || ''}` : log.action_type}
+                        {log.action_type === 'VERIFY' && log.details?.status && (
+                          <span className={`verification-badge ${log.details.status}`}>
+                            {log.details.status === 'passed' ? '通过' : '不通过'}
+                          </span>
+                        )}
+                      </span>
                       <span className="timeline-time">
                         {new Date(log.operate_time).toLocaleString('zh-CN')}
                       </span>
@@ -278,6 +310,20 @@ function DelegationDetail() {
                         {log.operator_name} ({getRoleLabel(log.operator_role)})
                       </span>
                       {log.remarks && <span className="timeline-remarks">{log.remarks}</span>}
+                      {log.action_type === 'VERIFY' && log.details?.status && (
+                        <div className="timeline-verification-details">
+                          <span className="verification-detail-item">
+                            核验结果：<strong className={log.details.status === 'passed' ? 'text-success' : 'text-error'}>
+                              {log.details.status === 'passed' ? '通过' : '不通过'}
+                            </strong>
+                          </span>
+                          {log.details.notes && (
+                            <span className="verification-detail-item">
+                              核验备注：{log.details.notes}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                     {log.previous_status && log.new_status && (
                       <div className="timeline-status-change">
