@@ -1,5 +1,8 @@
 import { db } from './db';
-import { AuthTokenPayload, CarSource, CarStatus, OperationLog, OperationType, UserRole, CAR_STATUS_LABEL } from './types';
+import {
+  AuthTokenPayload, CarSource, CarStatus, OperationLog, OperationLogWithContext,
+  OperationType, UserRole, CAR_STATUS_LABEL, ApprovalStage
+} from './types';
 
 export interface ServiceResult<T> {
   ok: boolean;
@@ -376,3 +379,102 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   appraiser: '评估师',
   finance: '金融专员'
 };
+
+export const APPROVAL_STAGE_LABEL: Record<ApprovalStage, string> = {
+  manager: '收车经理阶段',
+  appraiser: '评估师阶段',
+  finance: '金融审批阶段',
+  done: '已完成',
+  terminal: '已终止'
+};
+
+function statusToStage(status: CarStatus): ApprovalStage {
+  switch (status) {
+    case 'draft':
+    case 'manager_pending': return 'manager';
+    case 'appraiser_pending': return 'appraiser';
+    case 'finance_pending': return 'finance';
+    case 'approved': return 'done';
+    case 'rejected':
+    case 'cancelled': return 'terminal';
+  }
+}
+
+function getCarHandoverContext(carId: string): {
+  car: CarSource | undefined;
+  carNo: string;
+  handlerName: string;
+  handlerRole?: UserRole;
+  latestHandledAt: string;
+  keyRemarksSummary: string;
+  stage: ApprovalStage;
+} {
+  const car = db.findCarById(carId);
+  const carLogs = car ? db.listLogsByCar(carId) : [];
+  const handlerUser = car?.currentHandlerId ? db.findUserById(car.currentHandlerId) : undefined;
+  const latestLog = carLogs.length > 0 ? carLogs[carLogs.length - 1] : null;
+
+  const keyRemarks = carLogs
+    .filter(l => l.remark && l.remark.trim() &&
+      ['submit', 'manager_approve', 'manager_reject', 'appraiser_submit', 'appraiser_reject',
+       'finance_approve', 'finance_reject', 'cancel', 'add_comment'].includes(l.operationType))
+    .map(l => `${l.operatorName}: ${l.remark}`)
+    .slice(-3)
+    .join('；') || '-';
+
+  return {
+    car,
+    carNo: car?.carNo || carId.slice(0, 8),
+    handlerName: handlerUser?.name || (
+      car?.currentStatus === 'approved' ? '已审批通过' :
+      car?.currentStatus === 'rejected' ? '已驳回' :
+      car?.currentStatus === 'cancelled' ? '已取消' : '-'
+    ),
+    handlerRole: handlerUser?.role,
+    latestHandledAt: latestLog?.createdAt || car?.updatedAt || '-',
+    keyRemarksSummary: keyRemarks,
+    stage: car ? statusToStage(car.currentStatus) : 'terminal'
+  };
+}
+
+export function listLogsWithContext(
+  _user: AuthTokenPayload,
+  query?: {
+    from?: string; to?: string;
+    operationType?: OperationType[]; operatorId?: string;
+    handlerRole?: UserRole[]; stage?: ApprovalStage[];
+  }
+): ServiceResult<OperationLogWithContext[]> {
+  const logs = db.listAllLogs({
+    from: query?.from, to: query?.to,
+    operationType: query?.operationType, operatorId: query?.operatorId
+  });
+
+  const carCtxCache = new Map<string, ReturnType<typeof getCarHandoverContext>>();
+  function ctxOf(carId: string) {
+    if (!carCtxCache.has(carId)) carCtxCache.set(carId, getCarHandoverContext(carId));
+    return carCtxCache.get(carId)!;
+  }
+
+  let enriched: OperationLogWithContext[] = logs.map(log => {
+    const ctx = ctxOf(log.carId);
+    return {
+      ...log,
+      carNo: ctx.carNo,
+      currentHandlerName: ctx.handlerName,
+      currentHandlerRole: ctx.handlerRole,
+      latestHandledAt: ctx.latestHandledAt,
+      keyRemarksSummary: ctx.keyRemarksSummary,
+      approvalStage: ctx.stage
+    };
+  });
+
+  if (query?.handlerRole?.length) {
+    enriched = enriched.filter(l => l.currentHandlerRole && query.handlerRole!.includes(l.currentHandlerRole));
+  }
+  if (query?.stage?.length) {
+    enriched = enriched.filter(l => l.approvalStage && query.stage!.includes(l.approvalStage));
+  }
+
+  return { ok: true, data: enriched };
+}

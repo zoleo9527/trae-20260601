@@ -102,12 +102,14 @@ export const carApi = {
   async meta(): Promise<any> {
     return handleResp(await fetch('/api/meta/constants', { headers: getHeaders() }));
   },
-  async logs(params?: { from?: string; to?: string; operationType?: string; operatorId?: string }): Promise<OperationLog[]> {
+  async logs(params?: { from?: string; to?: string; operationType?: string; operatorId?: string; handlerRole?: string; stage?: string }): Promise<OperationLog[]> {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
     if (params?.operationType) q.set('operationType', params.operationType);
     if (params?.operatorId) q.set('operatorId', params.operatorId);
+    if (params?.handlerRole) q.set('handlerRole', params.handlerRole);
+    if (params?.stage) q.set('stage', params.stage);
     return handleResp(await fetch('/api/logs?' + q.toString(), { headers: getHeaders() }));
   },
   async downloadExport(id: string): Promise<void> {
@@ -122,12 +124,14 @@ export const carApi = {
     const filename = extractFilename(resp) || `审批单_${id}.txt`;
     triggerDownload(blob, filename);
   },
-  async downloadLogs(params?: { from?: string; to?: string; operatorId?: string; operationType?: string }): Promise<void> {
+  async downloadLogs(params?: { from?: string; to?: string; operatorId?: string; operationType?: string; handlerRole?: string; stage?: string }): Promise<void> {
     const q = new URLSearchParams();
     if (params?.from) q.set('from', params.from);
     if (params?.to) q.set('to', params.to);
     if (params?.operatorId) q.set('operatorId', params.operatorId);
     if (params?.operationType) q.set('operationType', params.operationType);
+    if (params?.handlerRole) q.set('handlerRole', params.handlerRole);
+    if (params?.stage) q.set('stage', params.stage);
     const resp = await fetch('/api/logs/export?' + q.toString(), { headers: getHeaders() });
     if (resp.status === 401) {
       authApi.logout();

@@ -5,7 +5,8 @@ import {
   createCarSource, submitToManager, managerApprove, managerReject,
   appraiserSubmit, appraiserReject, financeApprove, financeReject,
   cancelCarSource, addComment, getCarDetail, listCarsForUser,
-  exportApprovalSheet, exportOperationLogs, OPERATION_LABEL, ROLE_LABEL
+  exportApprovalSheet, exportOperationLogs, listLogsWithContext,
+  OPERATION_LABEL, ROLE_LABEL, APPROVAL_STAGE_LABEL
 } from './services';
 import { CAR_STATUS_LABEL } from './types';
 
@@ -31,6 +32,7 @@ router.get('/meta/constants', authMiddleware, (_req: Request, res: Response) => 
       carStatus: CAR_STATUS_LABEL,
       operationTypes: OPERATION_LABEL,
       roles: ROLE_LABEL,
+      approvalStages: APPROVAL_STAGE_LABEL,
       users: db.listUsersByRole()
     }
   });
@@ -138,7 +140,10 @@ router.get('/logs', authMiddleware, (req: Request, res: Response) => {
   const to = req.query.to ? String(req.query.to) : undefined;
   const operationType = req.query.operationType ? String(req.query.operationType).split(',').map(s => s.trim()) as any : undefined;
   const operatorId = req.query.operatorId ? String(req.query.operatorId) : undefined;
-  res.json({ code: 0, data: db.listAllLogs({ from, to, operationType, operatorId }) });
+  const handlerRole = req.query.handlerRole ? String(req.query.handlerRole).split(',').map(s => s.trim()) as any : undefined;
+  const stage = req.query.stage ? String(req.query.stage).split(',').map(s => s.trim()) as any : undefined;
+  const result = listLogsWithContext(req.user!, { from, to, operationType, operatorId, handlerRole, stage });
+  res.json({ code: 0, data: result.data });
 });
 
 export default router;

@@ -54,6 +54,8 @@ export type OperationType =
   | 'update_info'
   | 'add_comment';
 
+export type ApprovalStage = 'manager' | 'appraiser' | 'finance' | 'done' | 'terminal';
+
 export interface OperationLog {
   id: string;
   carId: string;
@@ -66,6 +68,15 @@ export interface OperationLog {
   price?: number;
   remark?: string;
   createdAt: string;
+}
+
+export interface OperationLogWithContext extends OperationLog {
+  carNo?: string;
+  currentHandlerName?: string;
+  currentHandlerRole?: UserRole;
+  latestHandledAt?: string;
+  keyRemarksSummary?: string;
+  approvalStage?: ApprovalStage;
 }
 
 export interface AuthTokenPayload {
@@ -104,4 +115,12 @@ export const OPERATION_LABEL: Record<OperationType, string> = {
   cancel: '取消车源',
   update_info: '更新信息',
   add_comment: '添加备注'
+};
+
+export const APPROVAL_STAGE_LABEL: Record<ApprovalStage, string> = {
+  manager: '收车经理阶段',
+  appraiser: '评估师阶段',
+  finance: '金融审批阶段',
+  done: '已完成',
+  terminal: '已终止'
 };
