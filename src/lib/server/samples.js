@@ -47,7 +47,7 @@ export function getSampleById(id) {
 
   return {
     ...sample,
-    flows: getSampleFlows(id)
+    flows: getSampleFlowsDetailed(id)
   };
 }
 

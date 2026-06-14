@@ -201,6 +201,10 @@ function migrateExistingData() {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))
   `);
 
+  const updateFlowOperator = db.prepare(`
+    UPDATE sample_flows SET operator_id = ?, operator_name = ? WHERE id = ?
+  `);
+
   const insertDoc = db.prepare(`
     INSERT INTO opinion_documents (id, sample_id, version_number, document_title, document_content, status, created_by, created_by_name, created_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?))
@@ -220,15 +224,34 @@ function migrateExistingData() {
     UPDATE samples SET assigned_appraiser_id = ?, accepted_by = ?, accepted_at = datetime('now', '-1 day'), updated_at = CURRENT_TIMESTAMP WHERE id = ?
   `);
 
+  const fixExistingFlows = () => {
+    const flows = db.prepare('SELECT * FROM sample_flows').all();
+    for (const flow of flows) {
+      if (flow.action_type === 'receive' || flow.action_type === 'receive_sample') {
+        updateFlowOperator.run(acceptor.id, acceptor.real_name, flow.id);
+      } else if (flow.action_type === 'process') {
+        const sample = db.prepare('SELECT assigned_appraiser_id FROM samples WHERE id = ?').get(flow.sample_id);
+        if (sample?.assigned_appraiser_id) {
+          const appraiser = appraisers.find(a => a.id === sample.assigned_appraiser_id);
+          if (appraiser) {
+            updateFlowOperator.run(appraiser.id, appraiser.real_name, flow.id);
+          }
+        }
+      }
+    }
+  };
+
+  fixExistingFlows();
+
   const sampleConfigs = {
     '2024FJ001': {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' },
-        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始检测分析' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id },
+        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始检测分析', operatorId: appraisers[0].id }
       ],
       needsDoc: true,
       doc: { title: '张某交通事故伤残鉴定意见书', content: '根据委托方提供的材料及本所检验结果，被鉴定人张某因交通事故导致左下肢骨折，构成九级伤残。建议给予相应的赔偿。', status: 'reviewing' },
@@ -238,7 +261,8 @@ function migrateExistingData() {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id }
       ],
       needsDoc: false,
       needsReminder: false
@@ -247,9 +271,9 @@ function migrateExistingData() {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id }
       ],
       needsDoc: false,
       needsReminder: true,
@@ -259,10 +283,10 @@ function migrateExistingData() {
       assignedAppraiserIndex: 1,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[1].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' },
-        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[1].real_name, remark: '开始文件分析' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[1].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id },
+        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[1].real_name, remark: '开始文件分析', operatorId: appraisers[1].id }
       ],
       needsDoc: true,
       doc: { title: '合同纠纷文件鉴定意见书', content: '经对委托方提供的合同文件进行专业鉴定分析，合同原件与复印件一致，签名系本人书写，不存在伪造痕迹。', status: 'reviewing' }
@@ -271,11 +295,11 @@ function migrateExistingData() {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' },
-        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始DNA检测' },
-        { from: 'processing', to: 'completed', action: 'complete', role: 'appraiser', name: appraisers[0].real_name, remark: '鉴定完成，出具意见书' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id },
+        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始DNA检测', operatorId: appraisers[0].id },
+        { from: 'processing', to: 'completed', action: 'complete', role: 'appraiser', name: appraisers[0].real_name, remark: '鉴定完成，出具意见书', operatorId: appraisers[0].id }
       ],
       needsDoc: false
     },
@@ -283,11 +307,11 @@ function migrateExistingData() {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' },
-        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始数据恢复' },
-        { from: 'processing', to: 'supplementary', action: 'supplementary', role: 'appraiser', name: appraisers[0].real_name, remark: '需要补充原始存储介质' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id },
+        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始数据恢复', operatorId: appraisers[0].id },
+        { from: 'processing', to: 'supplementary', action: 'supplementary', role: 'appraiser', name: appraisers[0].real_name, remark: '需要补充原始存储介质', operatorId: appraisers[0].id }
       ],
       needsDoc: false,
       needsReminder: true,
@@ -297,7 +321,8 @@ function migrateExistingData() {
       assignedAppraiserIndex: 1,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[1].real_name}`, operatorId: acceptor.id }
       ],
       needsDoc: false
     },
@@ -305,10 +330,10 @@ function migrateExistingData() {
       assignedAppraiserIndex: 0,
       needsFlows: true,
       flows: [
-        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记' },
-        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}` },
-        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收' },
-        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始临床检查' }
+        { from: 'pending', to: 'pending', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '创建样本登记', operatorId: acceptor.id },
+        { from: 'pending', to: 'pending', action: 'assign', role: 'acceptor', name: acceptor.real_name, remark: `分配给 ${appraisers[0].real_name}`, operatorId: acceptor.id },
+        { from: 'pending', to: 'received', action: 'receive', role: 'acceptor', name: acceptor.real_name, remark: '样本已接收', operatorId: acceptor.id },
+        { from: 'received', to: 'processing', action: 'process', role: 'appraiser', name: appraisers[0].real_name, remark: '开始临床检查', operatorId: appraisers[0].id }
       ],
       needsDoc: true,
       doc: { title: '马某法医临床鉴定意见书', content: '根据对被鉴定人马某的临床检验结果，被鉴定人右眼视力下降与外伤存在因果关系，建议继续康复治疗。', status: 'reviewing' },
@@ -333,7 +358,7 @@ function migrateExistingData() {
           flow.from,
           flow.to,
           flow.action,
-          acceptor.id,
+          flow.operatorId,
           flow.name,
           flow.role,
           flow.remark,
