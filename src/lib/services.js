@@ -350,3 +350,50 @@ export function getTimelineForOrder(orderId) {
   }));
   return [...transitions, ...notifications].sort((a, b) => new Date(a.time) - new Date(b.time));
 }
+
+export function getLastAbnormalForOrder(orderId) {
+  const transitions = getTransitionsByOrderId(orderId);
+  const abnormalList = transitions.filter(t => t.is_abnormal === 1);
+  if (abnormalList.length === 0) return null;
+  const last = abnormalList[abnormalList.length - 1];
+  const normalAfterAbnormal = transitions.filter(t => new Date(t.created_at) > new Date(last.created_at) && t.is_abnormal !== 1);
+  if (normalAfterAbnormal.length > 0) return null;
+  return {
+    abnormal_type: last.abnormal_type,
+    abnormal_label: last.abnormal_label,
+    abnormal_severity: last.abnormal_severity,
+    alert_message: last.alert_message,
+    returned_from_role: last.actor_role,
+    returned_from_name: last.actor_name,
+    returned_from_status: last.from_status,
+    returned_to_status: last.to_status,
+    action_type: last.action_type,
+    notes: last.notes,
+    created_at: last.created_at
+  };
+}
+
+export function enrichOrdersWithAbnormal(orders) {
+  return orders.map(o => ({
+    ...o,
+    last_abnormal: getLastAbnormalForOrder(o.id)
+  }));
+}
+
+export function getAbnormalOrders(role = null) {
+  const all = getAllOrders();
+  const enriched = enrichOrdersWithAbnormal(all).filter(o => o.last_abnormal);
+  if (!role) return enriched;
+  const { STATUS } = require ? require('./constants.js') : {};
+  return enriched.filter(o => {
+    const statusMap = {
+      OVERDUE_PENDING: 'APPRAISER',
+      OVERDUE_CONFIRMED: 'STORAGE',
+      STORAGE_CHECKED: 'FINANCE',
+      FINANCIAL_SETTLED: 'APPRAISER',
+      CUSTOMER_NOTIFIED: 'APPRAISER',
+      DISPOSAL_PENDING: 'FINANCE'
+    };
+    return statusMap[o.current_status] === role;
+  });
+}

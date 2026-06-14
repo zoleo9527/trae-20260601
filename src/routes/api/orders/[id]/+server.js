@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { getOrderById, getTransitionsByOrderId, getNotificationsByOrderId, getAttachmentsByOrderId, getTimelineForOrder } from '$lib/services.js';
+import { getOrderById, getTransitionsByOrderId, getNotificationsByOrderId, getAttachmentsByOrderId, getTimelineForOrder, getLastAbnormalForOrder } from '$lib/services.js';
 
 export async function GET({ params }) {
   const id = parseInt(params.id);
@@ -11,6 +11,7 @@ export async function GET({ params }) {
     transitions: getTransitionsByOrderId(id),
     notifications: getNotificationsByOrderId(id),
     attachments: getAttachmentsByOrderId(id),
-    timeline: getTimelineForOrder(id)
+    timeline: getTimelineForOrder(id),
+    last_abnormal: getLastAbnormalForOrder(id)
   });
 }

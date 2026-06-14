@@ -427,6 +427,66 @@
       </div>
 
       <div class="space-y-6">
+        {#if data.last_abnormal}
+          <div class="card border-2 border-rose-200 bg-rose-50/30">
+            <div class="p-5 border-b border-rose-100">
+              <h2 class="font-bold text-rose-700">🚨 异常摘要</h2>
+              <p class="text-xs text-slate-500 mt-1">该单存在未处理的异常退回，请优先处理</p>
+            </div>
+            <div class="p-5 space-y-3 text-sm">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="status-pill {data.last_abnormal.abnormal_severity === 'critical' ? 'bg-rose-700' : data.last_abnormal.abnormal_severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}">
+                  {data.last_abnormal.abnormal_label}
+                </span>
+                <span class="text-xs text-slate-500">
+                  {data.last_abnormal.abnormal_severity === 'critical' ? '🔴 严重级' : data.last_abnormal.abnormal_severity === 'high' ? '🟠 高级' : '🟡 中级'}
+                </span>
+              </div>
+              {#if data.last_abnormal.alert_message}
+                <div class="p-3 bg-rose-50 rounded-lg border border-rose-100 text-xs text-rose-700">
+                  <span class="font-semibold">⚠️ 异常提醒：</span>
+                  {data.last_abnormal.alert_message}
+                </div>
+              {/if}
+              <div class="grid grid-cols-2 gap-3 text-xs">
+                <div>
+                  <div class="text-slate-400 mb-1">退回来源</div>
+                  <div class="font-medium text-slate-700">
+                    <span class="role-badge text-xs" style="background: {ROLES[data.last_abnormal.returned_from_role]?.color}">
+                      {ROLES[data.last_abnormal.returned_from_role]?.name}
+                    </span>
+                    <span class="ml-1">{data.last_abnormal.returned_from_name}</span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-slate-400 mb-1">待重办角色</div>
+                  <div class="font-medium text-slate-700">
+                    <span class="role-badge text-xs" style="background: {ROLES[STATUS[data.order.current_status]?.role]?.color || '#64748b'}">
+                      {ROLES[STATUS[data.order.current_status]?.role]?.name || '相关角色'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <div class="text-slate-400 mb-1">退回自状态</div>
+                  <div class="font-medium text-slate-700">{STATUS[data.last_abnormal.returned_from_status]?.label}</div>
+                </div>
+                <div>
+                  <div class="text-slate-400 mb-1">退回时间</div>
+                  <div class="font-medium text-slate-700">{data.last_abnormal.created_at}</div>
+                </div>
+              </div>
+              {#if data.last_abnormal.notes}
+                <div>
+                  <div class="text-xs text-slate-400 mb-1">退回详情说明</div>
+                  <div class="p-3 bg-white rounded-lg border border-rose-100 text-xs text-slate-700 whitespace-pre-wrap">
+                    {data.last_abnormal.notes}
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
         <div class="card">
           <div class="p-5 border-b border-slate-100">
             <h2 class="font-bold text-slate-800">📣 客户通知记录</h2>

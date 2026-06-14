@@ -26,6 +26,8 @@
 
   $: pendingForMe = orders.filter(o => rolePendingStatus[role]?.includes(o.current_status));
   $: activeOrders = orders.filter(o => !['CLOSED', 'NORMAL'].includes(o.current_status));
+  $: abnormalForMe = orders.filter(o => o.last_abnormal && rolePendingStatus[role]?.includes(o.current_status));
+  $: allAbnormal = orders.filter(o => o.last_abnormal);
 
   function overdueDays(dueDate) {
     const now = new Date();
@@ -69,19 +71,68 @@
           <div class="w-12 h-12 rounded-xl bg-amber-50 flex items-center justify-center text-2xl">🔄</div>
         </div>
       </div>
-      <div class="card p-5">
+      <div class="card p-5 cursor-pointer hover:shadow-md transition" on:click={() => document.location = '/orders?filter=abnormal'}>
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-xs text-slate-500 font-medium">异常/提醒</div>
-            <div class="text-3xl font-bold text-rose-600 mt-1">{stats.alerts}</div>
+            <div class="text-xs text-slate-500 font-medium">异常待办（退回给我）</div>
+            <div class="text-3xl font-bold text-rose-600 mt-1">{abnormalForMe.length}</div>
+            <div class="text-xs text-slate-400 mt-1">全部异常 {allAbnormal.length} 单</div>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-2xl">⚠️</div>
+          <div class="w-12 h-12 rounded-xl bg-rose-50 flex items-center justify-center text-2xl">🚨</div>
         </div>
       </div>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2">
+      <div class="lg:col-span-2 space-y-6">
+        {#if abnormalForMe.length > 0}
+          <div class="card border-2 border-rose-200 bg-rose-50/30">
+            <div class="flex items-center justify-between p-5 border-b border-rose-100">
+              <div>
+                <h2 class="font-bold text-rose-700">🚨 异常待办（退回给我）</h2>
+                <p class="text-xs text-slate-500 mt-1">共 {abnormalForMe.length} 单被退回，请优先处理</p>
+              </div>
+              <a href="/orders?filter=abnormal" class="text-sm text-rose-600 hover:underline font-medium">查看全部异常 →</a>
+            </div>
+            <div class="divide-y divide-rose-100">
+              {#each abnormalForMe as o}
+                <a href="/orders/{o.id}" class="block hover:bg-white transition p-5">
+                  <div class="flex items-start justify-between gap-4">
+                    <div class="flex-1 min-w-0">
+                      <div class="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span class="font-mono text-sm font-semibold text-slate-700">{o.order_no}</span>
+                        <span class="status-pill" style="background: {STATUS[o.current_status]?.color}">{STATUS[o.current_status]?.label}</span>
+                        {#if o.last_abnormal}
+                          <span class="status-pill {o.last_abnormal.abnormal_severity === 'critical' ? 'bg-rose-700' : o.last_abnormal.abnormal_severity === 'high' ? 'bg-red-500' : 'bg-amber-500'}">
+                            🚨 {o.last_abnormal.abnormal_label}
+                          </span>
+                        {/if}
+                      </div>
+                      <div class="text-sm text-slate-700 font-medium">{o.item_name} · {o.customer_name}</div>
+                      {#if o.last_abnormal}
+                        <div class="text-xs text-slate-500 mt-1">
+                          <span class="text-rose-600 font-medium">退回来源：</span>
+                          <span class="font-medium">{ROLES[o.last_abnormal.returned_from_role]?.name} · {o.last_abnormal.returned_from_name}</span>
+                          <span class="text-slate-400 mx-1">|</span>
+                          <span>退回时间：{o.last_abnormal.created_at}</span>
+                        </div>
+                        {#if o.last_abnormal.alert_message}
+                          <div class="text-xs text-rose-600 mt-1.5 bg-rose-50 rounded px-2 py-1 inline-block">⚠️ {o.last_abnormal.alert_message}</div>
+                        {/if}
+                      {/if}
+                    </div>
+                    <div class="shrink-0">
+                      <span class="role-badge" style="background: {ROLES[STATUS[o.current_status]?.role]?.color || '#64748b'}">
+                        待我重办
+                      </span>
+                    </div>
+                  </div>
+                </a>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         <div class="card">
           <div class="flex items-center justify-between p-5 border-b border-slate-100">
             <h2 class="font-bold text-slate-800">待我处理</h2>
@@ -102,6 +153,9 @@
                     <div class="flex items-center gap-2 mb-1.5">
                       <span class="font-mono text-sm font-semibold text-slate-700">{o.order_no}</span>
                       <span class="status-pill" style="background: {STATUS[o.current_status]?.color}">{STATUS[o.current_status]?.label}</span>
+                      {#if o.last_abnormal}
+                        <span class="status-pill bg-rose-500">🚨 退回重办</span>
+                      {/if}
                     </div>
                     <div class="text-sm text-slate-700 font-medium">{o.item_name} · {o.customer_name}</div>
                     <div class="text-xs text-slate-500 mt-1">当金 ¥{o.loan_amount.toLocaleString()} · 到期 {o.due_date} · 逾期 <span class="text-red-600 font-medium">{overdueDays(o.due_date)} 天</span></div>
