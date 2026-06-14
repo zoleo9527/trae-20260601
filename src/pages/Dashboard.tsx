@@ -29,7 +29,7 @@ export default function Dashboard() {
   const [plateFilter, setPlateFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [returnedOnly, setReturnedOnly] = useState(false)
-  const [batchFeedback, setBatchFeedback] = useState<{ count: number; result: string; remaining: number } | null>(null)
+  const [batchFeedback, setBatchFeedback] = useState<{ count: number; result: string; remaining: number; total: number } | null>(null)
 
   const setReviewResultWrapped = (v: 'pass' | 'return' | 'reject') => {
     setReviewResult(v)
@@ -134,7 +134,7 @@ export default function Dashboard() {
   }
 
   const handleBatchReview = async () => {
-    if (selectedIds.size === 0) return
+    if (visibleSelectedIds.size === 0) return
     if ((batchResultState === 'return' || batchResultState === 'reject') && !batchReason.trim()) {
       setBatchError(batchResultState === 'return' ? '批量退回原因不能为空，请说明退回原因' : '批量终止原因不能为空，请说明终止原因')
       return
@@ -142,8 +142,8 @@ export default function Dashboard() {
     setBatchError('')
     try {
       const resultLabel = batchResultState === 'pass' ? '通过' : batchResultState === 'return' ? '退回' : '终止'
-      const processedCount = selectedIds.size
-      await batchReview(Array.from(selectedIds), batchResultState, batchReason, `${currentRole}-1`)
+      const processedCount = visibleSelectedIds.size
+      await batchReview(Array.from(visibleSelectedIds), batchResultState, batchReason, `${currentRole}-1`)
       setSelectedIds(new Set())
       setBatchMode(false)
       setShowBatchPanel(false)
@@ -151,7 +151,13 @@ export default function Dashboard() {
       setBatchReason('')
       const freshData = await fetchRecords(currentRole)
       setRecords(freshData)
-      setBatchFeedback({ count: processedCount, result: resultLabel, remaining: freshData.length })
+      const freshFiltered = freshData.filter((r) => {
+        if (plateFilter.trim() && !r.plateNumber.toLowerCase().includes(plateFilter.trim().toLowerCase())) return false
+        if (returnedOnly && r.status !== 'returned') return false
+        if (statusFilter && r.status !== statusFilter) return false
+        return true
+      })
+      setBatchFeedback({ count: processedCount, result: resultLabel, remaining: freshFiltered.length, total: freshData.length })
       setTimeout(() => setBatchFeedback(null), 5000)
     } catch (err) {
       setBatchError(err instanceof Error ? err.message : '操作失败，请稍后重试')
@@ -187,6 +193,21 @@ export default function Dashboard() {
     }
     return result
   }, [records, plateFilter, returnedOnly, statusFilter])
+
+  const visibleSelectedIds = useMemo(() => {
+    const visible = new Set(filteredRecords.map((r) => r.id))
+    const result = new Set<string>()
+    for (const id of selectedIds) {
+      if (visible.has(id)) result.add(id)
+    }
+    return result
+  }, [selectedIds, filteredRecords])
+
+  useEffect(() => {
+    if (selectedIds.size === 0) return
+    if (visibleSelectedIds.size === selectedIds.size) return
+    setSelectedIds(visibleSelectedIds)
+  }, [visibleSelectedIds, selectedIds.size])
 
   if (!currentRole) return null
 
@@ -336,12 +357,19 @@ export default function Dashboard() {
                       <th className="w-12 px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedIds.size === filteredRecords.length && filteredRecords.length > 0}
+                          checked={visibleSelectedIds.size === filteredRecords.length && filteredRecords.length > 0}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate = visibleSelectedIds.size > 0 && visibleSelectedIds.size < filteredRecords.length
+                            }
+                          }}
                           onChange={() => {
-                            if (selectedIds.size === filteredRecords.length) {
+                            if (visibleSelectedIds.size === filteredRecords.length) {
                               setSelectedIds(new Set())
                             } else {
-                              setSelectedIds(new Set(filteredRecords.map((r) => r.id)))
+                              const next = new Set(selectedIds)
+                              for (const r of filteredRecords) next.add(r.id)
+                              setSelectedIds(next)
                             }
                           }}
                           className="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
@@ -441,10 +469,10 @@ export default function Dashboard() {
 
           {batchMode && currentRole === 'reviewer' && (
             <div className="mt-4 flex items-center gap-3">
-              <span className="text-sm text-slate-400">已选 {selectedIds.size} 条</span>
+              <span className="text-sm text-slate-400">已选 {visibleSelectedIds.size} 条</span>
               <button
                 onClick={() => setShowBatchPanel(true)}
-                disabled={selectedIds.size === 0}
+                disabled={visibleSelectedIds.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-500 text-white rounded-lg transition-colors"
               >
                 <Layers className="w-4 h-4" />
@@ -493,12 +521,14 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-lg bg-emerald-600/20 flex items-center justify-center flex-shrink-0">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
             </div>
-            <div>
+            <div className="flex-1">
               <div className="text-sm font-medium text-white">
                 批量{batchFeedback.result}完成
               </div>
-              <div className="text-xs text-slate-400 mt-0.5">
-                本次处理 {batchFeedback.count} 条记录，剩余待办 {batchFeedback.remaining} 条
+              <div className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                本次处理 {batchFeedback.count} 条记录
+                <br />
+                剩余待办：当前可见 {batchFeedback.remaining} 条 / 全部 {batchFeedback.total} 条
               </div>
             </div>
             <button
@@ -514,7 +544,7 @@ export default function Dashboard() {
       {showBatchPanel && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => { setShowBatchPanel(false); setBatchError('') }}>
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-bold text-white mb-4">批量审核 ({selectedIds.size} 条记录)</h3>
+            <h3 className="text-lg font-bold text-white mb-4">批量审核 ({visibleSelectedIds.size} 条记录)</h3>
             <div className="space-y-4">
               <div className="flex gap-2">
                 {(['pass', 'return', 'reject'] as const).map((opt) => (
