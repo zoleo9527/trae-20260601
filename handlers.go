@@ -366,6 +366,7 @@ func IssueSupplement(c *fiber.Ctx) error {
 		Deadline:      req.Deadline,
 		MissingItems:  req.MissingItems,
 		CarryOnRemark: carryRemark,
+		ExpertComment: req.ExpertComment,
 		IssuedBy:      op.ID,
 		Status:       "pending",
 	}

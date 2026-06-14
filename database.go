@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-	"os"
 )
 
 var DB *gorm.DB
 
 func InitDB() error {
 	dbPath := "./appraisal.db"
-	_ = os.Remove(dbPath)
 
 	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
@@ -31,7 +29,14 @@ func InitDB() error {
 	}
 
 	DB = db
-	seedData()
+
+	var userCount int64
+	DB.Model(&User{}).Count(&userCount)
+	if userCount == 0 {
+		seedData()
+	} else {
+		fmt.Printf("  > 数据库已存在 %d 个用户，跳过种子数据灌种，保留历史排期/补样/归档记录\n", userCount)
+	}
 	return nil
 }
 
