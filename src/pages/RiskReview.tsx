@@ -13,7 +13,7 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [form] = Form.useForm()
-  const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | 'supplement'>('approve')
+  const [reviewAction, setReviewAction] = useState<'approve' | 'reject' | 'supplement' | 'return'>('approve')
 
   const selectedApplication = applications.find(a => a.id === selectedApplicationId)
   const selectedRisk = selectedApplicationId ? riskData.find(r => r.applicationId === selectedApplicationId) : null
@@ -83,7 +83,7 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 250,
       render: (_: unknown, record: LoanApplication) => {
         if (record.status === 'pending' || record.status === 'under_review') {
           return (
@@ -93,6 +93,9 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
               </Button>
               <Button size="small" onClick={() => handleReview(record.id, 'supplement')}>
                 补材料
+              </Button>
+              <Button size="small" onClick={() => handleReview(record.id, 'return')}>
+                退回
               </Button>
               <Button size="small" danger onClick={() => handleReview(record.id, 'reject')}>
                 拒绝
@@ -105,7 +108,7 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
     },
   ]
 
-  const handleReview = (id: string, action: 'approve' | 'reject' | 'supplement') => {
+  const handleReview = (id: string, action: 'approve' | 'reject' | 'supplement' | 'return') => {
     setSelectedApplicationId(id)
     setReviewAction(action)
     setShowReviewModal(true)
@@ -118,13 +121,14 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
         approve: 'approved',
         reject: 'rejected',
         supplement: 'supplement',
+        return: 'returned',
       }
       if (selectedApplicationId) {
         onUpdateStatus(selectedApplicationId, statusMap[reviewAction], values.note)
         form.resetFields()
         setShowReviewModal(false)
         setSelectedApplicationId(null)
-        message.success(`已${reviewAction === 'approve' ? '通过' : reviewAction === 'reject' ? '拒绝' : '要求补材料'}`)
+        message.success(`已${reviewAction === 'approve' ? '通过' : reviewAction === 'reject' ? '拒绝' : reviewAction === 'return' ? '退回' : '要求补材料'}`)
       }
     } catch (error) {
       console.error('Validation failed:', error)
@@ -179,7 +183,7 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
       </Row>
 
       <Modal
-        title={`${reviewAction === 'approve' ? '通过审核' : reviewAction === 'reject' ? '拒绝申请' : '要求补材料'}`}
+        title={`${reviewAction === 'approve' ? '通过审核' : reviewAction === 'reject' ? '拒绝申请' : reviewAction === 'return' ? '退回申请' : '要求补材料'}`}
         visible={showReviewModal}
         onCancel={() => {
           setShowReviewModal(false)

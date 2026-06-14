@@ -85,13 +85,16 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, coll
     {
       title: '操作',
       key: 'action',
-      width: 160,
+      width: 220,
       render: (_: unknown, record: QuotaSuggestion) => {
-        if (record.status === 'under_review') {
+        if (record.status === 'under_review' || record.status === 'approved') {
           return (
             <Space>
-              <Button size="small" type="primary" onClick={() => handleApprove(record.id)}>
+              <Button size="small" type="primary" onClick={() => handleApprove(record.id)} disabled={record.status === 'approved'}>
                 批准
+              </Button>
+              <Button size="small" onClick={() => handleReturn(record.id)}>
+                退回
               </Button>
               <Button size="small" danger onClick={() => handleReject(record.id)}>
                 拒绝
@@ -109,10 +112,21 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, coll
     setShowApproveModal(true)
   }
 
+  const handleReturn = (id: string) => {
+    Modal.confirm({
+      title: '退回额度建议',
+      content: '确定要退回此额度建议吗？退回后可重新修改建议。',
+      onOk: () => {
+        onUpdateQuota(id, 'returned')
+        message.success('已退回')
+      },
+    })
+  }
+
   const handleReject = (id: string) => {
     Modal.confirm({
       title: '拒绝额度建议',
-      content: '确定要拒绝此额度建议吗？',
+      content: '确定要拒绝此额度建议吗？拒绝后申请将被标记为拒绝状态。',
       onOk: () => {
         onUpdateQuota(id, 'rejected')
         message.success('已拒绝')

@@ -33,8 +33,10 @@ export function useStore() {
         completed: '完成',
       }
       
+      const workflowId = `WF${Date.now()}`
+      
       const newWorkflow: WorkflowRecord = {
-        id: `WF${Date.now()}`,
+        id: workflowId,
         applicationId,
         action: actionMap[newStatus],
         operator: currentUser.name,
@@ -44,10 +46,42 @@ export function useStore() {
         statusAfter: newStatus,
       }
       setWorkflowRecords(prev => [newWorkflow, ...prev])
+
+      const relatedQuota = quotaSuggestions.find(q => q.applicationId === applicationId)
+      if (relatedQuota) {
+        const quotaStatusMap: Record<Status, Status> = {
+          pending: 'pending',
+          under_review: 'under_review',
+          approved: 'approved',
+          rejected: 'rejected',
+          returned: 'returned',
+          supplement: 'under_review',
+          urgent: 'urgent',
+          completed: 'completed',
+        }
+
+        const newQuotaStatus = quotaStatusMap[newStatus] || 'under_review'
+        
+        setQuotaSuggestions(prev => prev.map(q => 
+          q.id === relatedQuota.id ? { ...q, status: newQuotaStatus } : q
+        ))
+
+        const quotaWorkflow: WorkflowRecord = {
+          id: `${workflowId}-QUOTA`,
+          applicationId,
+          action: `${actionMap[newStatus]}（同步额度建议）`,
+          operator: currentUser.name,
+          operateTime: new Date().toLocaleString('zh-CN'),
+          note: `同步更新额度建议 ${relatedQuota.id} 状态为 ${newQuotaStatus}`,
+          statusBefore: relatedQuota.status,
+          statusAfter: newQuotaStatus,
+        }
+        setWorkflowRecords(prev => [quotaWorkflow, ...prev])
+      }
       
       addNotification(`申请 ${applicationId} 状态已更新为 ${newStatus}`)
     }
-  }, [applications, currentUser])
+  }, [applications, quotaSuggestions, currentUser])
 
   const addCollectionRecord = useCallback((record: Omit<CollectionRecord, 'id'>) => {
     const newRecord: CollectionRecord = {
