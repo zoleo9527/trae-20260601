@@ -24,6 +24,8 @@ export default function Dashboard() {
   const [showBatchPanel, setShowBatchPanel] = useState(false)
   const [batchResult, setBatchResult] = useState<'pass' | 'return' | 'reject'>('pass')
   const [batchReason, setBatchReason] = useState('')
+  const [formError, setFormError] = useState('')
+  const [batchError, setBatchError] = useState('')
 
   const loadRecords = useCallback(async () => {
     if (!currentRole) return
@@ -48,6 +50,11 @@ export default function Dashboard() {
 
   const handleReceive = async () => {
     if (!actionRecord) return
+    if (!receptionNotes.trim()) {
+      setFormError('接车备注不能为空，请填写接车时的情况说明')
+      return
+    }
+    setFormError('')
     await receiveRecord(actionRecord.id, receptionNotes, `${currentRole}-1`)
     setActionRecord(null)
     setReceptionNotes('')
@@ -56,6 +63,11 @@ export default function Dashboard() {
 
   const handleInspect = async () => {
     if (!actionRecord) return
+    if (!inspectionResult.trim()) {
+      setFormError('检测结果不能为空，请填写车辆检测结果')
+      return
+    }
+    setFormError('')
     await inspectRecord(actionRecord.id, inspectionResult, `${currentRole}-1`)
     setActionRecord(null)
     setInspectionResult('')
@@ -64,6 +76,11 @@ export default function Dashboard() {
 
   const handleReview = async () => {
     if (!actionRecord) return
+    if ((reviewResult === 'return' || reviewResult === 'reject') && !returnReason.trim()) {
+      setFormError(reviewResult === 'return' ? '退回原因不能为空，请说明退回原因' : '终止原因不能为空，请说明终止原因')
+      return
+    }
+    setFormError('')
     await reviewRecord(actionRecord.id, reviewResult, returnReason, `${currentRole}-1`)
     setActionRecord(null)
     setReviewResult('pass')
@@ -73,6 +90,11 @@ export default function Dashboard() {
 
   const handleSupplement = async () => {
     if (!actionRecord) return
+    if (!supplementaryNotes.trim()) {
+      setFormError('补充备注不能为空，请针对退回原因补充说明')
+      return
+    }
+    setFormError('')
     await supplementRecord(actionRecord.id, supplementaryNotes, `${currentRole}-1`)
     setActionRecord(null)
     setSupplementaryNotes('')
@@ -81,6 +103,11 @@ export default function Dashboard() {
 
   const handleBatchReview = async () => {
     if (selectedIds.size === 0) return
+    if ((batchResult === 'return' || batchResult === 'reject') && !batchReason.trim()) {
+      setBatchError(batchResult === 'return' ? '批量退回原因不能为空，请说明退回原因' : '批量终止原因不能为空，请说明终止原因')
+      return
+    }
+    setBatchError('')
     await batchReview(Array.from(selectedIds), batchResult, batchReason, `${currentRole}-1`)
     setSelectedIds(new Set())
     setBatchMode(false)
@@ -325,16 +352,17 @@ export default function Dashboard() {
           setReturnReason={setReturnReason}
           supplementaryNotes={supplementaryNotes}
           setSupplementaryNotes={setSupplementaryNotes}
+          formError={formError}
           onReceive={handleReceive}
           onInspect={handleInspect}
           onReview={handleReview}
           onSupplement={handleSupplement}
-          onClose={() => setActionRecord(null)}
+          onClose={() => { setActionRecord(null); setFormError('') }}
         />
       )}
 
       {showBatchPanel && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => setShowBatchPanel(false)}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center" onClick={() => { setShowBatchPanel(false); setBatchError('') }}>
           <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="text-lg font-bold text-white mb-4">批量审核 ({selectedIds.size} 条记录)</h3>
             <div className="space-y-4">
@@ -342,7 +370,7 @@ export default function Dashboard() {
                 {(['pass', 'return', 'reject'] as const).map((opt) => (
                   <button
                     key={opt}
-                    onClick={() => setBatchResult(opt)}
+                    onClick={() => { setBatchResult(opt); setBatchError('') }}
                     className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
                       batchResult === opt
                         ? opt === 'pass' ? 'bg-emerald-600 text-white' : opt === 'return' ? 'bg-orange-600 text-white' : 'bg-red-600 text-white'
@@ -354,16 +382,25 @@ export default function Dashboard() {
                 ))}
               </div>
               {(batchResult === 'return' || batchResult === 'reject') && (
-                <textarea
-                  value={batchReason}
-                  onChange={(e) => setBatchReason(e.target.value)}
-                  placeholder="请输入原因..."
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
-                  rows={3}
-                />
+                <div>
+                  <label className="block text-sm text-slate-400 mb-2">{batchResult === 'return' ? '退回原因' : '终止原因'}<span className="text-red-400 ml-0.5">*</span></label>
+                  <textarea
+                    value={batchReason}
+                    onChange={(e) => { setBatchReason(e.target.value); setBatchError('') }}
+                    placeholder={batchResult === 'return' ? '请说明退回原因，此原因将通知接车员...' : '请说明终止原因...'}
+                    className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${batchError ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-amber-500'}`}
+                    rows={3}
+                  />
+                </div>
+              )}
+              {batchError && (
+                <div className="flex items-center gap-2 text-red-400 text-sm">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  {batchError}
+                </div>
               )}
               <div className="flex gap-3 justify-end">
-                <button onClick={() => setShowBatchPanel(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-colors">取消</button>
+                <button onClick={() => { setShowBatchPanel(false); setBatchError('') }} className="px-4 py-2 text-sm text-slate-400 hover:text-white rounded-lg transition-colors">取消</button>
                 <button onClick={handleBatchReview} className="px-4 py-2 text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white rounded-lg transition-colors">确认</button>
               </div>
             </div>
@@ -461,6 +498,7 @@ interface ActionModalProps {
   setReturnReason: (v: string) => void
   supplementaryNotes: string
   setSupplementaryNotes: (v: string) => void
+  formError: string
   onReceive: () => void
   onInspect: () => void
   onReview: () => void
@@ -473,6 +511,7 @@ function ActionModal({
   inspectionResult, setInspectionResult,
   reviewResult, setReviewResult, returnReason, setReturnReason,
   supplementaryNotes, setSupplementaryNotes,
+  formError,
   onReceive, onInspect, onReview, onSupplement, onClose,
 }: ActionModalProps) {
   const isReturn = record.status === 'returned'
@@ -514,15 +553,38 @@ function ActionModal({
           </div>
         )}
 
+        {role === 'reviewer' && record.retryCount > 0 && record.returnReason && (
+          <div className="mb-4 p-3 bg-orange-950/50 border border-orange-800/50 rounded-lg">
+            <div className="flex items-center gap-2 text-orange-400 text-xs font-medium mb-1">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              上一轮退回原因
+            </div>
+            <p className="text-sm text-orange-300">{record.returnReason}</p>
+            {record.supplementaryNotes && (
+              <div className="mt-2 pt-2 border-t border-orange-800/30">
+                <div className="text-xs text-sky-400 font-medium mb-1">接车员补充备注</div>
+                <p className="text-sm text-sky-300">{record.supplementaryNotes}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {formError && (
+          <div className="mb-4 flex items-center gap-2 p-3 bg-red-950/50 border border-red-800/50 rounded-lg text-red-400 text-sm">
+            <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+            {formError}
+          </div>
+        )}
+
         {role === 'receptionist' && record.status === 'pending_reception' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">接车备注</label>
+              <label className="block text-sm text-slate-400 mb-2">接车备注<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={receptionNotes}
                 onChange={(e) => setReceptionNotes(e.target.value)}
                 placeholder="填写接车时的情况说明，此备注将传递给检测员和审核员..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none"
+                className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !receptionNotes.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
                 rows={4}
               />
             </div>
@@ -536,12 +598,12 @@ function ActionModal({
         {role === 'receptionist' && isReturn && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">补充备注</label>
+              <label className="block text-sm text-slate-400 mb-2">补充备注<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={supplementaryNotes}
                 onChange={(e) => setSupplementaryNotes(e.target.value)}
                 placeholder="针对退回原因补充说明，此备注将传递给检测员和审核员..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500 resize-none"
+                className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !supplementaryNotes.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
                 rows={4}
               />
             </div>
@@ -555,12 +617,12 @@ function ActionModal({
         {role === 'inspector' && (
           <div className="space-y-4">
             <div>
-              <label className="block text-sm text-slate-400 mb-2">检测结果</label>
+              <label className="block text-sm text-slate-400 mb-2">检测结果<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={inspectionResult}
                 onChange={(e) => setInspectionResult(e.target.value)}
                 placeholder="填写车辆检测结果..."
-                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-violet-500 resize-none"
+                className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !inspectionResult.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-violet-500'}`}
                 rows={4}
               />
             </div>
@@ -594,12 +656,12 @@ function ActionModal({
             </div>
             {(reviewResult === 'return' || reviewResult === 'reject') && (
               <div>
-                <label className="block text-sm text-slate-400 mb-2">{reviewResult === 'return' ? '退回原因' : '终止原因'}</label>
+                <label className="block text-sm text-slate-400 mb-2">{reviewResult === 'return' ? '退回原因' : '终止原因'}<span className="text-red-400 ml-0.5">*</span></label>
                 <textarea
                   value={returnReason}
                   onChange={(e) => setReturnReason(e.target.value)}
                   placeholder={reviewResult === 'return' ? '请说明退回原因，此原因将通知接车员...' : '请说明终止原因...'}
-                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 resize-none"
+                  className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !returnReason.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-amber-500'}`}
                   rows={3}
                 />
               </div>
