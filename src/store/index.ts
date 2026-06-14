@@ -338,10 +338,17 @@ export function gapHours(updatedAt: string): number {
 }
 
 export const BATCH_ELIGIBLE_STATUSES: EmployeeStatus[] = ['pending_training', 'in_training'];
+export const TRAINING_PHASE_STATUSES: EmployeeStatus[] = ['pending_training', 'in_training'];
+export const POST_TRAINING_STATUSES: EmployeeStatus[] = ['pending_documents', 'training_exception'];
 
 export function getTrainingHandover(employeeId: string): StatusLog | undefined {
   const logs = getEmployeeLogs(employeeId);
-  return logs.find((l) => l.toStatus === 'pending_documents' || l.toStatus === 'training_exception');
+  return logs.find(
+    (l) =>
+      l.fromStatus !== null &&
+      TRAINING_PHASE_STATUSES.includes(l.fromStatus) &&
+      POST_TRAINING_STATUSES.includes(l.toStatus)
+  );
 }
 
 export function getMissingDocuments(employeeId: string): {

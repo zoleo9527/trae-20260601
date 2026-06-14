@@ -115,16 +115,28 @@ export default function DocumentsPage() {
                 {emp.dispatchCompany} · {emp.position}
               </div>
               {currentUser.role === 'payroll_accountant' && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
+                <div className="flex flex-col gap-1 mt-1.5">
                   {salaryDeduction && (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-rose/10 text-rose font-medium">
-                      <DollarSign size={10} /> {salaryDeduction.description}
-                    </span>
+                    <div className="text-[10px] px-1.5 py-1 rounded bg-rose/10 text-rose">
+                      <div className="font-medium flex items-center gap-1">
+                        <DollarSign size={10} />
+                        {salaryDeduction.description}
+                      </div>
+                      <div className="text-rose/70 tabular-nums mt-0.5">
+                        {ROLE_LABEL[salaryDeduction.flaggedByRole]} · {salaryDeduction.flaggedBy} · {formatDateTime(salaryDeduction.flaggedAt)}
+                      </div>
+                    </div>
                   )}
                   {attendanceDispute && (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-amber/10 text-amber font-medium">
-                      <CalendarClock size={10} /> {attendanceDispute.description}
-                    </span>
+                    <div className="text-[10px] px-1.5 py-1 rounded bg-amber/10 text-amber">
+                      <div className="font-medium flex items-center gap-1">
+                        <CalendarClock size={10} />
+                        {attendanceDispute.description}
+                      </div>
+                      <div className="text-amber/70 tabular-nums mt-0.5">
+                        {ROLE_LABEL[attendanceDispute.flaggedByRole]} · {attendanceDispute.flaggedBy} · {formatDateTime(attendanceDispute.flaggedAt)}
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
@@ -140,10 +152,12 @@ export default function DocumentsPage() {
               {handover ? (
                 <div className="bg-brand-50/60 p-2 rounded border border-brand-100">
                   <div className="text-ink-700 line-clamp-2">{handover.remark || training?.trainingRemark || '（无备注）'}</div>
-                  <div className="text-[10px] text-ink-400 mt-1 flex items-center gap-2">
-                    <span className="font-medium">{handover.operator}</span>
+                  <div className="text-[10px] text-ink-400 mt-1 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-medium text-ink-600">{ROLE_LABEL[handover.operatorRole]}</span>
                     <span>·</span>
-                    <span>{timeAgo(handover.timestamp)}</span>
+                    <span>{handover.operator}</span>
+                    <span>·</span>
+                    <span className="tabular-nums">{formatDateTime(handover.timestamp)}</span>
                   </div>
                 </div>
               ) : (

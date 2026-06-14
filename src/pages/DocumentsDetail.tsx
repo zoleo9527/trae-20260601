@@ -102,8 +102,8 @@ export default function DocumentsDetail() {
                   工资扣款标记
                 </div>
                 <div className="text-sm text-ink-700">{salaryDeduction.description}</div>
-                <div className="text-[11px] text-ink-400 mt-1">
-                  标记人：{salaryDeduction.flaggedBy} · {formatDateTime(salaryDeduction.flaggedAt)}
+                <div className="text-[11px] text-ink-400 mt-1 tabular-nums">
+                  {ROLE_LABEL[salaryDeduction.flaggedByRole]} · {salaryDeduction.flaggedBy} · {formatDateTime(salaryDeduction.flaggedAt)}
                 </div>
               </div>
             )}
@@ -114,8 +114,8 @@ export default function DocumentsDetail() {
                   考勤争议标记
                 </div>
                 <div className="text-sm text-ink-700">{attendanceDispute.description}</div>
-                <div className="text-[11px] text-ink-400 mt-1">
-                  标记人：{attendanceDispute.flaggedBy} · {formatDateTime(attendanceDispute.flaggedAt)}
+                <div className="text-[11px] text-ink-400 mt-1 tabular-nums">
+                  {ROLE_LABEL[attendanceDispute.flaggedByRole]} · {attendanceDispute.flaggedBy} · {formatDateTime(attendanceDispute.flaggedAt)}
                 </div>
               </div>
             )}
@@ -132,8 +132,8 @@ export default function DocumentsDetail() {
                 <div className="font-medium text-ink-800 text-sm">
                   培训交接摘要（培训 → 证件）
                 </div>
-                <span className="text-[10px] text-ink-400 bg-white px-2 py-0.5 rounded border border-brand-100">
-                  {ROLE_LABEL[handover.operatorRole]} 交接
+                <span className="text-[10px] text-ink-500 bg-white px-2 py-0.5 rounded border border-brand-100 tabular-nums">
+                  {formatDateTime(handover.timestamp)}
                 </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -143,9 +143,9 @@ export default function DocumentsDetail() {
                   </div>
                   <div className="mt-1.5 flex items-center gap-2 text-[11px] text-ink-400">
                     <User size={11} />
-                    <span className="font-medium text-ink-600">{handover.operator}</span>
+                    <span className="font-medium text-ink-600">{ROLE_LABEL[handover.operatorRole]}</span>
                     <span>·</span>
-                    <span>{formatDateTime(handover.timestamp)}</span>
+                    <span>{handover.operator}</span>
                     {training?.trainer && training.trainer !== handover.operator && (
                       <>
                         <span>·</span>
@@ -367,9 +367,9 @@ export default function DocumentsDetail() {
                           <div className="text-sm text-ink-800 font-medium">
                             {salaryDeduction.description}
                           </div>
-                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2">
+                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2 tabular-nums">
                             <span>
-                              {salaryDeduction.flaggedBy} ·{' '}
+                              {ROLE_LABEL[salaryDeduction.flaggedByRole]} · {salaryDeduction.flaggedBy} ·{' '}
                               {formatDateTime(salaryDeduction.flaggedAt)}
                             </span>
                           </div>
@@ -391,9 +391,9 @@ export default function DocumentsDetail() {
                           <div className="text-sm text-ink-800 font-medium">
                             {attendanceDispute.description}
                           </div>
-                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2">
+                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2 tabular-nums">
                             <span>
-                              {attendanceDispute.flaggedBy} ·{' '}
+                              {ROLE_LABEL[attendanceDispute.flaggedByRole]} · {attendanceDispute.flaggedBy} ·{' '}
                               {formatDateTime(attendanceDispute.flaggedAt)}
                             </span>
                           </div>
@@ -415,9 +415,9 @@ export default function DocumentsDetail() {
                           <div className="text-sm text-ink-800">
                             {risk.description}
                           </div>
-                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2">
+                          <div className="text-xs text-ink-500 mt-1 flex items-center gap-2 tabular-nums">
                             <span>
-                              {risk.flaggedBy} ·{' '}
+                              {ROLE_LABEL[risk.flaggedByRole]} · {risk.flaggedBy} ·{' '}
                               {formatDateTime(risk.flaggedAt)}
                             </span>
                           </div>
