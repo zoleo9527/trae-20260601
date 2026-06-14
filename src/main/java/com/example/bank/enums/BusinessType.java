@@ -1,0 +1,11 @@
+package com.example.bank.enums;
+
+public enum BusinessType {
+    PERSONAL_ACCOUNT_OPENING,
+    LOAN_APPLICATION,
+    CARD_REPLACEMENT,
+    ACCOUNT_CLOSURE,
+    INVESTMENT_CONSULTATION,
+    FOREIGN_EXCHANGE,
+    OTHER
+}
