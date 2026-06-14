@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { useLoaderData, useActionData, Form, useNavigation, Link } from '@remix-run/react';
+import { useState, useMemo } from 'react';
+import { useLoaderData, useActionData, Form, useNavigation, Link, useSearchParams } from '@remix-run/react';
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json, redirect } from '@remix-run/node';
 import invariant from 'tiny-invariant';
 import { requireUser } from '../utils/session.server';
 import { getAuthReviewList, createAuthReview } from '../utils/business.server';
-import { getRoleName, getBlockedReason, getHandlerInfo, formatAmount, getWaitMinutes, formatWaitTime } from '../utils/display';
+import {
+  getRoleName, getBlockedReason, getHandlerInfo, formatAmount,
+  getWaitMinutes, formatWaitTime, getAuthReviewSummary, filterAuthCases,
+  type AuthFilterType, isTimeoutCase, isEscalatedCase, isFirstAuthCase, isHighPriorityCase
+} from '../utils/display';
 import { STATUS_LABELS, AUTHORIZATION_RESULT_LABELS, AUTHORIZATION_RESULT_COLORS } from '../utils/constants';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -17,9 +21,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   const stats = {
     total: cases.length,
-    escalated: cases.filter((c: any) => c.authReviews.some((r: any) => r.result === 'ESCALATED')).length,
-    waiting: cases.filter((c: any) => c.authReviews.length === 0).length,
-    priority: cases.filter((c: any) => c.priority > 0).length,
+    escalated: cases.filter(isEscalatedCase).length,
+    waiting: cases.filter(isFirstAuthCase).length,
+    priority: cases.filter(isHighPriorityCase).length,
+    timeout: cases.filter(c => isTimeoutCase(c)).length,
   };
 
   return json({ user, cases, stats });
@@ -62,10 +67,23 @@ export default function AuthorizationPage() {
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeFilter = (searchParams.get('filter') as AuthFilterType) || 'all';
+
   const [expandedCase, setExpandedCase] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<{ caseId: string; type: string } | null>(null);
 
   const isSupervisor = user.role === 'OPERATION_SUPERVISOR';
+
+  const filteredCases = useMemo(() => filterAuthCases(cases, activeFilter), [cases, activeFilter]);
+
+  const filterTabs: { key: AuthFilterType; label: string; count: number; color: string }[] = [
+    { key: 'all', label: '全部', count: stats.total, color: 'slate' },
+    { key: 'first', label: '首次授权', count: stats.waiting, color: 'blue' },
+    { key: 'escalated', label: '升级复核', count: stats.escalated, color: 'orange' },
+    { key: 'timeout', label: '超时等待', count: stats.timeout, color: 'red' },
+    { key: 'priority', label: '高优先级', count: stats.priority, color: 'rose' },
+  ];
 
   return (
     <div className="space-y-6">
@@ -93,11 +111,48 @@ export default function AuthorizationPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <StatBox title="待授权总数" value={stats.total} color="amber" />
         <StatBox title="首次授权" value={stats.waiting} color="blue" />
         <StatBox title="升级复核" value={stats.escalated} color="orange" />
-        <StatBox title="高优先级" value={stats.priority} color="red" />
+        <StatBox title="超时等待" value={stats.timeout} color="red" />
+        <StatBox title="高优先级" value={stats.priority} color="rose" />
+      </div>
+
+      <div className="card p-2">
+        <div className="flex flex-wrap gap-2">
+          {filterTabs.map(tab => {
+            const isActive = activeFilter === tab.key;
+            const colorMap: Record<string, string> = {
+              slate: isActive ? 'bg-slate-700 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200',
+              blue: isActive ? 'bg-blue-600 text-white' : 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+              orange: isActive ? 'bg-orange-600 text-white' : 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+              red: isActive ? 'bg-red-600 text-white' : 'bg-red-50 text-red-700 hover:bg-red-100',
+              rose: isActive ? 'bg-rose-600 text-white' : 'bg-rose-50 text-rose-700 hover:bg-rose-100',
+            };
+            return (
+              <button
+                key={tab.key}
+                onClick={() => {
+                  const params = new URLSearchParams(searchParams);
+                  if (tab.key === 'all') {
+                    params.delete('filter');
+                  } else {
+                    params.set('filter', tab.key);
+                  }
+                  setSearchParams(params);
+                  setExpandedCase(null);
+                }}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2 ${colorMap[tab.color]}`}
+              >
+                {tab.label}
+                <span className={`px-1.5 py-0.5 rounded text-xs ${isActive ? 'bg-white/20' : 'bg-white'}`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {!isSupervisor ? (
@@ -110,23 +165,26 @@ export default function AuthorizationPage() {
           <p className="text-slate-600 mb-2">仅运营主管可处理授权复核业务</p>
           <p className="text-sm text-slate-500">请使用 supervisor01 / 123456 账号登录</p>
         </div>
-      ) : cases.length === 0 ? (
+      ) : filteredCases.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <p className="text-slate-600">暂无待授权业务</p>
+          <p className="text-slate-600">
+            {activeFilter === 'all' ? '暂无待授权业务' : '此筛选条件下暂无待处理业务'}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
-          {cases.map((businessCase: any) => {
+          {filteredCases.map((businessCase: any) => {
             const isExpanded = expandedCase === businessCase.id;
             const authPendingMinutes = getWaitMinutes(businessCase);
             const blockedReason = getBlockedReason(businessCase);
             const handler = getHandlerInfo(businessCase);
             const lastAuthReview = businessCase.authReviews[0];
+            const authSummary = getAuthReviewSummary(businessCase);
             const currentLevel = lastAuthReview?.result === 'ESCALATED'
               ? lastAuthReview.reviewLevel + 1
               : 1;
@@ -218,6 +276,34 @@ export default function AuthorizationPage() {
                   <div className="border-t border-slate-200 bg-slate-50/50 p-5">
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div className="lg:col-span-2 space-y-4">
+                        {authSummary && (
+                          <div className={`rounded-lg border p-4 ${
+                            authSummary.type === 'escalated'
+                              ? 'bg-orange-50 border-orange-200'
+                              : 'bg-amber-50 border-amber-200'
+                          }`}>
+                            <div className="flex items-start gap-3">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                authSummary.type === 'escalated'
+                                  ? 'bg-orange-100 text-orange-600'
+                                  : 'bg-amber-100 text-amber-600'
+                              }`}>
+                                {authSummary.type === 'escalated' ? '↑' : '←'}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold mb-1 ${
+                                  authSummary.type === 'escalated'
+                                    ? 'text-orange-800'
+                                    : 'text-amber-800'
+                                }`}>
+                                  {authSummary.type === 'escalated' ? '最近升级原因' : '最近退回原因'}
+                                </p>
+                                <p className="text-sm text-slate-700">{authSummary.text}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {businessCase.documentCheck && (
                           <div className="bg-white rounded-lg border border-slate-200 p-4">
                             <h4 className="font-semibold text-slate-800 mb-3">资料检查</h4>
@@ -378,6 +464,7 @@ function StatBox({ title, value, color }: { title: string; value: number; color:
     blue: 'bg-blue-100 text-blue-600',
     orange: 'bg-orange-100 text-orange-600',
     red: 'bg-red-100 text-red-600',
+    rose: 'bg-rose-100 text-rose-600',
   };
   return (
     <div className="card p-4">

@@ -109,3 +109,56 @@ export function formatWaitTime(minutes: number): string {
   }
   return `${minutes}分钟`;
 }
+
+export type AuthFilterType = 'all' | 'first' | 'escalated' | 'timeout' | 'priority';
+
+export function getAuthReviewSummary(businessCase: any): { type: 'escalated' | 'returned' | null; text: string } | null {
+  if (!businessCase.authReviews || businessCase.authReviews.length === 0) {
+    return null;
+  }
+  const lastReview = businessCase.authReviews[0];
+  if (lastReview.result === 'ESCALATED') {
+    return {
+      type: 'escalated',
+      text: `${getRoleName(lastReview.reviewedBy?.role || '')} ${lastReview.reviewedBy?.name || '未知'}升级: ${lastReview.reason}`,
+    };
+  }
+  if (lastReview.result === 'RETURNED') {
+    return {
+      type: 'returned',
+      text: `${getRoleName(lastReview.reviewedBy?.role || '')} ${lastReview.reviewedBy?.name || '未知'}退回: ${lastReview.reason}`,
+    };
+  }
+  return null;
+}
+
+export function isEscalatedCase(businessCase: any): boolean {
+  return businessCase.authReviews?.some((r: any) => r.result === 'ESCALATED') || false;
+}
+
+export function isTimeoutCase(businessCase: any, thresholdMinutes: number = 30): boolean {
+  return getWaitMinutes(businessCase) > thresholdMinutes;
+}
+
+export function isHighPriorityCase(businessCase: any): boolean {
+  return (businessCase.priority || 0) > 0;
+}
+
+export function isFirstAuthCase(businessCase: any): boolean {
+  return !businessCase.authReviews || businessCase.authReviews.length === 0;
+}
+
+export function filterAuthCases(cases: any[], filter: AuthFilterType): any[] {
+  switch (filter) {
+    case 'first':
+      return cases.filter(isFirstAuthCase);
+    case 'escalated':
+      return cases.filter(isEscalatedCase);
+    case 'timeout':
+      return cases.filter(c => isTimeoutCase(c));
+    case 'priority':
+      return cases.filter(isHighPriorityCase);
+    default:
+      return cases;
+  }
+}
