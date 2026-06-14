@@ -164,7 +164,7 @@ export class ExportService {
     rows.forEach((r) => lines.push(headers.map((h) => esc(r[h])).join(',')));
     const filePath = path.join(this.exportDir, `${task.taskNo}.csv`);
     fs.writeFileSync(filePath, '\ufeff' + lines.join('\n'), 'utf8');
-    return `/exports/${task.taskNo}.csv`;
+    return `/api/exports/${task.taskNo}.csv`;
   }
 
   private async writeExcel(task: ExportTask, rows: any[]): Promise<string> {
@@ -177,6 +177,6 @@ export class ExportService {
     sheet.getRow(1).font = { bold: true };
     const filePath = path.join(this.exportDir, `${task.taskNo}.xlsx`);
     await workbook.xlsx.writeFile(filePath);
-    return `/exports/${task.taskNo}.xlsx`;
+    return `/api/exports/${task.taskNo}.xlsx`;
   }
 }
