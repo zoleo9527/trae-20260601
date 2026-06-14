@@ -157,6 +157,7 @@ def init_test_data():
             received_at=datetime.now() - timedelta(days=4),
             expected_complete_date=datetime.now() + timedelta(days=3),
             current_handler_id=clerk1.id,
+            status_changed_at=datetime.now() - timedelta(days=4),
         )
         material3 = ActivityMaterial(
             name="会员卡充值活动物料",
@@ -170,6 +171,7 @@ def init_test_data():
             expected_complete_date=datetime.now() - timedelta(days=2),
             current_handler_id=clerk2.id,
             stuck_reason="物料损坏，等待补发",
+            status_changed_at=datetime.now() - timedelta(days=6),
         )
         material4 = ActivityMaterial(
             name="新游戏上线宣传展架",
@@ -181,6 +183,7 @@ def init_test_data():
             distributed_at=datetime.now() - timedelta(days=2),
             expected_complete_date=datetime.now() + timedelta(days=5),
             current_handler_id=manager3.id,
+            status_changed_at=datetime.now() - timedelta(days=2),
         )
         material5 = ActivityMaterial(
             name="周末抽奖活动物料",
@@ -194,9 +197,6 @@ def init_test_data():
         )
 
         db.add_all([material1, material2, material3, material4, material5])
-        db.flush()
-        
-        material3.status_changed_at = datetime.now() - timedelta(days=6)
         db.commit()
 
         feedback1 = StoreFeedback(
@@ -236,9 +236,6 @@ def init_test_data():
         )
 
         db.add_all([feedback1, feedback2, feedback3])
-        db.flush()
-        
-        feedback2.status_changed_at = datetime.now() - timedelta(days=5)
         db.commit()
 
         record1 = ProcessingRecord(

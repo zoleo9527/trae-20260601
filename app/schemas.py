@@ -245,3 +245,4 @@ class ResponsibilityChainResponse(BaseModel):
     stuck_at: Optional[str]
     reason_not_completed: Optional[str]
     escalation_path: List[dict]
+    latest_processing_note: Optional[dict]

@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.models import ExportTask, ActivityMaterial, StoreFeedback, User, Store
 from app.schemas import ExportTaskCreate
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 import json
 from openpyxl import Workbook
@@ -308,11 +308,17 @@ class ExportService:
             except:
                 pass
 
+        days = filters.get("days", 3)
+        threshold = datetime.now() - timedelta(days=days)
+
         from app.models import MaterialStatus, FeedbackStatus
 
         stuck_materials = (
             db.query(ActivityMaterial)
-            .filter(ActivityMaterial.status == MaterialStatus.STUCK)
+            .filter(
+                ActivityMaterial.status == MaterialStatus.STUCK,
+                ActivityMaterial.status_changed_at < threshold,
+            )
             .all()
         )
         for material in stuck_materials:
@@ -346,9 +352,8 @@ class ExportService:
         stuck_feedbacks = (
             db.query(StoreFeedback)
             .filter(
-                StoreFeedback.status.in_(
-                    [FeedbackStatus.PROCESSING, FeedbackStatus.REJECTED, FeedbackStatus.ESCALATED]
-                )
+                StoreFeedback.status == FeedbackStatus.PROCESSING,
+                StoreFeedback.status_changed_at < threshold,
             )
             .all()
         )
