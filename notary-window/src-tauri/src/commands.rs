@@ -369,7 +369,7 @@ pub fn issue_correction(
     ).map_err(|e| e.to_string())?;
 
     conn.execute(
-        "UPDATE appointments SET status = 'correction_issued', updated_at = ?1 WHERE id = ?2",
+        "UPDATE appointments SET status = 'correction_issued', current_handler_role = 'window', updated_at = ?1 WHERE id = ?2",
         params![now, payload.appointment_id],
     ).map_err(|e| e.to_string())?;
 
@@ -377,7 +377,7 @@ pub fn issue_correction(
     let comment = format!("发出补正通知：{}", payload.notice_content);
     conn.execute(
         "INSERT INTO flow_records (id, appointment_id, from_role, to_role, action, comment, operator_name, created_at) VALUES (?1,?2,?3,?4,?5,?6,?7,?8)",
-        params![flow_id, payload.appointment_id, current_role, current_role, "issue_correction", comment, payload.issued_by, now],
+        params![flow_id, payload.appointment_id, current_role, "window", "issue_correction", comment, payload.issued_by, now],
     ).map_err(|e| e.to_string())?;
 
     let mut stmt = conn.prepare("SELECT * FROM correction_notices WHERE id = ?1").map_err(|e| e.to_string())?;
