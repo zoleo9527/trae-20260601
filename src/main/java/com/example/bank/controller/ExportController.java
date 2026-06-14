@@ -1,5 +1,6 @@
 package com.example.bank.controller;
 
+import com.example.bank.dto.request.ExportCreateRequest;
 import com.example.bank.dto.response.ExportTaskResponse;
 import com.example.bank.service.ExportService;
 import lombok.RequiredArgsConstructor;
@@ -9,33 +10,33 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/exports")
+@RequestMapping("/api/export")
 @RequiredArgsConstructor
 public class ExportController {
 
     private final ExportService exportService;
 
-    @PostMapping
-    public ResponseEntity<ExportTaskResponse> createExportTask(@RequestParam String exportType) {
-        return ResponseEntity.ok(exportService.createExportTask(exportType));
+    @PostMapping("/tasks")
+    public ResponseEntity<ExportTaskResponse> createExportTask(@RequestBody ExportCreateRequest request) {
+        return ResponseEntity.ok(exportService.createExportTask(request.getExportType(), request.getAppointmentId()));
     }
 
-    @GetMapping
+    @GetMapping("/tasks")
     public ResponseEntity<List<ExportTaskResponse>> getAllExportTasks() {
         return ResponseEntity.ok(exportService.getAllExportTasks());
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/tasks/{id}")
     public ResponseEntity<ExportTaskResponse> getExportTaskById(@PathVariable Long id) {
         return ResponseEntity.ok(exportService.getExportTaskById(id));
     }
 
-    @GetMapping("/status/{status}")
+    @GetMapping("/tasks/status/{status}")
     public ResponseEntity<List<ExportTaskResponse>> getExportTasksByStatus(@PathVariable String status) {
         return ResponseEntity.ok(exportService.getExportTasksByStatus(status));
     }
 
-    @PostMapping("/{id}/execute")
+    @PostMapping("/tasks/{id}/execute")
     public ResponseEntity<ExportTaskResponse> executeExport(@PathVariable Long id) {
         return ResponseEntity.ok(exportService.executeExport(id));
     }

@@ -29,10 +29,11 @@ public class ExportServiceImpl implements ExportService {
 
     @Override
     @Transactional
-    public ExportTaskResponse createExportTask(String exportType) {
+    public ExportTaskResponse createExportTask(String exportType, Long appointmentId) {
         ExportTask task = ExportTask.builder()
                 .taskNo(generateTaskNo())
                 .exportType(exportType)
+                .appointmentId(appointmentId)
                 .status("PENDING")
                 .build();
 
@@ -80,7 +81,15 @@ public class ExportServiceImpl implements ExportService {
         task = exportTaskRepository.save(task);
 
         try {
-            List<Appointment> appointments = appointmentRepository.findAll();
+            List<Appointment> appointments;
+            if ("SINGLE".equals(task.getExportType()) && task.getAppointmentId() != null) {
+                Appointment appointment = appointmentRepository.findById(task.getAppointmentId())
+                        .orElseThrow(() -> new RuntimeException("预约不存在"));
+                appointments = List.of(appointment);
+            } else {
+                appointments = appointmentRepository.findAll();
+            }
+            
             String filePath = generateExportFile(appointments, task.getExportType());
 
             task.setStatus("COMPLETED");
@@ -120,6 +129,7 @@ public class ExportServiceImpl implements ExportService {
                 .id(task.getId())
                 .taskNo(task.getTaskNo())
                 .exportType(task.getExportType())
+                .appointmentId(task.getAppointmentId())
                 .status(task.getStatus())
                 .filePath(task.getFilePath())
                 .recordCount(task.getRecordCount())

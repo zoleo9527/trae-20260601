@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface ExportService {
 
-    ExportTaskResponse createExportTask(String exportType);
+    ExportTaskResponse createExportTask(String exportType, Long appointmentId);
 
     ExportTaskResponse getExportTaskById(Long id);
 

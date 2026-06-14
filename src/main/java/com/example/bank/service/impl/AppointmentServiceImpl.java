@@ -139,10 +139,16 @@ public class AppointmentServiceImpl implements AppointmentService {
         Appointment appointment = appointmentRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("预约不存在"));
         
-        if (appointment.getStatus() != AppointmentStatus.CHECKED_IN && 
-            appointment.getStatus() != AppointmentStatus.MATERIAL_INCOMPLETE &&
-            appointment.getStatus() != AppointmentStatus.DUE_DILIGENCE_PENDING &&
-            appointment.getStatus() != AppointmentStatus.COMPLAINT_RECORDED) {
+        if (appointment.getStatus() == AppointmentStatus.MATERIAL_INCOMPLETE) {
+            throw new RuntimeException("资料缺页状态，需先补齐资料后才能恢复办理");
+        }
+        if (appointment.getStatus() == AppointmentStatus.DUE_DILIGENCE_PENDING) {
+            throw new RuntimeException("尽调待补状态，需先完成尽调后才能恢复办理");
+        }
+        if (appointment.getStatus() == AppointmentStatus.COMPLAINT_RECORDED) {
+            throw new RuntimeException("投诉记录状态，需先处理投诉后才能恢复办理");
+        }
+        if (appointment.getStatus() != AppointmentStatus.CHECKED_IN) {
             throw new RuntimeException("预约状态不允许开始处理");
         }
         

@@ -26,6 +26,9 @@ public class ExportTask {
     @Column(name = "export_type", nullable = false)
     private String exportType;
 
+    @Column(name = "appointment_id")
+    private Long appointmentId;
+
     @Column(nullable = false)
     private String status;
 

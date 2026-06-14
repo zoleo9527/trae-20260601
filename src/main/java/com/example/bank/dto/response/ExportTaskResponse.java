@@ -16,6 +16,7 @@ public class ExportTaskResponse {
     private Long id;
     private String taskNo;
     private String exportType;
+    private Long appointmentId;
     private String status;
     private String filePath;
     private Integer recordCount;
