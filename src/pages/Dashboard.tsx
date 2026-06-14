@@ -16,16 +16,28 @@ export default function Dashboard() {
   const [actionRecord, setActionRecord] = useState<AppointmentRecord | null>(null)
   const [receptionNotes, setReceptionNotes] = useState('')
   const [inspectionResult, setInspectionResult] = useState('')
-  const [reviewResult, setReviewResult] = useState<'pass' | 'return' | 'reject'>('pass')
+  const [reviewResultState, setReviewResult] = useState<'pass' | 'return' | 'reject'>('pass')
   const [returnReason, setReturnReason] = useState('')
   const [supplementaryNotes, setSupplementaryNotes] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [batchMode, setBatchMode] = useState(false)
   const [showBatchPanel, setShowBatchPanel] = useState(false)
-  const [batchResult, setBatchResult] = useState<'pass' | 'return' | 'reject'>('pass')
+  const [batchResultState, setBatchResult] = useState<'pass' | 'return' | 'reject'>('pass')
   const [batchReason, setBatchReason] = useState('')
   const [formError, setFormError] = useState('')
   const [batchError, setBatchError] = useState('')
+
+  const setReviewResultWrapped = (v: 'pass' | 'return' | 'reject') => {
+    setReviewResult(v)
+    setFormError('')
+    if (v === 'pass') setReturnReason('')
+  }
+
+  const setBatchResultWrapped = (v: 'pass' | 'return' | 'reject') => {
+    setBatchResult(v)
+    setBatchError('')
+    if (v === 'pass') setBatchReason('')
+  }
 
   const loadRecords = useCallback(async () => {
     if (!currentRole) return
@@ -55,10 +67,14 @@ export default function Dashboard() {
       return
     }
     setFormError('')
-    await receiveRecord(actionRecord.id, receptionNotes, `${currentRole}-1`)
-    setActionRecord(null)
-    setReceptionNotes('')
-    loadRecords()
+    try {
+      await receiveRecord(actionRecord.id, receptionNotes, `${currentRole}-1`)
+      setActionRecord(null)
+      setReceptionNotes('')
+      loadRecords()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '操作失败，请稍后重试')
+    }
   }
 
   const handleInspect = async () => {
@@ -68,24 +84,32 @@ export default function Dashboard() {
       return
     }
     setFormError('')
-    await inspectRecord(actionRecord.id, inspectionResult, `${currentRole}-1`)
-    setActionRecord(null)
-    setInspectionResult('')
-    loadRecords()
+    try {
+      await inspectRecord(actionRecord.id, inspectionResult, `${currentRole}-1`)
+      setActionRecord(null)
+      setInspectionResult('')
+      loadRecords()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '操作失败，请稍后重试')
+    }
   }
 
   const handleReview = async () => {
     if (!actionRecord) return
-    if ((reviewResult === 'return' || reviewResult === 'reject') && !returnReason.trim()) {
-      setFormError(reviewResult === 'return' ? '退回原因不能为空，请说明退回原因' : '终止原因不能为空，请说明终止原因')
+    if ((reviewResultState === 'return' || reviewResultState === 'reject') && !returnReason.trim()) {
+      setFormError(reviewResultState === 'return' ? '退回原因不能为空，请说明退回原因' : '终止原因不能为空，请说明终止原因')
       return
     }
     setFormError('')
-    await reviewRecord(actionRecord.id, reviewResult, returnReason, `${currentRole}-1`)
-    setActionRecord(null)
-    setReviewResult('pass')
-    setReturnReason('')
-    loadRecords()
+    try {
+      await reviewRecord(actionRecord.id, reviewResultState, returnReason, `${currentRole}-1`)
+      setActionRecord(null)
+      setReviewResultWrapped('pass')
+      setReturnReason('')
+      loadRecords()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '操作失败，请稍后重试')
+    }
   }
 
   const handleSupplement = async () => {
@@ -95,26 +119,34 @@ export default function Dashboard() {
       return
     }
     setFormError('')
-    await supplementRecord(actionRecord.id, supplementaryNotes, `${currentRole}-1`)
-    setActionRecord(null)
-    setSupplementaryNotes('')
-    loadRecords()
+    try {
+      await supplementRecord(actionRecord.id, supplementaryNotes, `${currentRole}-1`)
+      setActionRecord(null)
+      setSupplementaryNotes('')
+      loadRecords()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : '操作失败，请稍后重试')
+    }
   }
 
   const handleBatchReview = async () => {
     if (selectedIds.size === 0) return
-    if ((batchResult === 'return' || batchResult === 'reject') && !batchReason.trim()) {
-      setBatchError(batchResult === 'return' ? '批量退回原因不能为空，请说明退回原因' : '批量终止原因不能为空，请说明终止原因')
+    if ((batchResultState === 'return' || batchResultState === 'reject') && !batchReason.trim()) {
+      setBatchError(batchResultState === 'return' ? '批量退回原因不能为空，请说明退回原因' : '批量终止原因不能为空，请说明终止原因')
       return
     }
     setBatchError('')
-    await batchReview(Array.from(selectedIds), batchResult, batchReason, `${currentRole}-1`)
-    setSelectedIds(new Set())
-    setBatchMode(false)
-    setShowBatchPanel(false)
-    setBatchResult('pass')
-    setBatchReason('')
-    loadRecords()
+    try {
+      await batchReview(Array.from(selectedIds), batchResultState, batchReason, `${currentRole}-1`)
+      setSelectedIds(new Set())
+      setBatchMode(false)
+      setShowBatchPanel(false)
+      setBatchResultWrapped('pass')
+      setBatchReason('')
+      loadRecords()
+    } catch (err) {
+      setBatchError(err instanceof Error ? err.message : '操作失败，请稍后重试')
+    }
   }
 
   const toggleSelect = (id: string) => {
@@ -346,13 +378,14 @@ export default function Dashboard() {
           setReceptionNotes={setReceptionNotes}
           inspectionResult={inspectionResult}
           setInspectionResult={setInspectionResult}
-          reviewResult={reviewResult}
-          setReviewResult={setReviewResult}
+          reviewResult={reviewResultState}
+          setReviewResult={setReviewResultWrapped}
           returnReason={returnReason}
           setReturnReason={setReturnReason}
           supplementaryNotes={supplementaryNotes}
           setSupplementaryNotes={setSupplementaryNotes}
           formError={formError}
+          setFormError={setFormError}
           onReceive={handleReceive}
           onInspect={handleInspect}
           onReview={handleReview}
@@ -370,9 +403,9 @@ export default function Dashboard() {
                 {(['pass', 'return', 'reject'] as const).map((opt) => (
                   <button
                     key={opt}
-                    onClick={() => { setBatchResult(opt); setBatchError('') }}
+                    onClick={() => setBatchResultWrapped(opt)}
                     className={`flex-1 py-2 text-sm font-medium rounded-lg transition-colors ${
-                      batchResult === opt
+                      batchResultState === opt
                         ? opt === 'pass' ? 'bg-emerald-600 text-white' : opt === 'return' ? 'bg-orange-600 text-white' : 'bg-red-600 text-white'
                         : 'bg-slate-800 text-slate-400 hover:text-white'
                     }`}
@@ -381,13 +414,13 @@ export default function Dashboard() {
                   </button>
                 ))}
               </div>
-              {(batchResult === 'return' || batchResult === 'reject') && (
+              {(batchResultState === 'return' || batchResultState === 'reject') && (
                 <div>
-                  <label className="block text-sm text-slate-400 mb-2">{batchResult === 'return' ? '退回原因' : '终止原因'}<span className="text-red-400 ml-0.5">*</span></label>
+                  <label className="block text-sm text-slate-400 mb-2">{batchResultState === 'return' ? '退回原因' : '终止原因'}<span className="text-red-400 ml-0.5">*</span></label>
                   <textarea
                     value={batchReason}
                     onChange={(e) => { setBatchReason(e.target.value); setBatchError('') }}
-                    placeholder={batchResult === 'return' ? '请说明退回原因，此原因将通知接车员...' : '请说明终止原因...'}
+                    placeholder={batchResultState === 'return' ? '请说明退回原因，此原因将通知接车员...' : '请说明终止原因...'}
                     className={`w-full bg-slate-800 border rounded-lg px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${batchError ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-amber-500'}`}
                     rows={3}
                   />
@@ -499,6 +532,7 @@ interface ActionModalProps {
   supplementaryNotes: string
   setSupplementaryNotes: (v: string) => void
   formError: string
+  setFormError: (v: string) => void
   onReceive: () => void
   onInspect: () => void
   onReview: () => void
@@ -511,7 +545,7 @@ function ActionModal({
   inspectionResult, setInspectionResult,
   reviewResult, setReviewResult, returnReason, setReturnReason,
   supplementaryNotes, setSupplementaryNotes,
-  formError,
+  formError, setFormError,
   onReceive, onInspect, onReview, onSupplement, onClose,
 }: ActionModalProps) {
   const isReturn = record.status === 'returned'
@@ -582,7 +616,7 @@ function ActionModal({
               <label className="block text-sm text-slate-400 mb-2">接车备注<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={receptionNotes}
-                onChange={(e) => setReceptionNotes(e.target.value)}
+                onChange={(e) => { setReceptionNotes(e.target.value); setFormError('') }}
                 placeholder="填写接车时的情况说明，此备注将传递给检测员和审核员..."
                 className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !receptionNotes.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
                 rows={4}
@@ -601,7 +635,7 @@ function ActionModal({
               <label className="block text-sm text-slate-400 mb-2">补充备注<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={supplementaryNotes}
-                onChange={(e) => setSupplementaryNotes(e.target.value)}
+                onChange={(e) => { setSupplementaryNotes(e.target.value); setFormError('') }}
                 placeholder="针对退回原因补充说明，此备注将传递给检测员和审核员..."
                 className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !supplementaryNotes.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
                 rows={4}
@@ -620,7 +654,7 @@ function ActionModal({
               <label className="block text-sm text-slate-400 mb-2">检测结果<span className="text-red-400 ml-0.5">*</span></label>
               <textarea
                 value={inspectionResult}
-                onChange={(e) => setInspectionResult(e.target.value)}
+                onChange={(e) => { setInspectionResult(e.target.value); setFormError('') }}
                 placeholder="填写车辆检测结果..."
                 className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !inspectionResult.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-violet-500'}`}
                 rows={4}
@@ -659,7 +693,7 @@ function ActionModal({
                 <label className="block text-sm text-slate-400 mb-2">{reviewResult === 'return' ? '退回原因' : '终止原因'}<span className="text-red-400 ml-0.5">*</span></label>
                 <textarea
                   value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
+                  onChange={(e) => { setReturnReason(e.target.value); setFormError('') }}
                   placeholder={reviewResult === 'return' ? '请说明退回原因，此原因将通知接车员...' : '请说明终止原因...'}
                   className={`w-full bg-slate-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none resize-none ${formError && !returnReason.trim() ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-amber-500'}`}
                   rows={3}

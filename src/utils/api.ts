@@ -20,13 +20,21 @@ export async function fetchLogs(id: string): Promise<ActionLog[]> {
   return res.json()
 }
 
+async function handleResponse<T>(res: Response): Promise<T> {
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: '请求失败，请稍后重试' }))
+    throw new Error(data.error || `请求失败 (${res.status})`)
+  }
+  return res.json()
+}
+
 export async function receiveRecord(id: string, receptionNotes: string, operatorId: string): Promise<AppointmentRecord> {
   const res = await fetch(`${API_BASE}/records/${id}/receive`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ receptionNotes, operatorId }),
   })
-  return res.json()
+  return handleResponse<AppointmentRecord>(res)
 }
 
 export async function inspectRecord(id: string, inspectionResult: string, operatorId: string): Promise<AppointmentRecord> {
@@ -35,7 +43,7 @@ export async function inspectRecord(id: string, inspectionResult: string, operat
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ inspectionResult, operatorId }),
   })
-  return res.json()
+  return handleResponse<AppointmentRecord>(res)
 }
 
 export async function reviewRecord(id: string, reviewResult: string, returnReason: string, operatorId: string): Promise<AppointmentRecord> {
@@ -44,7 +52,7 @@ export async function reviewRecord(id: string, reviewResult: string, returnReaso
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ reviewResult, returnReason, operatorId }),
   })
-  return res.json()
+  return handleResponse<AppointmentRecord>(res)
 }
 
 export async function supplementRecord(id: string, supplementaryNotes: string, operatorId: string): Promise<AppointmentRecord> {
@@ -53,7 +61,7 @@ export async function supplementRecord(id: string, supplementaryNotes: string, o
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ supplementaryNotes, operatorId }),
   })
-  return res.json()
+  return handleResponse<AppointmentRecord>(res)
 }
 
 export async function batchReview(ids: string[], reviewResult: string, returnReason: string, operatorId: string): Promise<{ updated: number }> {
@@ -62,7 +70,7 @@ export async function batchReview(ids: string[], reviewResult: string, returnRea
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ ids, reviewResult, returnReason, operatorId }),
   })
-  return res.json()
+  return handleResponse<{ updated: number }>(res)
 }
 
 export async function resetData(): Promise<{ reset: boolean }> {
