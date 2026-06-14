@@ -55,7 +55,7 @@ export function useStore() {
           approved: 'approved',
           rejected: 'rejected',
           returned: 'returned',
-          supplement: 'under_review',
+          supplement: 'supplement',
           urgent: 'urgent',
           completed: 'completed',
         }
@@ -115,6 +115,14 @@ export function useStore() {
       case 'returned':
         relatedAction = '退回额度建议'
         applicationStatusUpdate = 'returned'
+        break
+      case 'supplement':
+        relatedAction = '额度建议补材料'
+        applicationStatusUpdate = 'supplement'
+        break
+      case 'urgent':
+        relatedAction = '额度建议催办'
+        applicationStatusUpdate = 'urgent'
         break
       case 'completed':
         relatedAction = '完成额度建议'

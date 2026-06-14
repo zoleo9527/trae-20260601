@@ -85,7 +85,7 @@ export function RiskReview({ applications, riskData, onUpdateStatus }: RiskRevie
       key: 'action',
       width: 250,
       render: (_: unknown, record: LoanApplication) => {
-        if (record.status === 'pending' || record.status === 'under_review') {
+        if (record.status === 'pending' || record.status === 'under_review' || record.status === 'supplement' || record.status === 'urgent' || record.status === 'returned') {
           return (
             <Space>
               <Button size="small" type="primary" onClick={() => handleReview(record.id, 'approve')}>

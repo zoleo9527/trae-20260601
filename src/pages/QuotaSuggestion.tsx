@@ -87,7 +87,7 @@ export function QuotaSuggestion({ quotaSuggestions, applications, riskData, coll
       key: 'action',
       width: 220,
       render: (_: unknown, record: QuotaSuggestion) => {
-        if (record.status === 'under_review' || record.status === 'approved') {
+        if (record.status === 'under_review' || record.status === 'approved' || record.status === 'supplement' || record.status === 'urgent' || record.status === 'returned') {
           return (
             <Space>
               <Button size="small" type="primary" onClick={() => handleApprove(record.id)} disabled={record.status === 'approved'}>
