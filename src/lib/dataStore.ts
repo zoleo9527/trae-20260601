@@ -191,6 +191,8 @@ const initialStudentNotifications: StudentNotification[] = [
     notifierId: 'u2',
     notifierName: '李四',
     notifyTime: '2024-01-15 10:00:00',
+    confirmerId: 'u3',
+    confirmerName: '王五',
     confirmTime: '2024-01-15 10:30:00',
   },
   {
@@ -199,9 +201,6 @@ const initialStudentNotifications: StudentNotification[] = [
     studentId: 's2',
     studentName: '小红',
     status: 'pending',
-    notifierId: 'u2',
-    notifierName: '李四',
-    notifyTime: '2024-01-15 10:00:00',
     remarks: '材料缺失，待补充',
   },
   {
@@ -213,6 +212,8 @@ const initialStudentNotifications: StudentNotification[] = [
     notifierId: 'u2',
     notifierName: '李四',
     notifyTime: '2024-01-15 10:00:00',
+    confirmerId: 'u3',
+    confirmerName: '王五',
     confirmTime: '2024-01-15 11:00:00',
   },
   {
@@ -234,6 +235,8 @@ const initialStudentNotifications: StudentNotification[] = [
     notifierId: 'u2',
     notifierName: '李四',
     notifyTime: '2024-01-16 09:00:00',
+    confirmerId: 'u3',
+    confirmerName: '王五',
     confirmTime: '2024-01-16 09:30:00',
   },
   {
@@ -253,9 +256,6 @@ const initialStudentNotifications: StudentNotification[] = [
     studentId: 's7',
     studentName: '小军',
     status: 'pending',
-    notifierId: 'u2',
-    notifierName: '李四',
-    notifyTime: '2024-01-16 09:00:00',
     remarks: '超时未确认',
   },
   {
@@ -264,9 +264,6 @@ const initialStudentNotifications: StudentNotification[] = [
     studentId: 's3',
     studentName: '小刚',
     status: 'pending',
-    notifierId: 'u2',
-    notifierName: '李四',
-    notifyTime: '2024-01-17 10:00:00',
   },
   {
     id: 'n9',
@@ -274,9 +271,6 @@ const initialStudentNotifications: StudentNotification[] = [
     studentId: 's8',
     studentName: '小华',
     status: 'pending',
-    notifierId: 'u2',
-    notifierName: '李四',
-    notifyTime: '2024-01-17 10:00:00',
   },
 ];
 

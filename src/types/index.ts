@@ -109,9 +109,11 @@ export interface StudentNotification {
   studentId: string;
   studentName: string;
   status: StudentNotificationStatus;
-  notifierId: string;
-  notifierName: string;
-  notifyTime: string;
+  notifierId?: string;
+  notifierName?: string;
+  notifyTime?: string;
+  confirmerId?: string;
+  confirmerName?: string;
   confirmTime?: string;
   remarks?: string;
 }

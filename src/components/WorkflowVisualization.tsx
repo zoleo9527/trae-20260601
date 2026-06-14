@@ -85,11 +85,13 @@ export const NotificationWorkflowSteps = ({
   status,
   notifierName,
   notifyTime,
+  confirmerName,
   confirmTime
 }: { 
   status: StudentNotificationStatus;
   notifierName?: string;
   notifyTime?: string;
+  confirmerName?: string;
   confirmTime?: string;
 }) => {
   const getNotificationSteps = (): WorkflowStep[] => {
@@ -110,7 +112,7 @@ export const NotificationWorkflowSteps = ({
         title: status === 'absent' ? '缺考' : '已确认',
         description: status === 'absent' ? '学员缺考' :
                     status === 'confirmed' || status === 'completed' ? 
-                    `确认于 ${confirmTime}` : '待确认',
+                    `${confirmerName} 确认于 ${confirmTime}` : '待确认',
         status: status === 'confirmed' || status === 'completed' ? 'finish' :
                 status === 'notified' ? 'process' :
                 status === 'absent' ? 'error' : 'wait',

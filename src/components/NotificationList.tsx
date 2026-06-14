@@ -67,18 +67,23 @@ export default function NotificationList() {
       title: '通知人', 
       dataIndex: 'notifierName', 
       key: 'notifierName',
-      render: (name: string, record: StudentNotification) => (
+      render: (name: string | undefined, record: StudentNotification) => (
         <div>
-          <div>{name}</div>
-          <div style={{ fontSize: '12px', color: '#999' }}>{record.notifyTime}</div>
+          <div>{name || '-'}</div>
+          <div style={{ fontSize: '12px', color: '#999' }}>{record.notifyTime || '-'}</div>
         </div>
       ),
     },
     { 
-      title: '确认时间', 
-      dataIndex: 'confirmTime', 
-      key: 'confirmTime',
-      render: (time: string | undefined) => time || '-',
+      title: '确认人', 
+      dataIndex: 'confirmerName', 
+      key: 'confirmerName',
+      render: (name: string | undefined, record: StudentNotification) => (
+        <div>
+          <div>{name || '-'}</div>
+          <div style={{ fontSize: '12px', color: '#999' }}>{record.confirmTime || '-'}</div>
+        </div>
+      ),
     },
     { 
       title: '备注', 
@@ -194,8 +199,9 @@ export default function NotificationList() {
               <div><strong>批次编号：</strong>{batches.find(b => b.id === selectedNotification.batchId)?.batchNumber}</div>
               <div><strong>学员姓名：</strong>{selectedNotification.studentName}</div>
               <div><strong>通知状态：</strong><Tag color={statusColors[selectedNotification.status]}>{STUDENT_NOTIFICATION_STATUS_MAP[selectedNotification.status]}</Tag></div>
-              <div><strong>通知人：</strong>{selectedNotification.notifierName}</div>
-              <div><strong>通知时间：</strong>{selectedNotification.notifyTime}</div>
+              <div><strong>通知人：</strong>{selectedNotification.notifierName || '-'}</div>
+              <div><strong>通知时间：</strong>{selectedNotification.notifyTime || '-'}</div>
+              <div><strong>确认人：</strong>{selectedNotification.confirmerName || '-'}</div>
               <div><strong>确认时间：</strong>{selectedNotification.confirmTime || '-'}</div>
               <div><strong>备注：</strong>{selectedNotification.remarks || '-'}</div>
             </div>
@@ -204,6 +210,7 @@ export default function NotificationList() {
               status={selectedNotification.status}
               notifierName={selectedNotification.notifierName}
               notifyTime={selectedNotification.notifyTime}
+              confirmerName={selectedNotification.confirmerName}
               confirmTime={selectedNotification.confirmTime}
             />
           </div>

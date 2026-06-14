@@ -91,6 +91,8 @@ export async function PUT(
         
         updates = {
           status: 'confirmed',
+          confirmerId: operatorId,
+          confirmerName: operatorName,
           confirmTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
         };
         logDetails = `确认学员 ${notification.studentName} 的通知`;

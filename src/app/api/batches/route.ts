@@ -59,8 +59,6 @@ export async function POST(request: NextRequest) {
           studentId: student.id,
           studentName: student.name,
           status: 'pending',
-          notifierId: operatorId,
-          notifierName: operatorName,
         });
       }
     });
