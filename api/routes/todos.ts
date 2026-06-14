@@ -4,7 +4,7 @@ import { getTodosByRole } from '../services/todoService';
 
 const router = Router();
 
-router.get('/todos', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
     const todos = await getTodosByRole(user.role as any, user.userId);

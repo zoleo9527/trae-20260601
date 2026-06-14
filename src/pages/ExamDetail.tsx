@@ -69,14 +69,15 @@ export const ExamDetailPage: React.FC = () => {
       return;
     }
 
-    let retestFee: number | undefined;
+    let retestFee: number = 150;
     if (numScore < 90) {
       const feeStr = prompt('成绩未通过，请输入补考费金额（如：150）：');
       if (feeStr) {
-        retestFee = parseFloat(feeStr);
-        if (isNaN(retestFee)) {
-          alert('补考费金额无效');
-          return;
+        const parsedFee = parseFloat(feeStr);
+        if (isNaN(parsedFee)) {
+          alert('补考费金额无效，将使用默认值150');
+        } else {
+          retestFee = parsedFee;
         }
       }
     }
@@ -85,7 +86,7 @@ export const ExamDetailPage: React.FC = () => {
       setActionLoading(true);
       await examApi.score(id!, {
         score: numScore,
-        retestFee,
+        retestFee: numScore < 90 ? retestFee : undefined,
         reason: numScore >= 90 ? '考试通过' : '考试未通过，需补考',
         remark: numScore >= 90 ? '' : `补考费：¥${retestFee}`,
       });

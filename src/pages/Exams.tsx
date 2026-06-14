@@ -14,10 +14,11 @@ export const ExamsPage: React.FC = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
     loadExams();
-  }, [search, statusFilter]);
+  }, [search, statusFilter, dateFilter]);
 
   const loadExams = async () => {
     try {
@@ -25,6 +26,11 @@ export const ExamsPage: React.FC = () => {
       const params: any = {};
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
+      if (dateFilter) {
+        const { start, end } = getDateRange(dateFilter);
+        params.startDate = start;
+        params.endDate = end;
+      }
 
       const result = await examApi.getAll(params);
       setExams(result.exams || result);
@@ -113,6 +119,16 @@ export const ExamsPage: React.FC = () => {
             <option value="scored">成绩已录</option>
             <option value="retest">需补考</option>
             <option value="absent">缺考</option>
+          </select>
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="">全部日期</option>
+            <option value="today">今天</option>
+            <option value="week">本周</option>
+            <option value="month">本月</option>
           </select>
         </div>
 
@@ -207,3 +223,37 @@ export const ExamsPage: React.FC = () => {
     </Layout>
   );
 };
+
+function getDateRange(filter: string): { start: string; end: string } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (filter) {
+    case 'today':
+      return {
+        start: today.toISOString(),
+        end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+    case 'week':
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+      return {
+        start: startOfWeek.toISOString(),
+        end: endOfWeek.toISOString(),
+      };
+    case 'month':
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return {
+        start: startOfMonth.toISOString(),
+        end: new Date(endOfMonth.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+    default:
+      return {
+        start: today.toISOString(),
+        end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+  }
+}

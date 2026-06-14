@@ -66,12 +66,13 @@ export async function updateExamStatus(input: UpdateExamInput) {
     remark: input.remark,
   });
 
-  if (input.newStatus === 'retest' && input.retestFee) {
+  if (input.newStatus === 'retest') {
+    const retestFeeAmount = input.retestFee || 150;
     await prisma.payment.create({
       data: {
         studentId: exam.studentId,
         paymentType: 'retest',
-        amount: input.retestFee,
+        amount: retestFeeAmount,
         status: 'pending',
         handlerId: input.handlerId,
       },
