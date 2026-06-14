@@ -15,6 +15,20 @@ import { STATUS_META, USERS, STUCK_PRESET_FILTERS } from "@/constants";
 import { genId, nowISO, getDaysInCurrentNode, isNodeStuck } from "@/utils";
 import { seedCostumes } from "./seedData";
 
+function migrateTimelineEntries(costumes: Costume[]): Costume[] {
+  return costumes.map((c) => {
+    let costumeChanged = false;
+    const timeline = c.timeline.map((t) => {
+      if (t.assigneeName !== undefined && t.assigneeRole !== undefined) return t;
+      costumeChanged = true;
+      const role = STATUS_META[t.status]?.assigneeRole ?? "admin";
+      const user = USERS[role]?.[0] ?? { name: "未知", role: "admin" as UserRole };
+      return { ...t, assigneeName: user.name, assigneeRole: role };
+    });
+    return costumeChanged ? { ...c, timeline } : c;
+  });
+}
+
 interface SizeFieldUpdate {
   field: keyof Pick<StudentSize, "height" | "weight" | "chest" | "waist" | "hips" | "size" | "remark">;
   value: string | number | undefined;
@@ -382,6 +396,13 @@ export const useAppStore = create<AppState>()(
         sizeHistoryCostumeId: state.sizeHistoryCostumeId,
         sizeHistoryStudentId: state.sizeHistoryStudentId,
       }),
+      merge: (persisted, current) => {
+        const p = persisted as Partial<AppState>;
+        if (p.costumes) {
+          p.costumes = migrateTimelineEntries(p.costumes);
+        }
+        return { ...current, ...p };
+      },
     }
   )
 );

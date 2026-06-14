@@ -1,4 +1,5 @@
 import { X, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { useAppStore } from "@/store";
 import type { Costume } from "@/types";
 import { cn, formatDateTime } from "@/utils";
@@ -26,8 +27,14 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function SizeHistoryModal({ costume }: Props) {
+  const navigate = useNavigate();
   const { sizeHistoryStudentId, openSizeHistory } = useAppStore();
   const student = costume.studentSizes.find((s) => s.id === sizeHistoryStudentId);
+
+  const handleClose = () => {
+    openSizeHistory(null, null);
+    navigate(`/costumes/${costume.id}`, { replace: true });
+  };
 
   if (!student) return null;
   const logs = [...student.changeLogs].sort(
@@ -42,7 +49,7 @@ export default function SizeHistoryModal({ costume }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={() => openSizeHistory(null, null)} />
+      <div className="absolute inset-0 bg-ink-900/40 backdrop-blur-sm" onClick={handleClose} />
       <div className="relative card w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden shadow-card-hover animate-in">
         <div className="px-5 py-4 border-b border-cream-200 flex items-center justify-between bg-cream-50">
           <div>
@@ -52,7 +59,7 @@ export default function SizeHistoryModal({ costume }: Props) {
             <p className="text-xs text-ink-500 mt-0.5">学生：{student.studentName}</p>
           </div>
           <button
-            onClick={() => openSizeHistory(null, null)}
+            onClick={handleClose}
             className="p-1.5 rounded hover:bg-cream-200 text-ink-500 transition-colors"
           >
             <X size={18} />

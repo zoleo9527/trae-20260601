@@ -1,6 +1,6 @@
 import { Check, AlertCircle, Hourglass, Timer, AlertOctagon } from "lucide-react";
-import { STATUS_META, STATUS_FLOW, ROLE_META, STATUS_TIMEOUT_DAYS } from "@/constants";
-import type { CostumeStatus, TimelineEntry as TimelineEntryType } from "@/types";
+import { STATUS_META, STATUS_FLOW, ROLE_META, STATUS_TIMEOUT_DAYS, USERS } from "@/constants";
+import type { CostumeStatus, TimelineEntry as TimelineEntryType, UserRole } from "@/types";
 import { cn, formatDateTime, getNodeDuration, formatDurationDays } from "@/utils";
 import Avatar from "./Avatar";
 import StatusBadge from "./StatusBadge";
@@ -88,7 +88,12 @@ export default function Timeline({ currentStatus, entries, className }: Props) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <Avatar name={relatedEntry.operatorName} role={relatedEntry.operatorRole} size="sm" showName />
                       <span className="text-xs text-ink-400">→</span>
-                      <Avatar name={relatedEntry.assigneeName} role={relatedEntry.assigneeRole} size="sm" showName />
+                      <Avatar
+                        name={relatedEntry.assigneeName ?? USERS[STATUS_META[relatedEntry.status]?.assigneeRole ?? "admin"]?.[0]?.name ?? "未知"}
+                        role={(relatedEntry.assigneeRole ?? STATUS_META[relatedEntry.status]?.assigneeRole ?? "admin") as UserRole}
+                        size="sm"
+                        showName
+                      />
                       <span className="text-[10px] text-ink-400">接手</span>
                     </div>
                     <span className="text-xs text-ink-400">{formatDateTime(relatedEntry.timestamp)}</span>
