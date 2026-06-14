@@ -183,7 +183,10 @@ db.initialize = function() {
   if (needsFullInit) {
     console.log('\n开始初始化完整示例数据...');
     seedData();
-    console.log('完整示例数据初始化完成\n');
+    console.log('完整示例数据初始化完成');
+    console.log('\n数据纠偏检查...');
+    correctDataInconsistencies();
+    console.log('数据纠偏完成\n');
   } else {
     console.log('\n开始增量补充数据...');
     let hasUpdates = false;
@@ -343,21 +346,21 @@ function seedData() {
   `);
 
   const registrations1 = [
-    { user_id: 10, user_name: '张伟', user_department: '技术部', status: 'attended' },
-    { user_id: 11, user_name: '刘芳', user_department: '市场部', status: 'attended' },
-    { user_id: 12, user_name: '王强', user_department: '技术部', status: 'cancelled', absence_reason: '因病取消' },
-    { user_id: 13, user_name: '赵敏', user_department: '财务部', status: 'cancelled', absence_reason: '因病取消' },
-    { user_id: 14, user_name: '孙磊', user_department: '技术部', status: 'absent', absence_reason: '无故缺席' },
-    { user_id: 15, user_name: '周涛', user_department: '市场部', status: 'attended' },
-    { user_id: 16, user_name: '吴静', user_department: '技术部', status: 'attended' },
-    { user_id: 17, user_name: '郑华', user_department: '财务部', status: 'attended' },
-    { user_id: 18, user_name: '杨洋', user_department: '市场部', status: 'attended' },
-    { user_id: 19, user_name: '林涛', user_department: '技术部', status: 'attended' },
-    { user_id: 20, user_name: '黄丽', user_department: '财务部', status: 'attended' },
-    { user_id: 21, user_name: '徐刚', user_department: '技术部', status: 'attended' },
-    { user_id: 22, user_name: '马艳', user_department: '市场部', status: 'attended' },
-    { user_id: 23, user_name: '朱磊', user_department: '技术部', status: 'attended' },
-    { user_id: 24, user_name: '胡云', user_department: '财务部', status: 'attended' }
+    { user_id: 6, user_name: '张伟', user_department: '技术部', status: 'attended' },
+    { user_id: 7, user_name: '刘芳', user_department: '市场部', status: 'attended' },
+    { user_id: 8, user_name: '王强', user_department: '技术部', status: 'cancelled', absence_reason: '因病取消' },
+    { user_id: 9, user_name: '赵敏', user_department: '财务部', status: 'cancelled', absence_reason: '因病取消' },
+    { user_id: 10, user_name: '孙磊', user_department: '技术部', status: 'absent', absence_reason: '无故缺席' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'attended' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'attended' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'attended' },
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'attended' },
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'attended' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'attended' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'attended' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'attended' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'attended' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'attended' }
   ];
 
   for (const reg of registrations1) {
@@ -680,27 +683,27 @@ function seedData() {
     { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'attended' },
     { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'attended' },
     { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'attended' },
-    { user_id: 14, user_name: '杨洋', user_department: '技术部', status: 'attended' },
-    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'attended' },
-    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'attended' },
-    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'attended' },
-    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'attended' },
-    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'attended' },
-    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'attended' },
-    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'attended' },
-    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'attended' },
-    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'attended' },
-    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'attended' },
-    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'attended' },
-    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'attended' },
-    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'attended' },
-    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'attended' },
-    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'attended' },
-    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'attended' },
-    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'attended' },
-    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'attended' },
-    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'attended' },
-    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'attended' }
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'attended' },
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'attended' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'attended' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'attended' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'attended' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'attended' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'attended' },
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'attended' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'attended' },
+    { user_id: 23, user_name: '王磊', user_department: '技术部', status: 'attended' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'attended' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'attended' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'attended' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'attended' },
+    { user_id: 28, user_name: '郑健', user_department: '市场部', status: 'attended' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'attended' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'attended' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'attended' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'attended' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'attended' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'attended' }
   ];
 
   for (const reg of registrations3) {
@@ -719,27 +722,27 @@ function seedData() {
     { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'pending' },
     { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'pending' },
     { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'pending' },
-    { user_id: 14, user_name: '杨洋', user_department: '技术部', status: 'pending' },
-    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'pending' },
-    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'pending' },
-    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'pending' },
-    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'needs_correction', correction_reason: '证书编号错误' },
-    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'needs_correction', correction_reason: '员工姓名拼写错误' },
-    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'needs_correction', correction_reason: '部门信息错误' },
-    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'pending' },
-    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'pending' },
-    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'pending' },
-    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'pending' },
-    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'pending' },
-    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'pending' },
-    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'pending' },
-    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'pending' },
-    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'pending' },
-    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'pending' },
-    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'pending' },
-    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'pending' },
-    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'pending' },
-    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'pending' }
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'pending' },
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'pending' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'pending' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'pending' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'needs_correction', correction_reason: '证书编号错误' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'needs_correction', correction_reason: '员工姓名拼写错误' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'needs_correction', correction_reason: '部门信息错误' },
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'pending' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'pending' },
+    { user_id: 23, user_name: '王磊', user_department: '技术部', status: 'pending' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'pending' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'pending' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'pending' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'pending' },
+    { user_id: 28, user_name: '郑健', user_department: '市场部', status: 'pending' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'pending' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'pending' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'pending' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'pending' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'pending' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'pending' }
   ];
 
   for (let index = 0; index < certificates3.length; index++) {
@@ -1224,26 +1227,26 @@ function seedProject3Registrations() {
     { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'attended' },
     { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'attended' },
     { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'attended' },
-    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'attended' },
-    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'attended' },
-    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'attended' },
-    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'attended' },
-    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'attended' },
-    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'attended' },
-    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'attended' },
-    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'attended' },
-    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'attended' },
-    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'attended' },
-    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'attended' },
-    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'attended' },
-    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'attended' },
-    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'attended' },
-    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'attended' },
-    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'attended' },
-    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'attended' },
-    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'attended' },
-    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'attended' },
-    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'attended' }
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'attended' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'attended' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'attended' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'attended' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'attended' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'attended' },
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'attended' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'attended' },
+    { user_id: 23, user_name: '王磊', user_department: '技术部', status: 'attended' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'attended' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'attended' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'attended' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'attended' },
+    { user_id: 28, user_name: '郑健', user_department: '市场部', status: 'attended' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'attended' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'attended' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'attended' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'attended' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'attended' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'attended' }
   ];
 
   for (const reg of registrations3) {
@@ -1270,26 +1273,26 @@ function seedProject3Certificates() {
     { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'pending' },
     { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'pending' },
     { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'pending' },
-    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'pending' },
-    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'pending' },
-    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'pending' },
-    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'needs_correction', correction_reason: '证书编号错误' },
-    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'needs_correction', correction_reason: '员工姓名拼写错误' },
-    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'needs_correction', correction_reason: '部门信息错误' },
-    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'pending' },
-    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'pending' },
-    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'pending' },
-    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'pending' },
-    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'pending' },
-    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'pending' },
-    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'pending' },
-    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'pending' },
-    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'pending' },
-    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'pending' },
-    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'pending' },
-    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'pending' },
-    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'pending' },
-    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'pending' }
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'pending' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'pending' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'pending' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'needs_correction', correction_reason: '证书编号错误' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'needs_correction', correction_reason: '员工姓名拼写错误' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'needs_correction', correction_reason: '部门信息错误' },
+    { user_id: 21, user_name: '张华', user_department: '技术部', status: 'pending' },
+    { user_id: 22, user_name: '李娜', user_department: '市场部', status: 'pending' },
+    { user_id: 23, user_name: '王磊', user_department: '技术部', status: 'pending' },
+    { user_id: 24, user_name: '赵雪', user_department: '财务部', status: 'pending' },
+    { user_id: 25, user_name: '孙超', user_department: '市场部', status: 'pending' },
+    { user_id: 26, user_name: '周琳', user_department: '技术部', status: 'pending' },
+    { user_id: 27, user_name: '吴昊', user_department: '财务部', status: 'pending' },
+    { user_id: 28, user_name: '郑健', user_department: '市场部', status: 'pending' },
+    { user_id: 29, user_name: '杨帆', user_department: '技术部', status: 'pending' },
+    { user_id: 30, user_name: '林静', user_department: '财务部', status: 'pending' },
+    { user_id: 31, user_name: '黄勇', user_department: '市场部', status: 'pending' },
+    { user_id: 32, user_name: '徐敏', user_department: '技术部', status: 'pending' },
+    { user_id: 33, user_name: '马超', user_department: '财务部', status: 'pending' },
+    { user_id: 34, user_name: '朱莉', user_department: '市场部', status: 'pending' }
   ];
 
   for (let index = 0; index < certificates3.length; index++) {
@@ -1347,6 +1350,41 @@ function correctDataInconsistencies() {
   }
   if (correctedCerts > 0) {
     console.log(`    修正了 ${correctedCerts} 条证书的员工姓名和部门信息`);
+  }
+
+  const registrations = db.prepare('SELECT id, user_id, user_name, user_department FROM training_registrations').all();
+  let correctedRegs = 0;
+  for (const reg of registrations) {
+    const user = userMap.get(reg.user_id);
+    if (user && (reg.user_name !== user.name || reg.user_department !== user.department)) {
+      db.prepare('UPDATE training_registrations SET user_name = ?, user_department = ? WHERE id = ?')
+        .run(user.name, user.department, reg.id);
+      correctedRegs++;
+    }
+  }
+  if (correctedRegs > 0) {
+    console.log(`    修正了 ${correctedRegs} 条报名记录的员工姓名和部门信息`);
+  }
+
+  const certExceptions = db.prepare("SELECT id, type, description FROM exceptions WHERE type LIKE 'certificate_%' AND related_id IS NULL").all();
+  let linkedExcs = 0;
+  for (const exc of certExceptions) {
+    const descMatch = exc.description.match(/员工(\S+)的证书/);
+    if (descMatch) {
+      const userName = descMatch[1];
+      const user = users.find(u => u.name === userName);
+      if (user) {
+        const cert = db.prepare('SELECT id FROM certificates WHERE user_id = ?').get(user.id);
+        if (cert) {
+          db.prepare('UPDATE exceptions SET related_id = ?, related_type = ?, description = description || \' [证书ID: \' || ? || \', 员工: \' || ? || \', 部门: \' || ? || \']\' WHERE id = ?')
+            .run(cert.id, 'certificate', cert.id, user.name, user.department, exc.id);
+          linkedExcs++;
+        }
+      }
+    }
+  }
+  if (linkedExcs > 0) {
+    console.log(`    补充了 ${linkedExcs} 条证书异常的关联信息`);
   }
 
   const exceptions = db.prepare('SELECT id, related_id, related_type FROM exceptions WHERE related_id IS NOT NULL').all();

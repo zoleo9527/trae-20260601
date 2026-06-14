@@ -83,8 +83,11 @@ router.get('/:id', (req, res) => {
   const user = db.prepare('SELECT * FROM users WHERE id = ?').get(certificate.user_id);
 
   const relatedExceptions = db.prepare(`
-    SELECT * FROM exceptions WHERE project_id = ? ORDER BY created_at DESC
-  `).all(certificate.project_id);
+    SELECT * FROM exceptions 
+    WHERE (related_id = ? AND related_type = 'certificate') 
+       OR (project_id = ? AND (type LIKE 'certificate_%' OR type = 'registration_absent'))
+    ORDER BY created_at DESC
+  `).all(id, certificate.project_id);
 
   res.json({
     certificate,
