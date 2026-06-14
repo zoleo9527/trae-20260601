@@ -1,10 +1,9 @@
-
 import { AlertTriangle, Clock, Wrench, CheckCircle, XCircle, ArrowRight, RefreshCcw, Gift, Bell } from 'lucide-react'
 import { FaultTicket, TicketStatus, TicketPriority, HandoverType } from '../types'
 
 const statusConfig: Record<TicketStatus, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
   pending: { label: '待审核', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Clock },
-  approved: { label: '已派工', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: ArrowRight },
+  approved: { label: '待派工', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: ArrowRight },
   repairing: { label: '维修中', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Wrench },
   completed: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle },
   rejected: { label: '已退回', color: 'text-red-600', bgColor: 'bg-red-100', icon: XCircle },

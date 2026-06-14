@@ -1,6 +1,5 @@
-
 import { create } from 'zustand'
-import { FaultTicket, User, TicketStatus, CreateTicketForm, TicketPriority } from '../types'
+import { FaultTicket, User, TicketStatus, CreateTicketForm, TicketPriority, UserRole } from '../types'
 import { mockTickets, mockUsers } from '../data/mockData'
 
 interface TicketStore {
@@ -16,6 +15,7 @@ interface TicketStore {
   createTicket: (form: CreateTicketForm) => void
   updateTicketStatus: (ticketId: string, status: TicketStatus, remark?: string) => void
   addRemark: (ticketId: string, remark: string) => void
+  supplementTicket: (ticketId: string, remark: string) => void
   getFilteredTickets: () => FaultTicket[]
   getStats: () => { pending: number; repairing: number; completed: number; rejected: number; approved: number }
 }
@@ -62,6 +62,7 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
           operator: currentUser.name,
           timestamp: getCurrentTimestamp(),
           remark: form.remarks,
+          role: currentUser.role,
         },
       ],
     }
@@ -70,7 +71,7 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
 
   updateTicketStatus: (ticketId, status, remark) => {
     const { tickets, currentUser } = get()
-    const updatedTickets = tickets.map((ticket) => {
+    const updatedTickets: FaultTicket[] = tickets.map((ticket) => {
       if (ticket.id !== ticketId) return ticket
 
       const actionMap: Record<TicketStatus, string> = {
@@ -89,16 +90,28 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
           operator: currentUser.name,
           timestamp: getCurrentTimestamp(),
           remark,
+          role: currentUser.role,
         },
       ]
 
-      return {
-        ...ticket,
+      const updates: Partial<FaultTicket> = {
         status,
         updatedAt: getCurrentTimestamp(),
-        remarks: remark ? `${ticket.remarks}\n${remark}` : ticket.remarks,
         processHistory: newHistory,
         assignedTo: status === 'repairing' ? '维修人员' : ticket.assignedTo,
+      }
+
+      if (remark) {
+        updates.remarks = `${ticket.remarks}\n${remark}`
+      }
+
+      if (status === 'rejected') {
+        updates.rejectedReason = remark || ''
+      }
+
+      return {
+        ...ticket,
+        ...updates,
       }
     })
     set({ tickets: updatedTickets })
@@ -107,7 +120,7 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
 
   addRemark: (ticketId, remark) => {
     const { tickets, currentUser } = get()
-    const updatedTickets = tickets.map((ticket) => {
+    const updatedTickets: FaultTicket[] = tickets.map((ticket) => {
       if (ticket.id !== ticketId) return ticket
 
       const newHistory = [
@@ -118,12 +131,43 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
           operator: currentUser.name,
           timestamp: getCurrentTimestamp(),
           remark,
+          role: currentUser.role,
         },
       ]
 
       return {
         ...ticket,
         remarks: `${ticket.remarks}\n${remark}`,
+        updatedAt: getCurrentTimestamp(),
+        processHistory: newHistory,
+      }
+    })
+    set({ tickets: updatedTickets })
+    set({ selectedTicket: updatedTickets.find((t) => t.id === ticketId) || null })
+  },
+
+  supplementTicket: (ticketId, remark) => {
+    const { tickets, currentUser } = get()
+    const updatedTickets: FaultTicket[] = tickets.map((ticket) => {
+      if (ticket.id !== ticketId) return ticket
+
+      const newHistory = [
+        ...ticket.processHistory,
+        {
+          id: generateId(),
+          action: '补充说明',
+          operator: currentUser.name,
+          timestamp: getCurrentTimestamp(),
+          remark,
+          role: currentUser.role,
+        },
+      ]
+
+      return {
+        ...ticket,
+        status: 'pending' as TicketStatus,
+        remarks: `${ticket.remarks}\n${remark}`,
+        rejectedReason: undefined,
         updatedAt: getCurrentTimestamp(),
         processHistory: newHistory,
       }

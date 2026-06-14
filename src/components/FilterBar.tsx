@@ -1,4 +1,3 @@
-
 import { Search, Plus } from 'lucide-react'
 import { useTicketStore } from '../store/ticketStore'
 import { TicketStatus } from '../types'
@@ -6,7 +5,7 @@ import { TicketStatus } from '../types'
 const statusOptions: { value: TicketStatus | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待审核' },
-  { value: 'approved', label: '已派工' },
+  { value: 'approved', label: '待派工' },
   { value: 'repairing', label: '维修中' },
   { value: 'completed', label: '已完成' },
   { value: 'rejected', label: '已退回' },

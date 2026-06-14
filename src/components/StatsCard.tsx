@@ -1,10 +1,9 @@
-
 import { Clock, Wrench, CheckCircle, XCircle, ArrowRight } from 'lucide-react'
 import { useTicketStore } from '../store/ticketStore'
 
 const statsConfig = [
   { key: 'pending', label: '待审核', icon: Clock, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
-  { key: 'approved', label: '已派工', icon: ArrowRight, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
+  { key: 'approved', label: '待派工', icon: ArrowRight, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
   { key: 'repairing', label: '维修中', icon: Wrench, color: 'bg-amber-500', bgColor: 'bg-amber-50' },
   { key: 'completed', label: '已完成', icon: CheckCircle, color: 'bg-green-500', bgColor: 'bg-green-50' },
   { key: 'rejected', label: '已退回', icon: XCircle, color: 'bg-red-500', bgColor: 'bg-red-50' },

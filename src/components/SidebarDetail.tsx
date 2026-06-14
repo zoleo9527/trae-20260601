@@ -1,4 +1,3 @@
-
 import { X, Clock, User, Store, AlertTriangle, CheckCircle, XCircle, Wrench, ArrowRight, MessageSquare, RefreshCcw, Gift, Bell, Zap, Eye, Edit } from 'lucide-react'
 import { useState } from 'react'
 import { useTicketStore } from '../store/ticketStore'
@@ -6,7 +5,7 @@ import { TicketStatus, TicketPriority, UserRole, HandoverType } from '../types'
 
 const statusConfig: Record<TicketStatus, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
   pending: { label: '待审核', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Clock },
-  approved: { label: '已派工', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: ArrowRight },
+  approved: { label: '待派工', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: ArrowRight },
   repairing: { label: '维修中', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Wrench },
   completed: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle },
   rejected: { label: '已退回', color: 'text-red-600', bgColor: 'bg-red-100', icon: XCircle },
@@ -31,7 +30,7 @@ const roleLabels: Record<UserRole, string> = {
 }
 
 export function SidebarDetail() {
-  const { selectedTicket, selectTicket, updateTicketStatus, addRemark, currentUser } = useTicketStore()
+  const { selectedTicket, selectTicket, updateTicketStatus, addRemark, supplementTicket, currentUser } = useTicketStore()
   const [remarkInput, setRemarkInput] = useState('')
   const [showRemarkModal, setShowRemarkModal] = useState(false)
   const [showActionModal, setShowActionModal] = useState(false)
@@ -83,6 +82,14 @@ export function SidebarDetail() {
   const handleAddRemark = () => {
     if (remarkInput.trim()) {
       addRemark(selectedTicket.id, remarkInput.trim())
+      setRemarkInput('')
+      setShowRemarkModal(false)
+    }
+  }
+
+  const handleSupplement = () => {
+    if (remarkInput.trim()) {
+      supplementTicket(selectedTicket.id, remarkInput.trim())
       setRemarkInput('')
       setShowRemarkModal(false)
     }
@@ -316,9 +323,9 @@ export function SidebarDetail() {
         <div className="mb-6">
           <h4 className="text-sm font-medium text-gray-700 mb-3">状态流程</h4>
           <div className="flex items-center justify-between">
-            {['待审核', '已派工', '维修中', '已完成'].map((label, index) => {
+            {['待审核', '待派工', '维修中', '已完成'].map((label, index) => {
               const statusKey = label === '待审核' ? 'pending' :
-                               label === '已派工' ? 'approved' :
+                               label === '待派工' ? 'approved' :
                                label === '维修中' ? 'repairing' : 'completed'
               const isActive = ['pending', 'approved', 'repairing', 'completed'].indexOf(selectedTicket.status) >= index
               const isCurrent = statusKey === selectedTicket.status
@@ -362,7 +369,7 @@ export function SidebarDetail() {
       </div>
 
       <div className="p-4 border-t border-gray-200 space-y-3">
-        {canAddRemark && (
+        {canAddRemark && !canSupplement && (
           <button
             onClick={() => setShowRemarkModal(true)}
             className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -378,7 +385,7 @@ export function SidebarDetail() {
             className="w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
           >
             <Edit className="w-4 h-4" />
-            补充说明
+            补充说明并重新提交
           </button>
         )}
 
@@ -442,7 +449,7 @@ export function SidebarDetail() {
                 取消
               </button>
               <button
-                onClick={handleAddRemark}
+                onClick={canSupplement ? handleSupplement : handleAddRemark}
                 disabled={!remarkInput.trim()}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
               >

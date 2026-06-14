@@ -1,14 +1,19 @@
-
 import { useTicketStore } from '../store/ticketStore'
 import { TicketCard } from './TicketCard'
 import { EmptyState } from './EmptyState'
 
-export function TicketList() {
-  const { getFilteredTickets, selectedTicket, selectTicket } = useTicketStore()
+interface TicketListProps {
+  onCreateClick?: () => void
+}
+
+export function TicketList({ onCreateClick }: TicketListProps) {
+  const { getFilteredTickets, selectedTicket, selectTicket, currentUser } = useTicketStore()
   const tickets = getFilteredTickets()
 
+  const canCreateTicket = currentUser.role === 'clerk' || currentUser.role === 'manager'
+
   if (tickets.length === 0) {
-    return <EmptyState />
+    return <EmptyState onCreateClick={canCreateTicket ? onCreateClick : undefined} />
   }
 
   return (

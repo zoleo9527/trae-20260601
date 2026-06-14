@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { Header } from './components/Header'
 import { StatsCard } from './components/StatsCard'
@@ -18,7 +17,7 @@ export default function App() {
         <div className="flex-1 p-6">
           <StatsCard />
           <FilterBar onCreateClick={() => setShowCreateModal(true)} />
-          <TicketList />
+          <TicketList onCreateClick={() => setShowCreateModal(true)} />
         </div>
         
         <SidebarDetail />
