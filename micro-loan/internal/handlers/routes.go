@@ -30,6 +30,7 @@ func SetupRoutes(app *fiber.App) {
 	riskAuditor.Post("/risk-audits", riskAuditHandler.CreateRiskAudit)
 	riskAuditor.Get("/risk-audits/loan/:loan_id", riskAuditHandler.GetRiskAudits)
 	riskAuditor.Get("/risk-audits/loan/:loan_id/latest", riskAuditHandler.GetLatestRiskAudit)
+	riskAuditor.Put("/loans/status", riskAuditHandler.UpdateLoanStatus)
 
 	docHandler = NewDocumentHandler()
 	riskAuditor.Post("/documents/review", docHandler.ReviewDocument)

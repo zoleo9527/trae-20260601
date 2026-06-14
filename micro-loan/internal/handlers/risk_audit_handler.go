@@ -9,11 +9,13 @@ import (
 
 type RiskAuditHandler struct {
 	riskService *services.RiskAuditService
+	loanService *services.LoanService
 }
 
 func NewRiskAuditHandler() *RiskAuditHandler {
 	return &RiskAuditHandler{
 		riskService: services.NewRiskAuditService(),
+		loanService: services.NewLoanService(),
 	}
 }
 
@@ -77,5 +79,28 @@ func (h *RiskAuditHandler) GetLatestRiskAudit(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"data": audit,
+	})
+}
+
+func (h *RiskAuditHandler) UpdateLoanStatus(c *fiber.Ctx) error {
+	var req services.RiskAuditStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{
+			"error": "无效的请求数据",
+		})
+	}
+
+	req.IPAddress = c.IP()
+	req.UserAgent = c.Get("User-Agent")
+
+	err := h.loanService.RiskAuditUpdateStatus(&req)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "风控审核状态更新成功",
 	})
 }

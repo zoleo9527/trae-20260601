@@ -9,10 +9,12 @@ import (
 
 type LoanRepository struct {
 	db *gorm.DB
+	DB *gorm.DB
 }
 
 func NewLoanRepository() *LoanRepository {
-	return &LoanRepository{db: config.DB}
+	db := config.DB
+	return &LoanRepository{db: db, DB: db}
 }
 
 func (r *LoanRepository) Create(loan *models.LoanApplication) error {

@@ -165,6 +165,95 @@ func (s *LoanService) UpdateStatus(req *UpdateStatusRequest) error {
 	return nil
 }
 
+type RiskAuditStatusRequest struct {
+	LoanID         uint   `json:"loan_id" binding:"required"`
+	ToStatus       string `json:"to_status" binding:"required"`
+	AuditorID      string `json:"auditor_id" binding:"required"`
+	AuditorRole    models.RoleType `json:"auditor_role" binding:"required"`
+	Remark         string `json:"remark"`
+	RiskAuditID    *uint  `json:"risk_audit_id"`
+	IPAddress      string `json:"ip_address"`
+	UserAgent      string `json:"user_agent"`
+}
+
+func (s *LoanService) RiskAuditUpdateStatus(req *RiskAuditStatusRequest) error {
+	loan, err := s.loanRepo.GetByID(req.LoanID)
+	if err != nil {
+		return err
+	}
+
+	fromStatus := string(loan.Status)
+	if loan.Status != models.LoanStatusRiskAuditing {
+		return fmt.Errorf("当前状态不是风控审核中，无法进行风控审核操作: %s", fromStatus)
+	}
+
+	validStatuses := []string{"approved", "rejected", "risk_auditing"}
+	isValid := false
+	for _, status := range validStatuses {
+		if req.ToStatus == status {
+			isValid = true
+			break
+		}
+	}
+	if !isValid {
+		return fmt.Errorf("无效的风控审核状态转换: %s -> %s", fromStatus, req.ToStatus)
+	}
+
+	currentTime := time.Now()
+	var handler string
+	var updateData map[string]interface{} = map[string]interface{}{
+		"status":            models.LoanStatus(req.ToStatus),
+		"status_updated_at": currentTime,
+		"updated_by":        req.AuditorID,
+	}
+
+	switch models.LoanStatus(req.ToStatus) {
+	case models.LoanStatusApproved:
+		handler = ""
+		updateData["current_handler"] = handler
+	case models.LoanStatusRejected:
+		handler = ""
+		updateData["current_handler"] = handler
+	case models.LoanStatusRiskAuditing:
+		handler = req.AuditorID
+		updateData["current_handler"] = handler
+	}
+
+	if req.Remark != "" {
+		updateData["remark"] = req.Remark
+	}
+
+	err = s.loanRepo.DB.Model(&models.LoanApplication{}).Where("id = ?", req.LoanID).Updates(updateData).Error
+	if err != nil {
+		return err
+	}
+
+	history := &models.StatusHistory{
+		LoanApplicationID: req.LoanID,
+		FromStatus:        fromStatus,
+		ToStatus:          req.ToStatus,
+		ChangedBy:         req.AuditorID,
+		ChangedAt:         currentTime,
+		Remark:            req.Remark,
+	}
+	s.loanRepo.CreateStatusHistory(history)
+
+	beforeData, _ := json.Marshal(map[string]interface{}{
+		"status":           fromStatus,
+		"current_handler":  loan.CurrentHandler,
+	})
+	afterData, _ := json.Marshal(map[string]interface{}{
+		"status":           req.ToStatus,
+		"current_handler":  handler,
+		"risk_audit_id":    req.RiskAuditID,
+	})
+	s.createAuditLog("RISK_AUDIT_UPDATE_STATUS", req.AuditorID, req.AuditorRole, &req.LoanID, 
+		fmt.Sprintf("风控审核更新状态: %s -> %s", fromStatus, req.ToStatus), 
+		string(beforeData), string(afterData), req.IPAddress, req.UserAgent)
+
+	return nil
+}
+
 func (s *LoanService) createAuditLog(operationType, operatorID string, operatorRole models.RoleType, loanID *uint, operationDesc, beforeData, afterData, ipAddress, userAgent string) {
 	auditLog := &models.AuditLog{
 		OperationType:     operationType,

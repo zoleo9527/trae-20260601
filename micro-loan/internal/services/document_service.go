@@ -1,6 +1,7 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -130,6 +131,7 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 		return errors.New("借款申请不存在")
 	}
 
+	fromStatus := string(loan.Status)
 	if loan.Status != models.LoanStatusCollecting {
 		return errors.New("当前状态不允许提交资料")
 	}
@@ -156,17 +158,39 @@ func (s *DocumentService) IdempotentSubmit(req *IdempotentSubmitRequest) error {
 		return errors.New("存在造假资料，无法提交")
 	}
 
+	currentTime := time.Now()
 	loan.Status = models.LoanStatusRiskAuditing
-	loan.StatusUpdatedAt = time.Now()
+	loan.StatusUpdatedAt = currentTime
 	loan.CurrentHandler = req.OperatorID
+	loan.UpdatedBy = req.OperatorID
 
 	err = s.loanRepo.Update(loan)
 	if err != nil {
 		return err
 	}
 
+	statusHistory := &models.StatusHistory{
+		LoanApplicationID: req.LoanApplicationID,
+		FromStatus:        fromStatus,
+		ToStatus:          string(models.LoanStatusRiskAuditing),
+		ChangedBy:         req.OperatorID,
+		ChangedAt:         currentTime,
+		Remark:            "资料提交完成，转入风控审核",
+	}
+	s.loanRepo.CreateStatusHistory(statusHistory)
+
+	beforeData, _ := json.Marshal(map[string]interface{}{
+		"status":          fromStatus,
+		"current_handler": loan.CurrentHandler,
+	})
+	afterData, _ := json.Marshal(map[string]interface{}{
+		"status":          string(models.LoanStatusRiskAuditing),
+		"current_handler": req.OperatorID,
+		"submit_time":     currentTime.Format(time.RFC3339),
+	})
+
 	s.createAuditLog("SUBMIT_DOCUMENTS", req.OperatorID, req.OperatorRole, &req.LoanApplicationID,
-		"幂等提交资料", "", "", req.IPAddress, req.UserAgent)
+		"幂等提交资料，转入风控审核", string(beforeData), string(afterData), req.IPAddress, req.UserAgent)
 
 	return nil
 }

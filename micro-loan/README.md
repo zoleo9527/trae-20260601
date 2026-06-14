@@ -229,6 +229,21 @@
 - **GET** `/api/v1/risk-auditor/risk-audits/loan/:loan_id`
 - **GET** `/api/v1/risk-auditor/risk-audits/loan/:loan_id/latest`
 
+#### 更新借款状态（风控审核专用）
+- **PUT** `/api/v1/risk-auditor/loans/status`
+- **Body**:
+```json
+{
+  "loan_id": 1,
+  "to_status": "approved",
+  "auditor_id": "R001",
+  "auditor_role": "risk_auditor",
+  "remark": "风控审核通过",
+  "risk_audit_id": 1
+}
+```
+- **说明**: 风控审核完成后更新借款申请状态，支持转换为 `approved`（通过）或 `rejected`（拒绝）。自动记录状态变化、责任人、时间点和备注到借款记录、状态历史和审计日志。
+
 #### 审核资料
 - **POST** `/api/v1/risk-auditor/documents/review`
 - **Body**:
