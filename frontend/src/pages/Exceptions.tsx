@@ -6,9 +6,10 @@ import {
 import {
   SearchOutlined, WarningOutlined, CheckCircleOutlined, ExclamationCircleOutlined,
   CheckOutlined, HistoryOutlined, MedicineBoxOutlined, FileTextOutlined,
-  SwapOutlined, EyeOutlined,
+  SwapOutlined, EyeOutlined, FlagOutlined, UserOutlined, ClockCircleOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons';
-import type { Role, ExceptionRecord, Registration, PhysicalCheck } from 'shared';
+import type { Role, ExceptionRecord, Registration, PhysicalCheck, ResponsibilityWarning } from 'shared';
 import {
   getExceptions,
   resolveException,
@@ -22,6 +23,7 @@ import {
   registrationStatusMap,
   physicalStatusMap,
   roleMap,
+  responsibilityMap,
 } from '../utils/constants';
 
 interface Props {
@@ -252,11 +254,29 @@ export default function Exceptions({ role }: Props) {
       </Card>
 
       <Drawer
-        title={<span><WarningOutlined /> 异常详情</span>}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span><WarningOutlined /> 异常详情</span>
+            {detailOpen && (
+              <>
+                <Tag color={typeMap[detailOpen.type].color}>{typeMap[detailOpen.type].label}</Tag>
+                <Tag color={exceptionLevelMap[detailOpen.level].color}>
+                  {exceptionLevelMap[detailOpen.level].label}
+                </Tag>
+                {detailReg?.responsibilityWarning?.triggered && (
+                  <Tag color="magenta" icon={<FlagOutlined />}>含报名责任预警</Tag>
+                )}
+                {detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none' && (
+                  <Tag color="purple" icon={<FlagOutlined />}>含体检责任标记</Tag>
+                )}
+              </>
+            )}
+          </div>
+        }
         placement="right"
         open={!!detailOpen}
         onClose={() => setDetailOpen(null)}
-        width={680}
+        width={760}
         extra={
           detailOpen && !detailOpen.resolved && canResolve ? (
             <Button type="primary" icon={<CheckOutlined />} onClick={confirmResolve}>处理此异常</Button>
@@ -266,81 +286,355 @@ export default function Exceptions({ role }: Props) {
         {detailOpen && (
           <div>
             {detailOpen.resolved ? (
-              <Alert type="success" showIcon style={{ marginBottom: 16 }} message="已处理" description={
+              <Alert type="success" showIcon style={{ marginBottom: 16 }} message="✅ 异常已处理完成" description={
                 <div>
-                  <div>处理人：{detailOpen.handler}（{roleMap[detailOpen.handlerRole].label}）</div>
-                  <div>处理时间：{formatDateTime(detailOpen.resolvedAt)}</div>
-                  <div>处理备注：{detailOpen.resolveNote}</div>
+                  <div><strong>处理人：</strong>{detailOpen.handler}（{roleMap[detailOpen.handlerRole].label}）</div>
+                  <div><strong>处理时间：</strong>{formatDateTime(detailOpen.resolvedAt)}</div>
+                  <div><strong>处理备注：</strong>{detailOpen.resolveNote}</div>
                 </div>
               } />
             ) : (
-              <Alert type="warning" showIcon style={{ marginBottom: 16 }} message="待处理" description={detailOpen.content} />
+              <Alert
+                type="warning"
+                showIcon
+                icon={<ExclamationCircleOutlined />}
+                style={{ marginBottom: 16 }}
+                message={
+                  <Space>
+                    <span>⚠️ 待处理异常</span>
+                    <Tag color={typeMap[detailOpen.type].color}>{typeMap[detailOpen.type].label}</Tag>
+                    <Tag color={exceptionLevelMap[detailOpen.level].color}>{exceptionLevelMap[detailOpen.level].label}</Tag>
+                  </Space>
+                }
+                description={detailOpen.content}
+              />
+            )}
+
+            {(detailReg?.responsibilityWarning?.triggered || (detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none')) && (
+              <Card
+                size="small"
+                style={{ marginBottom: 16, borderRadius: 8, borderColor: '#ffadd2', background: '#fff0f6' }}
+                bodyStyle={{ padding: 16 }}
+                title={
+                  <span style={{ color: '#eb2f96' }}>
+                    <FlagOutlined /> 🚩 责任预警归并汇总
+                    {detailReg?.responsibilityWarning?.triggered && detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none'
+                      ? `（双链路 ×${1 + 1}）`
+                      : detailReg?.responsibilityWarning?.triggered
+                        ? '（报名侧）'
+                        : '（体检侧）'}
+                  </span>
+                }
+              >
+                {detailReg?.responsibilityWarning?.triggered && (
+                  <div style={{
+                    padding: 12,
+                    background: '#fff',
+                    borderRadius: 6,
+                    marginBottom: detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none' ? 12 : 0,
+                    borderLeft: '3px solid #eb2f96',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <Tag color="magenta">报名侧责任预警</Tag>
+                      <Tag color="blue">{detailReg.responsibilityWarning.triggerType}</Tag>
+                      {detailReg.responsibilityWarning.syncedToException && (
+                        <Tag color="red" icon={<FlagOutlined />}>已同步异常清单</Tag>
+                      )}
+                      {detailReg.responsibilityWarning.exceptionId && (
+                        <Tag style={{ borderStyle: 'dashed' }}>关联异常：{detailReg.responsibilityWarning.exceptionId}</Tag>
+                      )}
+                    </div>
+                    <Row gutter={[12, 8]} style={{ fontSize: 13 }}>
+                      <Col xs={24} md={12}>
+                        <div><span style={{ color: '#8c8c8c' }}>触发时间：</span>{formatDateTime(detailReg.responsibilityWarning.flowTime)}</div>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <div><span style={{ color: '#8c8c8c' }}>报名员：</span><UserOutlined /> {detailReg.responsibilityWarning.registrarName}</div>
+                      </Col>
+                      <Col xs={24}>
+                        <div style={{ color: '#8c8c8c', marginBottom: 4 }}>缺项资料清单（共 {detailReg.responsibilityWarning.missingDocs.length} 项）：</div>
+                        <Space size={[4, 4]} wrap>
+                          {detailReg.responsibilityWarning.missingDocs.map((d: string) => (
+                            <Tag key={d} color="error" icon={<CloseCircleOutlined />}>{d}</Tag>
+                          ))}
+                        </Space>
+                      </Col>
+                      {detailReg.responsibilityWarning.mark && (
+                        <Col xs={24} md={12}>
+                          <div>
+                            <span style={{ color: '#8c8c8c' }}>建议责任归属：</span>
+                            <Tag color={responsibilityMap[detailReg.responsibilityWarning.mark as keyof typeof responsibilityMap]?.color || 'default'}>
+                              {responsibilityMap[detailReg.responsibilityWarning.mark as keyof typeof responsibilityMap]?.label || detailReg.responsibilityWarning.mark}
+                            </Tag>
+                          </div>
+                        </Col>
+                      )}
+                      <Col xs={24}>
+                        <div style={{
+                          marginTop: 4, padding: '8px 12px',
+                          background: '#fafafa', borderRadius: 4, fontSize: 13,
+                        }}>
+                          <strong>📝 责任说明：</strong>{detailReg.responsibilityWarning.description}
+                        </div>
+                      </Col>
+                    </Row>
+                  </div>
+                )}
+
+                {detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none' && (
+                  <div style={{
+                    padding: 12,
+                    background: '#fff',
+                    borderRadius: 6,
+                    borderLeft: '3px solid #722ed1',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <Tag color="purple">体检侧责任标记</Tag>
+                      <Tag color={responsibilityMap[detailPhys.responsibilityMark].color}>
+                        {responsibilityMap[detailPhys.responsibilityMark].label}
+                      </Tag>
+                      <Tag color={physicalStatusMap[detailPhys.status].color}>{physicalStatusMap[detailPhys.status].label}</Tag>
+                    </div>
+                    <Row gutter={[12, 8]} style={{ fontSize: 13 }}>
+                      <Col xs={24} md={12}>
+                        <div><span style={{ color: '#8c8c8c' }}>体检编号：</span>{detailPhys.id}</div>
+                      </Col>
+                      <Col xs={24} md={12}>
+                        <div><span style={{ color: '#8c8c8c' }}>体检员：</span>{detailPhys.examiner || '—'}</div>
+                      </Col>
+                      <Col xs={24}>
+                        <div style={{
+                          marginTop: 4, padding: '8px 12px',
+                          background: '#f9f0ff', borderRadius: 4, fontSize: 13,
+                        }}>
+                          <strong>🏷️ 责任详细说明：</strong>{detailPhys.responsibilityNote || '未填写详细说明'}
+                        </div>
+                      </Col>
+                      {detailPhys.reviewNote && (
+                        <Col xs={24}>
+                          <div style={{
+                            marginTop: 4, padding: '8px 12px',
+                            background: '#fffbe6', borderRadius: 4, fontSize: 13,
+                          }}>
+                            <strong>🔍 复核说明：</strong>{detailPhys.reviewNote}
+                          </div>
+                        </Col>
+                      )}
+                    </Row>
+                  </div>
+                )}
+              </Card>
             )}
 
             <Row gutter={16}>
               <Col xs={24} md={12}>
-                <Descriptions title="异常信息" column={1} size="small" bordered style={{ marginBottom: 16 }}>
-                  <Descriptions.Item label="编号">{detailOpen.id}</Descriptions.Item>
-                  <Descriptions.Item label="类型">
+                <Descriptions title="异常基本信息" column={1} size="small" bordered style={{ marginBottom: 16 }}>
+                  <Descriptions.Item label="异常编号">{detailOpen.id}</Descriptions.Item>
+                  <Descriptions.Item label="异常类型">
                     <Tag color={typeMap[detailOpen.type].color} icon={typeMap[detailOpen.type].icon}>
                       {typeMap[detailOpen.type].label}
                     </Tag>
                   </Descriptions.Item>
-                  <Descriptions.Item label="级别">
+                  <Descriptions.Item label="严重级别">
                     <Tag color={exceptionLevelMap[detailOpen.level].color}>
                       {exceptionLevelMap[detailOpen.level].label}
                     </Tag>
                   </Descriptions.Item>
-                  <Descriptions.Item label="学员">{detailOpen.studentName}</Descriptions.Item>
-                  <Descriptions.Item label="关联编号">{detailOpen.registrationId}</Descriptions.Item>
-                  <Descriptions.Item label="发起时间">{formatDateTime(detailOpen.createdAt)}</Descriptions.Item>
+                  <Descriptions.Item label="学员姓名">{detailOpen.studentName}</Descriptions.Item>
+                  <Descriptions.Item label="关联报名号">
+                    <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{detailOpen.registrationId}</span>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="发起时间"><ClockCircleOutlined /> {formatDateTime(detailOpen.createdAt)}</Descriptions.Item>
                   <Descriptions.Item label="发起方">
                     {detailOpen.handler}（{roleMap[detailOpen.handlerRole].label}）
                   </Descriptions.Item>
                 </Descriptions>
-              </Col>
-              <Col xs={24} md={12}>
-                <Card size="small" title={<span><FileTextOutlined /> 报名资料</span>} style={{ marginBottom: 16 }}>
+
+                <Card size="small" title={<span><FileTextOutlined /> 报名资料详情</span>} style={{ marginBottom: 16 }}>
                   {detailReg ? (
-                    <div style={{ fontSize: 13 }}>
-                      <div style={{ marginBottom: 4 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                         <Tag color={registrationStatusMap[detailReg.status].color}>
                           {registrationStatusMap[detailReg.status].label}
                         </Tag>
+                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>报名编号：{detailReg.id}</span>
                       </div>
-                      <div>📞 {detailReg.phone}</div>
-                      <div>🆔 {detailReg.idCard}</div>
-                      <div style={{ marginTop: 4, color: '#8c8c8c' }}>报名员：{detailReg.registrarName}</div>
-                      {detailReg.remark && <div style={{ marginTop: 8, padding: 8, background: '#fafafa', borderRadius: 4 }}>备注：{detailReg.remark}</div>}
+                      <Row gutter={[8, 8]} style={{ fontSize: 13, marginBottom: 12 }}>
+                        <Col xs={12}><div><UserOutlined /> <strong>{detailReg.studentName}</strong></div></Col>
+                        <Col xs={12}><div>📞 {detailReg.phone}</div></Col>
+                        <Col xs={24}><div style={{ fontFamily: 'monospace', fontSize: 12 }}>🆔 {detailReg.idCard}</div></Col>
+                        <Col xs={12}><div>👤 报名员：{detailReg.registrarName}</div></Col>
+                        <Col xs={12}><div><ClockCircleOutlined /> {formatDateTime(detailReg.createdAt)}</div></Col>
+                      </Row>
+
+                      <Divider style={{ margin: '12px 0' }} plain>
+                        <span style={{ fontSize: 12, color: '#595959' }}>资料清单（{detailReg.docs.filter(d => d.submitted).length}/{detailReg.docs.length}）</span>
+                      </Divider>
+                      <Space size={[4, 6]} wrap style={{ marginBottom: 12 }}>
+                        {detailReg.docs.map((d: any) => (
+                          <Tag
+                            key={d.name}
+                            color={d.submitted ? 'success' : 'error'}
+                            icon={d.submitted ? <CheckOutlined /> : <CloseCircleOutlined />}
+                            style={{ opacity: d.submitted ? 1 : 0.9 }}
+                          >
+                            {d.name}
+                            {d.note && ` (${d.note})`}
+                          </Tag>
+                        ))}
+                      </Space>
+                      {detailReg.docs.filter((d: any) => !d.submitted).length > 0 && (
+                        <Alert
+                          type="error"
+                          showIcon
+                          style={{ marginBottom: 12 }}
+                          message={`缺 ${detailReg.docs.filter((d: any) => !d.submitted).length} 项资料`}
+                          description={
+                            <span style={{ fontSize: 12 }}>
+                              缺项：{detailReg.docs.filter((d: any) => !d.submitted).map((d: any) => d.name).join('、')}
+                            </span>
+                          }
+                        />
+                      )}
+
+                      {detailReg.remark && (
+                        <div style={{
+                          padding: '8px 12px', background: '#e6f4ff', borderRadius: 4,
+                          fontSize: 12, borderLeft: '3px solid #1677ff',
+                        }}>
+                          <strong>📝 报名备注：</strong>{detailReg.remark}
+                        </div>
+                      )}
+                      {detailReg.rejectReason && (
+                        <div style={{
+                          marginTop: 8, padding: '8px 12px', background: '#fff1f0', borderRadius: 4,
+                          fontSize: 12, borderLeft: '3px solid #ff4d4f',
+                        }}>
+                          <strong>❌ 驳回原因：</strong>{detailReg.rejectReason}
+                        </div>
+                      )}
+                      {detailReg.supplementNote && (
+                        <div style={{
+                          marginTop: 8, padding: '8px 12px', background: '#fffbe6', borderRadius: 4,
+                          fontSize: 12, borderLeft: '3px solid #faad14',
+                        }}>
+                          <strong>⚠️ 补录说明：</strong>{detailReg.supplementNote}
+                        </div>
+                      )}
                     </div>
-                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到报名资料" />}
+                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到关联报名资料" />}
                 </Card>
-                <Card size="small" title={<span><MedicineBoxOutlined /> 体检核验</span>}>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Card size="small" title={<span><MedicineBoxOutlined /> 体检核验详情</span>} style={{ marginBottom: 16 }}>
                   {detailPhys ? (
-                    <div style={{ fontSize: 13 }}>
-                      <div style={{ marginBottom: 4 }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
                         <Tag color={physicalStatusMap[detailPhys.status].color}>
                           {physicalStatusMap[detailPhys.status].label}
                         </Tag>
+                        <span style={{ fontSize: 12, color: '#8c8c8c' }}>体检编号：{detailPhys.id}</span>
+                        <Tag color="blue">v{detailPhys.version}</Tag>
                       </div>
-                      <div>体检员：{detailPhys.examiner || '—'}</div>
-                      <div>体检时间：{formatDateTime(detailPhys.checkedAt)}</div>
-                      {detailPhys.reviewNote && <div style={{ marginTop: 8, padding: 8, background: '#fffbe6', borderRadius: 4 }}>复核：{detailPhys.reviewNote}</div>}
-                      {detailPhys.recheckNote && <div style={{ marginTop: 8, padding: 8, background: '#fff7e6', borderRadius: 4 }}>重检：{detailPhys.recheckNote}</div>}
+                      <Row gutter={[8, 8]} style={{ fontSize: 13, marginBottom: 12 }}>
+                        <Col xs={12}><div>👁️ 视力：{detailPhys.eyesightLeft ?? '—'} / {detailPhys.eyesightRight ?? '—'}</div></Col>
+                        <Col xs={12}><div>🫀 心率：{detailPhys.heartRate ?? '—'} 次/分</div></Col>
+                        <Col xs={12}><div>🩸 血压：{detailPhys.bloodPressure || '—'}</div></Col>
+                        <Col xs={12}><div>📏 身高：{detailPhys.height ?? '—'} cm</div></Col>
+                        <Col xs={12}>
+                          <div>👂 听力：
+                            {detailPhys.hearing ? (
+                              <Tag color={detailPhys.hearing === 'normal' ? 'success' : 'error'} style={{ marginLeft: 4 }}>
+                                {detailPhys.hearing === 'normal' ? '正常' : '异常'}
+                              </Tag>
+                            ) : '—'}
+                          </div>
+                        </Col>
+                        <Col xs={12}>
+                          <div>🦵 肢体：
+                            {detailPhys.limbsCheck ? (
+                              <Tag color={detailPhys.limbsCheck === 'normal' ? 'success' : 'error'} style={{ marginLeft: 4 }}>
+                                {detailPhys.limbsCheck === 'normal' ? '正常' : '异常'}
+                              </Tag>
+                            ) : '—'}
+                          </div>
+                        </Col>
+                        <Col xs={12}><div>🧑‍⚕️ 体检员：{detailPhys.examiner || '—'}</div></Col>
+                        <Col xs={12}><div><ClockCircleOutlined /> {formatDateTime(detailPhys.checkedAt)}</div></Col>
+                      </Row>
+
+                      {detailPhys.medicalHistory && detailPhys.medicalHistory !== '无' && (
+                        <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="既往病史" description={detailPhys.medicalHistory} />
+                      )}
+                      {detailPhys.reviewNote && (
+                        <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="安全员复核说明" description={detailPhys.reviewNote} />
+                      )}
+                      {detailPhys.recheckNote && (
+                        <Alert style={{ marginBottom: 12 }} type="warning" showIcon message="重检建议" description={detailPhys.recheckNote} />
+                      )}
+
+                      {detailPhys.responsibilityMark && detailPhys.responsibilityMark !== 'none' && (
+                        <div style={{
+                          padding: 12, borderRadius: 6,
+                          background: `var(--color-${detailPhys.responsibilityMark}-light, #f9f0ff)`,
+                          border: `1px solid ${responsibilityMap[detailPhys.responsibilityMark].color}`,
+                        }}>
+                          <div style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            marginBottom: 6, flexWrap: 'wrap',
+                          }}>
+                            <FlagOutlined style={{ color: responsibilityMap[detailPhys.responsibilityMark].color }} />
+                            <span style={{ fontWeight: 600 }}>
+                              责任归属：{responsibilityMap[detailPhys.responsibilityMark].label}
+                            </span>
+                          </div>
+                          {detailPhys.responsibilityNote && (
+                            <div style={{ fontSize: 12, lineHeight: 1.7, color: '#1f1f1f' }}>
+                              {detailPhys.responsibilityNote}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无体检记录" />}
+                  ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="暂无体检记录（报名未流转到体检）" />}
                 </Card>
+
+                {(!detailReg?.responsibilityWarning?.triggered && !(detailPhys?.responsibilityMark && detailPhys.responsibilityMark !== 'none')) && (
+                  <Alert
+                    type="info"
+                    showIcon
+                    message="责任标记提示"
+                    description="此异常暂未在报名侧或体检侧标记责任归属，可根据实际情况到报名资料页或体检核验页补充标记，便于交班时追溯。"
+                  />
+                )}
               </Col>
             </Row>
 
-            <Divider orientation="left">异常详情</Divider>
+            <Divider orientation="left">异常原始描述</Divider>
             <div style={{
               padding: 16,
               borderRadius: 8,
               background: detailOpen.level === 'error' ? '#fff2f0' : '#fffbe6',
-              border: detailOpen.level === 'error' ? '1px solid #ffccc7' : '1px solid #ffe58f',
+              border: `1px solid ${detailOpen.level === 'error' ? '#ffccc7' : '#ffe58f'}`,
             }}>
-              <div style={{ color: '#1f1f1f', lineHeight: 1.8 }}>{detailOpen.content}</div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                marginBottom: 10, flexWrap: 'wrap',
+              }}>
+                {detailOpen.level === 'error'
+                  ? <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: 18 }} />
+                  : <WarningOutlined style={{ color: '#faad14', fontSize: 18 }} />}
+                <span style={{ fontWeight: 600 }}>
+                  {typeMap[detailOpen.type].label}异常 · {exceptionLevelMap[detailOpen.level].label}
+                </span>
+                <span style={{ fontSize: 12, color: '#8c8c8c' }}>
+                  由 {detailOpen.handler}（{roleMap[detailOpen.handlerRole].label}）于 {formatDateTime(detailOpen.createdAt)} 发起
+                </span>
+              </div>
+              <div style={{ color: '#1f1f1f', lineHeight: 1.8, fontSize: 13 }}>
+                {detailOpen.content}
+              </div>
             </div>
           </div>
         )}
