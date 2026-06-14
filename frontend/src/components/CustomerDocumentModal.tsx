@@ -209,6 +209,24 @@ export default function CustomerDocumentModal({ dueDiligence, onClose }: Props) 
                     创建时间：{new Date(history.dueDiligence?.created_at).toLocaleString('zh-CN')}
                   </p>
                 </div>
+
+                {history.dueDiligence?.inherited_notes && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <h4 className="font-medium text-yellow-800 mb-2">继承备注（来自客户资料）</h4>
+                    <p className="text-sm text-yellow-700 whitespace-pre-wrap">
+                      {history.dueDiligence.inherited_notes}
+                    </p>
+                  </div>
+                )}
+
+                {history.dueDiligence?.processing_notes && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-800 mb-2">处理备注</h4>
+                    <p className="text-sm text-blue-700 whitespace-pre-wrap">
+                      {history.dueDiligence.processing_notes}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -160,10 +160,6 @@ export async function getDatabase(): Promise<Database> {
   `);
 
   await db.exec(`
-    ALTER TABLE due_diligences ADD COLUMN IF NOT EXISTS processing_notes TEXT;
-  `);
-
-  await db.exec(`
     CREATE TABLE IF NOT EXISTS due_diligence_attachments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       due_diligence_id INTEGER NOT NULL REFERENCES due_diligences(id),

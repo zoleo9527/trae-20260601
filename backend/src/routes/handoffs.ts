@@ -128,10 +128,40 @@ router.put('/:id/confirm', async (req, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
+
+    const handoff = await db.get(
+      'SELECT * FROM handoffs WHERE id = ?',
+      [id]
+    ) as Handoff;
+
+    if (!handoff) {
+      return res.status(404).json({ success: false, error: '交班记录不存在' });
+    }
+
+    const tasks = await db.all(
+      'SELECT * FROM handoff_tasks WHERE handoff_id = ?',
+      [id]
+    );
+
+    for (const task of tasks) {
+      if (task.task_type === 'customer') {
+        await db.run(
+          'UPDATE customers SET assigned_to = ?, status = ? WHERE id = ?',
+          [handoff.to_user, 'processing', task.task_id]
+        );
+      } else if (task.task_type === 'due_diligence') {
+        await db.run(
+          'UPDATE due_diligences SET assigned_to = ?, status = ? WHERE id = ?',
+          [handoff.to_user, 'processing', task.task_id]
+        );
+      }
+    }
+
     await db.run(
       'UPDATE handoffs SET status = ?, confirmed_at = CURRENT_TIMESTAMP WHERE id = ?',
       ['confirmed', id]
     );
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ success: false, error: '服务器错误' });
