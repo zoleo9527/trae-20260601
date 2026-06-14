@@ -250,7 +250,7 @@ completed(终态) cancelled(终态)
 #### POST /api/exam-bookings/:id/book-session
 预约考试场次
 
-**权限**: exam_specialist/admin
+**权限**: exam_specialist/admin（权限动作：`exam_bookings.book_session`）
 
 **请求体**: `{ "exam_session_id": "<场次ID>" }`
 
@@ -279,13 +279,19 @@ completed(终态) cancelled(终态)
 #### GET /api/makeup-exams
 补考列表
 
+**权限**: admission_consultant/exam_specialist/admin
+
 **查询参数**: `status`, `subject`, `student_id`, `offset`, `limit`
 
 #### GET /api/makeup-exams/:id
 补考详情
 
+**权限**: admission_consultant/exam_specialist/admin
+
 #### GET /api/makeup-exams/:id/review
 补考回看（核心验收点）
+
+**权限**: admission_consultant/exam_specialist/admin
 
 **响应示例**:
 ```json
@@ -328,19 +334,21 @@ completed(终态) cancelled(终态)
 #### GET /api/makeup-exams/student/:studentId/history
 学员某科目补考历史
 
+**权限**: admission_consultant/exam_specialist/admin
+
 **查询参数**: `subject`
 
 #### POST /api/makeup-exams/:id/record-payment
 登记补考缴费
 
-**权限**: admission_consultant/admin
+**权限**: admission_consultant/admin（权限动作：`makeup_exams.update_fee`）
 
 **请求体**: `{ "amount": 250, "payment_method": "微信" }`
 
 #### POST /api/makeup-exams/:id/book-exam
 预约补考考试
 
-**权限**: exam_specialist/admin
+**权限**: exam_specialist/admin（权限动作：`makeup_exams.book` + `exam_bookings.book_session`）
 
 **请求体**: `{ "exam_session_id": "<场次ID>" }`
 
@@ -508,8 +516,8 @@ curl -H "X-User-Id: <exam_id>" \
      -H "X-User-Role: exam_specialist" \
      http://localhost:3001/api/exam-bookings?status=pending
 
-# 查看补考回看
-curl -H "X-User-Id: <any_user_id>" \
-     -H "X-User-Role: <any_role>" \
+# 查看补考回看（需 admission_consultant/exam_specialist/admin 角色）
+curl -H "X-User-Id: <user_id>" \
+     -H "X-User-Role: <admission_consultant|exam_specialist|admin>" \
      http://localhost:3001/api/makeup-exams/<makeup_id>/review
 ```

@@ -258,7 +258,7 @@ function rejectBooking(id, data, operatorId) {
 function bookExamSession(bookingId, sessionId, operatorId) {
   return tx(() => {
     const dbi = getDB();
-    const operator = checkPermission(operatorId, 'exam_bookings', 'update');
+    const operator = checkPermission(operatorId, 'exam_bookings', 'book_session');
     const booking = assertFound(dbi.prepare('SELECT * FROM exam_bookings WHERE id = ?').get(bookingId), 'EXAM_BOOKING_NOT_FOUND');
     const session = assertFound(dbi.prepare('SELECT * FROM exam_sessions WHERE id = ?').get(sessionId), 'EXAM_SESSION_NOT_FOUND');
 
