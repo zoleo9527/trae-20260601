@@ -74,7 +74,8 @@ const RenewalDetail: React.FC = () => {
     updateRenewalStatus(id!, status);
     logOperation(
       'renewal',
-      renewal.studentId,
+      id!,
+      student.name,
       '更新续费状态',
       '课程顾问-小张',
       `状态更新为${
@@ -103,7 +104,8 @@ const RenewalDetail: React.FC = () => {
 
     logOperation(
       'renewal',
-      renewal.studentId,
+      id!,
+      student.name,
       '添加跟进记录',
       '课程顾问-小张',
       `通过${methodOptions.find(m => m.value === followUpMethod)?.label}跟进：${followUpContent}`

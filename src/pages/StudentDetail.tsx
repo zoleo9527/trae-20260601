@@ -19,6 +19,7 @@ import { Timeline } from '@/components/Timeline';
 import { useStudentStore } from '@/store/useStudentStore';
 import { useFeedbackStore } from '@/store/useFeedbackStore';
 import { useRenewalStore } from '@/store/useRenewalStore';
+import { useExceptionStore } from '@/store/useExceptionStore';
 import { useOperationLogStore } from '@/store/useOperationLogStore';
 import { formatDate } from '@/utils/date';
 import { cn } from '@/lib/utils';
@@ -38,6 +39,7 @@ const StudentDetail: React.FC = () => {
   const { getStudentById } = useStudentStore();
   const { getFeedbackByStudentId } = useFeedbackStore();
   const { getRenewalByStudentId } = useRenewalStore();
+  const { getExceptionsByStudentId } = useExceptionStore();
   const { getLogsByTarget } = useOperationLogStore();
 
   const [activeTab, setActiveTab] = useState<TabType>('feedback');
@@ -45,7 +47,35 @@ const StudentDetail: React.FC = () => {
   const student = getStudentById(id || '');
   const feedbackList = id ? getFeedbackByStudentId(id) : [];
   const renewal = id ? getRenewalByStudentId(id) : undefined;
-  const logs = id ? getLogsByTarget('student', id) : [];
+  const exceptions = id ? getExceptionsByStudentId(id) : [];
+
+  // 聚合该学员相关的所有日志：feedback、renewal、exception、student
+  const getStudentRelatedLogs = () => {
+    if (!id) return [];
+    const all: ReturnType<typeof getLogsByTarget> = [];
+    
+    // student 自身的日志
+    all.push(...getLogsByTarget('student', id));
+    
+    // 所有 feedback 的日志
+    feedbackList.forEach(fb => {
+      all.push(...getLogsByTarget('feedback', fb.id));
+    });
+    
+    // renewal 的日志
+    if (renewal) {
+      all.push(...getLogsByTarget('renewal', renewal.id));
+    }
+    
+    // 所有 exception 的日志
+    exceptions.forEach(ex => {
+      all.push(...getLogsByTarget('exception', ex.id));
+    });
+    
+    return all.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  };
+
+  const logs = getStudentRelatedLogs();
 
   if (!student) {
     return (
@@ -83,6 +113,17 @@ const StudentDetail: React.FC = () => {
     operator: log.operator,
     timestamp: log.timestamp,
     details: log.details,
+    onClick: () => {
+      if (log.type === 'feedback') {
+        navigate(`/feedback/${log.targetId}`);
+      } else if (log.type === 'renewal') {
+        navigate(`/renewal/${log.targetId}`);
+      } else if (log.type === 'student') {
+        navigate(`/student/${log.targetId}`);
+      } else if (log.type === 'exception') {
+        navigate(`/exception/${log.targetId}`);
+      }
+    },
   }));
 
   const allTimelineItems = [...feedbackTimeline, ...logItems].sort(

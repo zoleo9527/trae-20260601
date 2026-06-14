@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Avatar } from '@/components/Avatar';
+import { AddExceptionModal } from '@/components/AddExceptionModal';
 import { useExceptionStore } from '@/store/useExceptionStore';
 import { useStudentStore } from '@/store/useStudentStore';
 import { cn } from '@/lib/utils';
@@ -205,6 +206,11 @@ const ExceptionList: React.FC = () => {
           </div>
         )}
       </div>
+
+      <AddExceptionModal
+        isOpen={showAddModal}
+        onClose={() => setShowAddModal(false)}
+      />
     </div>
   );
 };

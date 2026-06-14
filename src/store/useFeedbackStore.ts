@@ -14,7 +14,7 @@ interface FeedbackState {
   setSelectedFeedbackId: (id: string | null) => void;
   setFilterStatus: (status: FeedbackStatus | 'all') => void;
   setSearchQuery: (query: string) => void;
-  addFeedback: (feedback: Omit<ClassFeedback, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
+  addFeedback: (feedback: Omit<ClassFeedback, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
   updateFeedbackStatus: (id: string, status: FeedbackStatus, handledBy?: string, handleNote?: string) => void;
   getFilteredFeedback: () => ClassFeedback[];
   getPendingCount: () => number;
@@ -44,9 +44,10 @@ export const useFeedbackStore = create<FeedbackState>((set, get) => ({
 
   addFeedback: (feedback) => {
     const now = new Date().toISOString();
+    const newId = generateId('f');
     const newFeedback: ClassFeedback = {
       ...feedback,
-      id: generateId('f'),
+      id: newId,
       status: 'pending',
       createdAt: now,
       updatedAt: now,
@@ -54,6 +55,7 @@ export const useFeedbackStore = create<FeedbackState>((set, get) => ({
     set(state => ({
       feedbackList: [newFeedback, ...state.feedbackList],
     }));
+    return newId;
   },
 
   updateFeedbackStatus: (id, status, handledBy, handleNote) => {

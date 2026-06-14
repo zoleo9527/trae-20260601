@@ -15,7 +15,7 @@ interface ExceptionState {
   setFilterType: (type: ExceptionType | 'all') => void;
   setSearchQuery: (query: string) => void;
 
-  addException: (exception: Omit<ExceptionRecord, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => void;
+  addException: (exception: Omit<ExceptionRecord, 'id' | 'createdAt' | 'updatedAt' | 'status'>) => string;
   updateExceptionStatus: (id: string, status: ExceptionStatus, handledBy?: string, handleNote?: string) => void;
 
   getFilteredExceptions: () => ExceptionRecord[];
@@ -45,9 +45,10 @@ export const useExceptionStore = create<ExceptionState>((set, get) => ({
 
   addException: (exception) => {
     const now = new Date().toISOString();
+    const newId = generateId('e');
     const newException: ExceptionRecord = {
       ...exception,
-      id: generateId('e'),
+      id: newId,
       status: 'pending',
       createdAt: now,
       updatedAt: now,
@@ -55,6 +56,7 @@ export const useExceptionStore = create<ExceptionState>((set, get) => ({
     set(state => ({
       exceptionList: [newException, ...state.exceptionList],
     }));
+    return newId;
   },
 
   updateExceptionStatus: (id, status, handledBy, handleNote) => {

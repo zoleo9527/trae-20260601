@@ -35,7 +35,7 @@ const ExceptionDetail: React.FC = () => {
   const student = exception?.studentId
     ? getStudentById(exception.studentId)
     : undefined;
-  const logs = id ? getLogsByTarget('student', id) : [];
+  const logs = id ? getLogsByTarget('exception', id) : [];
 
   if (!exception) {
     return (
@@ -59,8 +59,9 @@ const ExceptionDetail: React.FC = () => {
       handleNote || undefined
     );
     logOperation(
-      'student',
-      exception.studentId || id!,
+      'exception',
+      id!,
+      exception.title,
       '更新异常状态',
       '前台教务-小王',
       `异常"${exception.title}"状态更新为${status === 'processing' ? '处理中' : status === 'resolved' ? '已解决' : '待处理'}${handleNote ? `：${handleNote}` : ''}`

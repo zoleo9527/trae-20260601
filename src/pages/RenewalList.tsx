@@ -13,14 +13,20 @@ import {
   CalendarPlus,
   Download,
   MoreHorizontal,
+  X,
+  MessageCircle,
+  Phone,
+  User,
+  FileText,
 } from 'lucide-react';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Avatar } from '@/components/Avatar';
 import { useRenewalStore } from '@/store/useRenewalStore';
 import { useStudentStore } from '@/store/useStudentStore';
+import { logOperation } from '@/store/useOperationLogStore';
 import { cn } from '@/lib/utils';
 import { formatDate } from '@/utils/date';
-import { RenewalStatus, RiskLevel } from '@/types';
+import { RenewalStatus, RiskLevel, FollowUpMethod } from '@/types';
 
 const statusFilters: { value: RenewalStatus | 'all'; label: string }[] = [
   { value: 'all', label: '全部' },
@@ -45,11 +51,17 @@ const RenewalList: React.FC = () => {
     selectAll,
     clearSelection,
     getFilteredRenewals,
+    getRenewalById,
     batchUpdateStatus,
+    batchAddFollowUp,
   } = useRenewalStore();
   const { getStudentById } = useStudentStore();
 
   const [showBatchMenu, setShowBatchMenu] = useState(false);
+  const [showBatchFollowUp, setShowBatchFollowUp] = useState(false);
+  const [followUpMethod, setFollowUpMethod] = useState<FollowUpMethod>('phone');
+  const [followUpContent, setFollowUpContent] = useState('');
+  const [nextDate, setNextDate] = useState('');
 
   const renewalList = getFilteredRenewals();
   const allSelected = renewalList.length > 0 && selectedIds.length === renewalList.length;
@@ -66,6 +78,83 @@ const RenewalList: React.FC = () => {
   const handleBatchStatusChange = (status: RenewalStatus) => {
     batchUpdateStatus(selectedIds, status);
     setShowBatchMenu(false);
+  };
+
+  const methodOptions: { value: FollowUpMethod; label: string; icon: typeof Phone }[] = [
+    { value: 'phone', label: '电话', icon: Phone },
+    { value: 'wechat', label: '微信', icon: MessageCircle },
+    { value: 'in_person', label: '当面', icon: User },
+    { value: 'other', label: '其他', icon: FileText },
+  ];
+
+  const handleBatchFollowUpSubmit = () => {
+    if (!followUpContent.trim()) return;
+
+    batchAddFollowUp(selectedIds, {
+      date: new Date().toISOString(),
+      operator: '课程顾问-小张',
+      method: followUpMethod,
+      content: followUpContent,
+      nextFollowUpDate: nextDate || undefined,
+    });
+
+    const { getRenewalById: getR } = useRenewalStore.getState();
+    selectedIds.forEach(rid => {
+      const r = getR(rid);
+      const s = r ? getStudentById(r.studentId) : undefined;
+      logOperation(
+        'renewal',
+        rid,
+        s?.name || '',
+        '批量添加跟进记录',
+        '课程顾问-小张',
+        `通过${methodOptions.find(m => m.value === followUpMethod)?.label}跟进：${followUpContent}`
+      );
+    });
+
+    batchUpdateStatus(selectedIds, 'negotiating');
+
+    setShowBatchFollowUp(false);
+    setFollowUpContent('');
+    setFollowUpMethod('phone');
+    setNextDate('');
+  };
+
+  const handleExport = () => {
+    const selectedRenewals = selectedIds.length > 0
+      ? selectedIds.map(id => getRenewalById(id)).filter(Boolean)
+      : renewalList;
+
+    const headers = ['学员姓名', '班级', '套餐', '价格', '到期时间', '剩余天数', '状态', '风险等级', '关键判断'];
+    const rows = selectedRenewals.map(r => {
+      if (!r) return [];
+      const student = getStudentById(r.studentId);
+      return [
+        student?.name || '',
+        student?.className || '',
+        r.packageType,
+        `¥${r.packagePrice.toLocaleString()}`,
+        formatDate(r.expirationDate),
+        `${r.remainingDays}天`,
+        r.status === 'pending' ? '待跟进' :
+        r.status === 'contacted' ? '已联系' :
+        r.status === 'negotiating' ? '洽谈中' :
+        r.status === 'signed' ? '已续费' : '已流失',
+        r.riskLevel === 'high' ? '高风险' : r.riskLevel === 'medium' ? '中风险' : '低风险',
+        r.keyInsights.join('、'),
+      ];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `续费跟进列表_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
   };
 
   return (
@@ -145,13 +234,16 @@ const RenewalList: React.FC = () => {
                 标记已联系
               </button>
               <button
-                onClick={() => handleBatchStatusChange('negotiating')}
+                onClick={() => setShowBatchFollowUp(true)}
                 className="btn-secondary flex items-center gap-1.5 text-sm py-1.5"
               >
                 <CalendarPlus className="w-4 h-4" />
                 设置跟进
               </button>
-              <button className="btn-secondary flex items-center gap-1.5 text-sm py-1.5">
+              <button
+                onClick={handleExport}
+                className="btn-secondary flex items-center gap-1.5 text-sm py-1.5"
+              >
                 <Download className="w-4 h-4" />
                 导出
               </button>
@@ -304,6 +396,98 @@ const RenewalList: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 批量跟进弹窗 */}
+      {showBatchFollowUp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-ink-900/30 backdrop-blur-sm"
+            onClick={() => setShowBatchFollowUp(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden animate-scale-in">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-cream-200">
+              <h2 className="font-serif text-xl font-semibold text-ink-900">
+                批量设置跟进（{selectedIds.length} 人）
+              </h2>
+              <button
+                onClick={() => setShowBatchFollowUp(false)}
+                className="p-1.5 text-ink-400 hover:text-ink-600 hover:bg-cream-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-ink-700 mb-2">
+                  跟进方式
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {methodOptions.map((method) => {
+                    const Icon = method.icon;
+                    return (
+                      <button
+                        key={method.value}
+                        onClick={() => setFollowUpMethod(method.value)}
+                        className={cn(
+                          'flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg text-sm font-medium transition-all',
+                          followUpMethod === method.value
+                            ? 'bg-wine-600 text-white'
+                            : 'bg-white text-ink-600 border border-cream-300 hover:border-cream-400'
+                        )}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {method.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink-700 mb-2">
+                  跟进内容
+                </label>
+                <textarea
+                  value={followUpContent}
+                  onChange={(e) => setFollowUpContent(e.target.value)}
+                  placeholder="请输入跟进内容，将应用到所有选中的学员..."
+                  className="input-base min-h-[100px] resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-ink-700 mb-2">
+                  下次跟进日期（可选）
+                </label>
+                <input
+                  type="date"
+                  value={nextDate}
+                  onChange={(e) => setNextDate(e.target.value)}
+                  className="input-base max-w-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-cream-200 bg-cream-50/50">
+              <button
+                onClick={() => setShowBatchFollowUp(false)}
+                className="btn-secondary"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleBatchFollowUpSubmit}
+                disabled={!followUpContent.trim()}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                确认跟进
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

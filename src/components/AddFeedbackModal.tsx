@@ -79,7 +79,7 @@ export const AddFeedbackModal: React.FC<AddFeedbackModalProps> = ({
   const handleSubmit = () => {
     if (!studentId || !content.trim()) return;
 
-    addFeedback({
+    const newFeedbackId = addFeedback({
       studentId,
       date,
       className,
@@ -89,9 +89,12 @@ export const AddFeedbackModal: React.FC<AddFeedbackModalProps> = ({
       tags: selectedTags,
     });
 
+    const student = students.find(s => s.id === studentId);
+
     logOperation(
       'feedback',
-      studentId,
+      newFeedbackId,
+      student?.name || '',
       '新增课堂反馈',
       '王老师',
       `课堂表现：${performanceOptions.find(p => p.value === performance)?.label}，${content.substring(0, 50)}${content.length > 50 ? '...' : ''}`

@@ -2,7 +2,7 @@ import React from 'react';
 import { cn } from '@/lib/utils';
 import { formatRelativeTime } from '@/utils/date';
 import { Avatar } from './Avatar';
-import { MessageSquare, RefreshCw, User, Settings } from 'lucide-react';
+import { MessageSquare, RefreshCw, User, Settings, AlertTriangle } from 'lucide-react';
 import { LogType } from '@/types';
 
 interface TimelineItem {
@@ -26,6 +26,7 @@ const typeIcons: Record<LogType, React.ReactNode> = {
   feedback: <MessageSquare className="w-4 h-4" />,
   renewal: <RefreshCw className="w-4 h-4" />,
   student: <User className="w-4 h-4" />,
+  exception: <AlertTriangle className="w-4 h-4" />,
   system: <Settings className="w-4 h-4" />,
 };
 
@@ -33,6 +34,7 @@ const typeColors: Record<LogType, string> = {
   feedback: 'bg-sky-100 text-sky-600',
   renewal: 'bg-gold-100 text-gold-600',
   student: 'bg-emerald-100 text-emerald-600',
+  exception: 'bg-rose-100 text-rose-600',
   system: 'bg-ink-100 text-ink-600',
 };
 

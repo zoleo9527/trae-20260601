@@ -62,6 +62,8 @@ const Dashboard: React.FC = () => {
         navigate(`/renewal/${log.targetId}`);
       } else if (log.type === 'student') {
         navigate(`/student/${log.targetId}`);
+      } else if (log.type === 'exception') {
+        navigate(`/exception/${log.targetId}`);
       }
     },
   }));

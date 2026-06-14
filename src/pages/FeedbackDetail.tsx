@@ -58,6 +58,7 @@ const FeedbackDetail: React.FC = () => {
     logOperation(
       'feedback',
       id!,
+      student.name,
       '更新反馈状态',
       '课程顾问-小张',
       `状态更新为${status === 'processing' ? '处理中' : status === 'resolved' ? '已解决' : '待处理'}${handleNote ? `：${handleNote}` : ''}`

@@ -63,7 +63,7 @@ export interface RenewalFollowUp {
   assignedTo: string;
 }
 
-export type LogType = 'feedback' | 'renewal' | 'student' | 'system';
+export type LogType = 'feedback' | 'renewal' | 'student' | 'exception' | 'system';
 
 export interface OperationLog {
   id: string;

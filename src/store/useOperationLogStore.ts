@@ -50,13 +50,11 @@ export const useOperationLogStore = create<OperationLogState>((set, get) => ({
 export function logOperation(
   type: LogType,
   targetId: string,
+  targetName: string,
   action: string,
   operator: string,
   details: string
 ) {
-  const student = useStudentStore.getState().students.find(s => s.id === targetId);
-  const targetName = student?.name || '';
-  
   useOperationLogStore.getState().addLog({
     type,
     targetId,
