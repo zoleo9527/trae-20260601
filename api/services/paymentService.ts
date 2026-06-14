@@ -50,6 +50,8 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
     data: updateData,
   });
 
+  const logRemark = input.remark || input.refundReason || undefined;
+
   await createStatusLog({
     entityType: 'payment',
     entityId: input.paymentId,
@@ -59,7 +61,7 @@ export async function updatePaymentStatus(input: UpdatePaymentInput) {
     handlerName: input.handlerName,
     handlerRole: input.handlerRole,
     reason: input.reason,
-    remark: input.remark,
+    remark: logRemark,
   });
 
   return updatedPayment;

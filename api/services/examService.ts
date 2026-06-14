@@ -31,6 +31,7 @@ export async function updateExamStatus(input: UpdateExamInput) {
   const updateData: any = {
     status: input.newStatus,
     updatedAt: new Date(),
+    examinerId: input.handlerId,
   };
 
   if (input.scheduledDate !== undefined) {
@@ -54,6 +55,8 @@ export async function updateExamStatus(input: UpdateExamInput) {
     data: updateData,
   });
 
+  const logRemark = input.remark || (input.newStatus === 'retest' ? `补考费：¥${input.retestFee || 150}` : undefined);
+
   await createStatusLog({
     entityType: 'exam_booking',
     entityId: input.examId,
@@ -63,7 +66,7 @@ export async function updateExamStatus(input: UpdateExamInput) {
     handlerName: input.handlerName,
     handlerRole: input.handlerRole,
     reason: input.reason,
-    remark: input.remark,
+    remark: logRemark,
   });
 
   if (input.newStatus === 'retest') {

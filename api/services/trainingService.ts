@@ -49,6 +49,8 @@ export async function updateTrainingStatus(input: UpdateTrainingInput) {
     data: updateData,
   });
 
+  const logRemark = input.remark || input.exceptionReason || undefined;
+
   await createStatusLog({
     entityType: 'training_hours',
     entityId: input.trainingId,
@@ -58,7 +60,7 @@ export async function updateTrainingStatus(input: UpdateTrainingInput) {
     handlerName: input.handlerName,
     handlerRole: input.handlerRole,
     reason: input.reason,
-    remark: input.remark,
+    remark: logRemark,
   });
 
   return updatedTraining;
