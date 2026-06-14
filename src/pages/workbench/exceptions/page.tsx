@@ -78,7 +78,7 @@ export default function ExceptionsPage() {
         <h1 className="text-2xl font-bold text-[#eaeaea]">异常处理中心</h1>
         <div className="flex items-center gap-2 text-sm text-[#a0a0a0]">
           <AlertTriangle size={16} />
-          <span>共 {exceptions.length} 个异常</span>
+          <span>共 {allExceptions.length} 个异常</span>
         </div>
       </div>
 
