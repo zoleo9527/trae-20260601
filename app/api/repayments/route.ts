@@ -16,13 +16,23 @@ export async function GET(request: NextRequest) {
       include: {
         application: {
           select: {
+            id: true,
             borrowerName: true,
             borrowerPhone: true,
             amount: true,
+            status: true,
           },
         },
-        collections: true,
-        exceptions: true,
+        collections: {
+          orderBy: { collectedAt: "desc" },
+        },
+        exceptions: {
+          include: {
+            reminders: {
+              orderBy: { sentAt: "desc" },
+            },
+          },
+        },
       },
       orderBy: [
         { applicationId: "asc" },
@@ -30,7 +40,28 @@ export async function GET(request: NextRequest) {
       ],
     });
 
-    return NextResponse.json(repayments);
+    const repaymentIds = repayments.map(r => r.id);
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        businessId: { in: repaymentIds },
+        businessType: "REPAYMENT",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const logsMap = new Map<string, any[]>();
+    logs.forEach(log => {
+      const list = logsMap.get(log.businessId) || [];
+      list.push(log);
+      logsMap.set(log.businessId, list);
+    });
+
+    const result = repayments.map(repayment => ({
+      ...repayment,
+      operationLogs: logsMap.get(repayment.id) || [],
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("获取还款计划列表失败:", error);
     return NextResponse.json(

@@ -36,10 +36,6 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        logs: {
-          orderBy: { createdAt: "desc" },
-          take: 5,
-        },
         reminders: {
           orderBy: { sentAt: "desc" },
           take: 3,
@@ -50,7 +46,28 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(exceptions);
+    const exceptionIds = exceptions.map(e => e.id);
+    const logs = await prisma.operationLog.findMany({
+      where: {
+        businessId: { in: exceptionIds },
+        businessType: "EXCEPTION",
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
+    const logsMap = new Map<string, any[]>();
+    logs.forEach(log => {
+      const list = logsMap.get(log.businessId) || [];
+      list.push(log);
+      logsMap.set(log.businessId, list);
+    });
+
+    const result = exceptions.map(exception => ({
+      ...exception,
+      logs: logsMap.get(exception.id) || [],
+    }));
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("获取异常记录列表失败:", error);
     return NextResponse.json(

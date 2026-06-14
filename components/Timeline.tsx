@@ -9,6 +9,18 @@ interface TimelineProps {
   events: TimelineEvent[];
 }
 
+function parseDetails(details: any): Record<string, any> {
+  if (!details) return {};
+  if (typeof details === 'string') {
+    try {
+      return JSON.parse(details);
+    } catch {
+      return { note: details };
+    }
+  }
+  return details;
+}
+
 export default function Timeline({ events }: TimelineProps) {
   return (
     <div className="space-y-4">

@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+function parseDetails(details: string | null): Record<string, any> {
+  if (!details) return {};
+  try {
+    return JSON.parse(details);
+  } catch {
+    return { note: details };
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { businessId: string } }
@@ -22,7 +31,6 @@ export async function GET(
             collections: true,
             exceptions: {
               include: {
-                logs: true,
                 reminders: true,
               },
             },
@@ -31,7 +39,6 @@ export async function GET(
         },
         exceptions: {
           include: {
-            logs: true,
             reminders: true,
           },
         },
@@ -89,7 +96,7 @@ export async function GET(
         operator: log.operatorName,
         fromStatus: log.fromStatus,
         toStatus: log.toStatus,
-        details: log.details ? JSON.parse(log.details) : {},
+        details: parseDetails(log.details),
       });
     });
 
@@ -148,7 +155,7 @@ export async function GET(
           operator: log.operatorName,
           fromStatus: log.fromStatus,
           toStatus: log.toStatus,
-          details: log.details ? JSON.parse(log.details) : {},
+          details: parseDetails(log.details),
         });
       });
 
@@ -176,7 +183,15 @@ export async function GET(
           },
         });
 
-        exception.logs?.forEach((log) => {
+        const exceptionLogs = await prisma.operationLog.findMany({
+          where: {
+            businessId: exception.id,
+            businessType: "EXCEPTION",
+          },
+          orderBy: { createdAt: "asc" },
+        });
+
+        exceptionLogs.forEach((log) => {
           timeline.push({
             id: log.id,
             timestamp: log.createdAt,
@@ -184,7 +199,7 @@ export async function GET(
             operator: log.operatorName,
             fromStatus: log.fromStatus,
             toStatus: log.toStatus,
-            details: log.details ? JSON.parse(log.details) : {},
+            details: parseDetails(log.details),
           });
         });
 
@@ -228,7 +243,15 @@ export async function GET(
         },
       });
 
-      exception.logs?.forEach((log) => {
+      const exceptionLogs = await prisma.operationLog.findMany({
+        where: {
+          businessId: exception.id,
+          businessType: "EXCEPTION",
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
+      exceptionLogs.forEach((log) => {
         timeline.push({
           id: log.id,
           timestamp: log.createdAt,
@@ -236,7 +259,7 @@ export async function GET(
           operator: log.operatorName,
           fromStatus: log.fromStatus,
           toStatus: log.toStatus,
-          details: log.details ? JSON.parse(log.details) : {},
+          details: parseDetails(log.details),
         });
       });
 

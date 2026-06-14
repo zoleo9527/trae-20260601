@@ -58,6 +58,14 @@ export interface LoanConfirmation {
   operator?: User;
 }
 
+export interface ApplicationInfo {
+  id: string;
+  borrowerName: string;
+  borrowerPhone: string;
+  amount: number;
+  status: string;
+}
+
 export interface RepaymentPlan {
   id: string;
   applicationId: string;
@@ -66,8 +74,10 @@ export interface RepaymentPlan {
   dueDate: Date;
   status: RepaymentStatus;
   paidAmount: number;
+  application?: ApplicationInfo;
   collections?: CollectionRecord[];
   exceptions?: ExceptionRecord[];
+  operationLogs?: OperationLog[];
 }
 
 export interface CollectionRecord {
@@ -80,7 +90,8 @@ export interface CollectionRecord {
 
 export interface ExceptionRecord {
   id: string;
-  businessId: string;
+  applicationId?: string;
+  repaymentId?: string;
   businessType: "APPLICATION" | "REPAYMENT";
   type: string;
   description: string;
@@ -88,6 +99,21 @@ export interface ExceptionRecord {
   resolution?: string;
   createdAt: Date;
   resolvedAt?: Date;
+  application?: {
+    id: string;
+    borrowerName: string;
+    borrowerPhone: string;
+    amount: number;
+    status: string;
+  };
+  repayment?: {
+    id: string;
+    application?: {
+      id: string;
+      borrowerName: string;
+      borrowerPhone: string;
+    };
+  };
   logs?: OperationLog[];
   reminders?: SystemReminder[];
 }
