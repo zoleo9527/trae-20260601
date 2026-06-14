@@ -10,6 +10,7 @@ export type ReviewStage =
   | 'review'
   | 'correction_sent'
   | 'correction_received'
+  | 'exception_note'
   | 'final_approve'
   | 'archive';
 
@@ -89,6 +90,7 @@ export const STAGE_LABELS: Record<ReviewStage, string> = {
   review: '公证员审核',
   correction_sent: '补正通知发送',
   correction_received: '补正材料接收',
+  exception_note: '异常说明录入',
   final_approve: '最终审核通过',
   archive: '归档',
 };
@@ -105,6 +107,7 @@ export const RESPONSIBLE_PARTY: Record<ReviewStage, string> = {
   review: '公证员',
   correction_sent: '公证员',
   correction_received: '窗口受理员',
+  exception_note: '公证员',
   final_approve: '公证员',
   archive: '系统自动',
 };

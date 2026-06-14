@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -48,6 +48,15 @@ export function ReviewDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [exceptionNote, setExceptionNote] = useState<string>(application?.exceptionNote || '');
   const [isNoteSaving, setIsNoteSaving] = useState(false);
+
+  useEffect(() => {
+    setSelectedAction(null);
+    setRemark('');
+    setCorrectionItems([]);
+    setIsSubmitting(false);
+    setExceptionNote(application?.exceptionNote || '');
+    setIsNoteSaving(false);
+  }, [id, application?.exceptionNote]);
 
   if (!application) {
     return (

@@ -84,12 +84,28 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
 
   saveExceptionNote: (id, exceptionNote) => {
     set((state) => {
+      const now = new Date().toLocaleString('zh-CN', { hour12: false });
       const updated = state.applications.map((app) => {
         if (app.id !== id) return app;
         const finalExceptionNote = exceptionNote.trim();
+        const hasNote = finalExceptionNote.length > 0;
+        const newRecords = hasNote
+          ? [
+              ...app.reviewRecords,
+              {
+                id: `r-exc-${Date.now()}`,
+                stage: 'exception_note' as const,
+                reviewer: '当前公证员',
+                reviewTime: now,
+                result: 'pass' as const,
+                remark: finalExceptionNote,
+              },
+            ]
+          : app.reviewRecords;
         return {
           ...app,
-          exceptionNote: finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
+          exceptionNote: hasNote ? finalExceptionNote : undefined,
+          reviewRecords: newRecords,
         };
       });
       return { applications: updated };
@@ -103,8 +119,22 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
         if (app.id !== id) return app;
         const isCorrected = app.correctionNotices.length > 0;
         const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
+        const hasNewException =
+          exceptionNote && exceptionNote.trim().length > 0 && exceptionNote.trim() !== app.exceptionNote;
         const newRecords = [
           ...app.reviewRecords,
+          ...(hasNewException
+            ? [
+                {
+                  id: `r-exc-${Date.now()}`,
+                  stage: 'exception_note' as const,
+                  reviewer: '当前公证员',
+                  reviewTime: now,
+                  result: 'pass' as const,
+                  remark: exceptionNote.trim(),
+                },
+              ]
+            : []),
           {
             id: `r-${Date.now()}`,
             stage: isCorrected ? ('final_approve' as const) : ('review' as const),
@@ -147,12 +177,26 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
         const reviewRecordId = `r-${Date.now()}`;
         const noticeId = `cn-${Date.now()}`;
         const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
+        const hasNewException =
+          exceptionNote && exceptionNote.trim().length > 0 && exceptionNote.trim() !== app.exceptionNote;
         return {
           ...app,
           status: 'correction' as const,
           exceptionNote: finalExceptionNote && finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
           reviewRecords: [
             ...app.reviewRecords,
+            ...(hasNewException
+              ? [
+                  {
+                    id: `r-exc-${Date.now()}`,
+                    stage: 'exception_note' as const,
+                    reviewer: '当前公证员',
+                    reviewTime: now,
+                    result: 'pass' as const,
+                    remark: exceptionNote.trim(),
+                  },
+                ]
+              : []),
             {
               id: reviewRecordId,
               stage: 'review' as const,
@@ -200,12 +244,26 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
       const updated = state.applications.map((app) => {
         if (app.id !== id) return app;
         const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
+        const hasNewException =
+          exceptionNote && exceptionNote.trim().length > 0 && exceptionNote.trim() !== app.exceptionNote;
         return {
           ...app,
           status: 'rejected' as const,
           exceptionNote: finalExceptionNote && finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
           reviewRecords: [
             ...app.reviewRecords,
+            ...(hasNewException
+              ? [
+                  {
+                    id: `r-exc-${Date.now()}`,
+                    stage: 'exception_note' as const,
+                    reviewer: '当前公证员',
+                    reviewTime: now,
+                    result: 'pass' as const,
+                    remark: exceptionNote.trim(),
+                  },
+                ]
+              : []),
             {
               id: `r-${Date.now()}`,
               stage: 'review' as const,

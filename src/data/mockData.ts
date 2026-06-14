@@ -473,7 +473,15 @@ export const mockApplications: Application[] = [
         remark: '补交国有土地使用证原件',
       },
       {
-        id: 'r5',
+        id: 'r5-exc',
+        stage: 'exception_note',
+        reviewer: '王公证员',
+        reviewTime: '2026-06-10 15:00:00',
+        result: 'pass',
+        remark: '申请人因行动不便，由子女代办，已核实授权委托书',
+      },
+      {
+        id: 'r6',
         stage: 'final_approve',
         reviewer: '王公证员',
         reviewTime: '2026-06-12 14:00:00',
@@ -481,7 +489,7 @@ export const mockApplications: Application[] = [
         remark: '材料审核通过，已上门核实申请人情况，公证有效',
       },
       {
-        id: 'r6',
+        id: 'r7',
         stage: 'archive',
         reviewer: '系统',
         reviewTime: '2026-06-12 17:00:00',
