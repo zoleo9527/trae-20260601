@@ -157,7 +157,7 @@ export default function AuthorizationPage() {
                         </span>
                         {authPendingMinutes > 30 && (
                           <span className="badge bg-red-100 text-red-700">
-                            等待{authPendingMinutes}分钟
+                            等待{formatWaitTime(authPendingMinutes)}
                           </span>
                         )}
                       </div>

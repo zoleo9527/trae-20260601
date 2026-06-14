@@ -41,11 +41,27 @@ export async function getUserId(request: Request) {
   return userId;
 }
 
-export async function requireUserId(request: Request, redirectTo: string = new URL(request.url).pathname) {
+function isSafeRedirect(redirectTo: string): boolean {
+  if (!redirectTo) return false;
+  if (!redirectTo.startsWith('/')) return false;
+  if (redirectTo.startsWith('//')) return false;
+  if (redirectTo.startsWith('/\\')) return false;
+  return true;
+}
+
+export function getSafeRedirect(redirectTo: string | null | undefined, fallback: string = '/'): string {
+  if (!redirectTo || typeof redirectTo !== 'string') return fallback;
+  if (!isSafeRedirect(redirectTo)) return fallback;
+  return redirectTo;
+}
+
+export async function requireUserId(request: Request, redirectTo?: string) {
   const session = await getUserSession(request);
   const userId = session.get('userId');
   if (!userId || typeof userId !== 'string') {
-    const searchParams = new URLSearchParams([['redirectTo', redirectTo]]);
+    const url = new URL(request.url);
+    const targetRedirect = redirectTo || `${url.pathname}${url.search}`;
+    const searchParams = new URLSearchParams([['redirectTo', targetRedirect]]);
     throw redirect(`/login?${searchParams}`);
   }
   return userId;

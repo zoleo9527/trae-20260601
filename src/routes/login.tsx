@@ -1,22 +1,24 @@
 import { useState } from 'react';
-import { Form, useActionData, useSearchParams } from '@remix-run/react';
+import { Form, useActionData, useLoaderData, useSearchParams } from '@remix-run/react';
 import type { ActionFunctionArgs, LoaderFunctionArgs } from '@remix-run/node';
 import { json, redirect } from '@remix-run/node';
-import { createUserSession, verifyLogin, getUserId } from '../utils/session.server';
+import { createUserSession, verifyLogin, getUserId, getSafeRedirect } from '../utils/session.server';
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const userId = await getUserId(request);
+  const url = new URL(request.url);
+  const redirectTo = getSafeRedirect(url.searchParams.get('redirectTo'), '/');
   if (userId) {
-    return redirect('/');
+    return redirect(redirectTo);
   }
-  return json({});
+  return json({ redirectTo });
 }
 
 export async function action({ request }: ActionFunctionArgs) {
   const formData = await request.formData();
   const username = formData.get('username');
   const password = formData.get('password');
-  const redirectTo = formData.get('redirectTo') as string || '/';
+  const redirectTo = getSafeRedirect(formData.get('redirectTo') as string, '/');
 
   if (typeof username !== 'string' || typeof password !== 'string') {
     return json({ error: '请输入用户名和密码' }, { status: 400 });
@@ -36,6 +38,7 @@ export async function action({ request }: ActionFunctionArgs) {
 
 export default function Login() {
   const actionData = useActionData<typeof action>();
+  const loaderData = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -67,7 +70,7 @@ export default function Login() {
               <input
                 type="hidden"
                 name="redirectTo"
-                value={searchParams.get('redirectTo') || '/'}
+                value={loaderData.redirectTo}
               />
 
               {actionData?.error && (

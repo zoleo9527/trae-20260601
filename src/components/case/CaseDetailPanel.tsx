@@ -22,9 +22,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
   const handler = getHandlerInfo(businessCase);
 
   const lastAuthReview = businessCase.authReviews?.[0];
-  const authPendingMinutes = businessCase.status === 'PENDING_AUTHORIZATION' || businessCase.status === 'AUTHORIZATION_REVIEW'
-    ? getWaitMinutes(businessCase)
-    : null;
+  const authPendingMinutes = getWaitMinutes(businessCase);
 
   const authWaitReason = lastAuthReview
     ? lastAuthReview.result === 'ESCALATED'
@@ -107,7 +105,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                 {authWaitReason || (
                   businessCase.status === 'COMPLETED'
                     ? '业务已完成'
-                    : authPendingMinutes
+                    : authPendingMinutes > 0
                       ? `授权等待中，已等待 ${formatWaitTime(authPendingMinutes)}`
                       : '流程正常推进中'
                 )}
@@ -328,7 +326,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                 <div className="text-center text-slate-500 py-6">暂无授权复核记录</div>
               )}
 
-              {authPendingMinutes !== null && (businessCase.status === 'PENDING_AUTHORIZATION' || businessCase.status === 'AUTHORIZATION_REVIEW') && (
+              {authPendingMinutes > 0 && (businessCase.status === 'PENDING_AUTHORIZATION' || businessCase.status === 'AUTHORIZATION_REVIEW') && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
                   <p className="text-sm text-amber-800">
                     <span className="font-medium">等待时长：</span>
