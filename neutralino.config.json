@@ -1,0 +1,41 @@
+{
+  "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
+  "applicationId": "com.inspection.station",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/dist",
+  "url": "/",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "tokenSecurity": "one-time",
+  "logging": {
+    "enabled": true,
+    "writeToLogFile": true
+  },
+  "nativeAllowList": ["app.*", "os.*", "storage.*"],
+  "modes": {
+    "window": {
+      "title": "车辆年检站 · 整改与复检",
+      "width": 1440,
+      "height": 900,
+      "minWidth": 1280,
+      "minHeight": 720,
+      "fullScreen": false,
+      "alwaysOnTop": false,
+      "enableInspector": true,
+      "borderless": false,
+      "maximize": false,
+      "hidden": false,
+      "resizable": true
+    }
+  },
+  "cli": {
+    "binaryName": "inspection-station",
+    "resourcesPath": "/.tmp",
+    "extensionsPath": "/extensions",
+    "clientLibrary": "/dist/neutralino.js",
+    "binaryVersion": "5.1.0",
+    "clientVersion": "5.1.0"
+  }
+}

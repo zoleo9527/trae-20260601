@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'JetBrains Mono', 'Menlo', 'Consolas', 'PingFang SC', monospace;
+  font-size: 13px;
+  background: #0f1320;
+  color: #e1e6ef;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: #141a2a; }
+::-webkit-scrollbar-thumb { background: #3a4358; border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: #5a6478; }
+
+/* Utilities */
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition-colors border border-transparent;
+  }
+  .btn-primary {
+    @apply btn bg-info-500 hover:bg-info-400 text-white;
+  }
+  .btn-warn {
+    @apply btn bg-warn-500 hover:bg-warn-400 text-white;
+  }
+  .btn-safe {
+    @apply btn bg-safe-500 hover:bg-safe-400 text-ink-900;
+  }
+  .btn-danger {
+    @apply btn bg-danger-500 hover:bg-danger-400 text-white;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent border-ink-500 text-ink-200 hover:bg-ink-600;
+  }
+  .btn-ghost-warn {
+    @apply btn bg-transparent border-warn-500/50 text-warn-400 hover:bg-warn-500/10;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-sm text-xs2 font-medium border;
+  }
+  .chip-pending {
+    @apply chip bg-warn-500/10 border-warn-500/30 text-warn-400;
+  }
+  .chip-submitted {
+    @apply chip bg-info-500/10 border-info-500/30 text-info-400;
+  }
+  .chip-rejected {
+    @apply chip bg-danger-500/10 border-danger-500/30 text-danger-400;
+  }
+  .chip-passed {
+    @apply chip bg-safe-500/10 border-safe-500/30 text-safe-400;
+  }
+  .chip-abnormal {
+    @apply chip bg-danger-500/15 border-danger-500/40 text-danger-400;
+  }
+
+  .card {
+    @apply bg-ink-800 border border-ink-600 rounded-sm;
+  }
+  .input {
+    @apply bg-ink-900 border border-ink-500 text-ink-100 px-2 py-1.5 text-xs rounded-sm focus:outline-none focus:border-info-500 focus:ring-1 focus:ring-info-500/40;
+  }
+  .select {
+    @apply input pr-7;
+  }
+  .th {
+    @apply text-left px-3 py-2 text-xs2 font-medium text-ink-300 uppercase tracking-wider bg-ink-700/60 border-b border-ink-600;
+  }
+  .td {
+    @apply px-3 py-2 text-xs border-b border-ink-700/60;
+  }
+}
