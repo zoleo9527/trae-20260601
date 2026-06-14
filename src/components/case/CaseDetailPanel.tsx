@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import type { BusinessCase, Customer, User, DocumentCheck, DueDiligenceRecord, AuthorizationReview, TimelineEvent, QueueTicket, Complaint } from '@prisma/client';
 import { STATUS_LABELS, STATUS_COLORS, STATUS_DOT_COLORS, DOCUMENT_ISSUE_LABELS, COMPLAINT_TYPE_LABELS, AUTHORIZATION_RESULT_LABELS, AUTHORIZATION_RESULT_COLORS } from '../../utils/constants';
-import { getBlockedReason, getHandlerInfo, getRoleName, formatAmount, formatWaitTime } from '../../utils/display';
+import { getBlockedReason, getHandlerInfo, getRoleName, formatAmount, getWaitMinutes, formatWaitTime } from '../../utils/display';
 import Timeline from '../Timeline';
 
 type CaseWithRelations = BusinessCase & {
@@ -10,8 +10,8 @@ type CaseWithRelations = BusinessCase & {
   queueTicket?: QueueTicket | null;
   assignee?: Pick<User, 'id' | 'name' | 'role' | 'username'> | null;
   acceptor?: Pick<User, 'id' | 'name' | 'role' | 'username'> | null;
-  documentCheck?: (DocumentCheck & { checkedBy?: Pick<User, 'id' | 'name' | 'role'> | null }) | null;
-  dueDiligence?: (DueDiligenceRecord & { completedBy?: Pick<User, 'id' | 'name' | 'role'> | null }) | null;
+  documentCheck?: DocumentCheck | null;
+  dueDiligence?: DueDiligenceRecord | null;
   timeline: (TimelineEvent & { createdBy?: Pick<User, 'id' | 'name' | 'role'> | null })[];
   authReviews: (AuthorizationReview & { reviewedBy: Pick<User, 'id' | 'name' | 'role'> })[];
   complaints: (Complaint & { reportedBy: Pick<User, 'id' | 'name' | 'role'> })[];
@@ -22,8 +22,8 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
   const handler = getHandlerInfo(businessCase);
 
   const lastAuthReview = businessCase.authReviews?.[0];
-  const authPendingMinutes = businessCase.authPendingAt
-    ? Math.floor((Date.now() - new Date(businessCase.authPendingAt).getTime()) / 60000)
+  const authPendingMinutes = businessCase.status === 'PENDING_AUTHORIZATION' || businessCase.status === 'AUTHORIZATION_REVIEW'
+    ? getWaitMinutes(businessCase)
     : null;
 
   const authWaitReason = lastAuthReview
@@ -108,7 +108,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                   businessCase.status === 'COMPLETED'
                     ? '业务已完成'
                     : authPendingMinutes
-                      ? `授权等待中，已等待 ${authPendingMinutes} 分钟`
+                      ? `授权等待中，已等待 ${formatWaitTime(authPendingMinutes)}`
                       : '流程正常推进中'
                 )}
               </p>
@@ -152,7 +152,7 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                   </div>
                 </>
               )}
-              {businessCase.amount && (
+              {businessCase.amount != null && (
                 <div className="col-span-2">
                   <span className="text-slate-500">业务金额</span>
                   <p className="font-bold text-slate-800 text-xl mt-1">
@@ -196,9 +196,9 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                     )}
                   </div>
                 )}
-                {businessCase.documentCheck.checkedBy && (
+                {businessCase.documentCheck.checkedById && (
                   <p className="text-xs text-slate-500">
-                    检查人：{getRoleName(businessCase.documentCheck.checkedBy.role)} {businessCase.documentCheck.checkedBy.name}
+                    已检查
                   </p>
                 )}
               </div>
@@ -255,9 +255,9 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                     </p>
                   </div>
                 )}
-                {businessCase.dueDiligence.completedBy && (
+                {businessCase.dueDiligence.completedById && (
                   <p className="text-xs text-slate-500">
-                    审查人：{getRoleName(businessCase.dueDiligence.completedBy.role)} {businessCase.dueDiligence.completedBy.name}
+                    已审查
                   </p>
                 )}
               </div>
@@ -328,13 +328,11 @@ export default function CaseDetailPanel({ businessCase }: { businessCase: CaseWi
                 <div className="text-center text-slate-500 py-6">暂无授权复核记录</div>
               )}
 
-              {authPendingMinutes !== null && businessCase.status === 'PENDING_AUTHORIZATION' && (
+              {authPendingMinutes !== null && (businessCase.status === 'PENDING_AUTHORIZATION' || businessCase.status === 'AUTHORIZATION_REVIEW') && (
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
                   <p className="text-sm text-amber-800">
                     <span className="font-medium">等待时长：</span>
-                    {authPendingMinutes >= 60
-                      ? `${Math.floor(authPendingMinutes / 60)}小时${authPendingMinutes % 60}分钟`
-                      : `${authPendingMinutes}分钟`}
+                    {formatWaitTime(authPendingMinutes)}
                   </p>
                 </div>
               )}

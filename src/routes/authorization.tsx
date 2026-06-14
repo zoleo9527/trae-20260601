@@ -5,7 +5,7 @@ import { json, redirect } from '@remix-run/node';
 import invariant from 'tiny-invariant';
 import { requireUser } from '../utils/session.server';
 import { getAuthReviewList, createAuthReview } from '../utils/business.server';
-import { getRoleName, getBlockedReason, getHandlerInfo, formatAmount, formatWaitTime } from '../utils/display';
+import { getRoleName, getBlockedReason, getHandlerInfo, formatAmount, getWaitMinutes, formatWaitTime } from '../utils/display';
 import { STATUS_LABELS, AUTHORIZATION_RESULT_LABELS, AUTHORIZATION_RESULT_COLORS } from '../utils/constants';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -123,9 +123,7 @@ export default function AuthorizationPage() {
         <div className="space-y-4">
           {cases.map((businessCase: any) => {
             const isExpanded = expandedCase === businessCase.id;
-            const authPendingMinutes = businessCase.authPendingAt
-              ? Math.floor((Date.now() - new Date(businessCase.authPendingAt).getTime()) / 60000)
-              : 0;
+            const authPendingMinutes = getWaitMinutes(businessCase);
             const blockedReason = getBlockedReason(businessCase);
             const handler = getHandlerInfo(businessCase);
             const lastAuthReview = businessCase.authReviews[0];
@@ -173,7 +171,7 @@ export default function AuthorizationPage() {
                           <span className="font-medium text-slate-700">{businessCase.customer.name}</span>
                           <span className="text-xs text-amber-600 ml-1">({businessCase.customer.customerLevel})</span>
                         </div>
-                        {businessCase.amount && (
+                        {businessCase.amount != null && (
                           <div>
                             <span className="text-slate-500">金额：</span>
                             <span className="font-bold text-slate-800">¥{formatAmount(businessCase.amount)}</span>
@@ -201,7 +199,7 @@ export default function AuthorizationPage() {
                       </p>
                       {authPendingMinutes > 0 && (
                         <p className={`text-xs mt-1 ${authPendingMinutes > 30 ? 'text-red-600 font-medium' : 'text-slate-500'}`}>
-                          等待 {authPendingMinutes >= 60 ? `${Math.floor(authPendingMinutes / 60)}h${authPendingMinutes % 60}m` : `${authPendingMinutes}m`}
+                          等待 {formatWaitTime(authPendingMinutes)}
                         </p>
                       )}
                       <svg
