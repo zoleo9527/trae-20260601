@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useExceptionStore } from '../../../store/exceptionStore';
 import { useWorkOrderStore } from '../../../store/workOrderStore';
 import { useTechnicianStore } from '../../../store/technicianStore';
+import { useExceptionStats } from '../../../hooks/useExceptionStats';
 import { AlertTriangle, Clock, User, Filter, ChevronRight, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
@@ -42,29 +43,21 @@ const statusColors = {
 
 export default function ExceptionsPage() {
   const navigate = useNavigate();
-  const { exceptions, filterType, setFilterType } = useExceptionStore();
-  const { orders, selectOrder, getOrderById } = useWorkOrderStore();
+  const { filterType, setFilterType } = useExceptionStore();
+  const { selectOrder, getOrderById } = useWorkOrderStore();
   const { getTechnicianById } = useTechnicianStore();
-
-  const allExceptions = [
-    ...exceptions,
-    ...orders.flatMap(order =>
-      order.exceptions.filter(
-        exc => !exceptions.find(e => e.id === exc.id)
-      )
-    ),
-  ];
+  const exceptionStats = useExceptionStats();
 
   const filteredExceptions = filterType === 'all'
-    ? allExceptions
-    : allExceptions.filter(e => e.type === filterType);
+    ? exceptionStats.allExceptions
+    : exceptionStats.allExceptions.filter(e => e.type === filterType);
 
   const stats = {
-    total: allExceptions.length,
-    open: allExceptions.filter(e => e.status === 'open').length,
-    analyzing: allExceptions.filter(e => e.status === 'analyzing').length,
-    handling: allExceptions.filter(e => e.status === 'handling').length,
-    resolved: allExceptions.filter(e => e.status === 'resolved').length,
+    total: exceptionStats.total,
+    open: exceptionStats.byStatus.open,
+    analyzing: exceptionStats.byStatus.analyzing,
+    handling: exceptionStats.byStatus.handling,
+    resolved: exceptionStats.byStatus.resolved,
   };
 
   const handleExceptionClick = (exception: any) => {
@@ -78,7 +71,7 @@ export default function ExceptionsPage() {
         <h1 className="text-2xl font-bold text-[#eaeaea]">异常处理中心</h1>
         <div className="flex items-center gap-2 text-sm text-[#a0a0a0]">
           <AlertTriangle size={16} />
-          <span>共 {allExceptions.length} 个异常</span>
+          <span>共 {exceptionStats.total} 个异常</span>
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useWorkOrderStore } from '../../../store/workOrderStore';
 import { useDispatchStore } from '../../../store/dispatchStore';
 import { useTechnicianStore } from '../../../store/technicianStore';
-import { useExceptionStore } from '../../../store/exceptionStore';
+import { useExceptionStats } from '../../../hooks/useExceptionStats';
 import {
   BarChart,
   Bar,
@@ -19,16 +19,7 @@ export default function DashboardPage() {
   const orders = useWorkOrderStore((state) => state.orders);
   const dispatches = useDispatchStore((state) => state.dispatches);
   const technicians = useTechnicianStore((state) => state.technicians);
-  const exceptions = useExceptionStore((state) => state.exceptions);
-
-  const allExceptions = [
-    ...exceptions,
-    ...orders.flatMap(order =>
-      order.exceptions.filter(
-        exc => !exceptions.find(e => e.id === exc.id)
-      )
-    ),
-  ];
+  const exceptionStats = useExceptionStats();
 
   const orderStatusData = [
     { name: '待处理', value: orders.filter((o) => o.status === 'pending').length, color: '#f39c12' },
@@ -44,13 +35,13 @@ export default function DashboardPage() {
   }));
 
   const exceptionTypeData = [
-    { name: '型号错误', value: allExceptions.filter((e) => e.type === 'wrong_model').length, color: '#e94560' },
-    { name: '补胎争议', value: allExceptions.filter((e) => e.type === 'warranty_dispute').length, color: '#f39c12' },
-    { name: '库存问题', value: allExceptions.filter((e) => e.type === 'inventory_issue').length, color: '#3498db' },
-    { name: '其他', value: allExceptions.filter((e) => e.type === 'other').length, color: '#a0a0a0' },
+    { name: '型号错误', value: exceptionStats.byType.wrong_model, color: '#e94560' },
+    { name: '补胎争议', value: exceptionStats.byType.warranty_dispute, color: '#f39c12' },
+    { name: '库存问题', value: exceptionStats.byType.inventory_issue, color: '#3498db' },
+    { name: '其他', value: exceptionStats.byType.other, color: '#a0a0a0' },
   ];
 
-  const totalExceptions = allExceptions.length;
+  const totalExceptions = exceptionStats.total;
 
   return (
     <div className="p-6 space-y-6 overflow-y-auto">
