@@ -26,6 +26,13 @@ export class MakeupService {
   create(dto: CreateMakeupDto, creator: User): MakeupCoordination {
     const existing = this.idemService.checkMakeup(dto.idempotencyKey);
     if (existing) return existing;
+    const opHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'MAKEUP', null, 'CREATE', creator.id,
+    );
+    if (opHit) {
+      const retry = this.idemService.checkMakeup(dto.idempotencyKey);
+      if (retry) return retry;
+    }
 
     const leave = this.store.getLeave(dto.leaveId);
     if (!leave) throw new NotFoundException('关联的请假申请不存在');
@@ -143,8 +150,10 @@ export class MakeupService {
       throw new ConflictException(`当前状态[${makeup.status}]不允许提议补课时间`);
     }
 
-    const existing = this.idemService.checkMakeup(dto.idempotencyKey);
-    if (existing && existing.id === makeup.id && (existing as any)._lastOpIdem === dto.idempotencyKey) {
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'MAKEUP', id, 'PROPOSE_MAKEUP', teacher.id,
+    );
+    if (idemHit) {
       return makeup;
     }
 
@@ -167,7 +176,6 @@ export class MakeupService {
     makeup.currentHandlerName = advisor.name;
     makeup.blockReason = `补课时间已提议，正在与家长确认：${dto.proposedMakeupDates.join('；')}`;
     makeup.updatedAt = new Date().toISOString();
-    (makeup as any)._lastOpIdem = dto.idempotencyKey;
 
     this.pushLog(makeup, teacher, 'PROPOSE_MAKEUP', dto.comment || `提议补课时间${dto.proposedMakeupDates.length}个`);
     this.store.saveMakeup(makeup);
@@ -189,6 +197,13 @@ export class MakeupService {
     }
     if (makeup.status !== MakeupStatus.PENDING_PARENT_CONFIRM) {
       throw new ConflictException(`当前状态[${makeup.status}]不允许家长确认`);
+    }
+
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'MAKEUP', id, 'CONFIRM_PARENT_' + dto.action, advisor.id,
+    );
+    if (idemHit) {
+      return makeup;
     }
 
     const oldStatus = makeup.status;
@@ -233,6 +248,13 @@ export class MakeupService {
       throw new ConflictException(`当前状态[${makeup.status}]不允许排课`);
     }
 
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'MAKEUP', id, 'SCHEDULE', affairs.id,
+    );
+    if (idemHit) {
+      return makeup;
+    }
+
     const oldStatus = makeup.status;
     makeup.status = MakeupStatus.PENDING_EXECUTE;
     makeup.currentHandlerRole = 'TEACHER' as any;
@@ -258,6 +280,13 @@ export class MakeupService {
     if (affairs.role !== UserRole.AFFAIRS) throw new BadRequestException('只有教务可以标记完成');
     if (makeup.status !== MakeupStatus.PENDING_EXECUTE) {
       throw new ConflictException(`当前状态[${makeup.status}]不允许标记完成`);
+    }
+
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'MAKEUP', id, 'COMPLETE', affairs.id,
+    );
+    if (idemHit) {
+      return makeup;
     }
 
     const oldStatus = makeup.status;

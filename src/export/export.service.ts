@@ -7,6 +7,7 @@ import * as os from 'os';
 import { InMemoryStore } from '../common/store/in-memory.store';
 import { ExportTask } from '../common/types/export-task.type';
 import { User, UserRole } from '../common/types/user.type';
+import { IdempotencyService } from '../common/services/idempotency.service';
 import { CreateExportTaskDto, QueryExportListDto } from './dto/export.dto';
 import { LeaveRequest } from '../common/types/leave.type';
 import { MakeupCoordination } from '../common/types/makeup.type';
@@ -15,7 +16,10 @@ import { MakeupCoordination } from '../common/types/makeup.type';
 export class ExportService {
   private readonly exportDir: string;
 
-  constructor(private readonly store: InMemoryStore) {
+  constructor(
+    private readonly store: InMemoryStore,
+    private readonly idemService: IdempotencyService,
+  ) {
     this.exportDir = path.join(os.tmpdir(), 'music-leave-makeup-exports');
     if (!fs.existsSync(this.exportDir)) {
       fs.mkdirSync(this.exportDir, { recursive: true });
@@ -23,6 +27,17 @@ export class ExportService {
   }
 
   async createTask(dto: CreateExportTaskDto, creator: User): Promise<ExportTask> {
+    const existed = this.idemService.checkExportTask(dto.idempotencyKey);
+    if (existed) return existed;
+
+    const opHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'EXPORT', null, 'CREATE_TASK', creator.id,
+    );
+    if (opHit) {
+      const retry = this.idemService.checkExportTask(dto.idempotencyKey);
+      if (retry) return retry;
+    }
+
     const now = new Date().toISOString();
     const task: ExportTask = {
       id: uuidv4(),
@@ -36,6 +51,7 @@ export class ExportService {
       fileUrl: null,
       createdAt: now,
       completedAt: null,
+      idempotencyKey: dto.idempotencyKey,
     };
     this.store.saveExportTask(task);
 

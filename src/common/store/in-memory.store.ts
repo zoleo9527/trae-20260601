@@ -6,6 +6,14 @@ import { OperationLog } from '../types/operation-log.type';
 import { ExportTask } from '../types/export-task.type';
 import { MOCK_USERS, MOCK_LEAVES, MOCK_MAKEUPS } from '../data/mock-data';
 
+export interface IdemRecord {
+  entityType: 'LEAVE' | 'MAKEUP' | 'EXPORT';
+  entityId: string | null;
+  action: string;
+  actorId: string;
+  timestamp: string;
+}
+
 @Injectable()
 export class InMemoryStore implements OnModuleInit {
   private users: Map<string, User> = new Map();
@@ -13,8 +21,10 @@ export class InMemoryStore implements OnModuleInit {
   private leaveIdemKeys: Map<string, string> = new Map();
   private makeups: Map<string, MakeupCoordination> = new Map();
   private makeupIdemKeys: Map<string, string> = new Map();
+  private exportTaskIdemKeys: Map<string, string> = new Map();
   private operationLogs: OperationLog[] = [];
   private exportTasks: Map<string, ExportTask> = new Map();
+  private operationIdemKeys: Map<string, IdemRecord> = new Map();
 
   onModuleInit() {
     MOCK_USERS.forEach((u) => this.users.set(u.id, u));
@@ -94,11 +104,6 @@ export class InMemoryStore implements OnModuleInit {
     ).sort((a, b) => a.timestamp < b.timestamp ? -1 : 1);
   }
 
-  saveExportTask(task: ExportTask): ExportTask {
-    this.exportTasks.set(task.id, task);
-    return task;
-  }
-
   getExportTask(id: string): ExportTask | undefined {
     return this.exportTasks.get(id);
   }
@@ -107,5 +112,42 @@ export class InMemoryStore implements OnModuleInit {
     return Array.from(this.exportTasks.values()).sort((a, b) =>
       a.createdAt < b.createdAt ? 1 : -1,
     );
+  }
+
+  saveExportTask(task: ExportTask): ExportTask {
+    this.exportTasks.set(task.id, task);
+    if (task.idempotencyKey) this.exportTaskIdemKeys.set(task.idempotencyKey, task.id);
+    return task;
+  }
+
+  findExportTaskByIdemKey(key: string): ExportTask | undefined {
+    const id = this.exportTaskIdemKeys.get(key);
+    return id ? this.exportTasks.get(id) : undefined;
+  }
+
+  checkAndSetOperationIdem(
+    idemKey: string,
+    entityType: 'LEAVE' | 'MAKEUP' | 'EXPORT',
+    entityId: string | null,
+    action: string,
+    actorId: string,
+  ): IdemRecord | null {
+    if (!idemKey) return null;
+    if (this.operationIdemKeys.has(idemKey)) {
+      return this.operationIdemKeys.get(idemKey)!;
+    }
+    const record: IdemRecord = {
+      entityType,
+      entityId,
+      action,
+      actorId,
+      timestamp: new Date().toISOString(),
+    };
+    this.operationIdemKeys.set(idemKey, record);
+    return null;
+  }
+
+  findOperationIdem(idemKey: string): IdemRecord | undefined {
+    return idemKey ? this.operationIdemKeys.get(idemKey) : undefined;
   }
 }

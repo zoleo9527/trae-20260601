@@ -26,6 +26,13 @@ export class LeaveService {
     if (existing) {
       return existing;
     }
+    const opHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'LEAVE', null, 'CREATE', teacher.id,
+    );
+    if (opHit) {
+      const retry = this.idemService.checkLeave(dto.idempotencyKey);
+      if (retry) return retry;
+    }
 
     const affairsUsers = this.store.findUsersByRole(UserRole.AFFAIRS);
     if (affairsUsers.length === 0) {
@@ -120,6 +127,13 @@ export class LeaveService {
     const leave = this.store.getLeave(id);
     if (!leave) throw new NotFoundException('请假申请不存在');
 
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'LEAVE', id, 'REVIEW_' + dto.action, reviewer.id,
+    );
+    if (idemHit) {
+      return leave;
+    }
+
     const TERMINAL_STATUSES = [LeaveStatus.APPROVED, LeaveStatus.REJECTED, LeaveStatus.CANCELLED];
     if (TERMINAL_STATUSES.includes(leave.status)) {
       throw new ConflictException('当前请假申请已结束，不能再次审批');
@@ -178,8 +192,10 @@ export class LeaveService {
       throw new ConflictException('当前状态不允许补充材料');
     }
 
-    const existing = this.idemService.checkLeave(dto.idempotencyKey);
-    if (existing && existing.id === leave.id && (existing as any)._lastOpIdem === dto.idempotencyKey) {
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'LEAVE', id, 'SUPPLY_MATERIAL', teacher.id,
+    );
+    if (idemHit) {
       return leave;
     }
 
@@ -195,7 +211,6 @@ export class LeaveService {
     leave.blockReason = null;
     leave.materialRequired = [];
     leave.updatedAt = new Date().toISOString();
-    (leave as any)._lastOpIdem = dto.idempotencyKey;
 
     this.store.saveLeave(leave);
     this.logService.log(
@@ -217,6 +232,13 @@ export class LeaveService {
     }
     if (leave.currentHandlerRole !== 'AFFAIRS') {
       throw new BadRequestException('当前处理人不是教务，无法执行催促');
+    }
+
+    const idemHit = this.idemService.consumeOperation(
+      dto.idempotencyKey, 'LEAVE', id, 'URGE', operator.id,
+    );
+    if (idemHit) {
+      return leave;
     }
 
     const oldStatus = leave.status;

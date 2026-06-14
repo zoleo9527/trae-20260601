@@ -10,4 +10,5 @@ export interface ExportTask {
   fileUrl: string | null;
   createdAt: string;
   completedAt: string | null;
+  idempotencyKey: string | null;
 }
