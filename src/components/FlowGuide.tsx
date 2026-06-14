@@ -5,6 +5,8 @@ import {
   Archive,
   ArrowRight,
   Shield,
+  FileText,
+  FileCheck,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -33,7 +35,7 @@ export function FlowGuide({ className }: FlowGuideProps) {
     {
       type: 'problem',
       label: '问题流',
-      description: '材料缺失，需补正',
+      description: '材料缺失，经补正',
       example: '王建国 · 继承公证',
       exampleId: 'app-003',
       icon: AlertTriangle,
@@ -45,27 +47,27 @@ export function FlowGuide({ className }: FlowGuideProps) {
       descColor: 'text-amber-600',
     },
     {
-      type: 'archive',
-      label: '归档回看',
-      description: '已归档，可回溯查看',
-      example: '查看全部归档记录',
-      exampleId: null,
-      icon: Archive,
-      color: 'navy',
-      bgColor: 'bg-navy-50',
-      borderColor: 'border-navy-200',
-      iconColor: 'text-navy-500',
-      labelColor: 'text-navy-700',
-      descColor: 'text-navy-600',
+      type: 'final-archive',
+      label: '最终归档流',
+      description: '特殊情况+补正后归档',
+      example: '钱卫国 · 房产公证',
+      exampleId: 'app-009',
+      icon: FileCheck,
+      color: 'rose',
+      bgColor: 'bg-rose-50',
+      borderColor: 'border-rose-200',
+      iconColor: 'text-rose-500',
+      labelColor: 'text-rose-700',
+      descColor: 'text-rose-600',
     },
   ];
 
   return (
     <div className={cn('space-y-2', className)}>
-      <div className="flex items-center gap-1.5 mb-1">
+      <div className="flex items-center gap-1.5 mb-2">
         <Shield className="w-3.5 h-3.5 text-slate-400" />
         <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-          样例流程
+          三条样例路径
         </span>
       </div>
       {flows.map((flow) => {
@@ -95,8 +97,8 @@ export function FlowGuide({ className }: FlowGuideProps) {
               <p className={cn('text-[11px] font-semibold', flow.labelColor)}>
                 {flow.label}
               </p>
-              <p className={cn('text-[10px]', flow.descColor)}>
-                {flow.description}
+              <p className={cn('text-[10px] truncate', flow.descColor)}>
+                {flow.example}
               </p>
             </div>
             <ArrowRight className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />

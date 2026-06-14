@@ -18,13 +18,15 @@ interface ApplicationState {
     approved: number;
     archived: number;
   };
-  approveApplication: (id: string, remark: string) => void;
+  saveExceptionNote: (id: string, exceptionNote: string) => void;
+  approveApplication: (id: string, remark: string, exceptionNote?: string) => void;
   sendCorrection: (
     id: string,
     items: { materialName: string; reason: string; priority: 'high' | 'medium' | 'low' }[],
-    remark: string
+    remark: string,
+    exceptionNote?: string
   ) => void;
-  rejectApplication: (id: string, remark: string) => void;
+  rejectApplication: (id: string, remark: string, exceptionNote?: string) => void;
 }
 
 export const useApplicationStore = create<ApplicationState>((set, get) => ({
@@ -80,12 +82,27 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
     };
   },
 
-  approveApplication: (id, remark) => {
+  saveExceptionNote: (id, exceptionNote) => {
+    set((state) => {
+      const updated = state.applications.map((app) => {
+        if (app.id !== id) return app;
+        const finalExceptionNote = exceptionNote.trim();
+        return {
+          ...app,
+          exceptionNote: finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
+        };
+      });
+      return { applications: updated };
+    });
+  },
+
+  approveApplication: (id, remark, exceptionNote) => {
     set((state) => {
       const now = new Date().toLocaleString('zh-CN', { hour12: false });
       const updated = state.applications.map((app) => {
         if (app.id !== id) return app;
         const isCorrected = app.correctionNotices.length > 0;
+        const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
         const newRecords = [
           ...app.reviewRecords,
           {
@@ -111,13 +128,14 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
           reviewRecords: newRecords,
           archiveNo: `DA-GZ-2026-${Math.floor(Math.random() * 10000)}`,
           archivedAt: now,
+          exceptionNote: finalExceptionNote && finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
         };
       });
       return { applications: updated };
     });
   },
 
-  sendCorrection: (id, items, remark) => {
+  sendCorrection: (id, items, remark, exceptionNote) => {
     set((state) => {
       const now = new Date().toLocaleString('zh-CN', { hour12: false });
       const deadline = new Date();
@@ -128,9 +146,11 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
         if (app.id !== id) return app;
         const reviewRecordId = `r-${Date.now()}`;
         const noticeId = `cn-${Date.now()}`;
+        const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
         return {
           ...app,
           status: 'correction' as const,
+          exceptionNote: finalExceptionNote && finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
           reviewRecords: [
             ...app.reviewRecords,
             {
@@ -174,14 +194,16 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
     });
   },
 
-  rejectApplication: (id, remark) => {
+  rejectApplication: (id, remark, exceptionNote) => {
     set((state) => {
       const now = new Date().toLocaleString('zh-CN', { hour12: false });
       const updated = state.applications.map((app) => {
         if (app.id !== id) return app;
+        const finalExceptionNote = exceptionNote?.trim() || app.exceptionNote;
         return {
           ...app,
           status: 'rejected' as const,
+          exceptionNote: finalExceptionNote && finalExceptionNote.length > 0 ? finalExceptionNote : undefined,
           reviewRecords: [
             ...app.reviewRecords,
             {

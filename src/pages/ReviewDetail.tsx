@@ -13,6 +13,8 @@ import {
   FileWarning,
   Shield,
   Info,
+  Save,
+  StickyNote,
 } from 'lucide-react';
 import { useApplicationStore } from '../store/useApplicationStore';
 import { Sidebar } from '../components/Sidebar';
@@ -37,12 +39,15 @@ export function ReviewDetail() {
   const approveApplication = useApplicationStore((s) => s.approveApplication);
   const sendCorrection = useApplicationStore((s) => s.sendCorrection);
   const rejectApplication = useApplicationStore((s) => s.rejectApplication);
+  const saveExceptionNote = useApplicationStore((s) => s.saveExceptionNote);
 
   const application = id ? applications.find((a) => a.id === id) : undefined;
   const [selectedAction, setSelectedAction] = useState<ActionType>(null);
   const [remark, setRemark] = useState('');
   const [correctionItems, setCorrectionItems] = useState<CorrectionItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [exceptionNote, setExceptionNote] = useState<string>(application?.exceptionNote || '');
+  const [isNoteSaving, setIsNoteSaving] = useState(false);
 
   if (!application) {
     return (
@@ -117,6 +122,14 @@ export function ReviewDetail() {
     setCorrectionItems(correctionItems.filter((item) => item.id !== itemId));
   };
 
+  const handleSaveExceptionNote = async () => {
+    if (!id) return;
+    setIsNoteSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    saveExceptionNote(id, exceptionNote);
+    setIsNoteSaving(false);
+  };
+
   const handleSubmit = async () => {
     if (!id) return;
     setIsSubmitting(true);
@@ -124,7 +137,7 @@ export function ReviewDetail() {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     if (selectedAction === 'approve') {
-      approveApplication(id, remark || '材料齐全，审核通过');
+      approveApplication(id, remark || '材料齐全，审核通过', exceptionNote);
     } else if (selectedAction === 'correction' && correctionItems.length > 0) {
       sendCorrection(
         id,
@@ -133,10 +146,11 @@ export function ReviewDetail() {
           reason: item.reason,
           priority: item.priority,
         })),
-        remark || '材料需补正'
+        remark || '材料需补正',
+        exceptionNote
       );
     } else if (selectedAction === 'reject') {
-      rejectApplication(id, remark || '不符合受理条件，予以驳回');
+      rejectApplication(id, remark || '不符合受理条件，予以驳回', exceptionNote);
     }
 
     setIsSubmitting(false);
@@ -282,6 +296,77 @@ export function ReviewDetail() {
                   </div>
                 ))}
               </div>
+            </section>
+
+            <section className="card-base p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="section-title">
+                  <StickyNote className="w-4 h-4" />
+                  异常说明
+                  <span className="text-[11px] text-slate-400 font-normal tracking-normal normal-case ml-1">
+                    一线处理与管理回看共享记录
+                  </span>
+                </h2>
+                {!isReadonly && (
+                  <button
+                    onClick={handleSaveExceptionNote}
+                    disabled={isNoteSaving}
+                    className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-navy-600 bg-navy-50 hover:bg-navy-100 border border-navy-200 rounded-md transition-colors"
+                  >
+                    {isNoteSaving ? (
+                      <>
+                        <div className="w-3 h-3 border-2 border-navy-600/30 border-t-navy-600 rounded-full animate-spin" />
+                        保存中
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3 h-3" />
+                        立即保存
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {!isReadonly ? (
+                <>
+                  <textarea
+                    value={exceptionNote}
+                    onChange={(e) => setExceptionNote(e.target.value)}
+                    placeholder="录入异常情况、特殊处理、需特别说明的事项...例如：申请人行动不便由代办人处理、材料真实性经上门核实等"
+                    rows={3}
+                    className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400 transition-all resize-none"
+                  />
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-start gap-1.5">
+                      <Info className="w-3 h-3 text-slate-400 flex-shrink-0 mt-0.5" />
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        异常说明会和审核记录、补正通知一起写入归档档案，可在侧栏时间线和归档回看中追溯
+                      </p>
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      {exceptionNote.length} / 500
+                    </span>
+                  </div>
+                </>
+              ) : (
+                exceptionNote ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2.5">
+                    <Shield className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-semibold text-amber-700 mb-0.5">异常说明</p>
+                      <p className="text-sm text-amber-800 leading-relaxed">
+                        {exceptionNote}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2.5 p-3 bg-slate-50 rounded-lg">
+                    <StickyNote className="w-4 h-4 text-slate-300" />
+                    <p className="text-xs text-slate-400">无异常说明</p>
+                  </div>
+                )
+              )}
             </section>
 
             {!isReadonly && (
@@ -486,20 +571,6 @@ export function ReviewDetail() {
                       </>
                     )}
                   </button>
-                </div>
-              </section>
-            )}
-
-            {isReadonly && application.exceptionNote && (
-              <section className="card-base p-5">
-                <h2 className="section-title mb-3">
-                  <AlertTriangle className="w-4 h-4" />
-                  异常说明
-                </h2>
-                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm text-amber-800 leading-relaxed">
-                    {application.exceptionNote}
-                  </p>
                 </div>
               </section>
             )}
