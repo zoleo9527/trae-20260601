@@ -65,7 +65,7 @@ function doReject() {
   emit('close')
 }
 function doRemind() {
-  store.pushToast(`已向 ${student.value?.name || '学员'} 发送短信 + 公众号双重催办提醒`, 'warning')
+  store.pushToast('已向 ' + (student.value?.name || '学员') + ' 发送短信 + 公众号双重催办提醒', 'warning')
   emit('close')
 }
 function doEdit() {

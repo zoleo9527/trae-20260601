@@ -97,7 +97,8 @@ export const useAppStore = defineStore('app', {
     blockedExamFollowUps(state) {
       return state.examFollowUps.filter(e =>
         (e.status === EXAM_STATUS.PENDING_REVIEW && dayjs(e.completedAt).isBefore(dayjs().subtract(12, 'hour'))) ||
-        (e.status === EXAM_STATUS.BOOKED && dayjs(e.bookedDate).diff(dayjs(), 'day') >= 0 && dayjs(e.bookedDate).diff(dayjs(), 'day') <= 3 && !e.studentConfirmed) ||
+        (e.status === EXAM_STATUS.BOOKED && dayjs(e.bookedDate).diff(dayjs(), 'day') >= 0 && dayjs(e.bookedDate).diff(dayjs(), 'day') <= 3) ||
+        e.status === EXAM_STATUS.EXAM_FAILED ||
         e.exception
       ).filter(Boolean)
     },
@@ -195,6 +196,14 @@ export const useAppStore = defineStore('app', {
       s.status = SCHEDULE_STATUS.REJECTED
       s.rejectReason = reason
       this.pushToast('已退回，将重新排班', 'error')
+    },
+
+    studentConfirmSchedule(id, note) {
+      const s = this.schedules.find(x => x.id === id)
+      if (!s) return
+      s.status = SCHEDULE_STATUS.STUDENT_CONFIRMED
+      if (note) s.studentNote = note
+      this.pushToast('学员已确认，等待教练到场完成练车', 'success')
     },
 
     completeSchedule(id, note) {

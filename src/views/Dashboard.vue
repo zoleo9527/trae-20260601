@@ -107,10 +107,10 @@ const recentSchedules = computed(() => {
     }))
 })
 
-function goTraceAppt(id) { router.push(`/trace/${id}`) }
-function goScheduleFilter(f) { router.push(`/schedules?filter=${f}`) }
-function goAppointmentFilter(f) { router.push(`/appointments?filter=${f}`) }
-function goExamFilter(f) { router.push(`/exams?filter=${f}`) }
+function goTraceAppt(id) { router.push('/trace/' + id) }
+function goScheduleFilter(f) { router.push('/schedules?filter=' + f) }
+function goAppointmentFilter(f) { router.push('/appointments?filter=' + f) }
+function goExamFilter(f) { router.push('/exams?filter=' + f) }
 </script>
 
 <template>

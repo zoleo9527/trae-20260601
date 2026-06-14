@@ -95,18 +95,18 @@ function filterByStatus(s) {
   activeFilter.value = map[s] || 'all'
 }
 
-function goTrace(id) { router.push(`/trace/${id}`) }
+function goTrace(id) { router.push('/trace/' + id) }
 
 function whyUncompleted(s) {
   if (s.status === SCHEDULE_STATUS.UNASSIGNED) {
     const hours = dayjs().diff(dayjs(s.assignedAt), 'hour')
-    if (hours > 4) return { label: `已滞留 ${hours} 小时未分配`, severity: 'danger' }
+    if (hours > 4) return { label: '已滞留 ' + hours + ' 小时未分配', severity: 'danger' }
     return { label: '招生顾问尚未分配教练', severity: 'warning' }
   }
   if (s.status === SCHEDULE_STATUS.REJECTED) return { label: '教练已退回', severity: 'danger' }
   if (s.status === SCHEDULE_STATUS.ASSIGNED) {
     const hours = dayjs().diff(dayjs(s.assignedAt), 'hour')
-    if (hours > 12) return { label: `教练已 ${hours} 小时未确认`, severity: 'warning' }
+    if (hours > 12) return { label: '教练已 ' + hours + ' 小时未确认', severity: 'warning' }
     return { label: '教练待确认', severity: 'info' }
   }
   return null
@@ -258,11 +258,12 @@ function handleBatchNotify() {
             </template>
           </template>
           <template v-else-if="s.status === 'coach_confirmed'">
-            <button class="btn btn-default btn-sm" @click="openModal('view', s)">等学员确认</button>
+            <button class="btn btn-success btn-sm" @click="openModal('studentConfirm', s)">学员确认</button>
+            <button class="btn btn-default btn-sm" @click="openModal('view', s)">查看</button>
           </template>
           <template v-else-if="s.status === 'student_confirmed'">
-            <button v-if="isCoachView" class="btn btn-success btn-sm" @click="openModal('complete', s)">练车完成</button>
-            <button v-else class="btn btn-ghost btn-sm" @click="openModal('view', s)">查看</button>
+            <button class="btn btn-success btn-sm" @click="openModal('complete', s)">练车完成</button>
+            <button class="btn btn-ghost btn-sm" @click="openModal('view', s)">查看</button>
           </template>
           <template v-else-if="s.status === 'rejected'">
             <button class="btn btn-primary btn-sm" @click="openModal('reassign', s)">重新分配</button>

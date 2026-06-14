@@ -20,7 +20,8 @@ const form = ref({
  subject: props.schedule.subject || SUBJECTS[0],
  coachNote: props.schedule.coachNote || '',
  rejectReason: props.schedule.rejectReason || '',
- completeNote: ''
+ completeNote: '',
+ studentNote: props.schedule.studentNote || ''
 });
 const suitableCoaches = computed(() => COACHES.filter(c => c.subjects.includes(form.value.subject)));
 const dateOptions = Array.from({ length: 14 }).map((_, i) => dayjs().add(i, 'day').format('YYYY-MM-DD'));
@@ -48,8 +49,12 @@ function doComplete() {
  store.completeSchedule(props.schedule.id, form.value.completeNote);
  emit('close');
 }
+function doStudentConfirm() {
+ store.studentConfirmSchedule(props.schedule.id, form.value.studentNote);
+ emit('close');
+}
 function doRemind() {
- store.pushToast(`已向 ${coach.value?.name || '教练'} 发送短信 + 企业微信提醒`, 'info');
+ store.pushToast('已向 ' + (coach.value?.name || '教练') + ' 发送短信 + 企业微信提醒', 'info');
  emit('close');
 }
 const titleMap = {
@@ -59,7 +64,8 @@ const titleMap = {
  confirm: '教练确认排班',
  reject: '退回排班 · 说明原因',
  remind: '催促教练确认',
- complete: '完成练车 · 教学记录'
+ complete: '完成练车 · 教学记录',
+ studentConfirm: '学员确认排班'
 };
 const isCoach = computed(() => store.currentRole === ROLES.COACH);
 </script>
@@ -258,6 +264,21 @@ const isCoach = computed(() => store.currentRole === ROLES.COACH);
           </div>
         </template>
 
+        <template v-if="mode === 'studentConfirm'">
+          <div v-if="schedule.passedAppointmentNote" class="mt-3 note-panel note-blue">
+            <div class="text-xs font-medium mb-1" style="color:#1e40af;">📝 预约备注（已传达给教练）</div>
+            <div class="text-sm">{{ schedule.passedAppointmentNote }}</div>
+          </div>
+          <div v-if="schedule.coachNote" class="mt-3 note-panel note-green">
+            <div class="text-xs font-medium mb-1" style="color:#047857;">🎯 教练的话</div>
+            <div class="text-sm" style="white-space:pre-line;">{{ schedule.coachNote }}</div>
+          </div>
+          <div class="form-row mt-4">
+            <label>学员备注（可选）</label>
+            <textarea v-model="form.studentNote" class="textarea" placeholder="例如：准时到达、需要调整副驾驶座椅高度"></textarea>
+          </div>
+        </template>
+
         <template v-if="mode === 'complete'">
           <div class="form-grid">
             <div class="form-row">
@@ -290,7 +311,7 @@ const isCoach = computed(() => store.currentRole === ROLES.COACH);
         <template v-if="mode === 'view'">
           <button v-if="schedule.appointmentId && schedule.appointmentId.startsWith('AP')"
                   class="btn btn-default"
-                  @click="router.push(`/trace/${schedule.appointmentId}`)">查看预约追溯</button>
+                  @click="router.push('/trace/' + schedule.appointmentId)">查看预约追溯</button>
           <template v-if="schedule.status === 'unassigned'">
             <button class="btn btn-primary" @click="emit('close'); $nextTick(() => window.dispatchEvent(new CustomEvent('open-modal', { detail: { mode: 'assign', schedule } })))">去分配</button>
           </template>
@@ -300,6 +321,7 @@ const isCoach = computed(() => store.currentRole === ROLES.COACH);
         <template v-else-if="mode === 'confirm'"><button class="btn btn-success" @click="doCoachConfirm">✓ 我确认，通知学员</button></template>
         <template v-else-if="mode === 'reject'"><button class="btn btn-danger" @click="doCoachReject">↩ 退回并说明原因</button></template>
         <template v-else-if="mode === 'remind'"><button class="btn btn-warning" @click="doRemind">立即催办</button></template>
+        <template v-else-if="mode === 'studentConfirm'"><button class="btn btn-success" @click="doStudentConfirm">✓ 我已确认，等待练车</button></template>
         <template v-else-if="mode === 'complete'"><button class="btn btn-success" @click="doComplete">✓ 完成并写入档案</button></template>
       </div>
     </div>

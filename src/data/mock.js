@@ -199,6 +199,42 @@ export const INITIAL_APPOINTMENTS = [
     advisorNote: '',
     exception: null,
     handler: null
+  },
+  {
+    id: 'AP-LEGACY-01', studentId: 'S20260103', subject: '科目三',
+    preferredDates: [today.subtract(2, 'day').format('YYYY-MM-DD')],
+    preferredSlots: ['上午 09:00-11:00'],
+    status: APPOINTMENT_STATUS.SCHEDULED,
+    createdAt: today.subtract(3, 'day').format('YYYY-MM-DD HH:mm'),
+    createdBy: 'A001',
+    reviewNote: '学员有驾驶基础，进展较快。',
+    advisorNote: '学员有驾驶基础，希望直接练路考线路。',
+    exception: null,
+    handler: 'A001'
+  },
+  {
+    id: 'AP-LEGACY-02', studentId: 'S20260105', subject: '科目三',
+    preferredDates: [today.subtract(5, 'day').format('YYYY-MM-DD')],
+    preferredSlots: ['下午 14:00-16:00'],
+    status: APPOINTMENT_STATUS.COMPLETED,
+    createdAt: today.subtract(6, 'day').format('YYYY-MM-DD HH:mm'),
+    createdBy: 'A001',
+    reviewNote: '资料齐全，按常规推进。',
+    advisorNote: '按常规安排即可。',
+    exception: null,
+    handler: 'A001'
+  },
+  {
+    id: 'AP-LEGACY-03', studentId: 'S20260107', subject: '科目三',
+    preferredDates: [today.subtract(7, 'day').format('YYYY-MM-DD')],
+    preferredSlots: ['下午 14:00-16:00'],
+    status: APPOINTMENT_STATUS.COMPLETED,
+    createdAt: today.subtract(8, 'day').format('YYYY-MM-DD HH:mm'),
+    createdBy: 'A002',
+    reviewNote: '有驾驶基础，进度快。',
+    advisorNote: '学员工作忙，只能安排周末或晚班。',
+    exception: null,
+    handler: 'A002'
   }
 ]
 
@@ -216,7 +252,7 @@ export const INITIAL_SCHEDULES = [
     completedAt: null
   },
   {
-    id: 'SC-D4E5F6', appointmentId: 'SC-LEGACY-01', studentId: 'S20260103', subject: '科目三',
+    id: 'SC-D4E5F6', appointmentId: 'AP-LEGACY-01', studentId: 'S20260103', subject: '科目三',
     coachId: 'C005', date: today.format('YYYY-MM-DD'),
     slot: '上午 09:00-11:00',
     status: SCHEDULE_STATUS.STUDENT_CONFIRMED,
@@ -228,7 +264,7 @@ export const INITIAL_SCHEDULES = [
     completedAt: null
   },
   {
-    id: 'SC-G7H8I9', appointmentId: 'SC-LEGACY-02', studentId: 'S20260105', subject: '科目三',
+    id: 'SC-G7H8I9', appointmentId: 'AP-LEGACY-02', studentId: 'S20260105', subject: '科目三',
     coachId: 'C001', date: today.subtract(1, 'day').format('YYYY-MM-DD'),
     slot: '下午 14:00-16:00',
     status: SCHEDULE_STATUS.COMPLETED,
@@ -240,7 +276,7 @@ export const INITIAL_SCHEDULES = [
     completedAt: today.subtract(1, 'day').add(2, 'hour').format('YYYY-MM-DD HH:mm')
   },
   {
-    id: 'SC-J1K2L3', appointmentId: 'SC-LEGACY-03', studentId: 'S20260107', subject: '科目三',
+    id: 'SC-J1K2L3', appointmentId: 'AP-LEGACY-03', studentId: 'S20260107', subject: '科目三',
     coachId: 'C003', date: today.add(3, 'day').format('YYYY-MM-DD'),
     slot: '晚班 17:00-19:00',
     status: SCHEDULE_STATUS.REJECTED,
@@ -304,7 +340,7 @@ export const EXAM_SITES = [
 
 export const INITIAL_EXAM_FOLLOW_UPS = [
   {
-    id: 'EX-9P2X7K', scheduleId: 'SC-G7H8I9', appointmentId: 'SC-LEGACY-02',
+    id: 'EX-9P2X7K', scheduleId: 'SC-G7H8I9', appointmentId: 'AP-LEGACY-02',
     studentId: 'S20260105', subject: '科目三',
     status: EXAM_STATUS.PENDING_REVIEW,
     coachId: 'C001',
@@ -320,7 +356,7 @@ export const INITIAL_EXAM_FOLLOW_UPS = [
     exception: { type: 'coach_suggested_delay', severity: 'info', message: '教练建议再练习 3 天' }
   },
   {
-    id: 'EX-3M8Q2Z', scheduleId: 'SC-LEGACY-05', appointmentId: 'SC-LEGACY-05',
+    id: 'EX-3M8Q2Z', scheduleId: 'SC-LEGACY-05', appointmentId: 'AP-LEGACY-03',
     studentId: 'S20260107', subject: '科目三',
     status: EXAM_STATUS.READY_TO_BOOK,
     coachId: 'C005',
@@ -336,7 +372,7 @@ export const INITIAL_EXAM_FOLLOW_UPS = [
     exception: null
   },
   {
-    id: 'EX-7H5J4R', scheduleId: 'SC-LEGACY-06', appointmentId: 'SC-LEGACY-06',
+    id: 'EX-7H5J4R', scheduleId: 'SC-LEGACY-06', appointmentId: 'AP-LEGACY-01',
     studentId: 'S20260103', subject: '科目三',
     status: EXAM_STATUS.BOOKED,
     coachId: 'C005',

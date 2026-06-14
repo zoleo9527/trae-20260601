@@ -92,7 +92,7 @@ function filterByStatus(s) {
   else activeFilter.value = 'scheduled'
 }
 
-function goTrace(id) { router.push(`/trace/${id}`) }
+function goTrace(id) { router.push('/trace/' + id) }
 
 function handleBatchApprove() {
   const ids = Array.from(store.selectedAppointmentIds)

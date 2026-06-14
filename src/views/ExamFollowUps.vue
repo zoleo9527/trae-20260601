@@ -45,9 +45,11 @@ const filteredExams = computed(() => {
     case 'booked':
       list = list.filter(e => e.status === EXAM_STATUS.BOOKED || e.status === EXAM_STATUS.STUDENT_CONFIRMED)
       break
-    case 'blocked':
-      list = store.blockedExamFollowUps.map(id => typeof id === 'string' ? list.find(x => x.id === id) : id).filter(Boolean)
+    case 'blocked': {
+      const blockedIds = new Set(store.blockedExamFollowUps.map(x => x.id))
+      list = list.filter(e => blockedIds.has(e.id))
       break
+    }
     case 'finished':
       list = list.filter(e => e.status === EXAM_STATUS.EXAM_PASSED || e.status === EXAM_STATUS.EXAM_FAILED || e.status === EXAM_STATUS.CLOSED)
       break
@@ -77,13 +79,13 @@ function closeModal() { modalMode.value = ''; modalExam.value = null }
 function whyBlocked(e) {
   if (e.status === EXAM_STATUS.PENDING_REVIEW) {
     const hours = dayjs().diff(dayjs(e.completedAt), 'hour')
-    if (hours > 12) return { label: `滞留 ${hours} 小时未认领`, severity: 'danger' }
+    if (hours > 12) return { label: '滞留 ' + hours + ' 小时未认领', severity: 'danger' }
     return { label: '待考试专员认领复核', severity: 'warning' }
   }
   if (e.exception) return { label: e.exception.message, severity: e.exception.severity || 'warning' }
   if (e.status === EXAM_STATUS.BOOKED) {
     const days = dayjs(e.bookedDate).diff(dayjs(), 'day')
-    if (days >= 0 && days <= 3) return { label: `${days <= 0 ? '今天' : days + '天后'}考试，学员未确认`, severity: 'warning' }
+    if (days >= 0 && days <= 3) return { label: (days <= 0 ? '今天' : days + '天后') + '考试，学员未确认', severity: 'warning' }
   }
   if (e.status === EXAM_STATUS.EXAM_FAILED) return { label: '考试未通过，需补训重约', severity: 'danger' }
   if (!e.handler) return { label: '未分配责任人', severity: 'warning' }
