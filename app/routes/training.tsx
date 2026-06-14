@@ -8,10 +8,11 @@ import { statusNames, roleNames } from "../utils/roles";
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId, role } = await requireUser(request);
   
-  const users = await require("../db/connection").pool.query(
+  const userResult = await require("../db/connection").pool.query(
     "SELECT name FROM users WHERE id = $1",
     [userId]
   );
+  const users = userResult.rows;
   const userName = users.length > 0 ? users[0].name : "";
   
   const [students, trainingRecords] = await Promise.all([
@@ -39,10 +40,11 @@ export async function action({ request }: ActionFunctionArgs) {
     
     const result = await createTrainingRecord(studentId, userId, date, duration, content);
     
-    const student = await require("../db/connection").pool.query(
+    const studentResult = await require("../db/connection").pool.query(
       "SELECT name FROM students WHERE id = $1",
       [studentId]
     );
+    const studentRows = studentResult.rows;
     
     await addOperationLog(
       userId,
@@ -51,7 +53,7 @@ export async function action({ request }: ActionFunctionArgs) {
       result.id,
       { 
         student_id: studentId, 
-        student_name: student.rows[0]?.name,
+        student_name: studentRows[0]?.name,
         date, 
         duration, 
         content 
@@ -65,12 +67,21 @@ export async function action({ request }: ActionFunctionArgs) {
     
     const result = await updateTrainingRecord(recordId, "completed", notes);
     
+    const record = await require("../db/connection").pool.query(
+      "SELECT student_id FROM training_records WHERE id = $1",
+      [recordId]
+    );
+    const recordRows = record.rows;
+    
     await addOperationLog(
       userId,
       "完成场地训练",
       "training_record",
       recordId,
-      { notes }
+      { 
+        notes,
+        student_id: recordRows[0]?.student_id
+      }
     );
     
     return redirect("/training");

@@ -8,10 +8,11 @@ import { roleNames } from "../utils/roles";
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId, role } = await requireUser(request);
   
-  const users = await require("../db/connection").pool.query(
+  const userResult = await require("../db/connection").pool.query(
     "SELECT name FROM users WHERE id = $1",
     [userId]
   );
+  const users = userResult.rows;
   const userName = users.length > 0 ? users[0].name : "";
   
   const logs = await getOperationLogs();
@@ -38,6 +39,9 @@ export default function LogsPage() {
     if (details.student_name) parts.push(`学员: ${details.student_name}`);
     if (details.date) parts.push(`日期: ${details.date}`);
     if (details.duration) parts.push(`时长: ${details.duration}分钟`);
+    if (details.trainer_name) parts.push(`教练: ${details.trainer_name}`);
+    if (details.training_content) parts.push(`训练内容: ${details.training_content}`);
+    if (details.handover_info) parts.push(`交接信息: ${details.handover_info}`);
     if (details.items) {
       const items = Object.entries(details.items)
         .filter(([, value]) => value)

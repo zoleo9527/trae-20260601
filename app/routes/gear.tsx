@@ -1,5 +1,5 @@
 import { ActionFunctionArgs, LoaderFunctionArgs, json, redirect } from "@remix-run/node";
-import { Form, useActionData, useLoaderData, useState } from "@remix-run/react";
+import { Form, useActionData, useLoaderData, useState, useEffect } from "@remix-run/react";
 import { requireUser } from "../auth/session";
 import { getStudents, getTrainingRecords, getGearIssues, createGearIssue, returnGear, addOperationLog, getTrainingRecordById } from "../db/queries";
 import Layout from "../components/Layout";
@@ -8,10 +8,11 @@ import { statusNames, roleNames } from "../utils/roles";
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId, role } = await requireUser(request);
   
-  const users = await require("../db/connection").pool.query(
+  const userResult = await require("../db/connection").pool.query(
     "SELECT name FROM users WHERE id = $1",
     [userId]
   );
+  const users = userResult.rows;
   const userName = users.length > 0 ? users[0].name : "";
   
   const [students, trainingRecords, gearIssues] = await Promise.all([
@@ -51,10 +52,11 @@ export async function action({ request }: ActionFunctionArgs) {
     
     const result = await createGearIssue(studentId, userId, trainingRecordId, helmet, jacket, gloves, boots);
     
-    const student = await require("../db/connection").pool.query(
+    const studentResult = await require("../db/connection").pool.query(
       "SELECT name FROM students WHERE id = $1",
       [studentId]
     );
+    const studentRows = studentResult.rows;
     
     await addOperationLog(
       userId,
@@ -63,10 +65,13 @@ export async function action({ request }: ActionFunctionArgs) {
       result.id,
       { 
         student_id: studentId, 
-        student_name: student.rows[0]?.name,
+        student_name: studentRows[0]?.name,
         training_record_id: trainingRecordId,
         trainer_name: trainingRecord.trainer_name,
-        items: { helmet, jacket, gloves, boots }
+        training_content: trainingRecord.content,
+        training_notes: trainingRecord.notes,
+        items: { helmet, jacket, gloves, boots },
+        handover_info: `训练教练: ${trainingRecord.trainer_name || '未知'}, 训练内容: ${trainingRecord.content}`
       }
     );
     
@@ -74,14 +79,28 @@ export async function action({ request }: ActionFunctionArgs) {
   } else if (actionType === "return_gear") {
     const gearId = parseInt(formData.get("gear_id") as string);
     
+    const gearResult = await require("../db/connection").pool.query(
+      "SELECT student_id, training_record_id FROM gear_issues WHERE id = $1",
+      [gearId]
+    );
+    const gearRows = gearResult.rows;
+    const gearIssue = gearRows[0];
+    
     const result = await returnGear(gearId);
+    
+    const trainingRecord = gearIssue.training_record_id ? await getTrainingRecordById(gearIssue.training_record_id) : null;
     
     await addOperationLog(
       userId,
       "收回护具",
       "gear_issue",
       gearId,
-      {}
+      { 
+        student_id: gearIssue.student_id,
+        training_record_id: gearIssue.training_record_id,
+        trainer_name: trainingRecord?.trainer_name,
+        handover_info: `护具已收回，训练记录ID: ${gearIssue.training_record_id}`
+      }
     );
     
     return redirect("/gear");
@@ -94,6 +113,10 @@ export default function GearPage() {
   const { user, students, trainingRecords, gearIssues } = useLoaderData<typeof loader>();
   const actionData = useActionData<typeof action>();
   const [selectedStudentId, setSelectedStudentId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    setSelectedStudentId(null);
+  }, [students]);
   
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -194,6 +217,7 @@ export default function GearPage() {
                     <th>学员</th>
                     <th>关联训练</th>
                     <th>教练</th>
+                    <th>训练内容</th>
                     <th>训练备注</th>
                     <th>发放物品</th>
                     <th>发放人</th>
@@ -208,6 +232,7 @@ export default function GearPage() {
                       <td>{issue.student_name}</td>
                       <td>{issue.training_date || "-"}</td>
                       <td>{issue.trainer_name || "-"}</td>
+                      <td style={styles.contentCell}>{issue.training_content || "-"}</td>
                       <td style={styles.contentCell}>{issue.training_notes || "-"}</td>
                       <td>
                         <div style={styles.itemsList}>

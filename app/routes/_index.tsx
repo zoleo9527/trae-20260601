@@ -3,15 +3,16 @@ import { useLoaderData } from "@remix-run/react";
 import { requireUser } from "../auth/session";
 import { getStudents, getTrainingRecords, getGearIssues, getOperationLogs } from "../db/queries";
 import Layout from "../components/Layout";
-import { statusNames } from "../utils/roles";
+import { statusNames, roleNames } from "../utils/roles";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const { userId, role } = await requireUser(request);
   
-  const users = await require("../db/connection").pool.query(
+  const userResult = await require("../db/connection").pool.query(
     "SELECT name FROM users WHERE id = $1",
     [userId]
   );
+  const users = userResult.rows;
   const userName = users.length > 0 ? users[0].name : "";
   
   const [students, trainingRecords, gearIssues, logs] = await Promise.all([
@@ -59,6 +60,11 @@ export default function DashboardPage() {
   return (
     <Layout user={user}>
       <div style={styles.dashboard}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>仪表盘</h1>
+          <div style={styles.roleInfo}>当前角色: {roleNames[user.role as keyof typeof roleNames]}</div>
+        </div>
+        
         <div style={styles.statsGrid}>
           <div style={styles.statCard}>
             <div style={styles.statNumber}>{stats.totalStudents}</div>
@@ -151,14 +157,18 @@ export default function DashboardPage() {
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>最近操作日志</h2>
           <div style={styles.logsContainer}>
-            {logs.map(log => (
-              <div key={log.id} style={styles.logItem}>
-                <span style={styles.logTime}>{new Date(log.created_at).toLocaleString()}</span>
-                <span style={styles.logOperator}>{log.operator_name}</span>
-                <span style={styles.logAction}>{log.action}</span>
-                <span style={styles.logTarget}>{log.details?.student_name || log.target_type}</span>
-              </div>
-            ))}
+            {logs.length === 0 ? (
+              <div style={styles.emptyState}>暂无操作记录</div>
+            ) : (
+              logs.map(log => (
+                <div key={log.id} style={styles.logItem}>
+                  <span style={styles.logTime}>{new Date(log.created_at).toLocaleString()}</span>
+                  <span style={styles.logOperator}>{log.operator_name}</span>
+                  <span style={styles.logAction}>{log.action}</span>
+                  <span style={styles.logTarget}>{log.details?.student_name || log.target_type}</span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -170,6 +180,25 @@ const styles = {
   dashboard: {
     maxWidth: "1400px",
     margin: "0 auto",
+  },
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: "24px",
+  },
+  title: {
+    fontSize: "24px",
+    fontWeight: "bold",
+    color: "#333",
+    margin: 0,
+  },
+  roleInfo: {
+    padding: "8px 16px",
+    background: "#e7f3ff",
+    color: "#1976d2",
+    borderRadius: "20px",
+    fontSize: "14px",
   },
   statsGrid: {
     display: "grid",
@@ -230,6 +259,13 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: "12px",
+  },
+  emptyState: {
+    textAlign: "center",
+    padding: "40px",
+    color: "#999",
+    background: "#f8f9fa",
+    borderRadius: "8px",
   },
   logItem: {
     display: "flex",

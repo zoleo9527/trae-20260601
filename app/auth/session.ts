@@ -49,10 +49,12 @@ export async function logout(request: Request) {
 }
 
 export async function authenticate(username: string, password: string) {
-  const users = await pool.query(
+  const result = await pool.query(
     "SELECT id, username, password_hash, role, name FROM users WHERE username = $1",
     [username]
   );
+  
+  const users = result.rows;
   
   if (users.length === 0) {
     return null;
