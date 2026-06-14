@@ -84,6 +84,7 @@ export async function getPaymentList(filters: {
   paymentType?: PaymentType;
   status?: PaymentStatus;
   handlerId?: string;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }) {
@@ -103,6 +104,13 @@ export async function getPaymentList(filters: {
 
   if (filters.handlerId) {
     where.handlerId = filters.handlerId;
+  }
+
+  if (filters.search) {
+    where.OR = [
+      { student: { name: { contains: filters.search, mode: 'insensitive' } } },
+      { student: { phone: { contains: filters.search, mode: 'insensitive' } } },
+    ];
   }
 
   if (filters.startDate || filters.endDate) {

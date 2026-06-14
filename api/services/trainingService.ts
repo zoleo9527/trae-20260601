@@ -82,6 +82,7 @@ export async function getTrainingList(filters: {
   studentId?: string;
   coachId?: string;
   status?: TrainingStatus;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }) {
@@ -97,6 +98,13 @@ export async function getTrainingList(filters: {
 
   if (filters.status) {
     where.status = filters.status;
+  }
+
+  if (filters.search) {
+    where.OR = [
+      { student: { name: { contains: filters.search, mode: 'insensitive' } } },
+      { student: { phone: { contains: filters.search, mode: 'insensitive' } } },
+    ];
   }
 
   if (filters.startDate || filters.endDate) {

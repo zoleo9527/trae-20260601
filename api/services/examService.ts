@@ -66,6 +66,18 @@ export async function updateExamStatus(input: UpdateExamInput) {
     remark: input.remark,
   });
 
+  if (input.newStatus === 'retest' && input.retestFee) {
+    await prisma.payment.create({
+      data: {
+        studentId: exam.studentId,
+        paymentType: 'retest',
+        amount: input.retestFee,
+        status: 'pending',
+        handlerId: input.handlerId,
+      },
+    });
+  }
+
   return updatedExam;
 }
 
@@ -87,6 +99,7 @@ export async function getExamList(filters: {
   studentId?: string;
   status?: ExamStatus;
   examinerId?: string;
+  search?: string;
   startDate?: Date;
   endDate?: Date;
 }) {
@@ -102,6 +115,13 @@ export async function getExamList(filters: {
 
   if (filters.examinerId) {
     where.examinerId = filters.examinerId;
+  }
+
+  if (filters.search) {
+    where.OR = [
+      { student: { name: { contains: filters.search, mode: 'insensitive' } } },
+      { student: { phone: { contains: filters.search, mode: 'insensitive' } } },
+    ];
   }
 
   if (filters.startDate || filters.endDate) {

@@ -7,13 +7,14 @@ const router = Router();
 
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { studentId, paymentType, status, handlerId, startDate, endDate } = req.query;
+    const { studentId, paymentType, status, handlerId, search, startDate, endDate } = req.query;
 
     const payments = await getPaymentList({
       studentId: studentId as string,
       paymentType: paymentType as any,
       status: status as any,
       handlerId: handlerId as string,
+      search: search as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     });

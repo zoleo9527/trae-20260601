@@ -7,12 +7,13 @@ const router = Router();
 
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { studentId, coachId, status, startDate, endDate } = req.query;
+    const { studentId, coachId, status, search, startDate, endDate } = req.query;
 
     const training = await getTrainingList({
       studentId: studentId as string,
       coachId: coachId as string,
       status: status as any,
+      search: search as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     });
@@ -42,34 +43,20 @@ router.post('/:id/confirm', authMiddleware, async (req: AuthenticatedRequest, re
     const user = req.user!;
     const { status, actualHours, actualAt, exceptionReason, reason, remark } = req.body;
 
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.userId } });
+
     const training = await updateTrainingStatus({
       trainingId: req.params.id,
       newStatus: status,
       handlerId: user.userId,
-      handlerName: '',
-      handlerRole: user.role as any,
+      handlerName: updatedUser?.realName || '',
+      handlerRole: updatedUser?.role as any,
       actualHours,
       actualAt: actualAt ? new Date(actualAt) : undefined,
       exceptionReason,
       reason,
       remark,
     });
-
-    const updatedUser = await prisma.user.findUnique({ where: { id: user.userId } });
-    if (updatedUser) {
-      await updateTrainingStatus({
-        trainingId: req.params.id,
-        newStatus: status,
-        handlerId: user.userId,
-        handlerName: updatedUser.realName,
-        handlerRole: updatedUser.role,
-        actualHours,
-        actualAt: actualAt ? new Date(actualAt) : undefined,
-        exceptionReason,
-        reason,
-        remark,
-      });
-    }
 
     res.json({ training });
   } catch (error: any) {

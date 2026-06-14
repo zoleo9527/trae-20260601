@@ -69,12 +69,40 @@ export const ExamDetailPage: React.FC = () => {
       return;
     }
 
+    let retestFee: number | undefined;
+    if (numScore < 90) {
+      const feeStr = prompt('成绩未通过，请输入补考费金额（如：150）：');
+      if (feeStr) {
+        retestFee = parseFloat(feeStr);
+        if (isNaN(retestFee)) {
+          alert('补考费金额无效');
+          return;
+        }
+      }
+    }
+
     try {
       setActionLoading(true);
       await examApi.score(id!, {
         score: numScore,
-        reason: numScore >= 90 ? '考试通过' : '考试未通过',
-        remark: numScore >= 90 ? '' : '需要补考',
+        retestFee,
+        reason: numScore >= 90 ? '考试通过' : '考试未通过，需补考',
+        remark: numScore >= 90 ? '' : `补考费：¥${retestFee}`,
+      });
+      await loadExam();
+    } catch (err: any) {
+      alert(err.message || '操作失败');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleComplete = async () => {
+    try {
+      setActionLoading(true);
+      await examApi.complete(id!, {
+        reason: '学员完成考试',
+        remark: '',
       });
       await loadExam();
     } catch (err: any) {
@@ -222,12 +250,10 @@ export const ExamDetailPage: React.FC = () => {
                   onClick={() => {
                     if (action.next === 'booked') {
                       handleBook();
+                    } else if (action.next === 'completed') {
+                      handleComplete();
                     } else if (action.next === 'scored') {
                       handleScore();
-                    } else {
-                      if (confirm('确认标记为已完成？')) {
-                        handleComplete(action.next);
-                      }
                     }
                   }}
                   loading={actionLoading}
@@ -247,7 +273,3 @@ export const ExamDetailPage: React.FC = () => {
     </Layout>
   );
 };
-
-async function handleComplete(status: string) {
-  console.log('Completing with status:', status);
-}

@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import prisma from './prisma';
+import prisma from '../lib/prisma';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-key';
 const JWT_EXPIRES_IN = '24h';

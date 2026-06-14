@@ -26,7 +26,11 @@ export const TrainingPage: React.FC = () => {
       const params: any = {};
       if (search) params.search = search;
       if (statusFilter) params.status = statusFilter;
-      if (dateFilter) params.date = dateFilter;
+      if (dateFilter) {
+        const { start, end } = getDateRange(dateFilter);
+        params.startDate = start;
+        params.endDate = end;
+      }
       if (user?.role === 'coach') params.coachId = user.id;
 
       const result = await trainingApi.getAll(params);
@@ -209,4 +213,38 @@ function isUrgent(dateStr: string): boolean {
   const diff = date.getTime() - now.getTime();
   const hours = diff / (1000 * 60 * 60);
   return hours <= 24 && hours > 0;
+}
+
+function getDateRange(filter: string): { start: string; end: string } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (filter) {
+    case 'today':
+      return {
+        start: today.toISOString(),
+        end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+    case 'week':
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay());
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 7);
+      return {
+        start: startOfWeek.toISOString(),
+        end: endOfWeek.toISOString(),
+      };
+    case 'month':
+      const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      return {
+        start: startOfMonth.toISOString(),
+        end: new Date(endOfMonth.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+    default:
+      return {
+        start: today.toISOString(),
+        end: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+  }
 }

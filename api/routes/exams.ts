@@ -7,12 +7,13 @@ const router = Router();
 
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { studentId, status, examinerId, startDate, endDate } = req.query;
+    const { studentId, status, examinerId, search, startDate, endDate } = req.query;
 
     const exams = await getExamList({
       studentId: studentId as string,
       status: status as any,
       examinerId: examinerId as string,
+      search: search as string,
       startDate: startDate ? new Date(startDate as string) : undefined,
       endDate: endDate ? new Date(endDate as string) : undefined,
     });
@@ -65,18 +66,18 @@ router.post('/:id/book', authMiddleware, async (req: AuthenticatedRequest, res: 
 router.post('/:id/score', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const user = req.user!;
-    const { score, status, retestFee, reason, remark } = req.body;
+    const { score, retestFee, reason, remark } = req.body;
 
     const updatedUser = await prisma.user.findUnique({ where: { id: user.userId } });
 
     const exam = await updateExamStatus({
       examId: req.params.id,
-      newStatus: status === 'retest' ? 'retest' : 'scored',
+      newStatus: score < 90 ? 'retest' : 'scored',
       handlerId: user.userId,
       handlerName: updatedUser?.realName || '',
       handlerRole: updatedUser?.role || 'examiner',
       score,
-      retestFee,
+      retestFee: score < 90 ? retestFee : undefined,
       reason,
       remark,
     });
@@ -84,6 +85,29 @@ router.post('/:id/score', authMiddleware, async (req: AuthenticatedRequest, res:
     res.json({ exam });
   } catch (error: any) {
     res.status(500).json({ error: error.message || '录入成绩失败' });
+  }
+});
+
+router.post('/:id/complete', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = req.user!;
+    const { reason, remark } = req.body;
+
+    const updatedUser = await prisma.user.findUnique({ where: { id: user.userId } });
+
+    const exam = await updateExamStatus({
+      examId: req.params.id,
+      newStatus: 'completed',
+      handlerId: user.userId,
+      handlerName: updatedUser?.realName || '',
+      handlerRole: updatedUser?.role || 'examiner',
+      reason: reason || '学员完成考试',
+      remark,
+    });
+
+    res.json({ exam });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || '标记完成失败' });
   }
 });
 

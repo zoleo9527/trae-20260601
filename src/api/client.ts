@@ -96,6 +96,7 @@ export const examApi = {
   getAll: (params?: any) => api.get('/exams', params),
   getById: (id: string) => api.get<{ exam: any }>(`/exams/${id}`),
   book: (id: string, data: any) => api.post(`/exams/${id}/book`, data),
+  complete: (id: string, data?: any) => api.post(`/exams/${id}/complete`, data),
   score: (id: string, data: any) => api.post(`/exams/${id}/score`, data),
 };
 
