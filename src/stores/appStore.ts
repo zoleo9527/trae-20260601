@@ -26,7 +26,7 @@ interface AppState {
   getAssignedStudents: (coachId: string) => (Student & { training?: Training })[];
   updateTrainingProgress: (studentId: string, updates: Partial<Training>, notes?: string) => Training;
   scheduleExam: (data: Omit<Exam, 'id' | 'createdAt'>) => Exam;
-  recordExamResult: (examId: string, result: 'PASSED' | 'FAILED', absenceReason?: string) => Exam;
+  recordExamResult: (examId: string, result: 'PASSED' | 'FAILED', absenceReason?: string, notes?: string) => Exam;
   getExams: (filters?: { studentId?: string; examStatus?: string[]; examSubject?: string }) => Exam[];
   getAllLogs: (filters?: { operatorId?: string; operationType?: string[] }) => OperationLog[];
   getDashboardStats: () => ReturnType<typeof db.getDashboardStats>;
@@ -119,8 +119,8 @@ export const useStore = create<AppState>((set, get) => ({
     return exam;
   },
 
-  recordExamResult: (examId, result, absenceReason) => {
-    const exam = db.recordExamResult(examId, result, absenceReason);
+  recordExamResult: (examId, result, absenceReason, notes) => {
+    const exam = db.recordExamResult(examId, result, absenceReason, notes);
     get().loadStudents();
     return exam;
   },

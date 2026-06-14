@@ -1166,7 +1166,8 @@ class DatabaseService {
   recordExamResult(
     examId: string,
     result: 'PASSED' | 'FAILED',
-    absenceReason?: string
+    absenceReason?: string,
+    notes?: string
   ): Exam {
     const exam = this.exams.find((e) => e.id === examId);
     if (!exam) throw new Error('Exam not found');
@@ -1183,6 +1184,18 @@ class DatabaseService {
       }
     }
 
+    if (notes) {
+      exam.notes = notes;
+    }
+
+    let changeReason = result === 'PASSED' ? '考试合格' : '考试不合格';
+    if (absenceReason) {
+      changeReason += `（缺考: ${absenceReason}）`;
+    }
+    if (notes) {
+      changeReason += ` | 备注: ${notes}`;
+    }
+
     const log: OperationLog = {
       id: `log${Date.now()}`,
       studentId: exam.studentId,
@@ -1190,8 +1203,8 @@ class DatabaseService {
       operatorRole: this.currentUser.role,
       operationType: 'EXAM_RESULT',
       beforeValue: { examStatus: beforeStatus },
-      afterValue: { examStatus: exam.examStatus, examResult: result },
-      changeReason: result === 'PASSED' ? '考试合格' : (absenceReason ? `缺考: ${absenceReason}` : '考试不合格'),
+      afterValue: { examStatus: exam.examStatus, examResult: result, absenceReason: exam.absenceReason, notes: exam.notes },
+      changeReason,
       operatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
     };
     this.logs.push(log);

@@ -66,7 +66,8 @@ export function ExamPage() {
 
   const handleRecordResult = (examId: string) => {
     const absenceReason = resultData.isAbsent ? resultData.absenceReason : undefined;
-    recordExamResult(examId, resultData.examResult, absenceReason);
+    const notes = resultData.notes.trim() || undefined;
+    recordExamResult(examId, resultData.examResult, absenceReason, notes);
 
     const exam = exams.find((e) => e.id === examId);
     if (exam && exam.student) {
@@ -85,7 +86,7 @@ export function ExamPage() {
       } else {
         const reason = resultData.isAbsent 
           ? `考试缺考${resultData.absenceReason ? `: ${resultData.absenceReason}` : ''}，需要补考`
-          : `考试不合格${resultData.notes ? `: ${resultData.notes}` : ''}，需要补考`;
+          : `考试不合格${notes ? `: ${notes}` : ''}，需要补考`;
         updateStudent(exam.studentId, {
           status: 'PENDING_EXAM_BOOKING',
         }, reason);
@@ -193,13 +194,22 @@ export function ExamPage() {
       ),
     },
     {
-      key: 'absenceReason',
+      key: 'notes',
       title: '备注',
-      render: (item: any) => (
-        <span className="text-sm text-gray-500">
-          {item.absenceReason || '-'}
-        </span>
-      ),
+      render: (item: any) => {
+        const parts: string[] = [];
+        if (item.notes) {
+          parts.push(`备注: ${item.notes}`);
+        }
+        if (item.absenceReason) {
+          parts.push(`缺考: ${item.absenceReason}`);
+        }
+        return (
+          <span className="text-sm text-gray-500">
+            {parts.length > 0 ? parts.join(' | ') : '-'}
+          </span>
+        );
+      },
     },
     {
       key: 'actions',

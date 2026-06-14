@@ -99,6 +99,26 @@ export function HistoryPage() {
             </span>
           );
         }
+        if (item.operationType === 'EXAM_RESULT') {
+          const parts: string[] = [];
+          if (item.afterValue?.examStatus) {
+            parts.push(`状态: ${item.afterValue.examStatus}`);
+          }
+          if (item.afterValue?.examResult) {
+            parts.push(`结果: ${item.afterValue.examResult === 'PASSED' ? '合格' : '不合格'}`);
+          }
+          if (item.afterValue?.absenceReason) {
+            parts.push(`缺考: ${item.afterValue.absenceReason}`);
+          }
+          if (item.afterValue?.notes) {
+            parts.push(`备注: ${item.afterValue.notes}`);
+          }
+          return (
+            <span className="text-sm text-gray-600">
+              {parts.length > 0 ? parts.join(' | ') : '-'}
+            </span>
+          );
+        }
         if (item.beforeValue && item.afterValue) {
           const keys = Object.keys(item.afterValue).filter(
             (k) => item.beforeValue?.[k] !== item.afterValue?.[k]

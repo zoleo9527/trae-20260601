@@ -84,6 +84,7 @@ export interface Exam {
   examVenue: string;
   specialistId: string;
   absenceReason?: string;
+  notes?: string;
   createdAt: string;
 }
 
