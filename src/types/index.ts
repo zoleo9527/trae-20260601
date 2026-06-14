@@ -2,6 +2,28 @@
 export type TicketStatus = 'pending' | 'approved' | 'repairing' | 'completed' | 'rejected'
 export type TicketPriority = 'low' | 'medium' | 'high'
 export type UserRole = 'clerk' | 'manager' | 'admin'
+export type HandoverType = 'shift_close' | 'prize_claim' | 'normal_fault'
+
+export type TicketCategory = 'shift_issue' | 'prize_device' | 'print_error' | 'network_issue' | 'other'
+
+export interface ShiftCloseInfo {
+  shiftId: string
+  shiftDate: string
+  shiftPeriod: 'morning' | 'afternoon' | 'evening' | 'night'
+  salesAmount: number
+  ticketCount: number
+  remark?: string
+}
+
+export interface PrizeClaimInfo {
+  claimId: string
+  claimDate: string
+  prizeLevel: string
+  prizeAmount: number
+  ticketId: string
+  deviceUsed: boolean
+  remark?: string
+}
 
 export interface ProcessStep {
   id: string
@@ -9,6 +31,7 @@ export interface ProcessStep {
   operator: string
   timestamp: string
   remark?: string
+  role?: UserRole
 }
 
 export interface FaultTicket {
@@ -19,6 +42,7 @@ export interface FaultTicket {
   storeName: string
   status: TicketStatus
   priority: TicketPriority
+  category: TicketCategory
   description: string
   remarks: string
   createdAt: string
@@ -26,6 +50,12 @@ export interface FaultTicket {
   createdBy: string
   assignedTo?: string
   processHistory: ProcessStep[]
+  handoverType?: HandoverType
+  shiftCloseInfo?: ShiftCloseInfo
+  prizeClaimInfo?: PrizeClaimInfo
+  isAlert?: boolean
+  alertMessage?: string
+  rejectedReason?: string
 }
 
 export interface User {
@@ -42,4 +72,7 @@ export interface CreateTicketForm {
   description: string
   priority: TicketPriority
   remarks?: string
+  handoverType?: HandoverType
+  shiftCloseInfo?: ShiftCloseInfo
+  prizeClaimInfo?: PrizeClaimInfo
 }

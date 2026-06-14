@@ -49,6 +49,7 @@ export const useTicketStore = create<TicketStore>((set, get) => ({
       storeName: currentUser.storeName || '',
       status: 'pending',
       priority: form.priority,
+      category: 'other',
       description: form.description,
       remarks: form.remarks || '',
       createdAt: getCurrentTimestamp(),
