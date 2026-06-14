@@ -1,0 +1,234 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  HALL_MANAGER
+  ACCOUNT_MANAGER
+  OPERATION_SUPERVISOR
+}
+
+enum BusinessStatus {
+  QUEUED
+  ACCEPTED
+  DOCUMENT_CHECKING
+  DUE_DILIGENCE
+  PROCESSING
+  PENDING_AUTHORIZATION
+  AUTHORIZATION_REVIEW
+  AUTHORIZED
+  REJECTED
+  RETURNED
+  COMPLETED
+  CANCELLED
+  TIMEOUT
+}
+
+enum DocumentIssue {
+  MISSING_COPY
+  INCOMPLETE_DUE_DILIGENCE
+  EXPIRED_DOCUMENT
+  SIGNATURE_MISMATCH
+  MISSING_SIGNATURE
+  OTHER
+}
+
+enum ComplaintType {
+  PROCESS_TIMEOUT
+  SERVICE_ATTITUDE
+  DOCUMENT_REQUIREMENT
+  OTHER
+}
+
+enum AuthorizationResult {
+  APPROVED
+  REJECTED
+  RETURNED
+  ESCALATED
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      UserRole
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  assignedCases  BusinessCase[] @relation("Assignee")
+  acceptedCases  BusinessCase[] @relation("Acceptor")
+  authReviews    AuthorizationReview[]
+  timelineEvents TimelineEvent[]
+  complaints     Complaint[]
+}
+
+model Customer {
+  id             String   @id @default(cuid())
+  name           String
+  idCard         String   @unique
+  phone          String
+  customerLevel  String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  cases          BusinessCase[]
+  dueDiligences  DueDiligenceRecord[]
+}
+
+model QueueTicket {
+  id           String   @id @default(cuid())
+  ticketNumber String   @unique
+  businessType String
+  calledAt     DateTime?
+  createdAt    DateTime @default(now())
+
+  businessCase BusinessCase?
+}
+
+model BusinessCase {
+  id              String   @id @default(cuid())
+  caseNumber      String   @unique
+  businessType    String
+  amount          Decimal?
+  status          BusinessStatus @default(QUEUED)
+  priority        Int      @default(0)
+  timeoutWarning  Boolean  @default(false)
+
+  customerId      String
+  customer        Customer @relation(fields: [customerId], references: [id])
+
+  queueTicketId   String?  @unique
+  queueTicket     QueueTicket? @relation(fields: [queueTicketId], references: [id])
+
+  assigneeId      String?
+  assignee        User? @relation("Assignee", fields: [assigneeId], references: [id])
+
+  acceptorId      String?
+  acceptor        User? @relation("Acceptor", fields: [acceptorId], references: [id])
+
+  documentCheck   DocumentCheck?
+  dueDiligence    DueDiligenceRecord?
+  timeline        TimelineEvent[]
+  authReviews     AuthorizationReview[]
+  complaints      Complaint[]
+
+  acceptedAt      DateTime?
+  processingAt    DateTime?
+  authPendingAt   DateTime?
+  completedAt     DateTime?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model DocumentCheck {
+  id            String   @id @default(cuid())
+  caseId        String   @unique
+  businessCase  BusinessCase @relation(fields: [caseId], references: [id])
+
+  idCardCopy    Boolean  @default(false)
+  idCardOriginal Boolean @default(false)
+  accountBook   Boolean  @default(false)
+  proofOfAddress Boolean @default(false)
+  incomeProof   Boolean  @default(false)
+  otherDocs     String?
+
+  issues        DocumentIssue[]
+  issueNote     String?
+
+  checkedById   String?
+  checkedAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model DueDiligenceRecord {
+  id            String   @id @default(cuid())
+  caseId        String   @unique
+  businessCase  BusinessCase @relation(fields: [caseId], references: [id])
+
+  customerId    String
+  customer      Customer @relation(fields: [customerId], references: [id])
+
+  riskLevel     String
+  pepCheck      Boolean  @default(false)
+  sanctionCheck Boolean  @default(false)
+  adverseMedia  Boolean  @default(false)
+  sourceOfFunds String?
+  purpose       String?
+
+  needsSupplement Boolean @default(false)
+  supplementNote  String?
+
+  completedById String?
+  completedAt   DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model TimelineEvent {
+  id            String   @id @default(cuid())
+  caseId        String
+  businessCase  BusinessCase @relation(fields: [caseId], references: [id])
+
+  eventType     String
+  status        BusinessStatus?
+  description   String
+  note          String?
+
+  createdById   String?
+  createdBy     User? @relation(fields: [createdById], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+model AuthorizationReview {
+  id            String   @id @default(cuid())
+  caseId        String
+  businessCase  BusinessCase @relation(fields: [caseId], references: [id])
+
+  reviewLevel   Int      @default(1)
+  result        AuthorizationResult
+  reason        String
+  note          String?
+
+  reviewedById  String
+  reviewedBy    User @relation(fields: [reviewedById], references: [id])
+
+  reviewRequestAt DateTime
+  reviewedAt      DateTime @default(now())
+
+  isHistorical    Boolean  @default(false)
+  parentReviewId  String?
+  parentReview    AuthorizationReview? @relation("ReviewHistory", fields: [parentReviewId], references: [id])
+  childReviews    AuthorizationReview[] @relation("ReviewHistory")
+
+  createdAt       DateTime @default(now())
+}
+
+model Complaint {
+  id            String   @id @default(cuid())
+  caseId        String
+  businessCase  BusinessCase @relation(fields: [caseId], references: [id])
+
+  type          ComplaintType
+  description   String
+
+  reportedById  String
+  reportedBy    User @relation(fields: [reportedById], references: [id])
+
+  resolved      Boolean  @default(false)
+  resolution    String?
+  resolvedAt    DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
