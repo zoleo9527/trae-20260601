@@ -27,5 +27,20 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  return { case: caseReport }
+  const processedLogs = caseReport.logs.map(log => {
+    if (log.actionType === 'REJECT' && log.afterStatus === 'REVIEW_FAILED') {
+      return {
+        ...log,
+        actionType: 'REVIEW_FAIL' as const
+      }
+    }
+    return log
+  })
+  
+  return { 
+    case: {
+      ...caseReport,
+      logs: processedLogs
+    } 
+  }
 })

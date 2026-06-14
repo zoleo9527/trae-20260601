@@ -1,12 +1,10 @@
-import process from 'node:process';globalThis._importMeta_=globalThis._importMeta_||{url:"file:///_entry.js",env:process.env};import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename$1 = fileURLToPath(globalThis._importMeta_.url);
-path.dirname(__filename$1);
 const prismaClientSingleton = () => {
-  const projectRoot = process.cwd();
-  const dbPath = path.join(projectRoot, "prisma", "dev.db");
+  const dbPath = path.join(process.cwd(), "prisma", "dev.db");
+  console.log(`Current working directory: ${process.cwd()}`);
+  console.log(`Database path: ${dbPath}`);
   return new PrismaClient({
     datasources: {
       db: {

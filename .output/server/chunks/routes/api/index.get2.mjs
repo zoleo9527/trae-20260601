@@ -10,7 +10,6 @@ import 'node:crypto';
 import 'node:url';
 import '@prisma/client';
 import 'path';
-import 'url';
 
 const index_get = defineEventHandler(async (event) => {
   const query = getQuery(event);

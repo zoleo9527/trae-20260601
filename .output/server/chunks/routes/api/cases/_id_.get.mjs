@@ -10,7 +10,6 @@ import 'node:crypto';
 import 'node:url';
 import '@prisma/client';
 import 'path';
-import 'url';
 
 const _id__get = defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -35,7 +34,21 @@ const _id__get = defineEventHandler(async (event) => {
       message: "\u6848\u4EF6\u4E0D\u5B58\u5728"
     });
   }
-  return { case: caseReport };
+  const processedLogs = caseReport.logs.map((log) => {
+    if (log.actionType === "REJECT" && log.afterStatus === "REVIEW_FAILED") {
+      return {
+        ...log,
+        actionType: "REVIEW_FAIL"
+      };
+    }
+    return log;
+  });
+  return {
+    case: {
+      ...caseReport,
+      logs: processedLogs
+    }
+  };
 });
 
 export { _id__get as default };

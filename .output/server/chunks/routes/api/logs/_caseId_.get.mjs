@@ -10,7 +10,6 @@ import 'node:crypto';
 import 'node:url';
 import '@prisma/client';
 import 'path';
-import 'url';
 
 const _caseId__get = defineEventHandler(async (event) => {
   const caseId = getRouterParam(event, "caseId");

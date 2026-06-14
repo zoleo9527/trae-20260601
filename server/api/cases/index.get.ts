@@ -28,5 +28,21 @@ export default defineEventHandler(async (event) => {
     orderBy: { createdAt: 'desc' }
   })
   
-  return { cases }
+  const processedCases = cases.map(caseItem => {
+    const processedLogs = caseItem.logs.map(log => {
+      if (log.actionType === 'REJECT' && log.afterStatus === 'REVIEW_FAILED') {
+        return {
+          ...log,
+          actionType: 'REVIEW_FAIL' as const
+        }
+      }
+      return log
+    })
+    return {
+      ...caseItem,
+      logs: processedLogs
+    }
+  })
+  
+  return { cases: processedCases }
 })

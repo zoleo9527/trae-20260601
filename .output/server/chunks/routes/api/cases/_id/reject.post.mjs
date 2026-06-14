@@ -10,7 +10,6 @@ import 'node:crypto';
 import 'node:url';
 import '@prisma/client';
 import 'path';
-import 'url';
 
 const reject_post = defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");

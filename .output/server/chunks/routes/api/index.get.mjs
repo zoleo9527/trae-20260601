@@ -10,7 +10,6 @@ import 'node:crypto';
 import 'node:url';
 import '@prisma/client';
 import 'path';
-import 'url';
 
 const index_get = defineEventHandler(async (event) => {
   const query = getQuery(event);
@@ -35,7 +34,22 @@ const index_get = defineEventHandler(async (event) => {
     },
     orderBy: { createdAt: "desc" }
   });
-  return { cases };
+  const processedCases = cases.map((caseItem) => {
+    const processedLogs = caseItem.logs.map((log) => {
+      if (log.actionType === "REJECT" && log.afterStatus === "REVIEW_FAILED") {
+        return {
+          ...log,
+          actionType: "REVIEW_FAIL"
+        };
+      }
+      return log;
+    });
+    return {
+      ...caseItem,
+      logs: processedLogs
+    };
+  });
+  return { cases: processedCases };
 });
 
 export { index_get as default };
