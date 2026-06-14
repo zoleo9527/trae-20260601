@@ -1,9 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import { fetchRecords, fetchLogs, receiveRecord, inspectRecord, reviewRecord, supplementRecord, batchReview } from '@/utils/api'
 import { statusLabel, statusColor, statusDotColor, roleLabel, actionLabel, formatTime } from '@/utils/format'
-import type { AppointmentRecord, ActionLog, RoleType } from '@/types'
-import { Car, ClipboardCheck, ShieldCheck, LogOut, RotateCcw, Eye, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Layers } from 'lucide-react'
+import type { AppointmentRecord, ActionLog, RoleType, RecordStatus } from '@/types'
+import { Car, ClipboardCheck, ShieldCheck, LogOut, RotateCcw, Eye, CheckCircle2, XCircle, AlertTriangle, RefreshCw, Layers, Search, Filter } from 'lucide-react'
 
 const ROLE_META: Record<RoleType, { icon: React.ReactNode; color: string; title: string }> = {
   receptionist: { icon: <Car className="w-5 h-5" />, color: 'text-sky-400', title: '接车员工作台' },
@@ -26,6 +26,10 @@ export default function Dashboard() {
   const [batchReason, setBatchReason] = useState('')
   const [formError, setFormError] = useState('')
   const [batchError, setBatchError] = useState('')
+  const [plateFilter, setPlateFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [returnedOnly, setReturnedOnly] = useState(false)
+  const [batchFeedback, setBatchFeedback] = useState<{ count: number; result: string; remaining: number } | null>(null)
 
   const setReviewResultWrapped = (v: 'pass' | 'return' | 'reject') => {
     setReviewResult(v)
@@ -137,13 +141,18 @@ export default function Dashboard() {
     }
     setBatchError('')
     try {
+      const resultLabel = batchResultState === 'pass' ? '通过' : batchResultState === 'return' ? '退回' : '终止'
+      const processedCount = selectedIds.size
       await batchReview(Array.from(selectedIds), batchResultState, batchReason, `${currentRole}-1`)
       setSelectedIds(new Set())
       setBatchMode(false)
       setShowBatchPanel(false)
       setBatchResultWrapped('pass')
       setBatchReason('')
-      loadRecords()
+      const freshData = await fetchRecords(currentRole)
+      setRecords(freshData)
+      setBatchFeedback({ count: processedCount, result: resultLabel, remaining: freshData.length })
+      setTimeout(() => setBatchFeedback(null), 5000)
     } catch (err) {
       setBatchError(err instanceof Error ? err.message : '操作失败，请稍后重试')
     }
@@ -156,13 +165,28 @@ export default function Dashboard() {
     setSelectedIds(next)
   }
 
-  const selectAll = () => {
-    if (selectedIds.size === records.length) {
-      setSelectedIds(new Set())
-    } else {
-      setSelectedIds(new Set(records.map((r) => r.id)))
+  const statusCounts = useMemo(() => {
+    const counts: Partial<Record<RecordStatus, number>> = {}
+    for (const r of records) {
+      counts[r.status] = (counts[r.status] || 0) + 1
     }
-  }
+    return counts
+  }, [records])
+
+  const filteredRecords = useMemo(() => {
+    let result = records
+    if (plateFilter.trim()) {
+      const keyword = plateFilter.trim().toLowerCase()
+      result = result.filter((r) => r.plateNumber.toLowerCase().includes(keyword))
+    }
+    if (returnedOnly) {
+      result = result.filter((r) => r.status === 'returned')
+    }
+    if (statusFilter) {
+      result = result.filter((r) => r.status === statusFilter)
+    }
+    return result
+  }, [records, plateFilter, returnedOnly, statusFilter])
 
   if (!currentRole) return null
 
@@ -206,39 +230,102 @@ export default function Dashboard() {
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 bg-slate-900/50 border-b border-slate-800 flex items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-white">待办记录</h2>
-            <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{records.length} 条</span>
-          </div>
-          <div className="flex items-center gap-2">
-            {currentRole === 'reviewer' && (
+        <header className="bg-slate-900/50 border-b border-slate-800 px-6 py-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-bold text-white">待办记录</h2>
+              <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+                {filteredRecords.length === records.length
+                  ? `${records.length} 条`
+                  : `${filteredRecords.length}/${records.length} 条`}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              {currentRole === 'reviewer' && (
+                <button
+                  onClick={() => setBatchMode(!batchMode)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${batchMode ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  批量模式
+                </button>
+              )}
               <button
-                onClick={() => setBatchMode(!batchMode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${batchMode ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                onClick={loadRecords}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
               >
-                <Layers className="w-3.5 h-3.5" />
-                批量模式
+                <RotateCcw className="w-3.5 h-3.5" />
+                刷新
               </button>
-            )}
-            <button
-              onClick={loadRecords}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-slate-800 text-slate-400 hover:text-white rounded-lg transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              刷新
-            </button>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(Object.entries(statusCounts) as [RecordStatus, number][]).map(([s, count]) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(statusFilter === s ? '' : s)}
+                className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full transition-colors ${
+                  statusFilter === s
+                    ? statusColor(s)
+                    : 'bg-slate-800/60 text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                <span className={`w-1.5 h-1.5 rounded-full ${statusDotColor(s)}`} />
+                {statusLabel(s)}
+                <span className="ml-0.5 tabular-nums">{count}</span>
+              </button>
+            ))}
           </div>
         </header>
+
+        <div className="border-b border-slate-800 px-6 py-3 flex items-center gap-3 bg-slate-900/30">
+          <div className="relative flex-1 max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+            <input
+              type="text"
+              value={plateFilter}
+              onChange={(e) => setPlateFilter(e.target.value)}
+              placeholder="搜索车牌号..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-lg pl-9 pr-3 py-1.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-sky-500"
+            />
+            {plateFilter && (
+              <button
+                onClick={() => setPlateFilter('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+              >
+                <XCircle className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <button
+            onClick={() => { setReturnedOnly(!returnedOnly); if (!returnedOnly) setStatusFilter('') }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-colors ${
+              returnedOnly
+                ? 'bg-orange-600/20 text-orange-400 border border-orange-800/50'
+                : 'bg-slate-800 text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            仅看退回
+          </button>
+          {(plateFilter || statusFilter || returnedOnly) && (
+            <button
+              onClick={() => { setPlateFilter(''); setStatusFilter(''); setReturnedOnly(false) }}
+              className="text-xs text-slate-500 hover:text-white transition-colors"
+            >
+              清除筛选
+            </button>
+          )}
+        </div>
 
         <div className="flex-1 overflow-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center h-64 text-slate-500">加载中...</div>
-          ) : records.length === 0 ? (
+          ) : filteredRecords.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-slate-500">
               <CheckCircle2 className="w-12 h-12 mb-3 text-emerald-600" />
-              <div className="text-lg font-medium">暂无待办</div>
-              <div className="text-sm mt-1">所有记录均已处理</div>
+              <div className="text-lg font-medium">{records.length === 0 ? '暂无待办' : '无匹配记录'}</div>
+              <div className="text-sm mt-1">{records.length === 0 ? '所有记录均已处理' : '尝试调整筛选条件'}</div>
             </div>
           ) : (
             <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
@@ -249,8 +336,14 @@ export default function Dashboard() {
                       <th className="w-12 px-4 py-3">
                         <input
                           type="checkbox"
-                          checked={selectedIds.size === records.length && records.length > 0}
-                          onChange={selectAll}
+                          checked={selectedIds.size === filteredRecords.length && filteredRecords.length > 0}
+                          onChange={() => {
+                            if (selectedIds.size === filteredRecords.length) {
+                              setSelectedIds(new Set())
+                            } else {
+                              setSelectedIds(new Set(filteredRecords.map((r) => r.id)))
+                            }
+                          }}
                           className="rounded border-slate-600 bg-slate-800 text-amber-500 focus:ring-amber-500"
                         />
                       </th>
@@ -265,7 +358,7 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {records.map((r) => (
+                  {filteredRecords.map((r) => (
                     <tr key={r.id} className="border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
                       {batchMode && (
                         <td className="px-4 py-3">
@@ -392,6 +485,30 @@ export default function Dashboard() {
           onSupplement={handleSupplement}
           onClose={() => { setActionRecord(null); setFormError('') }}
         />
+      )}
+
+      {batchFeedback && (
+        <div className="fixed bottom-6 right-6 z-40 animate-in slide-in-from-bottom-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl p-4 shadow-2xl flex items-start gap-3 max-w-sm">
+            <div className="w-8 h-8 rounded-lg bg-emerald-600/20 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <div className="text-sm font-medium text-white">
+                批量{batchFeedback.result}完成
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">
+                本次处理 {batchFeedback.count} 条记录，剩余待办 {batchFeedback.remaining} 条
+              </div>
+            </div>
+            <button
+              onClick={() => setBatchFeedback(null)}
+              className="text-slate-500 hover:text-white transition-colors flex-shrink-0"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
       )}
 
       {showBatchPanel && (
