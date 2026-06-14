@@ -83,7 +83,7 @@ export const getOrderLogs = (id: string) =>
 
 export const markOrderUrgency = (
   id: string,
-  body: { action: UrgencyAction; note?: string; operator: string; operatorRole: Role }
+  body: { action: UrgencyAction; note?: string; operator: string; operatorRole: Role; docIds?: string[] }
 ) => unwrap<TransferOrder>(api.put(`/orders/${id}/urgency`, body));
 
 export const advanceOrder = (

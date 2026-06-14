@@ -575,6 +575,6 @@ export const STAGE_FLOW: Record<TransferStage, { next?: TransferStage; prev?: Tr
   appraisal: { next: 'transfer', prev: 'purchase', role: 'appraiser' },
   transfer: { next: 'loan_review', prev: 'appraisal', role: 'purchaseManager' },
   loan_review: { next: 'loan_funding', prev: 'transfer', role: 'financeSpecialist' },
-  loan_funding: { next: 'completed', prev: 'loan_review', role: 'financeSpecialist' },
+  loan_funding: { prev: 'loan_review', role: 'financeSpecialist' },
   completed: { prev: 'loan_funding', role: 'financeSpecialist' },
 };

@@ -23,6 +23,7 @@ import {
   Drawer,
   Alert,
   Badge,
+  Checkbox,
 } from 'antd';
 import {
   CarOutlined,
@@ -185,8 +186,11 @@ export default function TransferFlow({ role }: Props) {
         note: values.note,
         operator: currentUser,
         operatorRole: role,
+        docIds: values.docIds,
       });
-      message.success('已标记需要补材料');
+      const stageName = (currentDetail.order.stage === 'appraisal' || currentDetail.order.stage === 'transfer')
+        ? '检测报告标记复检' : '贷款资料标记补件';
+      message.success(`已${stageName}`);
       setSupplementOpen(false);
       supplementForm.resetFields();
       loadOrders();
@@ -947,21 +951,57 @@ export default function TransferFlow({ role }: Props) {
       </Modal>
 
       <Modal
-        title={<span><PaperClipOutlined /> 要求补材料</span>}
+        title={
+          <span>
+            <PaperClipOutlined />
+            {(currentDetail && (currentDetail.order.stage === 'appraisal' || currentDetail.order.stage === 'transfer'))
+              ? ' 检测需复检 / 补充材料'
+              : ' 要求补贷款材料'}
+          </span>
+        }
         open={supplementOpen}
         onCancel={() => setSupplementOpen(false)}
         onOk={() => supplementForm.submit()}
         okText="确认标记"
         okButtonProps={{ type: 'primary' }}
         cancelText="取消"
+        width={520}
       >
         <Form form={supplementForm} layout="vertical" onFinish={handleSupplement}>
+          {currentDetail && currentDetail.loan && (currentDetail.order.stage === 'loan_review' || currentDetail.order.stage === 'loan_funding') && (
+            <Form.Item
+              name="docIds"
+              label="勾选需要补充的贷款资料（勾选后会标记为未提交并写回贷款资料）"
+              rules={[{ required: true, message: '请至少勾选一项资料' }]}
+            >
+              <Checkbox.Group style={{ width: '100%' }}>
+                <Row gutter={[8, 8]}>
+                  {currentDetail.loan.docs.map(d => (
+                    <Col span={24} key={d.id}>
+                      <Checkbox value={d.id} style={{ width: '100%' }}>
+                        <Space>
+                          <span style={{ fontWeight: d.submitted ? 'normal' : 600 }}>{d.name}</span>
+                          {d.submitted
+                            ? <Tag color="success" style={{ marginLeft: 8 }}>已提交</Tag>
+                            : <Tag color="warning" style={{ marginLeft: 8 }}>{d.placeholder || '待补'}</Tag>}
+                        </Space>
+                      </Checkbox>
+                    </Col>
+                  ))}
+                </Row>
+              </Checkbox.Group>
+            </Form.Item>
+          )}
           <Form.Item
             name="note"
-            label="补材料说明"
-            rules={[{ required: true, message: '请输入需要补充的材料说明' }]}
+            label="说明（将写回对应检测报告或贷款资料）"
+            rules={[{ required: true, message: '请输入说明' }]}
           >
-            <Input.TextArea rows={3} placeholder="请说明需要补充哪些材料..." />
+            <Input.TextArea rows={3} placeholder={
+              (currentDetail && (currentDetail.order.stage === 'appraisal' || currentDetail.order.stage === 'transfer'))
+                ? '请说明复检要求或需补充的检测信息...'
+                : '请说明补件原因和具体要求...'
+            } />
           </Form.Item>
         </Form>
       </Modal>

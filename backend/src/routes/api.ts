@@ -11,6 +11,7 @@ import type {
   CarSourceStatus,
   InspectionReport,
   LoanApplication,
+  LoanDoc,
   TransferOrder,
   StatusChangeLog,
   ApiResponse,
@@ -19,6 +20,9 @@ import type {
   TransferStage,
   UrgencyAction,
 } from 'shared';
+
+const formatMoney = (amount: number): string =>
+  amount.toLocaleString('zh-CN', { style: 'currency', currency: 'CNY', minimumFractionDigits: 0 });
 
 const router = Router();
 
@@ -228,11 +232,12 @@ router.put('/orders/:id/urgency', (req, res) => {
   const idx = store.orders.findIndex(x => x.id === req.params.id);
   if (idx < 0) return res.status(404).json(fail('订单不存在'));
 
-  const { action, note, operator, operatorRole } = req.body as {
+  const { action, note, operator, operatorRole, docIds } = req.body as {
     action: UrgencyAction;
     note?: string;
     operator: string;
     operatorRole: Role;
+    docIds?: string[];
   };
 
   const old = store.orders[idx];
@@ -256,6 +261,42 @@ router.put('/orders/:id/urgency', (req, res) => {
     }
   }
 
+  if (action === 'supplement') {
+    if (old.stage === 'appraisal' || old.stage === 'transfer') {
+      const inspIdx = store.inspections.findIndex(i => i.orderId === old.id);
+      if (inspIdx >= 0) {
+        store.inspections[inspIdx] = {
+          ...store.inspections[inspIdx],
+          status: 'recheck',
+          resultSummary: note || store.inspections[inspIdx].resultSummary,
+          updatedAt: now(),
+        };
+        addStatusLog(old.id, old.stage, 'supplement', operator, operatorRole, `检测报告标记复检：${note || '需复检确认'}`);
+      }
+    }
+    if (old.stage === 'loan_review' || old.stage === 'loan_funding') {
+      const loanIdx = store.loans.findIndex(l => l.orderId === old.id);
+      if (loanIdx >= 0) {
+        const updatedDocs = store.loans[loanIdx].docs.map(d => {
+          if (docIds && docIds.includes(d.id)) {
+            return { ...d, submitted: false, placeholder: note || '需补材料' };
+          }
+          return d;
+        });
+        store.loans[loanIdx] = {
+          ...store.loans[loanIdx],
+          status: 'supplement',
+          docs: updatedDocs,
+          updatedAt: now(),
+        };
+        const docNames = docIds && docIds.length > 0
+          ? store.loans[loanIdx].docs.filter(d => docIds.includes(d.id)).map(d => d.name).join('、')
+          : '相关资料';
+        addStatusLog(old.id, old.stage, 'supplement', operator, operatorRole, `贷款资料补件（${docNames}）：${note || '需补充材料'}`);
+      }
+    }
+  }
+
   store.orders[idx] = {
     ...old,
     urgencyAction: action,
@@ -270,7 +311,9 @@ router.put('/orders/:id/urgency', (req, res) => {
     action === 'supplement' ? 'supplement' :
     action === 'return' ? 'return' : 'submit';
 
-  addStatusLog(old.id, old.stage, logAction, operator, operatorRole, note);
+  if (action !== 'supplement') {
+    addStatusLog(old.id, old.stage, logAction, operator, operatorRole, note);
+  }
 
   const actionLabel = action === 'urge' ? '催办' : action === 'return' ? '退回' : action === 'supplement' ? '补材料' : '标记';
   res.json(ok(store.orders[idx], `已${actionLabel}${note ? '：' + note : ''}`));
@@ -293,6 +336,10 @@ router.put('/orders/:id/advance', (req, res) => {
     return res.status(400).json(fail('当前已是最终环节，无法继续推进'));
   }
 
+  if (old.stage === 'loan_funding') {
+    return res.status(400).json(fail('贷款放款阶段需通过"确认放款"操作完成，不可直接推进'));
+  }
+
   const nextStage = flow.next;
   const nextRole = STAGE_FLOW[nextStage].role;
 
@@ -313,11 +360,56 @@ router.put('/orders/:id/advance', (req, res) => {
   if (old.stage === 'transfer') {
     update.transferCompletedAt = now();
   }
-  if (nextStage === 'completed') {
-    update.loanCompletedAt = now();
-  }
 
   store.orders[idx] = { ...old, ...update };
+
+  if (nextStage === 'loan_review') {
+    const existingLoan = store.loans.find(l => l.orderId === old.id);
+    if (!existingLoan) {
+      const defaultDocs: LoanDoc[] = [
+        { id: 'L1', name: '身份证', submitted: true },
+        { id: 'L2', name: '收入证明', submitted: false, placeholder: '待客户提供' },
+        { id: 'L3', name: '银行流水', submitted: false, placeholder: '待客户提供近6个月' },
+        { id: 'L4', name: '征信报告', submitted: false, placeholder: '待客户授权查询' },
+        { id: 'L5', name: '购车合同', submitted: true },
+      ];
+      const loanAmount = Math.round(old.dealPrice * 0.6);
+      const newLoan: LoanApplication = {
+        id: genId('L'),
+        orderId: old.id,
+        carSourceId: old.carSourceId,
+        plateNumber: old.plateNumber,
+        buyerName: old.buyerName,
+        buyerPhone: old.buyerPhone,
+        loanAmount,
+        loanTerm: 36,
+        status: 'pending',
+        financeSpecialist: DEMO_ACCOUNTS.financeSpecialist.user,
+        docs: defaultDocs,
+        appliedAt: now(),
+        approvedAt: null,
+        fundedAt: null,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+      store.loans.push(newLoan);
+      addStatusLog(old.id, nextStage, 'submit', DEMO_ACCOUNTS.financeSpecialist.user, 'financeSpecialist', `系统自动创建贷款申请，金额${formatMoney(loanAmount)}，36期`);
+    } else {
+      store.loans = store.loans.map(l =>
+        l.orderId === old.id
+          ? { ...l, status: 'pending', updatedAt: now() }
+          : l
+      );
+    }
+  }
+
+  if (nextStage === 'loan_funding') {
+    store.loans = store.loans.map(l =>
+      l.orderId === old.id
+        ? { ...l, status: 'approved', approvedAt: now(), updatedAt: now() }
+        : l
+    );
+  }
 
   addStatusLog(old.id, nextStage, 'pass', operator, operatorRole, transferRemark, old.stage);
 
