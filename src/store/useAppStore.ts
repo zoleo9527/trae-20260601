@@ -89,6 +89,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     try {
       const info = await api('/api/role', { method: 'POST', body: JSON.stringify({ role }) })
       set({ role, roleInfo: info, error: null })
+      await get().fetchDashboard()
+      await get().fetchAVRecords()
+      await get().fetchSPRecords()
     } catch (e: any) {
       set({ error: e.message })
     }

@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import type { SPStatus, ScorePublishRecord, AuditLog, Role } from '../../shared/types'
 
@@ -615,8 +616,12 @@ export default function ScorePublish() {
     stageProgress,
     fetchDashboard,
   } = useAppStore()
+  const [searchParams, setSearchParams] = useSearchParams()
 
-  const [activeTab, setActiveTab] = useState<FilterTab>('all')
+  const urlStatus = (searchParams.get('status') as FilterTab) || 'all'
+  const urlHighlight = searchParams.get('highlight') || ''
+
+  const [activeTab, setActiveTab] = useState<FilterTab>(urlStatus)
   const [initiateOpen, setInitiateOpen] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -625,6 +630,8 @@ export default function ScorePublish() {
   const [detailFlow, setDetailFlow] = useState<{
     record: any; auditLogs: AuditLog[]; flow: FlowStep[] } | null>(null)
   const [flowLoading, setFlowLoading] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(urlHighlight || null)
+  const tableRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetchRooms()
@@ -636,6 +643,23 @@ export default function ScorePublish() {
     if (activeTab !== 'all') filters.status = activeTab
     fetchSPRecords(filters)
   }, [activeTab, fetchSPRecords])
+
+  useEffect(() => {
+    if (highlightId && tableRef.current) {
+      setTimeout(() => {
+        const el = document.getElementById(`sp-row-${highlightId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('bg-amber-100')
+          setTimeout(() => {
+            el.classList.remove('bg-amber-100')
+            setHighlightId(null)
+            setSearchParams({}, { replace: true })
+          }, 3000)
+        }
+      }, 300)
+    }
+  }, [highlightId, spRecords, setSearchParams])
 
   const filteredRecords = activeTab === 'all'
     ? spRecords
@@ -720,7 +744,7 @@ export default function ScorePublish() {
         )}
       </div>
 
-      <div className="space-y-4">
+      <div ref={tableRef} className="space-y-4">
         {filteredRecords.length === 0 && (
           <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-400">
             <div className="text-4xl mb-2">📭</div>
@@ -736,16 +760,23 @@ export default function ScorePublish() {
           </div>
         )}
         {filteredRecords.map((record) => (
-          <RecordCard
+          <div
             key={record.id}
-            record={record}
-            subjects={subjects}
-            role={role}
-            onApprove={handleApprove}
-            onReject={openReject}
-            onConfirm={handleConfirm}
-            onDetail={openDetail}
-          />
+            id={`sp-row-${record.id}`}
+            className={`transition-colors duration-500 rounded-xl ${
+              highlightId === record.id ? 'bg-amber-100 ring-2 ring-amber-300' : ''
+            }`}
+          >
+            <RecordCard
+              record={record}
+              subjects={subjects}
+              role={role}
+              onApprove={handleApprove}
+              onReject={openReject}
+              onConfirm={handleConfirm}
+              onDetail={openDetail}
+            />
+          </div>
         ))}
       </div>
 

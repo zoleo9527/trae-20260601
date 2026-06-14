@@ -390,7 +390,7 @@ function StageDetail({ stage, avStats, spStats, avPending, spPending }: { stage:
                     {item.submittedBy} 提交
                   </div>
                   <button
-                    onClick={() => navigate('/absence-violation')}
+                    onClick={() => navigate(`/absence-violation?status=${item.status}&id=${item.id}&highlight=${item.id}`)}
                     className="text-[10px] text-amber-600 hover:text-amber-800 flex-shrink-0 flex items-center gap-0.5"
                   >
                     去处理 <ArrowRight size={9} />
@@ -487,7 +487,7 @@ function StageDetail({ stage, avStats, spStats, avPending, spPending }: { stage:
                     {item.submittedBy} 发起
                   </div>
                   <button
-                    onClick={() => navigate('/score-publish')}
+                    onClick={() => navigate(`/score-publish?status=${item.status}&id=${item.id}&highlight=${item.id}`)}
                     className="text-[10px] text-amber-600 hover:text-amber-800 flex-shrink-0 flex items-center gap-0.5"
                   >
                     去处理 <ArrowRight size={9} />

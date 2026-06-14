@@ -1,4 +1,5 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import type { AVType, AVStatus, ViolationCategory, AbsenceViolationRecord, AuditLog } from '../../shared/types'
 
@@ -610,11 +611,16 @@ function AVDetailModal({
 
 export default function AbsenceViolation() {
   const { avRecords, role, fetchAVRecords, submitAVRecord, reviewAVRecord, rooms, subjects, candidates, fetchRooms } = useAppStore()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const urlStatus = searchParams.get('status') || ''
+  const urlHighlight = searchParams.get('highlight') || ''
 
   const [tab, setTab] = useState<TabType>('absence')
   const [filterRoom, setFilterRoom] = useState('')
   const [filterSubject, setFilterSubject] = useState('')
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterStatus, setFilterStatus] = useState(urlStatus)
+  const [highlightId, setHighlightId] = useState<string | null>(urlHighlight || null)
   const [submitOpen, setSubmitOpen] = useState(false)
   const [submitInitialData, setSubmitInitialData] = useState<SubmitFormData | undefined>()
   const [submitTitle, setSubmitTitle] = useState<string | undefined>()
@@ -623,6 +629,7 @@ export default function AbsenceViolation() {
   const [reviewInitialAction, setReviewInitialAction] = useState<ReviewFormData['action'] | undefined>()
   const [detailOpen, setDetailOpen] = useState(false)
   const [detailRecordId, setDetailRecordId] = useState<string | null>(null)
+  const tableRef = useRef<HTMLDivElement>(null)
 
   const loadRecords = () => {
     const filters: Record<string, string> = { type: tab }
@@ -638,7 +645,24 @@ export default function AbsenceViolation() {
 
   useEffect(() => {
     loadRecords()
-  }, [tab])
+  }, [tab, filterStatus])
+
+  useEffect(() => {
+    if (highlightId && tableRef.current) {
+      setTimeout(() => {
+        const el = document.getElementById(`av-row-${highlightId}`)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          el.classList.add('bg-amber-100')
+          setTimeout(() => {
+            el.classList.remove('bg-amber-100')
+            setHighlightId(null)
+            setSearchParams({}, { replace: true })
+          }, 3000)
+        }
+      }, 300)
+    }
+  }, [highlightId, avRecords, setSearchParams])
 
   const handleQuery = () => {
     loadRecords()
@@ -768,7 +792,7 @@ export default function AbsenceViolation() {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+      <div ref={tableRef} className="bg-white rounded-xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -794,7 +818,13 @@ export default function AbsenceViolation() {
                 </tr>
               )}
               {filteredRecords.map((r) => (
-                <tr key={r.id} className="hover:bg-gray-50">
+                <tr
+                  key={r.id}
+                  id={`av-row-${r.id}`}
+                  className={`hover:bg-gray-50 transition-colors duration-500 ${
+                    highlightId === r.id ? 'bg-amber-100' : ''
+                  }`}
+                >
                   <td className="px-4 py-3 font-medium text-gray-900">{getCandidateName(r.candidateId)}</td>
                   <td className="px-4 py-3 font-mono text-xs text-gray-600">{getCandidateTicket(r.candidateId)}</td>
                   <td className="px-4 py-3">{TYPE_MAP[r.type]}</td>
