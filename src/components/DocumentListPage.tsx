@@ -29,6 +29,11 @@ import {
   GripVertical,
   AlertCircle,
   Pencil,
+  XCircle,
+  Calendar,
+  History,
+  AlertOctagon,
+  ExternalLink,
 } from 'lucide-react';
 import { formatDateTime, getRoleLabel, getStatusBadgeClass } from '../lib/utils';
 import { UpdateDocumentModal } from './Modals';
@@ -130,6 +135,9 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
     loadDocumentList,
     docLoading,
     currentUser,
+    currentDetail,
+    loadDetail,
+    loading,
   } = useAppStore();
 
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -137,11 +145,24 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
   const [batchStatus, setBatchStatus] = useState<string>('');
   const [docModalOpen, setDocModalOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerConsultationId, setDrawerConsultationId] = useState<number | null>(null);
 
   const handleDocumentEdit = (e: React.MouseEvent, doc: DocumentListItem) => {
     e.stopPropagation();
     setSelectedDoc(doc);
     setDocModalOpen(true);
+  };
+
+  const handleRowClick = (doc: DocumentListItem) => {
+    if (drawerConsultationId === doc.consultationId) {
+      setDrawerOpen(false);
+      setDrawerConsultationId(null);
+    } else {
+      setDrawerConsultationId(doc.consultationId);
+      setDrawerOpen(true);
+      loadDetail(doc.consultationId);
+    }
   };
 
   useEffect(() => {
@@ -264,8 +285,11 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-white">
-      <div className="border-b border-gray-200 bg-white">
+    <div className="flex-1 flex overflow-hidden bg-white relative">
+      <div className={`flex-1 flex flex-col overflow-hidden transition-all duration-300 ${
+        drawerOpen ? 'mr-0' : ''
+      }`}>
+        <div className="border-b border-gray-200 bg-white">
         <div className="px-4 pt-3 pb-2 border-b border-gray-100 flex flex-wrap gap-1.5 items-center">
           <span className="text-xs text-gray-400 mr-1 flex items-center gap-1">
             <Filter size={11} />
@@ -675,10 +699,12 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
               {documentList.map((doc) => (
                 <tr
                   key={doc.id}
-                  onClick={() => onSelectConsultation(doc.consultationId)}
+                  onClick={() => handleRowClick(doc)}
                   className={`cursor-pointer hover:bg-blue-50/60 transition-colors ${
                     selectedDocIds.has(doc.id) ? 'bg-blue-50' : ''
-                  } ${doc.incompleteReason ? 'bg-amber-50/30' : ''}`}
+                  } ${doc.incompleteReason ? 'bg-amber-50/30' : ''} ${
+                    drawerConsultationId === doc.consultationId ? 'bg-blue-50/80' : ''
+                  }`}
                 >
                   <td className="px-2.5 py-2" onClick={(e) => e.stopPropagation()}>
                     <button
@@ -845,6 +871,285 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
         currentStatus={selectedDoc?.status || ''}
         document={selectedDoc || undefined}
       />
+      </div>
+
+      <div
+        className={`absolute top-0 right-0 h-full bg-white border-l border-gray-200 shadow-xl z-20 flex flex-col transition-all duration-300 ease-out ${
+          drawerOpen ? 'w-96 translate-x-0' : 'w-96 translate-x-full'
+        }`}
+      >
+        {drawerOpen && currentDetail && currentDetail.consultation.id === drawerConsultationId ? (
+          <>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-slate-50 to-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <button
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    setDrawerConsultationId(null);
+                  }}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors shrink-0"
+                >
+                  <ChevronRight size={16} />
+                </button>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-gray-900 truncate">
+                    {currentDetail.consultation.clientName}
+                  </h3>
+                  <p className="text-xs text-gray-500 font-mono truncate">
+                    {currentDetail.consultation.consultationNo}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => onSelectConsultation(currentDetail.consultation.id)}
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium shrink-0 px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+              >
+                详情
+                <ExternalLink size={12} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto space-y-3 p-3">
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-gradient-to-r from-blue-50 to-white border-b border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                    <FileText size={14} className="text-blue-500" />
+                    咨询摘要
+                  </h4>
+                </div>
+                <div className="p-3 space-y-2.5">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadgeClass(
+                        currentDetail.consultation.status as ConsultationStatus
+                      )}`}
+                    >
+                      {currentDetail.consultation.status}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                      {currentDetail.consultation.taxType}
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
+                      P{currentDetail.consultation.priority}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-gray-400">顾问：</span>
+                      <span className="text-gray-700 font-medium">
+                        {currentDetail.consultantName || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">经理：</span>
+                      <span className="text-gray-700 font-medium">
+                        {currentDetail.projectManagerName || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">客户财务：</span>
+                      <span className="text-gray-700 font-medium">
+                        {currentDetail.clientFinanceName || '-'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">当前处理：</span>
+                      <span className="text-blue-600 font-medium">
+                        {currentDetail.consultation.currentHandler}
+                      </span>
+                    </div>
+                  </div>
+
+                  {currentDetail.consultation.deadline && (
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <Calendar size={12} className="text-gray-400" />
+                      <span className="text-gray-400">截止：</span>
+                      <span className="text-gray-700">
+                        {currentDetail.consultation.deadline}
+                      </span>
+                    </div>
+                  )}
+
+                  {currentDetail.consultation.description && (
+                    <p className="text-xs text-gray-600 bg-slate-50 px-2.5 py-2 rounded leading-relaxed">
+                      {currentDetail.consultation.description}
+                    </p>
+                  )}
+
+                  {(currentDetail.consultation.rejectReason || currentDetail.consultation.supplementReason) && (
+                    <div className="bg-amber-50 border border-amber-200 rounded px-2.5 py-2">
+                      <p className="text-xs text-amber-800 flex items-start gap-1.5">
+                        <AlertTriangle size={12} className="shrink-0 mt-0.5 text-amber-500" />
+                        <span>
+                          <strong>
+                            {currentDetail.consultation.status === '已退回' ? '退回原因：' : '补录说明：'}
+                          </strong>
+                          {currentDetail.consultation.rejectReason || currentDetail.consultation.supplementReason}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-gradient-to-r from-emerald-50 to-white border-b border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                    <ListChecks size={14} className="text-emerald-500" />
+                    资料进度
+                  </h4>
+                </div>
+                <div className="p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-gray-500">整体进度</span>
+                    <span className="text-sm font-semibold text-gray-900 tabular-nums">
+                      {currentDetail.documents.filter(d => d.status === '已收到' || d.status === '已豁免').length}
+                      <span className="text-gray-400 font-normal"> / {currentDetail.documents.length}</span>
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden mb-3">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all"
+                      style={{
+                        width: `${currentDetail.documents.length > 0
+                          ? Math.round(
+                              (currentDetail.documents.filter(d => d.status === '已收到' || d.status === '已豁免').length
+                                / currentDetail.documents.length) * 100
+                            )
+                          : 0}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="bg-gray-50 rounded p-1.5">
+                      <div className="text-base font-semibold text-gray-700 tabular-nums">
+                        {currentDetail.documents.filter(d => d.status === '待发起').length}
+                      </div>
+                      <div className="text-[10px] text-gray-500">待发起</div>
+                    </div>
+                    <div className="bg-blue-50 rounded p-1.5">
+                      <div className="text-base font-semibold text-blue-600 tabular-nums">
+                        {currentDetail.documents.filter(d => d.status === '已要求提供').length}
+                      </div>
+                      <div className="text-[10px] text-blue-500">待提供</div>
+                    </div>
+                    <div className="bg-amber-50 rounded p-1.5">
+                      <div className="text-base font-semibold text-amber-600 tabular-nums">
+                        {currentDetail.documents.filter(d => d.status === '客户已提供').length}
+                      </div>
+                      <div className="text-[10px] text-amber-500">已提供</div>
+                    </div>
+                    <div className="bg-emerald-50 rounded p-1.5">
+                      <div className="text-base font-semibold text-emerald-600 tabular-nums">
+                        {currentDetail.documents.filter(d => d.status === '已收到' || d.status === '已豁免').length}
+                      </div>
+                      <div className="text-[10px] text-emerald-500">完成</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {currentDetail.documents.filter(d => d.incompleteReason).length > 0 && (
+                <div className="bg-white border border-red-200 rounded-lg overflow-hidden">
+                  <div className="px-3 py-2 bg-gradient-to-r from-red-50 to-white border-b border-red-100">
+                    <h4 className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                      <AlertOctagon size={14} className="text-red-500" />
+                      未完成原因汇总
+                      <span className="ml-auto text-xs font-normal text-red-500 bg-red-100 px-1.5 py-0.5 rounded-full">
+                        {currentDetail.documents.filter(d => d.incompleteReason).length} 项
+                      </span>
+                    </h4>
+                  </div>
+                  <div className="p-2 space-y-1.5 max-h-48 overflow-auto">
+                    {currentDetail.documents
+                      .filter(d => d.incompleteReason)
+                      .map(doc => (
+                        <div key={doc.id} className="flex items-start gap-2 px-2 py-1.5 hover:bg-red-50/50 rounded transition-colors">
+                          <XCircle size={12} className="text-red-400 shrink-0 mt-0.5" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium text-gray-700 truncate">
+                              {doc.itemName}
+                              {doc.required && (
+                                <span className="text-red-500 ml-1">*</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-red-600 mt-0.5">
+                              {doc.incompleteReason}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="px-3 py-2 bg-gradient-to-r from-purple-50 to-white border-b border-gray-100">
+                  <h4 className="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+                    <History size={14} className="text-purple-500" />
+                    最近操作
+                  </h4>
+                </div>
+                <div className="p-2 space-y-0 max-h-52 overflow-auto">
+                  {loading ? (
+                    <div className="py-6 text-center text-xs text-gray-400">加载中...</div>
+                  ) : currentDetail.logs.length === 0 ? (
+                    <div className="py-6 text-center text-xs text-gray-400">暂无操作记录</div>
+                  ) : (
+                    currentDetail.logs.slice(0, 8).map((log, idx) => (
+                      <div key={log.id} className="flex gap-2 px-2 py-2 hover:bg-purple-50/40 rounded transition-colors">
+                        <div className="flex flex-col items-center shrink-0">
+                          <div className={`w-2 h-2 rounded-full mt-0.5 ${
+                            log.operationType.includes('状态变更') || log.operationType.includes('退回')
+                              ? 'bg-purple-500'
+                              : log.operationType.includes('资料')
+                                ? 'bg-blue-500'
+                                : 'bg-gray-300'
+                          }`} />
+                          {idx < Math.min(currentDetail.logs.length - 1, 7) && (
+                            <div className="w-px flex-1 bg-gray-200 my-0.5" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0 pb-1">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="font-medium text-gray-800">{log.operator}</span>
+                            <span className="text-gray-400">·</span>
+                            <span className="text-gray-500">{getRoleLabel(log.operatorRole as UserRole)}</span>
+                          </div>
+                          <p className="text-xs text-gray-700 mt-0.5">
+                            {log.operationType}
+                            {log.fromStatus && log.toStatus && (
+                              <span className="text-gray-500">
+                                {' '}{log.fromStatus} → <span className="text-blue-600 font-medium">{log.toStatus}</span>
+                              </span>
+                            )}
+                          </p>
+                          {log.reason && (
+                            <p className="text-xs text-amber-600 mt-0.5 bg-amber-50 px-1.5 py-0.5 rounded inline-block">
+                              原因：{log.reason}
+                            </p>
+                          )}
+                          <p className="text-[10px] text-gray-400 mt-1">
+                            {formatDateTime(log.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+            <div className="text-center">
+              <FileText size={32} className="mx-auto mb-2 opacity-30" />
+              <p>加载中...</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
