@@ -113,6 +113,7 @@ impl UserRole {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct User {
     pub id: i64,
     pub name: String,
@@ -125,6 +126,7 @@ pub struct User {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Consultation {
     pub id: i64,
     pub consultation_no: String,
@@ -148,6 +150,7 @@ pub struct Consultation {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ConsultationDetail {
     pub consultation: Consultation,
     pub documents: Vec<DocumentItem>,
@@ -158,6 +161,7 @@ pub struct ConsultationDetail {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentItem {
     pub id: i64,
     pub consultation_id: i64,
@@ -176,6 +180,7 @@ pub struct DocumentItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OperationLog {
     pub id: i64,
     pub consultation_id: i64,
@@ -191,6 +196,7 @@ pub struct OperationLog {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateConsultationRequest {
     pub client_name: String,
     pub tax_type: String,
@@ -205,6 +211,7 @@ pub struct CreateConsultationRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateConsultationRequest {
     pub id: i64,
     pub status: String,
@@ -217,6 +224,7 @@ pub struct UpdateConsultationRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CreateDocumentRequest {
     pub consultation_id: i64,
     pub item_name: String,
@@ -226,6 +234,7 @@ pub struct CreateDocumentRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct UpdateDocumentRequest {
     pub id: i64,
     pub status: String,
@@ -238,6 +247,7 @@ pub struct UpdateDocumentRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BatchUpdateDocumentRequest {
     pub ids: Vec<i64>,
     pub status: String,
@@ -247,6 +257,7 @@ pub struct BatchUpdateDocumentRequest {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DashboardStats {
     pub total_consultations: i64,
     pub pending_accept: i64,
@@ -267,6 +278,7 @@ pub struct DashboardStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct QueryFilter {
     pub status: Option<String>,
     pub handler_role: Option<String>,
@@ -279,11 +291,13 @@ pub struct QueryFilter {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct BatchCreateConsultationRequest {
     pub items: Vec<CreateConsultationRequest>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentListItem {
     pub id: i64,
     pub consultation_id: i64,
@@ -308,6 +322,7 @@ pub struct DocumentListItem {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DocumentQueryFilter {
     pub status: Option<String>,
     pub required: Option<bool>,

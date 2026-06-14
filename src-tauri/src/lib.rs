@@ -38,6 +38,7 @@ pub fn run() {
             batch_update_document_status,
             get_operation_logs,
             get_dashboard_stats,
+            query_documents,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

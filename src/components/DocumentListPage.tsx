@@ -7,6 +7,7 @@ import {
   type DocumentStatus,
   type ConsultationStatus,
   type UserRole,
+  type DocumentListItem,
 } from '../types';
 import {
   FileCheck,
@@ -27,8 +28,10 @@ import {
   Square,
   GripVertical,
   AlertCircle,
+  Pencil,
 } from 'lucide-react';
 import { formatDateTime, getRoleLabel, getStatusBadgeClass } from '../lib/utils';
+import { UpdateDocumentModal } from './Modals';
 
 interface DocumentListPageProps {
   onSelectConsultation: (id: number) => void;
@@ -132,6 +135,14 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<number>>(new Set());
   const [batchStatus, setBatchStatus] = useState<string>('');
+  const [docModalOpen, setDocModalOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentListItem | null>(null);
+
+  const handleDocumentEdit = (e: React.MouseEvent, doc: DocumentListItem) => {
+    e.stopPropagation();
+    setSelectedDoc(doc);
+    setDocModalOpen(true);
+  };
 
   useEffect(() => {
     loadDocumentList();
@@ -805,7 +816,16 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
                     </div>
                   </td>
                   <td className="px-3 py-2">
-                    <ChevronRight size={14} className="text-gray-400" />
+                    <div className="flex items-center gap-0.5">
+                      <button
+                        onClick={(e) => handleDocumentEdit(e, doc)}
+                        className="p-1 hover:bg-gray-100 rounded text-gray-400 hover:text-blue-600 transition-colors"
+                        title="更新资料状态"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <ChevronRight size={14} className="text-gray-400" />
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -813,6 +833,18 @@ export function DocumentListPage({ onSelectConsultation }: DocumentListPageProps
           </table>
         )}
       </div>
+
+      <UpdateDocumentModal
+        isOpen={docModalOpen}
+        onClose={() => {
+          setDocModalOpen(false);
+          setSelectedDoc(null);
+        }}
+        documentId={selectedDoc?.id || 0}
+        documentName={selectedDoc?.itemName || ''}
+        currentStatus={selectedDoc?.status || ''}
+        document={selectedDoc || undefined}
+      />
     </div>
   );
 }

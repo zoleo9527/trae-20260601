@@ -614,13 +614,13 @@ pub fn get_dashboard_stats(
     ).unwrap_or(0);
 
     let docs_received: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM document_lists WHERE status = '已收到'",
+        "SELECT COUNT(*) FROM document_lists WHERE status IN ('已收到', '已豁免')",
         [],
         |row| row.get::<_, i64>(0),
     ).unwrap_or(0);
 
     let docs_pending: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM document_lists WHERE status IN ('待发起', '已要求提供') AND required = 1",
+        "SELECT COUNT(*) FROM document_lists WHERE status NOT IN ('已收到', '已豁免') AND required = 1",
         [],
         |row| row.get::<_, i64>(0),
     ).unwrap_or(0);
@@ -869,7 +869,7 @@ pub fn query_documents(
     }
     if let Some(required) = filter.required {
         sql.push_str(" AND d.required = ?");
-        params_list.push(required.to_string());
+        params_list.push(if required { "1".to_string() } else { "0".to_string() });
     }
     if filter.incomplete_only.unwrap_or(false) {
         sql.push_str(" AND d.incomplete_reason IS NOT NULL AND d.incomplete_reason != ''");

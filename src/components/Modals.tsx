@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
-import { TAX_TYPES, PRIORITY_LABELS, type ConsultationStatus, type UserRole } from '../types';
+import { TAX_TYPES, PRIORITY_LABELS, type ConsultationStatus, type UserRole, type DocumentItem, type DocumentListItem } from '../types';
 import { X, User, Plus, Minus, AlertCircle, ListChecks, FileText } from 'lucide-react';
 import type { CreateConsultationRequest } from '../types';
 
@@ -26,6 +26,23 @@ export function CreateConsultationModal({
     amount: undefined,
     remarks: '',
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        clientName: '',
+        taxType: TAX_TYPES[0],
+        description: '',
+        consultantId: undefined,
+        projectManagerId: undefined,
+        clientFinanceId: undefined,
+        deadline: '',
+        priority: 2,
+        amount: undefined,
+        remarks: '',
+      });
+    }
+  }, [isOpen]);
 
   const consultants = users.filter((u) => u.role === 'consultant');
   const managers = users.filter((u) => u.role === 'project_manager');
@@ -425,6 +442,18 @@ export function AddDocumentModal({
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setMode('batch');
+      setItemName('');
+      setItemDescription('');
+      setRequired(true);
+      setSelectedTpl(null);
+      setCheckedItems(new Set());
+      setSubmitting(false);
+    }
+  }, [isOpen, consultationId]);
+
   const selectTemplate = (tpl: DocTemplate) => {
     setSelectedTpl(tpl);
     setCheckedItems(new Set(tpl.items.map((_, i) => i)));
@@ -780,6 +809,20 @@ export function BatchCreateModal({
   const [batchFinance, setBatchFinance] = useState('');
   const [batchPriority, setBatchPriority] = useState('');
   const [batchDeadlineDays, setBatchDeadlineDays] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setItems([createEmptyItem()]);
+      setPasteText('');
+      setShowPaste(false);
+      setBatchTax('');
+      setBatchConsultant('');
+      setBatchManager('');
+      setBatchFinance('');
+      setBatchPriority('');
+      setBatchDeadlineDays('');
+    }
+  }, [isOpen]);
 
   function createEmptyItem(): CreateConsultationRequest {
     return {
@@ -1345,6 +1388,14 @@ export function StatusChangeModal({
   const [remarks, setRemarks] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isOpen && option) {
+      setReason('');
+      setRemarks('');
+      setSubmitting(false);
+    }
+  }, [isOpen, consultationId, option?.status]);
+
   const reasonRequired =
     option?.status === '已退回' ||
     option?.status === '待补录' ||
@@ -1490,6 +1541,7 @@ interface UpdateDocumentModalProps {
   documentId: number;
   documentName: string;
   currentStatus: string;
+  document?: DocumentItem | DocumentListItem;
 }
 
 export function UpdateDocumentModal({
@@ -1498,6 +1550,7 @@ export function UpdateDocumentModal({
   documentId,
   documentName,
   currentStatus,
+  document,
 }: UpdateDocumentModalProps) {
   const { updateDocument, currentUser } = useAppStore();
   const [status, setStatus] = useState(currentStatus);
@@ -1506,6 +1559,17 @@ export function UpdateDocumentModal({
   const [remarks, setRemarks] = useState('');
   const [incompleteReason, setIncompleteReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && documentId) {
+      setStatus(currentStatus);
+      setProvidedBy(document?.providedBy || '');
+      setReceivedBy(document?.receivedBy || '');
+      setRemarks(document?.remarks || '');
+      setIncompleteReason(document?.incompleteReason || '');
+      setSubmitting(false);
+    }
+  }, [isOpen, documentId, currentStatus, document?.providedBy, document?.receivedBy, document?.remarks, document?.incompleteReason]);
 
   const docStatusOptions: { value: string; label: string }[] = [
     { value: '已要求提供', label: '已要求提供' },

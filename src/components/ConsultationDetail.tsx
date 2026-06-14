@@ -14,6 +14,7 @@ import {
   type DocumentStatus,
   type ConsultationStatus,
   type UserRole,
+  type DocumentItem,
 } from '../types';
 import type { StatusChangeOption } from './Modals';
 import {
@@ -59,7 +60,7 @@ export function ConsultationDetail({
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedStatusOption, setSelectedStatusOption] = useState<StatusChangeOption | null>(null);
   const [docModalOpen, setDocModalOpen] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<{ id: number; name: string; status: string } | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentItem | null>(null);
   const [docFilter, setDocFilter] = useState<string>('all');
   const [selectedDocIds, setSelectedDocIds] = useState<Set<number>>(new Set());
   const [batchStatus, setBatchStatus] = useState<string>('');
@@ -116,8 +117,8 @@ export function ConsultationDetail({
     setStatusModalOpen(true);
   };
 
-  const handleDocumentClick = (doc: { id: number; itemName: string; status: string }) => {
-    setSelectedDoc({ id: doc.id, name: doc.itemName, status: doc.status });
+  const handleDocumentClick = (doc: DocumentItem) => {
+    setSelectedDoc(doc);
     setDocModalOpen(true);
   };
 
@@ -915,8 +916,9 @@ export function ConsultationDetail({
           setSelectedDoc(null);
         }}
         documentId={selectedDoc?.id || 0}
-        documentName={selectedDoc?.name || ''}
+        documentName={selectedDoc?.itemName || ''}
         currentStatus={selectedDoc?.status || ''}
+        document={selectedDoc || undefined}
       />
     </div>
   );
