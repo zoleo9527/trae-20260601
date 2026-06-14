@@ -289,51 +289,39 @@ export function exportApprovalSheet(_user: AuthTokenPayload, carId: string): Ser
   return { ok: true, data: { filename: `审批单_${car.carNo}.txt`, content: lines.join('\n'), format: 'txt' } };
 }
 
-export function exportOperationLogs(_user: AuthTokenPayload, query?: { from?: string; to?: string; operationType?: OperationType[]; operatorId?: string }): ServiceResult<{ filename: string; content: string; format: 'csv' | 'txt' }> {
-  const logs = db.listAllLogs(query);
-
-  const carContextCache = new Map<string, { handler: string; latestTime: string; keyRemarks: string }>();
-  function getCarContext(carId: string): { handler: string; latestTime: string; keyRemarks: string } {
-    if (carContextCache.has(carId)) return carContextCache.get(carId)!;
-    const car = db.findCarById(carId);
-    const carLogs = car ? db.listLogsByCar(carId) : [];
-    const handlerUser = car?.currentHandlerId ? db.findUserById(car.currentHandlerId) : null;
-    const handler = handlerUser
-      ? `${handlerUser.name}(${roleLabel(handlerUser.role)})`
-      : car?.currentStatus === 'approved' ? '已通过'
-      : car?.currentStatus === 'rejected' ? '已驳回'
-      : car?.currentStatus === 'cancelled' ? '已取消'
-      : '-';
-    const latestLog = carLogs.length > 0 ? carLogs[carLogs.length - 1] : null;
-    const latestTime = latestLog ? latestLog.createdAt : car?.updatedAt || '-';
-    const keyRemarks = carLogs
-      .filter(l => l.remark && l.remark.trim() && ['submit', 'manager_approve', 'manager_reject', 'appraiser_submit', 'appraiser_reject', 'finance_approve', 'finance_reject', 'cancel', 'add_comment'].includes(l.operationType))
-      .map(l => `${l.operatorName}: ${l.remark}`)
-      .slice(-3)
-      .join('; ') || '-';
-    const ctx = { handler, latestTime, keyRemarks };
-    carContextCache.set(carId, ctx);
-    return ctx;
+export function exportOperationLogs(
+  user: AuthTokenPayload,
+  query?: {
+    from?: string; to?: string;
+    operationType?: OperationType[]; operatorId?: string;
+    handlerRole?: UserRole[]; stage?: ApprovalStage[];
   }
+): ServiceResult<{ filename: string; content: string; format: 'csv' | 'txt' }> {
+  const result = listLogsWithContext(user, query);
+  if (!result.ok || !result.data) return { ok: false, message: result.message };
+  const logs = result.data;
 
-  const header = ['时间', '操作人', '角色', '车源编号', '操作类型', '起始状态', '目标状态', '价格', '备注', '当前责任人', '最近处理时间', '关键备注摘要'];
+  const header = [
+    '时间', '操作人', '角色', '车源编号', '操作类型',
+    '起始状态', '目标状态', '价格', '备注',
+    '审批阶段', '当前责任人', '最近处理时间', '关键备注摘要'
+  ];
   const rows = [header.join(',')];
   logs.forEach(log => {
-    const car = db.findCarById(log.carId);
-    const ctx = getCarContext(log.carId);
     rows.push([
       log.createdAt,
       log.operatorName,
       roleLabel(log.operatorRole),
-      car?.carNo || log.carId.slice(0, 8),
+      log.carNo || log.carId.slice(0, 8),
       operationLabel(log.operationType),
       log.fromStatus ? CAR_STATUS_LABEL[log.fromStatus] : '',
       CAR_STATUS_LABEL[log.toStatus],
       log.price ? String(log.price) : '',
       `"${(log.remark || '').replace(/"/g, '""')}"`,
-      `"${ctx.handler}"`,
-      ctx.latestTime,
-      `"${ctx.keyRemarks.replace(/"/g, '""')}"`
+      log.approvalStage ? APPROVAL_STAGE_LABEL[log.approvalStage] : '',
+      `"${log.currentHandlerName || '-'}"`,
+      log.latestHandledAt || '',
+      `"${(log.keyRemarksSummary || '-').replace(/"/g, '""')}"`
     ].join(','));
   });
   return { ok: true, data: { filename: `操作日志_${new Date().toISOString().slice(0, 10)}.csv`, content: '\ufeff' + rows.join('\n'), format: 'csv' } };

@@ -127,7 +127,9 @@ router.get('/logs/export', authMiddleware, (req: Request, res: Response) => {
   const to = req.query.to ? String(req.query.to) : undefined;
   const operationType = req.query.operationType ? String(req.query.operationType).split(',').map(s => s.trim()) as any : undefined;
   const operatorId = req.query.operatorId ? String(req.query.operatorId) : undefined;
-  const result = exportOperationLogs(req.user!, { from, to, operationType, operatorId });
+  const handlerRole = req.query.handlerRole ? String(req.query.handlerRole).split(',').map(s => s.trim()) as any : undefined;
+  const stage = req.query.stage ? String(req.query.stage).split(',').map(s => s.trim()) as any : undefined;
+  const result = exportOperationLogs(req.user!, { from, to, operationType, operatorId, handlerRole, stage });
   if (!result.ok || !result.data) return res.status(400).json({ code: 400, message: result.message });
   const { filename, content, format } = result.data;
   res.setHeader('Content-Type', format === 'csv' ? 'text/csv; charset=utf-8' : 'text/plain; charset=utf-8');
