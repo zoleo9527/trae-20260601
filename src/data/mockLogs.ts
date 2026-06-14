@@ -1,0 +1,255 @@
+import type { OperationLog } from '../types/log.types';
+import { OperationType } from '../types/log.types';
+import { getCurrentTime } from '../utils';
+
+const now = getCurrentTime();
+const oneDayAgo = new Date(Date.now() - 86400000).toISOString();
+const twoDaysAgo = new Date(Date.now() - 172800000).toISOString();
+const threeDaysAgo = new Date(Date.now() - 259200000).toISOString();
+
+export const mockLogs: OperationLog[] = [
+  {
+    logId: 'log-001',
+    taskId: 'task-001',
+    operationType: OperationType.CREATE_TASK,
+    operationDesc: '创建查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    afterStatus: 'pending_assign',
+    remark: '报案号：CL202401150001',
+    createdTime: oneDayAgo
+  },
+  {
+    logId: 'log-002',
+    taskId: 'task-001',
+    operationType: OperationType.ASSIGN_TASK,
+    operationDesc: '分配查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    beforeStatus: 'pending_assign',
+    afterStatus: 'pending_process',
+    remark: '分配给查勘员李四',
+    createdTime: oneDayAgo
+  },
+  {
+    logId: 'log-003',
+    taskId: 'task-002',
+    operationType: OperationType.CREATE_TASK,
+    operationDesc: '创建查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    afterStatus: 'pending_assign',
+    remark: '报案号：CL202401150002',
+    createdTime: twoDaysAgo
+  },
+  {
+    logId: 'log-004',
+    taskId: 'task-002',
+    operationType: OperationType.ASSIGN_TASK,
+    operationDesc: '分配查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    beforeStatus: 'pending_assign',
+    afterStatus: 'pending_process',
+    remark: '分配给查勘员王五',
+    createdTime: twoDaysAgo
+  },
+  {
+    logId: 'log-005',
+    taskId: 'task-002',
+    operationType: OperationType.ACCEPT_TASK,
+    operationDesc: '接单',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    beforeStatus: 'pending_process',
+    afterStatus: 'processing',
+    remark: '已接收任务，准备前往查勘',
+    createdTime: twoDaysAgo
+  },
+  {
+    logId: 'log-006',
+    taskId: 'task-002',
+    operationType: OperationType.START_SURVEY,
+    operationDesc: '开始查勘',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    beforeStatus: 'processing',
+    afterStatus: 'processing',
+    remark: '查勘地点：北京市海淀区中关村大街',
+    createdTime: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    logId: 'log-007',
+    taskId: 'task-003',
+    operationType: OperationType.CREATE_TASK,
+    operationDesc: '创建查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    afterStatus: 'pending_assign',
+    remark: '报案号：CL202401140003',
+    createdTime: threeDaysAgo
+  },
+  {
+    logId: 'log-008',
+    taskId: 'task-003',
+    operationType: OperationType.ASSIGN_TASK,
+    operationDesc: '分配查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    beforeStatus: 'pending_assign',
+    afterStatus: 'pending_process',
+    remark: '分配给查勘员李四',
+    createdTime: threeDaysAgo
+  },
+  {
+    logId: 'log-009',
+    taskId: 'task-003',
+    operationType: OperationType.ACCEPT_TASK,
+    operationDesc: '接单',
+    operatorId: 'user-002',
+    operatorName: '李四',
+    operatorRole: '查勘员',
+    beforeStatus: 'pending_process',
+    afterStatus: 'processing',
+    remark: '已接收任务',
+    createdTime: threeDaysAgo
+  },
+  {
+    logId: 'log-010',
+    taskId: 'task-003',
+    operationType: OperationType.START_SURVEY,
+    operationDesc: '开始查勘',
+    operatorId: 'user-002',
+    operatorName: '李四',
+    operatorRole: '查勘员',
+    beforeStatus: 'processing',
+    afterStatus: 'processing',
+    remark: '查勘地点：北京市东城区王府井大街',
+    createdTime: new Date(Date.now() - 172800000).toISOString()
+  },
+  {
+    logId: 'log-011',
+    taskId: 'task-003',
+    operationType: OperationType.COMPLETE_SURVEY,
+    operationDesc: '完成查勘',
+    operatorId: 'user-002',
+    operatorName: '李四',
+    operatorRole: '查勘员',
+    beforeStatus: 'processing',
+    afterStatus: 'pending_assessment',
+    remark: '查勘完成，等待定损',
+    createdTime: new Date(Date.now() - 86400000).toISOString()
+  },
+  {
+    logId: 'log-012',
+    taskId: 'task-003',
+    assessmentId: 'assess-001',
+    operationType: OperationType.CREATE_ASSESSMENT,
+    operationDesc: '创建定损意见',
+    operatorId: 'user-002',
+    operatorName: '李四',
+    operatorRole: '查勘员',
+    afterStatus: 'pending_review',
+    remark: '定损金额：24000元',
+    createdTime: oneDayAgo
+  },
+  {
+    logId: 'log-013',
+    taskId: 'task-004',
+    operationType: OperationType.CREATE_TASK,
+    operationDesc: '创建查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    afterStatus: 'pending_assign',
+    remark: '报案号：CL202401130004',
+    createdTime: '2024-01-13 10:45:00'
+  },
+  {
+    logId: 'log-014',
+    taskId: 'task-004',
+    operationType: OperationType.ASSIGN_TASK,
+    operationDesc: '分配查勘任务',
+    operatorId: 'user-001',
+    operatorName: '张三',
+    operatorRole: '理赔专员',
+    beforeStatus: 'pending_assign',
+    afterStatus: 'pending_process',
+    remark: '分配给查勘员王五',
+    createdTime: '2024-01-13 11:00:00'
+  },
+  {
+    logId: 'log-015',
+    taskId: 'task-004',
+    operationType: OperationType.ACCEPT_TASK,
+    operationDesc: '接单',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    beforeStatus: 'pending_process',
+    afterStatus: 'processing',
+    remark: '已接收任务',
+    createdTime: '2024-01-13 12:00:00'
+  },
+  {
+    logId: 'log-016',
+    taskId: 'task-004',
+    operationType: OperationType.START_SURVEY,
+    operationDesc: '开始查勘',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    beforeStatus: 'processing',
+    afterStatus: 'processing',
+    remark: '查勘地点：北京市西城区金融街',
+    createdTime: '2024-01-13 14:00:00'
+  },
+  {
+    logId: 'log-017',
+    taskId: 'task-004',
+    operationType: OperationType.COMPLETE_SURVEY,
+    operationDesc: '完成查勘',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    beforeStatus: 'processing',
+    afterStatus: 'pending_assessment',
+    remark: '查勘完成',
+    createdTime: '2024-01-13 15:30:00'
+  },
+  {
+    logId: 'log-018',
+    taskId: 'task-004',
+    assessmentId: 'assess-002',
+    operationType: OperationType.CREATE_ASSESSMENT,
+    operationDesc: '创建定损意见',
+    operatorId: 'user-003',
+    operatorName: '王五',
+    operatorRole: '查勘员',
+    afterStatus: 'pending_review',
+    remark: '定损金额：4800元',
+    createdTime: '2024-01-14 15:30:00'
+  },
+  {
+    logId: 'log-019',
+    taskId: 'task-004',
+    assessmentId: 'assess-002',
+    operationType: OperationType.APPROVE_ASSESSMENT,
+    operationDesc: '审核通过',
+    operatorId: 'user-004',
+    operatorName: '赵六',
+    operatorRole: '核赔主管',
+    beforeStatus: 'pending_review',
+    afterStatus: 'approved',
+    remark: '定损金额合理，同意核赔',
+    createdTime: '2024-01-14 16:00:00'
+  }
+];
