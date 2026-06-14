@@ -3,18 +3,34 @@ import { getDatabase, Handoff, Customer, DueDiligence } from '../database';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
+router.get('/', async (req: any, res) => {
   try {
     const db = await getDatabase();
-    const handoffs = await db.all(`
-      SELECT h.*, 
-             u1.display_name as from_user_name,
-             u2.display_name as to_user_name
-      FROM handoffs h
-      LEFT JOIN users u1 ON h.from_user = u1.id
-      LEFT JOIN users u2 ON h.to_user = u2.id
-      ORDER BY h.created_at DESC
-    `) as (Handoff & { from_user_name: string; to_user_name: string })[];
+    const user = req.user;
+    
+    let handoffs;
+    if (user.role === 'operation_manager') {
+      handoffs = await db.all(`
+        SELECT h.*, 
+               u1.display_name as from_user_name,
+               u2.display_name as to_user_name
+        FROM handoffs h
+        LEFT JOIN users u1 ON h.from_user = u1.id
+        LEFT JOIN users u2 ON h.to_user = u2.id
+        ORDER BY h.created_at DESC
+      `) as (Handoff & { from_user_name: string; to_user_name: string })[];
+    } else {
+      handoffs = await db.all(`
+        SELECT h.*, 
+               u1.display_name as from_user_name,
+               u2.display_name as to_user_name
+        FROM handoffs h
+        LEFT JOIN users u1 ON h.from_user = u1.id
+        LEFT JOIN users u2 ON h.to_user = u2.id
+        WHERE h.from_user = ? OR h.to_user = ?
+        ORDER BY h.created_at DESC
+      `, [user.id, user.id]) as (Handoff & { from_user_name: string; to_user_name: string })[];
+    }
 
     for (const handoff of handoffs) {
       const tasks = await db.all(
@@ -57,19 +73,34 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/pending', async (req, res) => {
+router.get('/pending', async (req: any, res) => {
   try {
     const db = await getDatabase();
+    const user = req.user;
 
-    const pendingCustomers = await db.all(
-      'SELECT * FROM customers WHERE status IN (?, ?)',
-      ['pending', 'processing']
-    ) as Customer[];
+    let pendingCustomers, pendingDueDiligences;
+    
+    if (user.role === 'operation_manager') {
+      pendingCustomers = await db.all(
+        'SELECT * FROM customers WHERE status IN (?, ?)',
+        ['pending', 'processing']
+      ) as Customer[];
 
-    const pendingDueDiligences = await db.all(
-      'SELECT * FROM due_diligences WHERE status IN (?, ?)',
-      ['pending', 'processing']
-    ) as DueDiligence[];
+      pendingDueDiligences = await db.all(
+        'SELECT * FROM due_diligences WHERE status IN (?, ?)',
+        ['pending', 'processing']
+      ) as DueDiligence[];
+    } else {
+      pendingCustomers = await db.all(
+        'SELECT * FROM customers WHERE status IN (?, ?) AND assigned_to = ?',
+        ['pending', 'processing', user.id]
+      ) as Customer[];
+
+      pendingDueDiligences = await db.all(
+        'SELECT * FROM due_diligences WHERE status IN (?, ?) AND assigned_to = ?',
+        ['pending', 'processing', user.id]
+      ) as DueDiligence[];
+    }
 
     const customerTasks = pendingCustomers.map((c: Customer) => ({
       task_type: 'customer',
@@ -95,39 +126,46 @@ router.get('/pending', async (req, res) => {
   }
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: any, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
+    const user = req.user;
+    
     const handoff = await db.get<Handoff>(
       'SELECT * FROM handoffs WHERE id = ?',
       [id]
     );
 
-    if (handoff) {
-      const tasks = await db.all(
-        'SELECT * FROM handoff_tasks WHERE handoff_id = ?',
-        [id]
-      );
-      res.json({ 
-        success: true, 
-        data: { 
-          ...handoff, 
-          tasks 
-        } 
-      });
-    } else {
-      res.status(404).json({ success: false, error: '交班记录不存在' });
+    if (!handoff) {
+      return res.status(404).json({ success: false, error: '交班记录不存在' });
     }
+
+    if (user.role !== 'operation_manager' && handoff.from_user !== user.id && handoff.to_user !== user.id) {
+      return res.status(403).json({ success: false, error: '无权访问此交班记录' });
+    }
+
+    const tasks = await db.all(
+      'SELECT * FROM handoff_tasks WHERE handoff_id = ?',
+      [id]
+    );
+    res.json({ 
+      success: true, 
+      data: { 
+        ...handoff, 
+        tasks 
+      } 
+    });
   } catch (error) {
     res.status(500).json({ success: false, error: '服务器错误' });
   }
 });
 
-router.put('/:id/confirm', async (req, res) => {
+router.put('/:id/confirm', async (req: any, res) => {
   try {
     const { id } = req.params;
     const db = await getDatabase();
+    const user = req.user;
 
     const handoff = await db.get(
       'SELECT * FROM handoffs WHERE id = ?',
@@ -136,6 +174,10 @@ router.put('/:id/confirm', async (req, res) => {
 
     if (!handoff) {
       return res.status(404).json({ success: false, error: '交班记录不存在' });
+    }
+
+    if (user.role !== 'operation_manager' && handoff.to_user !== user.id) {
+      return res.status(403).json({ success: false, error: '只有接班人可以确认接收交班' });
     }
 
     const tasks = await db.all(

@@ -3,18 +3,46 @@ import { getDatabase, Customer, addNotification } from '../database';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
+router.get('/', async (req: any, res) => {
   try {
     const db = await getDatabase();
-    const customers = await db.all<Customer>(`
-      SELECT c.*, 
-             u1.display_name as assigned_to_name,
-             u2.display_name as created_by_name
-      FROM customers c
-      LEFT JOIN users u1 ON c.assigned_to = u1.id
-      LEFT JOIN users u2 ON c.created_by = u2.id
-      ORDER BY c.created_at DESC
-    `);
+    const user = req.user;
+    
+    let customers;
+    if (user.role === 'lobby_manager') {
+      customers = await db.all<Customer>(`
+        SELECT c.*, 
+               u1.display_name as assigned_to_name,
+               u2.display_name as created_by_name
+        FROM customers c
+        LEFT JOIN users u1 ON c.assigned_to = u1.id
+        LEFT JOIN users u2 ON c.created_by = u2.id
+        WHERE c.created_by = ?
+        ORDER BY c.created_at DESC
+      `, [user.id]);
+    } else if (user.role === 'account_manager') {
+      customers = await db.all<Customer>(`
+        SELECT c.*, 
+               u1.display_name as assigned_to_name,
+               u2.display_name as created_by_name
+        FROM customers c
+        LEFT JOIN users u1 ON c.assigned_to = u1.id
+        LEFT JOIN users u2 ON c.created_by = u2.id
+        WHERE c.assigned_to = ?
+        ORDER BY c.created_at DESC
+      `, [user.id]);
+    } else {
+      customers = await db.all<Customer>(`
+        SELECT c.*, 
+               u1.display_name as assigned_to_name,
+               u2.display_name as created_by_name
+        FROM customers c
+        LEFT JOIN users u1 ON c.assigned_to = u1.id
+        LEFT JOIN users u2 ON c.created_by = u2.id
+        ORDER BY c.created_at DESC
+      `);
+    }
+    
     res.json({ success: true, data: customers });
   } catch (error) {
     res.status(500).json({ success: false, error: '服务器错误' });

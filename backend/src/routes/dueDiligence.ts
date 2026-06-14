@@ -3,18 +3,46 @@ import { getDatabase, DueDiligence, addNotification } from '../database';
 
 const router = Router();
 
-router.get('/', async (req, res) => {
+router.get('/', async (req: any, res) => {
   try {
     const db = await getDatabase();
-    const dueDiligences = await db.all<DueDiligence & { customer_name: string; assigned_to_name: string }>(`
-      SELECT d.*, 
-             c.name as customer_name,
-             u.display_name as assigned_to_name
-      FROM due_diligences d
-      LEFT JOIN customers c ON d.customer_id = c.id
-      LEFT JOIN users u ON d.assigned_to = u.id
-      ORDER BY d.created_at DESC
-    `);
+    const user = req.user;
+    
+    let dueDiligences;
+    if (user.role === 'lobby_manager') {
+      dueDiligences = await db.all<DueDiligence & { customer_name: string; assigned_to_name: string }>(`
+        SELECT d.*, 
+               c.name as customer_name,
+               u.display_name as assigned_to_name
+        FROM due_diligences d
+        LEFT JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN users u ON d.assigned_to = u.id
+        WHERE c.created_by = ?
+        ORDER BY d.created_at DESC
+      `, [user.id]);
+    } else if (user.role === 'account_manager') {
+      dueDiligences = await db.all<DueDiligence & { customer_name: string; assigned_to_name: string }>(`
+        SELECT d.*, 
+               c.name as customer_name,
+               u.display_name as assigned_to_name
+        FROM due_diligences d
+        LEFT JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN users u ON d.assigned_to = u.id
+        WHERE d.assigned_to = ?
+        ORDER BY d.created_at DESC
+      `, [user.id]);
+    } else {
+      dueDiligences = await db.all<DueDiligence & { customer_name: string; assigned_to_name: string }>(`
+        SELECT d.*, 
+               c.name as customer_name,
+               u.display_name as assigned_to_name
+        FROM due_diligences d
+        LEFT JOIN customers c ON d.customer_id = c.id
+        LEFT JOIN users u ON d.assigned_to = u.id
+        ORDER BY d.created_at DESC
+      `);
+    }
+    
     res.json({ success: true, data: dueDiligences });
   } catch (error) {
     res.status(500).json({ success: false, error: '服务器错误' });
