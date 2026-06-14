@@ -13,30 +13,24 @@ const navItems = computed(() => [
   { name: '总览仪表盘', path: '/dashboard', icon: '◉', badge: null },
   {
     name: '练车预约', path: '/appointments', icon: '◫',
-    badge: computed(() =>
-      store.appointments.filter(a =>
-        a.status === APPOINTMENT_STATUS.PENDING_REVIEW ||
-        a.status === APPOINTMENT_STATUS.INFO_INCOMPLETE
-      ).length || null
-    ).value
+    badge: store.appointments.filter(a =>
+      a.status === APPOINTMENT_STATUS.PENDING_REVIEW ||
+      a.status === APPOINTMENT_STATUS.INFO_INCOMPLETE
+    ).length || null
   },
   {
     name: '教练排班', path: '/schedules', icon: '▤',
-    badge: computed(() =>
-      store.schedules.filter(s =>
-        s.status === SCHEDULE_STATUS.UNASSIGNED ||
-        s.status === SCHEDULE_STATUS.REJECTED
-      ).length || null
-    ).value
+    badge: store.schedules.filter(s =>
+      s.status === SCHEDULE_STATUS.UNASSIGNED ||
+      s.status === SCHEDULE_STATUS.REJECTED
+    ).length || null
   },
   {
     name: '考试跟进', path: '/exams', icon: '✎',
-    badge: computed(() =>
-      store.examFollowUps.filter(e =>
-        e.status === EXAM_STATUS.PENDING_REVIEW ||
-        e.status === EXAM_STATUS.READY_TO_BOOK
-      ).length || null
-    ).value
+    badge: store.examFollowUps.filter(e =>
+      e.status === EXAM_STATUS.PENDING_REVIEW ||
+      e.status === EXAM_STATUS.READY_TO_BOOK
+    ).length || null
   }
 ])
 

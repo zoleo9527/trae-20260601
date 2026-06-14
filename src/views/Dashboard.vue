@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app.js'
 import {
   ROLES, ROLE_LABELS, APPOINTMENT_STATUS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS,
-  SCHEDULE_STATUS, SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS, STAFF
+  SCHEDULE_STATUS, SCHEDULE_STATUS_LABELS, SCHEDULE_STATUS_COLORS, EXAM_STATUS, STAFF
 } from '@/data/mock.js'
 import StatusTag from '@/components/StatusTag.vue'
 import dayjs from 'dayjs'
@@ -65,7 +65,7 @@ const whoIsHandling = computed(() => {
     const c = store.examFollowUps.filter(x => x.handler === e.id).length
     if (c > 0) items.push({ role: ROLES.EXAMINER, id: e.id, name: e.name, count: c, type: '考试跟进处理' })
   })
-  const unclaimedExam = store.examFollowUps.filter(e => !e.handler && e.status !== 'exam_passed' && e.status !== 'closed').length
+  const unclaimedExam = store.examFollowUps.filter(e => !e.handler && e.status !== EXAM_STATUS.EXAM_PASSED && e.status !== EXAM_STATUS.CLOSED).length
   if (unclaimedExam > 0) {
     items.push({ role: ROLES.EXAMINER, id: 'unclaimed', name: '未分配', count: unclaimedExam, type: '考试跟进待认领' })
   }

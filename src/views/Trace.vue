@@ -16,22 +16,31 @@ const appointment = computed(() => store.appointments.find(a => a.id === aptId.v
 const student = computed(() => appointment.value ? store.getStudentById(appointment.value.studentId) : null)
 const relatedSchedules = computed(() => {
   if (!appointment.value) return []
-  return store.getSchedulesByAppointment(appointment.value.id).map(s => ({
-    ...s,
-    coach: s.coachId ? store.getCoachById(s.coachId) : null,
-    assigner: s.assignedBy ? (store.staffMap[s.assignedBy]?.name || '') : '系统'
-  }))
+  return store.getSchedulesByAppointment(appointment.value.id)
+    .map(s => ({
+      ...s,
+      coach: s.coachId ? store.getCoachById(s.coachId) : null,
+      assigner: s.assignedBy ? (store.staffMap[s.assignedBy]?.name || '') : '系统'
+    }))
+    .sort((a, b) => {
+      const ta = a.completedAt || a.assignedAt || ''
+      const tb = b.completedAt || b.assignedAt || ''
+      return tb.localeCompare(ta)
+    })
 })
 
 const relatedExams = computed(() => {
   if (!appointment.value) return []
-  return store.getExamsByAppointment(appointment.value.id).map(e => ({
-    ...e,
-    coach: e.coachId ? store.getCoachById(e.coachId) : null
-  }))
+  return store.getExamsByAppointment(appointment.value.id)
+    .map(e => ({
+      ...e,
+      coach: e.coachId ? store.getCoachById(e.coachId) : null
+    }))
+    .sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
 })
 
-const latestExam = computed(() => [...relatedExams.value].reverse()[0] || null)
+const latestExam = computed(() => relatedExams.value[0] || null)
+const latestSch = computed(() => relatedSchedules.value[0] || null)
 
 const handlerInfo = computed(() => {
   const a = appointment.value
@@ -48,22 +57,21 @@ const handlerInfo = computed(() => {
     return { role: 'advisor', roleLabel: ROLE_LABELS.advisor, name: store.staffMap[a.handler]?.name || '招生顾问', id: a.handler, action: '分配教练并生成排班' }
   }
   if (a.status === APPOINTMENT_STATUS.SCHEDULED) {
-    const latestSch = [...relatedSchedules.value].reverse()[0]
-    if (latestSch) {
-      if (latestSch.status === SCHEDULE_STATUS.REJECTED) {
-        return { role: 'advisor', roleLabel: ROLE_LABELS.advisor, name: store.staffMap[latestSch.assignedBy]?.name || '招生顾问', action: '重新安排教练或日期' }
+    if (latestSch.value) {
+      if (latestSch.value.status === SCHEDULE_STATUS.REJECTED) {
+        return { role: 'advisor', roleLabel: ROLE_LABELS.advisor, name: store.staffMap[latestSch.value.assignedBy]?.name || '招生顾问', action: '重新安排教练或日期' }
       }
-      if (latestSch.status === SCHEDULE_STATUS.ASSIGNED && latestSch.coachId) {
-        return { role: 'coach', roleLabel: ROLE_LABELS.coach, name: latestSch.coach?.name || '教练', id: latestSch.coachId, action: '确认排班并安排学员' }
+      if (latestSch.value.status === SCHEDULE_STATUS.ASSIGNED && latestSch.value.coachId) {
+        return { role: 'coach', roleLabel: ROLE_LABELS.coach, name: latestSch.value.coach?.name || '教练', id: latestSch.value.coachId, action: '确认排班并安排学员' }
       }
-      if (latestSch.status === SCHEDULE_STATUS.UNASSIGNED) {
+      if (latestSch.value.status === SCHEDULE_STATUS.UNASSIGNED) {
         return { role: 'advisor', roleLabel: ROLE_LABELS.advisor, name: '招生顾问', action: '分配教练' }
       }
-      if (latestSch.status === SCHEDULE_STATUS.COACH_CONFIRMED) {
+      if (latestSch.value.status === SCHEDULE_STATUS.COACH_CONFIRMED) {
         return { role: 'student', roleLabel: '学员', name: student.value?.name, action: '确认是否可按时到场' }
       }
-      if (latestSch.status === SCHEDULE_STATUS.STUDENT_CONFIRMED) {
-        return { role: 'coach', roleLabel: ROLE_LABELS.coach, name: latestSch.coach?.name || '教练', id: latestSch.coachId, action: '执行练车教学并记录' }
+      if (latestSch.value.status === SCHEDULE_STATUS.STUDENT_CONFIRMED) {
+        return { role: 'coach', roleLabel: ROLE_LABELS.coach, name: latestSch.value.coach?.name || '教练', id: latestSch.value.coachId, action: '执行练车教学并记录' }
       }
     }
     return { role: 'advisor', roleLabel: ROLE_LABELS.advisor, name: '招生顾问', action: '处理排班相关事项' }
@@ -133,13 +141,12 @@ const blockedInfo = computed(() => {
     if (rej) return { level: 'danger', label: '教练已退回排班', detail: rej.rejectReason || '教练未说明原因' }
   }
   if (a.status === APPOINTMENT_STATUS.SCHEDULED) {
-    const latest = [...relatedSchedules.value].reverse()[0]
-    if (latest?.status === SCHEDULE_STATUS.REJECTED) return { level: 'danger', label: '排班被教练退回', detail: latest.rejectReason || '无原因' }
-    if (latest?.status === SCHEDULE_STATUS.ASSIGNED) {
-      const hours = dayjs().diff(dayjs(latest.assignedAt), 'hour')
+    if (latestSch.value?.status === SCHEDULE_STATUS.REJECTED) return { level: 'danger', label: '排班被教练退回', detail: latestSch.value.rejectReason || '无原因' }
+    if (latestSch.value?.status === SCHEDULE_STATUS.ASSIGNED) {
+      const hours = dayjs().diff(dayjs(latestSch.value.assignedAt), 'hour')
       if (hours > 12) return { level: 'warning', label: '教练未确认超过 ' + hours + ' 小时', detail: '请催促教练或调整' }
     }
-    if (latest?.status === SCHEDULE_STATUS.UNASSIGNED) return { level: 'warning', label: '尚未分配教练', detail: '请尽快安排' }
+    if (latestSch.value?.status === SCHEDULE_STATUS.UNASSIGNED) return { level: 'warning', label: '尚未分配教练', detail: '请尽快安排' }
   }
   if (a.status === APPOINTMENT_STATUS.COMPLETED) {
     const exam = latestExam.value
@@ -179,16 +186,12 @@ const reasonUncompleted = computed(() => {
     return reasons
   }
 
-  const latestSch = [...relatedSchedules.value].reverse()[0]
-  if (a.status === APPOINTMENT_STATUS.REVIEWED && relatedSchedules.value.length === 0) {
-    reasons.push({ type: 'advisor', text: '顾问审核完成，但未创建排班', level: 'warning' })
-  }
-  if (latestSch) {
-    if (latestSch.status === SCHEDULE_STATUS.UNASSIGNED) reasons.push({ type: 'advisor', text: '排班未分配教练', level: 'warning' })
-    if (latestSch.status === SCHEDULE_STATUS.REJECTED) reasons.push({ type: 'coach', text: '教练' + (latestSch.coach?.name || '') + '退回：' + (latestSch.rejectReason || '无原因'), level: 'danger' })
-    if (latestSch.status === SCHEDULE_STATUS.ASSIGNED) {
-      const hours = dayjs().diff(dayjs(latestSch.assignedAt), 'hour')
-      reasons.push({ type: 'coach', text: '教练' + (latestSch.coach?.name || '') + '待确认（已 ' + hours + ' 小时）', level: hours > 12 ? 'warning' : 'info' })
+  if (latestSch.value) {
+    if (latestSch.value.status === SCHEDULE_STATUS.UNASSIGNED) reasons.push({ type: 'advisor', text: '排班未分配教练', level: 'warning' })
+    if (latestSch.value.status === SCHEDULE_STATUS.REJECTED) reasons.push({ type: 'coach', text: '教练' + (latestSch.value.coach?.name || '') + '退回：' + (latestSch.value.rejectReason || '无原因'), level: 'danger' })
+    if (latestSch.value.status === SCHEDULE_STATUS.ASSIGNED) {
+      const hours = dayjs().diff(dayjs(latestSch.value.assignedAt), 'hour')
+      reasons.push({ type: 'coach', text: '教练' + (latestSch.value.coach?.name || '') + '待确认（已 ' + hours + ' 小时）', level: hours > 12 ? 'warning' : 'info' })
     }
   }
   return reasons
@@ -355,10 +358,10 @@ function back() { router.back() }
               {{ appointment.advisorNote || appointment.reviewNote }}
             </div>
           </div>
-          <div v-if="latestExam?.coachCompletionNote || ([...relatedSchedules].reverse()[0]?.coachNote)" class="mt-3 note-pass">
+          <div v-if="latestExam?.coachCompletionNote || latestSch?.coachNote" class="mt-3 note-pass">
             <div class="text-xs font-medium mb-1" style="color:#581c87;">💬 教练完成备注（自动透传给考试跟进）</div>
             <div class="text-sm p-2 rounded" style="background:#faf5ff;border:1px solid #e9d5ff;">
-              {{ latestExam?.coachCompletionNote || [...relatedSchedules].reverse()[0]?.coachNote }}
+              {{ latestExam?.coachCompletionNote || latestSch?.coachNote }}
             </div>
           </div>
         </section>
