@@ -151,13 +151,18 @@ export async function getDatabase(): Promise<Database> {
       customer_id INTEGER NOT NULL REFERENCES customers(id),
       source_customer_id INTEGER,
       inherited_notes TEXT,
-      processing_notes TEXT,
       status VARCHAR(20) DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'submitted', 'completed', 'rejected')),
       assigned_to INTEGER REFERENCES users(id),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  const dueDiligenceColumns = await db.all<{ name: string }>(`PRAGMA table_info(due_diligences)`);
+  const hasProcessingNotes = dueDiligenceColumns.some(col => col.name === 'processing_notes');
+  if (!hasProcessingNotes) {
+    await db.exec(`ALTER TABLE due_diligences ADD COLUMN processing_notes TEXT;`);
+  }
 
   await db.exec(`
     CREATE TABLE IF NOT EXISTS due_diligence_attachments (
