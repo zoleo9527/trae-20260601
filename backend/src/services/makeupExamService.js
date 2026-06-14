@@ -1,0 +1,434 @@
+const { getDB, tx, newId, assertFound, logOperation, createNotification } = require('../db');
+const { AppError } = require('../errors');
+const {
+  MAKEUP_STATUS_TRANSITIONS,
+  canTransition,
+  SUBJECT_NAMES,
+} = require('../statusConstraints');
+const { checkPermission, getUserById, getFeeTypeName } = require('./userService');
+const { createExamBooking, getMakeupFeeBySubject } = require('./examBookingService');
+
+function createMakeupExam(data, operatorId) {
+  const dbi = getDB();
+  const operator = checkPermission(operatorId, 'makeup_exams', 'create');
+
+  if (!data.student_id || !data.failed_booking_id || !data.subject) {
+    throw new AppError('VALIDATION_ERROR', {
+      required: ['student_id', 'failed_booking_id', 'subject'],
+    });
+  }
+
+  const existing = dbi.prepare(`
+    SELECT id FROM makeup_exams
+    WHERE student_id = ? AND subject = ? AND status NOT IN ('completed', 'cancelled')
+  `).get(data.student_id, data.subject);
+
+  if (existing) {
+    throw new AppError('VALIDATION_ERROR', {
+      message: '该科目已有进行中的补考记录',
+      existing_id: existing.id,
+    });
+  }
+
+  const id = newId();
+  const makeupFee = data.makeup_fee || getMakeupFeeBySubject(data.subject);
+
+  dbi.prepare(`
+    INSERT INTO makeup_exams
+    (id, student_id, failed_booking_id, subject, failed_date, fail_reason, makeup_fee, fee_paid, status, created_by)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 0, 'pending_payment', ?)
+  `).run(
+    id,
+    data.student_id,
+    data.failed_booking_id,
+    data.subject,
+    data.failed_date || new Date().toISOString().split('T')[0],
+    data.fail_reason || '考试未通过',
+    makeupFee,
+    operatorId
+  );
+
+  logOperation({
+    operatorId,
+    operatorName: operator.name,
+    operatorRole: operator.role,
+    action: 'create',
+    targetType: 'makeup_exam',
+    targetId: id,
+    detail: `创建补考记录: 科目${data.subject}，补考费 ¥${makeupFee}`,
+  });
+
+  return getMakeupExamDetail(id);
+}
+
+function listMakeupExams(params = {}) {
+  const dbi = getDB();
+  const { status, subject, student_id, offset = 0, limit = 20 } = params;
+
+  let sql = `
+    SELECT m.*, s.name as student_name, s.phone as student_phone,
+           eb.exam_score as original_score,
+           nb.status as new_booking_status,
+           es.exam_date as new_exam_date, es.exam_time as new_exam_time
+    FROM makeup_exams m
+    JOIN students s ON m.student_id = s.id
+    JOIN exam_bookings eb ON m.failed_booking_id = eb.id
+    LEFT JOIN exam_bookings nb ON m.new_booking_id = nb.id
+    LEFT JOIN exam_sessions es ON nb.exam_session_id = es.id
+    WHERE 1=1
+  `;
+  let countSql = 'SELECT COUNT(*) as total FROM makeup_exams WHERE 1=1';
+  const paramsArr = [];
+  const countParams = [];
+
+  if (status) {
+    sql += ' AND m.status = ?';
+    countSql += ' AND status = ?';
+    paramsArr.push(status);
+    countParams.push(status);
+  }
+  if (subject) {
+    sql += ' AND m.subject = ?';
+    countSql += ' AND subject = ?';
+    paramsArr.push(subject);
+    countParams.push(subject);
+  }
+  if (student_id) {
+    sql += ' AND m.student_id = ?';
+    countSql += ' AND student_id = ?';
+    paramsArr.push(student_id);
+    countParams.push(student_id);
+  }
+
+  sql += ' ORDER BY m.updated_at DESC LIMIT ? OFFSET ?';
+  paramsArr.push(limit, offset);
+
+  const { total } = dbi.prepare(countSql).get(...countParams);
+  const list = dbi.prepare(sql).all(...paramsArr);
+
+  return {
+    total,
+    list: list.map(m => enrichMakeup(m)),
+  };
+}
+
+function getMakeupExamDetail(id) {
+  const dbi = getDB();
+  const makeup = dbi.prepare(`
+    SELECT m.*, s.name as student_name, s.phone as student_phone, s.id_card,
+           eb.exam_score as original_score, es1.exam_date as original_exam_date,
+           eb.status as original_booking_status,
+           u.name as created_by_name,
+           nb.status as new_booking_status,
+           es2.exam_date as new_exam_date, es2.exam_time as new_exam_time, es2.exam_location as new_exam_location
+    FROM makeup_exams m
+    JOIN students s ON m.student_id = s.id
+    JOIN exam_bookings eb ON m.failed_booking_id = eb.id
+    LEFT JOIN exam_sessions es1 ON eb.exam_session_id = es1.id
+    JOIN users u ON m.created_by = u.id
+    LEFT JOIN exam_bookings nb ON m.new_booking_id = nb.id
+    LEFT JOIN exam_sessions es2 ON nb.exam_session_id = es2.id
+    WHERE m.id = ?
+  `).get(id);
+
+  assertFound(makeup, 'MAKEUP_NOT_FOUND');
+
+  const timeline = dbi.prepare(`
+    SELECT * FROM operation_logs
+    WHERE target_type = 'makeup_exam' AND target_id = ?
+    ORDER BY created_at ASC
+  `).all(id);
+
+  const feeRecord = dbi.prepare(`
+    SELECT * FROM fee_records WHERE related_id = ? AND type = 'makeup_fee'
+  `).get(id);
+
+  return {
+    ...enrichMakeup(makeup),
+    timeline,
+    feeRecord,
+  };
+}
+
+function getMakeupExamHistory(studentId, subject = null) {
+  const dbi = getDB();
+  let sql = `
+    SELECT m.*, s.name as student_name,
+           eb.exam_score as original_score, es1.exam_date as original_exam_date,
+           eb2.status as new_booking_status,
+           es2.exam_date as new_exam_date
+    FROM makeup_exams m
+    JOIN students s ON m.student_id = s.id
+    JOIN exam_bookings eb ON m.failed_booking_id = eb.id
+    LEFT JOIN exam_sessions es1 ON eb.exam_session_id = es1.id
+    LEFT JOIN exam_bookings eb2 ON m.new_booking_id = eb2.id
+    LEFT JOIN exam_sessions es2 ON eb2.exam_session_id = es2.id
+    WHERE m.student_id = ?
+  `;
+  const params = [studentId];
+  if (subject) {
+    sql += ' AND m.subject = ?';
+    params.push(subject);
+  }
+  sql += ' ORDER BY m.created_at DESC';
+
+  const list = dbi.prepare(sql).all(...params);
+  return list.map(m => enrichMakeup(m));
+}
+
+function recordMakeupPayment(id, data, operatorId) {
+  return tx(() => {
+    const dbi = getDB();
+    const operator = checkPermission(operatorId, 'makeup_exams', 'update_fee');
+    const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+
+    const { amount, payment_method } = data;
+    if (!amount) {
+      throw new AppError('VALIDATION_ERROR', { required: ['amount'] });
+    }
+
+    if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'pending_booking', operator.role)) {
+      throw new AppError('INVALID_STATUS_TRANSITION', {
+        from: makeup.status,
+        to: 'pending_booking',
+        role: operator.role,
+      });
+    }
+
+    const feeId = newId();
+    dbi.prepare(`
+      INSERT INTO fee_records
+      (id, student_id, type, amount, paid_amount, status, related_id, remark, created_by)
+      VALUES (?, ?, 'makeup_fee', ?, ?, 'paid', ?, ?, ?)
+    `).run(
+      feeId,
+      makeup.student_id,
+      makeup.makeup_fee,
+      amount,
+      id,
+      `补考费缴费，${payment_method ? '支付方式: ' + payment_method : ''}`,
+      operatorId
+    );
+
+    dbi.prepare(`
+      UPDATE makeup_exams SET
+        fee_paid = 1,
+        fee_paid_time = datetime('now'),
+        status = 'pending_booking',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+
+    logOperation({
+      operatorId,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'record_payment',
+      targetType: 'makeup_exam',
+      targetId: id,
+      fromStatus: makeup.status,
+      toStatus: 'pending_booking',
+      detail: `登记补考费缴费: ¥${amount}，${payment_method ? '支付方式: ' + payment_method : ''}`,
+    });
+
+    const examSpecialists = dbi.prepare(`
+      SELECT id, name FROM users WHERE role = 'exam_specialist'
+    `).all();
+    examSpecialists.forEach(es => {
+      createNotification({
+        userId: es.id,
+        userRole: 'exam_specialist',
+        title: '补考费已缴，待预约考试',
+        content: `科目${makeup.subject}补考费已缴清，请及时安排补考预约`,
+        type: 'makeup_exam',
+        priority: 'high',
+        relatedId: id,
+        relatedType: 'makeup_exam',
+      });
+    });
+
+    return getMakeupExamDetail(id);
+  });
+}
+
+function bookMakeupExam(id, data, operatorId) {
+  return tx(() => {
+    const dbi = getDB();
+    const operator = checkPermission(operatorId, 'makeup_exams', 'book');
+    const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+
+    if (makeup.fee_paid !== 1) {
+      throw new AppError('MAKEUP_FEE_UNPAID', {
+        makeup_id: id,
+        makeup_fee: makeup.makeup_fee,
+      });
+    }
+
+    if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'booked', operator.role)) {
+      throw new AppError('INVALID_STATUS_TRANSITION', {
+        from: makeup.status,
+        to: 'booked',
+        role: operator.role,
+      });
+    }
+
+    const newBooking = createExamBooking({
+      student_id: makeup.student_id,
+      subject: makeup.subject,
+      exam_session_id: data.exam_session_id,
+      is_makeup: 1,
+      original_booking_id: makeup.failed_booking_id,
+      status: 'approved',
+    }, operatorId);
+
+    dbi.prepare(`
+      UPDATE makeup_exams SET
+        new_booking_id = ?,
+        status = 'booked',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(newBooking.id, id);
+
+    logOperation({
+      operatorId,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'book_makeup',
+      targetType: 'makeup_exam',
+      targetId: id,
+      fromStatus: makeup.status,
+      toStatus: 'booked',
+      detail: `预约补考考试: 新预约ID ${newBooking.id}`,
+    });
+
+    return getMakeupExamDetail(id);
+  });
+}
+
+function completeMakeupExam(id, operatorId) {
+  const dbi = getDB();
+  const operator = checkPermission(operatorId, 'makeup_exams', 'update');
+  const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+
+  if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'completed', operator.role)) {
+    throw new AppError('INVALID_STATUS_TRANSITION', {
+      from: makeup.status,
+      to: 'completed',
+      role: operator.role,
+    });
+  }
+
+  dbi.prepare(`
+    UPDATE makeup_exams SET
+      status = 'completed',
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(id);
+
+  logOperation({
+    operatorId,
+    operatorName: operator.name,
+    operatorRole: operator.role,
+    action: 'complete',
+    targetType: 'makeup_exam',
+    targetId: id,
+    fromStatus: makeup.status,
+    toStatus: 'completed',
+    detail: `补考流程完成`,
+  });
+
+  return getMakeupExamDetail(id);
+}
+
+function cancelMakeupExam(id, data, operatorId) {
+  const dbi = getDB();
+  const operator = checkPermission(operatorId, 'makeup_exams', 'update');
+  const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+
+  if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'cancelled', operator.role)) {
+    throw new AppError('INVALID_STATUS_TRANSITION', {
+      from: makeup.status,
+      to: 'cancelled',
+      role: operator.role,
+    });
+  }
+
+  dbi.prepare(`
+    UPDATE makeup_exams SET
+      status = 'cancelled',
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(id);
+
+  logOperation({
+    operatorId,
+    operatorName: operator.name,
+    operatorRole: operator.role,
+    action: 'cancel',
+    targetType: 'makeup_exam',
+    targetId: id,
+    fromStatus: makeup.status,
+    toStatus: 'cancelled',
+    detail: `取消补考: ${data?.reason || '无原因'}`,
+  });
+
+  return getMakeupExamDetail(id);
+}
+
+function getMakeupReviewData(id) {
+  const dbi = getDB();
+  const makeup = getMakeupExamDetail(id);
+
+  const originalBooking = dbi.prepare(`
+    SELECT eb.*, es.exam_date, es.exam_time, es.exam_location
+    FROM exam_bookings eb
+    LEFT JOIN exam_sessions es ON eb.exam_session_id = es.id
+    WHERE eb.id = ?
+  `).get(makeup.failed_booking_id);
+
+  const allAttempts = dbi.prepare(`
+    SELECT eb.*, es.exam_date, es.exam_time, es.exam_location
+    FROM exam_bookings eb
+    LEFT JOIN exam_sessions es ON eb.exam_session_id = es.id
+    WHERE eb.student_id = ? AND eb.subject = ?
+    ORDER BY eb.created_at ASC
+  `).all(makeup.student_id, makeup.subject);
+
+  const studentInfo = dbi.prepare(`
+    SELECT s.*, u.name as coach_name
+    FROM students s
+    LEFT JOIN users u ON s.coach_id = u.id
+    WHERE s.id = ?
+  `).get(makeup.student_id);
+
+  return {
+    makeup,
+    originalBooking,
+    allAttempts,
+    studentInfo,
+    attemptCount: allAttempts.length,
+    subject_name: SUBJECT_NAMES[makeup.subject],
+  };
+}
+
+function enrichMakeup(m) {
+  return {
+    ...m,
+    subject_name: SUBJECT_NAMES[m.subject],
+    status_name: MAKEUP_STATUS_TRANSITIONS[m.status]?.description || m.status,
+    fee_paid: !!m.fee_paid,
+  };
+}
+
+module.exports = {
+  createMakeupExam,
+  listMakeupExams,
+  getMakeupExamDetail,
+  getMakeupExamHistory,
+  recordMakeupPayment,
+  bookMakeupExam,
+  completeMakeupExam,
+  cancelMakeupExam,
+  getMakeupReviewData,
+  enrichMakeup,
+};

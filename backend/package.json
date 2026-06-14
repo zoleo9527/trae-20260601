@@ -1,0 +1,18 @@
+{
+  "name": "driving-school-exam-system",
+  "version": "1.0.0",
+  "description": "驾校运营-考试预约与补考跟进系统",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "seed": "node scripts/seed.js",
+    "test:flow": "bash test_flow.sh",
+    "get-ids": "node scripts/getIds.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "uuid": "^10.0.0"
+  }
+}
