@@ -69,7 +69,7 @@ func (h *LoanHandler) GetLoanWithDetails(c *fiber.Ctx) error {
 		})
 	}
 
-	loan, docs, audits, collections, extensions, warnings, err := h.loanService.GetLoanWithDetails(uint(id))
+	detail, err := h.loanService.GetLoanWithDetails(uint(id))
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{
 			"error": "借款申请不存在",
@@ -77,14 +77,7 @@ func (h *LoanHandler) GetLoanWithDetails(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": fiber.Map{
-			"loan":              loan,
-			"documents":         docs,
-			"risk_audits":       audits,
-			"collection_records": collections,
-			"extension_records": extensions,
-			"warnings":          warnings,
-		},
+		"data": detail,
 	})
 }
 

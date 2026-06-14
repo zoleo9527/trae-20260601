@@ -73,10 +73,38 @@ func (s *LoanService) GetLoan(id uint) (*models.LoanApplication, error) {
 	return s.loanRepo.GetByID(id)
 }
 
-func (s *LoanService) GetLoanWithDetails(id uint) (*models.LoanApplication, []models.DocumentCollection, []models.RiskAudit, []models.CollectionRecord, []models.ExtensionRecord, []models.WarningRecord, error) {
+type LoanDetailResponse struct {
+	Loan              *models.LoanApplication     `json:"loan"`
+	Documents         []models.DocumentCollection `json:"documents"`
+	RiskAudits        []models.RiskAudit          `json:"risk_audits"`
+	CollectionRecords []models.CollectionRecord   `json:"collection_records"`
+	ExtensionRecords  []models.ExtensionRecord    `json:"extension_records"`
+	Warnings          []models.WarningRecord      `json:"warnings"`
+	StatusHistory     []models.StatusHistory      `json:"status_history"`
+	AuditLogSummary   []AuditLogSummaryItem       `json:"audit_log_summary"`
+	HandlerInfo       HandlerInfoResponse         `json:"handler_info"`
+}
+
+type AuditLogSummaryItem struct {
+	ID              uint   `json:"id"`
+	OperationType   string `json:"operation_type"`
+	OperatorID      string `json:"operator_id"`
+	OperatorRole    string `json:"operator_role"`
+	OperationDesc   string `json:"operation_desc"`
+	CreatedAt       string `json:"created_at"`
+}
+
+type HandlerInfoResponse struct {
+	CurrentHandler  string `json:"current_handler"`
+	HandlerRole     string `json:"handler_role"`
+	HandlerDisplay  string `json:"handler_display"`
+	HandlerDesc     string `json:"handler_desc"`
+}
+
+func (s *LoanService) GetLoanWithDetails(id uint) (*LoanDetailResponse, error) {
 	loan, err := s.loanRepo.GetByID(id)
 	if err != nil {
-		return nil, nil, nil, nil, nil, nil, err
+		return nil, err
 	}
 
 	docs, _ := s.docRepo.GetByLoanID(id)
@@ -84,8 +112,74 @@ func (s *LoanService) GetLoanWithDetails(id uint) (*models.LoanApplication, []mo
 	collections, _ := s.collectionRepo.GetByLoanID(id)
 	extensions, _ := s.extensionRepo.GetByLoanID(id)
 	warnings, _ := s.warningRepo.GetByLoanID(id)
+	statusHistory, _ := s.loanRepo.GetStatusHistoryByLoanID(id)
+	
+	auditLogs, _ := s.auditRepo.GetByLoanID(id)
+	var auditLogSummary []AuditLogSummaryItem
+	for _, log := range auditLogs {
+		auditLogSummary = append(auditLogSummary, AuditLogSummaryItem{
+			ID:            log.ID,
+			OperationType: log.OperationType,
+			OperatorID:    log.OperatorID,
+			OperatorRole:  string(log.OperatorRole),
+			OperationDesc: log.OperationDesc,
+			CreatedAt:     log.CreatedAt.Format("2006-01-02 15:04:05"),
+		})
+	}
 
-	return loan, docs, audits, collections, extensions, warnings, nil
+	handlerInfo := s.buildHandlerInfo(loan)
+
+	return &LoanDetailResponse{
+		Loan:              loan,
+		Documents:         docs,
+		RiskAudits:        audits,
+		CollectionRecords: collections,
+		ExtensionRecords:  extensions,
+		Warnings:          warnings,
+		StatusHistory:     statusHistory,
+		AuditLogSummary:   auditLogSummary,
+		HandlerInfo:       handlerInfo,
+	}, nil
+}
+
+func (s *LoanService) buildHandlerInfo(loan *models.LoanApplication) HandlerInfoResponse {
+	handlerInfo := HandlerInfoResponse{
+		CurrentHandler: loan.CurrentHandler,
+	}
+	
+	if loan.CurrentHandler == models.NodeRiskAuditing {
+		handlerInfo.HandlerRole = "risk_auditor"
+		handlerInfo.HandlerDisplay = "风控审核节点"
+		handlerInfo.HandlerDesc = "借款申请已转入风控审核节点，等待风控审核员处理"
+	} else if loan.CurrentHandler == "" {
+		if loan.Status == models.LoanStatusApproved {
+			handlerInfo.HandlerRole = ""
+			handlerInfo.HandlerDisplay = "审核通过"
+			handlerInfo.HandlerDesc = "借款申请已通过审核，等待放款"
+		} else if loan.Status == models.LoanStatusRejected {
+			handlerInfo.HandlerRole = ""
+			handlerInfo.HandlerDisplay = "审核拒绝"
+			handlerInfo.HandlerDesc = "借款申请已被拒绝"
+		} else if loan.Status == models.LoanStatusDisbursed {
+			handlerInfo.HandlerRole = ""
+			handlerInfo.HandlerDisplay = "已放款"
+			handlerInfo.HandlerDesc = "借款已放款，等待还款"
+		} else if loan.Status == models.LoanStatusSettled {
+			handlerInfo.HandlerRole = ""
+			handlerInfo.HandlerDisplay = "已结清"
+			handlerInfo.HandlerDesc = "借款已结清"
+		} else {
+			handlerInfo.HandlerRole = ""
+			handlerInfo.HandlerDisplay = "无责任人"
+			handlerInfo.HandlerDesc = "当前状态无具体责任人"
+		}
+	} else {
+		handlerInfo.HandlerRole = "customer_manager"
+		handlerInfo.HandlerDisplay = loan.CurrentHandler
+		handlerInfo.HandlerDesc = "客户经理: " + loan.CurrentHandler
+	}
+	
+	return handlerInfo
 }
 
 type ListLoansRequest struct {

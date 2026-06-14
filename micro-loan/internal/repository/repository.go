@@ -83,6 +83,12 @@ func (r *LoanRepository) CreateStatusHistory(history *models.StatusHistory) erro
 	return r.db.Create(history).Error
 }
 
+func (r *LoanRepository) GetStatusHistoryByLoanID(loanID uint) ([]models.StatusHistory, error) {
+	var histories []models.StatusHistory
+	err := r.db.Where("loan_application_id = ?", loanID).Order("changed_at ASC").Find(&histories).Error
+	return histories, err
+}
+
 type DocumentRepository struct {
 	db *gorm.DB
 }
