@@ -77,27 +77,28 @@ router.post('/', async (req: Request, res: Response) => {
     
     const data: CreateRecordRequest = req.body;
     
+    const recordId = uuidv4();
+    const practicePlanId = uuidv4();
+    
     const practicePlan = {
       ...data.practicePlan,
-      id: uuidv4(),
-      recordId: '',
+      id: practicePlanId,
+      recordId: recordId,
       progress: 0
     };
     
     const record: Omit<ExamTrackRecord, 'createdAt' | 'updatedAt'> = {
-      id: uuidv4(),
+      id: recordId,
       studentId: data.studentId,
       studentName: data.studentName,
       instrument: data.instrument,
       examLevel: data.examLevel,
       trackName: data.trackName,
       trackType: data.trackType,
-      practicePlan: { ...practicePlan, recordId: record.id },
+      practicePlan: practicePlan,
       status: ExamTrackStatus.DRAFT,
       createdBy: userId
     };
-    
-    record.practicePlan = { ...practicePlan, recordId: record.id };
     
     const createdRecord = await dbService.createRecord(record);
     

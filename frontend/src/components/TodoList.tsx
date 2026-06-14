@@ -18,7 +18,9 @@ export const TodoList = ({ records, currentRole, onRefresh }: TodoListProps) => 
       return records.filter(r => 
         r.status === ExamTrackStatus.DRAFT ||
         r.status === ExamTrackStatus.REJECTED ||
-        r.status === ExamTrackStatus.IN_PRACTICE
+        r.status === ExamTrackStatus.IN_PRACTICE ||
+        r.status === ExamTrackStatus.APPROVED ||
+        r.status === ExamTrackStatus.SUPPLEMENTED
       );
     }
     if (currentRole === UserRole.ADMIN) {

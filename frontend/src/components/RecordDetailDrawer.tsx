@@ -17,6 +17,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
   const [rejectReason, setRejectReason] = useState('');
   const [showSupplementModal, setShowSupplementModal] = useState(false);
   const [supplementNotes, setSupplementNotes] = useState('');
+  const [supplementPlan, setSupplementPlan] = useState<PracticePlan>(record.practicePlan);
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressValue, setProgressValue] = useState(record.practicePlan.progress);
 
@@ -73,10 +74,12 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
   };
 
   const handleSupplement = async () => {
-    if (!supplementNotes.trim()) return;
     try {
       setLoading(true);
-      await api.examTracks.supplement(record.id, { supplementNotes });
+      await api.examTracks.supplement(record.id, { 
+        supplementNotes,
+        practicePlan: supplementPlan 
+      });
       setShowSupplementModal(false);
       setSupplementNotes('');
       onClose();
@@ -152,6 +155,10 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
       if (record.status === ExamTrackStatus.IN_PRACTICE) {
         actions.push({ label: '更新进度', action: () => setShowProgressModal(true), icon: Edit3 });
         actions.push({ label: '标记完成', action: handleComplete, icon: CheckCircle });
+      }
+      if (record.status === ExamTrackStatus.SUPPLEMENTED) {
+        actions.push({ label: '重新提交审核', action: handleSubmit, icon: CheckCircle });
+        actions.push({ label: '开始练习', action: handleStartPractice, icon: Play });
       }
     }
     
@@ -373,15 +380,81 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
 
       {showSupplementModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">补充修改</h3>
-            <textarea
-              value={supplementNotes}
-              onChange={(e) => setSupplementNotes(e.target.value)}
-              placeholder="请输入补充备注..."
-              className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex gap-3 mt-4">
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">补充备注</label>
+                <textarea
+                  value={supplementNotes}
+                  onChange={(e) => setSupplementNotes(e.target.value)}
+                  placeholder="请输入补充备注..."
+                  className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-3">更新练习计划</label>
+                
+                <div className="grid grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">计划周期（周）</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="52"
+                      value={supplementPlan.durationWeeks}
+                      onChange={(e) => setSupplementPlan({ ...supplementPlan, durationWeeks: Number(e.target.value) })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+                    <input
+                      type="date"
+                      value={supplementPlan.startDate.split('T')[0]}
+                      onChange={(e) => setSupplementPlan({ ...supplementPlan, startDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">本周重点</label>
+                    <input
+                      type="text"
+                      value={supplementPlan.weeklyFocus}
+                      onChange={(e) => setSupplementPlan({ ...supplementPlan, weeklyFocus: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-gray-500 mb-2">每日练习目标（分钟）</label>
+                  <div className="grid grid-cols-7 gap-2">
+                    {supplementPlan.dailyGoals.map((goal, index) => (
+                      <div key={goal.dayOfWeek} className="bg-gray-50 rounded-lg p-2 text-center">
+                        <div className="text-xs text-gray-500 mb-1">周{['日', '一', '二', '三', '四', '五', '六'][index]}</div>
+                        <input
+                          type="number"
+                          min="10"
+                          max="180"
+                          value={goal.durationMinutes}
+                          onChange={(e) => {
+                            const newGoals = [...supplementPlan.dailyGoals];
+                            newGoals[index] = { ...goal, durationMinutes: Number(e.target.value) };
+                            setSupplementPlan({ ...supplementPlan, dailyGoals: newGoals });
+                          }}
+                          className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={() => setShowSupplementModal(false)}
                 className="flex-1 px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
@@ -390,7 +463,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
               </button>
               <button
                 onClick={handleSupplement}
-                disabled={!supplementNotes.trim() || loading}
+                disabled={loading}
                 className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 disabled:opacity-50"
               >
                 确认补充
