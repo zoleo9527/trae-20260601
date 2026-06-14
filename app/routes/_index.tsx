@@ -4,7 +4,7 @@ import { json } from '@remix-run/node';
 import { useLoaderData, useRevalidator } from '@remix-run/react';
 import VehicleCard from '~/components/VehicleCard';
 import { getStatusLabel } from '~/utils/formatters';
-import { filterVehicles, getUsersByRole } from '~/utils/db.server';
+import { filterVehicles, getUsersByRole, getVehiclesWithDetails } from '~/utils/db.server';
 
 export const meta: MetaFunction = () => {
   return [
@@ -19,24 +19,39 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const status = url.searchParams.get('status') || undefined;
   const role = url.searchParams.get('role') || undefined;
   const managerId = url.searchParams.get('managerId') || undefined;
+  const assessorId = url.searchParams.get('assessorId') || undefined;
+  const financeId = url.searchParams.get('financeId') || undefined;
 
-  const vehicles = await filterVehicles({
+  const vehicles = await getVehiclesWithDetails({
     search,
     status,
     currentAssigneeRole: role,
-    managerId
+    managerId,
+    assessorId,
+    financeId
   });
 
   const managers = await getUsersByRole('manager');
   const assessors = await getUsersByRole('assessor');
   const finance = await getUsersByRole('finance');
 
+  const stats = {
+    total: vehicles.length,
+    pending: vehicles.filter(v => v.status === 'pending').length,
+    preparing: vehicles.filter(v => v.status === 'preparing').length,
+    completed: vehicles.filter(v => v.status === 'completed').length,
+    totalCost: vehicles.reduce((sum, v) => sum + (v.totalCost || 0), 0),
+    totalTaskCount: vehicles.reduce((sum, v) => sum + (v.taskCount || 0), 0),
+    totalCompletedTasks: vehicles.reduce((sum, v) => sum + (v.completedTasks || 0), 0)
+  };
+
   return json({
     vehicles,
     managers,
     assessors,
     finance,
-    filters: { search, status, role, managerId }
+    filters: { search, status, role, managerId, assessorId, financeId },
+    stats
   });
 }
 
@@ -57,13 +72,15 @@ const roleOptions = [
 ];
 
 export default function Index() {
-  const { vehicles, managers, assessors, finance, filters } = useLoaderData<typeof loader>();
+  const { vehicles, managers, assessors, finance, filters, stats } = useLoaderData<typeof loader>();
   const revalidator = useRevalidator();
 
   const [searchTerm, setSearchTerm] = useState(filters.search || '');
   const [statusFilter, setStatusFilter] = useState(filters.status || '');
   const [roleFilter, setRoleFilter] = useState(filters.role || '');
   const [managerFilter, setManagerFilter] = useState(filters.managerId || '');
+  const [assessorFilter, setAssessorFilter] = useState(filters.assessorId || '');
+  const [financeFilter, setFinanceFilter] = useState(filters.financeId || '');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   useEffect(() => {
@@ -72,6 +89,8 @@ export default function Index() {
     if (statusFilter) params.set('status', statusFilter);
     if (roleFilter) params.set('role', roleFilter);
     if (managerFilter) params.set('managerId', managerFilter);
+    if (assessorFilter) params.set('assessorId', assessorFilter);
+    if (financeFilter) params.set('financeId', financeFilter);
 
     const currentUrl = new URL(window.location.href);
     const newSearch = params.toString();
@@ -80,17 +99,20 @@ export default function Index() {
       window.history.replaceState(null, '', `/?${newSearch}`);
       revalidator.revalidate();
     }
-  }, [searchTerm, statusFilter, roleFilter, managerFilter, revalidator]);
-
-  const stats = {
-    total: vehicles.length,
-    pending: vehicles.filter(v => v.status === 'pending').length,
-    preparing: vehicles.filter(v => v.status === 'preparing').length,
-    completed: vehicles.filter(v => v.status === 'completed').length,
-  };
+  }, [searchTerm, statusFilter, roleFilter, managerFilter, assessorFilter, financeFilter, revalidator]);
 
   const getManagerName = (id: string) => {
     return managers.find(m => m.id === id)?.name || '未知';
+  };
+
+  const getAssessorName = (id: string | null) => {
+    if (!id) return '未分配';
+    return assessors.find(a => a.id === id)?.name || '未知';
+  };
+
+  const getFinanceName = (id: string | null) => {
+    if (!id) return '未分配';
+    return finance.find(f => f.id === id)?.name || '未知';
   };
 
   return (
@@ -150,6 +172,8 @@ export default function Index() {
               onChange={(e) => {
                 setRoleFilter(e.target.value);
                 setManagerFilter('');
+                setAssessorFilter('');
+                setFinanceFilter('');
               }}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
             >
@@ -192,6 +216,8 @@ export default function Index() {
                     评估师
                   </label>
                   <select
+                    value={assessorFilter}
+                    onChange={(e) => setAssessorFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
                   >
                     <option value="">全部</option>
@@ -207,6 +233,8 @@ export default function Index() {
                     金融专员
                   </label>
                   <select
+                    value={financeFilter}
+                    onChange={(e) => setFinanceFilter(e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none bg-white"
                   >
                     <option value="">全部</option>
@@ -218,22 +246,55 @@ export default function Index() {
                   </select>
                 </div>
               </div>
-              {(managerFilter || roleFilter) && (
-                <div className="mt-3 flex items-center space-x-2">
+              <div className="grid grid-cols-2 gap-4 mt-4 pt-4 border-t border-gray-200">
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    任务统计:
+                  </div>
+                  <div className="text-sm">
+                    <span className="font-medium">{stats.totalCompletedTasks}</span>
+                    <span className="text-gray-500"> / </span>
+                    <span className="font-medium">{stats.totalTaskCount}</span>
+                    <span className="text-gray-500 ml-1">已完成任务</span>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    成本统计:
+                  </div>
+                  <div className="text-sm font-medium text-blue-600">
+                    ¥{stats.totalCost.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+              {(managerFilter || assessorFilter || financeFilter || roleFilter) && (
+                <div className="mt-3 flex items-center space-x-2 flex-wrap">
                   <span className="text-sm text-gray-600">当前筛选:</span>
                   {managerFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                       经理: {getManagerName(managerFilter)}
                     </span>
                   )}
-                  {roleFilter && (
+                  {assessorFilter && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      评估师: {getAssessorName(assessorFilter)}
+                    </span>
+                  )}
+                  {financeFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      金融: {getFinanceName(financeFilter)}
+                    </span>
+                  )}
+                  {roleFilter && (
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
                       角色: {getStatusLabel(roleFilter)}
                     </span>
                   )}
                   <button
                     onClick={() => {
                       setManagerFilter('');
+                      setAssessorFilter('');
+                      setFinanceFilter('');
                       setRoleFilter('');
                     }}
                     className="text-xs text-red-600 hover:text-red-800"

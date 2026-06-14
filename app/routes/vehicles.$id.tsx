@@ -6,7 +6,25 @@ import Timeline from '~/components/Timeline';
 import InspectionReport from '~/components/InspectionReport';
 import PreparationTasks from '~/components/PreparationTasks';
 import FinanceRecords from '~/components/FinanceRecords';
-import { getVehicleById, getReportByVehicleId, getTasksByVehicleId, getEventsByVehicleId, getFinanceRecordsByVehicleId, getUserById, getCostBudgetByVehicleId, getTasksCostSummary, getOperationRecordsByVehicleId, getNextAvailableTransitions, updateVehicleStatus, createPreparationTask, updatePreparationTaskStatus, updatePreparationTaskCost, createFinanceRecord, updateFinanceRecordStatus } from '~/utils/db.server';
+import { 
+  getVehicleById, 
+  getReportByVehicleId, 
+  getTasksByVehicleId, 
+  getEventsByVehicleId, 
+  getFinanceRecordsByVehicleId, 
+  getUserById, 
+  getCostBudgetByVehicleId, 
+  getTasksCostSummary, 
+  getOperationRecordsByVehicleId, 
+  getNextAvailableTransitions, 
+  updateVehicleStatus, 
+  createPreparationTask, 
+  updatePreparationTaskStatus, 
+  updatePreparationTaskCost, 
+  createFinanceRecord, 
+  updateFinanceRecordStatus,
+  getNextAssigneeForStatus
+} from '~/utils/db.server';
 import { formatDate, formatMoney, getStatusLabel, getStatusColor, getRoleLabel, getCostStatus, getTaskStatusProgress } from '~/utils/formatters';
 
 export const meta: MetaFunction = ({ params }) => {
@@ -76,7 +94,22 @@ export async function action({ params, request }: ActionFunctionArgs) {
         const actorName = formData.get('actorName') as string;
         const note = formData.get('note') as string;
         
-        const updatedVehicle = await updateVehicleStatus(id, newStatus, actorId, actorName, note);
+        const vehicle = await getVehicleById(id);
+        if (!vehicle) {
+          return json({ error: 'Vehicle not found' }, { status: 404 });
+        }
+
+        const nextAssignee = getNextAssigneeForStatus(newStatus, vehicle);
+        
+        const updatedVehicle = await updateVehicleStatus(
+          id, 
+          newStatus, 
+          actorId, 
+          actorName, 
+          note,
+          nextAssignee?.nextAssigneeId,
+          nextAssignee?.nextAssigneeRole
+        );
         return json({ success: true, vehicle: updatedVehicle });
 
       case 'createTask':
@@ -163,7 +196,6 @@ export default function VehicleDetail() {
 
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [showStatusChangeModal, setShowStatusChangeModal] = useState(false);
-  const [showCreateTaskModal, setShowCreateTaskModal] = useState(false);
 
   const {
     vehicle,
@@ -220,6 +252,19 @@ export default function VehicleDetail() {
       { method: 'post' }
     );
     setShowStatusChangeModal(false);
+  };
+
+  const getNextAssigneeLabel = (status: string) => {
+    const nextAssignee = getNextAssigneeForStatus(status, vehicle);
+    if (!nextAssignee) return null;
+    
+    const assigneeNames: Record<string, string> = {
+      manager: manager?.name || '经理',
+      assessor: assessor?.name || '评估师',
+      finance: financeStaff?.name || '金融专员'
+    };
+    
+    return assigneeNames[nextAssignee.nextAssigneeRole] || nextAssignee.nextAssigneeRole;
   };
 
   return (
@@ -361,15 +406,24 @@ export default function VehicleDetail() {
       {availableTransitions && availableTransitions.length > 0 && (
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">⚡ 可执行操作</h3>
-          <div className="flex items-center space-x-3">
+          <div className="space-y-2">
             {availableTransitions.map((transition: any) => (
-              <button
-                key={transition.id}
-                onClick={() => setShowStatusChangeModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {transition.description}
-              </button>
+              <div key={transition.id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex-1">
+                  <div className="font-medium text-gray-900">{transition.description}</div>
+                  {transition.toStatus && getNextAssigneeLabel(transition.toStatus) && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      下一负责人: {getNextAssigneeLabel(transition.toStatus)}
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={() => setShowStatusChangeModal(true)}
+                  className="ml-4 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  执行
+                </button>
+              </div>
             ))}
           </div>
         </div>
@@ -482,20 +536,27 @@ export default function VehicleDetail() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">状态变更</h3>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {availableTransitions.map((transition: any) => (
-                <button
-                  key={transition.id}
-                  onClick={() => {
-                    const note = prompt('请输入备注信息:');
-                    if (note) {
-                      handleStatusChange(transition.toStatus, note);
-                    }
-                  }}
-                  className="w-full px-4 py-3 bg-blue-50 text-blue-900 text-sm font-medium rounded-lg hover:bg-blue-100 transition-colors"
-                >
-                  {transition.description}
-                </button>
+                <div key={transition.id} className="border border-gray-200 rounded-lg p-3">
+                  <div className="font-medium text-gray-900 mb-2">{transition.description}</div>
+                  {transition.toStatus && getNextAssigneeLabel(transition.toStatus) && (
+                    <div className="text-xs text-gray-500 mb-2">
+                      下一负责人: {getNextAssigneeLabel(transition.toStatus)}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => {
+                      const note = prompt('请输入备注信息:');
+                      if (note !== null) {
+                        handleStatusChange(transition.toStatus, note);
+                      }
+                    }}
+                    className="w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    确认变更
+                  </button>
+                </div>
               ))}
               <button
                 onClick={() => setShowStatusChangeModal(false)}

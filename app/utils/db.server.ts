@@ -1,17 +1,16 @@
 import prisma from '~/db.server';
-import type { Vehicle, InspectionReport, PreparationTask, TimelineEvent, FinanceRecord, User, StatusTransitionConfig, AccidentAnnotation, CostBudget, DocumentReminder, OperationRecord } from '~/types';
 
-export const getVehicleById = async (id: string): Promise<Vehicle | null> => {
+export const getVehicleById = async (id: string) => {
   const vehicle = await prisma.vehicle.findUnique({
     where: { id },
     include: {
       statusHistory: { orderBy: { changedAt: 'asc' } }
     }
   });
-  return vehicle as Vehicle | null;
+  return vehicle;
 };
 
-export const getReportByVehicleId = async (vehicleId: string): Promise<InspectionReport | null> => {
+export const getReportByVehicleId = async (vehicleId: string) => {
   const report = await prisma.inspectionReport.findFirst({
     where: { vehicleId },
     include: {
@@ -22,51 +21,55 @@ export const getReportByVehicleId = async (vehicleId: string): Promise<Inspectio
       }
     }
   });
-  return report as InspectionReport | null;
+  return report;
 };
 
-export const getTasksByVehicleId = async (vehicleId: string): Promise<PreparationTask[]> => {
+export const getTasksByVehicleId = async (vehicleId: string) => {
   const tasks = await prisma.preparationTask.findMany({
     where: { vehicleId },
     include: {
       costHistory: { orderBy: { changedAt: 'asc' } }
     }
   });
-  return tasks as PreparationTask[];
+  return tasks;
 };
 
-export const getEventsByVehicleId = async (vehicleId: string): Promise<TimelineEvent[]> => {
+export const getEventsByVehicleId = async (vehicleId: string) => {
   const events = await prisma.timelineEvent.findMany({
     where: { vehicleId },
     orderBy: { createdAt: 'desc' }
   });
-  return events as TimelineEvent[];
+  return events;
 };
 
-export const getFinanceRecordsByVehicleId = async (vehicleId: string): Promise<FinanceRecord[]> => {
+export const getFinanceRecordsByVehicleId = async (vehicleId: string) => {
   const records = await prisma.financeRecord.findMany({
     where: { vehicleId },
     orderBy: { updatedAt: 'desc' }
   });
-  return records as FinanceRecord[];
+  return records;
 };
 
-export const getUserById = async (id: string): Promise<User | null> => {
-  return await prisma.user.findUnique({ where: { id }) as Promise<User | null>;
+export const getUserById = async (id: string) => {
+  return await prisma.user.findUnique({ where: { id } });
 };
 
-export const getUsersByRole = async (role: string): Promise<User[]> => {
-  return await prisma.user.findMany({ where: { role }) as Promise<User[]>;
+export const getUsersByRole = async (role: string) => {
+  return await prisma.user.findMany({ where: { role } });
 };
 
-export const getAllVehicles = async (): Promise<Vehicle[]> => {
+export const getAllUsers = async () => {
+  return await prisma.user.findMany();
+};
+
+export const getAllVehicles = async () => {
   const vehicles = await prisma.vehicle.findMany({
     include: {
       statusHistory: { orderBy: { changedAt: 'asc' } }
     },
     orderBy: { updatedAt: 'desc' }
   });
-  return vehicles as Vehicle[];
+  return vehicles;
 };
 
 export const filterVehicles = async (filters: {
@@ -77,7 +80,7 @@ export const filterVehicles = async (filters: {
   search?: string;
   currentAssigneeId?: string;
   currentAssigneeRole?: string;
-}): Promise<Vehicle[]> => {
+}) => {
   const vehicles = await prisma.vehicle.findMany({
     where: {
       AND: [
@@ -101,7 +104,7 @@ export const filterVehicles = async (filters: {
     },
     orderBy: { updatedAt: 'desc' }
   });
-  return vehicles as Vehicle[];
+  return vehicles;
 };
 
 export const getTotalCostByVehicleId = async (vehicleId: string): Promise<number> => {
@@ -118,61 +121,61 @@ export const getTotalTaskCount = async (vehicleId: string): Promise<number> => {
   return await prisma.preparationTask.count({ where: { vehicleId } });
 };
 
-export const getStatusTransitionConfigs = async (): Promise<StatusTransitionConfig[]> => {
-  return await prisma.statusTransitionConfig.findMany() as Promise<StatusTransitionConfig[]>;
+export const getStatusTransitionConfigs = async () => {
+  return await prisma.statusTransitionConfig.findMany();
 };
 
-export const getNextAvailableTransitions = async (currentStatus: string): Promise<StatusTransitionConfig[]> => {
+export const getNextAvailableTransitions = async (currentStatus: string) => {
   return await prisma.statusTransitionConfig.findMany({
     where: { fromStatus: currentStatus }
-  }) as Promise<StatusTransitionConfig[]>;
+  });
 };
 
-export const getAccidentAnnotationsByReportId = async (reportId: string): Promise<AccidentAnnotation[]> => {
+export const getAccidentAnnotationsByReportId = async (reportId: string) => {
   return await prisma.accidentAnnotation.findMany({
     where: { reportId }
-  }) as Promise<AccidentAnnotation[]>;
+  });
 };
 
-export const getAccidentAnnotationsByVehicleId = async (vehicleId: string): Promise<AccidentAnnotation[]> => {
+export const getAccidentAnnotationsByVehicleId = async (vehicleId: string) => {
   const report = await getReportByVehicleId(vehicleId);
   if (!report) return [];
   return getAccidentAnnotationsByReportId(report.id);
 };
 
-export const getCostBudgetByVehicleId = async (vehicleId: string): Promise<CostBudget | null> => {
+export const getCostBudgetByVehicleId = async (vehicleId: string) => {
   return await prisma.costBudget.findUnique({
     where: { vehicleId }
-  }) as Promise<CostBudget | null>;
+  });
 };
 
-export const getDocumentRemindersByVehicleId = async (vehicleId: string): Promise<DocumentReminder[]> => {
+export const getDocumentRemindersByVehicleId = async (vehicleId: string) => {
   return await prisma.documentReminder.findMany({
     where: { vehicleId }
-  }) as Promise<DocumentReminder[]>;
+  });
 };
 
-export const getPendingDocumentReminders = async (): Promise<DocumentReminder[]> => {
+export const getPendingDocumentReminders = async () => {
   return await prisma.documentReminder.findMany({
     where: { status: 'pending' }
-  }) as Promise<DocumentReminder[]>;
+  });
 };
 
-export const getOverdueDocumentReminders = async (): Promise<DocumentReminder[]> => {
+export const getOverdueDocumentReminders = async () => {
   const now = new Date();
   return await prisma.documentReminder.findMany({
     where: {
       status: 'pending',
       dueDate: { lt: now }
     }
-  }) as Promise<DocumentReminder[]>;
+  });
 };
 
-export const getOperationRecordsByVehicleId = async (vehicleId: string): Promise<OperationRecord[]> => {
+export const getOperationRecordsByVehicleId = async (vehicleId: string) => {
   return await prisma.operationRecord.findMany({
     where: { vehicleId },
     orderBy: { createdAt: 'desc' }
-  }) as Promise<OperationRecord[]>;
+  });
 };
 
 export const getVehicleStatusHistory = async (vehicleId: string) => {
@@ -190,7 +193,7 @@ export const getTasksCostSummary = async (vehicleId: string) => {
   };
 };
 
-export const getFinanceRecordsWithOverdueStatus = async (): Promise<FinanceRecord[]> => {
+export const getFinanceRecordsWithOverdueStatus = async () => {
   const now = new Date();
   const records = await prisma.financeRecord.findMany();
   return records.map(fr => {
@@ -198,27 +201,27 @@ export const getFinanceRecordsWithOverdueStatus = async (): Promise<FinanceRecor
       return { ...fr, status: 'overdue' as const };
     }
     return fr;
-  }) as FinanceRecord[];
+  });
 };
 
-export const getVehiclesByCurrentAssignee = async (userId: string): Promise<Vehicle[]> => {
+export const getVehiclesByCurrentAssignee = async (userId: string) => {
   const vehicles = await prisma.vehicle.findMany({
     where: { currentAssigneeId: userId },
     include: {
       statusHistory: { orderBy: { changedAt: 'asc' } }
     }
   });
-  return vehicles as Vehicle[];
+  return vehicles;
 };
 
-export const getVehiclesByRole = async (role: string): Promise<Vehicle[]> => {
+export const getVehiclesByRole = async (role: string) => {
   const vehicles = await prisma.vehicle.findMany({
     where: { currentAssigneeRole: role },
     include: {
       statusHistory: { orderBy: { changedAt: 'asc' } }
     }
   });
-  return vehicles as Vehicle[];
+  return vehicles;
 };
 
 export const createOperationRecord = async (data: {
@@ -232,13 +235,13 @@ export const createOperationRecord = async (data: {
   actorRole: string;
   note: string;
   metadata?: Record<string, unknown>;
-}): Promise<OperationRecord> => {
+}) => {
   return await prisma.operationRecord.create({
     data: {
       ...data,
-      metadata: data.metadata ? JSON.parse(JSON.stringify(data.metadata)) : null
+      metadata: data.metadata ? JSON.parse(JSON.stringify(data.metadata)) : undefined
     }
-  }) as Promise<OperationRecord>;
+  });
 };
 
 export const createTimelineEvent = async (data: {
@@ -249,13 +252,13 @@ export const createTimelineEvent = async (data: {
   actorId: string;
   actorName: string;
   metadata?: Record<string, unknown>;
-}): Promise<TimelineEvent> => {
+}) => {
   return await prisma.timelineEvent.create({
     data: {
       ...data,
-      metadata: data.metadata ? JSON.parse(JSON.stringify(data.metadata)) : null
+      metadata: data.metadata ? JSON.parse(JSON.stringify(data.metadata)) : undefined
     }
-  }) as Promise<TimelineEvent>;
+  });
 };
 
 export const updateVehicleStatus = async (
@@ -263,28 +266,37 @@ export const updateVehicleStatus = async (
   newStatus: string,
   actorId: string,
   actorName: string,
-  note: string
-): Promise<Vehicle> => {
+  note: string,
+  nextAssigneeId?: string,
+  nextAssigneeRole?: string
+) => {
   const vehicle = await prisma.vehicle.findUnique({ where: { id: vehicleId } });
   if (!vehicle) throw new Error('Vehicle not found');
 
   const previousStatus = vehicle.status;
 
+  const updateData: any = {
+    status: newStatus,
+    updatedAt: new Date(),
+    statusHistory: {
+      create: {
+        status: newStatus,
+        changedBy: actorId,
+        changedByName: actorName,
+        changedAt: new Date(),
+        note
+      }
+    }
+  };
+
+  if (nextAssigneeId && nextAssigneeRole) {
+    updateData.currentAssigneeId = nextAssigneeId;
+    updateData.currentAssigneeRole = nextAssigneeRole;
+  }
+
   const updatedVehicle = await prisma.vehicle.update({
     where: { id: vehicleId },
-    data: {
-      status: newStatus,
-      updatedAt: new Date(),
-      statusHistory: {
-        create: {
-          status: newStatus,
-          changedBy: actorId,
-          changedByName: actorName,
-          changedAt: new Date(),
-          note
-        }
-      }
-    },
+    data: updateData,
     include: {
       statusHistory: { orderBy: { changedAt: 'asc' } }
     }
@@ -309,10 +321,10 @@ export const updateVehicleStatus = async (
     description: `车辆状态从 ${previousStatus} 变更为 ${newStatus}`,
     actorId,
     actorName,
-    metadata: { previousStatus, newStatus }
+    metadata: { previousStatus, newStatus, nextAssigneeId, nextAssigneeRole }
   });
 
-  return updatedVehicle as Vehicle;
+  return updatedVehicle;
 };
 
 export const createPreparationTask = async (data: {
@@ -328,7 +340,7 @@ export const createPreparationTask = async (data: {
   note?: string;
   createdBy: string;
   createdByName: string;
-}): Promise<PreparationTask> => {
+}) => {
   const task = await prisma.preparationTask.create({
     data: {
       ...data,
@@ -373,7 +385,7 @@ export const createPreparationTask = async (data: {
     metadata: { taskId: task.id, taskTitle: data.title }
   });
 
-  return task as PreparationTask;
+  return task;
 };
 
 export const updatePreparationTaskStatus = async (
@@ -382,7 +394,7 @@ export const updatePreparationTaskStatus = async (
   actorId: string,
   actorName: string,
   note?: string
-): Promise<PreparationTask> => {
+) => {
   const task = await prisma.preparationTask.findUnique({ where: { id: taskId } });
   if (!task) throw new Error('Task not found');
 
@@ -426,7 +438,7 @@ export const updatePreparationTaskStatus = async (
     });
   }
 
-  return updatedTask as PreparationTask;
+  return updatedTask;
 };
 
 export const updatePreparationTaskCost = async (
@@ -435,7 +447,7 @@ export const updatePreparationTaskCost = async (
   actorId: string,
   actorName: string,
   reason: string
-): Promise<PreparationTask> => {
+) => {
   const task = await prisma.preparationTask.findUnique({ where: { id: taskId } });
   if (!task) throw new Error('Task not found');
 
@@ -474,7 +486,7 @@ export const updatePreparationTaskCost = async (
     metadata: { taskId, taskTitle: task.title, previousCost, newCost }
   });
 
-  return updatedTask as PreparationTask;
+  return updatedTask;
 };
 
 export const createFinanceRecord = async (data: {
@@ -488,7 +500,7 @@ export const createFinanceRecord = async (data: {
   note?: string;
   createdBy: string;
   createdByName: string;
-}): Promise<FinanceRecord> => {
+}) => {
   const record = await prisma.financeRecord.create({
     data: {
       ...data,
@@ -520,7 +532,7 @@ export const createFinanceRecord = async (data: {
     metadata: { recordId: record.id, documentName: data.documentName }
   });
 
-  return record as FinanceRecord;
+  return record;
 };
 
 export const updateFinanceRecordStatus = async (
@@ -529,7 +541,7 @@ export const updateFinanceRecordStatus = async (
   actorId: string,
   actorName: string,
   note?: string
-): Promise<FinanceRecord> => {
+) => {
   const record = await prisma.financeRecord.findUnique({ where: { id: recordId } });
   if (!record) throw new Error('Finance record not found');
 
@@ -557,5 +569,43 @@ export const updateFinanceRecordStatus = async (
     metadata: { recordId, documentName: record.documentName }
   });
 
-  return updatedRecord as FinanceRecord;
+  return updatedRecord;
+};
+
+export const getVehiclesWithDetails = async (filters?: {
+  status?: string;
+  managerId?: string;
+  assessorId?: string;
+  financeId?: string;
+  search?: string;
+  currentAssigneeRole?: string;
+}) => {
+  const vehicles = await filterVehicles(filters || {});
+
+  const vehiclesWithDetails = await Promise.all(
+    vehicles.map(async (vehicle) => {
+      const tasks = await getTasksByVehicleId(vehicle.id);
+      const completedTasks = tasks.filter(t => t.status === 'completed').length;
+      const totalCost = tasks.reduce((sum, t) => sum + t.cost, 0);
+      return {
+        ...vehicle,
+        taskCount: tasks.length,
+        completedTasks,
+        totalCost
+      };
+    })
+  );
+
+  return vehiclesWithDetails;
+};
+
+export const getNextAssigneeForStatus = (currentStatus: string, vehicle: any) => {
+  const transitions: Record<string, { nextAssigneeId: string; nextAssigneeRole: string } | null> = {
+    'pending': vehicle.assessorId ? { nextAssigneeId: vehicle.assessorId, nextAssigneeRole: 'assessor' } : null,
+    'inspected': vehicle.managerId ? { nextAssigneeId: vehicle.managerId, nextAssigneeRole: 'manager' } : null,
+    'preparing': vehicle.financeId ? { nextAssigneeId: vehicle.financeId, nextAssigneeRole: 'finance' } : null,
+    'completed': vehicle.managerId ? { nextAssigneeId: vehicle.managerId, nextAssigneeRole: 'manager' } : null,
+  };
+
+  return transitions[currentStatus] || null;
 };
