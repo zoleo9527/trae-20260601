@@ -55,6 +55,10 @@ export default function CalculationDetail() {
       setCalcItems(claim.compensationCalc.items || []);
       setRemark(claim.compensationCalc.remark || '');
       setIsStarted(true);
+    } else if (claim?.status === 'calculating' || claim?.status === 'completed') {
+      setIsStarted(true);
+    } else {
+      setIsStarted(false);
     }
   }, [claim]);
 
@@ -139,14 +143,26 @@ export default function CalculationDetail() {
 
       const total = validItems.reduce((sum, item) => sum + item.amount, 0);
 
-      performAction(claim.id, 'start_calc', '保存赔付计算草稿', {
-        compensationCalc: {
-          items: validItems,
-          totalAmount: total,
-          formula: formula,
-          remark: remark,
-        },
-      });
+      if (claim.status === 'approved' && !claim.compensationCalc) {
+        performAction(claim.id, 'start_calc', '保存赔付计算草稿', {
+          compensationCalc: {
+            items: validItems,
+            totalAmount: total,
+            formula: formula,
+            remark: remark,
+          },
+        });
+        setIsStarted(true);
+      } else {
+        performAction(claim.id, 'update_calc', '保存赔付计算草稿', {
+          compensationCalc: {
+            items: validItems,
+            totalAmount: total,
+            formula: formula,
+            remark: remark,
+          },
+        });
+      }
 
       alert('计算已保存');
     } catch (error) {
@@ -178,7 +194,7 @@ export default function CalculationDetail() {
     try {
       const total = validItems.reduce((sum, item) => sum + item.amount, 0);
 
-      performAction(claim.id, 'start_calc', '保存赔付计算', {
+      performAction(claim.id, 'finish_calc', remark || '赔付计算完成', {
         compensationCalc: {
           items: validItems,
           totalAmount: total,
@@ -186,8 +202,6 @@ export default function CalculationDetail() {
           remark: remark,
         },
       });
-
-      performAction(claim.id, 'finish_calc', remark || '赔付计算完成');
 
       alert('赔付计算已完成！');
       navigate('/calculation');

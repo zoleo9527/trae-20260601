@@ -23,9 +23,11 @@ import {
   canPerformAction,
   canTransition,
   calculateChecksum,
+  SAME_STATE_ACTIONS,
 } from '@/utils/workflow';
 import { mockClaims, mockHandlers, mockSettings } from '@/utils/mockData';
 import { saveData, loadData, removeData, exportBackup as exportBackupToStorage } from '@/utils/storage';
+import { persistStorage } from '@/utils/persistStorage';
 
 interface AppState {
   claims: Claim[];
@@ -144,7 +146,9 @@ export const useAppStore = create<AppState>()(
         if (!claim) return;
 
         const toStatus = ACTION_TO_STATUS[actionType];
-        if (!canTransition(claim.status, toStatus)) {
+        const isSameStateAction = SAME_STATE_ACTIONS.includes(actionType);
+
+        if (!isSameStateAction && toStatus && !canTransition(claim.status, toStatus)) {
           throw new Error(`无法从 ${claim.status} 转换到 ${toStatus}`);
         }
 
@@ -154,12 +158,14 @@ export const useAppStore = create<AppState>()(
           ? calculateDurationHours(lastLog.createdAt, now)
           : calculateDurationHours(claim.createdAt, now);
 
+        const targetStatus = isSameStateAction ? claim.status : (toStatus as ClaimStatus);
+
         const workflowLog: WorkflowLog = {
           id: generateId(),
           claimId,
           actionType,
           fromStatus: claim.status,
-          toStatus,
+          toStatus: targetStatus,
           handlerId: state.currentUserId,
           handlerRole: currentUser.role,
           reason,
@@ -168,7 +174,7 @@ export const useAppStore = create<AppState>()(
         };
 
         let updates: Partial<Claim> = {
-          status: toStatus,
+          status: targetStatus,
           workflowLogs: [...claim.workflowLogs, workflowLog],
           updatedAt: now,
         };
@@ -225,16 +231,17 @@ export const useAppStore = create<AppState>()(
           }
         }
 
-        if (actionType === 'start_calc' && options.compensationCalc) {
+        if ((actionType === 'start_calc' || actionType === 'update_calc') && options.compensationCalc) {
+          const existingCalc = claim.compensationCalc;
           const calc: CompensationCalc = {
-            id: generateId(),
+            id: existingCalc?.id || generateId(),
             claimId,
             handlerId: state.currentUserId,
             items: options.compensationCalc.items || [],
             totalAmount: options.compensationCalc.items?.reduce((sum, item) => sum + item.amount, 0) || 0,
             formula: options.compensationCalc.formula || '',
             remark: options.compensationCalc.remark || '',
-            calculatedAt: '',
+            calculatedAt: existingCalc?.calculatedAt || '',
           };
           updates.compensationCalc = calc;
           updates.currentHandlerId = state.currentUserId;
@@ -242,7 +249,20 @@ export const useAppStore = create<AppState>()(
         }
 
         if (actionType === 'finish_calc') {
-          if (claim.compensationCalc) {
+          if (options.compensationCalc) {
+            const existingCalc = claim.compensationCalc;
+            const calc: CompensationCalc = {
+              id: existingCalc?.id || generateId(),
+              claimId,
+              handlerId: state.currentUserId,
+              items: options.compensationCalc.items || [],
+              totalAmount: options.compensationCalc.items?.reduce((sum, item) => sum + item.amount, 0) || 0,
+              formula: options.compensationCalc.formula || '',
+              remark: options.compensationCalc.remark || '',
+              calculatedAt: now,
+            };
+            updates.compensationCalc = calc;
+          } else if (claim.compensationCalc) {
             updates.compensationCalc = {
               ...claim.compensationCalc,
               calculatedAt: now,
@@ -413,6 +433,7 @@ export const useAppStore = create<AppState>()(
     }),
     {
       name: 'insurance-claim-center-storage',
+      storage: persistStorage,
       partialize: (state) => ({
         claims: state.claims,
         handlers: state.handlers,

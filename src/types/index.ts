@@ -14,6 +14,7 @@ export type ActionType =
   | 'supplement'
   | 'material_ok'
   | 'start_calc'
+  | 'update_calc'
   | 'finish_calc'
   | 'urge';
 
@@ -147,6 +148,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
   supplement: '要求补材料',
   material_ok: '材料已补齐',
   start_calc: '开始赔付计算',
+  update_calc: '更新赔付计算',
   finish_calc: '完成赔付计算',
   urge: '发起催办',
 };

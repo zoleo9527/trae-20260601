@@ -1,57 +1,453 @@
-# React + TypeScript + Vite
+# 保险理赔中心 - 核赔审批与赔付计算系统
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+基于 Tauri + React + TypeScript 的桌面端保险理赔管理系统，聚焦解决核赔审批与赔付计算之间的责任不清和时效问题。
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 目录
 
-## Expanding the ESLint configuration
+- [系统概述](#系统概述)
+- [核赔审批处理方式](#核赔审批处理方式)
+- [赔付计算与回看](#赔付计算与回看)
+- [本地存储](#本地存储)
+- [备份恢复](#备份恢复)
+- [技术架构](#技术架构)
+- [运行方式](#运行方式)
+- [目录结构](#目录结构)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+## 系统概述
+
+### 核心目标
+
+解决核赔审批与赔付计算之间**责任说不清、时效不可控**的问题。系统围绕三种异常状态设计：
+
+| 状态 | 触发场景 | 责任方 |
+|------|---------|--------|
+| **催办中** | 案件处理超时，主管发起催办 | 当前处理人 |
+| **退回待改** | 核赔主管认为材料不足或有问题，退回原处理人 | 原处理人 |
+| **补材料中** | 要求客户/查勘员补充相关材料 | 理赔专员/查勘员 |
+
+### 责任三问
+
+系统在每个关键页面自动回答三个问题：
+
+1. **谁在处理**：当前处理人姓名、角色、联系方式
+2. **卡在哪里**：案件当前处于哪个环节（核赔审批/退回修改/材料补充/赔付计算等）
+3. **为什么没完成**：具体卡点原因（退回原因、待补材料清单、催办记录等）
+
+### 角色定义
+
+- **核赔主管 (supervisor)**：审批通过、退回案件、要求补材料、发起催办
+- **理赔专员 (specialist)**：创建案件、材料已补齐、开始计算、完成计算、发起催办
+- **查勘员 (surveyor)**：现场查勘、材料已补齐
+
+---
+
+## 核赔审批处理方式
+
+### 工作流状态流转
+
+```
+创建 → 待处理 ─────┐
+     │              ├──→ 审批通过 → 赔付计算中 → 已完成
+     ├──→ 催办中 ──┤
+     ├──→ 退回待改 ─┤
+     └──→ 补材料中 ─┘
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 状态流转规则
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+| 当前状态 | 可转换到 | 操作类型 |
+|---------|---------|---------|
+| 待处理 (pending) | 审批通过 / 退回待改 / 补材料中 / 催办中 | approve / reject / supplement / urge |
+| 催办中 (urged) | 审批通过 / 退回待改 / 补材料中 | approve / reject / supplement |
+| 退回待改 (returned) | 待处理 / 催办中 | (重新提交) / urge |
+| 补材料中 (supplement) | 待处理 / 催办中 | material_ok / urge |
+| 审批通过 (approved) | 赔付计算中 / 已完成 / 催办中 | start_calc / finish_calc / urge |
+| 赔付计算中 (calculating) | 已完成 / 催办中 | finish_calc / urge |
+| 已完成 (completed) | - | - |
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+### 核赔审批详情页操作
+
+在 **核赔审批详情页** (`/approval/:id`) 可执行以下操作：
+
+#### 1. 审批通过
+- **权限**：核赔主管
+- **效果**：案件状态变为「审批通过」，自动分配给理赔专员
+- **要求**：必须填写审批意见
+
+#### 2. 退回案件
+- **权限**：核赔主管
+- **效果**：案件状态变为「退回待改」，退回给原处理人
+- **要求**：必须填写退回原因
+
+#### 3. 要求补材料
+- **权限**：核赔主管、理赔专员
+- **效果**：案件状态变为「补材料中」
+- **要求**：填写需要补充的材料清单（名称、说明）
+
+#### 4. 发起催办
+- **权限**：核赔主管、理赔专员
+- **效果**：案件状态变为「催办中」，催办次数 +1
+- **要求**：填写催办原因
+
+#### 5. 材料已补齐
+- **权限**：理赔专员、查勘员
+- **效果**：材料状态更新为「已提供」，案件回到「待处理」状态
+- **要求**：确认所有待补材料已齐全
+
+### 操作留痕机制
+
+所有操作都会记录在**流转日志**中，包含：
+- 操作类型和时间
+- 操作人姓名和角色
+- 操作前/后状态
+- 操作原因和说明
+- 停留时长（上一步到这步的耗时）
+
+---
+
+## 赔付计算与回看
+
+### 赔付计算流程
+
+#### 状态说明
+
+| 状态 | 说明 |
+|------|------|
+| 审批通过 (approved) | 核赔已通过，等待进入赔付计算 |
+| 赔付计算中 (calculating) | 正在进行赔付金额计算，可保存草稿 |
+| 已完成 (completed) | 赔付计算完成，案件结案 |
+
+#### 操作类型
+
+| 操作 | 权限 | 状态变化 | 说明 |
+|------|------|---------|------|
+| `start_calc` | 理赔专员 | approved → calculating | 开始赔付计算，初始化计算项 |
+| `update_calc` | 理赔专员 | 保持不变 | 更新计算数据（保存草稿），不改变状态 |
+| `finish_calc` | 理赔专员 | approved/calculating → completed | 完成赔付计算，案件结案 |
+
+### 草稿保存与金额更新
+
+#### 在「审批通过」状态下
+- 点击**「开始赔付计算」**：初始化计算项目，状态转为「赔付计算中」
+- 首次保存草稿时，自动触发 `start_calc` 进入计算状态
+
+#### 在「赔付计算中」状态下
+- **保存草稿**：调用 `update_calc` 更新计算数据，**不改变状态**，不会重复触发状态流转
+- **金额更新**：实时计算总金额和赔付率，保存时持久化
+- **多项目计算**：支持添加/删除多个计算项目（医疗费用、误工费用、伤残赔偿等）
+- **计算公式**：每个项目可填写计算公式说明，支持查看完整公式
+
+#### 结案（完成计算）
+- 点击**「完成计算」**：调用 `finish_calc` 一次完成，**不重复调用 start_calc**
+- 要求：至少一项计算项目 + 填写计算说明
+- 效果：状态变为「已完成」，记录计算完成时间，案件不可再修改
+
+### 赔付回看功能
+
+**赔付计算详情页左侧**提供可折叠的**流转回看时间线**：
+
+#### 时间线展示内容
+- 完整的案件流转历史，从创建到当前状态
+- 每个节点显示：操作类型、处理人、处理时间、停留时长
+- 支持点击展开查看详细原因和说明
+
+#### 特殊记录高亮
+- **催办记录**：橙色边框 + 警告图标，显示催办人和催办消息
+- **补材料记录**：蓝色标识，显示待补材料清单和是否已提供
+- **退回记录**：红色标识，显示退回原因
+
+#### 使用场景
+处理人进入赔付计算页面后，无需切换页面就能看到：
+- 案件为什么走到现在这一步
+- 之前的处理人是谁，做了什么操作
+- 卡在哪里，为什么卡住
+- 补了哪些材料，退了几次
+
+---
+
+## 本地存储
+
+### 存储架构
+
+系统采用**本地优先**架构，所有数据存储在本地，不上传服务器。支持两种运行环境自动适配：
+
+#### Tauri 桌面应用
+- 使用**本地文件系统**存储
+- 存储位置（macOS）：`~/Library/Application Support/insurance-claim-center/`
+- 数据持久化到磁盘，应用重启/系统重启不丢失
+- 支持大文件存储，不受浏览器存储限制
+
+#### 浏览器（开发/演示）
+- 使用 **localStorage** 存储
+- 用于开发调试和浏览器预览
+- 数据存在浏览器中，清除浏览器数据会丢失
+
+### 自动检测与降级
+
+系统自动检测运行环境：
+- 检测到 Tauri 环境 → 使用本地文件系统存储
+- 未检测到 Tauri → 降级使用 localStorage
+- 两种模式的 API 完全一致，上层业务无需关心
+
+### 存储内容
+
+| 数据类型 | 存储键 / 文件 | 说明 |
+|---------|-------------|------|
+| 案件数据 | `insurance-claim-center-storage` | 所有理赔案件信息 |
+| 处理人员 | `insurance-claim-center-storage` | 用户账号和角色 |
+| 系统设置 | `insurance-claim-center-storage` | 主题、自动备份等设置 |
+| 备份记录 | `insurance-claim-center-storage` | 备份列表元数据 |
+| 备份文件 | `backup_<id>.json` | 每个备份独立文件 |
+
+### 数据安全
+
+- **本地存储**：所有数据仅保存在本地，不上传任何服务器
+- **数据校验**：每个备份文件包含校验码（checksum），防止数据损坏
+- **加密存储**：预留加密接口（可配置开启）
+- **自动锁定**：可配置无操作自动锁定（设置项）
+
+---
+
+## 备份恢复
+
+### 备份功能
+
+#### 创建备份
+- **手动备份**：在数据管理页面输入备份名称，一键创建
+- **自动备份**：可配置自动备份开关和保留天数（3/7/14/30天）
+- **备份内容**：所有案件数据、处理人员、系统设置、备份历史
+
+#### 备份校验
+每个备份文件包含：
+- 数据版本号
+- 创建时间
+- 数据条目数
+- MD5 校验码
+- 完整的应用数据
+
+### 恢复功能
+
+- **从备份恢复**：选择历史备份，确认后覆盖当前所有数据
+- **二次确认**：恢复前弹出确认对话框，防止误操作
+- **数据校验**：恢复时自动验证校验码，数据损坏会提示
+
+### 导出导入
+
+#### 导出备份
+- **Tauri 环境**：导出到本地文件系统（备份目录）
+- **浏览器环境**：触发浏览器下载 JSON 文件
+- 文件格式：`.json`，可用于跨设备迁移
+
+#### 导入备份
+- 选择备份文件（JSON格式）
+- 自动校验数据格式和完整性
+- 导入后自动添加到备份列表
+- 可选择从导入的备份恢复
+
+### 数据管理页面
+
+在 **数据管理页面** (`/data`) 提供完整功能：
+
+1. **存储概览**
+   - 存储空间使用进度条
+   - 案件数量、处理人员数量
+   - 备份数量统计
+
+2. **备份列表**
+   - 按时间倒序排列
+   - 显示备份名称、时间、大小、数据条数
+   - 操作：导出、恢复、删除
+
+3. **自动备份设置**
+   - 开关控制
+   - 保留天数配置
+
+4. **数据重置**
+   - 一键恢复为示例数据
+   - 二次确认防止误操作
+
+---
+
+## 技术架构
+
+### 前端技术栈
+
+- **React 18** - UI 框架
+- **TypeScript 5** - 类型安全
+- **Zustand 5** - 状态管理（支持持久化）
+- **React Router 7** - 路由管理
+- **TailwindCSS 3** - 样式方案
+- **Lucide React** - 图标库
+
+### 桌面端技术栈
+
+- **Tauri 2.0** - 桌面应用框架
+  - Rust 后端，轻量高性能
+  - 原生文件系统访问
+  - 原生对话框、通知
+- **tauri-plugin-fs** - 文件系统插件
+- **tauri-plugin-dialog** - 对话框插件
+
+### 核心模块
+
+| 模块 | 文件 | 说明 |
+|------|------|------|
+| 类型定义 | `src/types/index.ts` | 完整的 TypeScript 类型定义 |
+| 状态管理 | `src/store/useAppStore.ts` | 全局状态 + 业务逻辑 |
+| 工作流引擎 | `src/utils/workflow.ts` | 状态流转规则、权限矩阵、责任计算 |
+| 存储适配器 | `src/utils/storage.ts` | 跨环境存储（Tauri FS / localStorage） |
+| 持久化适配 | `src/utils/persistStorage.ts` | Zustand persist 存储适配器 |
+| 流转时间线 | `src/components/WorkflowTimeline.tsx` | 流转历史可视化 |
+| 责任三问面板 | `src/components/ResponsibilityPanel.tsx` | 责任追溯面板 |
+
+### 页面结构
+
+| 页面 | 路径 | 功能 |
+|------|------|------|
+| 案件看板 | `/` | 状态分类卡片 + 责任三问 + 案件列表 |
+| 核赔审批列表 | `/approval` | 待审批案件列表，搜索筛选 |
+| 核赔审批详情 | `/approval/:id` | 审批操作、退回、催办、补材料 |
+| 赔付计算列表 | `/calculation` | 待计算/计算中/已完成案件 |
+| 赔付计算详情 | `/calculation/:id` | 计算表单 + 左侧流转回看 |
+| 数据管理 | `/data` | 本地存储 + 备份恢复 |
+| 系统设置 | `/settings` | 通知中心 + 文件上传 + 系统设置 |
+
+---
+
+## 运行方式
+
+### 环境要求
+
+- Node.js >= 18
+- Rust >= 1.77（Tauri 开发需要）
+- macOS / Windows / Linux
+
+### 安装依赖
+
+```bash
+npm install
 ```
+
+### 开发模式（浏览器）
+
+```bash
+npm run dev
+```
+
+启动后在浏览器中访问，数据存储在 localStorage。
+
+### 开发模式（Tauri 桌面应用）
+
+```bash
+npm run tauri:dev
+```
+
+启动桌面应用窗口，数据存储在本地文件系统。
+
+### 生产构建（Web）
+
+```bash
+npm run build
+```
+
+构建产物输出到 `dist/` 目录。
+
+### 生产构建（Tauri 桌面应用）
+
+```bash
+npm run tauri:build
+```
+
+打包为桌面安装包（macOS `.dmg` / Windows `.msi` / Linux `.deb`）。
+
+### 类型检查
+
+```bash
+npm run check
+```
+
+### 代码检查
+
+```bash
+npm run lint
+```
+
+---
+
+## 目录结构
+
+```
+├── src/                          # 前端源码
+│   ├── components/               # 公共组件
+│   │   ├── WorkflowTimeline.tsx  # 流转时间线
+│   │   └── ResponsibilityPanel.tsx # 责任三问面板
+│   ├── pages/                    # 页面组件
+│   │   ├── Dashboard.tsx         # 案件看板
+│   │   ├── ApprovalList.tsx      # 核赔审批列表
+│   │   ├── ApprovalDetail.tsx    # 核赔审批详情
+│   │   ├── CalculationList.tsx   # 赔付计算列表
+│   │   ├── CalculationDetail.tsx # 赔付计算详情
+│   │   ├── DataManagement.tsx    # 数据管理
+│   │   └── Settings.tsx          # 系统设置
+│   ├── store/                    # 状态管理
+│   │   └── useAppStore.ts        # 全局 store
+│   ├── types/                    # TypeScript 类型
+│   │   └── index.ts              # 类型定义
+│   ├── utils/                    # 工具函数
+│   │   ├── workflow.ts           # 工作流引擎
+│   │   ├── storage.ts            # 存储适配器
+│   │   ├── persistStorage.ts     # Zustand 持久化适配
+│   │   └── mockData.ts           # 模拟数据
+│   ├── App.tsx                   # 应用入口
+│   └── main.tsx                  # 渲染入口
+├── src-tauri/                    # Tauri 后端（Rust）
+│   ├── src/
+│   │   ├── main.rs               # 主入口
+│   │   └── lib.rs                # 核心逻辑 + 命令
+│   ├── Cargo.toml                # Rust 依赖
+│   └── tauri.conf.json           # Tauri 配置
+├── package.json                  # npm 配置
+├── tailwind.config.js            # TailwindCSS 配置
+├── tsconfig.json                 # TypeScript 配置
+├── vite.config.ts                # Vite 配置
+└── README.md                     # 本文档
+```
+
+---
+
+## 模拟数据说明
+
+系统预置 7 个示例案件，覆盖所有业务状态：
+
+| 案号 | 状态 | 类型 | 说明 |
+|------|------|------|------|
+| LP202401150001 | 催办中 | 住院医疗理赔 | 已被催办 2 次 |
+| LP202401140002 | 待处理 | 交通事故理赔 | 等待核赔审批 |
+| LP202401130003 | 退回待改 | 重疾理赔 | 退回原因：事故经过描述不清晰 |
+| LP202401120004 | 补材料中 | 意外医疗理赔 | 待补充：住院费用明细清单 |
+| LP202401110005 | 审批通过 | 门诊医疗理赔 | 等待进入赔付计算 |
+| LP202401100006 | 赔付计算中 | 伤残理赔 | 正在计算赔付金额 |
+| LP202401090007 | 已完成 | 住院医疗理赔 | 已完成赔付计算 |
+
+预置 5 个处理人员：
+- 王明（核赔主管）
+- 李芳（核赔主管）
+- 张伟（理赔专员）
+- 陈静（理赔专员）
+- 刘强（查勘员）
+
+可在系统设置中切换用户角色，体验不同权限的操作。
+
+---
+
+## 外部系统集成说明
+
+以下功能为占位实现，可根据实际需求对接外部系统：
+
+- **外部通知**：短信、邮件、微信通知（当前为占位按钮）
+- **文件上传**：支持文件上传至本地（可扩展为 OSS/MinIO 等）
+- **用户系统**：当前为本地模拟用户（可扩展为 SSO/LDAP 等）

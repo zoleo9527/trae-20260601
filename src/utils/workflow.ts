@@ -5,7 +5,7 @@ export const TRANSITION_RULES: Record<ClaimStatus, ClaimStatus[]> = {
   urged: ['approved', 'returned', 'supplement'],
   returned: ['pending', 'urged'],
   supplement: ['pending', 'urged'],
-  approved: ['calculating', 'urged'],
+  approved: ['calculating', 'completed', 'urged'],
   calculating: ['completed', 'urged'],
   completed: [],
 };
@@ -17,20 +17,24 @@ export const PERMISSION_MATRIX: Record<ActionType, Role[]> = {
   supplement: ['supervisor', 'specialist'],
   material_ok: ['specialist', 'surveyor'],
   start_calc: ['specialist'],
+  update_calc: ['specialist'],
   finish_calc: ['specialist'],
   urge: ['supervisor', 'specialist'],
 };
 
-export const ACTION_TO_STATUS: Record<ActionType, ClaimStatus> = {
+export const ACTION_TO_STATUS: Record<ActionType, ClaimStatus | null> = {
   create: 'pending',
   approve: 'approved',
   reject: 'returned',
   supplement: 'supplement',
   material_ok: 'pending',
   start_calc: 'calculating',
+  update_calc: null,
   finish_calc: 'completed',
   urge: 'urged',
 };
+
+export const SAME_STATE_ACTIONS: ActionType[] = ['update_calc'];
 
 export function canTransition(from: ClaimStatus, to: ClaimStatus): boolean {
   return TRANSITION_RULES[from]?.includes(to) ?? false;
