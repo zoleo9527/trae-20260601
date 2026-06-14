@@ -89,9 +89,15 @@
     if (selectedItems.length === 0) return;
     
     try {
+      const userStr = localStorage.getItem('user');
+      const userId = userStr ? JSON.parse(userStr).id : '';
+      
       const response = await fetch('/api/arrangements/batch-confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-User-Id': userId
+        },
         body: JSON.stringify({ ids: selectedItems })
       });
       

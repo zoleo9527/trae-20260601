@@ -12,7 +12,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
         description,
         arrangementId: params.id,
         reportedBy: userId,
-        status: 'PENDING'
+        status: 'REPORTED',
+        studentId: studentId || null
       }
     });
     
