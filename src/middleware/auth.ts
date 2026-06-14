@@ -12,7 +12,6 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'submit_materials',
     'register_payment',
     'view_payment',
-    'issue_supplement_notice',
     'view_operation_logs',
   ],
   NOTARY: [

@@ -46,7 +46,7 @@ router.post('/:id/review', authenticate, requirePermission('review_materials'), 
   });
 });
 
-router.post('/:id/supplement-notice', authenticate, requirePermission('issue_supplement_notice'), (req: AuthRequest, res) => {
+router.post('/:id/supplement-notice', authenticate, requirePermission('issue_supplement_notice'), requireRole('NOTARY'), (req: AuthRequest, res) => {
   const deadline = new Date(req.body.deadline);
   const result = ApplicationService.issueSupplementNotice({
     applicationId: req.params.id,
@@ -83,8 +83,8 @@ router.get('/', authenticate, requirePermission('view_application'), (req: AuthR
   });
 });
 
-router.get('/:id', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
-  const app = ApplicationService.getApplicationById(req.params.id);
+router.get('/no/:applicationNo', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
+  const app = ApplicationService.getApplicationByNo(req.params.applicationNo);
   if (!app) {
     res.status(404).json({ error: '申请不存在' });
     return;
@@ -92,8 +92,8 @@ router.get('/:id', authenticate, requirePermission('view_application'), (req: Au
   res.json({ application: app });
 });
 
-router.get('/no/:applicationNo', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
-  const app = ApplicationService.getApplicationByNo(req.params.applicationNo);
+router.get('/:id', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
+  const app = ApplicationService.getApplicationById(req.params.id);
   if (!app) {
     res.status(404).json({ error: '申请不存在' });
     return;

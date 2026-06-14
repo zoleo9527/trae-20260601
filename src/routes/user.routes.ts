@@ -8,7 +8,7 @@ router.get('/me', authenticate, (req: AuthRequest, res) => {
   res.json({ user: req.currentUser });
 });
 
-router.get('/users', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
+router.get('/', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
   const users = db.getUsers().map(u => ({
     id: u.id,
     name: u.name,
@@ -18,7 +18,7 @@ router.get('/users', authenticate, requirePermission('view_application'), (req: 
   res.json({ users });
 });
 
-router.get('/users/:id', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
+router.get('/:id', authenticate, requirePermission('view_application'), (req: AuthRequest, res) => {
   const user = db.getUserById(req.params.id) || db.getUserByEmployeeId(req.params.id);
   if (!user) {
     res.status(404).json({ error: '用户不存在' });

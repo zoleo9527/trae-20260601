@@ -27,6 +27,13 @@ export const testRequests = {
     headers: { 'x-user-id': 'WIN001' },
   },
 
+  getUserById: {
+    method: 'GET',
+    url: 'http://localhost:3000/api/users/{userId}',
+    description: '获取指定用户信息',
+    headers: { 'x-user-id': 'WIN001' },
+  },
+
   getAllApplications: {
     method: 'GET',
     url: 'http://localhost:3000/api/applications',
@@ -45,6 +52,13 @@ export const testRequests = {
     method: 'GET',
     url: 'http://localhost:3000/api/applications?status=PENDING_PAYMENT',
     description: '按状态获取申请',
+    headers: { 'x-user-id': 'WIN001' },
+  },
+
+  getApplicationByNo: {
+    method: 'GET',
+    url: 'http://localhost:3000/api/applications/no/{applicationNo}',
+    description: '按申请号查询',
     headers: { 'x-user-id': 'WIN001' },
   },
 
@@ -99,7 +113,7 @@ export const testRequests = {
   issueSupplementNotice: {
     method: 'POST',
     url: 'http://localhost:3000/api/applications/{applicationId}/supplement-notice',
-    description: '发出补正通知',
+    description: '发出补正通知 (仅公证员)',
     headers: {
       'x-user-id': 'NOT001',
       'Content-Type': 'application/json',
@@ -282,6 +296,21 @@ export const testRequests = {
     },
   },
 
+  permissionTest_WindowStaffCannotIssueSupplementNotice: {
+    method: 'POST',
+    url: 'http://localhost:3000/api/applications/{applicationId}/supplement-notice',
+    description: '权限测试: 窗口人员不能发出补正通知',
+    headers: {
+      'x-user-id': 'WIN001',
+      'Content-Type': 'application/json',
+    },
+    body: {
+      reason: '测试补正',
+      requiredMaterials: ['测试材料'],
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  },
+
   permissionTest_NotaryCannotArrangeCertificate: {
     method: 'POST',
     url: 'http://localhost:3000/api/certificates/arrange',
@@ -299,8 +328,11 @@ export const testRequests = {
 
 export const curlExamples: Record<string, string> = {
   healthCheck: 'curl http://localhost:3000/health',
+  getAllUsers: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/users',
+  getCurrentUser: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/users/me',
   getAllApplications: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/applications',
   getStuckApplications: 'curl -H "x-user-id: WIN001" "http://localhost:3000/api/applications?stuck=true"',
+  getApplicationByNo: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/applications/no/{applicationNo}',
   getPendingRegistration: 'curl -H "x-user-id: WIN001" http://localhost:3000/api/payments/pending-registration',
   getPendingConfirmation: 'curl -H "x-user-id: NOT001" http://localhost:3000/api/payments/pending-confirmation',
   getStuckPayments: 'curl -H "x-user-id: NOT001" http://localhost:3000/api/payments/stuck',

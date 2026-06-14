@@ -247,7 +247,52 @@ async function main() {
     }
   });
 
-  await runTest('2.5 缴费金额校验 - 金额与明细不一致', () => {
+  await runTest('2.5 窗口人员不能发出补正通知', () => {
+    const testAppForSupplement = ApplicationService.createApplication({
+      applicantName: '补正测试',
+      applicantIdNo: '110101199001016666',
+      notaryType: '继承权公证',
+    }, windowStaff);
+
+    ApplicationService.submitMaterials({
+      applicationId: testAppForSupplement.id,
+      materials: [{ name: '身份证', isOriginal: true }],
+    }, windowStaff);
+
+    const result = ApplicationService.issueSupplementNotice({
+      applicationId: testAppForSupplement.id,
+      reason: '缺少证明',
+      requiredMaterials: ['证明原件'],
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    }, windowStaff);
+
+    if (!('error' in result)) {
+      throw new Error('窗口人员发出补正通知应被拒绝');
+    }
+    assert(result.error.some(e => e.includes('只有公证员')), '应有角色限制错误');
+  });
+
+  await runTest('2.6 补正通知状态校验 - 不允许的状态下不能发出', () => {
+    const testAppBadStatus = ApplicationService.createApplication({
+      applicantName: '状态校验',
+      applicantIdNo: '110101199001015555',
+      notaryType: '委托公证',
+    }, windowStaff);
+
+    const result = ApplicationService.issueSupplementNotice({
+      applicationId: testAppBadStatus.id,
+      reason: '状态不对',
+      requiredMaterials: ['材料'],
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    }, notary);
+
+    if (!('error' in result)) {
+      throw new Error('不允许的状态下发补正通知应被拒绝');
+    }
+    assert(result.error.some(e => e.includes('不允许发出补正通知')), '应有状态校验错误');
+  });
+
+  await runTest('2.7 缴费金额校验 - 金额与明细不一致', () => {
     const testApp2 = ApplicationService.createApplication({
       applicantName: '测试校验',
       applicantIdNo: '110101199001017777',

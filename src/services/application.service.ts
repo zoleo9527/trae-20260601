@@ -155,10 +155,19 @@ export class ApplicationService {
   }
 
   static issueSupplementNotice(params: IssueSupplementNoticeParams, operator: User): SupplementNotice | { error: string[] } {
+    if (operator.role !== 'NOTARY') {
+      return { error: [`只有公证员可以发出补正通知，当前角色: ${operator.role}`] };
+    }
+
     const app = db.getApplicationById(params.applicationId);
     
     if (!app) {
       return { error: ['申请记录不存在'] };
+    }
+
+    const allowedStatuses: ApplicationStatus[] = ['MATERIALS_SUBMITTED', 'PENDING_PAYMENT', 'PAYMENT_REGISTERED'];
+    if (!allowedStatuses.includes(app.status)) {
+      return { error: [`当前状态[${app.status}]不允许发出补正通知，允许状态: ${allowedStatuses.join(', ')}`] };
     }
 
     const previousStatus = app.status;
