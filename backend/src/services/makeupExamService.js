@@ -183,41 +183,84 @@ function recordMakeupPayment(id, data, operatorId) {
     const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
 
     const { amount, payment_method } = data;
-    if (!amount) {
+    if (!amount || amount <= 0) {
       throw new AppError('VALIDATION_ERROR', { required: ['amount'] });
     }
 
-    if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'pending_booking', operator.role)) {
+    if (makeup.status !== 'pending_payment') {
       throw new AppError('INVALID_STATUS_TRANSITION', {
         from: makeup.status,
-        to: 'pending_booking',
+        to: 'pending_payment',
         role: operator.role,
+        message: '当前状态不支持登记缴费',
       });
     }
 
-    const feeId = newId();
-    dbi.prepare(`
-      INSERT INTO fee_records
-      (id, student_id, type, amount, paid_amount, status, related_id, remark, created_by)
-      VALUES (?, ?, 'makeup_fee', ?, ?, 'paid', ?, ?, ?)
-    `).run(
-      feeId,
-      makeup.student_id,
-      makeup.makeup_fee,
-      amount,
-      id,
-      `补考费缴费，${payment_method ? '支付方式: ' + payment_method : ''}`,
-      operatorId
-    );
+    const existingFee = dbi.prepare(`
+      SELECT * FROM fee_records WHERE related_id = ? AND type = 'makeup_fee'
+    `).get(id);
+
+    let totalPaid = amount;
+    let feeStatus = 'partial';
+    let feeId;
+
+    if (existingFee) {
+      totalPaid = existingFee.paid_amount + amount;
+      feeId = existingFee.id;
+      if (totalPaid >= makeup.makeup_fee) {
+        feeStatus = 'paid';
+      }
+      dbi.prepare(`
+        UPDATE fee_records SET
+          paid_amount = ?,
+          status = ?,
+          remark = COALESCE(remark, '') || ? || '; ',
+          updated_at = datetime('now')
+        WHERE id = ?
+      `).run(
+        totalPaid,
+        feeStatus,
+        `补缴¥${amount}${payment_method ? '(' + payment_method + ')' : ''}`,
+        feeId
+      );
+    } else {
+      feeId = newId();
+      if (totalPaid >= makeup.makeup_fee) {
+        feeStatus = 'paid';
+      }
+      dbi.prepare(`
+        INSERT INTO fee_records
+        (id, student_id, type, amount, paid_amount, status, related_id, remark, created_by)
+        VALUES (?, ?, 'makeup_fee', ?, ?, ?, ?, ?, ?)
+      `).run(
+        feeId,
+        makeup.student_id,
+        makeup.makeup_fee,
+        amount,
+        feeStatus,
+        id,
+        `补考费缴费¥${amount}${payment_method ? '(' + payment_method + ')' : ''}`,
+        operatorId
+      );
+    }
+
+    const isFullyPaid = totalPaid >= makeup.makeup_fee;
+    let newStatus = makeup.status;
+    let feePaidTime = makeup.fee_paid_time;
+
+    if (isFullyPaid) {
+      newStatus = 'pending_booking';
+      feePaidTime = new Date().toISOString();
+    }
 
     dbi.prepare(`
       UPDATE makeup_exams SET
-        fee_paid = 1,
-        fee_paid_time = datetime('now'),
-        status = 'pending_booking',
+        fee_paid = ?,
+        fee_paid_time = ?,
+        status = ?,
         updated_at = datetime('now')
       WHERE id = ?
-    `).run(id);
+    `).run(isFullyPaid ? 1 : 0, feePaidTime, newStatus, id);
 
     logOperation({
       operatorId,
@@ -227,25 +270,27 @@ function recordMakeupPayment(id, data, operatorId) {
       targetType: 'makeup_exam',
       targetId: id,
       fromStatus: makeup.status,
-      toStatus: 'pending_booking',
-      detail: `登记补考费缴费: ¥${amount}，${payment_method ? '支付方式: ' + payment_method : ''}`,
+      toStatus: newStatus,
+      detail: `登记补考费缴费: ¥${amount}${payment_method ? '，支付方式: ' + payment_method : ''}，累计已缴¥${totalPaid}/¥${makeup.makeup_fee}${isFullyPaid ? '，已缴清' : '，待补缴¥' + (makeup.makeup_fee - totalPaid)}`,
     });
 
-    const examSpecialists = dbi.prepare(`
-      SELECT id, name FROM users WHERE role = 'exam_specialist'
-    `).all();
-    examSpecialists.forEach(es => {
-      createNotification({
-        userId: es.id,
-        userRole: 'exam_specialist',
-        title: '补考费已缴，待预约考试',
-        content: `科目${makeup.subject}补考费已缴清，请及时安排补考预约`,
-        type: 'makeup_exam',
-        priority: 'high',
-        relatedId: id,
-        relatedType: 'makeup_exam',
+    if (isFullyPaid) {
+      const examSpecialists = dbi.prepare(`
+        SELECT id, name FROM users WHERE role = 'exam_specialist'
+      `).all();
+      examSpecialists.forEach(es => {
+        createNotification({
+          userId: es.id,
+          userRole: 'exam_specialist',
+          title: '补考费已缴，待预约考试',
+          content: `科目${makeup.subject}补考费已缴清，请及时安排补考预约`,
+          type: 'makeup_exam',
+          priority: 'high',
+          relatedId: id,
+          relatedType: 'makeup_exam',
+        });
       });
-    });
+    }
 
     return getMakeupExamDetail(id);
   });
@@ -272,14 +317,16 @@ function bookMakeupExam(id, data, operatorId) {
       });
     }
 
-    const newBooking = createExamBooking({
+    const tempBooking = createExamBooking({
       student_id: makeup.student_id,
       subject: makeup.subject,
-      exam_session_id: data.exam_session_id,
       is_makeup: 1,
       original_booking_id: makeup.failed_booking_id,
       status: 'approved',
     }, operatorId);
+
+    const { bookExamSession } = require('./examBookingService');
+    const newBooking = bookExamSession(tempBooking.id, data.exam_session_id, operatorId);
 
     dbi.prepare(`
       UPDATE makeup_exams SET
@@ -298,7 +345,19 @@ function bookMakeupExam(id, data, operatorId) {
       targetId: id,
       fromStatus: makeup.status,
       toStatus: 'booked',
-      detail: `预约补考考试: 新预约ID ${newBooking.id}`,
+      detail: `预约补考考试: 场次ID ${data.exam_session_id}，新预约ID ${newBooking.id}`,
+    });
+
+    logOperation({
+      operatorId,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'book_session',
+      targetType: 'exam_booking',
+      targetId: newBooking.id,
+      fromStatus: 'approved',
+      toStatus: 'booked',
+      detail: `补考预约场次: 关联补考ID ${id}`,
     });
 
     return getMakeupExamDetail(id);
@@ -306,73 +365,194 @@ function bookMakeupExam(id, data, operatorId) {
 }
 
 function completeMakeupExam(id, operatorId) {
-  const dbi = getDB();
-  const operator = checkPermission(operatorId, 'makeup_exams', 'update');
-  const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+  return tx(() => {
+    const dbi = getDB();
+    const operator = checkPermission(operatorId, 'makeup_exams', 'complete');
+    const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
 
-  if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'completed', operator.role)) {
-    throw new AppError('INVALID_STATUS_TRANSITION', {
-      from: makeup.status,
-      to: 'completed',
-      role: operator.role,
+    if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'completed', operator.role)) {
+      throw new AppError('INVALID_STATUS_TRANSITION', {
+        from: makeup.status,
+        to: 'completed',
+        role: operator.role,
+      });
+    }
+
+    if (makeup.status === 'booked' && !makeup.new_booking_id) {
+      throw new AppError('VALIDATION_ERROR', {
+        message: '已约考状态的补考必须有关联的考试预约',
+      });
+    }
+
+    let examBookingStatus = null;
+    if (makeup.new_booking_id) {
+      const booking = dbi.prepare(`
+        SELECT status FROM exam_bookings WHERE id = ?
+      `).get(makeup.new_booking_id);
+      if (booking) {
+        examBookingStatus = booking.status;
+        if (booking.status !== 'passed' && booking.status !== 'failed' && booking.status !== 'no_show') {
+          throw new AppError('INVALID_STATUS_TRANSITION', {
+            message: '关联考试预约必须已有结果（通过/未通过/缺考）才能完成补考',
+            booking_status: booking.status,
+          });
+        }
+      }
+    }
+
+    dbi.prepare(`
+      UPDATE makeup_exams SET
+        status = 'completed',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+
+    logOperation({
+      operatorId,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'complete',
+      targetType: 'makeup_exam',
+      targetId: id,
+      fromStatus: makeup.status,
+      toStatus: 'completed',
+      detail: `补考流程完成${examBookingStatus ? `，关联考试预约结果: ${examBookingStatus}` : ''}`,
     });
-  }
 
-  dbi.prepare(`
-    UPDATE makeup_exams SET
-      status = 'completed',
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(id);
+    if (makeup.new_booking_id) {
+      logOperation({
+        operatorId,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'complete_makeup',
+        targetType: 'exam_booking',
+        targetId: makeup.new_booking_id,
+        fromStatus: examBookingStatus || makeup.status,
+        toStatus: 'completed',
+        detail: `关联补考流程已完成: 补考ID ${id}`,
+      });
+    }
 
-  logOperation({
-    operatorId,
-    operatorName: operator.name,
-    operatorRole: operator.role,
-    action: 'complete',
-    targetType: 'makeup_exam',
-    targetId: id,
-    fromStatus: makeup.status,
-    toStatus: 'completed',
-    detail: `补考流程完成`,
+    const feeRecord = dbi.prepare(`
+      SELECT * FROM fee_records WHERE related_id = ? AND type = 'makeup_fee'
+    `).get(id);
+    if (feeRecord && feeRecord.status !== 'paid') {
+      dbi.prepare(`
+        UPDATE fee_records SET
+          status = 'paid',
+          updated_at = datetime('now')
+        WHERE id = ?
+      `).run(feeRecord.id);
+      logOperation({
+        operatorId,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'update_status',
+        targetType: 'fee_record',
+        targetId: feeRecord.id,
+        fromStatus: feeRecord.status,
+        toStatus: 'paid',
+        detail: `补考完成，同步更新费用状态为已缴清，关联补考ID ${id}`,
+      });
+    }
+
+    return getMakeupExamDetail(id);
   });
-
-  return getMakeupExamDetail(id);
 }
 
 function cancelMakeupExam(id, data, operatorId) {
-  const dbi = getDB();
-  const operator = checkPermission(operatorId, 'makeup_exams', 'update');
-  const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
+  return tx(() => {
+    const dbi = getDB();
+    const operator = checkPermission(operatorId, 'makeup_exams', 'cancel');
+    const makeup = assertFound(dbi.prepare('SELECT * FROM makeup_exams WHERE id = ?').get(id), 'MAKEUP_NOT_FOUND');
 
-  if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'cancelled', operator.role)) {
-    throw new AppError('INVALID_STATUS_TRANSITION', {
-      from: makeup.status,
-      to: 'cancelled',
-      role: operator.role,
+    if (!canTransition(MAKEUP_STATUS_TRANSITIONS, makeup.status, 'cancelled', operator.role)) {
+      throw new AppError('INVALID_STATUS_TRANSITION', {
+        from: makeup.status,
+        to: 'cancelled',
+        role: operator.role,
+      });
+    }
+
+    let cancelledBookingId = null;
+    let releasedSessionId = null;
+
+    if (makeup.new_booking_id) {
+      const booking = dbi.prepare(`
+        SELECT * FROM exam_bookings WHERE id = ?
+      `).get(makeup.new_booking_id);
+      if (booking && booking.status === 'booked') {
+        const { decrementSessionBookedCount } = require('./examBookingService');
+        if (booking.exam_session_id) {
+          decrementSessionBookedCount(booking.exam_session_id);
+          releasedSessionId = booking.exam_session_id;
+        }
+        dbi.prepare(`
+          UPDATE exam_bookings SET
+            status = 'cancelled',
+            cancel_reason = ?,
+            cancel_time = datetime('now'),
+            updated_at = datetime('now')
+          WHERE id = ?
+        `).run(data?.reason || '补考取消', booking.id);
+        cancelledBookingId = booking.id;
+        logOperation({
+          operatorId,
+          operatorName: operator.name,
+          operatorRole: operator.role,
+          action: 'cancel',
+          targetType: 'exam_booking',
+          targetId: booking.id,
+          fromStatus: booking.status,
+          toStatus: 'cancelled',
+          detail: `因补考取消而取消: 关联补考ID ${id}，原因: ${data?.reason || '无原因'}`,
+        });
+      }
+    }
+
+    dbi.prepare(`
+      UPDATE makeup_exams SET
+        status = 'cancelled',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(id);
+
+    const detailParts = [];
+    if (data?.reason) detailParts.push(`原因: ${data.reason}`);
+    if (cancelledBookingId) detailParts.push(`已取消关联考试预约: ${cancelledBookingId}`);
+    if (releasedSessionId) detailParts.push(`已释放场次名额: ${releasedSessionId}`);
+
+    logOperation({
+      operatorId,
+      operatorName: operator.name,
+      operatorRole: operator.role,
+      action: 'cancel',
+      targetType: 'makeup_exam',
+      targetId: id,
+      fromStatus: makeup.status,
+      toStatus: 'cancelled',
+      detail: detailParts.length > 0 ? detailParts.join('，') : '取消补考',
     });
-  }
 
-  dbi.prepare(`
-    UPDATE makeup_exams SET
-      status = 'cancelled',
-      updated_at = datetime('now')
-    WHERE id = ?
-  `).run(id);
+    const feeRecord = dbi.prepare(`
+      SELECT * FROM fee_records WHERE related_id = ? AND type = 'makeup_fee'
+    `).get(id);
+    if (feeRecord && feeRecord.status === 'paid') {
+      logOperation({
+        operatorId,
+        operatorName: operator.name,
+        operatorRole: operator.role,
+        action: 'cancel_with_fee',
+        targetType: 'fee_record',
+        targetId: feeRecord.id,
+        fromStatus: feeRecord.status,
+        toStatus: 'paid',
+        detail: `补考已取消，费用已缴清，需办理退款，关联补考ID ${id}`,
+      });
+    }
 
-  logOperation({
-    operatorId,
-    operatorName: operator.name,
-    operatorRole: operator.role,
-    action: 'cancel',
-    targetType: 'makeup_exam',
-    targetId: id,
-    fromStatus: makeup.status,
-    toStatus: 'cancelled',
-    detail: `取消补考: ${data?.reason || '无原因'}`,
+    return getMakeupExamDetail(id);
   });
-
-  return getMakeupExamDetail(id);
 }
 
 function getMakeupReviewData(id) {

@@ -219,8 +219,8 @@ const ROLE_PERMISSIONS = {
     modules: ['exam_sessions', 'exam_bookings', 'makeup_exams'],
     actions: {
       exam_sessions: ['create', 'read', 'update'],
-      exam_bookings: ['create', 'read', 'update', 'approve', 'record_result'],
-      makeup_exams: ['read', 'book'],
+      exam_bookings: ['create', 'read', 'update', 'approve', 'record_result', 'book_session'],
+      makeup_exams: ['read', 'book', 'update', 'complete', 'cancel'],
       students: ['read'],
     },
   },

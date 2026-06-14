@@ -584,4 +584,6 @@ module.exports = {
   cancelBooking,
   getMakeupFeeBySubject,
   enrichBooking,
+  incrementSessionBookedCount,
+  decrementSessionBookedCount,
 };
