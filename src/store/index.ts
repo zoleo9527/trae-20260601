@@ -12,6 +12,8 @@ interface AppState {
   notes: NoteItem[];
   filters: FilterParams;
   isLoading: boolean;
+  historySequence: number;
+  noteSequence: number;
 
   setUser: (user: UserInfo) => void;
   clearUser: () => void;
@@ -23,8 +25,8 @@ interface AppState {
   updateRecord: (id: string, updates: Partial<RecordItem>) => void;
   deleteRecord: (id: string) => void;
 
-  addHistory: (history: HistoryItem) => void;
-  addNote: (note: NoteItem) => void;
+  addHistory: (history: Omit<HistoryItem, 'id'>) => void;
+  addNote: (note: Omit<NoteItem, 'id'>) => void;
 
   setFilters: (filters: FilterParams) => void;
   clearFilters: () => void;
@@ -36,13 +38,19 @@ interface AppState {
   getStatusStats: () => Record<RecordStatus, number>;
 }
 
-const generateId = () => {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
-};
-
 const getCurrentTime = () => {
   const now = new Date();
   return now.toISOString().replace('T', ' ').substring(0, 19);
+};
+
+const generateHistoryId = (sequence: number) => {
+  const now = Date.now();
+  return `H${now}-${sequence}`;
+};
+
+const generateNoteId = (sequence: number) => {
+  const now = Date.now();
+  return `N${now}-${sequence}`;
 };
 
 export const useAppStore = create<AppState>()(
@@ -54,6 +62,8 @@ export const useAppStore = create<AppState>()(
       notes: sampleNotes,
       filters: {},
       isLoading: false,
+      historySequence: 1000,
+      noteSequence: 1000,
 
       setUser: (user) => set({ user }),
 
@@ -84,13 +94,29 @@ export const useAppStore = create<AppState>()(
         records: state.records.filter(r => r.id !== id),
       })),
 
-      addHistory: (history) => set((state) => ({
-        history: [...state.history, history],
-      })),
+      addHistory: (history) => set((state) => {
+        const newSequence = state.historySequence + 1;
+        const historyWithId = {
+          ...history,
+          id: generateHistoryId(newSequence),
+        };
+        return {
+          history: [...state.history, historyWithId],
+          historySequence: newSequence,
+        };
+      }),
 
-      addNote: (note) => set((state) => ({
-        notes: [...state.notes, note],
-      })),
+      addNote: (note) => set((state) => {
+        const newSequence = state.noteSequence + 1;
+        const noteWithId = {
+          ...note,
+          id: generateNoteId(newSequence),
+        };
+        return {
+          notes: [...state.notes, noteWithId],
+          noteSequence: newSequence,
+        };
+      }),
 
       setFilters: (filters) => set({ filters }),
 
@@ -104,9 +130,13 @@ export const useAppStore = create<AppState>()(
         if (!record) return undefined;
         return {
           ...record,
-          history: state.history.filter(h => h.recordId === id).sort((a, b) => 
-            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-          ),
+          history: state.history.filter(h => h.recordId === id).sort((a, b) => {
+            const timeDiff = new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            if (timeDiff !== 0) return timeDiff;
+            const aSeq = parseInt(a.id.split('-')[1] || '0');
+            const bSeq = parseInt(b.id.split('-')[1] || '0');
+            return bSeq - aSeq;
+          }),
           notes: state.notes.filter(n => n.recordId === id).sort((a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           ),

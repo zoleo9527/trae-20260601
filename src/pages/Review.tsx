@@ -1,70 +1,61 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
-import { STATUS_LABELS, STATUS_COLORS, REJECT_REASONS } from '../types';
+import { STATUS_LABELS, STATUS_COLORS, REJECT_REASONS, RecordStatus } from '../types';
 import { ArrowLeft, Check, X, Save, Eye } from 'lucide-react';
 
 const Review = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecordDetail, updateRecord, addHistory, addNote, user } = useAppStore();
+  const { getRecordDetail, updateRecord, addHistory, addNote, user, records } = useAppStore();
 
   const [record, setRecord] = useState<ReturnType<typeof getRecordDetail> | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<RecordStatus>('pending');
   const [estimatedValue, setEstimatedValue] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [remark, setRemark] = useState('');
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
-  const [hasTransitioned, setHasTransitioned] = useState(false);
+
+  const transitionToReviewing = useCallback(() => {
+    if (!user || user.role !== 'warehouse') return false;
+    
+    const now = new Date();
+    const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
+
+    updateRecord(id || '', { status: 'reviewing' });
+
+    addHistory({
+      recordId: id || '',
+      statusFrom: 'pending',
+      statusTo: 'reviewing',
+      operatorId: user.id,
+      operatorName: user.name,
+      remark: '开始估价复核',
+      createdAt: timeStr,
+    });
+
+    setCurrentStatus('reviewing');
+    return true;
+  }, [id, user, updateRecord, addHistory]);
 
   useEffect(() => {
-    const loadRecord = () => {
-      const detail = getRecordDetail(id || '');
-      if (detail) {
-        setRecord(detail);
-        if (detail.estimatedValue) {
-          setEstimatedValue(detail.estimatedValue.toString());
-        }
-        if (detail.rejectReason) {
-          setRejectReason(detail.rejectReason);
-        }
-        setRemark(detail.remark);
-
-        if (user && user.role === 'warehouse' && detail.status === 'pending' && !hasTransitioned) {
-          const now = new Date();
-          const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-          const historyId = `H${String(now.getTime()).slice(-4)}`;
-
-          updateRecord(id || '', { status: 'reviewing' });
-
-          addHistory({
-            id: historyId,
-            recordId: id || '',
-            statusFrom: 'pending',
-            statusTo: 'reviewing',
-            operatorId: user.id,
-            operatorName: user.name,
-            remark: '开始估价复核',
-            createdAt: timeStr,
-          });
-
-          setHasTransitioned(true);
-        }
+    const detail = getRecordDetail(id || '');
+    if (detail) {
+      setRecord(detail);
+      setCurrentStatus(detail.status);
+      if (detail.estimatedValue) {
+        setEstimatedValue(detail.estimatedValue.toString());
       }
-    };
-
-    loadRecord();
-
-    const interval = setInterval(() => {
-      if (hasTransitioned) {
-        const updated = getRecordDetail(id || '');
-        if (updated) {
-          setRecord(updated);
-        }
+      if (detail.rejectReason) {
+        setRejectReason(detail.rejectReason);
       }
-    }, 500);
+      setRemark(detail.remark);
 
-    return () => clearInterval(interval);
-  }, [id, getRecordDetail, user, updateRecord, addHistory, hasTransitioned]);
+      if (user && user.role === 'warehouse' && detail.status === 'pending') {
+        transitionToReviewing();
+      }
+    }
+  }, [id, user, transitionToReviewing]);
 
   const handleApprove = () => {
     if (!user) {
@@ -80,9 +71,6 @@ const Review = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const historyId = `H${String(now.getTime()).slice(-4)}`;
-
-    const currentStatus = record?.status || 'reviewing';
 
     updateRecord(id || '', {
       status: 'approved',
@@ -92,7 +80,6 @@ const Review = () => {
     });
 
     addHistory({
-      id: historyId,
       recordId: id || '',
       statusFrom: currentStatus,
       statusTo: 'approved',
@@ -104,7 +91,6 @@ const Review = () => {
 
     if (remark && remark !== record?.remark) {
       addNote({
-        id: `N${String(now.getTime()).slice(-4)}`,
         recordId: id || '',
         content: remark,
         operatorId: user.id,
@@ -130,9 +116,6 @@ const Review = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const historyId = `H${String(now.getTime()).slice(-4)}`;
-
-    const currentStatus = record?.status || 'reviewing';
 
     updateRecord(id || '', {
       status: 'rejected',
@@ -141,7 +124,6 @@ const Review = () => {
     });
 
     addHistory({
-      id: historyId,
       recordId: id || '',
       statusFrom: currentStatus,
       statusTo: 'rejected',
@@ -153,7 +135,6 @@ const Review = () => {
 
     if (remark) {
       addNote({
-        id: `N${String(now.getTime()).slice(-4)}`,
         recordId: id || '',
         content: remark,
         operatorId: user.id,
@@ -174,7 +155,6 @@ const Review = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const historyId = `H${String(now.getTime()).slice(-4)}`;
 
     updateRecord(id || '', {
       status: 'pending',
@@ -183,7 +163,6 @@ const Review = () => {
     });
 
     addHistory({
-      id: historyId,
       recordId: id || '',
       statusFrom: 'rejected',
       statusTo: 'pending',
@@ -195,7 +174,6 @@ const Review = () => {
 
     if (remark && remark !== record?.remark) {
       addNote({
-        id: `N${String(now.getTime()).slice(-4)}`,
         recordId: id || '',
         content: remark,
         operatorId: user.id,
@@ -216,11 +194,12 @@ const Review = () => {
     );
   }
 
+  const displayStatus = currentStatus;
   const isWarehouse = user?.role === 'warehouse';
   const isCounter = user?.role === 'counter';
-  const canApprove = isWarehouse && (record.status === 'pending' || record.status === 'reviewing');
-  const canReject = isWarehouse && (record.status === 'pending' || record.status === 'reviewing');
-  const canResubmit = isCounter && record.status === 'rejected';
+  const canApprove = isWarehouse && (displayStatus === 'pending' || displayStatus === 'reviewing');
+  const canReject = isWarehouse && (displayStatus === 'pending' || displayStatus === 'reviewing');
+  const canResubmit = isCounter && displayStatus === 'rejected';
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -236,8 +215,8 @@ const Review = () => {
             </button>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold text-gray-900">估价复核</h1>
-              <span className={`status-badge ${STATUS_COLORS[record.status]}`}>
-                {STATUS_LABELS[record.status]}
+              <span className={`status-badge ${STATUS_COLORS[displayStatus]}`}>
+                {STATUS_LABELS[displayStatus]}
               </span>
             </div>
             <button
@@ -332,7 +311,7 @@ const Review = () => {
           <div className="card">
             <h2 className="text-sm font-semibold text-gray-700 mb-4 pb-3 border-b border-gray-100">复核操作</h2>
 
-            {record.status === 'rejected' && (
+            {displayStatus === 'rejected' && (
               <div className="bg-red-50 border border-red-100 rounded-lg p-3 mb-4">
                 <p className="text-sm text-red-700 font-medium">退回原因</p>
                 <p className="text-sm text-red-600 mt-1">{record.rejectReason}</p>

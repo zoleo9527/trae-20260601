@@ -7,7 +7,7 @@ import { ArrowLeft, Camera, Clock, User, FileText, AlertCircle, CheckCircle, XCi
 const Detail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getRecordDetail, updateRecord, addHistory, user } = useAppStore();
+  const { getRecordDetail, updateRecord, addHistory, user, history } = useAppStore();
 
   const [record, setRecord] = useState(getRecordDetail(id || '') || null);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
@@ -17,7 +17,7 @@ const Detail = () => {
     if (detail) {
       setRecord(detail);
     }
-  }, [id, getRecordDetail]);
+  }, [id, history]);
 
   const handleClose = () => {
     if (!user || user.role !== 'finance') {
@@ -27,14 +27,12 @@ const Detail = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const historyId = `H${String(now.getTime()).slice(-4)}`;
 
     updateRecord(id || '', {
       status: 'closed',
     });
 
     addHistory({
-      id: historyId,
       recordId: id || '',
       statusFrom: record?.status || 'approved',
       statusTo: 'closed',
@@ -56,14 +54,12 @@ const Detail = () => {
 
     const now = new Date();
     const timeStr = now.toISOString().replace('T', ' ').substring(0, 19);
-    const historyId = `H${String(now.getTime()).slice(-4)}`;
 
     updateRecord(id || '', {
       status: 'recheck',
     });
 
     addHistory({
-      id: historyId,
       recordId: id || '',
       statusFrom: record?.status || 'approved',
       statusTo: 'recheck',
@@ -285,7 +281,7 @@ const Detail = () => {
               <div className="relative">
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
                 <div className="space-y-4">
-                  {record.history.map((item, index) => (
+                  {record.history.map((item) => (
                     <div key={item.id} className="relative pl-10">
                       <div className={`absolute left-2 w-5 h-5 rounded-full flex items-center justify-center ${
                         STATUS_COLORS[item.statusTo]
