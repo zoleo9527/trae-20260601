@@ -203,14 +203,14 @@ export default defineEventHandler(async (event) => {
     prizeRecords[recordIndex].currentHandlerName = operator
     prizeRecords[recordIndex].lastUpdatedAt = now
     prizeRecords[recordIndex].currentStage = newStage
-    prizeRecords[recordIndex].remark = remark || prizeRecords[recordIndex].remark
+    prizeRecords[recordIndex].remark = remark !== undefined ? remark : ''
     
     prizeRecords[recordIndex].statusChanges.push({
       status,
       operator,
       operatorRole,
       time: now,
-      remark,
+      remark: remark !== undefined ? remark : '',
       stage: newStage
     })
     

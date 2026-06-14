@@ -577,7 +577,7 @@ const _routes = [
   {
     name: "dashboard",
     path: "/dashboard",
-    component: () => import('./dashboard-84cayXNO.mjs').then((m) => m.default || m)
+    component: () => import('./dashboard-Co_bRpfx.mjs').then((m) => m.default || m)
   },
   {
     name: "index",

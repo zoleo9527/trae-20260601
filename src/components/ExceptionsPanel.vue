@@ -40,7 +40,7 @@
             <td>{{ record.currentHandlerName }}（{{ record.currentHandler }}）</td>
             <td>{{ record.lastUpdatedAt }}</td>
             <td>
-              <span class="exception-reason">{{ record.remark || '未说明' }}</span>
+              <span class="exception-reason">{{ record.remark || '无备注' }}</span>
             </td>
             <td>
               <button class="btn btn-sm btn-danger" @click="handleException(record)">处理异常</button>

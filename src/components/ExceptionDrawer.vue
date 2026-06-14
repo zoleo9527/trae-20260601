@@ -52,7 +52,7 @@
           <h3>异常信息</h3>
           <div class="exception-detail">
             <div class="exception-title">异常原因</div>
-            <div class="exception-content">{{ record?.remark || '未说明' }}</div>
+            <div class="exception-content">{{ record?.remark || '无备注' }}</div>
           </div>
         </div>
 
@@ -68,7 +68,7 @@
                 </span>
               </div>
               <div class="timeline-operator">{{ change.operator }}（{{ change.operatorRole }}）</div>
-              <div v-if="change.remark" class="timeline-remark">{{ change.remark }}</div>
+              <div class="timeline-remark">{{ change.remark || '无备注' }}</div>
             </div>
           </div>
         </div>

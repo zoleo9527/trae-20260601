@@ -129,6 +129,14 @@
               {{ materialsStatusText(selectedRecord?.materialsStatus || '') }}
             </span>
           </div>
+          <div class="detail-row">
+            <span class="detail-label">当前处理人：</span>
+            <span>{{ selectedRecord?.currentHandlerName }}（{{ selectedRecord?.currentHandler }}）</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">备注：</span>
+            <span>{{ selectedRecord?.remark || '无备注' }}</span>
+          </div>
         </div>
         <div class="detail-section">
           <h4>资料清单</h4>

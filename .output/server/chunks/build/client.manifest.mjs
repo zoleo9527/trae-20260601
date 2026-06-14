@@ -4,13 +4,13 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "Bfc5xBmG.js",
+    "file": "DdvQlOgy.js",
     "name": "error-404",
     "src": "../node_modules/nuxt/dist/app/components/error-404.vue",
     "isDynamicEntry": true,
     "imports": [
       "../node_modules/nuxt/dist/app/entry.js",
-      "_CtuUQs-0.js"
+      "_DzIh_qf8.js"
     ],
     "css": []
   },
@@ -25,12 +25,12 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CUoy3rl4.js",
+    "file": "CDWZiv66.js",
     "name": "error-500",
     "src": "../node_modules/nuxt/dist/app/components/error-500.vue",
     "isDynamicEntry": true,
     "imports": [
-      "_CtuUQs-0.js",
+      "_DzIh_qf8.js",
       "../node_modules/nuxt/dist/app/entry.js"
     ],
     "css": []
@@ -46,7 +46,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "B7s7P7Ll.js",
+    "file": "D7S299xm.js",
     "name": "entry",
     "src": "../node_modules/nuxt/dist/app/entry.js",
     "isEntry": true,
@@ -56,12 +56,12 @@ const client_manifest = {
     ],
     "_globalCSS": true
   },
-  "_CtuUQs-0.js": {
+  "_DzIh_qf8.js": {
     "resourceType": "script",
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CtuUQs-0.js",
+    "file": "DzIh_qf8.js",
     "name": "vue.-sixQ7xP",
     "imports": [
       "../node_modules/nuxt/dist/app/entry.js"
@@ -72,7 +72,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "CMp14Aly.js",
+    "file": "BJWL5PDk.js",
     "name": "dashboard",
     "src": "pages/dashboard.vue",
     "isDynamicEntry": true,
@@ -81,8 +81,8 @@ const client_manifest = {
     ],
     "css": []
   },
-  "dashboard.CV4mY3J6.css": {
-    "file": "dashboard.CV4mY3J6.css",
+  "dashboard.BPzzGC6y.css": {
+    "file": "dashboard.BPzzGC6y.css",
     "resourceType": "style",
     "prefetch": true,
     "preload": true
@@ -92,7 +92,7 @@ const client_manifest = {
     "module": true,
     "prefetch": true,
     "preload": true,
-    "file": "DquGrpt0.js",
+    "file": "BNOEW6RO.js",
     "name": "index",
     "src": "pages/index.vue",
     "isDynamicEntry": true,

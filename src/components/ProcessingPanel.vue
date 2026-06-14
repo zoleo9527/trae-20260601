@@ -127,7 +127,7 @@
           </div>
           <div class="detail-row">
             <span class="detail-label">备注：</span>
-            <span>{{ selectedRecord?.remark || '-' }}</span>
+            <span>{{ selectedRecord?.remark || '无备注' }}</span>
           </div>
         </div>
         <div class="detail-section">
@@ -140,7 +140,7 @@
                 <span :class="['status-badge', `status-${change.status}`]">{{ statusText(change.status) }}</span>
               </div>
               <div class="timeline-operator">{{ change.operator }}（{{ change.operatorRole }}）</div>
-              <div v-if="change.remark" class="timeline-remark">{{ change.remark }}</div>
+              <div class="timeline-remark">{{ change.remark || '无备注' }}</div>
             </div>
           </div>
         </div>
