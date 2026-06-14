@@ -19,7 +19,7 @@ export function AppealForm({ isOpen, onClose }: AppealFormProps) {
   const [uploadedFiles, setUploadedFiles] = useState<{ fileName: string; fileUrl: string }[]>([]);
   
   const createAppeal = useAppealStore((state) => state.createAppeal);
-  const addAttachment = useAppealStore((state) => state.addAttachment);
+  const loadAppeals = useAppealStore((state) => state.loadAppeals);
   const currentUserName = useRoleStore((state) => state.currentUserName);
 
   const handleSubmit = () => {
@@ -28,13 +28,18 @@ export function AppealForm({ isOpen, onClose }: AppealFormProps) {
       return;
     }
 
-    createAppeal({
+    const appealData = {
       customerName: formData.customerName,
       customerPhone: formData.customerPhone,
       appealContent: formData.appealContent,
       oldLedgerInfo: formData.oldLedgerInfo,
-      status: 'pending_assignment'
-    }, uploadedFiles);
+      status: 'pending_assignment' as const,
+      isException: false,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    createAppeal(appealData, uploadedFiles);
 
     setFormData({
       customerName: '',
@@ -43,6 +48,9 @@ export function AppealForm({ isOpen, onClose }: AppealFormProps) {
       oldLedgerInfo: ''
     });
     setUploadedFiles([]);
+    
+    loadAppeals();
+    
     onClose();
   };
 

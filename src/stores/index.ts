@@ -35,7 +35,7 @@ interface AppealStore {
   getTodoList: (role: Role) => Appeal[];
   getExceptionList: () => Appeal[];
   
-  createAppeal: (appeal: Omit<Appeal, 'id' | 'appealNumber' | 'createdAt' | 'updatedAt' | 'isException'>) => void;
+  createAppeal: (appeal: Omit<Appeal, 'id' | 'appealNumber'>, attachments?: { fileName: string; fileUrl: string }[]) => void;
   updateAppeal: (id: string, updates: Partial<Appeal>) => void;
   addOperation: (operation: Omit<OperationHistory, 'id' | 'operationTime'>) => void;
   addAttachment: (attachment: Omit<Attachment, 'id' | 'uploadTime'>) => void;
