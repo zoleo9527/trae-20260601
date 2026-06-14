@@ -1,6 +1,6 @@
-const { getDB, tx, newId, assertFound } = require('../db');
+const { getDB, tx, newId, assertFound, getRoomInvigilators } = require('../db');
 const { AppError } = require('../errors');
-const { REGISTRATION_STATUS, addTimeline, pushNotification } = require('./registrationService');
+const { REGISTRATION_STATUS, addTimeline, pushNotification, hydrateInvigilators } = require('./registrationService');
 
 function generateTicketNo(regId) {
   const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -57,10 +57,10 @@ function generateAdmissionTicket(registrationId, { operatorId, operatorRole, exa
     addTimeline(registrationId, 'generate_ticket', operatorId, operatorRole,
       `生成准考证：${ticketNo}，考场：${room.room_code}，座位号：${seatNo}`);
     pushNotification({
-      userRole: 'invigilator',
+      examRoomId: room.id,
       registrationId,
-      title: '准考证已生成',
-      content: `考生 ${reg.candidate_name} 准考证已生成：${ticketNo}，考场：${room.room_code}`,
+      title: '准考证已生成（您负责的考场）',
+      content: `考生 ${reg.candidate_name} 准考证：${ticketNo}，考场：${room.room_code}，座位号：${seatNo}`,
       type: 'ticket_generated',
     });
     return getTicketDetail(ticketId);
@@ -71,7 +71,8 @@ function getTicketDetail(ticketId) {
   const db = getDB();
   const ticket = db.prepare(`
     SELECT t.*, r.candidate_name, r.id_card, r.exam_type, r.phone, r.email,
-           er.room_code, er.building, er.exam_time, u.name AS generated_by_name
+           er.room_code, er.building, er.exam_time, er.id AS exam_room_id,
+           u.name AS generated_by_name
     FROM admission_tickets t
     JOIN registrations r ON t.registration_id = r.id
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id
@@ -79,6 +80,7 @@ function getTicketDetail(ticketId) {
     WHERE t.id = ?
   `).get(ticketId);
   assertFound(ticket, 'TICKET_NOT_FOUND');
+  ticket.invigilators = getRoomInvigilators(ticket.exam_room_id);
   return ticket;
 }
 
@@ -86,7 +88,8 @@ function getTicketByRegistration(registrationId) {
   const db = getDB();
   const ticket = db.prepare(`
     SELECT t.*, r.candidate_name, r.id_card, r.exam_type,
-           er.room_code, er.building, er.exam_time, u.name AS generated_by_name
+           er.room_code, er.building, er.exam_time, er.id AS exam_room_id,
+           u.name AS generated_by_name
     FROM admission_tickets t
     JOIN registrations r ON t.registration_id = r.id
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id
@@ -94,6 +97,7 @@ function getTicketByRegistration(registrationId) {
     WHERE t.registration_id = ?
   `).get(registrationId);
   assertFound(ticket, 'TICKET_NOT_FOUND');
+  ticket.invigilators = getRoomInvigilators(ticket.exam_room_id);
   return ticket;
 }
 
@@ -107,7 +111,7 @@ function listTickets({ roomCode, offset = 0, limit = 20 } = {}) {
   }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const rows = db.prepare(`
-    SELECT t.*, r.candidate_name, r.exam_type, er.room_code, er.building
+    SELECT t.*, r.candidate_name, r.exam_type, er.room_code, er.building, er.id AS exam_room_id
     FROM admission_tickets t
     JOIN registrations r ON t.registration_id = r.id
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id
@@ -117,7 +121,7 @@ function listTickets({ roomCode, offset = 0, limit = 20 } = {}) {
   `).all({ ...params, limit: Number(limit), offset: Number(offset) });
   const total = db.prepare(`SELECT COUNT(*) AS c FROM admission_tickets t
     LEFT JOIN exam_rooms er ON t.exam_room_id = er.id ${where}`).get(params).c;
-  return { total, items: rows };
+  return { total, items: hydrateInvigilators(rows, 'exam_room_id') };
 }
 
 module.exports = {

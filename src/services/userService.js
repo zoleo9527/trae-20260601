@@ -66,35 +66,61 @@ function getMyTodos(userId, role) {
 
   if (role === 'invigilator') {
     const approvedNoTicket = db.prepare(`
-      SELECT r.id, r.candidate_name, r.exam_type, r.audit_time
+      SELECT r.id, r.candidate_name, r.exam_type, r.audit_time,
+             u.name AS assigned_invigilator_name
       FROM registrations r
       LEFT JOIN admission_tickets t ON t.registration_id = r.id
+      LEFT JOIN users u ON r.assigned_invigilator_id = u.id
       WHERE r.status = 'approved' AND t.id IS NULL
+        AND r.assigned_invigilator_id = ?
       ORDER BY r.audit_time ASC
-    `).all();
+    `).all(userId);
     todos.push(...approvedNoTicket.map(r => ({
       id: `ticket-${r.id}`,
       type: 'ticket_pending',
       title: `待生成准考证：${r.candidate_name}`,
-      content: `考试类型：${r.exam_type}，审核通过时间：${r.audit_time}`,
+      content: `考试类型：${r.exam_type}，审核通过时间：${r.audit_time}，负责监考：${r.assigned_invigilator_name || '-'}`,
       registration_id: r.id,
       created_at: r.audit_time,
     })));
   }
 
   if (role === 'tech_support') {
-    const rejected = db.prepare(`
-      SELECT id, candidate_name, reject_reason, audit_time
-      FROM registrations WHERE status = 'rejected' AND (supplement_remark IS NULL OR supplement_remark = '')
-      ORDER BY audit_time ASC
+    const myRejected = db.prepare(`
+      SELECT r.id, r.candidate_name, r.reject_reason, r.audit_time,
+             u.name AS handler_name, r.handler_id
+      FROM registrations r
+      LEFT JOIN users u ON r.handler_id = u.id
+      WHERE r.status = 'rejected'
+        AND (r.supplement_remark IS NULL OR r.supplement_remark = '')
+        AND r.handler_id = ?
+      ORDER BY r.audit_time ASC
+    `).all(userId);
+    const unassignedRejected = db.prepare(`
+      SELECT r.id, r.candidate_name, r.reject_reason, r.audit_time,
+             r.handler_id
+      FROM registrations r
+      WHERE r.status = 'rejected'
+        AND (r.supplement_remark IS NULL OR r.supplement_remark = '')
+        AND r.handler_id IS NULL
+      ORDER BY r.audit_time ASC
     `).all();
-    todos.push(...rejected.map(r => ({
+    const mergedMap = new Map();
+    myRejected.forEach(r => mergedMap.set(r.id, { ...r, is_unassigned: false, handler_name: r.handler_name || '-' }));
+    unassignedRejected.forEach(r => {
+      if (!mergedMap.has(r.id)) {
+        mergedMap.set(r.id, { ...r, is_unassigned: true, handler_name: '未分配' });
+      }
+    });
+    const merged = Array.from(mergedMap.values());
+    todos.push(...merged.map(r => ({
       id: `supplement-${r.id}`,
       type: 'supplement_pending',
       title: `报名退回待补正：${r.candidate_name}`,
-      content: `退回原因：${r.reject_reason}`,
+      content: `退回原因：${r.reject_reason}，处理归属：${r.handler_name || '-'}`,
       registration_id: r.id,
       created_at: r.audit_time,
+      is_unassigned: r.is_unassigned,
     })));
   }
 

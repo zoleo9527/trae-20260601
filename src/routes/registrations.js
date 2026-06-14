@@ -39,12 +39,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/:id/audit', asyncHandler(async (req, res) => {
   const { userId, userRole } = extractOperator(req);
   checkRole(userId, ['admin_staff']);
-  const { action, reason } = req.body || {};
+  const { action, reason, handler_id, assigned_invigilator_id } = req.body || {};
   const result = auditRegistration(req.params.id, {
     action,
     reason,
     auditorId: userId,
     auditorRole: userRole,
+    handlerId: handler_id,
+    assignedInvigilatorId: assigned_invigilator_id,
   });
   res.json({ success: true, data: result });
 }));
@@ -52,11 +54,13 @@ router.post('/:id/audit', asyncHandler(async (req, res) => {
 router.post('/:id/supplement', asyncHandler(async (req, res) => {
   const { userId, userRole } = extractOperator(req);
   checkRole(userId, ['tech_support', 'admin_staff']);
-  const { remark } = req.body || {};
+  const { remark, handler_id, mark_resolved } = req.body || {};
   const result = addSupplementRemark(req.params.id, {
     remark,
     operatorId: userId,
     operatorRole: userRole,
+    handlerId: handler_id,
+    markResolved: !!mark_resolved,
   });
   res.json({ success: true, data: result });
 }));

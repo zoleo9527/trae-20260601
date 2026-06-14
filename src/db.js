@@ -56,8 +56,12 @@ function createTables() {
       reject_reason TEXT,
       supplement_remark TEXT,
       supplement_time TEXT,
+      handler_id TEXT,
+      assigned_invigilator_id TEXT,
       submitted_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (auditor_id) REFERENCES users(id)
+      FOREIGN KEY (auditor_id) REFERENCES users(id),
+      FOREIGN KEY (handler_id) REFERENCES users(id),
+      FOREIGN KEY (assigned_invigilator_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS registration_timeline (
@@ -99,8 +103,10 @@ function createTables() {
     );
 
     CREATE INDEX IF NOT EXISTS idx_reg_status ON registrations(status);
+    CREATE INDEX IF NOT EXISTS idx_reg_handler ON registrations(handler_id);
     CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
     CREATE INDEX IF NOT EXISTS idx_timeline_reg ON registration_timeline(registration_id);
+    CREATE INDEX IF NOT EXISTS idx_invig_assign ON invigilator_assignments(invigilator_id, exam_room_id);
   `);
 }
 
@@ -124,4 +130,23 @@ function assertFound(entity, errorKey) {
   return entity;
 }
 
-module.exports = { initDB, getDB, tx, newId, assertFound };
+function getRoomInvigilators(examRoomId) {
+  if (!examRoomId) return [];
+  const dbi = getDB();
+  return dbi.prepare(`
+    SELECT u.id, u.name, u.username, ia.assigned_at
+    FROM invigilator_assignments ia
+    JOIN users u ON ia.invigilator_id = u.id
+    WHERE ia.exam_room_id = ?
+    ORDER BY ia.assigned_at
+  `).all(examRoomId);
+}
+
+function getInvigilatorRoomIds(userId) {
+  if (!userId) return [];
+  const dbi = getDB();
+  return dbi.prepare('SELECT exam_room_id FROM invigilator_assignments WHERE invigilator_id = ?')
+    .all(userId).map(r => r.exam_room_id);
+}
+
+module.exports = { initDB, getDB, tx, newId, assertFound, getRoomInvigilators, getInvigilatorRoomIds };
