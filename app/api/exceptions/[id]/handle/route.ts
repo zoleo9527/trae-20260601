@@ -30,6 +30,9 @@ export async function POST(
             },
           },
         },
+        reminders: {
+          orderBy: { sentAt: "desc" },
+        },
       },
     });
 
@@ -182,25 +185,34 @@ export async function POST(
       });
     }
 
-    const updatedException = await prisma.exceptionRecord.findUnique({
-      where: { id: params.id },
-      include: {
-        application: true,
-        repayment: {
-          include: {
-            application: true,
+    const [updatedException, logs] = await Promise.all([
+      prisma.exceptionRecord.findUnique({
+        where: { id: params.id },
+        include: {
+          application: true,
+          repayment: {
+            include: {
+              application: true,
+            },
+          },
+          reminders: {
+            orderBy: { sentAt: "desc" },
           },
         },
-        logs: {
-          orderBy: { createdAt: "desc" },
+      }),
+      prisma.operationLog.findMany({
+        where: {
+          businessId: params.id,
+          businessType: "EXCEPTION",
         },
-        reminders: {
-          orderBy: { sentAt: "desc" },
-        },
-      },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
 
-    return NextResponse.json(updatedException);
+    return NextResponse.json({
+      ...updatedException,
+      logs,
+    });
   } catch (error) {
     console.error("处理异常失败:", error);
     return NextResponse.json(

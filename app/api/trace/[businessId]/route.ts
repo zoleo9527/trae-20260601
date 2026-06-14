@@ -91,6 +91,8 @@ export async function GET(
     operationLogs.forEach((log) => {
       timeline.push({
         id: log.id,
+        businessId: log.businessId,
+        businessType: log.businessType,
         timestamp: log.createdAt,
         action: log.action,
         operator: log.operatorName,
@@ -118,19 +120,40 @@ export async function GET(
     }
 
     const repaymentIds = application.repaymentPlans?.map(p => p.id) || [];
-    const repaymentLogs = await prisma.operationLog.findMany({
-      where: {
-        businessId: { in: repaymentIds },
-        businessType: "REPAYMENT",
-      },
-      orderBy: { createdAt: "asc" },
-    });
+    const exceptionIds = [
+      ...(application.repaymentPlans?.flatMap(p => p.exceptions?.map(e => e.id) || []) || []),
+      ...(application.exceptions?.map(e => e.id) || []),
+    ];
+
+    const [repaymentLogs, exceptionLogs] = await Promise.all([
+      prisma.operationLog.findMany({
+        where: {
+          businessId: { in: repaymentIds },
+          businessType: "REPAYMENT",
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+      prisma.operationLog.findMany({
+        where: {
+          businessId: { in: exceptionIds },
+          businessType: "EXCEPTION",
+        },
+        orderBy: { createdAt: "asc" },
+      }),
+    ]);
 
     const repaymentLogsMap = new Map<string, any[]>();
     repaymentLogs.forEach(log => {
       const logs = repaymentLogsMap.get(log.businessId) || [];
       logs.push(log);
       repaymentLogsMap.set(log.businessId, logs);
+    });
+
+    const exceptionLogsMap = new Map<string, any[]>();
+    exceptionLogs.forEach(log => {
+      const logs = exceptionLogsMap.get(log.businessId) || [];
+      logs.push(log);
+      exceptionLogsMap.set(log.businessId, logs);
     });
 
     application.repaymentPlans?.forEach((plan) => {
@@ -150,6 +173,8 @@ export async function GET(
       planLogs.forEach((log) => {
         timeline.push({
           id: log.id,
+          businessId: log.businessId,
+          businessType: log.businessType,
           timestamp: log.createdAt,
           action: log.action,
           operator: log.operatorName,
@@ -183,17 +208,12 @@ export async function GET(
           },
         });
 
-        const exceptionLogs = await prisma.operationLog.findMany({
-          where: {
-            businessId: exception.id,
-            businessType: "EXCEPTION",
-          },
-          orderBy: { createdAt: "asc" },
-        });
-
-        exceptionLogs.forEach((log) => {
+        const exLogs = exceptionLogsMap.get(exception.id) || [];
+        exLogs.forEach((log) => {
           timeline.push({
             id: log.id,
+            businessId: log.businessId,
+            businessType: log.businessType,
             timestamp: log.createdAt,
             action: log.action,
             operator: log.operatorName,
@@ -243,17 +263,12 @@ export async function GET(
         },
       });
 
-      const exceptionLogs = await prisma.operationLog.findMany({
-        where: {
-          businessId: exception.id,
-          businessType: "EXCEPTION",
-        },
-        orderBy: { createdAt: "asc" },
-      });
-
-      exceptionLogs.forEach((log) => {
+      const exLogs = exceptionLogsMap.get(exception.id) || [];
+      exLogs.forEach((log) => {
         timeline.push({
           id: log.id,
+          businessId: log.businessId,
+          businessType: log.businessType,
           timestamp: log.createdAt,
           action: log.action,
           operator: log.operatorName,

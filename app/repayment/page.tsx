@@ -203,14 +203,22 @@ export default function RepaymentPage() {
     setSelectedRepayment(repayment);
     setShowDetailDrawer(true);
     try {
+      const exceptionIds = repayment.exceptions?.map((e: any) => e.id) || [];
       const response = await fetch(`/api/trace/${repayment.applicationId}`);
       const data = await response.json();
       const allLogs = data.timeline || [];
-      const repaymentLogs = allLogs.filter((log: any) => 
-        log.id.includes(repayment.id) || 
-        (repayment.exceptions && repayment.exceptions.some((e: any) => log.id.includes(e.id)))
-      );
-      setOperationLogs(repaymentLogs.length > 0 ? repaymentLogs : allLogs);
+      
+      const repaymentLogs = allLogs.filter((log: any) => {
+        if (log.businessId === repayment.id && log.businessType === "REPAYMENT") {
+          return true;
+        }
+        if (exceptionIds.includes(log.businessId) && log.businessType === "EXCEPTION") {
+          return true;
+        }
+        return false;
+      });
+      
+      setOperationLogs(repaymentLogs.length > 0 ? repaymentLogs : []);
     } catch (error) {
       console.error("获取操作日志失败:", error);
       setOperationLogs([]);
