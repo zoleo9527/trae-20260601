@@ -39,7 +39,7 @@ export const mockHandlers: Handler[] = [
 ];
 
 export const mockSettings: AppSettings = {
-  autoBackup: true,
+  autoBackup: false,
   autoBackupDays: 7,
   theme: 'light',
   currentUserId: 'h1',

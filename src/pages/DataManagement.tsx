@@ -86,7 +86,7 @@ export default function DataManagement() {
   const handleRestore = async (backupId: string, backupName: string) => {
     if (
       !confirm(
-        `确认从备份"${backupName}"恢复数据？\n此操作将覆盖当前所有数据，不可撤销。`
+        `确认从备份"${backupName}"恢复数据？\n\n将覆盖：案件数据、处理人员、系统设置\n保留：本地备份清单（所有备份条目不受影响）\n\n此操作不可撤销。`
       )
     ) {
       return;
@@ -95,7 +95,7 @@ export default function DataManagement() {
     setIsRestoring(backupId);
     try {
       await restoreFromBackup(backupId);
-      alert('数据恢复成功！');
+      alert('数据恢复成功！\n\n案件数据、处理人员、系统设置已恢复。\n本地备份清单保持不变。');
     } catch (error) {
       alert(error instanceof Error ? error.message : '恢复失败');
     } finally {
