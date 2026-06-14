@@ -18,9 +18,12 @@ export default function MakeupTraining() {
 
   const getAbsentAttendances = useMemo(() => {
     const absent = attendances.filter((a) => !a.present);
-    const assignedIds = makeupTrainings.map((m) => m.attendanceId).filter(Boolean);
+    const assignedIds = makeupTrainings
+      .filter((m) => !isEditing || m.id !== currentTraining?.id)
+      .map((m) => m.attendanceId)
+      .filter(Boolean);
     return absent.filter((a) => !assignedIds.includes(a.id));
-  }, [attendances, makeupTrainings]);
+  }, [attendances, makeupTrainings, isEditing, currentTraining]);
 
   const attendanceOptions = useMemo(() => {
     let filtered = getAbsentAttendances;
@@ -154,7 +157,7 @@ export default function MakeupTraining() {
 
       <Modal
         title={isEditing ? '编辑补训安排' : '添加补训安排'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={[
           <Button key="back" onClick={() => setIsModalVisible(false)}>取消</Button>,

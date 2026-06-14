@@ -40,10 +40,11 @@ export const useStore = create<Store>((set) => ({
     const newTraining = { ...training, id: `m${Date.now()}` };
     let updatedAttendances = state.attendances;
     
-    if (newTraining.attendanceId && newTraining.completed) {
+    if (newTraining.attendanceId) {
+      const completedStatus = newTraining.completed || false;
       updatedAttendances = state.attendances.map((a) => 
         a.id === newTraining.attendanceId 
-          ? { ...a, makeupCompleted: true }
+          ? { ...a, makeupCompleted: completedStatus }
           : a
       );
     }
