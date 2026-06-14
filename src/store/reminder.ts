@@ -9,6 +9,8 @@ import {
   reviewReminder as apiReview,
   markDispute as apiDispute,
   resolveDispute as apiResolveDispute,
+  markRisk as apiMarkRisk,
+  resolveRisk as apiResolveRisk,
 } from '../services/api';
 
 interface ReminderStore {
@@ -43,6 +45,11 @@ interface ReminderStore {
   reviewReminder: (id: string, payload: { remark: string; approve: boolean }) => Promise<void>;
   markDispute: (id: string, remark: string) => Promise<void>;
   resolveDispute: (id: string, payload: { remark: string; resolveTo: string }) => Promise<void>;
+  markRisk: (
+    id: string,
+    payload: { level: string; category: string; reason: string }
+  ) => Promise<void>;
+  resolveRisk: (id: string, riskId: string, resolveRemark: string) => Promise<void>;
   updateReminder: (r: Reminder) => void;
   applyFilter: () => void;
 }
@@ -85,6 +92,8 @@ export const useReminderStore = create<ReminderStore>((set, get) => ({
       list = list.filter(
         (r) => r.currentOwnerId === currentUserId && r.status !== 'completed'
       );
+    } else if (filterStatus === 'risk_high') {
+      list = list.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical');
     } else if (filterStatus !== 'all') {
       list = list.filter((r) => r.status === filterStatus);
     }
@@ -157,6 +166,26 @@ export const useReminderStore = create<ReminderStore>((set, get) => ({
   resolveDispute: async (id, payload) => {
     const { currentUserId } = get();
     const updated = await apiResolveDispute(id, { ...payload, operatorId: currentUserId });
+    get().updateReminder(updated);
+  },
+
+  markRisk: async (id, payload) => {
+    const { currentUserId } = get();
+    const updated = await apiMarkRisk(id, {
+      level: payload.level as any,
+      category: payload.category as any,
+      reason: payload.reason,
+      operatorId: currentUserId,
+    });
+    get().updateReminder(updated);
+  },
+
+  resolveRisk: async (id, riskId, resolveRemark) => {
+    const { currentUserId } = get();
+    const updated = await apiResolveRisk(id, riskId, {
+      resolveRemark,
+      operatorId: currentUserId,
+    });
     get().updateReminder(updated);
   },
 }));

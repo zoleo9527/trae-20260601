@@ -1,7 +1,7 @@
 import StatusBadge from './StatusBadge';
 import Avatar from './Avatar';
 import { useReminderStore } from '../store/reminder';
-import { formatDateTime, roleMap } from '../utils/format';
+import { formatDateTime, roleMap, riskLevelMap } from '../utils/format';
 import type { Reminder } from '../../shared/types';
 
 interface Props {
@@ -19,14 +19,23 @@ export default function ReminderRow({ reminder }: Props) {
   const active = selectedId === reminder.id;
   const isDisputed = reminder.status === 'disputed';
   const isMine = reminder.currentOwnerRole === currentRole && reminder.status !== 'completed';
+  const hasActiveRisk = reminder.riskLevel !== 'none';
+  const isHighRisk = reminder.riskLevel === 'high' || reminder.riskLevel === 'critical';
 
   return (
     <div
       onClick={() => setSelectedId(reminder.id)}
-      className={`row-hover cursor-pointer transition-colors border-b border-slate-100 ${
+      className={`row-hover cursor-pointer transition-colors border-b border-slate-100 relative overflow-hidden ${
         active ? 'bg-navy-50/70' : ''
       } ${isDisputed ? 'disputed-row' : ''}`}
     >
+      {isHighRisk && (
+        <div className={`absolute left-0 top-0 bottom-0 w-1 ${riskLevelMap[reminder.riskLevel].dotClass}`} />
+      )}
+      {hasActiveRisk && !isHighRisk && (
+        <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${riskLevelMap[reminder.riskLevel].dotClass}`} />
+      )}
+    
       <div className="grid grid-cols-12 gap-4 px-6 py-3.5 items-center text-sm">
         <div className="col-span-2 flex items-center gap-3 min-w-0">
           <Avatar name={reminder.student.name} size="md" />
@@ -57,8 +66,18 @@ export default function ReminderRow({ reminder }: Props) {
           </span>
         </div>
 
-        <div className="col-span-1">
+        <div className="col-span-1 flex flex-col gap-1">
           <StatusBadge status={reminder.status} pulse={isMine} />
+          {hasActiveRisk && (
+            <span
+              className={`inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border ${
+                riskLevelMap[reminder.riskLevel].badgeClass
+              }`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${riskLevelMap[reminder.riskLevel].dotClass}`} />
+              {riskLevelMap[reminder.riskLevel].label}
+            </span>
+          )}
         </div>
 
         <div className="col-span-2 flex items-center gap-2 min-w-0">

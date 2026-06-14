@@ -8,6 +8,10 @@ import type {
   ConfirmFeeRequest,
   ReviewRequest,
   DisputeRequest,
+  RiskRecord,
+  RiskLevel,
+  MarkRiskRequest,
+  ResolveRiskRequest,
 } from '../../shared/types';
 import { reminderStore, mockUsers, findByRole } from '../data/mockData.js';
 
@@ -190,4 +194,78 @@ export function getAllUsers(role?: string): User[] {
     return mockUsers.filter((u) => u.role === role);
   }
   return mockUsers;
+}
+
+const riskLevelOrder: RiskLevel[] = ['none', 'low', 'medium', 'high', 'critical'];
+
+function updateRiskLevel(reminder: Reminder): void {
+  const activeRisks = reminder.risks.filter((r) => !r.resolved);
+  if (activeRisks.length === 0) {
+    reminder.riskLevel = 'none';
+    return;
+  }
+  let maxIdx = 0;
+  activeRisks.forEach((r) => {
+    const idx = riskLevelOrder.indexOf(r.level);
+    if (idx > maxIdx) maxIdx = idx;
+  });
+  reminder.riskLevel = riskLevelOrder[maxIdx];
+}
+
+export function markRisk(
+  id: string,
+  payload: MarkRiskRequest
+): Reminder | null {
+  const r = reminderStore.get(id);
+  if (!r) return null;
+  const operator = getUserById(payload.operatorId);
+  if (!operator) return null;
+  const risk: RiskRecord = {
+    id: generateId(),
+    reminderId: id,
+    level: payload.level,
+    category: payload.category,
+    reason: payload.reason,
+    markedById: payload.operatorId,
+    markedByName: operator.name,
+    markedByRole: operator.role,
+    markedAt: new Date().toISOString(),
+    resolved: false,
+  };
+  r.risks.unshift(risk);
+  updateRiskLevel(r);
+  addHistory(r, r.status, payload.operatorId, '标记责任风险', `【${riskLevelLabel(payload.level)}】${payload.reason}`);
+  return r;
+}
+
+export function resolveRisk(
+  id: string,
+  riskId: string,
+  payload: ResolveRiskRequest
+): Reminder | null {
+  const r = reminderStore.get(id);
+  if (!r) return null;
+  const risk = r.risks.find((x) => x.id === riskId);
+  if (!risk) return null;
+  const operator = getUserById(payload.operatorId);
+  if (!operator) return null;
+  risk.resolved = true;
+  risk.resolvedById = payload.operatorId;
+  risk.resolvedByName = operator.name;
+  risk.resolvedAt = new Date().toISOString();
+  risk.resolveRemark = payload.resolveRemark;
+  updateRiskLevel(r);
+  addHistory(r, r.status, payload.operatorId, '解除风险标记', `${risk.reason} — ${payload.resolveRemark}`);
+  return r;
+}
+
+function riskLevelLabel(level: RiskLevel): string {
+  const map: Record<RiskLevel, string> = {
+    none: '无风险',
+    low: '低风险',
+    medium: '中风险',
+    high: '高风险',
+    critical: '严重风险',
+  };
+  return map[level];
 }

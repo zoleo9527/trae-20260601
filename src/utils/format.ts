@@ -1,4 +1,4 @@
-import type { ReminderStatus, UserRole, PaymentStatus } from '../../shared/types';
+import type { ReminderStatus, UserRole, PaymentStatus, RiskLevel, RiskCategory } from '../../shared/types';
 
 export const statusMap: Record<
   ReminderStatus,
@@ -91,3 +91,74 @@ export function getInitial(name: string): string {
   if (!name) return '?';
   return name.charAt(0);
 }
+
+export const riskLevelMap: Record<
+  RiskLevel,
+  { label: string; className: string; dotClass: string; badgeClass: string }
+> = {
+  none: {
+    label: '无风险',
+    className: 'text-slate-400',
+    dotClass: 'bg-slate-300',
+    badgeClass: 'bg-slate-100 text-slate-600 border-slate-200',
+  },
+  low: {
+    label: '低风险',
+    className: 'text-teal-600',
+    dotClass: 'bg-teal-500',
+    badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
+  },
+  medium: {
+    label: '中风险',
+    className: 'text-amber-600',
+    dotClass: 'bg-amber-500',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+  },
+  high: {
+    label: '高风险',
+    className: 'text-orange-600',
+    dotClass: 'bg-orange-500',
+    badgeClass: 'bg-orange-50 text-orange-700 border-orange-200',
+  },
+  critical: {
+    label: '严重风险',
+    className: 'text-red-600',
+    dotClass: 'bg-red-500',
+    badgeClass: 'bg-red-50 text-red-700 border-red-200',
+  },
+};
+
+export const riskCategoryMap: Record<RiskCategory, { label: string; description: string }> = {
+  schedule_delay: {
+    label: '安排延误',
+    description: '补训安排不及时，可能影响学员考试进度',
+  },
+  fee_discrepancy: {
+    label: '费用争议',
+    description: '学员对费用金额或收费标准有异议',
+  },
+  missing_record: {
+    label: '记录缺失',
+    description: '补训流程记录不完整，缺少签到、照片等凭证',
+  },
+  coach_overload: {
+    label: '教练超负荷',
+    description: '教练同时带教学员过多，可能影响补训质量',
+  },
+  student_complaint: {
+    label: '学员投诉',
+    description: '学员对服务态度、教学质量等有投诉',
+  },
+  process_irregularity: {
+    label: '流程违规',
+    description: '操作流程不符合规范要求，存在合规风险',
+  },
+  safety_concern: {
+    label: '安全隐患',
+    description: '训练过程中存在安全操作隐患',
+  },
+  other: {
+    label: '其他风险',
+    description: '其他需要关注的责任风险',
+  },
+};

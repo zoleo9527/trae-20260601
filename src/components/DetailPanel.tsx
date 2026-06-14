@@ -1,10 +1,19 @@
-import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText } from 'lucide-react';
+import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText, ShieldAlert, ShieldCheck, Plus } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import Avatar from './Avatar';
 import HistoryTimeline from './HistoryTimeline';
 import { useReminderStore } from '../store/reminder';
-import { formatDateTime, maskIdCard, maskPhone, roleMap, paymentMap, formatDate } from '../utils/format';
-import type { Reminder, UserRole } from '../../shared/types';
+import {
+  formatDateTime,
+  maskIdCard,
+  maskPhone,
+  roleMap,
+  paymentMap,
+  formatDate,
+  riskLevelMap,
+  riskCategoryMap,
+} from '../utils/format';
+import type { Reminder, UserRole, RiskRecord } from '../../shared/types';
 
 interface Props {
   reminder: Reminder;
@@ -14,6 +23,8 @@ interface Props {
   onOpenDispute: () => void;
   onOpenReview: (type: 'approve' | 'reject') => void;
   onOpenResolveDispute: () => void;
+  onOpenMarkRisk: () => void;
+  onOpenResolveRisk: (riskId: string) => void;
 }
 
 const motorcycleTypeMap: Record<string, string> = {
@@ -30,17 +41,37 @@ export default function DetailPanel({
   onOpenDispute,
   onOpenReview,
   onOpenResolveDispute,
+  onOpenMarkRisk,
+  onOpenResolveRisk,
 }: Props) {
   const { setSelectedId, currentRole, currentUserId } = useReminderStore();
   const isOwner = reminder.currentOwnerId === currentUserId;
   const canAct = isOwner || currentRole === 'safety_officer';
+  const hasActiveRisk = reminder.riskLevel !== 'none';
+  const isHighRisk = reminder.riskLevel === 'high' || reminder.riskLevel === 'critical';
+  const activeRisks = reminder.risks.filter((r) => !r.resolved);
+  const resolvedRisks = reminder.risks.filter((r) => r.resolved);
 
   return (
     <aside className="w-[480px] bg-white border-l border-slate-200 h-full flex flex-col animate-slide-in-right">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200 bg-slate-50/50">
+      <div
+        className={`flex items-center justify-between px-5 py-3 border-b bg-slate-50/50 ${
+          isHighRisk ? 'border-b-2 border-red-400' : 'border-slate-200'
+        }`}
+      >
         <div className="flex items-center gap-2 min-w-0">
           <h3 className="font-serif text-base font-semibold text-navy-800 truncate">补训详情</h3>
           <StatusBadge status={reminder.status} pulse={isOwner && reminder.status !== 'completed'} />
+          {hasActiveRisk && (
+            <span
+              className={`inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-sm border font-medium ${
+                riskLevelMap[reminder.riskLevel].badgeClass
+              }`}
+            >
+              <ShieldAlert size={12} />
+              {riskLevelMap[reminder.riskLevel].label}
+            </span>
+          )}
         </div>
         <button
           onClick={() => setSelectedId(null)}
@@ -206,6 +237,64 @@ export default function DetailPanel({
           </section>
 
           <section>
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                <ShieldAlert size={14} className="text-orange-500" />
+                责任风险标记
+                {activeRisks.length > 0 && (
+                  <span
+                    className={`text-xs px-1.5 py-0.5 rounded-sm border font-medium ${
+                      riskLevelMap[reminder.riskLevel].badgeClass
+                    }`}
+                  >
+                    {activeRisks.length} 项待处理
+                  </span>
+                )}
+              </h4>
+              {canAct && (
+                <button
+                  onClick={onOpenMarkRisk}
+                  className="text-xs text-navy-600 hover:text-navy-800 flex items-center gap-0.5 hover:underline"
+                >
+                  <Plus size={12} />
+                  标记风险
+                </button>
+              )}
+            </div>
+
+            {reminder.risks.length === 0 ? (
+              <div className="text-sm text-slate-400 text-center py-6 bg-slate-50 rounded-sm border border-dashed border-slate-200">
+                <ShieldCheck size={20} className="mx-auto mb-1 text-slate-300" />
+                暂无风险记录
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {activeRisks.map((risk) => (
+                  <RiskItem
+                    key={risk.id}
+                    risk={risk}
+                    canResolve={canAct}
+                    onResolve={() => onOpenResolveRisk(risk.id)}
+                  />
+                ))}
+                {resolvedRisks.length > 0 && (
+                  <div className="pt-2">
+                    <div className="text-xs text-slate-400 mb-2 flex items-center gap-1">
+                      <ShieldCheck size={12} />
+                      已解除风险 ({resolvedRisks.length})
+                    </div>
+                    <div className="space-y-1.5 opacity-60">
+                      {resolvedRisks.map((risk) => (
+                        <RiskItem key={risk.id} risk={risk} canResolve={false} onResolve={() => {}} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section>
             <HistoryTimeline history={reminder.history} />
           </section>
         </div>
@@ -321,6 +410,71 @@ function FeeRow({ label, value }: { label: string; value: number }) {
     <div className="flex justify-between items-center text-sm text-slate-600">
       <span>{label}</span>
       <span className="tabular-nums">¥{value.toFixed(2)}</span>
+    </div>
+  );
+}
+
+function RiskItem({
+  risk,
+  canResolve,
+  onResolve,
+}: {
+  risk: RiskRecord;
+  canResolve: boolean;
+  onResolve: () => void;
+}) {
+  return (
+    <div
+      className={`p-3 rounded-sm border text-sm ${
+        risk.resolved
+          ? 'bg-slate-50 border-slate-200'
+          : `bg-white border-l-2 ${riskLevelMap[risk.level].dotClass.replace('bg-', 'border-l-')} border-slate-200`
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`text-xs px-1.5 py-0.5 rounded-sm border font-medium ${
+              riskLevelMap[risk.level].badgeClass
+            }`}
+          >
+            {riskLevelMap[risk.level].label}
+          </span>
+          <span className="text-xs text-slate-500">
+            {riskCategoryMap[risk.category]?.label || risk.category}
+          </span>
+        </div>
+        {!risk.resolved && canResolve && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onResolve();
+            }}
+            className="text-xs text-emerald-600 hover:text-emerald-700 hover:underline flex-shrink-0"
+          >
+            解除
+          </button>
+        )}
+      </div>
+      <div className="text-slate-700 text-sm leading-relaxed mb-2">{risk.reason}</div>
+      <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <Avatar name={risk.markedByName} size="sm" />
+          <span>{risk.markedByName}</span>
+          <span className="text-slate-400">·</span>
+          <span>{roleMap[risk.markedByRole]?.label || risk.markedByRole}</span>
+        </div>
+        <span className="tabular-nums">{formatDateTime(risk.markedAt)}</span>
+      </div>
+      {risk.resolved && risk.resolveRemark && (
+        <div className="mt-2 pt-2 border-t border-slate-200 text-xs text-slate-600">
+          <span className="text-emerald-600 font-medium">解除说明：</span>
+          {risk.resolveRemark}
+          {risk.resolvedByName && (
+            <span className="text-slate-400 ml-1">— {risk.resolvedByName}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

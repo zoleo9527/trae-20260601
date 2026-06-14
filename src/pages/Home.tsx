@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList, ShieldAlert } from 'lucide-react';
 import Header from '../components/Header';
 import StatusTabs from '../components/StatusTabs';
 import ReminderRow from '../components/ReminderRow';
@@ -11,6 +11,8 @@ import ConfirmFeeModal from '../components/ConfirmFeeModal';
 import DisputeModal from '../components/DisputeModal';
 import ReviewModal from '../components/ReviewModal';
 import ResolveDisputeModal from '../components/ResolveDisputeModal';
+import RiskModal from '../components/RiskModal';
+import ResolveRiskModal from '../components/ResolveRiskModal';
 import { useReminderStore } from '../store/reminder';
 import { roleMap } from '../utils/format';
 
@@ -36,6 +38,9 @@ export default function Home() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [reviewType, setReviewType] = useState<'approve' | 'reject'>('approve');
   const [resolveDisputeOpen, setResolveDisputeOpen] = useState(false);
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [resolveRiskOpen, setResolveRiskOpen] = useState(false);
+  const [activeRiskId, setActiveRiskId] = useState('');
 
   useEffect(() => {
     loadReminders();
@@ -130,6 +135,11 @@ export default function Home() {
               setReviewOpen(true);
             }}
             onOpenResolveDispute={() => setResolveDisputeOpen(true)}
+            onOpenMarkRisk={() => setRiskOpen(true)}
+            onOpenResolveRisk={(riskId) => {
+              setActiveRiskId(riskId);
+              setResolveRiskOpen(true);
+            }}
           />
         )}
       </div>
@@ -164,6 +174,17 @@ export default function Home() {
         open={resolveDisputeOpen}
         reminderId={selectedId}
         onClose={() => setResolveDisputeOpen(false)}
+      />
+      <RiskModal
+        open={riskOpen}
+        reminderId={selectedId}
+        onClose={() => setRiskOpen(false)}
+      />
+      <ResolveRiskModal
+        open={resolveRiskOpen}
+        reminderId={selectedId}
+        riskId={activeRiskId}
+        onClose={() => setResolveRiskOpen(false)}
       />
     </div>
   );

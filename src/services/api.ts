@@ -7,6 +7,8 @@ import type {
   ConfirmFeeRequest,
   ReviewRequest,
   DisputeRequest,
+  MarkRiskRequest,
+  ResolveRiskRequest,
 } from '../../shared/types';
 
 interface ApiResponse<T> {
@@ -106,4 +108,25 @@ export function fetchUsers(role?: string): Promise<User[]> {
 
 export function fetchStudents(): Promise<Student[]> {
   return request<Student[]>('/api/reminders/meta/students');
+}
+
+export function markRisk(
+  id: string,
+  payload: MarkRiskRequest
+): Promise<Reminder> {
+  return request<Reminder>(`/api/reminders/${id}/risk`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function resolveRisk(
+  id: string,
+  riskId: string,
+  payload: ResolveRiskRequest
+): Promise<Reminder> {
+  return request<Reminder>(`/api/reminders/${id}/risk/${riskId}/resolve`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
 }

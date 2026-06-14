@@ -9,6 +9,8 @@ import {
   markDispute,
   resolveDispute,
   getAllUsers,
+  markRisk,
+  resolveRisk,
 } from '../services/reminderService.js';
 import { mockStudents } from '../data/mockData.js';
 
@@ -117,6 +119,34 @@ router.put('/:id/resolve-dispute', (req: Request, res: Response): void => {
   const r = resolveDispute(req.params.id, { remark: remark || '', resolveTo }, operatorId);
   if (!r) {
     res.status(400).json({ success: false, error: '状态不允许解除争议' });
+    return;
+  }
+  res.json({ success: true, data: r });
+});
+
+router.put('/:id/risk', (req: Request, res: Response): void => {
+  const { operatorId, level, category, reason } = req.body;
+  if (!operatorId || !level || !category || !reason) {
+    res.status(400).json({ success: false, error: '缺少必要参数' });
+    return;
+  }
+  const r = markRisk(req.params.id, { level, category, reason, operatorId });
+  if (!r) {
+    res.status(404).json({ success: false, error: '未找到该补训记录' });
+    return;
+  }
+  res.json({ success: true, data: r });
+});
+
+router.put('/:id/risk/:riskId/resolve', (req: Request, res: Response): void => {
+  const { operatorId, resolveRemark } = req.body;
+  if (!operatorId || !resolveRemark) {
+    res.status(400).json({ success: false, error: '缺少必要参数' });
+    return;
+  }
+  const r = resolveRisk(req.params.id, req.params.riskId, { resolveRemark, operatorId });
+  if (!r) {
+    res.status(404).json({ success: false, error: '未找到该风险记录' });
     return;
   }
   res.json({ success: true, data: r });

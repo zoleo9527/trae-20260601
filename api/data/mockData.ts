@@ -5,6 +5,9 @@ import type {
   HistoryRecord,
   UserRole,
   ReminderStatus,
+  RiskRecord,
+  RiskLevel,
+  RiskCategory,
 } from '../../shared/types';
 
 export const mockUsers: User[] = [
@@ -105,6 +108,41 @@ function makeHistory(
   };
 }
 
+function makeRisk(
+  id: string,
+  reminderId: string,
+  level: RiskLevel,
+  category: RiskCategory,
+  reason: string,
+  operatorId: string,
+  markedAt: string,
+  resolved = false,
+  resolveRemark = '',
+  resolvedById = ''
+): RiskRecord {
+  const u = userMap[operatorId];
+  const record: RiskRecord = {
+    id,
+    reminderId,
+    level,
+    category,
+    reason,
+    markedById: operatorId,
+    markedByName: u.name,
+    markedByRole: u.role,
+    markedAt,
+    resolved,
+  };
+  if (resolved && resolvedById) {
+    const ru = userMap[resolvedById];
+    record.resolvedById = resolvedById;
+    record.resolvedByName = ru.name;
+    record.resolveRemark = resolveRemark;
+    record.resolvedAt = markedAt;
+  }
+  return record;
+}
+
 function findByRole(role: UserRole): User[] {
   return mockUsers.filter((u) => u.role === role);
 }
@@ -141,6 +179,8 @@ export const mockReminders: Reminder[] = [
         '2026-06-10T09:20:00+08:00'
       ),
     ],
+    riskLevel: 'none',
+    risks: [],
   },
   {
     id: 'r2',
@@ -183,6 +223,18 @@ export const mockReminders: Reminder[] = [
         '安排补训',
         '安排陈志强教练，6月15日下午2点，3号场地',
         '2026-06-08T11:00:00+08:00'
+      ),
+    ],
+    riskLevel: 'medium',
+    risks: [
+      makeRisk(
+        'risk1-r2',
+        'r2',
+        'medium',
+        'coach_overload',
+        '陈志强教练当日已安排4个学员训练，同时带教3名学员可能影响补训质量',
+        'u7',
+        '2026-06-12T10:30:00+08:00'
       ),
     ],
   },
@@ -239,6 +291,27 @@ export const mockReminders: Reminder[] = [
         '执行补训完成',
         '学员已完成2课时补训，单边桥动作要领已掌握，可安排补考',
         '2026-06-09T11:30:00+08:00'
+      ),
+    ],
+    riskLevel: 'high',
+    risks: [
+      makeRisk(
+        'risk1-r3',
+        'r3',
+        'medium',
+        'schedule_delay',
+        '补训执行完成已超过5天，报名员尚未确认费用，存在费用确认滞后风险',
+        'u8',
+        '2026-06-12T09:15:00+08:00'
+      ),
+      makeRisk(
+        'risk2-r3',
+        'r3',
+        'high',
+        'missing_record',
+        '教练执行记录中缺少学员签到记录和现场照片，流程不完整',
+        'u7',
+        '2026-06-13T14:00:00+08:00'
       ),
     ],
   },
@@ -316,6 +389,8 @@ export const mockReminders: Reminder[] = [
         '2026-05-29T14:00:00+08:00'
       ),
     ],
+    riskLevel: 'none',
+    risks: [],
   },
   {
     id: 'r5',
@@ -389,6 +464,27 @@ export const mockReminders: Reminder[] = [
         '2026-06-07T15:00:00+08:00'
       ),
     ],
+    riskLevel: 'critical',
+    risks: [
+      makeRisk(
+        'risk1-r5',
+        'r5',
+        'critical',
+        'fee_discrepancy',
+        '学员称报名时承诺包过，对720元补训费用存在严重异议，已多次电话投诉',
+        'u1',
+        '2026-06-07T10:30:00+08:00'
+      ),
+      makeRisk(
+        'risk2-r5',
+        'r5',
+        'high',
+        'student_complaint',
+        '学员已向12345市民热线投诉，存在监管风险和品牌声誉风险',
+        'u8',
+        '2026-06-08T09:00:00+08:00'
+      ),
+    ],
   },
   {
     id: 'r6',
@@ -431,6 +527,18 @@ export const mockReminders: Reminder[] = [
         '安排补训',
         '安排刘德明教练，6月16日上午8点半，1号场地',
         '2026-06-11T16:20:00+08:00'
+      ),
+    ],
+    riskLevel: 'low',
+    risks: [
+      makeRisk(
+        'risk1-r6',
+        'r6',
+        'low',
+        'schedule_delay',
+        '学员反映16日可能有事，需提前确认是否能按时参加，避免临时爽约',
+        'u3',
+        '2026-06-13T10:00:00+08:00'
       ),
     ],
   },
@@ -499,6 +607,21 @@ export const mockReminders: Reminder[] = [
         '2026-05-19T10:15:00+08:00'
       ),
     ],
+    riskLevel: 'none',
+    risks: [
+      makeRisk(
+        'risk1-r7',
+        'r7',
+        'low',
+        'student_complaint',
+        '学员反映教练讲解时语气急躁，体验不佳',
+        'u1',
+        '2026-05-18T17:30:00+08:00',
+        true,
+        '已与教练沟通，教练向学员致歉，学员表示接受，已达成和解',
+        'u7'
+      ),
+    ],
   },
   {
     id: 'r8',
@@ -531,6 +654,8 @@ export const mockReminders: Reminder[] = [
         '2026-06-12T14:10:00+08:00'
       ),
     ],
+    riskLevel: 'none',
+    risks: [],
   },
   {
     id: 'r9',
@@ -584,6 +709,18 @@ export const mockReminders: Reminder[] = [
         '执行补训完成',
         '坡道起步已基本掌握，离合半联动点控制还需多加练习，建议再自行练习',
         '2026-06-10T12:30:00+08:00'
+      ),
+    ],
+    riskLevel: 'medium',
+    risks: [
+      makeRisk(
+        'risk1-r9',
+        'r9',
+        'medium',
+        'safety_concern',
+        '坡道起步训练中发动机熄火3次，存在溜车安全隐患，需重点加强安全操作规范',
+        'u9',
+        '2026-06-11T15:00:00+08:00'
       ),
     ],
   },
@@ -661,6 +798,8 @@ export const mockReminders: Reminder[] = [
         '2026-05-23T16:30:00+08:00'
       ),
     ],
+    riskLevel: 'none',
+    risks: [],
   },
 ];
 

@@ -9,6 +9,18 @@ export type ReminderStatus =
 
 export type PaymentStatus = 'unpaid' | 'paid' | 'pending';
 
+export type RiskLevel = 'none' | 'low' | 'medium' | 'high' | 'critical';
+
+export type RiskCategory =
+  | 'schedule_delay'
+  | 'fee_discrepancy'
+  | 'missing_record'
+  | 'coach_overload'
+  | 'student_complaint'
+  | 'process_irregularity'
+  | 'safety_concern'
+  | 'other';
+
 export interface User {
   id: string;
   name: string;
@@ -70,6 +82,8 @@ export interface Reminder {
   createdAt: string;
   createdBy: string;
   history: HistoryRecord[];
+  riskLevel: RiskLevel;
+  risks: RiskRecord[];
 }
 
 export interface ScheduleReminderRequest {
@@ -92,6 +106,35 @@ export interface ConfirmFeeRequest {
 export interface ReviewRequest {
   remark: string;
   approve: boolean;
+}
+
+export interface RiskRecord {
+  id: string;
+  reminderId: string;
+  level: RiskLevel;
+  category: RiskCategory;
+  reason: string;
+  markedById: string;
+  markedByName: string;
+  markedByRole: UserRole;
+  markedAt: string;
+  resolved?: boolean;
+  resolvedById?: string;
+  resolvedByName?: string;
+  resolvedAt?: string;
+  resolveRemark?: string;
+}
+
+export interface MarkRiskRequest {
+  level: RiskLevel;
+  category: RiskCategory;
+  reason: string;
+  operatorId: string;
+}
+
+export interface ResolveRiskRequest {
+  resolveRemark: string;
+  operatorId: string;
 }
 
 export interface DisputeRequest {
