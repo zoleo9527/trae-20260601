@@ -132,7 +132,7 @@ export default function TransferFlow({ role }: Props) {
   const loadDetail = async (id: string) => {
     setDetailLoading(true);
     try {
-      const detail = await getOrderDetail(id);
+      const detail = await getOrderDetail(id, role);
       setCurrentDetail(detail);
       setDetailVisible(true);
     } finally {
@@ -276,10 +276,12 @@ export default function TransferFlow({ role }: Props) {
 
   const canAdvance = (o: TransferOrder) => {
     if (o.stage === 'completed') return false;
+    if (o.stage === 'loan_funding') return false;
     if (o.currentHandlerRole !== role) return false;
+    if (o.urgencyAction === 'supplement') return false;
     if (role === 'purchaseManager' && (o.stage === 'purchase' || o.stage === 'transfer')) return true;
     if (role === 'appraiser' && o.stage === 'appraisal') return true;
-    if (role === 'financeSpecialist' && (o.stage === 'loan_review' || o.stage === 'loan_funding')) return true;
+    if (role === 'financeSpecialist' && o.stage === 'loan_review') return true;
     return false;
   };
 

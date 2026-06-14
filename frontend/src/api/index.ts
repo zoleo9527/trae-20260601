@@ -69,14 +69,14 @@ export const getLoan = (id: string) =>
 export const getOrders = (params?: { stage?: TransferStage; role?: Role; handlerRole?: Role; urgency?: UrgencyAction }) =>
   unwrap<TransferOrder[]>(api.get('/orders', { params }));
 
-export const getOrderDetail = (id: string) =>
+export const getOrderDetail = (id: string, role?: Role) =>
   unwrap<{
     order: TransferOrder;
     inspection?: InspectionReport;
     loan?: LoanApplication;
     carSource?: CarSource;
     statusLogs: StatusChangeLog[];
-  }>(api.get(`/orders/${id}`));
+  }>(api.get(`/orders/${id}`, { params: role ? { role } : undefined }));
 
 export const getOrderLogs = (id: string) =>
   unwrap<StatusChangeLog[]>(api.get(`/orders/${id}/logs`));

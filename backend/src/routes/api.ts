@@ -192,10 +192,9 @@ router.get('/orders', (req, res) => {
     const r = role as Role;
     list = list.filter(o => {
       if (o.stage === 'completed') return true;
-      if (o.currentHandlerRole === r) return true;
-      if (r === 'purchaseManager' && (o.stage === 'purchase' || o.stage === 'transfer')) return true;
-      if (r === 'appraiser' && o.stage === 'appraisal') return true;
-      if (r === 'financeSpecialist' && (o.stage === 'loan_review' || o.stage === 'loan_funding')) return true;
+      if (r === 'purchaseManager') return o.stage === 'purchase' || o.stage === 'transfer';
+      if (r === 'appraiser') return o.stage === 'appraisal';
+      if (r === 'financeSpecialist') return o.stage === 'loan_review' || o.stage === 'loan_funding';
       return false;
     });
   }
@@ -207,9 +206,24 @@ router.get('/orders', (req, res) => {
   res.json(ok(list));
 });
 
+const canAccessOrder = (o: TransferOrder, role?: Role): boolean => {
+  if (!role) return true;
+  if (o.stage === 'completed') return true;
+  if (role === 'purchaseManager') return o.stage === 'purchase' || o.stage === 'transfer';
+  if (role === 'appraiser') return o.stage === 'appraisal';
+  if (role === 'financeSpecialist') return o.stage === 'loan_review' || o.stage === 'loan_funding';
+  return false;
+};
+
 router.get('/orders/:id', (req, res) => {
   const o = store.orders.find(x => x.id === req.params.id);
   if (!o) return res.status(404).json(fail('订单不存在'));
+
+  const { role } = req.query;
+  const currentRole = role ? (role as Role) : undefined;
+  if (!canAccessOrder(o, currentRole)) {
+    return res.status(403).json(fail(`当前订单由${DEMO_ACCOUNTS[o.currentHandlerRole].name}处理，您无权查看详情`));
+  }
 
   const inspection = store.inspections.find(i => i.orderId === o.id);
   const loan = store.loans.find(l => l.orderId === o.id);
@@ -338,6 +352,14 @@ router.put('/orders/:id/advance', (req, res) => {
 
   if (old.stage === 'loan_funding') {
     return res.status(400).json(fail('贷款放款阶段需通过"确认放款"操作完成，不可直接推进'));
+  }
+
+  if (old.urgencyAction === 'supplement') {
+    return res.status(400).json(fail('当前订单标记为"补材料"，需完成补件并清除补材料状态后才能推进'));
+  }
+
+  if (old.currentHandlerRole !== operatorRole) {
+    return res.status(403).json(fail(`当前环节由${DEMO_ACCOUNTS[old.currentHandlerRole].name}处理，您无权推进`));
   }
 
   const nextStage = flow.next;
