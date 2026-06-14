@@ -13,19 +13,21 @@ router.get('/', async (req, res) => {
     if (lineId) baseWhere.lineId = parseInt(lineId)
     if (licensePlate) baseWhere.vehicle = { licensePlate: { contains: licensePlate } }
 
-    const pendingStatusFilter = status ? [status] : ['QUEUING', 'ASSIGNED']
-    const todayPendingRecords = await prisma.inspectionRecord.findMany({
-      where: { ...baseWhere, status: { in: pendingStatusFilter } },
+    const pendingStatuses = ['QUEUING', 'ASSIGNED']
+    const shouldQueryPending = !status || pendingStatuses.includes(status)
+    const todayPendingRecords = shouldQueryPending ? await prisma.inspectionRecord.findMany({
+      where: { ...baseWhere, status: { in: pendingStatuses } },
       include: { vehicle: true, line: true, items: true, anomalies: true },
       orderBy: { createdAt: 'asc' }
-    })
+    }) : []
 
-    const inspectingStatusFilter = status ? [status] : ['INSPECTING']
-    const todayInspectingRecords = await prisma.inspectionRecord.findMany({
-      where: { ...baseWhere, status: { in: inspectingStatusFilter } },
+    const inspectingStatus = 'INSPECTING'
+    const shouldQueryInspecting = !status || status === inspectingStatus
+    const todayInspectingRecords = shouldQueryInspecting ? await prisma.inspectionRecord.findMany({
+      where: { ...baseWhere, status: inspectingStatus },
       include: { vehicle: true, line: true, items: true, anomalies: true },
       orderBy: { startedAt: 'asc' }
-    })
+    }) : []
 
     const todayTimeoutRecords = todayInspectingRecords.filter(record => {
       if (!record.startedAt) return false
@@ -33,16 +35,18 @@ router.get('/', async (req, res) => {
       return diff > 30
     })
 
-    const rejectedStatusFilter = status ? { rejectedAt: { gte: today }, status } : { rejectedAt: { gte: today }, status: 'REJECTED' }
-    const todayRejectedRecords = await prisma.inspectionRecord.findMany({
+    const rejectedStatus = 'REJECTED'
+    const shouldQueryRejected = !status || status === rejectedStatus
+    const todayRejectedRecords = shouldQueryRejected ? await prisma.inspectionRecord.findMany({
       where: {
-        ...rejectedStatusFilter,
+        rejectedAt: { gte: today },
+        status: rejectedStatus,
         ...(lineId ? { lineId: parseInt(lineId) } : {}),
         ...(licensePlate ? { vehicle: { licensePlate: { contains: licensePlate } } } : {})
       },
       include: { vehicle: true, line: true, items: true, anomalies: true },
       orderBy: { rejectedAt: 'desc' }
-    })
+    }) : []
 
     const todayCompletedCount = await prisma.inspectionRecord.count({
       where: { completedAt: { gte: today }, status: 'COMPLETED' }
