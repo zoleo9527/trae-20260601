@@ -77,13 +77,39 @@ func buildResponsibilitySummary(r *AppraisalRecord) ResponsibilitySummary {
 		Preload("Operator").
 		First(&lastRejectLog)
 	if lastRejectLog.ID > 0 {
-		summary.LatestRejectReason = lastRejectLog.Reason
 		summary.LatestRejectAt = lastRejectLog.CreatedAt.Format("2006-01-02 15:04")
 		if lastRejectLog.Operator != nil {
 			summary.LatestRejectOperator = fmt.Sprintf("%s(%s)", lastRejectLog.Operator.Name, roleText(lastRejectLog.Operator.Role))
 		}
+		switch lastRejectLog.ToStatus {
+		case StatusNeedSupplement:
+			var notice SupplementNotice
+			DB.Where("record_id = ? AND notice_no = ?", r.ID, strings.TrimPrefix(lastRejectLog.Reason, "发起补样通知:")).
+				First(&notice)
+			if notice.ID > 0 {
+				parts := []string{}
+				if strings.TrimSpace(notice.MissingItems) != "" {
+					parts = append(parts, "缺项："+notice.MissingItems)
+				}
+				if strings.TrimSpace(notice.ExpertComment) != "" {
+					parts = append(parts, "鉴定人说明："+notice.ExpertComment)
+				}
+				summary.LatestRejectReason = strings.Join(parts, "；")
+			} else {
+				summary.LatestRejectReason = strings.TrimSpace(r.RejectReason)
+			}
+		case StatusRejectedQC:
+			reason := strings.TrimSpace(r.RejectReason)
+			if reason == "" {
+				reason = strings.TrimSpace(lastRejectLog.Reason)
+			}
+			if reason == "" || reason == fmt.Sprintf("%s→%s", lastRejectLog.FromStatus, StatusRejectedQC) {
+				reason = "质控退回（未填写具体原因）"
+			}
+			summary.LatestRejectReason = reason
+		}
 	} else if strings.TrimSpace(r.RejectReason) != "" {
-		summary.LatestRejectReason = r.RejectReason
+		summary.LatestRejectReason = strings.TrimSpace(r.RejectReason)
 	}
 
 	var latestNotice SupplementNotice
