@@ -37,20 +37,39 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
     const cs = useCaseStore.getState();
     const c = cs.cases.find((x) => x.id === caseId);
     if (!c || !c.dispatch) return [];
+    if (c.dispatch.status === 'completed') return [];
+    const d = c.dispatch;
     const reasons: BlockReason[] = [];
-    if (!c.dispatch.pickupDate) reasons.push('awaiting_pickup');
-    if (!c.dispatch.receiverIdCard) reasons.push('sign_missing');
-    const unfinCorrection = c.corrections.find((co) => co.status !== 'completed');
-    if (unfinCorrection) reasons.push('correction_unfinished');
-    const latestReject = [...c.reviews].reverse().find((r) => r.rejectedItems.length > 0);
-    const latestOpinion = c.opinions[c.opinions.length - 1];
-    const relatedReview = c.reviews.find((r) => r.opinionId === latestOpinion?.id);
-    if (latestReject && (!relatedReview || relatedReview.rejectedItems.length > 0)) {
+
+    if (d.noticeDate && !d.pickupDate) {
+      reasons.push('awaiting_pickup');
+    }
+
+    if (d.pickupDate && !d.receiverIdCard) {
+      reasons.push('sign_missing');
+    }
+
+    const hasUnfinCorrection = c.corrections.some((co) => co.status !== 'completed');
+    if (hasUnfinCorrection) {
+      reasons.push('correction_unfinished');
+    }
+
+    const latestReviewForLatestOpinion = (() => {
+      const latestOpinion = c.opinions[c.opinions.length - 1];
+      if (!latestOpinion) return null;
+      return [...c.reviews].reverse().find((r) => r.opinionId === latestOpinion.id) || null;
+    })();
+    const hasRejectionOnLatestOpinion =
+      latestReviewForLatestOpinion &&
+      latestReviewForLatestOpinion.rejectedItems.length > 0;
+    if (hasRejectionOnLatestOpinion) {
       reasons.push('recorrection_needed');
     }
-    if (c.dispatch.status !== 'completed' && !c.dispatch.receiver) {
+
+    if (!d.receiver && !d.pickupDate && d.noticeDate && c.stuckHours >= 168) {
       reasons.push('approval_pending');
     }
+
     const uniq = Array.from(new Set(reasons));
     cs.setDispatch(caseId, { blockReasons: uniq });
     return uniq;
@@ -61,8 +80,8 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
     const c = cs.cases.find((x) => x.id === caseId);
     if (!c) return;
     cs.setDispatch(caseId, { noticeDate: new Date().toISOString() });
-    cs.updateCaseStage(caseId, 'dispatch_notice', '王发放', 'receptionist', '已发送领取通知');
-    cs.markException(caseId, 'dispatch_delay');
+    cs.updateCaseStage(caseId, 'dispatch_notice', '王发放', 'receptionist', '已发送领取通知，等待委托方领取');
+    get().diagnoseBlockReason(caseId);
     useNotificationStore.getState().pushToast({
       id: uid('t'),
       type: 'info',
@@ -88,10 +107,10 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
       pickupDate: new Date().toISOString(),
       receiver: receiver.trim(),
       receiverIdCard: idCard.trim(),
-      blockReasons: [],
     });
     cs.updateCaseStage(caseId, 'dispatch_sign', receiver.trim(), 'receptionist', '签收确认完成');
     cs.clearException(caseId, 'dispatch_delay');
+    get().diagnoseBlockReason(caseId);
     useNotificationStore.getState().pushToast({
       id: uid('t'),
       type: 'success',
@@ -112,9 +131,10 @@ export const useDispatchStore = create<DispatchStore>((set, get) => ({
       });
       return;
     }
-    cs.setDispatch(caseId, { archiveDate: new Date().toISOString(), status: 'completed' });
+    cs.setDispatch(caseId, { archiveDate: new Date().toISOString(), status: 'completed', blockReasons: [] });
     cs.updateCaseStage(caseId, 'archived', '档案室', 'receptionist', '发放完成，案卷归档');
     cs.updateCase(caseId, { status: 'completed' });
+    cs.clearException(caseId, 'dispatch_delay');
     useNotificationStore.getState().pushToast({
       id: uid('t'),
       type: 'success',

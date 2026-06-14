@@ -4,6 +4,22 @@ import { ROLE_META, STAGE_META, BLOCK_REASON_META, STAGE_ORDER } from '@/data/co
 import type { UserRole, CaseStage, BlockReason } from '@/types';
 import { Users, GitPullRequest, PackageX } from 'lucide-react';
 
+function computeBlockReasons(c: ReturnType<typeof useCaseStore.getState>['cases'][number]): BlockReason[] {
+  if (!c.dispatch || c.dispatch.status === 'completed') return [];
+  const d = c.dispatch;
+  const reasons: BlockReason[] = [];
+  if (d.noticeDate && !d.pickupDate) reasons.push('awaiting_pickup');
+  if (d.pickupDate && !d.receiverIdCard) reasons.push('sign_missing');
+  if (c.corrections.some((co) => co.status !== 'completed')) reasons.push('correction_unfinished');
+  const latestOpinion = c.opinions[c.opinions.length - 1];
+  if (latestOpinion) {
+    const latestReview = [...c.reviews].reverse().find((r) => r.opinionId === latestOpinion.id);
+    if (latestReview && latestReview.rejectedItems.length > 0) reasons.push('recorrection_needed');
+  }
+  if (!d.receiver && !d.pickupDate && d.noticeDate && c.stuckHours >= 168) reasons.push('approval_pending');
+  return Array.from(new Set(reasons));
+}
+
 export default function TopOverviewBar() {
   const cases = useCaseStore((s) => s.cases);
 
@@ -36,7 +52,7 @@ export default function TopOverviewBar() {
     const reasons: BlockReason[] = [];
     cases.forEach((c) => {
       if (c.dispatch && c.dispatch.status !== 'completed') {
-        reasons.push(...c.dispatch.blockReasons);
+        reasons.push(...computeBlockReasons(c));
       }
     });
     const map = new Map<BlockReason, number>();

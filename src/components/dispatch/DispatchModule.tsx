@@ -40,7 +40,7 @@ export default function DispatchModule({ caseData }: Props) {
     if (dispatch) {
       diagnoseBlockReason(caseId);
     }
-  }, [caseId, dispatch, diagnoseBlockReason]);
+  }, [caseId]);
 
   useEffect(() => {
     setReceiver(dispatch?.receiver || '');

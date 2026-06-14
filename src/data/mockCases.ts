@@ -137,7 +137,7 @@ const NORMAL_CASES: Case[] = [
       caseId: 'case-n2',
       noticeDate: t(-28 * H),
       status: 'in_progress',
-      blockReasons: ['awaiting_pickup'],
+      blockReasons: [],
     },
     flowLogs: [
       { id: 'f1', caseId: 'case-n2', stage: 'entrust_register', action: '创建委托', operator: '刘受理', operatorRole: 'receptionist', timestamp: t(-15 * DAY), detail: '完成委托书登记' },
@@ -396,7 +396,7 @@ const DISPATCH_DELAY_CASES: Case[] = [
     currentHandlerRole: 'receptionist',
     currentStage: 'dispatch_sign',
     status: 'in_progress',
-    stuckHours: 168,
+    stuckHours: 360,
     hasException: true,
     exceptionTypes: ['dispatch_delay'],
     samples: [],
@@ -430,7 +430,7 @@ const DISPATCH_DELAY_CASES: Case[] = [
       caseId: 'case-d1',
       noticeDate: t(-25 * DAY),
       status: 'in_progress',
-      blockReasons: ['awaiting_pickup', 'sign_missing', 'approval_pending'],
+      blockReasons: [],
     },
     flowLogs: [
       { id: 'f1', caseId: 'case-d1', stage: 'quality_review', action: '审核通过', operator: '张审（质控）', operatorRole: 'quality_controller', timestamp: t(-28 * DAY), detail: '全部审核项通过' },

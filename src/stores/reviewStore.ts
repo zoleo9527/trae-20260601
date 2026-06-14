@@ -236,12 +236,11 @@ export const useReviewStore = create<ReviewStore>((set, get) => ({
     cs.clearException(activeCaseId, 'correction_missed');
 
     cs.setDispatch(activeCaseId, {
-      noticeDate: new Date().toISOString(),
       status: 'in_progress',
       blockReasons: [],
     });
 
-    cs.updateCaseStage(activeCaseId, 'dispatch_notice', '王发放', 'receptionist', '质控审核全票通过 → 进入发放登记');
+    cs.updateCaseStage(activeCaseId, 'dispatch_notice', '王发放', 'receptionist', '质控审核全票通过 → 进入发放登记，待发送领取通知');
 
     useNotificationStore.getState().pushToast({
       id: uid('t'),
