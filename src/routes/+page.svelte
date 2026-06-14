@@ -29,6 +29,30 @@
   $: abnormalForMe = orders.filter(o => o.last_abnormal && rolePendingStatus[role]?.includes(o.current_status));
   $: allAbnormal = orders.filter(o => o.last_abnormal);
 
+  $: severityGroups = (() => {
+    const map = {};
+    allAbnormal.forEach(o => {
+      const sev = o.last_abnormal.abnormal_severity || 'medium';
+      if (!map[sev]) map[sev] = [];
+      map[sev].push(o);
+    });
+    return map;
+  })();
+
+  $: roleGroups = (() => {
+    const map = {};
+    allAbnormal.forEach(o => {
+      const r = STATUS[o.current_status]?.role;
+      if (r) {
+        if (!map[r]) map[r] = [];
+        map[r].push(o);
+      }
+    });
+    return map;
+  })();
+
+  $: repeatRiskOrders = allAbnormal.filter(o => o.last_abnormal.abnormal_count > 1);
+
   function overdueDays(dueDate) {
     const now = new Date();
     const due = new Date(dueDate);
@@ -197,24 +221,80 @@
 
         <div class="card">
           <div class="p-5 border-b border-slate-100">
-            <h2 class="font-bold text-slate-800">异常触发提示</h2>
-            <p class="text-xs text-slate-500 mt-1">流程中任一环节发现异常可退回重办</p>
+            <h2 class="font-bold text-slate-800">异常等级分布</h2>
+            <p class="text-xs text-slate-500 mt-1">按严重程度分组，优先处理高级别</p>
           </div>
           <div class="p-5 space-y-2">
             {#each [
-              { icon: '🔴', text: '当物损坏/封签破损', color: 'text-red-600' },
-              { icon: '🟠', text: '证件/资料缺失', color: 'text-amber-600' },
-              { icon: '🟡', text: '核算金额异议', color: 'text-yellow-700' },
-              { icon: '🔵', text: '客户申诉', color: 'text-blue-600' }
-            ] as a}
-              <div class="text-sm flex items-center gap-2 p-2 rounded-lg bg-slate-50">
-                <span>{a.icon}</span>
-                <span class={a.color}>{a.text}</span>
-                <span class="ml-auto text-xs text-slate-400">可退回</span>
+              { key: 'critical', label: '🔴 严重级', color: 'bg-rose-700', textColor: 'text-rose-700', bg: 'bg-rose-50' },
+              { key: 'high', label: '🟠 高级', color: 'bg-red-500', textColor: 'text-red-600', bg: 'bg-red-50' },
+              { key: 'medium', label: '🟡 中级', color: 'bg-amber-500', textColor: 'text-amber-600', bg: 'bg-amber-50' }
+            ] as sev}
+              <div class="flex items-center gap-3 p-3 rounded-lg {sev.bg}">
+                <span class="text-sm font-medium {sev.textColor} flex-1">
+                  {sev.label}
+                </span>
+                <span class="text-xl font-bold {sev.textColor}">
+                  {(severityGroups[sev.key] || []).length}
+                </span>
               </div>
             {/each}
+            {#if allAbnormal.length === 0}
+              <div class="text-xs text-slate-400 text-center py-2">当前无异常</div>
+            {/if}
           </div>
         </div>
+
+        <div class="card">
+          <div class="p-5 border-b border-slate-100">
+            <h2 class="font-bold text-slate-800">待重办角色分布</h2>
+            <p class="text-xs text-slate-500 mt-1">各角色待处理异常数量</p>
+          </div>
+          <div class="p-5 space-y-2">
+            {#each [
+              { key: 'APPRAISER', label: '评估师', icon: '👤' },
+              { key: 'STORAGE', label: '库管', icon: '🏬' },
+              { key: 'FINANCE', label: '财务', icon: '💰' }
+            ] as r}
+              <div class="flex items-center gap-3 p-3 rounded-lg {role === r.key ? 'ring-2 ring-blue-300 bg-blue-50' : 'bg-slate-50'}">
+                <span class="text-lg">{r.icon}</span>
+                <div class="flex-1">
+                  <div class="text-sm font-medium text-slate-700">{r.label}</div>
+                  <div class="text-xs text-slate-400">
+                    {(roleGroups[r.key] || []).length} 单待重办
+                  </div>
+                </div>
+                {#if role === r.key && (roleGroups[r.key] || []).length > 0}
+                  <span class="status-pill bg-blue-500 text-xs">当前角色</span>
+                {/if}
+              </div>
+            {/each}
+            {#if allAbnormal.length === 0}
+              <div class="text-xs text-slate-400 text-center py-2">当前无异常</div>
+            {/if}
+          </div>
+        </div>
+
+        {#if repeatRiskOrders.length > 0}
+          <div class="card border-2 border-amber-200 bg-amber-50/30">
+            <div class="p-5 border-b border-amber-100">
+              <h2 class="font-bold text-amber-700">⚠️ 重复退回风险</h2>
+              <p class="text-xs text-slate-500 mt-1">以下单据曾被多次异常退回</p>
+            </div>
+            <div class="divide-y divide-amber-100">
+              {#each repeatRiskOrders as o}
+                <a href="/orders/{o.id}" class="block hover:bg-white transition p-4">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-mono text-xs font-semibold text-slate-700">{o.order_no}</span>
+                    <span class="status-pill bg-amber-500 text-xs">×{o.last_abnormal.abnormal_count} 次退回</span>
+                  </div>
+                  <div class="text-xs text-slate-600">{o.item_name} · {o.customer_name}</div>
+                  <div class="text-xs text-amber-600 mt-1">最近：{o.last_abnormal.abnormal_label}</div>
+                </a>
+              {/each}
+            </div>
+          </div>
+        {/if}
       </div>
     </div>
   {:else}

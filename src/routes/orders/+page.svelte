@@ -1,12 +1,14 @@
 <script>
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
-  import { STATUS, ROLES } from '$lib/constants.js';
+  import { STATUS, ROLES, ABNORMAL_TRIGGERS } from '$lib/constants.js';
 
   let orders = [];
   let loading = true;
   let filterStatus = 'ALL';
   let filterAbnormal = 'ALL';
+  let filterAbnormalType = 'ALL';
+  let filterSeverity = 'ALL';
   let search = '';
 
   const statusOptions = [
@@ -19,6 +21,18 @@
     { key: 'ALL', label: '全部单据' },
     { key: 'ABNORMAL', label: '仅异常退回单' },
     { key: 'NORMAL', label: '排除异常退回' }
+  ];
+
+  const severityOptions = [
+    { key: 'ALL', label: '全部等级' },
+    { key: 'critical', label: '🔴 严重级' },
+    { key: 'high', label: '🟠 高级' },
+    { key: 'medium', label: '🟡 中级' }
+  ];
+
+  const abnormalTypeOptions = [
+    { key: 'ALL', label: '全部异常类型' },
+    ...ABNORMAL_TRIGGERS.map(t => ({ key: t.key, label: t.label }))
   ];
 
   async function load() {
@@ -41,6 +55,14 @@
     if (filterAbnormal === 'NORMAL') return !o.last_abnormal;
     return true;
   }).filter(o => {
+    if (filterSeverity === 'ALL') return true;
+    if (!o.last_abnormal) return false;
+    return o.last_abnormal.abnormal_severity === filterSeverity;
+  }).filter(o => {
+    if (filterAbnormalType === 'ALL') return true;
+    if (!o.last_abnormal) return false;
+    return o.last_abnormal.abnormal_type === filterAbnormalType;
+  }).filter(o => {
     if (!search) return true;
     const s = search.toLowerCase();
     return o.order_no.toLowerCase().includes(s) ||
@@ -48,6 +70,9 @@
       o.item_name.includes(search) ||
       o.customer_phone.includes(search);
   });
+
+  $: abnormalCount = orders.filter(o => o.last_abnormal).length;
+  $: filteredAbnormalCount = filtered.filter(o => o.last_abnormal).length;
 
   function overdueDays(dueDate) {
     const now = new Date();
@@ -84,10 +109,35 @@
           {/each}
         </select>
       </div>
+      <div class="min-w-[180px]">
+        <label class="label">异常类型</label>
+        <select bind:value={filterAbnormalType} class="select" disabled={filterAbnormal === 'NORMAL'}>
+          {#each abnormalTypeOptions as s}
+            <option value={s.key}>{s.label}</option>
+          {/each}
+        </select>
+      </div>
+      <div class="min-w-[150px]">
+        <label class="label">严重程度</label>
+        <select bind:value={filterSeverity} class="select" disabled={filterAbnormal === 'NORMAL'}>
+          {#each severityOptions as s}
+            <option value={s.key}>{s.label}</option>
+          {/each}
+        </select>
+      </div>
       <div class="self-end">
-        <button on:click={() => { search = ''; filterStatus = 'ALL'; filterAbnormal = 'ALL'; }} class="btn btn-secondary btn-sm">重置</button>
+        <button on:click={() => { search = ''; filterStatus = 'ALL'; filterAbnormal = 'ALL'; filterAbnormalType = 'ALL'; filterSeverity = 'ALL'; }} class="btn btn-secondary btn-sm">重置</button>
       </div>
     </div>
+    {#if filterAbnormal !== 'ALL' || filterAbnormalType !== 'ALL' || filterSeverity !== 'ALL'}
+      <div class="mt-3 flex items-center gap-2 text-xs text-slate-500">
+        <span>异常筛选结果：</span>
+        <span class="font-semibold text-rose-600">{filteredAbnormalCount}</span>
+        <span>/ {abnormalCount} 单异常</span>
+        <span class="text-slate-400 mx-1">·</span>
+        <span>共 {filtered.length} 单</span>
+      </div>
+    {/if}
   </div>
 
   <div class="card overflow-hidden">

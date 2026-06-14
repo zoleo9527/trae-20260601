@@ -430,8 +430,15 @@
         {#if data.last_abnormal}
           <div class="card border-2 border-rose-200 bg-rose-50/30">
             <div class="p-5 border-b border-rose-100">
-              <h2 class="font-bold text-rose-700">🚨 异常摘要</h2>
-              <p class="text-xs text-slate-500 mt-1">该单存在未处理的异常退回，请优先处理</p>
+              <div class="flex items-center justify-between">
+                <div>
+                  <h2 class="font-bold text-rose-700">🚨 异常摘要</h2>
+                  <p class="text-xs text-slate-500 mt-1">该单存在未处理的异常退回，请优先处理</p>
+                </div>
+                {#if data.last_abnormal.abnormal_count > 1}
+                  <span class="status-pill bg-amber-500">⚠️ 重复退回 ×{data.last_abnormal.abnormal_count}</span>
+                {/if}
+              </div>
             </div>
             <div class="p-5 space-y-3 text-sm">
               <div class="flex flex-wrap items-center gap-2">
@@ -475,9 +482,41 @@
                   <div class="font-medium text-slate-700">{data.last_abnormal.created_at}</div>
                 </div>
               </div>
+              <div class="flex items-center gap-3 text-xs">
+                <div class="px-3 py-2 bg-rose-100 rounded-lg">
+                  <span class="text-slate-400">历史退回次数</span>
+                  <span class="ml-2 text-lg font-bold {data.last_abnormal.abnormal_count > 1 ? 'text-amber-600' : 'text-slate-700'}">{data.last_abnormal.abnormal_count}</span>
+                  {#if data.last_abnormal.abnormal_count > 1}
+                    <span class="ml-1 text-amber-600 font-medium">⚠️ 高风险</span>
+                  {:else}
+                    <span class="ml-1 text-slate-400">首次</span>
+                  {/if}
+                </div>
+              </div>
+              {#if data.last_abnormal.last_recovery}
+                <div class="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                  <div class="text-xs font-semibold text-amber-700 mb-2">📋 上次恢复说明（退回后重新处理记录）</div>
+                  <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+                    <div>
+                      <span class="text-slate-400">恢复操作：</span>
+                      <span class="font-medium text-slate-700">{STATUS[data.last_abnormal.last_recovery.from_status]?.label} → {STATUS[data.last_abnormal.last_recovery.to_status]?.label}</span>
+                    </div>
+                    <div>
+                      <span class="text-slate-400">处理人：</span>
+                      <span class="font-medium text-slate-700">{ROLES[data.last_abnormal.last_recovery.actor_role]?.name} · {data.last_abnormal.last_recovery.actor_name}</span>
+                    </div>
+                  </div>
+                  {#if data.last_abnormal.last_recovery.notes}
+                    <div class="text-xs text-slate-600 bg-white rounded p-2 border border-amber-100">
+                      {data.last_abnormal.last_recovery.notes}
+                    </div>
+                  {/if}
+                  <div class="text-xs text-slate-400 mt-1.5">恢复时间：{data.last_abnormal.last_recovery.created_at}</div>
+                </div>
+              {/if}
               {#if data.last_abnormal.notes}
                 <div>
-                  <div class="text-xs text-slate-400 mb-1">退回详情说明</div>
+                  <div class="text-xs text-slate-400 mb-1">本次退回详情说明</div>
                   <div class="p-3 bg-white rounded-lg border border-rose-100 text-xs text-slate-700 whitespace-pre-wrap">
                     {data.last_abnormal.notes}
                   </div>

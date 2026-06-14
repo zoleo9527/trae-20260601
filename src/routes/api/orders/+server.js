@@ -1,5 +1,5 @@
 import { json } from '@sveltejs/kit';
-import { getAllOrders, getOrdersByStatus, getDashboardStats, enrichOrdersWithAbnormal } from '$lib/services.js';
+import { getAllOrders, getOrdersByStatus, getDashboardStats, enrichOrdersWithAbnormal, getAbnormalStats } from '$lib/services.js';
 
 export async function GET({ url }) {
   const status = url.searchParams.get('status');
@@ -7,7 +7,9 @@ export async function GET({ url }) {
   const abnormal = url.searchParams.get('abnormal');
 
   if (stats) {
-    return json(getDashboardStats());
+    const dashboardStats = getDashboardStats();
+    const abnormalStats = getAbnormalStats();
+    return json({ ...dashboardStats, abnormalStats });
   }
 
   let orders;

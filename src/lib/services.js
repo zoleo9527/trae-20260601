@@ -142,6 +142,14 @@ function createInitialData() {
 }
 
 function getStore() {
+  try {
+    if (typeof require !== 'undefined' && DATA_PATH) {
+      const fs = require('fs');
+      if (_store && !fs.existsSync(DATA_PATH)) {
+        _store = null;
+      }
+    }
+  } catch (e) { /* ignore */ }
   if (_store) return _store;
   try {
     if (typeof require !== 'undefined' && require('fs').existsSync(DATA_PATH)) {
@@ -356,8 +364,33 @@ export function getLastAbnormalForOrder(orderId) {
   const abnormalList = transitions.filter(t => t.is_abnormal === 1);
   if (abnormalList.length === 0) return null;
   const last = abnormalList[abnormalList.length - 1];
-  const normalAfterAbnormal = transitions.filter(t => new Date(t.created_at) > new Date(last.created_at) && t.is_abnormal !== 1);
+  const normalAfterAbnormal = transitions.filter(t => t.id > last.id && t.is_abnormal !== 1);
   if (normalAfterAbnormal.length > 0) return null;
+
+  const abnormalCount = abnormalList.length;
+
+  let lastRecovery = null;
+  if (abnormalList.length >= 2) {
+    const prevAbnormal = abnormalList[abnormalList.length - 2];
+    const recoveryList = transitions.filter(t =>
+      t.id > prevAbnormal.id &&
+      t.id < last.id &&
+      t.is_abnormal !== 1
+    );
+    if (recoveryList.length > 0) {
+      const r = recoveryList[recoveryList.length - 1];
+      lastRecovery = {
+        action_type: r.action_type,
+        actor_role: r.actor_role,
+        actor_name: r.actor_name,
+        notes: r.notes,
+        from_status: r.from_status,
+        to_status: r.to_status,
+        created_at: r.created_at
+      };
+    }
+  }
+
   return {
     abnormal_type: last.abnormal_type,
     abnormal_label: last.abnormal_label,
@@ -369,7 +402,9 @@ export function getLastAbnormalForOrder(orderId) {
     returned_to_status: last.to_status,
     action_type: last.action_type,
     notes: last.notes,
-    created_at: last.created_at
+    created_at: last.created_at,
+    abnormal_count: abnormalCount,
+    last_recovery: lastRecovery
   };
 }
 
@@ -396,4 +431,45 @@ export function getAbnormalOrders(role = null) {
     };
     return statusMap[o.current_status] === role;
   });
+}
+
+export function getAbnormalStats() {
+  const all = enrichOrdersWithAbnormal(getAllOrders());
+  const abnormals = all.filter(o => o.last_abnormal);
+
+  const bySeverity = {};
+  const byRole = {};
+  const byType = {};
+
+  abnormals.forEach(o => {
+    const sev = o.last_abnormal.abnormal_severity || 'medium';
+    bySeverity[sev] = (bySeverity[sev] || 0) + 1;
+
+    const pendingRole = STATUS[o.current_status]?.role;
+    if (pendingRole) {
+      byRole[pendingRole] = (byRole[pendingRole] || 0) + 1;
+    }
+
+    const typeKey = o.last_abnormal.abnormal_type || 'UNKNOWN';
+    byType[typeKey] = (byType[typeKey] || 0) + 1;
+  });
+
+  const repeatAbnormals = abnormals.filter(o => o.last_abnormal.abnormal_count > 1);
+
+  return {
+    total: abnormals.length,
+    bySeverity,
+    byRole,
+    byType,
+    repeatCount: repeatAbnormals.length,
+    repeatOrders: repeatAbnormals.map(o => ({
+      id: o.id,
+      order_no: o.order_no,
+      customer_name: o.customer_name,
+      item_name: o.item_name,
+      abnormal_count: o.last_abnormal.abnormal_count,
+      abnormal_label: o.last_abnormal.abnormal_label,
+      abnormal_severity: o.last_abnormal.abnormal_severity
+    }))
+  };
 }
