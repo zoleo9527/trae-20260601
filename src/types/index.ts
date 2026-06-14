@@ -190,6 +190,7 @@ export const BATCH_WORKFLOW: WorkflowTransition[] = [
 
 export const NOTIFICATION_WORKFLOW: WorkflowTransition[] = [
   { from: 'pending', to: 'notified', action: '发送通知', allowedRoles: ['trainer'], errorCode: 'SN003' },
+  { from: 'pending', to: 'absent', action: '标记缺考', allowedRoles: ['trainer', 'safety_officer'], errorCode: 'SN003' },
   { from: 'notified', to: 'confirmed', action: '确认通知', allowedRoles: ['safety_officer'], errorCode: 'SN003' },
   { from: 'notified', to: 'absent', action: '标记缺考', allowedRoles: ['trainer', 'safety_officer'], errorCode: 'SN003' },
   { from: 'confirmed', to: 'completed', action: '完成通知', allowedRoles: ['trainer'], errorCode: 'SN003' },

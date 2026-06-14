@@ -67,6 +67,7 @@ export const WorkflowDocumentation = () => {
       entity: '学员通知',
       states: [
         { from: '待通知', to: '已通知', action: '发送通知', roles: ['场地教练'] },
+        { from: '待通知', to: '缺考', action: '标记缺考', roles: ['场地教练', '安全员'] },
         { from: '已通知', to: '已确认', action: '确认通知', roles: ['安全员'] },
         { from: '已通知', to: '缺考', action: '标记缺考', roles: ['场地教练', '安全员'] },
         { from: '已确认', to: '已完成', action: '完成通知', roles: ['场地教练'] },

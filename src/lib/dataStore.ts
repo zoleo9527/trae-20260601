@@ -419,11 +419,10 @@ class DataStore {
     return this.getData().studentNotifications.find(n => n.id === id);
   }
 
-  public createNotification(notification: Omit<StudentNotification, 'id' | 'notifyTime'>): StudentNotification {
+  public createNotification(notification: Omit<StudentNotification, 'id'>): StudentNotification {
     const newNotification: StudentNotification = {
       ...notification,
       id: `n${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      notifyTime: new Date().toISOString().replace('T', ' ').slice(0, 19),
     };
     this.data.studentNotifications.push(newNotification);
     this.saveToFile();
