@@ -159,6 +159,8 @@ export async function GET(
     application.repaymentPlans?.forEach((plan) => {
       timeline.push({
         id: `event-${plan.id}-create`,
+        businessId: plan.id,
+        businessType: "REPAYMENT",
         timestamp: plan.dueDate,
         action: `第${plan.period}期还款计划`,
         operator: "系统",
@@ -187,6 +189,8 @@ export async function GET(
       plan.collections?.forEach((collection, index) => {
         timeline.push({
           id: `event-${collection.id}-${index}`,
+          businessId: plan.id,
+          businessType: "REPAYMENT",
           timestamp: collection.collectedAt,
           action: `催收记录 - ${collection.method}`,
           operator: "催收员",
@@ -199,6 +203,8 @@ export async function GET(
       plan.exceptions?.forEach((exception) => {
         timeline.push({
           id: `event-${exception.id}-create`,
+          businessId: exception.id,
+          businessType: "EXCEPTION",
           timestamp: exception.createdAt,
           action: `异常标记 - ${exception.type}`,
           operator: "操作员",
@@ -226,6 +232,8 @@ export async function GET(
         exception.reminders?.forEach((reminder) => {
           timeline.push({
             id: `event-${reminder.id}`,
+            businessId: exception.id,
+            businessType: "EXCEPTION",
             timestamp: reminder.sentAt,
             action: `发送${reminder.type === "SMS" ? "短信" : reminder.type === "PHONE" ? "电话" : "邮件"}提醒`,
             operator: "系统",
@@ -240,6 +248,8 @@ export async function GET(
         if (exception.resolvedAt) {
           timeline.push({
             id: `event-${exception.id}-resolve`,
+            businessId: exception.id,
+            businessType: "EXCEPTION",
             timestamp: exception.resolvedAt,
             action: "异常已处理",
             operator: "操作员",
@@ -254,6 +264,8 @@ export async function GET(
     application.exceptions?.forEach((exception) => {
       timeline.push({
         id: `event-${exception.id}-create`,
+        businessId: exception.id,
+        businessType: "EXCEPTION",
         timestamp: exception.createdAt,
         action: `异常标记 - ${exception.type}`,
         operator: "操作员",
@@ -281,6 +293,8 @@ export async function GET(
       exception.reminders?.forEach((reminder) => {
         timeline.push({
           id: `event-${reminder.id}`,
+          businessId: exception.id,
+          businessType: "EXCEPTION",
           timestamp: reminder.sentAt,
           action: `发送${reminder.type === "SMS" ? "短信" : reminder.type === "PHONE" ? "电话" : "邮件"}提醒`,
           operator: "系统",
@@ -295,6 +309,8 @@ export async function GET(
       if (exception.resolvedAt) {
         timeline.push({
           id: `event-${exception.id}-resolve`,
+          businessId: exception.id,
+          businessType: "EXCEPTION",
           timestamp: exception.resolvedAt,
           action: "异常已处理",
           operator: "操作员",

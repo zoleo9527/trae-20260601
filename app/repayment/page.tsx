@@ -69,14 +69,32 @@ export default function RepaymentPage() {
     }
   };
 
-  const fetchOperationLogs = async (businessId: string) => {
+  const fetchOperationLogs = async (businessId: string, filterFn?: (log: any) => boolean) => {
     try {
       const response = await fetch(`/api/trace/${businessId}`);
       const data = await response.json();
-      setOperationLogs(data.timeline || []);
+      const logs = data.timeline || [];
+      if (filterFn) {
+        setOperationLogs(logs.filter(filterFn));
+      } else {
+        setOperationLogs(logs);
+      }
     } catch (error) {
       console.error("获取操作日志失败:", error);
     }
+  };
+
+  const getRepaymentLogFilter = (repayment: RepaymentPlan) => {
+    const exceptionIds = repayment.exceptions?.map((e: any) => e.id) || [];
+    return (log: any) => {
+      if (log.businessId === repayment.id && log.businessType === "REPAYMENT") {
+        return true;
+      }
+      if (exceptionIds.includes(log.businessId) && log.businessType === "EXCEPTION") {
+        return true;
+      }
+      return false;
+    };
   };
 
   const handleMarkException = async () => {
@@ -191,7 +209,7 @@ export default function RepaymentPage() {
         setHandleNote("");
         fetchRepayments();
         if (selectedRepayment) {
-          fetchOperationLogs(selectedRepayment.applicationId);
+          await fetchOperationLogs(selectedRepayment.applicationId, getRepaymentLogFilter(selectedRepayment));
         }
       }
     } catch (error) {
@@ -202,27 +220,7 @@ export default function RepaymentPage() {
   const openDetailDrawer = async (repayment: RepaymentPlan) => {
     setSelectedRepayment(repayment);
     setShowDetailDrawer(true);
-    try {
-      const exceptionIds = repayment.exceptions?.map((e: any) => e.id) || [];
-      const response = await fetch(`/api/trace/${repayment.applicationId}`);
-      const data = await response.json();
-      const allLogs = data.timeline || [];
-      
-      const repaymentLogs = allLogs.filter((log: any) => {
-        if (log.businessId === repayment.id && log.businessType === "REPAYMENT") {
-          return true;
-        }
-        if (exceptionIds.includes(log.businessId) && log.businessType === "EXCEPTION") {
-          return true;
-        }
-        return false;
-      });
-      
-      setOperationLogs(repaymentLogs.length > 0 ? repaymentLogs : []);
-    } catch (error) {
-      console.error("获取操作日志失败:", error);
-      setOperationLogs([]);
-    }
+    await fetchOperationLogs(repayment.applicationId, getRepaymentLogFilter(repayment));
   };
 
   const statusOptions: RepaymentStatus[] = [

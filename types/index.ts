@@ -143,6 +143,8 @@ export interface SystemReminder {
 
 export interface TimelineEvent {
   id: string;
+  businessId?: string;
+  businessType?: "APPLICATION" | "REPAYMENT" | "EXCEPTION";
   timestamp: Date;
   action: string;
   operator: string;
