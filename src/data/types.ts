@@ -72,5 +72,6 @@ export interface SeatSnapshot {
   seats: Seat[]
   timestamp: string
   operatorName: string
+  operatorRole: OperatorRole
   action: string
 }

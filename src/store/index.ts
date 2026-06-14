@@ -47,6 +47,74 @@ const operatorMap: Record<OperatorRole, { id: string; name: string }> = {
   tech_support: { id: "tech-1", name: "王技术" },
 }
 
+interface PersistedState {
+  examRooms: ExamRoom[]
+  auditLogs: AuditLog[]
+  riskItems: RiskItem[]
+  snapshots: SeatSnapshot[]
+  candidates: Candidate[]
+  currentRole: OperatorRole
+  currentOperatorId: string
+  currentOperatorName: string
+  sidebarCollapsed: boolean
+}
+
+function reconcilePersistedState(state: PersistedState): PersistedState {
+  const candidateRoomMap = new Map<string, string>()
+  const candidateSeatCount = new Map<string, string[]>()
+
+  for (const room of state.examRooms) {
+    for (const seat of room.seats) {
+      if (seat.candidateId && seat.status !== "empty") {
+        candidateRoomMap.set(seat.candidateId, room.id)
+        const rooms = candidateSeatCount.get(seat.candidateId) ?? []
+        rooms.push(room.id)
+        candidateSeatCount.set(seat.candidateId, rooms)
+      }
+    }
+  }
+
+  const duplicates = new Map<string, { keepRoomId: string; clearRoomIds: Set<string> }>()
+  for (const [cid, rooms] of candidateSeatCount) {
+    const uniqueRooms = [...new Set(rooms)]
+    if (uniqueRooms.length > 1) {
+      const keepRoomId = candidateRoomMap.get(cid) ?? uniqueRooms[0]
+      duplicates.set(cid, { keepRoomId, clearRoomIds: new Set(uniqueRooms.filter((r) => r !== keepRoomId)) })
+    }
+  }
+
+  const examRooms = state.examRooms.map((room) => {
+    let seatsChanged = false
+    const seats = room.seats.map((seat) => {
+      if (!seat.candidateId || seat.status === "empty") return seat
+      const dup = duplicates.get(seat.candidateId)
+      if (dup && dup.clearRoomIds.has(room.id)) {
+        seatsChanged = true
+        return { ...seat, candidateId: undefined, candidateName: undefined, status: "empty" as const }
+      }
+      return seat
+    })
+    return seatsChanged ? { ...room, seats } : room
+  })
+
+  const candidates = state.candidates.map((c) => {
+    const actualRoomId = candidateRoomMap.get(c.id)
+    if (actualRoomId !== c.examRoomId) {
+      return { ...c, examRoomId: actualRoomId }
+    }
+    return c
+  })
+
+  const snapshots = state.snapshots.map((snap) => {
+    if (!snap.operatorRole) {
+      return { ...snap, operatorRole: "exam_staff" as OperatorRole }
+    }
+    return snap
+  })
+
+  return { ...state, examRooms, candidates, snapshots }
+}
+
 export const useExamStore = create<ExamStore>()(
   persist(
     (set, get) => ({
@@ -237,6 +305,7 @@ export const useExamStore = create<ExamStore>()(
             c.id === prevCandidateId ? { ...c, examRoomId: undefined } : c
           ),
         }))
+        get().addSnapshot(roomId, newSeats, `取消分配 ${prevName}`)
         get().addAuditLog({
           operatorId: currentOperatorId,
           operatorName: currentOperatorName,
@@ -311,13 +380,14 @@ export const useExamStore = create<ExamStore>()(
       },
 
       addSnapshot: (roomId, seats, action) => {
-        const { currentOperatorName } = get()
+        const { currentOperatorName, currentRole } = get()
         const snap: SeatSnapshot = {
           id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           roomId,
           seats: JSON.parse(JSON.stringify(seats)),
           timestamp: new Date().toISOString(),
           operatorName: currentOperatorName,
+          operatorRole: currentRole,
           action,
         }
         set((s) => ({ snapshots: [snap, ...s.snapshots] }))
@@ -333,6 +403,15 @@ export const useExamStore = create<ExamStore>()(
     }),
     {
       name: "exam-center-store",
+      version: 1,
+      migrate: (persistedState: unknown, version: number) => {
+        const state = persistedState as PersistedState
+        if (!state.examRooms || !state.candidates) return state
+        if (version < 1) {
+          return reconcilePersistedState(state)
+        }
+        return reconcilePersistedState(state)
+      },
     }
   )
 )

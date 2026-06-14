@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom"
-import { AlertTriangle, Clock, CheckCircle, Building2, ArrowRight, Shield, UserCheck, FileText, ChevronRight, User, Wrench, CircleDashed, ListChecks } from "lucide-react"
+import { AlertTriangle, Clock, CheckCircle, Building2, ArrowRight, Shield, UserCheck, FileText, ChevronRight, RotateCcw, User, Wrench, CircleDashed, ListChecks } from "lucide-react"
 import { useExamStore } from "@/store"
 import { cn } from "@/lib/utils"
 import type { RoomStatus, RiskLevel, OperatorRole, AuditLog } from "@/data/types"
@@ -50,9 +50,16 @@ const logActionIcon: Record<string, typeof FileText> = {
   "分配座位": UserCheck,
   "自动分配座位": ListChecks,
   "确认座位分配": CheckCircle,
+  "取消座位分配": RotateCcw,
   "退回座位分配": AlertTriangle,
   "处理异常": Wrench,
   "解决风险": Shield,
+}
+
+const logRoleLabel: Record<OperatorRole, string> = {
+  exam_staff: "考务专员",
+  invigilator: "监考老师",
+  tech_support: "技术支持",
 }
 
 function timeAgo(iso: string) {
@@ -80,7 +87,7 @@ function LogItem({ log }: { log: AuditLog }) {
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-slate-800">{log.operatorName}</span>
           <span className="text-xs text-slate-400">·</span>
-          <span className="text-xs text-slate-500">{statusConfig[log.operatorRole]?.label ?? log.operatorRole}</span>
+          <span className="text-xs text-slate-500">{logRoleLabel[log.operatorRole] ?? log.operatorRole}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           <Icon className="w-3.5 h-3.5 text-teal-600" />

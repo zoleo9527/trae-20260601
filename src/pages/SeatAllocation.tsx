@@ -26,6 +26,12 @@ const roleIconMap: Record<OperatorRole, typeof Shield> = {
   tech_support: AlertTriangle,
 }
 
+const roleLabelMap: Record<OperatorRole, string> = {
+  exam_staff: "考务专员",
+  invigilator: "监考老师",
+  tech_support: "技术支持",
+}
+
 function formatTime(iso: string) {
   const d = new Date(iso)
   return d.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -187,7 +193,7 @@ function SnapshotViewer({
                 </span>
               </div>
               <div className="text-[10px] text-slate-500 mt-0.5">
-                {snap.operatorName} · {formatTime(snap.timestamp)}
+                {snap.operatorName}（{roleLabelMap[snap.operatorRole] ?? snap.operatorRole}） · {formatTime(snap.timestamp)}
               </div>
             </button>
           )
@@ -204,13 +210,13 @@ function SnapshotViewer({
               </span>
             </div>
             <span className="text-[10px] text-slate-500">
-              {viewingSnapshot.operatorName} · {formatTime(viewingSnapshot.timestamp)}
+              {viewingSnapshot.operatorName}（{roleLabelMap[viewingSnapshot.operatorRole] ?? viewingSnapshot.operatorRole}） · {formatTime(viewingSnapshot.timestamp)}
             </span>
           </div>
           {compareSnapshot && (
             <div className="flex items-center gap-2 mb-2 text-xs text-slate-600">
               <Diff className="w-3 h-3 text-blue-600" />
-              正在对比：{compareSnapshot.action}（{compareSnapshot.operatorName}）
+              正在对比：{compareSnapshot.action}（{compareSnapshot.operatorName}，{roleLabelMap[compareSnapshot.operatorRole] ?? compareSnapshot.operatorRole}）
             </div>
           )}
           <div className="grid grid-cols-8 gap-1">
@@ -447,7 +453,7 @@ export default function SeatAllocation() {
                       正在查看历史快照：{viewingSnapshot.action}
                     </p>
                     <p className="text-xs text-teal-600 mt-0.5">
-                      操作人：{viewingSnapshot.operatorName} · {formatTime(viewingSnapshot.timestamp)}
+                      操作人：{viewingSnapshot.operatorName}（{roleLabelMap[viewingSnapshot.operatorRole] ?? viewingSnapshot.operatorRole}） · {formatTime(viewingSnapshot.timestamp)}
                     </p>
                   </div>
                   <button

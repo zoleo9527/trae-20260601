@@ -354,6 +354,7 @@ export const initialSnapshots: SeatSnapshot[] = [
     seats: makeSeats(4, 6, candidatesPool.slice(14, 20)),
     timestamp: h(12),
     operatorName: "张考务",
+    operatorRole: "exam_staff",
     action: "提交座位分配",
   },
   {
@@ -362,6 +363,7 @@ export const initialSnapshots: SeatSnapshot[] = [
     seats: makeSeats(5, 6, candidatesPool.slice(20, 24)),
     timestamp: h(36),
     operatorName: "张考务",
+    operatorRole: "exam_staff",
     action: "提交座位分配",
   },
 ]
