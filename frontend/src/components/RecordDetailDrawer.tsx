@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Play, CheckCircle, XCircle, Edit3, FileText, AlertCircle } from 'lucide-react';
+import { X, Play, CheckCircle, XCircle, Edit3, FileText, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { ExamTrackRecord, ExamTrackStatus, UserRole, OperationLog, OperationType, PracticePlan } from '../types';
 import { getStatusLabel, getStatusColor, formatDate, getTrackTypeLabel, getDayOfWeekLabel, getRoleLabel, getOperationLabel } from '../utils';
 import { api } from '../api';
@@ -13,17 +13,22 @@ interface RecordDetailDrawerProps {
 export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetailDrawerProps) => {
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [showSupplementModal, setShowSupplementModal] = useState(false);
   const [supplementNotes, setSupplementNotes] = useState('');
   const [supplementPlan, setSupplementPlan] = useState<PracticePlan>(record.practicePlan);
-  const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressValue, setProgressValue] = useState(record.practicePlan.progress);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [isEditingSupplement, setIsEditingSupplement] = useState(false);
+  const [isUpdatingProgress, setIsUpdatingProgress] = useState(false);
 
   useEffect(() => {
     fetchLogs();
   }, [record.id]);
+
+  useEffect(() => {
+    setSupplementPlan(record.practicePlan);
+    setProgressValue(record.practicePlan.progress);
+  }, [record.practicePlan]);
 
   const fetchLogs = async () => {
     try {
@@ -80,7 +85,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     try {
       setLoading(true);
       await api.examTracks.reject(record.id, rejectReason);
-      setShowRejectModal(false);
+      setIsRejecting(false);
       setRejectReason('');
       onClose();
     } catch (error) {
@@ -97,7 +102,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
         supplementNotes,
         practicePlan: supplementPlan 
       });
-      setShowSupplementModal(false);
+      setIsEditingSupplement(false);
       setSupplementNotes('');
       onClose();
     } catch (error) {
@@ -123,7 +128,7 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     try {
       setLoading(true);
       await api.examTracks.updateProgress(record.id, progressValue);
-      setShowProgressModal(false);
+      setIsUpdatingProgress(false);
       onClose();
     } catch (error) {
       console.error('Failed to update progress:', error);
@@ -156,44 +161,26 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
     }
   };
 
-  const getAvailableActions = () => {
-    const actions: { label: string; action: () => void; icon: typeof CheckCircle; disabled?: boolean }[] = [];
-    
-    if (currentRole === UserRole.TEACHER) {
-      if (record.status === ExamTrackStatus.DRAFT) {
-        actions.push({ label: '提交审核', action: handleSubmit, icon: CheckCircle });
-      }
-      if (record.status === ExamTrackStatus.REJECTED) {
-        actions.push({ label: '补充修改', action: () => setShowSupplementModal(true), icon: Edit3 });
-      }
-      if (record.status === ExamTrackStatus.APPROVED) {
-        actions.push({ label: '开始练习', action: handleStartPractice, icon: Play });
-      }
-      if (record.status === ExamTrackStatus.IN_PRACTICE) {
-        actions.push({ label: '更新进度', action: () => setShowProgressModal(true), icon: Edit3 });
-        actions.push({ label: '标记完成', action: handleComplete, icon: CheckCircle });
-      }
-      if (record.status === ExamTrackStatus.SUPPLEMENTED) {
-        actions.push({ label: '重新提交审核', action: handleSubmit, icon: CheckCircle });
-        actions.push({ label: '开始练习', action: handleStartPractice, icon: Play });
-      }
-    }
-    
-    if (currentRole === UserRole.ADMIN) {
-      if (record.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || record.status === ExamTrackStatus.REVIEWING_BY_ADMIN) {
-        actions.push({ label: '审核通过', action: handleApprove, icon: CheckCircle });
-        actions.push({ label: '退回修改', action: () => setShowRejectModal(true), icon: XCircle });
-      }
-      if (record.status === ExamTrackStatus.COMPLETED) {
-        actions.push({ label: '确认考级通过', action: () => handleConfirmExam(true), icon: CheckCircle });
-        actions.push({ label: '确认考级未通过', action: () => handleConfirmExam(false), icon: XCircle });
-      }
-    }
-    
-    return actions;
-  };
-
-  const availableActions = getAvailableActions();
+  const canEditSupplement = currentRole === UserRole.TEACHER && 
+    (record.status === ExamTrackStatus.REJECTED || record.status === ExamTrackStatus.SUPPLEMENTED);
+  
+  const canReject = currentRole === UserRole.ADMIN && 
+    (record.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || record.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
+  
+  const canUpdateProgress = currentRole === UserRole.TEACHER && record.status === ExamTrackStatus.IN_PRACTICE;
+  
+  const canStartPractice = currentRole === UserRole.TEACHER && 
+    (record.status === ExamTrackStatus.APPROVED || record.status === ExamTrackStatus.SUPPLEMENTED);
+  
+  const canSubmit = currentRole === UserRole.TEACHER && 
+    (record.status === ExamTrackStatus.DRAFT || record.status === ExamTrackStatus.SUPPLEMENTED);
+  
+  const canApprove = currentRole === UserRole.ADMIN && 
+    (record.status === ExamTrackStatus.SUBMITTED_BY_TEACHER || record.status === ExamTrackStatus.REVIEWING_BY_ADMIN);
+  
+  const canComplete = currentRole === UserRole.TEACHER && record.status === ExamTrackStatus.IN_PRACTICE;
+  
+  const canConfirmExam = currentRole === UserRole.ADMIN && record.status === ExamTrackStatus.COMPLETED;
 
   return (
     <>
@@ -261,6 +248,132 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
             </div>
           )}
 
+          {canReject && (
+            <div className="border border-red-200 rounded-lg p-4">
+              <h3 className="text-sm font-medium text-red-700 mb-3">退回修改</h3>
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="请输入退回原因..."
+                className="w-full h-20 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
+              />
+              <button
+                onClick={handleReject}
+                disabled={!rejectReason.trim() || loading}
+                className="w-full px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <XCircle className="h-4 w-4" />
+                确认退回
+              </button>
+            </div>
+          )}
+
+          {canEditSupplement && (
+            <div className="border border-purple-200 rounded-lg p-4">
+              <button
+                onClick={() => setIsEditingSupplement(!isEditingSupplement)}
+                className="w-full flex items-center justify-between text-left mb-3"
+              >
+                <div className="flex items-center gap-2">
+                  <Edit3 className="h-4 w-4 text-purple-500" />
+                  <span className="text-sm font-medium text-purple-700">补充修改</span>
+                </div>
+                {isEditingSupplement ? (
+                  <ChevronUp className="h-4 w-4 text-gray-500" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-gray-500" />
+                )}
+              </button>
+              
+              {isEditingSupplement && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">补充备注</label>
+                    <textarea
+                      value={supplementNotes}
+                      onChange={(e) => setSupplementNotes(e.target.value)}
+                      placeholder="请输入补充备注..."
+                      className="w-full h-20 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-2">调整练习计划</label>
+                    <div className="grid grid-cols-4 gap-3 mb-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">计划周期（周）</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="52"
+                          value={supplementPlan.durationWeeks}
+                          onChange={(e) => handlePlanChange('durationWeeks', Number(e.target.value))}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">开始日期</label>
+                        <input
+                          type="date"
+                          value={supplementPlan.startDate.split('T')[0]}
+                          onChange={(e) => handlePlanChange('startDate', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">结束日期</label>
+                        <input
+                          type="date"
+                          value={supplementPlan.endDate.split('T')[0]}
+                          readOnly
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-1">本周重点</label>
+                        <input
+                          type="text"
+                          value={supplementPlan.weeklyFocus}
+                          onChange={(e) => setSupplementPlan({ ...supplementPlan, weeklyFocus: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2 mb-3">
+                      {supplementPlan.dailyGoals.map((goal, index) => (
+                        <div key={goal.dayOfWeek} className="bg-gray-50 rounded-lg p-2 text-center">
+                          <div className="text-xs text-gray-500 mb-1">周{['日', '一', '二', '三', '四', '五', '六'][index]}</div>
+                          <input
+                            type="number"
+                            min="10"
+                            max="180"
+                            value={goal.durationMinutes}
+                            onChange={(e) => {
+                              const newGoals = [...supplementPlan.dailyGoals];
+                              newGoals[index] = { ...goal, durationMinutes: Number(e.target.value) };
+                              setSupplementPlan({ ...supplementPlan, dailyGoals: newGoals });
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSupplement}
+                    disabled={loading}
+                    className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <FileText className="h-4 w-4" />
+                    保存修改
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <h3 className="text-sm font-medium text-gray-700 mb-3">练习计划</h3>
             <div className="bg-blue-50 rounded-lg p-4 space-y-4">
@@ -294,18 +407,69 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
                 </div>
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">练习进度</span>
-                  <span className="text-sm font-medium text-gray-700">{record.practicePlan.progress}%</span>
+              {canUpdateProgress && (
+                <div className="border-t border-blue-100 pt-4">
+                  <button
+                    onClick={() => setIsUpdatingProgress(!isUpdatingProgress)}
+                    className="w-full flex items-center justify-between text-left mb-2"
+                  >
+                    <div className="flex items-center justify-between flex-1">
+                      <span className="text-sm text-gray-500">练习进度</span>
+                      <span className="text-sm font-medium text-gray-700">{record.practicePlan.progress}%</span>
+                    </div>
+                    {isUpdatingProgress ? (
+                      <ChevronUp className="h-4 w-4 text-gray-500" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-gray-500" />
+                    )}
+                  </button>
+                  <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
+                      style={{ width: `${record.practicePlan.progress}%` }}
+                    />
+                  </div>
+                  
+                  {isUpdatingProgress && (
+                    <div className="mt-3 space-y-3">
+                      <div className="flex items-center gap-4">
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={progressValue}
+                          onChange={(e) => setProgressValue(Number(e.target.value))}
+                          className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <span className="w-12 text-center font-medium text-gray-900">{progressValue}%</span>
+                      </div>
+                      <button
+                        onClick={handleUpdateProgress}
+                        disabled={loading}
+                        className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <Edit3 className="h-4 w-4" />
+                        更新进度
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
-                    style={{ width: `${record.practicePlan.progress}%` }}
-                  />
+              )}
+
+              {!canUpdateProgress && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm text-gray-500">练习进度</span>
+                    <span className="text-sm font-medium text-gray-700">{record.practicePlan.progress}%</span>
+                  </div>
+                  <div className="h-3 bg-blue-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-500"
+                      style={{ width: `${record.practicePlan.progress}%` }}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -344,196 +508,70 @@ export const RecordDetailDrawer = ({ record, currentRole, onClose }: RecordDetai
             </div>
           </div>
 
-          {availableActions.length > 0 && (
-            <div className="flex gap-3 pt-4 border-t border-gray-200">
-              {availableActions.map((action, index) => (
+          <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+            {canSubmit && (
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50"
+              >
+                <CheckCircle className="h-4 w-4" />
+                提交审核
+              </button>
+            )}
+            {canStartPractice && (
+              <button
+                onClick={handleStartPractice}
+                disabled={loading}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-cyan-500 text-white rounded-lg font-medium hover:bg-cyan-600 disabled:opacity-50"
+              >
+                <Play className="h-4 w-4" />
+                开始练习
+              </button>
+            )}
+            {canComplete && (
+              <button
+                onClick={handleComplete}
+                disabled={loading}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 disabled:opacity-50"
+              >
+                <CheckCircle className="h-4 w-4" />
+                标记完成
+              </button>
+            )}
+            {canApprove && (
+              <button
+                onClick={handleApprove}
+                disabled={loading}
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-green-500 text-white rounded-lg font-medium hover:bg-green-600 disabled:opacity-50"
+              >
+                <CheckCircle className="h-4 w-4" />
+                审核通过
+              </button>
+            )}
+            {canConfirmExam && (
+              <>
                 <button
-                  key={index}
-                  onClick={action.action}
-                  disabled={loading || action.disabled}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    backgroundColor: action.icon === XCircle ? '#fee2e2' : '#eff6ff',
-                    color: action.icon === XCircle ? '#dc2626' : '#2563eb',
-                  }}
+                  onClick={() => handleConfirmExam(true)}
+                  disabled={loading}
+                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 disabled:opacity-50"
                 >
-                  <action.icon className="h-4 w-4" />
-                  {action.label}
+                  <CheckCircle className="h-4 w-4" />
+                  确认通过
                 </button>
-              ))}
-            </div>
-          )}
+                <button
+                  onClick={() => handleConfirmExam(false)}
+                  disabled={loading}
+                  className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 disabled:opacity-50"
+                >
+                  <XCircle className="h-4 w-4" />
+                  确认未通过
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
-
-      {showRejectModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">退回修改</h3>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="请输入退回原因..."
-              className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={() => setShowRejectModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleReject}
-                disabled={!rejectReason.trim() || loading}
-                className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg font-medium hover:bg-red-600 disabled:opacity-50"
-              >
-                确认退回
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showSupplementModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">补充修改</h3>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">补充备注</label>
-                <textarea
-                  value={supplementNotes}
-                  onChange={(e) => setSupplementNotes(e.target.value)}
-                  placeholder="请输入补充备注..."
-                  className="w-full h-24 p-3 border border-gray-200 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <label className="block text-sm font-medium text-gray-700 mb-3">更新练习计划</label>
-                
-                <div className="grid grid-cols-4 gap-4 mb-4">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">计划周期（周）</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="52"
-                      value={supplementPlan.durationWeeks}
-                      onChange={(e) => handlePlanChange('durationWeeks', Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">开始日期</label>
-                    <input
-                      type="date"
-                      value={supplementPlan.startDate.split('T')[0]}
-                      onChange={(e) => handlePlanChange('startDate', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">结束日期</label>
-                    <input
-                      type="date"
-                      value={supplementPlan.endDate.split('T')[0]}
-                      readOnly
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">本周重点</label>
-                    <input
-                      type="text"
-                      value={supplementPlan.weeklyFocus}
-                      onChange={(e) => setSupplementPlan({ ...supplementPlan, weeklyFocus: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs text-gray-500 mb-2">每日练习目标（分钟）</label>
-                  <div className="grid grid-cols-7 gap-2">
-                    {supplementPlan.dailyGoals.map((goal, index) => (
-                      <div key={goal.dayOfWeek} className="bg-gray-50 rounded-lg p-2 text-center">
-                        <div className="text-xs text-gray-500 mb-1">周{['日', '一', '二', '三', '四', '五', '六'][index]}</div>
-                        <input
-                          type="number"
-                          min="10"
-                          max="180"
-                          value={goal.durationMinutes}
-                          onChange={(e) => {
-                            const newGoals = [...supplementPlan.dailyGoals];
-                            newGoals[index] = { ...goal, durationMinutes: Number(e.target.value) };
-                            setSupplementPlan({ ...supplementPlan, dailyGoals: newGoals });
-                          }}
-                          className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200">
-              <button
-                onClick={() => setShowSupplementModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSupplement}
-                disabled={loading}
-                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg font-medium hover:bg-purple-600 disabled:opacity-50"
-              >
-                确认补充
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showProgressModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">更新练习进度</h3>
-            <div className="space-y-4">
-              <div className="flex items-center gap-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={progressValue}
-                  onChange={(e) => setProgressValue(Number(e.target.value))}
-                  className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <span className="w-12 text-center font-medium text-gray-900">{progressValue}%</span>
-              </div>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowProgressModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-200 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleUpdateProgress}
-                  disabled={loading}
-                  className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 disabled:opacity-50"
-                >
-                  确认更新
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };
