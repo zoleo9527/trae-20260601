@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+      Arial, 'Noto Sans SC', sans-serif;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  input[type='text'],
+  input[type='search'],
+  input[type='date'],
+  input[type='number'],
+  select,
+  textarea {
+    @apply h-8 px-2 py-0 text-sm border border-gray-300 rounded leading-tight transition-colors;
+  }
+
+  input[type='text']:focus,
+  input[type='search']:focus,
+  input[type='date']:focus,
+  input[type='number']:focus,
+  select:focus,
+  textarea:focus {
+    @apply outline-none ring-2 ring-brand-500/40 border-brand-500;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-gray-400 text-sm;
+  }
+
+  select {
+    @apply pr-6 bg-no-repeat appearance-none cursor-pointer;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.25rem center;
+    background-size: 1.25rem 1.25rem;
+  }
+
+  table {
+    @apply w-full border-collapse text-sm;
+  }
+
+  th {
+    @apply bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-3 py-2 border-b border-gray-200;
+  }
+
+  td {
+    @apply px-3 py-2 border-b border-gray-100 text-gray-700;
+  }
+
+  tr:hover td {
+    @apply bg-gray-50/60;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center h-8 px-3 text-sm font-medium text-white bg-brand-600 rounded hover:bg-brand-700 active:bg-brand-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center h-8 px-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center h-8 px-3 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@supports (scrollbar-width: thin) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
+}
