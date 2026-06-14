@@ -1,4 +1,4 @@
-import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText, ShieldAlert, ShieldCheck, Plus } from 'lucide-react';
+import { X, Calendar, Clock, AlertTriangle, CheckCircle2, DollarSign, User, FileText, ShieldAlert, ShieldCheck, Plus, FileEdit, UserCheck, Zap, Ban } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import Avatar from './Avatar';
 import HistoryTimeline from './HistoryTimeline';
@@ -294,8 +294,181 @@ export default function DetailPanel({
             )}
           </section>
 
+          {currentRole === 'enroller' && reminder.status !== 'completed' && (
+            <section className="card-inset bg-emerald-50/50 border border-emerald-200 rounded-sm p-4">
+              <h4 className="text-sm font-semibold text-emerald-800 mb-3 flex items-center gap-2">
+                <DollarSign size={14} className="text-emerald-600" />
+                报名员快捷操作
+              </h4>
+              <div className="space-y-2">
+                {(reminder.status === 'pending_confirm' || reminder.status === 'disputed') ? (
+                  <button
+                    onClick={onOpenConfirmFee}
+                    className="w-full px-3 py-2.5 text-sm text-white bg-emerald-600 rounded-sm hover:bg-emerald-700 transition-colors font-medium flex items-center justify-between group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 size={14} />
+                      费用确认
+                    </span>
+                    {reminder.status === 'disputed' && activeRisks.some((r) => r.category === 'fee_discrepancy') && (
+                      <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-sm">含费用争议风险</span>
+                    )}
+                  </button>
+                ) : (
+                  <div className="text-xs text-emerald-700/70 flex items-center gap-1.5">
+                    <Clock size={12} />
+                    待教练执行完成后可进行费用确认
+                  </div>
+                )}
+                {reminder.status === 'pending_confirm' && activeRisks.some((r) => r.category === 'schedule_delay') && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2.5 py-1.5 flex items-start gap-1.5">
+                    <AlertTriangle size={12} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span>存在安排延误风险，请尽快确认费用避免超期</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {currentRole === 'coach' && reminder.status !== 'completed' && (
+            <section className="card-inset bg-accent/5 border border-accent/20 rounded-sm p-4">
+              <h4 className="text-sm font-semibold text-accent-dark mb-3 flex items-center gap-2">
+                <FileEdit size={14} className="text-accent" />
+                教练快捷操作
+              </h4>
+              <div className="space-y-2">
+                {reminder.status === 'pending_execute' ? (
+                  <button
+                    onClick={onOpenExecute}
+                    className="w-full px-3 py-2.5 text-sm text-white bg-accent rounded-sm hover:bg-accent-dark transition-colors font-medium flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 size={14} />
+                      执行补训完成
+                    </span>
+                  </button>
+                ) : reminder.status === 'pending_confirm' && activeRisks.some((r) => r.category === 'missing_record') ? (
+                  <button
+                    onClick={onOpenExecute}
+                    className="w-full px-3 py-2.5 text-sm text-white bg-amber-600 rounded-sm hover:bg-amber-700 transition-colors font-medium flex items-center justify-between group"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileEdit size={14} />
+                      补录执行记录
+                    </span>
+                    <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-sm">记录缺失</span>
+                  </button>
+                ) : reminder.status === 'pending_schedule' ? (
+                  <div className="text-xs text-accent-dark/70 flex items-center gap-1.5">
+                    <Clock size={12} />
+                    待报名员安排补训时间
+                  </div>
+                ) : reminder.status === 'pending_confirm' ? (
+                  <div className="text-xs text-emerald-700/70 flex items-center gap-1.5">
+                    <CheckCircle2 size={12} />
+                    执行已完成，待报名员确认费用
+                  </div>
+                ) : null}
+                {activeRisks.some((r) => r.category === 'coach_overload') && (
+                  <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2.5 py-1.5 flex items-start gap-1.5">
+                    <AlertTriangle size={12} className="text-amber-600 flex-shrink-0 mt-0.5" />
+                    <span>存在带教负荷预警，请合理安排训练时间</span>
+                  </div>
+                )}
+                {activeRisks.some((r) => r.category === 'safety_concern') && (
+                  <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-sm px-2.5 py-1.5 flex items-start gap-1.5">
+                    <Ban size={12} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <span>存在安全隐患，请务必整改后再安排训练</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
+          {currentRole === 'safety_officer' && (
+            <section className="card-inset bg-red-50/50 border border-red-200 rounded-sm p-4">
+              <h4 className="text-sm font-semibold text-red-800 mb-3 flex items-center gap-2">
+                <ShieldAlert size={14} className="text-red-600" />
+                安全员快捷操作
+              </h4>
+              <div className="space-y-2">
+                {reminder.status === 'disputed' && (
+                  <button
+                    onClick={onOpenResolveDispute}
+                    className="w-full px-3 py-2.5 text-sm text-white bg-red-600 rounded-sm hover:bg-red-700 transition-colors font-medium flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <UserCheck size={14} />
+                      介入争议处理
+                    </span>
+                    <span className="text-xs bg-white/20 px-1.5 py-0.5 rounded-sm">待处理</span>
+                  </button>
+                )}
+                {activeRisks.length > 0 && (
+                  <div className="space-y-1.5">
+                    <div className="text-xs text-red-700 font-medium flex items-center gap-1">
+                      <Zap size={12} />
+                      待解除风险 ({activeRisks.length} 项)
+                    </div>
+                    {activeRisks.slice(0, 3).map((risk) => (
+                      <div key={risk.id} className="flex items-center justify-between text-xs bg-white border border-red-100 rounded-sm px-2.5 py-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className={`w-1.5 h-1.5 rounded-full ${riskLevelMap[risk.level].dotClass}`} />
+                          <span className="text-slate-700 truncate">{riskCategoryMap[risk.category]?.label}</span>
+                        </div>
+                        <button
+                          onClick={() => onOpenResolveRisk(risk.id)}
+                          className="text-red-600 hover:text-red-700 hover:underline flex-shrink-0 ml-2"
+                        >
+                          解除
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {reminder.status !== 'completed' && reminder.status !== 'disputed' && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => onOpenReview('approve')}
+                      className="flex-1 px-2.5 py-2 text-xs text-white bg-navy-700 rounded-sm hover:bg-navy-800 transition-colors font-medium"
+                    >
+                      审核通过
+                    </button>
+                    <button
+                      onClick={() => onOpenReview('reject')}
+                      className="flex-1 px-2.5 py-2 text-xs text-red-700 bg-white border border-red-200 rounded-sm hover:bg-red-50 transition-colors font-medium"
+                    >
+                      审核驳回
+                    </button>
+                  </div>
+                )}
+                {reminder.status !== 'completed' && reminder.status !== 'disputed' && (
+                  <button
+                    onClick={onOpenDispute}
+                    className="w-full px-3 py-2 text-xs text-red-600 bg-white border border-red-200 rounded-sm hover:bg-red-50 transition-colors font-medium flex items-center justify-center gap-1.5"
+                  >
+                    <AlertTriangle size={12} />
+                    标记争议介入
+                  </button>
+                )}
+                {reminder.status === 'completed' && (
+                  <div className="text-xs text-slate-500 flex items-center gap-1.5">
+                    <CheckCircle2 size={12} className="text-emerald-600" />
+                    流程已完成，已归档
+                  </div>
+                )}
+                {activeRisks.some((r) => r.level === 'critical') && (
+                  <div className="text-xs text-red-700 bg-red-100 border border-red-300 rounded-sm px-2.5 py-1.5 flex items-start gap-1.5 animate-pulse">
+                    <AlertTriangle size={12} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <span>存在严重风险，请在 24 小时内介入处理</span>
+                  </div>
+                )}
+              </div>
+            </section>
+          )}
+
           <section>
-            <HistoryTimeline history={reminder.history} />
+            <HistoryTimeline history={reminder.history} risks={reminder.risks} />
           </section>
         </div>
       </div>

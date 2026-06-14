@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { ShieldAlert, ShieldCheck, AlertTriangle, Clock, DollarSign, Users } from 'lucide-react';
+import { ShieldAlert, ShieldCheck, AlertTriangle, Clock, DollarSign, Users, TrendingUp, UserCheck, FileX, Gauge, AlertOctagon, Activity, FileWarning } from 'lucide-react';
 import { useReminderStore } from '../store/reminder';
-import type { ReminderStatus, UserRole, RiskLevel } from '../../shared/types';
-import { statusMap, riskLevelMap } from '../utils/format';
+import type { ReminderStatus, UserRole, RiskLevel, RiskCategory } from '../../shared/types';
+import { statusMap, riskLevelMap, riskCategoryMap, roleMap } from '../utils/format';
 
 interface Tab {
   value: string;
@@ -104,6 +104,73 @@ export default function StatusTabs() {
     return allReminders.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical').length;
   }, [allReminders]);
 
+  const highRiskStats = useMemo(() => {
+    const highRiskList = allReminders.filter((r) => r.riskLevel === 'high' || r.riskLevel === 'critical');
+    const byCategory: Record<string, { count: number; records: typeof allReminders }> = {};
+    const byRole: Record<string, { count: number; records: typeof allReminders }> = {};
+    let totalActiveRisks = 0;
+    let criticalCount = 0;
+    let highCount = 0;
+
+    highRiskList.forEach((r) => {
+      const activeRisks = r.risks.filter((x) => !x.resolved);
+      totalActiveRisks += activeRisks.length;
+      if (r.riskLevel === 'critical') criticalCount++;
+      if (r.riskLevel === 'high') highCount++;
+
+      activeRisks.forEach((risk) => {
+        if (!byCategory[risk.category]) {
+          byCategory[risk.category] = { count: 0, records: [] };
+        }
+        byCategory[risk.category].count++;
+        if (!byCategory[risk.category].records.find((x) => x.id === r.id)) {
+          byCategory[risk.category].records.push(r);
+        }
+      });
+
+      if (!byRole[r.currentOwnerRole]) {
+        byRole[r.currentOwnerRole] = { count: 0, records: [] };
+      }
+      byRole[r.currentOwnerRole].count++;
+      if (!byRole[r.currentOwnerRole].records.find((x) => x.id === r.id)) {
+        byRole[r.currentOwnerRole].records.push(r);
+      }
+    });
+
+    const categoryOrder: RiskCategory[] = [
+      'fee_discrepancy', 'schedule_delay', 'missing_record', 'safety_concern',
+      'coach_overload', 'student_complaint', 'process_irregularity', 'other'
+    ];
+
+    const categoryStats = categoryOrder
+      .filter((c) => byCategory[c])
+      .map((c) => ({
+        category: c,
+        ...byCategory[c],
+      }));
+
+    const roleStats = (['enroller', 'coach', 'safety_officer'] as UserRole[])
+      .filter((r) => byRole[r])
+      .map((r) => ({
+        role: r,
+        ...byRole[r],
+      }));
+
+    const oldestRisk = highRiskList
+      .flatMap((r) => r.risks.filter((x) => !x.resolved))
+      .sort((a, b) => (a.markedAt > b.markedAt ? 1 : -1))[0];
+
+    return {
+      totalRecords: highRiskList.length,
+      totalActiveRisks,
+      criticalCount,
+      highCount,
+      categoryStats,
+      roleStats,
+      oldestRisk,
+    };
+  }, [allReminders]);
+
   const tips = roleRiskTips[currentRole] || [];
 
   return (
@@ -134,6 +201,80 @@ export default function StatusTabs() {
               </div>
             )}
           </div>
+        </div>
+      )}
+      {filterStatus === 'risk_high' && highRiskStats.totalRecords > 0 && (
+        <div className="px-6 py-3 bg-gradient-to-r from-red-50/80 to-orange-50/50 border-b border-red-100">
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <AlertOctagon size={16} className="text-red-600" />
+              <span className="text-sm font-semibold text-red-800">高风险预警面板</span>
+            </div>
+            <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center gap-1.5 text-xs">
+                <Gauge size={12} className="text-red-600" />
+                <span className="text-slate-600">涉及记录：</span>
+                <span className="font-semibold text-red-700">{highRiskStats.totalRecords} 条</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <AlertTriangle size={12} className="text-red-600" />
+                <span className="text-slate-600">风险项数：</span>
+                <span className="font-semibold text-red-700">{highRiskStats.totalActiveRisks} 项</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <TrendingUp size={12} className="text-rose-600" />
+                <span className="text-slate-600">严重：</span>
+                <span className="font-semibold text-rose-700">{highRiskStats.criticalCount} 条</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs">
+                <TrendingUp size={12} className="text-orange-600" />
+                <span className="text-slate-600">高风险：</span>
+                <span className="font-semibold text-orange-700">{highRiskStats.highCount} 条</span>
+              </div>
+            </div>
+            {highRiskStats.oldestRisk && (
+              <div className="flex-shrink-0 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-sm px-2 py-1">
+                <span className="text-slate-500">最久未处理：</span>
+                <span className="font-medium">{highRiskStats.oldestRisk.markedByName}</span>
+                <span className="text-slate-400 ml-1">·</span>
+                <span className="font-mono">{highRiskStats.oldestRisk.markedAt.slice(5, 16)}</span>
+              </div>
+            )}
+          </div>
+          {highRiskStats.categoryStats.length > 0 && (
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-red-100/50">
+              <div className="text-xs text-slate-500 flex items-center gap-1">
+                <Activity size={12} />
+                风险类别：
+              </div>
+              {highRiskStats.categoryStats.map((stat) => (
+                <div key={stat.category} className="flex items-center gap-1 text-xs bg-white/80 border border-slate-200 rounded-sm px-2 py-0.5">
+                  <span className="text-slate-700">{riskCategoryMap[stat.category]?.label}</span>
+                  <span className="font-semibold text-red-600">{stat.count}项</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {highRiskStats.roleStats.length > 0 && (
+            <div className="flex items-center gap-3 mt-2">
+              <div className="text-xs text-slate-500 flex items-center gap-1">
+                <UserCheck size={12} />
+                责任分布：
+              </div>
+              {highRiskStats.roleStats.map((stat) => (
+                <div key={stat.role} className="flex items-center gap-1 text-xs bg-white/80 border border-slate-200 rounded-sm px-2 py-0.5">
+                  <span className={`px-1 py-0.5 rounded-sm text-white ${roleMap[stat.role].className}`}>
+                    {roleMap[stat.role].label}
+                  </span>
+                  <span className="font-semibold text-slate-700">{stat.count}条</span>
+                  <span className="text-slate-400">·</span>
+                  <span className="text-slate-500">
+                    {stat.records.map((r) => r.currentOwnerName).filter((n, i, arr) => arr.indexOf(n) === i).join('、')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="px-6">
