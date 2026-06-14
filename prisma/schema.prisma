@@ -1,0 +1,124 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  role      String   // "OPERATOR" | "ADMIN"
+  createdAt DateTime @default(now())
+  
+  confirmations LoanConfirmation[]
+}
+
+model LoanApplication {
+  id              String   @id @default(uuid())
+  borrowerName    String
+  borrowerPhone   String
+  amount          Float
+  purpose         String
+  status          String   @default("PENDING") // PENDING, RISK_REVIEW, APPROVED, CONFIRMED, DISBURSED, REJECTED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  riskDocuments   RiskControlDocument[]
+  confirmation    LoanConfirmation?
+  repaymentPlans  RepaymentPlan[]
+  exceptions      ExceptionRecord[]
+}
+
+model RiskControlDocument {
+  id             String   @id @default(uuid())
+  applicationId  String
+  type           String   // 身份证、收入证明、征信报告等
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  uploadedAt     DateTime @default(now())
+  
+  application    LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+}
+
+model LoanConfirmation {
+  id             String   @id @default(uuid())
+  applicationId  String   @unique
+  operatorId     String
+  action         String   // CONFIRM, REJECT, REQUEST_INFO
+  reason         String?
+  confirmedAt    DateTime @default(now())
+  
+  application    LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  operator       User             @relation(fields: [operatorId], references: [id])
+}
+
+model RepaymentPlan {
+  id             String   @id @default(uuid())
+  applicationId  String
+  period         Int
+  amount         Float
+  dueDate        DateTime
+  status         String   @default("PENDING") // PENDING, PAID, OVERDUE, PARTIAL_PAID
+  paidAmount     Float    @default(0)
+  
+  application    LoanApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  collections    CollectionRecord[]
+  exceptions     ExceptionRecord[]
+}
+
+model CollectionRecord {
+  id            String   @id @default(uuid())
+  repaymentId   String
+  method        String   // 电话、短信、上门等
+  result        String
+  collectedAt   DateTime @default(now())
+  
+  repayment     RepaymentPlan @relation(fields: [repaymentId], references: [id], onDelete: Cascade)
+}
+
+model ExceptionRecord {
+  id            String   @id @default(uuid())
+  applicationId String?
+  repaymentId   String?
+  businessType  String   // APPLICATION, REPAYMENT
+  type          String   // OVERDUE, PARTIAL_PAYMENT, REJECTION, INFO_MISSING
+  description   String
+  status        String   @default("OPEN") // OPEN, PROCESSING, RESOLVED
+  resolution    String?
+  createdAt     DateTime @default(now())
+  resolvedAt    DateTime?
+  
+  application   LoanApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  repayment     RepaymentPlan?   @relation(fields: [repaymentId], references: [id], onDelete: Cascade)
+  reminders     SystemReminder[]
+}
+
+model OperationLog {
+  id            String   @id @default(uuid())
+  businessId    String
+  businessType  String   // APPLICATION, REPAYMENT, EXCEPTION
+  action        String
+  operatorId    String?
+  operatorName  String
+  fromStatus    String?
+  toStatus      String?
+  details       String?
+  createdAt     DateTime @default(now())
+}
+
+model SystemReminder {
+  id            String   @id @default(uuid())
+  exceptionId   String
+  type          String   // SMS, PHONE, EMAIL
+  content       String
+  sentAt        DateTime @default(now())
+  status        String   @default("SENT") // SENT, DELIVERED, FAILED
+  recipient     String
+  
+  exception     ExceptionRecord @relation(fields: [exceptionId], references: [id], onDelete: Cascade)
+}
