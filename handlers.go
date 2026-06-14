@@ -131,7 +131,7 @@ func ListShiftSettlements(c *gin.Context) {
 	u := getUserFromHeader(c)
 	status := c.Query("status")
 	storeID := c.Query("store_id")
-	view := c.Query("view") // my/pending/all
+	view := c.Query("view") // all/pending; 默认为 pending
 	query := `SELECT s.id, s.store_id, st.name, s.shift_no, s.clerk_id, u.name, 
 		s.shift_date, s.shift_type, s.ticket_sales, s.scratch_sales, s.total_sales,
 		s.cash_expected, s.cash_actual, s.status, s.reject_reason, s.created_by, s.approved_by,
@@ -159,6 +159,7 @@ func ListShiftSettlements(c *gin.Context) {
 		}
 	}
 
+	// 状态过滤（显式传 status 时生效）
 	if status != "" {
 		query += " AND s.status = ?"
 		args = append(args, status)
@@ -167,15 +168,22 @@ func ListShiftSettlements(c *gin.Context) {
 		query += " AND s.store_id = ?"
 		args = append(args, storeID)
 	}
-	// 视图快捷过滤
-	if view == "pending" {
+
+	// 默认走待办队列（view=all 时才返回全量历史，仍在角色数据范围内）
+	if view != "all" {
 		switch u.Role {
 		case "clerk":
-			query += " AND s.status IN ('draft','rejected')"
+			if status == "" {
+				query += " AND s.status IN ('draft','rejected','submitted','pending_cash','approved')"
+			}
 		case "store_manager":
-			query += " AND s.status = 'submitted'"
+			if status == "" {
+				query += " AND s.status IN ('submitted','pending_cash','rejected')"
+			}
 		case "area_manager":
-			query += " AND s.status IN ('submitted','pending_cash')"
+			if status == "" {
+				query += " AND s.status IN ('submitted','pending_cash')"
+			}
 		}
 	}
 	query += " ORDER BY s.created_at DESC LIMIT 100"
@@ -463,7 +471,7 @@ func ListCashVerifications(c *gin.Context) {
 	u := getUserFromHeader(c)
 	status := c.Query("status")
 	storeID := c.Query("store_id")
-	view := c.Query("view")
+	view := c.Query("view") // all/pending; 默认为 pending
 	query := `SELECT cv.id, cv.shift_settlement_id, cv.store_id, st.name, cv.store_manager_id, sm.name,
 		cv.area_manager_id, am.name, cv.cash_declared, cv.cash_counted, cv.difference, cv.status,
 		cv.previous_conclusion, cv.material_notes, cv.notes, cv.resolution, cv.created_at, cv.updated_at,
@@ -500,14 +508,24 @@ func ListCashVerifications(c *gin.Context) {
 		query += " AND cv.store_id = ?"
 		args = append(args, storeID)
 	}
-	if view == "pending" {
+
+	// 默认走待办队列（view=all 时才返回全量历史，仍在角色数据范围内）
+	// 片区视角收紧：只保留升级与关注项
+	if view != "all" {
 		switch u.Role {
-		case "store_manager":
-			query += " AND cv.status IN ('pending','counting','mismatched')"
-		case "area_manager":
-			query += " AND cv.status IN ('escalated','mismatched')"
 		case "clerk":
-			query += " AND cv.status IN ('pending','counting','mismatched','escalated')"
+			if status == "" {
+				query += " AND cv.status IN ('pending','counting','mismatched','escalated')"
+			}
+		case "store_manager":
+			if status == "" {
+				query += " AND cv.status IN ('pending','counting','mismatched')"
+			}
+		case "area_manager":
+			if status == "" {
+				// 片区视角收紧：仅保留升级(escalated)与差异关注(mismatched)
+				query += " AND cv.status IN ('escalated','mismatched')"
+			}
 		}
 	}
 	query += " ORDER BY cv.created_at DESC LIMIT 100"

@@ -58,33 +58,46 @@ async function init() {
     if (r.code !== 0) { document.getElementById('pageContent').innerHTML = errorPage(r.message); return; }
     const users = r.data || [];
     const sel = document.getElementById('roleSelect');
-    sel.innerHTML = users.map(u => {
-      const store = u.store_id ? (u.store_id===1?'朝阳店':u.store_id===2?'中关村店':'金融街店') : '片区';
-      return `<option value="${u.id}">${u.name} · ${ROLE_TEXT[u.role]} · ${store}</option>`;
-    }).join('');
-    sel.value = currentUser.id;
+    if (sel) {
+      sel.innerHTML = users.map(u => {
+        const store = u.store_id ? (u.store_id===1?'朝阳店':u.store_id===2?'中关村店':'金融街店') : '片区';
+        return `<option value="${u.id}">${u.name} · ${ROLE_TEXT[u.role]} · ${store}</option>`;
+      }).join('');
+      sel.value = currentUser.id;
+    }
     updateUserInfo();
     updateUnreadCount();
-    loadPage('dashboard');
+    await loadPage('dashboard');
   } catch(e) {
     console.error('init error:', e);
-    document.getElementById('pageContent').innerHTML = errorPage('初始化失败: ' + e.message);
+    try {
+      document.getElementById('pageContent').innerHTML = errorPage('初始化失败: ' + e.message);
+    } catch(e2) { console.error('init fallback failed:', e2); }
   }
 }
 
 async function updateUnreadCount() {
-  const r = await api('/notifications/unread');
-  const cnt = r.data?.count || 0;
-  const badge = document.getElementById('unreadBadge');
-  if (cnt > 0) { badge.style.display = 'flex'; badge.textContent = cnt; }
-  else badge.style.display = 'none';
+  try {
+    const r = await api('/notifications/unread');
+    const cnt = (r.data && r.data.count) ? r.data.count : 0;
+    const badge = document.getElementById('unreadBadge');
+    if (badge) {
+      if (cnt > 0) { badge.style.display = 'flex'; badge.textContent = cnt; }
+      else badge.style.display = 'none';
+    }
+  } catch(e) { console.error('updateUnreadCount error:', e); }
 }
 
 function updateUserInfo() {
-  document.getElementById('userName').textContent = currentUser.name;
-  const store = currentUser.store_id ? (currentUser.store_id===1?'朝阳路旗舰店':currentUser.store_id===2?'海淀中关村店':'西城金融街店') : '全片区';
-  document.getElementById('userRole').textContent = ROLE_TEXT[currentUser.role] + ' · ' + store;
-  document.getElementById('userAvatar').textContent = currentUser.name.charAt(0);
+  try {
+    const nameEl = document.getElementById('userName');
+    if (nameEl) nameEl.textContent = currentUser.name;
+    const store = currentUser.store_id ? (currentUser.store_id===1?'朝阳路旗舰店':currentUser.store_id===2?'海淀中关村店':'西城金融街店') : '全片区';
+    const roleEl = document.getElementById('userRole');
+    if (roleEl) roleEl.textContent = ROLE_TEXT[currentUser.role] + ' · ' + store;
+    const avtEl = document.getElementById('userAvatar');
+    if (avtEl) avtEl.textContent = currentUser.name.charAt(0);
+  } catch(e) { console.error('updateUserInfo error:', e); }
 }
 
 async function switchUser(id) {
@@ -111,6 +124,7 @@ function navTo(page) {
 async function loadPage(page) {
   currentPage = page;
   const pc = document.getElementById('pageContent');
+  if (!pc) { console.error('loadPage: pageContent not found'); return; }
   try {
     if (page === 'dashboard') pc.innerHTML = await renderDashboard();
     else if (page === 'shifts') pc.innerHTML = await renderShifts();
@@ -120,10 +134,15 @@ async function loadPage(page) {
     else pc.innerHTML = errorPage('未知页面');
   } catch(e) {
     console.error('loadPage error:', page, e);
-    pc.innerHTML = errorPage('页面加载异常: ' + e.message);
+    try { pc.innerHTML = errorPage('页面加载异常: ' + e.message); } catch(e2) {}
   }
-  document.getElementById('notifPanel').style.display = 'none';
-  window.scrollTo(0, 0);
+  try {
+    const np = document.getElementById('notifPanel');
+    if (np) np.style.display = 'none';
+  } catch(e) {}
+  try {
+    if (window.scrollTo) window.scrollTo(0, 0);
+  } catch(e) { console.error('scrollTo error:', e); }
 }
 
 // ===== Dashboard (role-based workspace) =====
@@ -142,14 +161,20 @@ async function renderDashboard() {
   const unread = notifs.data || [];
   const recentLogs = (logs.data || []).slice(0, 8);
 
-  const shiftBadge = document.getElementById('shiftBadge');
-  const shiftPending = ss.length;
-  if (shiftPending > 0) { shiftBadge.style.display = 'block'; shiftBadge.textContent = shiftPending; }
-  else shiftBadge.style.display = 'none';
-  const cashBadge = document.getElementById('cashBadge');
-  const cashPending = cs.length;
-  if (cashPending > 0) { cashBadge.style.display = 'block'; cashBadge.textContent = cashPending; }
-  else cashBadge.style.display = 'none';
+  try {
+    const shiftBadge = document.getElementById('shiftBadge');
+    const shiftPending = ss.length;
+    if (shiftBadge) {
+      if (shiftPending > 0) { shiftBadge.style.display = 'block'; shiftBadge.textContent = shiftPending; }
+      else shiftBadge.style.display = 'none';
+    }
+    const cashBadge = document.getElementById('cashBadge');
+    const cashPending = cs.length;
+    if (cashBadge) {
+      if (cashPending > 0) { cashBadge.style.display = 'block'; cashBadge.textContent = cashPending; }
+      else cashBadge.style.display = 'none';
+    }
+  } catch(e) { console.error('renderDashboard badge error:', e); }
 
   const g = roleGreeting();
   let statsHtml = '';
