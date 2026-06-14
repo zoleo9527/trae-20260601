@@ -252,7 +252,31 @@ function addSupplementRemark(id, { remark, operatorId, operatorRole, handlerId, 
     });
   }
   tx(() => {
-    if (handlerId) {
+    if (markResolved) {
+      const fields = [
+        "status = 'pending_review'",
+        "supplement_remark = @remark",
+        "supplement_time = datetime('now')",
+        "supplement_by = @operatorId",
+      ];
+      const params = { id, remark, operatorId };
+      if (handlerId) {
+        fields.push("handler_id = @handlerId");
+        params.handlerId = handlerId;
+      }
+      db.prepare(`UPDATE registrations SET ${fields.join(', ')} WHERE id = @id`).run(params);
+      const operatorName = db.prepare('SELECT name FROM users WHERE id = ?').get(operatorId)?.name || '';
+      const handlerHint = handlerId ? `，归属：${db.prepare('SELECT name FROM users WHERE id = ?').get(handlerId)?.name || ''}` : '';
+      addTimeline(id, 'supplement_done', operatorId, operatorRole,
+        `补正完成，标记待复审。处理说明：${remark}${handlerHint}`);
+      pushNotification({
+        userRole: 'admin_staff',
+        registrationId: id,
+        title: '补正完成，待复审接回',
+        content: `考生 ${reg.candidate_name} 已由 ${operatorName} 完成补正，请及时复审（${remark}）`,
+        type: 'supplement_done',
+      });
+    } else if (handlerId) {
       db.prepare(`
         UPDATE registrations
         SET handler_id = @handlerId
@@ -267,24 +291,6 @@ function addSupplementRemark(id, { remark, operatorId, operatorRole, handlerId, 
         title: '补正任务已转派给您',
         content: `考生 ${reg.candidate_name} 的补正任务：${remark}`,
         type: 'supplement_reassign',
-      });
-    } else if (markResolved) {
-      db.prepare(`
-        UPDATE registrations
-        SET status = 'pending_review',
-            supplement_remark = @remark, supplement_time = datetime('now'),
-            supplement_by = @operatorId
-        WHERE id = @id
-      `).run({ id, remark, operatorId });
-      const operatorName = db.prepare('SELECT name FROM users WHERE id = ?').get(operatorId)?.name || '';
-      addTimeline(id, 'supplement_done', operatorId, operatorRole,
-        `补正完成，标记待复审。处理说明：${remark}`);
-      pushNotification({
-        userRole: 'admin_staff',
-        registrationId: id,
-        title: '补正完成，待复审接回',
-        content: `考生 ${reg.candidate_name} 已由 ${operatorName} 完成补正，请及时复审（${remark}）`,
-        type: 'supplement_done',
       });
     } else {
       addTimeline(id, 'supplement', operatorId, operatorRole, `补充备注：${remark}`);

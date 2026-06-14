@@ -3,7 +3,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { AppError } = require('./errors');
 
-const DB_PATH = path.join(__dirname, '..', 'data', 'exam-center.db');
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, '..', 'data', 'exam-center.db');
 let db;
 
 function initDB() {
@@ -106,13 +106,50 @@ function createTables() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
-
-    CREATE INDEX IF NOT EXISTS idx_reg_status ON registrations(status);
-    CREATE INDEX IF NOT EXISTS idx_reg_handler ON registrations(handler_id);
-    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read);
-    CREATE INDEX IF NOT EXISTS idx_timeline_reg ON registration_timeline(registration_id);
-    CREATE INDEX IF NOT EXISTS idx_invig_assign ON invigilator_assignments(invigilator_id, exam_room_id);
   `);
+  migrateRegistrationsColumns();
+  createIndexes();
+}
+
+const REG_COLUMNS = [
+  { name: 'reject_reason', def: 'TEXT' },
+  { name: 'supplement_remark', def: 'TEXT' },
+  { name: 'supplement_time', def: 'TEXT' },
+  { name: 'supplement_by', def: 'TEXT REFERENCES users(id)' },
+  { name: 'handler_id', def: 'TEXT REFERENCES users(id)' },
+  { name: 'assigned_invigilator_id', def: 'TEXT REFERENCES users(id)' },
+  { name: 'reopen_by', def: 'TEXT REFERENCES users(id)' },
+  { name: 'reopen_time', def: 'TEXT' },
+];
+
+function migrateRegistrationsColumns() {
+  const existing = db.prepare("PRAGMA table_info(registrations)").all().map(c => c.name);
+  for (const col of REG_COLUMNS) {
+    if (!existing.includes(col.name)) {
+      try {
+        db.prepare(`ALTER TABLE registrations ADD COLUMN ${col.name} ${col.def}`).run();
+      } catch (e) {
+        console.warn(`[db] 跳过列 ${col.name}：${e.message}`);
+      }
+    }
+  }
+}
+
+function createIndexes() {
+  const idxStmts = [
+    'CREATE INDEX IF NOT EXISTS idx_reg_status ON registrations(status)',
+    'CREATE INDEX IF NOT EXISTS idx_reg_handler ON registrations(handler_id)',
+    'CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, is_read)',
+    'CREATE INDEX IF NOT EXISTS idx_timeline_reg ON registration_timeline(registration_id)',
+    'CREATE INDEX IF NOT EXISTS idx_invig_assign ON invigilator_assignments(invigilator_id, exam_room_id)',
+  ];
+  for (const sql of idxStmts) {
+    try {
+      db.prepare(sql).run();
+    } catch (e) {
+      console.warn(`[db] 跳过索引：${e.message}`);
+    }
+  }
 }
 
 function getDB() {
