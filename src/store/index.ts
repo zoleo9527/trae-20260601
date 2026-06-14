@@ -60,13 +60,15 @@ interface PersistedState {
 }
 
 function reconcilePersistedState(state: PersistedState): PersistedState {
-  const candidateAllSeats = new Map<string, { roomId: string; seatId: string; row: number; col: number }[]>()
+  if (!state.examRooms || !state.candidates) return state
+
+  const candidateAllSeats = new Map<string, { roomId: string; seatId: string; row: number; col: number; status: string }[]>()
 
   for (const room of state.examRooms) {
     for (const seat of room.seats) {
-      if (seat.candidateId && seat.status === "assigned") {
+      if (seat.candidateId && (seat.status === "assigned" || seat.status === "conflict")) {
         const list = candidateAllSeats.get(seat.candidateId) ?? []
-        list.push({ roomId: room.id, seatId: seat.id, row: seat.row, col: seat.col })
+        list.push({ roomId: room.id, seatId: seat.id, row: seat.row, col: seat.col, status: seat.status })
         candidateAllSeats.set(seat.candidateId, list)
       }
     }
@@ -76,6 +78,8 @@ function reconcilePersistedState(state: PersistedState): PersistedState {
   for (const [cid, seats] of candidateAllSeats) {
     if (seats.length > 1) {
       const sorted = [...seats].sort((a, b) => {
+        if (a.status === "conflict" && b.status !== "conflict") return 1
+        if (a.status !== "conflict" && b.status === "conflict") return -1
         const roomCmp = a.roomId.localeCompare(b.roomId)
         if (roomCmp !== 0) return roomCmp
         const rowCmp = a.row - b.row
@@ -90,7 +94,7 @@ function reconcilePersistedState(state: PersistedState): PersistedState {
   const examRooms = state.examRooms.map((room) => {
     let seatsChanged = false
     const seats = room.seats.map((seat) => {
-      if (!seat.candidateId || seat.status !== "assigned") return seat
+      if (!seat.candidateId || (seat.status !== "assigned" && seat.status !== "conflict")) return seat
       const keepSeatId = keepSeats.get(seat.candidateId)
       if (keepSeatId && keepSeatId !== seat.id) {
         seatsChanged = true
@@ -454,11 +458,17 @@ export const useExamStore = create<ExamStore>()(
     }),
     {
       name: "exam-center-store",
-      version: 2,
+      version: 3,
       migrate: (persistedState) => {
-        const state = persistedState as PersistedState
-        if (!state.examRooms || !state.candidates) return state
-        return reconcilePersistedState(state)
+        return reconcilePersistedState(persistedState as PersistedState)
+      },
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          const reconciled = reconcilePersistedState(state as PersistedState)
+          state.examRooms = reconciled.examRooms
+          state.candidates = reconciled.candidates
+          state.snapshots = reconciled.snapshots
+        }
       },
     }
   )
