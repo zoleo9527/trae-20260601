@@ -83,6 +83,7 @@ class MaterialService:
 
         db_material.status = to_status
         db_material.current_handler_id = status_change.handler_id
+        db_material.status_changed_at = datetime.now()
 
         if to_status == MaterialStatus.DISTRIBUTED:
             db_material.distributed_at = datetime.now()
@@ -114,7 +115,7 @@ class MaterialService:
             db.query(ActivityMaterial)
             .filter(
                 ActivityMaterial.status == MaterialStatus.STUCK,
-                ActivityMaterial.updated_at < threshold,
+                ActivityMaterial.status_changed_at < threshold,
             )
             .all()
         )
@@ -193,6 +194,7 @@ class FeedbackService:
 
         db_feedback.status = to_status
         db_feedback.current_handler_id = status_change.handler_id
+        db_feedback.status_changed_at = datetime.now()
 
         if to_status == FeedbackStatus.RESOLVED:
             db_feedback.resolved_at = datetime.now()
@@ -223,7 +225,7 @@ class FeedbackService:
             db.query(StoreFeedback)
             .filter(
                 StoreFeedback.status == FeedbackStatus.PROCESSING,
-                StoreFeedback.updated_at < threshold,
+                StoreFeedback.status_changed_at < threshold,
             )
             .all()
         )
@@ -447,7 +449,10 @@ class ResponsibilityChainService:
 
             if feedback.status == FeedbackStatus.PROCESSING:
                 result["stuck_at"] = feedback.status.value
-                result["reason_not_completed"] = feedback.stuck_reason
+                result["reason_not_completed"] = feedback.stuck_reason or "处理中，等待处理"
+            elif feedback.status == FeedbackStatus.REJECTED:
+                result["stuck_at"] = feedback.status.value
+                result["reason_not_completed"] = feedback.rejected_reason or "已退回，未说明原因"
 
             processing_records = (
                 db.query(ProcessingRecord)
@@ -471,6 +476,17 @@ class ResponsibilityChainService:
                     }
                 )
             result["escalation_path"] = escalation_path
+
+            if processing_records:
+                latest_record = processing_records[0]
+                latest_handler = db.query(User).filter(User.id == latest_record.handler_id).first()
+                result["latest_processing_note"] = {
+                    "handler_name": latest_handler.real_name if latest_handler else "未知",
+                    "handler_role": latest_handler.role.value if latest_handler else "未知",
+                    "action": latest_record.action,
+                    "notes": latest_record.notes,
+                    "processed_at": latest_record.created_at.isoformat(),
+                }
 
         return result
 

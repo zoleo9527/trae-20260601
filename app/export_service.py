@@ -287,10 +287,10 @@ class ExportService:
             "当前状态",
             "当前处理人",
             "处理人角色",
-            "卡住原因",
-            "卡住天数",
+            "卡住原因/退回原因",
+            "停滞天数",
+            "状态变更时间",
             "创建时间",
-            "更新时间",
         ]
         ws.append(headers)
 
@@ -308,11 +308,13 @@ class ExportService:
             except:
                 pass
 
-        days = filters.get("days", 3)
+        from app.models import MaterialStatus, FeedbackStatus
 
-        from app.services import MaterialService, FeedbackService
-
-        stuck_materials = MaterialService.get_stuck_materials(db, days)
+        stuck_materials = (
+            db.query(ActivityMaterial)
+            .filter(ActivityMaterial.status == MaterialStatus.STUCK)
+            .all()
+        )
         for material in stuck_materials:
             store = db.query(Store).filter(Store.id == material.store_id).first()
             handler = None
@@ -323,8 +325,8 @@ class ExportService:
                     handler_role = handler.role.value
 
             days_stuck = 0
-            if material.updated_at:
-                days_stuck = (datetime.now() - material.updated_at).days
+            if material.status_changed_at:
+                days_stuck = (datetime.now() - material.status_changed_at).days
 
             row = [
                 "活动物料",
@@ -336,12 +338,20 @@ class ExportService:
                 handler_role,
                 material.stuck_reason or "",
                 days_stuck,
+                material.status_changed_at.isoformat() if material.status_changed_at else "",
                 material.created_at.isoformat() if material.created_at else "",
-                material.updated_at.isoformat() if material.updated_at else "",
             ]
             ws.append(row)
 
-        stuck_feedbacks = FeedbackService.get_stuck_feedbacks(db, days)
+        stuck_feedbacks = (
+            db.query(StoreFeedback)
+            .filter(
+                StoreFeedback.status.in_(
+                    [FeedbackStatus.PROCESSING, FeedbackStatus.REJECTED, FeedbackStatus.ESCALATED]
+                )
+            )
+            .all()
+        )
         for feedback in stuck_feedbacks:
             material = (
                 db.query(ActivityMaterial)
@@ -357,8 +367,10 @@ class ExportService:
                     handler_role = handler.role.value
 
             days_stuck = 0
-            if feedback.updated_at:
-                days_stuck = (datetime.now() - feedback.updated_at).days
+            if feedback.status_changed_at:
+                days_stuck = (datetime.now() - feedback.status_changed_at).days
+
+            stuck_reason = feedback.stuck_reason or feedback.rejected_reason or ""
 
             row = [
                 "门店反馈",
@@ -368,10 +380,10 @@ class ExportService:
                 feedback.status.value,
                 handler.real_name if handler else "",
                 handler_role,
-                feedback.stuck_reason or "",
+                stuck_reason,
                 days_stuck,
+                feedback.status_changed_at.isoformat() if feedback.status_changed_at else "",
                 feedback.created_at.isoformat() if feedback.created_at else "",
-                feedback.updated_at.isoformat() if feedback.updated_at else "",
             ]
             ws.append(row)
 

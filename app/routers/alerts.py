@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
-from app.models import User, UserRole
+from app.models import User, UserRole, Alert as AlertModel
 from app.schemas import Alert, AlertCreate
 from app.services import AlertService
 
@@ -22,7 +22,7 @@ def create_alert(
     return AlertService.create_alert(db, alert)
 
 
-@router.get("/", response_model=List[Alert])
+@router.get("/")
 def list_alerts(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
@@ -30,11 +30,29 @@ def list_alerts(
     db: Session = Depends(get_db),
 ):
     if unhandled_only:
-        return AlertService.get_unhandled_alerts(db)
-    return db.query(Alert).offset(skip).limit(limit).all()
+        alerts = AlertService.get_unhandled_alerts(db)
+    else:
+        alerts = db.query(AlertModel).offset(skip).limit(limit).all()
+    
+    result = []
+    for alert in alerts:
+        result.append({
+            "id": alert.id,
+            "alert_type": alert.alert_type.value,
+            "alert_level": alert.alert_level.value,
+            "title": alert.title,
+            "message": alert.message,
+            "material_id": alert.material_id,
+            "feedback_id": alert.feedback_id,
+            "is_handled": alert.is_handled,
+            "handled_by_id": alert.handled_by_id,
+            "handled_at": alert.handled_at.isoformat() if alert.handled_at else None,
+            "created_at": alert.created_at.isoformat(),
+        })
+    return result
 
 
-@router.post("/{alert_id}/handle", response_model=Alert)
+@router.post("/{alert_id}/handle")
 def handle_alert(
     alert_id: int,
     db: Session = Depends(get_db),
@@ -43,7 +61,19 @@ def handle_alert(
     alert = AlertService.handle_alert(db, alert_id, current_user.id)
     if not alert:
         raise HTTPException(status_code=404, detail="提醒不存在")
-    return alert
+    return {
+        "id": alert.id,
+        "alert_type": alert.alert_type.value,
+        "alert_level": alert.alert_level.value,
+        "title": alert.title,
+        "message": alert.message,
+        "material_id": alert.material_id,
+        "feedback_id": alert.feedback_id,
+        "is_handled": alert.is_handled,
+        "handled_by_id": alert.handled_by_id,
+        "handled_at": alert.handled_at.isoformat() if alert.handled_at else None,
+        "created_at": alert.created_at.isoformat(),
+    }
 
 
 @router.post("/check-stuck")

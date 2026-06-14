@@ -108,6 +108,7 @@ class ActivityMaterial(Base):
     actual_complete_date = Column(DateTime(timezone=True))
     current_handler_id = Column(Integer, ForeignKey("users.id"))
     stuck_reason = Column(Text)
+    status_changed_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -136,6 +137,7 @@ class StoreFeedback(Base):
     resolution = Column(Text)
     rejected_reason = Column(Text)
     stuck_reason = Column(Text)
+    status_changed_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     resolved_at = Column(DateTime(timezone=True))
