@@ -25,6 +25,7 @@ const statusConfig: Record<string, { bg: string; text: string; pulse?: boolean }
   '无法联系': { bg: 'bg-gray-500', text: 'text-white' },
   '发放异常': { bg: 'bg-red-500', text: 'text-white' },
   '补录': { bg: 'bg-blue-100 border-dashed border-2 border-blue-500', text: 'text-blue-700' },
+  '待复核': { bg: 'bg-yellow-100 border-2 border-yellow-500', text: 'text-yellow-700' },
   '拖延': { bg: 'bg-orange-100 border-2 border-orange-500', text: 'text-orange-700', pulse: true },
 };
 

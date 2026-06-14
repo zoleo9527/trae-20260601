@@ -517,6 +517,15 @@ export const mockDistributions: ReportDistribution[] = [
     followupTaskId: 'F003',
     createdAt: threeDaysAgo.toISOString(),
   },
+  {
+    id: 'D008',
+    reportId: 'R006',
+    vehicleId: 'V006',
+    status: '发放异常',
+    sentAt: yesterday.toISOString(),
+    remark: '车主联系方式无效，报告发放失败',
+    createdAt: twoDaysAgo.toISOString(),
+  },
 ];
 
 const deadline1 = new Date(now.getTime() - 48 * 60 * 60 * 1000);

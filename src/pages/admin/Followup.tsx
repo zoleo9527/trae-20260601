@@ -108,13 +108,10 @@ export function AdminFollowup() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-1">
-                        <StatusBadge status={followup.status} size="sm" />
-                        {overdue && (
-                          <span className="text-xs text-red-600 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            已逾期
-                          </span>
+                        {overdue && followup.status !== '已完成' && (
+                          <StatusBadge status="拖延" size="sm" />
                         )}
+                        <StatusBadge status={followup.status} size="sm" />
                       </div>
                     </div>
 

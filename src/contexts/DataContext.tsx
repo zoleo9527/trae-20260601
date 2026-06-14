@@ -9,7 +9,6 @@ import {
   FollowupRecord,
   ReportStatus,
   FollowupStatus,
-  ContactResult,
 } from '../types';
 import { generateId } from '../utils/helpers';
 import { initialMockData } from '../services/mockData';
@@ -142,8 +141,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }, [updateVehicle]);
 
   const auditReport = useCallback((id: string, status: ReportStatus, reason?: string, auditorName?: string) => {
-    const report = reports.find(r => r.id === id);
-    
     setReports(prev => prev.map(r => {
       if (r.id === id) {
         const updatedReport = {

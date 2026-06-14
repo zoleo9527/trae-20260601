@@ -31,6 +31,16 @@ export function AuditorReports() {
     return vehicles.find(v => v.id === vehicleId);
   };
 
+  const getReportTag = (report: InspectionReport) => {
+    if (report.remark?.includes('补录') || report.items.some(item => item.remark?.includes('待补'))) {
+      return '补录';
+    }
+    if (report.remark?.includes('复核') || report.items.some(item => item.remark?.includes('复核'))) {
+      return '待复核';
+    }
+    return null;
+  };
+
   const handleApprove = (report: InspectionReport) => {
     auditReport(report.id, '已通过', undefined, '王审核');
     alert('报告审核通过！');
@@ -79,6 +89,7 @@ export function AuditorReports() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {filteredReports.map((report) => {
               const vehicle = getVehicle(report.vehicleId);
+              const reportTag = getReportTag(report);
               return (
                 <Card key={report.id}>
                   <CardContent>
@@ -91,7 +102,10 @@ export function AuditorReports() {
                           {vehicle?.brand} {vehicle?.model}
                         </p>
                       </div>
-                      <StatusBadge status={report.status} />
+                      <div className="flex gap-2">
+                        {reportTag && <StatusBadge status={reportTag} />}
+                        <StatusBadge status={report.status} />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 mb-4">

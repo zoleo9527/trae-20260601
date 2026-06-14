@@ -31,6 +31,22 @@ export function AuditorDistribution() {
     return reports.find(r => r.id === reportId);
   };
 
+  const getDistributionTag = (dist: ReportDistribution) => {
+    if (dist.status === '发放异常') {
+      return '发放异常';
+    }
+    if (dist.status === '待发放') {
+      const auditTime = getReport(dist.reportId)?.auditedAt;
+      if (auditTime) {
+        const hoursSinceAudit = (Date.now() - new Date(auditTime).getTime()) / (1000 * 60 * 60);
+        if (hoursSinceAudit > 24) {
+          return '拖延';
+        }
+      }
+    }
+    return null;
+  };
+
   const handleDistribute = (dist: ReportDistribution) => {
     setDistributing(dist.id);
     try {
@@ -92,6 +108,7 @@ export function AuditorDistribution() {
             {filteredDistributions.map((dist) => {
               const report = getReport(dist.reportId);
               const vehicle = report ? getVehicle(report.vehicleId) : null;
+              const distTag = getDistributionTag(dist);
               
               return (
                 <Card key={dist.id}>
@@ -105,7 +122,10 @@ export function AuditorDistribution() {
                           {vehicle?.brand} {vehicle?.model}
                         </p>
                       </div>
-                      <StatusBadge status={dist.status} />
+                      <div className="flex gap-2">
+                        {distTag && <StatusBadge status={distTag} />}
+                        <StatusBadge status={dist.status} />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
@@ -141,6 +161,14 @@ export function AuditorDistribution() {
                       </div>
                     )}
 
+                    {dist.status === '发放异常' && (
+                      <div className="p-3 bg-red-50 rounded-lg mb-4">
+                        <p className="text-sm text-red-600">
+                          报告发放失败：{dist.remark || '未知原因'}
+                        </p>
+                      </div>
+                    )}
+
                     {dist.status === '已发放' && (
                       <div className="p-3 bg-green-50 rounded-lg mb-4">
                         <p className="text-sm text-green-600">
@@ -158,7 +186,7 @@ export function AuditorDistribution() {
                         )}
                       </div>
                       
-                      {(dist.status === '待发放') && (
+                      {(dist.status === '待发放' || dist.status === '发放异常') && (
                         <Button
                           className="bg-auditor hover:bg-auditor-dark"
                           loading={distributing === dist.id}
