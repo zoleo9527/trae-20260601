@@ -158,14 +158,14 @@ export default function DataManagement() {
           throw new Error('无效的备份文件格式');
         }
 
-        if (!confirm('确认导入此备份文件？将覆盖当前所有数据。')) {
+        if (!confirm('确认导入此备份文件？\n导入后将添加到备份列表，如需恢复请点击备份的"恢复"按钮。')) {
           return;
         }
 
-        await importBackup(backupData);
+        const backup = await importBackup(backupData);
         const info = await getStorageInfo();
         setTauriStorageInfo(info);
-        alert('备份文件已导入成功！');
+        alert(`备份已导入到备份列表：\n${backup.name}\n\n如需恢复，请在备份列表中点击该备份的"恢复"按钮。`);
       } catch (error) {
         alert('导入失败：' + (error instanceof Error ? error.message : '格式错误'));
       }
@@ -280,41 +280,55 @@ export default function DataManagement() {
 
               <div className="rounded-lg bg-slate-50 p-4">
                 <p className="text-sm text-slate-500 mb-2">自动备份设置</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() =>
-                        updateSettings({ autoBackup: !settings.autoBackup })
-                      }
-                      className={cn(
-                        'relative h-6 w-11 rounded-full transition-colors',
-                        settings.autoBackup ? 'bg-emerald-500' : 'bg-slate-300'
-                      )}
-                    >
-                      <div
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() =>
+                          updateSettings({ autoBackup: !settings.autoBackup })
+                        }
                         className={cn(
-                          'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform shadow-sm',
-                          settings.autoBackup ? 'translate-x-5' : 'translate-x-0.5'
+                          'relative h-6 w-11 rounded-full transition-colors',
+                          settings.autoBackup ? 'bg-emerald-500' : 'bg-slate-300'
                         )}
-                      />
-                    </button>
-                    <span className="text-sm text-slate-700">
-                      {settings.autoBackup ? '已开启' : '已关闭'}
-                    </span>
+                      >
+                        <div
+                          className={cn(
+                            'absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform shadow-sm',
+                            settings.autoBackup ? 'translate-x-5' : 'translate-x-0.5'
+                          )}
+                        />
+                      </button>
+                      <span className="text-sm text-slate-700">
+                        {settings.autoBackup ? '已开启' : '已关闭'}
+                      </span>
+                    </div>
+                    {settings.autoBackup && (
+                      <select
+                        value={settings.autoBackupDays}
+                        onChange={(e) =>
+                          updateSettings({ autoBackupDays: parseInt(e.target.value) })
+                        }
+                        className="rounded-lg border border-slate-300 px-3 py-1 text-sm"
+                      >
+                        <option value={3}>保留3天</option>
+                        <option value={7}>保留7天</option>
+                        <option value={14}>保留14天</option>
+                        <option value={30}>保留30天</option>
+                      </select>
+                    )}
                   </div>
                   {settings.autoBackup && (
-                    <select
-                      value={settings.autoBackupDays}
-                      onChange={(e) =>
-                        updateSettings({ autoBackupDays: parseInt(e.target.value) })
-                      }
-                      className="rounded-lg border border-slate-300 px-3 py-1 text-sm"
-                    >
-                      <option value={3}>保留3天</option>
-                      <option value={7}>保留7天</option>
-                      <option value={14}>保留14天</option>
-                      <option value={30}>保留30天</option>
-                    </select>
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle className="h-3 w-3" />
+                      应用启动时自动创建每日备份，超过 {settings.autoBackupDays} 天的自动备份将自动清理
+                    </p>
+                  )}
+                  {!settings.autoBackup && (
+                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      关闭后将不再自动备份，建议开启以保障数据安全
+                    </p>
                   )}
                 </div>
               </div>
@@ -378,60 +392,101 @@ export default function DataManagement() {
                     (a, b) =>
                       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                   )
-                  .map((backup) => (
-                    <div
-                      key={backup.id}
-                      className="rounded-lg border border-slate-200 p-4 hover:border-purple-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100">
-                            <FileJson className="h-5 w-5 text-purple-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-slate-800">{backup.name}</p>
-                            <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                              <span className="flex items-center gap-1">
-                                <Clock className="h-3 w-3" />
-                                {formatDateTime(backup.createdAt)}
-                              </span>
-                              <span>{formatFileSize(backup.size)}</span>
-                              <span>{backup.itemCount} 条数据</span>
+                  .map((backup) => {
+                    const isAuto = backup.name.startsWith('自动备份_');
+                    const isImported = backup.name.startsWith('导入备份_');
+                    return (
+                      <div
+                        key={backup.id}
+                        className={cn(
+                          'rounded-lg border p-4 hover:border-purple-300 transition-colors',
+                          isAuto
+                            ? 'bg-emerald-50/30 border-emerald-200'
+                            : isImported
+                              ? 'bg-blue-50/30 border-blue-200'
+                              : 'border-slate-200 bg-white'
+                        )}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                'flex h-10 w-10 items-center justify-center rounded-full',
+                                isAuto
+                                  ? 'bg-emerald-100'
+                                  : isImported
+                                    ? 'bg-blue-100'
+                                    : 'bg-purple-100'
+                              )}
+                            >
+                              <FileJson
+                                className={cn(
+                                  'h-5 w-5',
+                                  isAuto
+                                    ? 'text-emerald-600'
+                                    : isImported
+                                      ? 'text-blue-600'
+                                      : 'text-purple-600'
+                                )}
+                              />
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium text-slate-800">{backup.name}</p>
+                                {isAuto && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+                                    自动
+                                  </span>
+                                )}
+                                {isImported && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+                                    已导入
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {formatDateTime(backup.createdAt)}
+                                </span>
+                                <span>{formatFileSize(backup.size)}</span>
+                                <span>{backup.itemCount} 条数据</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleExport(backup.id)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="导出"
-                          >
-                            <Download className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRestore(backup.id, backup.name)}
-                            disabled={isRestoring === backup.id}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
-                            title="恢复"
-                          >
-                            <RotateCcw
-                              className={cn(
-                                'h-4 w-4',
-                                isRestoring === backup.id && 'animate-spin'
-                              )}
-                            />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(backup.id, backup.name)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="删除"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleExport(backup.id)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="导出"
+                            >
+                              <Download className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleRestore(backup.id, backup.name)}
+                              disabled={isRestoring === backup.id}
+                              className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="恢复"
+                            >
+                              <RotateCcw
+                                className={cn(
+                                  'h-4 w-4',
+                                  isRestoring === backup.id && 'animate-spin'
+                                )}
+                              />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(backup.id, backup.name)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="删除"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center">

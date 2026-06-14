@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import ApprovalList from "@/pages/ApprovalList";
@@ -7,8 +8,24 @@ import CalculationList from "@/pages/CalculationList";
 import CalculationDetail from "@/pages/CalculationDetail";
 import DataManagement from "@/pages/DataManagement";
 import Settings from "@/pages/Settings";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function App() {
+  const autoBackup = useAppStore((s) => s.autoBackup);
+  const cleanupExpiredBackups = useAppStore((s) => s.cleanupExpiredBackups);
+
+  useEffect(() => {
+    const initAutoBackup = async () => {
+      try {
+        await cleanupExpiredBackups();
+        await autoBackup();
+      } catch (error) {
+        console.error('[App] 自动备份执行失败:', error);
+      }
+    };
+    initAutoBackup();
+  }, [autoBackup, cleanupExpiredBackups]);
+
   return (
     <Router>
       <Routes>

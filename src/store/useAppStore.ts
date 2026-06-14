@@ -60,7 +60,9 @@ interface AppState {
   restoreFromBackup: (backupId: string) => Promise<void>;
   deleteBackup: (backupId: string) => Promise<void>;
   exportBackup: (backupId: string) => Promise<string>;
-  importBackup: (content: string) => Promise<void>;
+  importBackup: (content: string) => Promise<BackupRecord>;
+  autoBackup: () => Promise<BackupRecord | null>;
+  cleanupExpiredBackups: () => Promise<number>;
 
   updateSettings: (updates: Partial<AppSettings>) => void;
   resetData: () => void;
@@ -410,11 +412,67 @@ export const useAppStore = create<AppState>()(
         await saveData(`backup_${newBackup.id}`, content);
 
         set((s) => ({
-          claims: appData.claims,
-          handlers: appData.handlers,
-          settings: appData.settings,
           backups: [...s.backups, newBackup],
         }));
+
+        return newBackup;
+      },
+
+      autoBackup: async () => {
+        const state = get();
+        if (!state.settings.autoBackup) {
+          return null;
+        }
+
+        const today = new Date().toISOString().slice(0, 10);
+        const hasTodayAutoBackup = state.backups.some((b) => {
+          const backupDate = new Date(b.createdAt).toISOString().slice(0, 10);
+          return backupDate === today && b.name.startsWith('自动备份_');
+        });
+
+        if (hasTodayAutoBackup) {
+          return null;
+        }
+
+        const backupName = `自动备份_${new Date().toLocaleString('zh-CN')}`;
+        const backup = await state.createBackup(backupName);
+
+        await state.cleanupExpiredBackups();
+
+        return backup;
+      },
+
+      cleanupExpiredBackups: async () => {
+        const state = get();
+        const { autoBackup, autoBackupDays } = state.settings;
+
+        if (!autoBackup) {
+          return 0;
+        }
+
+        const now = new Date().getTime();
+        const expireMs = autoBackupDays * 24 * 60 * 60 * 1000;
+
+        const expiredAutoBackups = state.backups.filter((b) => {
+          if (!b.name.startsWith('自动备份_')) {
+            return false;
+          }
+          const backupTime = new Date(b.createdAt).getTime();
+          return now - backupTime > expireMs;
+        });
+
+        for (const backup of expiredAutoBackups) {
+          await removeData(`backup_${backup.id}`);
+        }
+
+        if (expiredAutoBackups.length > 0) {
+          const expiredIds = new Set(expiredAutoBackups.map((b) => b.id));
+          set((s) => ({
+            backups: s.backups.filter((b) => !expiredIds.has(b.id)),
+          }));
+        }
+
+        return expiredAutoBackups.length;
       },
 
       updateSettings: (updates) =>
