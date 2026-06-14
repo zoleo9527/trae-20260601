@@ -272,7 +272,7 @@ export default function Index() {
                   <span className="text-sm text-gray-600">当前筛选:</span>
                   {managerFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      经理: {getManagerName(managerFilter)}
+                      收车经理: {getManagerName(managerFilter)}
                     </span>
                   )}
                   {assessorFilter && (
@@ -282,12 +282,12 @@ export default function Index() {
                   )}
                   {financeFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                      金融: {getFinanceName(financeFilter)}
+                      金融专员: {getFinanceName(financeFilter)}
                     </span>
                   )}
                   {roleFilter && (
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      角色: {getStatusLabel(roleFilter)}
+                      当前负责人: {getStatusLabel(roleFilter)}
                     </span>
                   )}
                   <button

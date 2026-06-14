@@ -17,13 +17,16 @@ model User {
   vehiclesAsManager    Vehicle[]         @relation("ManagerVehicles")
   vehiclesAsAssessor   Vehicle[]         @relation("AssessorVehicles")
   vehiclesAsFinance    Vehicle[]         @relation("FinanceVehicles")
-  inspectionReports    InspectionReport[]
-  preparationTasks     PreparationTask[]
-  operationRecords     OperationRecord[]
-  accidentAnnotations  AccidentAnnotation[]
-  financeRecords       FinanceRecord[]
-  timelineEvents       TimelineEvent[]
-  documentReminders    DocumentReminder[]
+  inspectionReports    InspectionReport[] @relation("InspectorReports")
+  preparationTasksAsAssignee PreparationTask[] @relation("TaskAssignees")
+  preparationTasksAsCreator  PreparationTask[] @relation("TaskCreators")
+  operationRecords     OperationRecord[] @relation("ActorOperations")
+  accidentAnnotationsAsAnnotator  AccidentAnnotation[] @relation("AnnotatorAnnotations")
+  accidentAnnotationsAsVerifier   AccidentAnnotation[] @relation("VerifierAnnotations")
+  financeRecordsAsAssignee  FinanceRecord[] @relation("FinanceAssignees")
+  financeRecordsAsCreator   FinanceRecord[] @relation("FinanceCreators")
+  timelineEvents       TimelineEvent[] @relation("ActorEvents")
+  documentReminders    DocumentReminder[] @relation("ReminderAssignees")
 }
 
 model Vehicle {
@@ -87,7 +90,7 @@ model InspectionReport {
   updatedAt         DateTime @updatedAt
   
   vehicle           Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  inspector         User     @relation(fields: [inspectorId], references: [id])
+  inspector         User     @relation("InspectorReports", fields: [inspectorId], references: [id])
   items             InspectionItem[]
   accidentAnnotations AccidentAnnotation[]
   
@@ -128,8 +131,8 @@ model AccidentAnnotation {
   
   report        InspectionReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   item          InspectionItem   @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  annotator     User             @relation(fields: [annotatedBy], references: [id])
-  verifier      User?            @relation(fields: [verifiedBy], references: [id])
+  annotator     User             @relation("AnnotatorAnnotations", fields: [annotatedBy], references: [id])
+  verifier      User?            @relation("VerifierAnnotations", fields: [verifiedBy], references: [id])
   
   @@index([reportId])
   @@index([itemId])
@@ -156,8 +159,8 @@ model PreparationTask {
   updatedAt       DateTime @updatedAt
   
   vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  assignee        User     @relation(fields: [assigneeId], references: [id])
-  creator         User     @relation(fields: [createdBy], references: [id])
+  assignee        User     @relation("TaskAssignees", fields: [assigneeId], references: [id])
+  creator         User     @relation("TaskCreators", fields: [createdBy], references: [id])
   costHistory     TaskCostHistory[]
   
   @@index([vehicleId])
@@ -190,7 +193,7 @@ model TimelineEvent {
   metadata    Json?
   
   vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  actor       User     @relation(fields: [actorId], references: [id])
+  actor       User     @relation("ActorEvents", fields: [actorId], references: [id])
   
   @@index([vehicleId])
 }
@@ -212,8 +215,8 @@ model FinanceRecord {
   updatedAt       DateTime @updatedAt
   
   vehicle         Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  assignee        User     @relation(fields: [assigneeId], references: [id])
-  creator         User     @relation(fields: [createdBy], references: [id])
+  assignee        User     @relation("FinanceAssignees", fields: [assigneeId], references: [id])
+  creator         User     @relation("FinanceCreators", fields: [createdBy], references: [id])
   
   @@index([vehicleId])
   @@index([assigneeId])
@@ -244,7 +247,7 @@ model DocumentReminder {
   note          String
   
   vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  assignee      User     @relation(fields: [assigneeId], references: [id])
+  assignee      User     @relation("ReminderAssignees", fields: [assigneeId], references: [id])
   
   @@index([vehicleId])
   @@index([assigneeId])
@@ -265,7 +268,7 @@ model OperationRecord {
   metadata      Json?
   
   vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
-  actor         User     @relation(fields: [actorId], references: [id])
+  actor         User     @relation("ActorOperations", fields: [actorId], references: [id])
   
   @@index([vehicleId])
   @@index([actorId])

@@ -1,6 +1,6 @@
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node';
 import { json } from '@remix-run/node';
-import { getVehicleById, getReportByVehicleId, getTasksByVehicleId, getEventsByVehicleId, getFinanceRecordsByVehicleId, getUserById, getCostBudgetByVehicleId, getTasksCostSummary, getOperationRecordsByVehicleId, getNextAvailableTransitions, updateVehicleStatus, createPreparationTask, updatePreparationTaskStatus, updatePreparationTaskCost, createFinanceRecord, updateFinanceRecordStatus } from '~/utils/db.server';
+import { getVehicleById, getReportByVehicleId, getTasksByVehicleId, getEventsByVehicleId, getFinanceRecordsByVehicleId, getUserById, getCostBudgetByVehicleId, getTasksCostSummary, getOperationRecordsByVehicleId, getNextAvailableTransitions, updateVehicleStatus, createPreparationTask, updatePreparationTaskStatus, updatePreparationTaskCost, createFinanceRecord, updateFinanceRecordStatus, getNextAssigneeForStatus } from '~/utils/db.server';
 
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const id = params.id;
@@ -52,43 +52,65 @@ export async function action({ params, request }: ActionFunctionArgs) {
   }
 
   const body = await request.json();
-  const { action, data } = body;
+  const { action: actionType, data } = body;
 
   try {
-    switch (action) {
-      case 'updateStatus':
+    switch (actionType) {
+      case 'updateStatus': {
         const { newStatus, actorId, actorName, note } = data;
-        const updatedVehicle = await updateVehicleStatus(id, newStatus, actorId, actorName, note);
-        return json({ success: true, vehicle: updatedVehicle });
+        
+        const vehicle = await getVehicleById(id);
+        if (!vehicle) {
+          return json({ error: 'Vehicle not found' }, { status: 404 });
+        }
 
-      case 'createTask':
+        const nextAssignee = getNextAssigneeForStatus(newStatus, vehicle);
+        
+        const updatedVehicle = await updateVehicleStatus(
+          id, 
+          newStatus, 
+          actorId, 
+          actorName, 
+          note,
+          nextAssignee?.nextAssigneeId,
+          nextAssignee?.nextAssigneeRole
+        );
+        return json({ success: true, vehicle: updatedVehicle });
+      }
+
+      case 'createTask': {
         const task = await createPreparationTask({
           vehicleId: id,
           ...data
         });
         return json({ success: true, task });
+      }
 
-      case 'updateTaskStatus':
+      case 'updateTaskStatus': {
         const { taskId, newTaskStatus, actorId: taskActorId, actorName: taskActorName, note: taskNote } = data;
         const updatedTask = await updatePreparationTaskStatus(taskId, newTaskStatus, taskActorId, taskActorName, taskNote);
         return json({ success: true, task: updatedTask });
+      }
 
-      case 'updateTaskCost':
+      case 'updateTaskCost': {
         const { taskId: costTaskId, newCost, actorId: costActorId, actorName: costActorName, reason } = data;
         const updatedCostTask = await updatePreparationTaskCost(costTaskId, newCost, costActorId, costActorName, reason);
         return json({ success: true, task: updatedCostTask });
+      }
 
-      case 'createFinanceRecord':
+      case 'createFinanceRecord': {
         const financeRecord = await createFinanceRecord({
           vehicleId: id,
           ...data
         });
         return json({ success: true, record: financeRecord });
+      }
 
-      case 'updateFinanceStatus':
+      case 'updateFinanceStatus': {
         const { recordId, newFinanceStatus, actorId: financeActorId, actorName: financeActorName, note: financeNote } = data;
         const updatedFinanceRecord = await updateFinanceRecordStatus(recordId, newFinanceStatus, financeActorId, financeActorName, financeNote);
         return json({ success: true, record: updatedFinanceRecord });
+      }
 
       default:
         return json({ error: 'Invalid action' }, { status: 400 });
