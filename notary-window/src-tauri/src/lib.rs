@@ -4,7 +4,7 @@ mod models;
 use models::AppState;
 use rusqlite::params;
 
-const LATEST_SCHEMA_VERSION: i32 = 3;
+const LATEST_SCHEMA_VERSION: i32 = 4;
 
 fn init_db(conn: &rusqlite::Connection) -> Result<(), String> {
     conn.execute_batch(include_str!("../migrations/init.sql"))
@@ -53,6 +53,9 @@ fn migrate(conn: &rusqlite::Connection, from_version: i32) -> Result<(), String>
     if version < 3 {
         migrate_v3(conn)?;
     }
+    if version < 4 {
+        migrate_v4(conn)?;
+    }
 
     Ok(())
 }
@@ -79,6 +82,130 @@ fn migrate_v2(conn: &rusqlite::Connection) -> Result<(), String> {
 fn migrate_v3(conn: &rusqlite::Connection) -> Result<(), String> {
     fix_correction_issued_handler_role(conn)?;
     fix_resolved_correction_appointment_status(conn)?;
+    Ok(())
+}
+
+fn migrate_v4(conn: &rusqlite::Connection) -> Result<(), String> {
+    fix_resolve_correction_self_loop(conn)?;
+    fix_issue_correction_self_loop(conn)?;
+    fix_issue_correction_window_comment(conn)?;
+    fix_existing_resolve_correction_comments(conn)?;
+    Ok(())
+}
+
+fn fix_issue_correction_self_loop(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, from_role FROM flow_records \
+         WHERE action = 'issue_correction' AND from_role = to_role AND to_role != 'window'"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let records: Vec<_> = rows.filter_map(|r| r.ok()).collect();
+
+    for (flow_id, from_role) in records {
+        let role_label = match from_role.as_str() {
+            "notary" => "公证员",
+            "archivist" => "档案员",
+            _ => "窗口人员",
+        };
+        let comment = format!("发出补正通知，{}转交窗口接收补正材料", role_label);
+        conn.execute(
+            "UPDATE flow_records SET to_role = 'window', comment = ?1 WHERE id = ?2",
+            params![comment, flow_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn fix_issue_correction_window_comment(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id FROM flow_records \
+         WHERE action = 'issue_correction' AND from_role = 'window' AND to_role = 'window' \
+           AND (comment IS NULL OR comment NOT LIKE '%窗口%')"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| row.get::<_, String>(0)).map_err(|e| e.to_string())?;
+    let ids: Vec<String> = rows.filter_map(|r| r.ok()).collect();
+
+    for flow_id in ids {
+        let comment = "发出补正通知，窗口接收补正材料".to_string();
+        conn.execute(
+            "UPDATE flow_records SET comment = ?1 WHERE id = ?2",
+            params![comment, flow_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn fix_resolve_correction_self_loop(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, to_role, created_at FROM flow_records \
+         WHERE action = 'resolve_correction' AND from_role = to_role AND from_role != 'window'"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let records: Vec<_> = rows.filter_map(|r| r.ok()).collect();
+
+    for (flow_id, to_role, _created_at) in records {
+        let role_label = match to_role.as_str() {
+            "notary" => "公证员",
+            "archivist" => "档案员",
+            _ => "窗口人员",
+        };
+        let comment = format!("补正完成，窗口转回{}审核", role_label);
+        conn.execute(
+            "UPDATE flow_records SET from_role = 'window', comment = ?1 WHERE id = ?2",
+            params![comment, flow_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn fix_existing_resolve_correction_comments(conn: &rusqlite::Connection) -> Result<(), String> {
+    let mut stmt = conn.prepare(
+        "SELECT id, to_role FROM flow_records \
+         WHERE action = 'resolve_correction' AND from_role = 'window' \
+           AND (comment IS NULL OR comment NOT LIKE '%窗口转回%')"
+    ).map_err(|e| e.to_string())?;
+
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+        ))
+    }).map_err(|e| e.to_string())?;
+
+    let records: Vec<_> = rows.filter_map(|r| r.ok()).collect();
+
+    for (flow_id, to_role) in records {
+        let role_label = match to_role.as_str() {
+            "notary" => "公证员",
+            "archivist" => "档案员",
+            _ => "窗口人员",
+        };
+        let comment = format!("补正完成，窗口转回{}审核", role_label);
+        conn.execute(
+            "UPDATE flow_records SET comment = ?1 WHERE id = ?2",
+            params![comment, flow_id],
+        ).map_err(|e| e.to_string())?;
+    }
+
     Ok(())
 }
 
