@@ -74,36 +74,98 @@
 
 ---
 
-## 四、幂等提交覆盖清单（写接口全部需传 `idempotencyKey`）
+## 四、幂等提交（写接口全部需传 `idempotencyKey`）
 
-| 接口 | DTO 字段 | 幂等逻辑 |
-|---|---|---|
-| POST `/api/leaves` | `CreateLeaveRequestDto.idempotencyKey` | 同一 key 直接返回已创建的请假，不重复生成 |
-| PATCH `/api/leaves/:id/review` | `ReviewLeaveDto.idempotencyKey` | 审批动作与 key 绑定重复调用直接返回 |
-| PATCH `/api/leaves/:id/material` | `UpdateLeaveMaterialDto.idempotencyKey` | 避免老师重复上传材料 |
-| PATCH `/api/leaves/:id/urge` | `UrgeLeaveDto.idempotencyKey` | 但 urgencyCount 仍按真实语义累计（首次用 key 去重） |
-| POST `/api/makeups` | `CreateMakeupDto.idempotencyKey` | 同一请假ID也只允许创建一条协调 |
-| PATCH `/api/makeups/:id/propose` | `ProposeMakeupDto.idempotencyKey` | |
-| PATCH `/api/makeups/:id/confirm-parent` | `ConfirmMakeupDto.idempotencyKey` | |
-| PATCH `/api/makeups/:id/schedule` | `ScheduleMakeupDto.idempotencyKey` | |
-| PATCH `/api/makeups/:id/complete` | `MarkCompleteDto.idempotencyKey` | |
+### 4.1 统一字段约定
 
-幂等存储实现见：
-- 实体层面：`leave.idempotencyKey` / `makeup.idempotencyKey`
-- 查询服务：[idempotency.service.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/services/idempotency.service.ts)
-- 索引：[in-memory.store.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/store/in-memory.store.ts) 中 `leaveIdemKeys` / `makeupIdemKeys`
+所有写接口 DTO 强制要求：
+```typescript
+@IsString()
+@IsNotEmpty({ message: '幂等键不能为空' })
+idempotencyKey: string;
+```
+字段名统一为 `idempotencyKey`，由客户端生成（建议：`业务缩写-毫秒时间戳-UUID`），服务端校验非空。
+
+### 4.2 两级幂等存储
+
+服务端采用两级索引，全部位于 [in-memory.store.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/store/in-memory.store.ts#L9-L27)：
+
+| 索引 | 级别 | 结构 | 用途 |
+|---|---|---|---|
+| `leaveIdemKeys` | 创建级 | `Map<idemKey, entityId>` | 请假申请创建去重 |
+| `makeupIdemKeys` | 创建级 | `Map<idemKey, entityId>` | 补课协调创建去重 |
+| `exportTaskIdemKeys` | 创建级 | `Map<idemKey, entityId>` | 导出任务创建去重 |
+| `operationIdemKeys` | **操作级** | `Map<idemKey, IdemRecord>` | 所有修改动作去重 |
+
+操作级幂等记录 `IdemRecord` 结构：
+```typescript
+{
+  entityType: 'LEAVE' | 'MAKEUP' | 'EXPORT';
+  entityId: string | null;
+  action: string;        // 如 'REVIEW_APPROVED' / 'URGE' / 'SCHEDULE'
+  actorId: string;
+  timestamp: string;
+}
+```
+
+### 4.3 执行顺序（关键修复）
+
+**所有操作级幂等方法统一执行顺序**：
+```
+参数校验（DTO层） → 业务合法性校验（终态/权限/状态） → 幂等登记（原子check+set） → 执行业务逻辑
+```
+> 说明：先做合法性校验可以避免失败请求占用幂等键，防止合法重试被误判为"已处理"。
+
+### 4.4 10 个写接口全覆盖清单
+
+| 接口 | DTO 字段 | 幂等级别 | action 值 | 避免的副作用 |
+|---|---|---|---|---|
+| POST `/api/leaves` | `CreateLeaveRequestDto.idempotencyKey` | 创建级 + 操作级 | `CREATE` | 重复创建请假申请 |
+| PATCH `/api/leaves/:id/review` | `ReviewLeaveDto.idempotencyKey` | 操作级 | `REVIEW_<action>` | 重复改状态、重复写审批日志 |
+| PATCH `/api/leaves/:id/urge` | `UrgeLeaveDto.idempotencyKey` | 操作级 | `URGE` | **重复累计 urgencyCount** |
+| PATCH `/api/leaves/:id/material` | `UpdateLeaveMaterialDto.idempotencyKey` | 操作级 | `SUPPLY_MATERIAL` | 重复写操作日志 |
+| POST `/api/makeups` | `CreateMakeupDto.idempotencyKey` | 创建级 + 操作级 | `CREATE` | 重复创建补课协调 |
+| PATCH `/api/makeups/:id/propose` | `ProposeMakeupDto.idempotencyKey` | 操作级 | `PROPOSE_MAKEUP` | 重复提时间、重复写 coordinationLogs |
+| PATCH `/api/makeups/:id/confirm-parent` | `ConfirmMakeupDto.idempotencyKey` | 操作级 | `CONFIRM_PARENT_<action>` | **重复状态流转** |
+| PATCH `/api/makeups/:id/schedule` | `ScheduleMakeupDto.idempotencyKey` | 操作级 | `SCHEDULE` | **重复状态流转** |
+| PATCH `/api/makeups/:id/complete` | `MarkCompleteDto.idempotencyKey` | 操作级 | `COMPLETE` | **重复状态流转** |
+| **POST `/api/exports/tasks`** | **`CreateExportTaskDto.idempotencyKey`** | 创建级 + 操作级 | `CREATE_TASK` | **重复生成导出任务** |
+
+### 4.5 幂等命中时服务端行为
+
+命中幂等键后：
+1. 直接返回当前实体的最新状态（不改状态、不计数、不写日志、不生成新任务）
+2. HTTP 状态码仍为 200，与首次请求一致，对客户端透明
+3. 无 `X-Idempotency-Hit` header（如需可自行扩展 [response.interceptor.ts](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/interceptors/response.interceptor.ts)）
+
+核心调用入口：[IdempotencyService.consumeOperation()](file:///Users/liu/Documents/private/model-test/trae-20260601-1/src/common/services/idempotency.service.ts#L40-L50)
+
+> 已删除 `(leave as any)._lastOpIdem` 这种 hack 写法，全部对齐到统一的 `operationIdemKeys` 索引。
 
 ---
 
 ## 五、导出任务（Export）
 
+### 5.1 基本信息
+
 - 类型：`LEAVE` / `MAKEUP`
 - 格式：`CSV`（含 BOM，Excel 打开不乱码） / `EXCEL`（.xlsx）
 - 流程：POST 创建任务（PROCESSING）→ 异步生成 → COMPLETED（带 `fileUrl` 如 `/api/exports/EXPORT-xxx.csv`）
 - 静态目录：`os.tmpdir()/music-leave-makeup-exports/`，由 `main.ts` 中 `app.use('/api/exports', express.static(...))` 暴露
-- 导出字段：
-  - 请假：编号/老师/类型/日期/课节数/状态/处理人/阻塞原因/需补材料/催促次数/审批/理由 等 16 列
-  - 补课：编号/关联请假/任课老师/学员数/代课老师/原始课次/提议补课时间/状态/处理人/阻塞原因 等 12 列
+
+### 5.2 幂等说明
+
+导出任务创建接口 `POST /api/exports/tasks` 是**10 个写接口**之一，强制要求传 `idempotencyKey`：
+
+- **幂等级别**：创建级（`exportTaskIdemKeys`）+ 操作级（`operationIdemKeys`, action=`CREATE_TASK`）两级去重
+- **避免的副作用**：重复生成导出任务、重复写入存储、重复消耗计算资源
+- **幂等命中行为**：直接返回已有任务，任务 ID 与首次一致，状态可能已从 PROCESSING 变为 COMPLETED
+- **执行顺序**：参数校验 → 类型/格式合法性校验 → 幂等登记 → 创建任务 → 异步导出
+
+### 5.3 导出字段
+
+- **请假**：编号/老师/类型/日期/课节数/状态/处理人/阻塞原因/需补材料/催促次数/审批/理由 等 16 列
+- **补课**：编号/关联请假/任课老师/学员数/代课老师/原始课次/提议补课时间/状态/处理人/阻塞原因 等 12 列
 
 ---
 

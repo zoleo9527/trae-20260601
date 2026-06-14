@@ -14,7 +14,7 @@ export class ExportController {
   constructor(private readonly service: ExportService) {}
 
   @Post('tasks')
-  @ApiOperation({ summary: '创建导出任务（请假或补课），异步生成CSV/Excel文件' })
+  @ApiOperation({ summary: '[教务/家长顾问] 创建导出任务（幂等），异步生成CSV/Excel文件' })
   createTask(@Body() dto: CreateExportTaskDto, @CurrentUser() user: User) {
     return this.service.createTask(dto, user);
   }
