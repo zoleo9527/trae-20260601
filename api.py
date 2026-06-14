@@ -1,0 +1,410 @@
+from fastapi import FastAPI, HTTPException, Query, Path, Body
+from pydantic import BaseModel, Field
+from typing import Optional, List
+from datetime import datetime
+from services import (
+    ProjectService, FeedbackService, FeeService, ProblemService,
+    StatusChangeService, db
+)
+from models import RoleType, OrderStatus, FeedbackStatus, FeeStatus, ProblemType, ErrorCode
+from state_machine import StateMachine, StateTransitionError
+
+app = FastAPI(title="翻译公司-客户反馈与费用确认系统")
+
+
+class ErrorResponse(BaseModel):
+    code: str
+    message: str
+    details: Optional[dict] = None
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+@app.exception_handler(StateTransitionError)
+async def state_transition_error_handler(request, exc: StateTransitionError):
+    return ErrorResponse(
+        code=exc.error_code.value,
+        message=exc.message,
+        details=exc.details,
+        timestamp=datetime.now()
+    )
+
+
+@app.post("/api/users", tags=["用户管理"])
+async def create_user(name: str, role: RoleType):
+    from models import User
+    user = User(name=name, role=role)
+    db.add("user", user)
+    return {"message": "用户创建成功", "user": user}
+
+
+@app.get("/api/users/{user_id}", tags=["用户管理"])
+async def get_user(user_id: str):
+    user = db.get("user", user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail=f"用户 {user_id} 不存在")
+    return user
+
+
+@app.get("/api/users", tags=["用户管理"])
+async def list_users(role: Optional[RoleType] = None):
+    if role:
+        users = [u for u in db.get_all("user") if u.role == role]
+    else:
+        users = db.get_all("user")
+    return users
+
+
+@app.post("/api/projects", tags=["项目管理-项目经理入口"])
+async def create_project(
+    name: str = Body(...),
+    project_manager_id: str = Body(...),
+    translator_id: str = Body(...),
+    reviewer_id: str = Body(...),
+    original_deadline: datetime = Body(...),
+    ledger: Optional[str] = Body(None),
+    scene_records: Optional[str] = Body(None),
+    screenshots: Optional[List[str]] = Body(None)
+):
+    user = db.get("user", project_manager_id)
+    if not user or user.role != RoleType.PROJECT_MANAGER:
+        raise HTTPException(status_code=403, detail="只有项目经理可以创建项目")
+
+    project = ProjectService.create_project(
+        name=name,
+        project_manager_id=project_manager_id,
+        translator_id=translator_id,
+        reviewer_id=reviewer_id,
+        original_deadline=original_deadline,
+        ledger=ledger,
+        scene_records=scene_records,
+        screenshots=screenshots
+    )
+    return {"message": "项目创建成功", "project": project}
+
+
+@app.get("/api/projects", tags=["项目管理"])
+async def list_projects(
+    status: Optional[OrderStatus] = Query(None),
+    project_manager_id: Optional[str] = Query(None),
+    translator_id: Optional[str] = Query(None),
+    reviewer_id: Optional[str] = Query(None)
+):
+    projects = db.get_all("project")
+
+    if status:
+        projects = [p for p in projects if p.status == status]
+    if project_manager_id:
+        projects = [p for p in projects if p.project_manager_id == project_manager_id]
+    if translator_id:
+        projects = [p for p in projects if p.translator_id == translator_id]
+    if reviewer_id:
+        projects = [p for p in projects if p.reviewer_id == reviewer_id]
+
+    return projects
+
+
+@app.get("/api/projects/{project_id}", tags=["项目管理"])
+async def get_project(project_id: str):
+    project = ProjectService.get_project(project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail=f"项目 {project_id} 不存在")
+
+    feedbacks = FeedbackService.get_feedbacks_by_project(project_id)
+    fees = FeeService.get_fees_by_project(project_id)
+    problems = ProblemService.get_problems_by_project(project_id)
+    status_changes = StatusChangeService.get_changes_by_entity("project", project_id)
+
+    return {
+        "project": project,
+        "feedbacks": feedbacks,
+        "fees": fees,
+        "problems": problems,
+        "status_changes": status_changes
+    }
+
+
+@app.put("/api/projects/{project_id}/status", tags=["项目管理-项目经理入口"])
+async def update_project_status(
+    project_id: str,
+    new_status: OrderStatus = Body(...),
+    changed_by: str = Body(...),
+    reason: Optional[str] = Body(None)
+):
+    user = db.get("user", changed_by)
+    if not user or user.role != RoleType.PROJECT_MANAGER:
+        raise HTTPException(status_code=403, detail="只有项目经理可以更新项目状态")
+
+    project = ProjectService.update_project_status(project_id, new_status, changed_by, reason)
+    return {"message": "项目状态更新成功", "project": project}
+
+
+@app.post("/api/projects/{project_id}/reschedule", tags=["项目管理-问题单处理"])
+async def reschedule_project(
+    project_id: str,
+    new_deadline: datetime = Body(...),
+    changed_by: str = Body(...),
+    reason: str = Body(...)
+):
+    project = ProjectService.reschedule_project(project_id, new_deadline, changed_by, reason)
+    return {"message": "项目改期成功", "project": project}
+
+
+@app.get("/api/feedbacks", tags=["客户反馈"])
+async def list_feedbacks(
+    project_id: Optional[str] = Query(None),
+    status: Optional[FeedbackStatus] = Query(None)
+):
+    if project_id:
+        feedbacks = FeedbackService.get_feedbacks_by_project(project_id)
+    else:
+        feedbacks = db.get_all("feedback")
+
+    if status:
+        feedbacks = [f for f in feedbacks if f.status == status]
+
+    return feedbacks
+
+
+@app.post("/api/feedbacks", tags=["客户反馈"])
+async def create_feedback(
+    project_id: str = Body(...),
+    feedback_content: str = Body(...)
+):
+    feedback = FeedbackService.create_feedback(project_id, feedback_content)
+    return {"message": "客户反馈创建成功", "feedback": feedback}
+
+
+@app.get("/api/feedbacks/{feedback_id}", tags=["客户反馈"])
+async def get_feedback(feedback_id: str):
+    feedback = FeedbackService.get_feedback(feedback_id)
+    if not feedback:
+        raise HTTPException(status_code=404, detail=f"反馈 {feedback_id} 不存在")
+
+    related_fee = None
+    if feedback.related_fee_id:
+        related_fee = FeeService.get_fee(feedback.related_fee_id)
+
+    status_changes = StatusChangeService.get_changes_by_entity("feedback", feedback_id)
+
+    return {
+        "feedback": feedback,
+        "related_fee": related_fee,
+        "status_changes": status_changes
+    }
+
+
+@app.put("/api/feedbacks/{feedback_id}/handle", tags=["客户反馈处理-项目经理/审校入口"])
+async def handle_feedback(
+    feedback_id: str,
+    handler_id: str = Body(...),
+    handler_type: RoleType = Body(...),
+    internal_notes: str = Body(...),
+    responsibility_analysis: str = Body(...),
+    processing_result: str = Body(...)
+):
+    if handler_type not in [RoleType.PROJECT_MANAGER, RoleType.REVIEWER]:
+        raise HTTPException(status_code=403,
+                           detail="只有项目经理或审校可以处理反馈")
+
+    feedback = FeedbackService.handle_feedback(
+        feedback_id=feedback_id,
+        handler_id=handler_id,
+        handler_type=handler_type,
+        internal_notes=internal_notes,
+        responsibility_analysis=responsibility_analysis,
+        processing_result=processing_result
+    )
+
+    return {
+        "message": "反馈处理成功",
+        "feedback": feedback,
+        "suggestion": "现在可以创建费用确认记录，feedback的备注会自动继承"
+    }
+
+
+@app.post("/api/fees", tags=["费用确认-项目经理/审校入口"])
+async def create_fee(
+    project_id: str = Body(...),
+    amount: float = Body(...),
+    fee_type: str = Body(...),
+    feedback_id: Optional[str] = Body(None)
+):
+    if feedback_id:
+        feedback = FeedbackService.get_feedback(feedback_id)
+        if not feedback:
+            raise HTTPException(status_code=404, detail=f"反馈 {feedback_id} 不存在")
+
+        if feedback.status != FeedbackStatus.HANDLED:
+            raise HTTPException(
+                status_code=400,
+                detail=f"反馈 {feedback_id} 还未处理完成，需要先处理反馈"
+            )
+
+    fee = FeeService.create_fee_from_feedback(project_id, amount, fee_type, feedback_id)
+
+    return {
+        "message": "费用确认创建成功",
+        "fee": fee,
+        "inherited_notes": fee.inherited_notes
+    }
+
+
+@app.get("/api/fees", tags=["费用确认"])
+async def list_fees(
+    project_id: Optional[str] = Query(None),
+    status: Optional[FeeStatus] = Query(None)
+):
+    if project_id:
+        fees = FeeService.get_fees_by_project(project_id)
+    else:
+        fees = db.get_all("fee")
+
+    if status:
+        fees = [f for f in fees if f.status == status]
+
+    return fees
+
+
+@app.get("/api/fees/pending", tags=["费用确认"])
+async def list_pending_fees():
+    fees = FeeService.get_fees_pending_confirmation()
+    return fees
+
+
+@app.get("/api/fees/{fee_id}", tags=["费用确认回看"])
+async def get_fee(fee_id: str):
+    fee = FeeService.get_fee(fee_id)
+    if not fee:
+        raise HTTPException(status_code=404, detail=f"费用记录 {fee_id} 不存在")
+
+    feedback = None
+    if fee.feedback_id:
+        feedback = FeedbackService.get_feedback(fee.feedback_id)
+
+    project = db.get("project", fee.project_id)
+
+    status_changes = StatusChangeService.get_changes_by_entity("fee", fee_id)
+
+    return {
+        "fee": fee,
+        "feedback": feedback,
+        "project": project,
+        "status_changes": status_changes
+    }
+
+
+@app.put("/api/fees/{fee_id}/confirm", tags=["费用确认-审校入口"])
+async def confirm_fee(
+    fee_id: str,
+    confirmed_by: str = Body(...),
+    confirmation_notes: Optional[str] = Body(None)
+):
+    user = db.get("user", confirmed_by)
+    if not user or user.role != RoleType.REVIEWER:
+        raise HTTPException(status_code=403, detail="只有审校可以确认费用")
+
+    fee = FeeService.confirm_fee(fee_id, confirmed_by, confirmation_notes)
+    return {"message": "费用确认成功", "fee": fee}
+
+
+@app.put("/api/fees/{fee_id}/reject", tags=["费用确认-问题单处理"])
+async def reject_fee(
+    fee_id: str,
+    rejected_by: str = Body(...),
+    reject_reason: str = Body(...)
+):
+    fee = FeeService.reject_fee(fee_id, rejected_by, reject_reason)
+    return {"message": "费用驳回成功", "fee": fee}
+
+
+@app.post("/api/problems", tags=["问题单处理"])
+async def create_problem(
+    project_id: str = Body(...),
+    feedback_id: Optional[str] = Body(None),
+    problem_type: ProblemType = Body(...),
+    reason: str = Body(...),
+    created_by: str = Body(...),
+    original_data: Optional[str] = Body(None),
+    new_data: Optional[str] = Body(None)
+):
+    user = db.get("user", created_by)
+    if not user or user.role != RoleType.PROJECT_MANAGER:
+        raise HTTPException(status_code=403,
+                           detail="只有项目经理可以创建问题单")
+
+    problem = ProblemService.create_problem(
+        project_id=project_id,
+        feedback_id=feedback_id,
+        problem_type=problem_type,
+        reason=reason,
+        created_by=created_by,
+        original_data=original_data,
+        new_data=new_data
+    )
+
+    return {"message": "问题单创建成功", "problem": problem}
+
+
+@app.get("/api/problems", tags=["问题单处理"])
+async def list_problems(
+    project_id: Optional[str] = Query(None),
+    problem_type: Optional[ProblemType] = Query(None)
+):
+    if project_id:
+        problems = ProblemService.get_problems_by_project(project_id)
+    else:
+        problems = db.get_all("problem")
+
+    if problem_type:
+        problems = [p for p in problems if p.problem_type == problem_type]
+
+    return problems
+
+
+@app.put("/api/problems/{problem_id}/resolve", tags=["问题单处理"])
+async def resolve_problem(
+    problem_id: str,
+    resolved_by: str = Body(...)
+):
+    problem = ProblemService.resolve_problem(problem_id, resolved_by)
+    return {"message": "问题单解决成功", "problem": problem}
+
+
+@app.get("/api/status-changes", tags=["状态变更记录"])
+async def list_status_changes(
+    entity_type: Optional[str] = Query(None),
+    entity_id: Optional[str] = Query(None)
+):
+    if entity_type and entity_id:
+        changes = StatusChangeService.get_changes_by_entity(entity_type, entity_id)
+    else:
+        changes = StatusChangeService.get_all_changes()
+
+    return sorted(changes, key=lambda x: x.created_at, reverse=True)
+
+
+@app.get("/api/status-changes/{entity_type}/{entity_id}", tags=["状态变更记录"])
+async def get_entity_status_changes(entity_type: str, entity_id: str):
+    changes = StatusChangeService.get_changes_by_entity(entity_type, entity_id)
+    return {
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "changes": sorted(changes, key=lambda x: x.created_at)
+    }
+
+
+@app.get("/api/state-transitions/{entity_type}", tags=["状态机"])
+async def get_allowed_transitions(entity_type: str):
+    if entity_type == "project":
+        current = OrderStatus.PENDING
+    elif entity_type == "feedback":
+        current = FeedbackStatus.PENDING
+    elif entity_type == "fee":
+        current = FeeStatus.PENDING
+    else:
+        raise HTTPException(status_code=400, detail="无效的实体类型")
+
+    return {
+        "entity_type": entity_type,
+        "allowed_transitions": StateMachine.get_allowed_transitions(entity_type, current)
+    }
