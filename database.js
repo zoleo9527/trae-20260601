@@ -172,36 +172,67 @@ db.initialize = function() {
   console.log('  - 效果评估:', evalCount.count);
   console.log('  - 报名记录:', regCount.count);
 
-  if (userCount.count === 0) {
-    console.log('数据库为空，开始初始化完整示例数据...');
+  const needsFullInit = userCount.count === 0;
+  const needsProjects = projectCount.count === 0;
+  const needsCertificates = certCount.count === 0;
+  const needsExceptions = excCount.count === 0;
+  const needsHomework = hwCount.count === 0;
+  const needsEvaluations = evalCount.count === 0;
+  const needsRegistrations = regCount.count === 0;
+
+  if (needsFullInit) {
+    console.log('\n开始初始化完整示例数据...');
     seedData();
-    console.log('完整示例数据初始化完成');
-  } else if (projectCount.count === 0) {
-    console.log('缺少培训项目数据，开始补充...');
-    seedProjects();
-    console.log('培训项目数据补充完成');
-  } else if (certCount.count === 0) {
-    console.log('缺少证书数据，开始补充...');
-    seedCertificates();
-    console.log('证书数据补充完成');
-  } else if (excCount.count === 0) {
-    console.log('缺少异常数据，开始补充...');
-    seedExceptions();
-    console.log('异常数据补充完成');
-  } else if (hwCount.count === 0) {
-    console.log('缺少作业数据，开始补充...');
-    seedHomework();
-    console.log('作业数据补充完成');
-  } else if (evalCount.count === 0) {
-    console.log('缺少效果评估数据，开始补充...');
-    seedEvaluations();
-    console.log('效果评估数据补充完成');
-  } else if (regCount.count === 0) {
-    console.log('缺少报名记录数据，开始补充...');
-    seedRegistrations();
-    console.log('报名记录数据补充完成');
+    console.log('完整示例数据初始化完成\n');
   } else {
-    console.log('数据库数据完整，无需初始化');
+    console.log('\n开始增量补充数据...');
+    let hasUpdates = false;
+
+    if (needsProjects) {
+      seedProjects();
+      console.log('  ✓ 培训项目已补充');
+      hasUpdates = true;
+    }
+
+    if (needsRegistrations) {
+      seedProject3Registrations();
+      console.log('  ✓ 第3批报名记录已补充');
+      hasUpdates = true;
+    }
+
+    if (needsCertificates) {
+      seedProject3Certificates();
+      console.log('  ✓ 第3批证书已补充');
+      hasUpdates = true;
+    }
+
+    if (needsHomework) {
+      seedProject2Homework();
+      console.log('  ✓ 作业数据已补充');
+      hasUpdates = true;
+    }
+
+    if (needsEvaluations) {
+      seedEvaluations();
+      console.log('  ✓ 效果评估已补充');
+      hasUpdates = true;
+    }
+
+    if (needsExceptions) {
+      seedExceptions();
+      console.log('  ✓ 异常数据已补充');
+      hasUpdates = true;
+    }
+
+    if (hasUpdates) {
+      console.log('\n数据纠偏检查...');
+      correctDataInconsistencies();
+      console.log('数据纠偏完成\n');
+    }
+
+    if (!hasUpdates) {
+      console.log('  ✓ 数据库数据完整，无需补充\n');
+    }
   }
 };
 
@@ -369,18 +400,18 @@ function seedData() {
   `);
 
   const certificates1 = [
-    { user_id: 10, user_name: '张伟', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 11, user_name: '刘芳', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 15, user_name: '周涛', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 16, user_name: '吴静', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 17, user_name: '郑华', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 18, user_name: '杨洋', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 19, user_name: '林涛', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 20, user_name: '黄丽', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 21, user_name: '徐刚', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 22, user_name: '马艳', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 23, user_name: '朱磊', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
-    { user_id: 24, user_name: '胡云', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' }
+    { user_id: 6, user_name: '张伟', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 7, user_name: '刘芳', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 15, user_name: '林涛', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 16, user_name: '黄丽', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 17, user_name: '徐刚', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 18, user_name: '马艳', user_department: '市场部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 19, user_name: '朱磊', user_department: '技术部', status: 'issued', issue_date: '2024-01-15' },
+    { user_id: 20, user_name: '胡云', user_department: '财务部', status: 'issued', issue_date: '2024-01-15' }
   ];
 
   const insertCertHistory = db.prepare(`
@@ -1175,6 +1206,166 @@ function seedExceptions() {
       }
     }
   }
+}
+
+function seedProject3Registrations() {
+  const insertReg = db.prepare(`
+    INSERT INTO training_registrations (project_id, user_id, user_name, user_department, status, absence_reason, check_in_time)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('2024-01-28 09:00:00'))
+  `);
+
+  const registrations3 = [
+    { user_id: 6, user_name: '张伟', user_department: '技术部', status: 'absent', absence_reason: '无故缺席' },
+    { user_id: 7, user_name: '刘芳', user_department: '市场部', status: 'absent', absence_reason: '无故缺席' },
+    { user_id: 8, user_name: '王强', user_department: '技术部', status: 'attended' },
+    { user_id: 9, user_name: '赵敏', user_department: '财务部', status: 'attended' },
+    { user_id: 10, user_name: '孙磊', user_department: '技术部', status: 'attended' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'attended' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'attended' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'attended' },
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'attended' },
+    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'attended' },
+    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'attended' },
+    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'attended' },
+    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'attended' },
+    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'attended' },
+    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'attended' },
+    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'attended' },
+    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'attended' },
+    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'attended' },
+    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'attended' },
+    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'attended' },
+    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'attended' },
+    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'attended' },
+    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'attended' },
+    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'attended' },
+    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'attended' },
+    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'attended' },
+    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'attended' },
+    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'attended' },
+    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'attended' }
+  ];
+
+  for (const reg of registrations3) {
+    insertReg.run(reg.user_id, reg.user_name, reg.user_department, reg.status, reg.absence_reason || null);
+  }
+}
+
+function seedProject3Certificates() {
+  const insertCert = db.prepare(`
+    INSERT INTO certificates (certificate_number, project_id, project_name, user_id, user_name, user_department, status, correction_reason, created_by)
+    VALUES (?, 3, '技术技能认证培训', ?, ?, ?, ?, ?, 3)
+  `);
+
+  const insertCertHistory = db.prepare(`
+    INSERT INTO certificate_history (certificate_id, action, to_status, from_status, operator_id, operator_name, remark, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const certificates3 = [
+    { user_id: 8, user_name: '王强', user_department: '技术部', status: 'pending' },
+    { user_id: 9, user_name: '赵敏', user_department: '财务部', status: 'pending' },
+    { user_id: 10, user_name: '孙磊', user_department: '技术部', status: 'pending' },
+    { user_id: 11, user_name: '周涛', user_department: '市场部', status: 'pending' },
+    { user_id: 12, user_name: '吴静', user_department: '技术部', status: 'pending' },
+    { user_id: 13, user_name: '郑华', user_department: '财务部', status: 'pending' },
+    { user_id: 14, user_name: '杨洋', user_department: '市场部', status: 'pending' },
+    { user_id: 15, user_name: '黄磊', user_department: '市场部', status: 'pending' },
+    { user_id: 16, user_name: '林峰', user_department: '技术部', status: 'pending' },
+    { user_id: 17, user_name: '何丽', user_department: '财务部', status: 'pending' },
+    { user_id: 18, user_name: '高明', user_department: '市场部', status: 'needs_correction', correction_reason: '证书编号错误' },
+    { user_id: 19, user_name: '吴强', user_department: '技术部', status: 'needs_correction', correction_reason: '员工姓名拼写错误' },
+    { user_id: 20, user_name: '张华', user_department: '财务部', status: 'needs_correction', correction_reason: '部门信息错误' },
+    { user_id: 21, user_name: '李霞', user_department: '市场部', status: 'pending' },
+    { user_id: 22, user_name: '王磊', user_department: '技术部', status: 'pending' },
+    { user_id: 23, user_name: '赵敏', user_department: '财务部', status: 'pending' },
+    { user_id: 24, user_name: '孙涛', user_department: '市场部', status: 'pending' },
+    { user_id: 25, user_name: '周伟', user_department: '技术部', status: 'pending' },
+    { user_id: 26, user_name: '吴娟', user_department: '财务部', status: 'pending' },
+    { user_id: 27, user_name: '郑刚', user_department: '市场部', status: 'pending' },
+    { user_id: 28, user_name: '陈丽', user_department: '技术部', status: 'pending' },
+    { user_id: 29, user_name: '刘勇', user_department: '财务部', status: 'pending' },
+    { user_id: 30, user_name: '杨帆', user_department: '市场部', status: 'pending' },
+    { user_id: 31, user_name: '黄燕', user_department: '技术部', status: 'pending' },
+    { user_id: 32, user_name: '林涛', user_department: '财务部', status: 'pending' },
+    { user_id: 33, user_name: '何静', user_department: '市场部', status: 'pending' },
+    { user_id: 34, user_name: '高建', user_department: '技术部', status: 'pending' }
+  ];
+
+  for (let index = 0; index < certificates3.length; index++) {
+    const cert = certificates3[index];
+    const certNum = `CERT-2024-${String(index + 30).padStart(4, '0')}`;
+    insertCert.run(certNum, cert.user_id, cert.user_name, cert.user_department, cert.status, cert.correction_reason || null);
+
+    const certId = db.prepare("SELECT last_insert_rowid() as id").get().id;
+    insertCertHistory.run(certId, 'auto_generated', 'pending', null, 1, '系统', '系统自动生成待发放记录', '2024-01-31 09:00:00');
+
+    if (cert.status === 'needs_correction') {
+      insertCertHistory.run(certId, 'created', 'creating', 'pending', 3, '李明', '开始制作证书', '2024-01-31 10:30:00');
+      insertCertHistory.run(certId, 'submitted', 'pending_review', 'creating', 3, '李明', '证书制作完成，提交审核', '2024-01-31 16:00:00');
+      insertCertHistory.run(certId, 'info_error_detected', 'needs_correction', 'pending_review', 1, '王芳', cert.correction_reason, '2024-02-01 09:30:00');
+    }
+  }
+}
+
+function seedProject2Homework() {
+  const insertHw = db.prepare(`
+    INSERT INTO homework_submissions (project_id, user_id, user_name, status, submission_date)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+
+  const homeworks = [];
+  for (let i = 21; i <= 38; i++) {
+    if (i !== 23) {
+      const status = [24, 26, 28, 29, 32, 35].includes(i) ? 'late' :
+                     [27, 30, 33, 36, 37].includes(i) ? 'not_submitted' : 'submitted';
+      const userName = db.prepare("SELECT name FROM users WHERE id = ?").get(i)?.name || '未知';
+      homeworks.push({ project_id: 2, user_id: i, user_name: userName, status, submission_date: status === 'late' ? '2024-01-27 23:59:00' : '2024-01-26 18:00:00' });
+    }
+  }
+
+  for (const hw of homeworks) {
+    insertHw.run(hw.project_id, hw.user_id, hw.user_name, hw.status, hw.submission_date);
+  }
+}
+
+function correctDataInconsistencies() {
+  console.log('  开始数据一致性检查...');
+
+  const certificates = db.prepare('SELECT id, user_id, user_name, user_department FROM certificates').all();
+  const users = db.prepare('SELECT id, name, department FROM users').all();
+  const userMap = new Map(users.map(u => [u.id, u]));
+
+  let correctedCerts = 0;
+  for (const cert of certificates) {
+    const user = userMap.get(cert.user_id);
+    if (user && (cert.user_name !== user.name || cert.user_department !== user.department)) {
+      db.prepare('UPDATE certificates SET user_name = ?, user_department = ? WHERE id = ?')
+        .run(user.name, user.department, cert.id);
+      correctedCerts++;
+    }
+  }
+  if (correctedCerts > 0) {
+    console.log(`    修正了 ${correctedCerts} 条证书的员工姓名和部门信息`);
+  }
+
+  const exceptions = db.prepare('SELECT id, related_id, related_type FROM exceptions WHERE related_id IS NOT NULL').all();
+  let correctedExcs = 0;
+  for (const exc of exceptions) {
+    if (exc.related_type === 'certificate') {
+      const cert = db.prepare('SELECT user_name, user_department FROM certificates WHERE id = ?').get(exc.related_id);
+      if (cert) {
+        db.prepare('UPDATE exceptions SET description = description || \' [员工: \' || ? || \', 部门: \' || ? || \']\' WHERE id = ?')
+          .run(cert.user_name, cert.user_department, exc.id);
+        correctedExcs++;
+      }
+    }
+  }
+  if (correctedExcs > 0) {
+    console.log(`    补充了 ${correctedExcs} 条异常的关联员工信息`);
+  }
+
+  console.log('  数据一致性检查完成');
 }
 
 module.exports = db;
