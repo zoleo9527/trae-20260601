@@ -323,17 +323,37 @@ function DelegationDetail() {
                         {log.operator_name} ({getRoleLabel(log.operator_role)})
                       </span>
                       {log.remarks && <span className="timeline-remarks">{log.remarks}</span>}
-                      {log.action_type === 'VERIFY' && log.details?.status && (
+                      {log.action_type === 'VERIFY' && log.details && (
                         <div className="timeline-verification-details">
-                          <span className="verification-detail-item">
-                            核验结果：<strong className={log.details.status === 'passed' ? 'text-success' : 'text-error'}>
-                              {log.details.status === 'passed' ? '通过' : '不通过'}
-                            </strong>
-                          </span>
-                          {log.details.notes && (
-                            <span className="verification-detail-item">
-                              核验备注：{log.details.notes}
+                          <div className="verification-detail-row">
+                            <span className="verification-label">材料名称：</span>
+                            <span className="verification-value">{log.details.materialName || '-'}</span>
+                          </div>
+                          <div className="verification-detail-row">
+                            <span className="verification-label">核验结果：</span>
+                            <span className={`verification-value ${log.details.status === 'passed' ? 'text-success' : 'text-error'}`}>
+                              {log.details.status === 'passed' ? '✓ 通过' : '✗ 不通过'}
                             </span>
+                          </div>
+                          {log.details.notes && (
+                            <div className="verification-detail-row">
+                              <span className="verification-label">核验备注：</span>
+                              <span className="verification-value">{log.details.notes}</span>
+                            </div>
+                          )}
+                          {log.details.verifiedBy && (
+                            <div className="verification-detail-row">
+                              <span className="verification-label">核验人：</span>
+                              <span className="verification-value">{log.details.verifiedBy}</span>
+                            </div>
+                          )}
+                          {log.details.verifiedAt && (
+                            <div className="verification-detail-row">
+                              <span className="verification-label">核验时间：</span>
+                              <span className="verification-value">
+                                {new Date(log.details.verifiedAt).toLocaleString('zh-CN')}
+                              </span>
+                            </div>
                           )}
                         </div>
                       )}

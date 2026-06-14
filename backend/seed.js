@@ -248,7 +248,9 @@ delegations.forEach((delegation, index) => {
   const delegationId = result.lastInsertRowid;
   console.log(`✓ 创建委托单: ${delegation.delegation_number} (${delegation.status})`);
 
-  delegation.materials.forEach(material => {
+  const materialIdMap = {};
+  delegation.materials.forEach((material, index) => {
+    const materialResult = db.prepare('SELECT last_insert_rowid() as id').get();
     insertMaterial.run(
       delegationId, 
       material.name, 
@@ -260,6 +262,7 @@ delegations.forEach((delegation, index) => {
       material.verified_by || null,
       material.verified_at || null
     );
+    materialIdMap[material.name] = materialResult.id;
   });
 
   const logs = [
@@ -304,7 +307,7 @@ delegations.forEach((delegation, index) => {
         role: 'appraiser',
         name: '李鉴定',
         remark: '核验材料：委托书 - 通过',
-        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed', notes: '材料完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:00:00' })
+        details: JSON.stringify({ materialId: materialIdMap['委托书'], materialName: '委托书', status: 'passed', notes: '材料完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:00:00' })
       });
 
       logs.push({
@@ -315,10 +318,10 @@ delegations.forEach((delegation, index) => {
         role: 'appraiser',
         name: '李鉴定',
         remark: '核验材料：身份证明 - 通过',
-        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed', notes: '身份证明真实有效', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:05:00' })
+        details: JSON.stringify({ materialId: materialIdMap['身份证明'], materialName: '身份证明', status: 'passed', notes: '身份证明真实有效', verifiedBy: 'appraiser01', verifiedAt: '2024-01-02 10:05:00' })
       });
 
-      delegation.materials.slice(2).forEach((material, index) => {
+      delegation.materials.slice(2).forEach((material) => {
         if (material.verification_status === 'passed') {
           logs.push({
             action: 'VERIFY',
@@ -329,7 +332,7 @@ delegations.forEach((delegation, index) => {
             name: '李鉴定',
             remark: `核验材料：${material.name} - 通过`,
             details: JSON.stringify({ 
-              materialId: index + 3, 
+              materialId: materialIdMap[material.name], 
               materialName: material.name, 
               status: 'passed', 
               notes: material.verification_notes, 
@@ -394,7 +397,7 @@ delegations.forEach((delegation, index) => {
         role: 'appraiser',
         name: '李鉴定',
         remark: '核验材料：委托书 - 通过',
-        details: JSON.stringify({ materialId: 1, materialName: '委托书', status: 'passed', notes: '委托书完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:30:00' })
+        details: JSON.stringify({ materialId: materialIdMap['委托书'], materialName: '委托书', status: 'passed', notes: '委托书完整，印章清晰', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:30:00' })
       });
 
       logs.push({
@@ -405,7 +408,7 @@ delegations.forEach((delegation, index) => {
         role: 'appraiser',
         name: '李鉴定',
         remark: '核验材料：身份证明 - 通过',
-        details: JSON.stringify({ materialId: 2, materialName: '身份证明', status: 'passed', notes: '身份证复印件清晰可辨', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:35:00' })
+        details: JSON.stringify({ materialId: materialIdMap['身份证明'], materialName: '身份证明', status: 'passed', notes: '身份证复印件清晰可辨', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:35:00' })
       });
 
       logs.push({
@@ -416,7 +419,7 @@ delegations.forEach((delegation, index) => {
         role: 'appraiser',
         name: '李鉴定',
         remark: '核验材料：物证样本 - 通过',
-        details: JSON.stringify({ materialId: 3, materialName: '物证样本', status: 'passed', notes: '物证样本包装完好，符合鉴定要求', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:40:00' })
+        details: JSON.stringify({ materialId: materialIdMap['物证样本'], materialName: '物证样本', status: 'passed', notes: '物证样本包装完好，符合鉴定要求', verifiedBy: 'appraiser01', verifiedAt: '2024-01-09 10:40:00' })
       });
 
       logs.push({
@@ -488,7 +491,7 @@ delegations.forEach((delegation, index) => {
       log.role,
       log.name,
       log.remark,
-      '{}'
+      log.details || '{}'
     );
   });
 });
