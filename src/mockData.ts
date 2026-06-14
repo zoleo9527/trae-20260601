@@ -365,7 +365,11 @@ export const mockRecords: PawnRecord[] = [
     storageTime: '2026-06-11 11:30:00',
     storageRemark: '防潮柜存放',
     photoStatus: 'rejected',
+    photoReviewStatus: 'rejected',
+    photoReviewedBy: '李评估师',
+    photoReviewTime: '2026-06-11 14:00:00',
     photoRejectReason: '照片模糊，缺少镜头编号特写，需重拍',
+    photoReviewRejectReason: '照片模糊，缺少镜头编号特写，需重拍',
     photos: [
       {
         id: 'PH007',
@@ -750,9 +754,26 @@ export const STEP_NAMES: Record<string, string> = {
   pending_storage: '入库保管',
   pending_photo: '照片留证',
   pending_photo_review: '柜台审核照片',
-  pending_finance: '财务放款',
-  abnormal: '异常处理'
+  pending_finance: '财务放款'
 };
+
+export function resolveAbnormalStepName(record: PawnRecord): string {
+  if (record.storageStatus === 'rejected' && record.currentHandler === 'counter') {
+    return '入库复核（退回重检）';
+  }
+  if (record.photoStatus === 'rejected') {
+    if (record.photoReviewStatus === 'rejected' && record.currentHandler === 'warehouse') {
+      return '审核退回待重拍';
+    }
+    if (record.currentHandler === 'warehouse') {
+      return '重拍待办';
+    }
+  }
+  if (record.photoReviewStatus === 'rejected') {
+    return '照片审核退回';
+  }
+  return '异常处理';
+}
 
 export const OVERDUE_THRESHOLD_HOURS = 12;
 
@@ -761,14 +782,27 @@ export function getBlockPointSummary(record: PawnRecord, now: Date = new Date())
     record.currentHandler === 'warehouse' ? '赵库管' : '孙会计';
 
   let lastRejectReason: string | null = null;
-  if (record.photoRejectReason) lastRejectReason = record.photoRejectReason;
-  if (record.rejectReason) lastRejectReason = record.rejectReason;
+
+  if (record.photoReviewRejectReason) {
+    lastRejectReason = record.photoReviewRejectReason;
+  }
+  if (record.photoRejectReason) {
+    lastRejectReason = record.photoRejectReason;
+  }
+  if (record.rejectReason) {
+    lastRejectReason = record.rejectReason;
+  }
 
   for (let i = record.operationLogs.length - 1; i >= 0; i--) {
     const log = record.operationLogs[i];
-    if (log.operation.includes('退回') && log.reason) {
-      lastRejectReason = log.reason;
-      break;
+    if (log.operation.includes('退回')) {
+      if (log.remark && log.remark.length > 6) {
+        lastRejectReason = log.remark;
+        break;
+      }
+      if (!lastRejectReason && log.reason) {
+        lastRejectReason = log.reason;
+      }
     }
   }
 
@@ -778,8 +812,15 @@ export function getBlockPointSummary(record: PawnRecord, now: Date = new Date())
   }
 
   let photoReviewCompleteTime: string | null = null;
-  if (record.photoReviewStatus === 'approved' && record.photoReviewTime) {
+  if ((record.photoReviewStatus === 'approved' || record.photoReviewStatus === 'rejected') && record.photoReviewTime) {
     photoReviewCompleteTime = record.photoReviewTime;
+  }
+
+  let blockedStepName: string;
+  if (record.status === 'abnormal') {
+    blockedStepName = resolveAbnormalStepName(record);
+  } else {
+    blockedStepName = STEP_NAMES[record.status] || statusNames[record.status];
   }
 
   const blockedAt = record.updatedAt;
@@ -806,7 +847,7 @@ export function getBlockPointSummary(record: PawnRecord, now: Date = new Date())
     currentHandlerRole: record.currentHandler,
     currentHandlerRoleName: roleNames[record.currentHandler],
     blockedStep: record.status,
-    blockedStepName: STEP_NAMES[record.status] || statusNames[record.status],
+    blockedStepName,
     blockedAt: blockedAt,
     blockedDuration,
     isOverdue,

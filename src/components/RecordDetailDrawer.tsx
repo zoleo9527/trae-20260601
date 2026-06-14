@@ -441,11 +441,34 @@ export default function RecordDetailDrawer({ record, currentRole, onClose, onUpd
                 </div>
                 <div className="summary-item">
                   <span className="summary-label">入库完成</span>
-                  <span className="value">{formatTimeShort(summary.storageCompleteTime)}</span>
+                  <span className="value">
+                    {summary.storageCompleteTime ? (
+                    <>
+                    {formatTimeShort(summary.storageCompleteTime)}
+                    <span className="tag-green">已入库</span>
+                    </>
+                  ) : '—'}
+                  </span>
                 </div>
                 <div className="summary-item">
-                  <span className="summary-label">审核完成</span>
-                  <span className="value">{formatTimeShort(summary.photoReviewCompleteTime)}</span>
+                  <span className="summary-label">照片审核</span>
+                  <span className="value">
+                    {record.photoReviewStatus === 'approved' ? (
+                      <>
+                      {formatTimeShort(summary.photoReviewCompleteTime)}
+                      <span className="tag-green">通过</span>
+                      </>
+                    ) : record.photoReviewStatus === 'rejected' ? (
+                      <>
+                      {formatTimeShort(summary.photoReviewCompleteTime)}
+                      <span className="tag-red">退回</span>
+                      </>
+                    ) : record.photoStatus === 'taken' || record.status === 'pending_photo_review' ? (
+                      <span className="tag-orange">待审核</span>
+                    ) : (
+                      '—'
+                    )}
+                  </span>
                 </div>
               </div>
             </div>

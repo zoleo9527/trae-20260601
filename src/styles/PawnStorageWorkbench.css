@@ -746,3 +746,29 @@
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-2px); }
 }
+
+.tag-green, .tag-red, .tag-orange {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tag-green {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.tag-red {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.tag-orange {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}

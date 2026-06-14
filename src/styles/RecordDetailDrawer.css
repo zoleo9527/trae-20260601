@@ -1015,3 +1015,30 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+.summary-item .tag-green,
+.summary-item .tag-red,
+.summary-item .tag-orange {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.summary-item .tag-green {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #059669;
+}
+
+.summary-item .tag-red {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
+.summary-item .tag-orange {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #d97706;
+}

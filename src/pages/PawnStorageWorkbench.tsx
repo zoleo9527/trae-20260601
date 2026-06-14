@@ -311,10 +311,33 @@ export default function PawnStorageWorkbench({ currentRole, onRoleChange }: Prop
                           )}
                         </td>
                         <td>
-                          <span className="time-cell">{formatTimeShort(summary.storageCompleteTime)}</span>
+                          <span className="time-cell">
+                            {summary.storageCompleteTime ? (
+                              <>
+                                {formatTimeShort(summary.storageCompleteTime)}
+                                <span className="tag-green">已入库</span>
+                              </>
+                            ) : '—'}
+                          </span>
                         </td>
                         <td>
-                          <span className="time-cell">{formatTimeShort(summary.photoReviewCompleteTime)}</span>
+                          <span className="time-cell">
+                            {record.photoReviewStatus === 'approved' ? (
+                              <>
+                                {formatTimeShort(summary.photoReviewCompleteTime)}
+                                <span className="tag-green">通过</span>
+                              </>
+                            ) : record.photoReviewStatus === 'rejected' ? (
+                              <>
+                                {formatTimeShort(summary.photoReviewCompleteTime)}
+                                <span className="tag-red">退回</span>
+                              </>
+                            ) : record.photoStatus === 'taken' || record.status === 'pending_photo_review' ? (
+                              <span className="tag-orange">待审核</span>
+                            ) : (
+                              '—'
+                            )}
+                          </span>
                         </td>
                         <td>
                           <div className={`duration-cell ${summary.isOverdue ? 'overdue' : ''}`}>
