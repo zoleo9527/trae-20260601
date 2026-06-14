@@ -68,10 +68,10 @@ export function CommunicationsList() {
     setFilter({ ...filter, priority: priority ? priority as Communication['priority'] : undefined });
   };
 
-  const handleQuickAction = async (action: string, communication: Communication) => {
+  const handleQuickAction = async (action: string, communication: Communication, result?: string) => {
     if (action === 'complete') {
-      const result = await updateCommunicationStatus(communication.id, 'completed');
-      updateCommunication(result.communication);
+      const response = await updateCommunicationStatus(communication.id, 'completed', result);
+      updateCommunication(response.communication);
     } else {
       const typeMap: Record<string, 'call' | 'message' | 'meeting'> = {
         call: 'call',
@@ -85,8 +85,8 @@ export function CommunicationsList() {
           message: '消息沟通',
           meeting: '面谈沟通',
         };
-        const result = await addCommunicationHistory(communication.id, type, `${actionLabels[action]} - 已${action === 'call' ? '拨打' : action === 'message' ? '发送' : '预约'}`);
-        updateCommunication(result.communication);
+        const response = await addCommunicationHistory(communication.id, type, `${actionLabels[action]} - 已${action === 'call' ? '拨打' : action === 'message' ? '发送' : '预约'}`);
+        updateCommunication(response.communication);
       }
     }
   };
