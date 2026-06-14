@@ -1,4 +1,5 @@
 /Users/zhangliu/Documents/private/model-test/trae-20260601-2/src/main/java/com/example/bank/BankAppointmentApplication.java
+/Users/zhangliu/Documents/private/model-test/trae-20260601-2/src/main/java/com/example/bank/config/GlobalExceptionHandler.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-2/src/main/java/com/example/bank/config/SecurityConfig.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-2/src/main/java/com/example/bank/config/SeedDataConfig.java
 /Users/zhangliu/Documents/private/model-test/trae-20260601-2/src/main/java/com/example/bank/controller/AppointmentController.java

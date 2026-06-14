@@ -789,13 +789,21 @@
 
         async function executeExport(taskId) {
             try {
-                const response = await fetch(`${API_BASE}/export/tasks/${taskId}/execute`);
+                const response = await fetch(`${API_BASE}/export/tasks/${taskId}/execute`, {
+                    method: 'POST'
+                });
                 if (response.ok) {
-                    alert('导出成功');
+                    const result = await response.json();
+                    alert(`导出成功！共导出 ${result.recordCount} 条记录`);
+                    loadExportTasks();
+                } else {
+                    const error = await response.json().catch(() => ({ message: '导出失败' }));
+                    alert('导出失败: ' + (error.message || '未知错误'));
                     loadExportTasks();
                 }
             } catch (error) {
                 alert('导出失败: ' + error.message);
+                loadExportTasks();
             }
         }
 

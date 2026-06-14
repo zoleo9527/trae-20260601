@@ -6,6 +6,7 @@ com/example/bank/dto/response/AppointmentResponse$AppointmentResponseBuilder.cla
 com/example/bank/enums/RoleType.class
 com/example/bank/controller/TaskController$AccountManagerTasksResponse.class
 com/example/bank/repository/AppointmentRepository.class
+com/example/bank/config/GlobalExceptionHandler$ErrorResponse.class
 com/example/bank/entity/ExportTask.class
 com/example/bank/repository/HistoryRecordRepository.class
 com/example/bank/service/ExportService.class
@@ -22,6 +23,7 @@ com/example/bank/service/impl/UserServiceImpl.class
 com/example/bank/dto/response/HistoryRecordResponse.class
 com/example/bank/dto/response/UserResponse$UserResponseBuilder.class
 com/example/bank/entity/User.class
+com/example/bank/config/GlobalExceptionHandler.class
 com/example/bank/controller/TaskController$LobbyManagerTasksResponse.class
 com/example/bank/dto/response/HistoryRecordResponse$HistoryRecordResponseBuilder.class
 com/example/bank/entity/ExportTask$ExportTaskBuilder.class

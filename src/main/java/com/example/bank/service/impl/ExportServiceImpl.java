@@ -30,6 +30,15 @@ public class ExportServiceImpl implements ExportService {
     @Override
     @Transactional
     public ExportTaskResponse createExportTask(String exportType, Long appointmentId) {
+        if ("SINGLE".equals(exportType)) {
+            if (appointmentId == null) {
+                throw new RuntimeException("单笔导出必须指定预约ID");
+            }
+            if (!appointmentRepository.existsById(appointmentId)) {
+                throw new RuntimeException("指定的预约不存在");
+            }
+        }
+
         ExportTask task = ExportTask.builder()
                 .taskNo(generateTaskNo())
                 .exportType(exportType)
@@ -82,9 +91,12 @@ public class ExportServiceImpl implements ExportService {
 
         try {
             List<Appointment> appointments;
-            if ("SINGLE".equals(task.getExportType()) && task.getAppointmentId() != null) {
+            if ("SINGLE".equals(task.getExportType())) {
+                if (task.getAppointmentId() == null) {
+                    throw new RuntimeException("单笔导出任务缺少预约ID");
+                }
                 Appointment appointment = appointmentRepository.findById(task.getAppointmentId())
-                        .orElseThrow(() -> new RuntimeException("预约不存在"));
+                        .orElseThrow(() -> new RuntimeException("指定的预约不存在"));
                 appointments = List.of(appointment);
             } else {
                 appointments = appointmentRepository.findAll();
@@ -96,12 +108,14 @@ public class ExportServiceImpl implements ExportService {
             task.setFilePath(filePath);
             task.setRecordCount(appointments.size());
             task.setCompletedAt(LocalDateTime.now());
+            task = exportTaskRepository.save(task);
         } catch (Exception e) {
             task.setStatus("FAILED");
+            task.setCompletedAt(LocalDateTime.now());
+            task = exportTaskRepository.save(task);
             throw new RuntimeException("导出失败: " + e.getMessage());
         }
 
-        task = exportTaskRepository.save(task);
         return convertToResponse(task);
     }
 
