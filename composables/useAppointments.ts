@@ -167,6 +167,18 @@ export function useAppointments() {
     return result
   }
 
+  const getAllExceptions = (type?: ExceptionType) => {
+    let result: ExceptionRecord[] = []
+    appointments.value.forEach(a => {
+      let exceptions = a.exceptions
+      if (type) {
+        exceptions = exceptions.filter(e => e.type === type)
+      }
+      result.push(...exceptions)
+    })
+    return result
+  }
+
   return {
     appointments,
     loading,
@@ -186,6 +198,7 @@ export function useAppointments() {
     startProcessingException,
     resolveException,
     getPendingExceptions,
-    getProcessingExceptions
+    getProcessingExceptions,
+    getAllExceptions
   }
 }

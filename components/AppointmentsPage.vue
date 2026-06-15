@@ -3,6 +3,10 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import type { Appointment } from '~/data/types'
 
+const props = defineProps<{
+  highlightId?: string
+}>()
+
 const { 
   appointments, 
   loading,
@@ -19,6 +23,17 @@ const {
 
 onMounted(() => {
   fetchAppointments()
+})
+
+watch(() => props.highlightId, (newId) => {
+  if (newId) {
+    const appointment = getAppointmentById(newId)
+    if (appointment) {
+      activeTab.value = 'all'
+      selectedAppointment.value = appointment
+      showDetail.value = true
+    }
+  }
 })
 
 const activeTab = ref('all')
@@ -123,7 +138,12 @@ const formatAddress = (addr: any) => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="appointment in filteredAppointments" :key="appointment.id">
+            <tr 
+              v-for="appointment in filteredAppointments" 
+              :key="appointment.id"
+              :class="{ 'highlight-row': appointment.id === highlightId }"
+              :style="{ backgroundColor: appointment.id === highlightId ? '#e6f7ff' : '' }"
+            >
               <td><a href="#" @click.prevent="viewDetail(appointment)" style="color: #4080ff;">{{ appointment.orderNo }}</a></td>
               <td>
                 <div>{{ appointment.customer.name }}</div>
@@ -159,7 +179,6 @@ const formatAddress = (addr: any) => {
                     取消
                   </button>
                   <button 
-                    v-if="appointment.status !== 'completed' && appointment.status !== 'canceled'"
                     class="btn btn-secondary"
                     style="padding: 4px 8px; font-size: 12px;"
                     @click="viewDetail(appointment)"
@@ -287,6 +306,7 @@ const formatAddress = (addr: any) => {
               <div>{{ exception.description }}</div>
               <div v-if="exception.amount" style="font-size: 12px; color: #f5222d; margin-top: 4px;">金额: ¥{{ exception.amount }}</div>
               <div v-if="exception.resolution" style="font-size: 12px; color: #52c41a; margin-top: 4px;">处理结果: {{ exception.resolution }}</div>
+              <div v-if="exception.handledBy" style="font-size: 12px; color: #999; margin-top: 4px;">处理人: {{ exception.handledBy }} | {{ exception.handledAt }}</div>
             </div>
           </div>
           

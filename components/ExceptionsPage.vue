@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import { useAuth } from '~/composables/useAuth'
 import type { ExceptionRecord, ExceptionType, Appointment } from '~/data/types'
+
+const props = defineProps<{
+  highlightId?: string
+}>()
 
 const { 
   appointments,
   loading,
   fetchAppointments,
-  getPendingExceptions, 
-  getProcessingExceptions,
+  getAllExceptions,
   addException,
   startProcessingException,
   resolveException,
@@ -20,6 +23,16 @@ const { currentUser } = useAuth()
 
 onMounted(() => {
   fetchAppointments()
+})
+
+watch(() => props.highlightId, (newId) => {
+  if (newId) {
+    const exception = allExceptions.value.find(e => e.id === newId || e.appointmentId === newId)
+    if (exception) {
+      selectedException.value = exception
+      showResolveModal.value = true
+    }
+  }
 })
 
 const activeTab = ref<'all' | 'price_increase' | 'damage' | 'delay'>('all')
@@ -36,9 +49,7 @@ const newException = ref({
 })
 
 const allExceptions = computed(() => {
-  const pending = getPendingExceptions()
-  const processing = getProcessingExceptions()
-  return [...pending, ...processing]
+  return getAllExceptions()
 })
 
 const filteredExceptions = computed(() => {
@@ -167,7 +178,8 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
           class="card"
           :style="{ 
             borderLeft: exception.status === 'processing' ? '4px solid #faad14' : '4px solid #f5222d',
-            marginBottom: 0
+            marginBottom: 0,
+            backgroundColor: exception.id === highlightId || exception.appointmentId === highlightId ? '#e6f7ff' : ''
           }"
         >
           <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
@@ -175,8 +187,8 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
               <span style="font-size: 20px;">{{ typeIcons[exception.type] }}</span>
               <span class="badge badge-price-change">{{ typeLabels[exception.type] }}</span>
             </div>
-            <span :class="['badge', exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
-              {{ exception.status === 'processing' ? '处理中' : '待处理' }}
+            <span :class="['badge', exception.status === 'processing' ? 'badge-warning' : exception.status === 'resolved' ? 'badge-completed' : 'badge-pending']">
+              {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
             </span>
           </div>
           

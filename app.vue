@@ -10,13 +10,13 @@ import ExceptionsPage from '~/components/ExceptionsPage.vue'
 
 const { isLoggedIn } = useAuth()
 const currentPage = ref('dashboard')
-const highlightAppointmentId = ref<string | undefined>(undefined)
+const highlightId = ref<string | undefined>(undefined)
 
 const showLayout = computed(() => isLoggedIn.value)
 
-const handleNavigate = (page: string, appointmentId?: string) => {
+const handleNavigate = (page: string, id?: string) => {
   currentPage.value = page
-  highlightAppointmentId.value = appointmentId
+  highlightId.value = id
 }
 </script>
 
@@ -26,9 +26,9 @@ const handleNavigate = (page: string, appointmentId?: string) => {
     
     <AppLayout v-else @navigate="handleNavigate">
       <DashboardPage v-if="currentPage === 'dashboard'" @navigate="handleNavigate" />
-      <AppointmentsPage v-else-if="currentPage === 'appointments'" />
+      <AppointmentsPage v-else-if="currentPage === 'appointments'" :highlight-id="highlightId" />
       <InventoryPage v-else-if="currentPage === 'inventory'" />
-      <ExceptionsPage v-else-if="currentPage === 'exceptions'" />
+      <ExceptionsPage v-else-if="currentPage === 'exceptions'" :highlight-id="highlightId" />
     </AppLayout>
   </div>
 </template>

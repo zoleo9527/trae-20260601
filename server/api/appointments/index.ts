@@ -1,8 +1,5 @@
-import type { Appointment } from '~/data/types'
-import { mockAppointments } from '~/data/mockData'
-
-const appointments: Appointment[] = [...mockAppointments]
+import { getAppointments } from '~/server/utils/dataStore'
 
 export default defineEventHandler(() => {
-  return appointments
+  return getAppointments()
 })
