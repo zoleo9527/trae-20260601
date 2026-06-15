@@ -330,12 +330,25 @@ export function registerIpcHandlers() {
       sql += ' AND r.status = ?';
       params.push(filters.status);
     }
+    if (filters?.statuses && Array.isArray(filters.statuses)) {
+      const placeholders = filters.statuses.map(() => '?').join(',');
+      sql += ` AND r.status IN (${placeholders})`;
+      params.push(...filters.statuses);
+    }
     if (filters?.search) {
       sql += ' AND (c.contract_no LIKE ? OR c.customer_name LIKE ? OR e.name LIKE ?)';
       const s = `%${filters.search}%`;
       params.push(s, s, s);
     }
-    sql += ' ORDER BY r.created_at DESC';
+    if (filters?.returnDateFrom) {
+      sql += ' AND r.return_time >= ?';
+      params.push(filters.returnDateFrom);
+    }
+    if (filters?.returnDateTo) {
+      sql += ' AND r.return_time <= ?';
+      params.push(filters.returnDateTo);
+    }
+    sql += ' ORDER BY r.return_time DESC';
     const rows = db.prepare(sql).all(...params);
     return rows.map((r: any) => rowToReturnRecord(r, r.contract_no, r.equipment_name, r.customer_name));
   });

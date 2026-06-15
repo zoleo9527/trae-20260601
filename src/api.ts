@@ -26,7 +26,13 @@ declare global {
       getDispatchRecords: (contractId?: number) => Promise<DispatchRecord[]>;
       createDispatchRecord: (data: any) => Promise<number>;
 
-      getReturnRecords: (filters?: { status?: string; search?: string }) => Promise<ReturnRecord[]>;
+      getReturnRecords: (filters?: {
+        status?: string;
+        statuses?: string[];
+        search?: string;
+        returnDateFrom?: string;
+        returnDateTo?: string;
+      }) => Promise<ReturnRecord[]>;
       getReturnRecordById: (id: number) => Promise<ReturnRecord | null>;
       createReturnRecord: (data: any) => Promise<number>;
       updateReturnRecord: (id: number, data: any) => Promise<boolean>;
