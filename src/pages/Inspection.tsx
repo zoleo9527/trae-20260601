@@ -94,6 +94,11 @@ export default function Inspection() {
   const handleSubmit = () => {
     if (!id || !order) return
     
+    if (currentUser.role !== 'technician') {
+      setError('只有维修师才能提交质检报告')
+      return
+    }
+    
     const allowedStatuses = STATUS_FLOW[order.status as keyof typeof STATUS_FLOW]
     if (!allowedStatuses || !allowedStatuses.includes('warranty_pending')) {
       setError(`当前状态【${getStatusLabel(order.status)}】不允许提交质检，请先完成前置流程`)
@@ -128,6 +133,8 @@ export default function Inspection() {
     return labels[status] || status
   }
 
+  const isTechnician = currentUser.role === 'technician'
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">加载中...</div>
   }
@@ -159,6 +166,20 @@ export default function Inspection() {
               <p className="text-sm text-red-700 mt-1">
                 当前工单状态为【{getStatusLabel(order.status)}】，无法执行此操作。
                 请按照正确流程：接单 → 质检 → 保修 → 维修完成
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {!isTechnician && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-yellow-800">角色权限提示</p>
+              <p className="text-sm text-yellow-700 mt-1">
+                只有维修师才能提交质检报告。当前角色：{currentUser.role === 'manager' ? '店长' : currentUser.role === 'front' ? '前台' : '未知'}
               </p>
             </div>
           </div>
@@ -324,7 +345,7 @@ export default function Inspection() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || !formData.technician_name || !formData.description || !isStatusValid}
+              disabled={submitting || !formData.technician_name || !formData.description || !isStatusValid || !isTechnician}
               className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-5 h-5" />

@@ -1,17 +1,17 @@
 import {
-  AlertCircle,
-  ArrowLeft,
-  Calendar,
-  Camera,
-  CheckCircle,
-  Clock,
-  FileCheck,
-  MessageSquare,
-  Package,
-  Phone,
-  Plus,
-  User,
-  Wrench
+    AlertCircle,
+    ArrowLeft,
+    Calendar,
+    Camera,
+    CheckCircle,
+    Clock,
+    FileCheck,
+    MessageSquare,
+    Package,
+    Phone,
+    Plus,
+    User,
+    Wrench
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -69,13 +69,37 @@ export default function OrderDetail() {
 
   const handleComplete = () => {
     if (!id) return
+    
+    if (currentUser.role !== 'technician') {
+      setError('只有维修师才能完成维修')
+      return
+    }
+    
+    if (order.status !== 'repairing') {
+      setError('只有维修中的工单才能完成')
+      return
+    }
+    
+    setError('')
     orderApi.updateStatus(id, 'completed').then(() => {
       orderApi.getById(id).then(data => setOrder(data))
+    }).catch((err: any) => {
+      setError(err.response?.data?.error || '操作失败')
     })
   }
 
   const handleUseSparePart = () => {
     if (!selectedSparePart || quantity <= 0 || !id) return
+    
+    if (currentUser.role !== 'technician') {
+      setError('只有维修师才能领用备件')
+      return
+    }
+    
+    if (order.status !== 'repairing') {
+      setError('只有在维修中的工单才能领用备件')
+      return
+    }
     
     setError('')
     sparePartApi.use(id, {

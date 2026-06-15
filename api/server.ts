@@ -18,6 +18,32 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
+const generateSampleImages = () => {
+  const sampleImages = [
+    { filename: 'ORD-001-1.jpg', text: 'iPhone 15 Pro 屏幕竖线问题', color: '87CEEB' },
+    { filename: 'ORD-001-2.jpg', text: '设备外观良好', color: '98FB98' },
+    { filename: 'ORD-002-1.jpg', text: '华为电池鼓包检测', color: 'FFB6C1' },
+    { filename: 'ORD-004-1.jpg', text: 'OPPO充电接口氧化', color: 'DDA0DD' }
+  ]
+  
+  sampleImages.forEach(img => {
+    const filePath = join(uploadsDir, img.filename)
+    if (!fs.existsSync(filePath)) {
+      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+        <rect width="400" height="400" fill="#${img.color}"/>
+        <rect x="20" y="20" width="360" height="300" fill="white" rx="10"/>
+        <text x="200" y="170" text-anchor="middle" font-size="24" fill="#333">质检照片</text>
+        <text x="200" y="210" text-anchor="middle" font-size="16" fill="#666">${img.text}</text>
+        <rect x="20" y="340" width="360" height="40" fill="#333" rx="0 0 10 10"/>
+        <text x="200" y="367" text-anchor="middle" font-size="14" fill="white">Sample Image</text>
+      </svg>`
+      const buffer = Buffer.from(svgContent)
+      fs.writeFileSync(filePath, buffer)
+    }
+  })
+}
+generateSampleImages()
+
 const saveBase64Image = (base64Data: string, orderId: string, index: number): string => {
   const matches = base64Data.match(/^data:image\/(\w+);base64,(.+)$/)
   if (!matches) {
