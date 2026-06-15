@@ -29,126 +29,141 @@ function req(path, opt = {}) {
     const token = login.data.accessToken;
     console.log('用户:', login.data.name, login.data.role);
 
-    console.log('\n=== 2. 获取安装队长列表 ===');
     const users = await req('/auth/users', { token });
     const leaders = (users.data || []).filter(u => u.role === 'install_leader');
-    console.log('安装队长:', leaders.map(u => `${u.id}-${u.name}`).join(', '));
-    if (!leaders.length) { console.log('没有安装队长，无法测试派工'); return; }
     const leaderId = leaders[0].id;
 
-    console.log('\n=== 3. 创建测试订单 ===');
-    const order = await req('/print-orders', {
+    console.log('\n=== 2. 创建测试订单(走旧流程) ===');
+    const order1 = await req('/print-orders', {
       method: 'POST', token,
-      body: { projectName: '一体化广告牌-测试', customerName: '测试客户A', customerPhone: '13800000001', priority: 'urgent', contentDescription: '楼顶大型喷绘，需现场安装', expectedDelivery: '2026-06-20T10:00:00.000Z' },
+      body: { projectName: '旧流程-广告牌测试', customerName: '旧流程客户', customerPhone: '13800000002', priority: 'normal', contentDescription: '测试旧照片回传流程', expectedDelivery: '2026-06-20T10:00:00.000Z' },
     });
-    console.log('订单 code:', order.code, order.message || '');
-    if (order.code !== 0) return;
-    const orderId = order.data.id;
-    console.log('订单ID:', orderId, '状态:', order.data.status);
+    const orderId1 = order1.data.id;
+    console.log('订单ID:', orderId1);
 
-    console.log('\n=== 4. 推进订单到待派工 (模拟快速走流程) ===');
-    await req(`/print-orders/${orderId}/assign-designer`, { method: 'POST', token, body: { designerId: (users.data.find(u => u.role === 'designer') || {}).id } });
-    const sub = await req(`/print-orders/${orderId}/submit-design`, { method: 'POST', token, body: { designFile: 'http://demo/design.psd' } });
-    console.log('提交设计 code:', sub.code, '状态:', sub.data?.status);
-    const startp = await req(`/print-orders/${orderId}/start-print`, { method: 'POST', token });
-    console.log('开始喷绘 code:', startp.code, '状态:', startp.data?.status);
-    const finish = await req(`/print-orders/${orderId}/complete-print`, { method: 'POST', token });
-    console.log('喷绘完成 code:', finish.code, '当前状态:', finish.data?.status);
+    console.log('\n=== 3. 推进到安装中(旧流程) ===');
+    await req(`/print-orders/${orderId1}/assign-designer`, { method: 'POST', token, body: { designerId: (users.data.find(u => u.role === 'designer') || {}).id } });
+    await req(`/print-orders/${orderId1}/submit-design`, { method: 'POST', token, body: { designFile: 'http://demo/design.psd' } });
+    await req(`/print-orders/${orderId1}/start-print`, { method: 'POST', token });
+    await req(`/print-orders/${orderId1}/complete-print`, { method: 'POST', token });
+    const assignRes = await req(`/print-orders/${orderId1}/assign-installation`, { method: 'POST', token, body: { installLeaderId: leaderId, installTime: '2026-06-16T09:00:00.000Z', installAddress: '旧流程地址', assignmentNotes: '旧流程派工备注' } });
+    console.log('旧派工 code:', assignRes.code);
+    const assignmentId = assignRes.data?.assignment?.id;
 
-    console.log('\n=== 5. 创建一体化安装任务 (关键!) ===');
-    const task = await req(`/print-orders/${orderId}/tasks`, {
-      method: 'POST', token,
-      body: { installLeaderId: leaderId, installTime: '2026-06-16 09:00', installAddress: '测试大道888号(现场)', teamMembers: ['队员甲', '队员乙'], assignmentNotes: '注意安全，楼顶作业，带齐工具' },
-    });
-    console.log('任务创建 code:', task.code, task.message || '');
-    if (task.code !== 0) return;
-    const taskId = task.data.task.id;
-    console.log('任务ID:', taskId, '轮次: #' + task.data.task.taskRound);
-    console.log('  安装队长:', task.data.task.installLeader?.name, '派工人:', task.data.task.assignedBy?.name);
-    console.log('  状态:', task.data.task.status, '卡住等级:', task.data.task.stuckLevel);
-
-    console.log('\n=== 6. 登录安装队长，开始安装 (责任人不丢失) ===');
     const login2 = await req('/auth/login', { method: 'POST', body: { username: 'installer', password: '123456' } });
     const token2 = login2.data.accessToken;
-    console.log('安装队长登录:', login2.data?.name);
 
-    const start = await req(`/print-orders/tasks/${taskId}/start`, { method: 'POST', token: token2 });
-    const startTask = start.data?.task || {};
-    console.log('开始安装 code:', start.code, '任务状态:', startTask.status);
-    console.log('  责任人仍在: 安装队长=', startTask.installLeaderName || startTask.installLeader?.name, '派工人=', startTask.assignedByName || startTask.assignedBy?.name);
+    await req(`/print-orders/${orderId1}/start-installation`, { method: 'POST', token: token2 });
+    console.log('旧流程已到安装中');
 
-    console.log('\n=== 7. 提交照片回传 (同任务，责任人保留) ===');
-    const photo = await req(`/print-orders/tasks/${taskId}/photo-return`, {
-      method: 'POST', token: token2,
-      body: { photoUrls: ['http://demo/photo1.jpg', 'http://demo/photo2.jpg'], returnNotes: '已完成安装，整体效果良好，客户在场确认' },
-    });
-    console.log('照片回传 code:', photo.code, photo.message || '');
-    if (photo.code === 0) {
-      const pt = photo.data.task || {};
-      console.log('  状态:', pt.status);
-      console.log('  照片数:', (pt.photoUrls || []).length);
-      console.log('  提交人:', pt.submittedByName || pt.submittedBy?.name);
-      console.log('  责任人不丢失: 安装队长=', pt.installLeaderName || pt.installLeader?.name, '派工人=', pt.assignedByName || pt.assignedBy?.name);
-    }
+    console.log('\n=== 4. 旧流程-提交照片回传 ===');
+    const photoRes = await req(`/print-orders/${orderId1}/photo-return`, { method: 'POST', token: token2, body: { photoUrls: ['http://demo/old1.jpg', 'http://demo/old2.jpg'], returnNotes: '旧流程照片回传说明' } });
+    console.log('旧照片回传 code:', photoRes.code);
+    const photoReturnId = photoRes.data?.photoReturn?.id;
+    console.log('photoReturnId:', photoReturnId);
 
-    console.log('\n=== 8. 管理员退回 (第一次测试责任追溯) ===');
-    const reject = await req(`/print-orders/tasks/${taskId}/photo-reject`, {
+    console.log('\n=== 5. 旧流程-退回照片(含退回原因+审核意见) ===');
+    const rejectRes = await req(`/print-orders/${orderId1}/photo-return/${photoReturnId}/reject`, {
       method: 'POST', token,
-      body: { rejectReason: '右下角灯箱位置有明显气泡，需返工重贴', reviewNotes: '客户不同意接收，请尽快重拍' },
+      body: { rejectReason: '旧流程退回：灯箱有气泡，需返工', reviewNotes: '客户不接受，请重拍' },
     });
-    console.log('退回 code:', reject.code, reject.message || '');
-    if (reject.code === 0) {
-      const rt = reject.data.task || {};
-      console.log('  状态:', rt.status, '退回原因:', rt.rejectReason);
-      console.log('  历史责任清晰: 派工人=', rt.assignedByName || rt.assignedBy?.name, '安装队长=', rt.installLeaderName || rt.installLeader?.name, '提交人=', rt.submittedByName || rt.submittedBy?.name);
-      console.log('  审核意见:', rt.reviewNotes, '审核人=', rt.reviewedByName || rt.reviewedBy?.name);
-      console.log('  同一条task记录内派工+照片+退回原因全包含:', !!rt.assignmentNotes, !!(rt.photoUrls || []).length, !!rt.rejectReason);
+    console.log('旧退回 code:', rejectRes.code, '状态:', rejectRes.data?.order?.status);
+
+    console.log('\n=== 6. 旧流程-重提交 + 验收通过 ===');
+    const photoRes2 = await req(`/print-orders/${orderId1}/photo-return`, { method: 'POST', token: token2, body: { photoUrls: ['http://demo/old3.jpg'], returnNotes: '返工完成' } });
+    const photoReturnId2 = photoRes2.data?.photoReturn?.id;
+    const approveRes = await req(`/print-orders/${orderId1}/photo-return/${photoReturnId2}/approve`, { method: 'POST', token, body: { reviewNotes: '旧流程验收通过，合格' } });
+    console.log('旧验收 code:', approveRes.code, '状态:', approveRes.data?.order?.status);
+
+    console.log('\n=== 7. 添加备注(验证 add_note 入订单历史) ===');
+    const noteRes = await req(`/print-orders/${orderId1}/notes`, { method: 'POST', token, body: { content: '客户要求追加防水处理', noteType: 'general' } });
+    console.log('添加备注 code:', noteRes.code);
+
+    console.log('\n=== 8. 检查旧流程订单日志(关键验证：submit_photo_return/approve_photo/reject_photo/add_note + 退回原因) ===');
+    const logs1 = await req(`/print-orders/${orderId1}/logs?page=1&pageSize=50`, { token });
+    const items1 = (logs1.data?.items || []);
+    console.log('旧流程日志总数:', logs1.data?.total);
+    items1.forEach(i => {
+      const action = i.metadata?.action || i.action;
+      const extra = [];
+      if (i.metadata?.rejectReason) extra.push(`退回原因: ${i.metadata.rejectReason}`);
+      if (i.metadata?.reviewNotes) extra.push(`审核意见: ${i.metadata.reviewNotes}`);
+      if (i.metadata?.photoCount) extra.push(`${i.metadata.photoCount}张照片`);
+      if (i.metadata?.contentPreview) extra.push(`内容: ${i.metadata.contentPreview}`);
+      if (i.metadata?.noteType) extra.push(`类型: ${i.metadata.noteType}`);
+      console.log(`  - ${action} | ${i.operator?.name || '系统'} ${extra.length ? '| ' + extra.join(' | ') : ''}`);
+    });
+
+    const hasSubmitPhoto = items1.some(i => (i.metadata?.action || i.action) === 'submit_photo_return');
+    const hasRejectPhoto = items1.some(i => (i.metadata?.action || i.action) === 'reject_photo');
+    const hasApprovePhoto = items1.some(i => (i.metadata?.action || i.action) === 'approve_photo');
+    const hasAddNote = items1.some(i => (i.metadata?.action || i.action) === 'add_note');
+    const rejectLog = items1.find(i => (i.metadata?.action || i.action) === 'reject_photo');
+    const approveLog = items1.find(i => (i.metadata?.action || i.action) === 'approve_photo');
+    console.log('  ✅ submit_photo_return 存在:', hasSubmitPhoto);
+    console.log('  ✅ reject_photo 存在:', hasRejectPhoto);
+    console.log('  ✅ approve_photo 存在:', hasApprovePhoto);
+    console.log('  ✅ add_note 存在:', hasAddNote);
+    console.log('  ✅ reject_photo 含 rejectReason:', !!(rejectLog?.metadata?.rejectReason));
+    console.log('  ✅ reject_photo 含 reviewNotes:', !!(rejectLog?.metadata?.reviewNotes));
+    console.log('  ✅ approve_photo 含 reviewNotes:', !!(approveLog?.metadata?.reviewNotes));
+
+    console.log('\n=== 9. 创建一体化任务订单(走新流程) ===');
+    const order2 = await req('/print-orders', {
+      method: 'POST', token,
+      body: { projectName: '一体化-广告牌测试', customerName: '一体化客户', customerPhone: '13800000003', priority: 'urgent', contentDescription: '测试一体化任务退回原因入日志', expectedDelivery: '2026-06-20T10:00:00.000Z' },
+    });
+    const orderId2 = order2.data.id;
+    await req(`/print-orders/${orderId2}/assign-designer`, { method: 'POST', token, body: { designerId: (users.data.find(u => u.role === 'designer') || {}).id } });
+    await req(`/print-orders/${orderId2}/submit-design`, { method: 'POST', token, body: { designFile: 'http://demo/design.psd' } });
+    await req(`/print-orders/${orderId2}/start-print`, { method: 'POST', token });
+    await req(`/print-orders/${orderId2}/complete-print`, { method: 'POST', token });
+
+    const taskRes = await req(`/print-orders/${orderId2}/tasks`, { method: 'POST', token, body: { installLeaderId: leaderId, installTime: '2026-06-16T09:00:00.000Z', installAddress: '一体化测试地址', assignmentNotes: '一体化派工备注' } });
+    const taskId = taskRes.data.task.id;
+    console.log('一体化任务ID:', taskId);
+
+    await req(`/print-orders/tasks/${taskId}/start`, { method: 'POST', token: token2 });
+    await req(`/print-orders/tasks/${taskId}/photo-return`, { method: 'POST', token: token2, body: { photoUrls: ['http://demo/new1.jpg'], returnNotes: '一体化首次照片' } });
+
+    console.log('\n=== 10. 一体化任务退回(含退回原因+审核意见) ===');
+    const taskReject = await req(`/print-orders/tasks/${taskId}/photo-reject`, {
+      method: 'POST', token,
+      body: { rejectReason: '一体化退回：右下角有气泡', reviewNotes: '请尽快返工' },
+    });
+    console.log('一体化退回 code:', taskReject.code);
+
+    await req(`/print-orders/tasks/${taskId}/supplement`, { method: 'POST', token: token2, body: { content: '已安排返工' } });
+
+    console.log('\n=== 11. 检查一体化订单日志(关键：reject_task_photo 含退回原因+审核意见) ===');
+    const logs2 = await req(`/print-orders/${orderId2}/logs?page=1&pageSize=50`, { token });
+    const items2 = (logs2.data?.items || []);
+    console.log('一体化日志总数:', logs2.data?.total);
+    items2.forEach(i => {
+      const action = i.metadata?.action || i.action;
+      const extra = [];
+      if (i.metadata?.rejectReason) extra.push(`退回原因: ${i.metadata.rejectReason}`);
+      if (i.metadata?.reviewNotes) extra.push(`审核意见: ${i.metadata.reviewNotes}`);
+      if (i.metadata?.photoCount) extra.push(`${i.metadata.photoCount}张照片`);
+      if (i.metadata?.contentPreview) extra.push(`内容: ${i.metadata.contentPreview}`);
+      console.log(`  - ${action} | ${i.operator?.name || '系统'} ${extra.length ? '| ' + extra.join(' | ') : ''}`);
+    });
+
+    const taskRejectLog = items2.find(i => (i.metadata?.action || i.action) === 'reject_task_photo');
+    console.log('  ✅ reject_task_photo 含 rejectReason:', !!(taskRejectLog?.metadata?.rejectReason));
+    console.log('  ✅ reject_task_photo 含 reviewNotes:', !!(taskRejectLog?.metadata?.reviewNotes));
+    if (taskRejectLog?.metadata?.rejectReason) {
+      console.log('  📝 退回原因内容:', taskRejectLog.metadata.rejectReason);
+    }
+    if (taskRejectLog?.metadata?.reviewNotes) {
+      console.log('  📝 审核意见内容:', taskRejectLog.metadata.reviewNotes);
     }
 
-    console.log('\n=== 9. 添加补充备注 (留存责任说明) ===');
-    const supp = await req(`/print-orders/tasks/${taskId}/supplement`, {
-      method: 'POST', token: token2,
-      body: { content: '已安排队员下午3点前返工重贴，预计2小时完成' },
-    });
-    console.log('补充备注 code:', supp.code, '备注数:', (supp.data?.supplementNotes || []).length);
+    console.log('\n=== 12. 检查旧流程无裸 update 或空说明 ===');
+    const rawUpdate = items1.filter(i => (i.metadata?.action || i.action) === 'update' && !i.metadata?.action);
+    console.log('旧流程裸 update 数量:', rawUpdate.length, rawUpdate.length === 0 ? '✅ 无裸 update' : '❌ 仍有裸 update');
 
-    console.log('\n=== 10. 再次提交 + 验收 (第二次，验证轮次保持) ===');
-    await req(`/print-orders/tasks/${taskId}/photo-return`, { method: 'POST', token: token2, body: { photoUrls: ['http://demo/photo3.jpg'], returnNotes: '返工完成，气泡已消除' } });
-    const approve = await req(`/print-orders/tasks/${taskId}/photo-approve`, { method: 'POST', token, body: { reviewNotes: '合格，验收通过' } });
-    const at = approve.data?.task || {};
-    console.log('验收通过 code:', approve.code, '最终状态:', at.status, '轮次仍为 #' + at.taskRound);
-
-    console.log('\n=== 11.5 订单日志接口验证 (关键：含补充备注、退回处理的完整历史) ===');
-    const logs = await req(`/print-orders/${orderId}/logs?page=1&pageSize=50`, { token });
-    console.log('日志接口 code:', logs.code, '返回结构含分页字段:', 'items' in (logs.data||{}), 'total=', logs.data?.total, 'items.length=', logs.data?.items?.length);
-    const actions = (logs.data?.items || []).map(i => ({ a: i.metadata?.action || i.action, op: i.operator?.name, meta: i.metadata }));
-    console.log('  包含动作清单:');
-    actions.forEach(a => console.log('    -', a.a, '|', a.op, a.meta?.taskRound?`(第${a.meta.taskRound}轮)`:''));
-    const hasSupplement = actions.some(a => a.a === 'task_supplement');
-    const hasReject = actions.some(a => a.a === 'reject_task_photo');
-    const hasPhoto = actions.some(a => a.a === 'submit_task_photo');
-    const hasApprove = actions.some(a => a.a === 'approve_task_photo');
-    console.log('  ✅ 补充备注入订单历史:', hasSupplement ? 'YES' : 'NO');
-    console.log('  ✅ 退回处理入订单历史:', hasReject ? 'YES' : 'NO');
-    console.log('  ✅ 照片回传入订单历史:', hasPhoto ? 'YES' : 'NO');
-    console.log('  ✅ 验收通过入订单历史:', hasApprove ? 'YES' : 'NO');
-
-    console.log('\n=== 11. 卡住分析 Dashboard 测试 ===');
-    await req(`/print-orders/tasks/refresh-stuck`, { method: 'POST', token });
-    const stuck = await req('/dashboard/stuck', { token });
-    console.log('卡住分析组数:', stuck.data?.length);
-    (stuck.data || []).forEach(g => console.log('  -', g.statusLabel, '卡住', g.stuckCount, '/', g.totalInStatus, '判定:', (g.judgementHint||'').slice(0, 20) + '...'));
-
-    console.log('\n=== 12. 我的待办(安装队长视角) ===');
-    const todo = await req('/dashboard/waiting-for-me', { token: token2 });
-    console.log('队长待办: myActiveTasks=', todo.data?.myActiveTasks?.length, 'rejectedTasks=', (todo.data?.rejectedTasks || todo.data?.myTasks || todo.data)?.length);
-
-    console.log('\n=== 13. 最近改动 (验证日志完整) ===');
-    const changes = await req('/dashboard/recent-changes?limit=10', { token });
-    console.log('最近改动条数:', changes.data?.length);
-    (changes.data || []).slice(0, 5).forEach(c => console.log('  -', c.operatorName, c.actionLabel, '|', (c.summary||'').slice(0, 30)));
-
-    console.log('\n=== 全部流程测试完成 ✅ ===');
+    console.log('\n=== 全部测试完成 ✅ ===');
   } catch (e) {
     console.error('测试出错:', e.message);
     console.error(e.stack);

@@ -365,22 +365,28 @@ export class PrintOrderService {
       throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, '安装队长不存在');
     }
 
-    await this.assignmentRepo.update(
-      { orderId: id, isActive: true },
-      { isActive: false },
-    );
-
-    const assignment = this.assignmentRepo.create({
-      orderId: id,
-      installLeader,
-      installTime: dto.installTime ? new Date(dto.installTime) : null,
-      installAddress: dto.installAddress,
-      assignmentNotes: dto.assignmentNotes,
-      assignedBy: operator,
-      teamMembers: dto.teamMembers,
-      isActive: true,
-    });
-    await this.assignmentRepo.save(assignment);
+    try {
+      await this.assignmentRepo.update(
+        { order: { id }, isActive: true },
+        { isActive: false },
+      );
+    } catch (_) {}
+    let assignment: InstallationAssignment | null = null;
+    try {
+      assignment = this.assignmentRepo.create({
+        order,
+        installLeader,
+        installTime: dto.installTime ? new Date(dto.installTime) : null,
+        installAddress: dto.installAddress,
+        assignmentNotes: dto.assignmentNotes,
+        assignedBy: operator,
+        teamMembers: dto.teamMembers,
+        isActive: true,
+      });
+      await this.assignmentRepo.save(assignment);
+    } catch (e) {
+      console.warn('[旧派工表写入失败，继续流程]', e.message);
+    }
 
     order.installLeader = installLeader;
     order.status = PrintOrderStatus.INSTALL_ASSIGNED;
@@ -397,7 +403,7 @@ export class PrintOrderService {
       {
         action: 'assign_installation',
         installLeaderName: installLeader.name,
-        assignmentId: assignment.id,
+        assignmentId: assignment?.id,
       },
     );
 
@@ -448,7 +454,7 @@ export class PrintOrderService {
     }
 
     const photoReturn = this.photoReturnRepo.create({
-      orderId: id,
+      order,
       photoUrls: dto.photoUrls,
       returnNotes: dto.returnNotes,
       submittedBy: operator,
@@ -495,7 +501,8 @@ export class PrintOrderService {
     }
 
     const photoReturn = await this.photoReturnRepo.findOne({
-      where: { id: photoReturnId, orderId },
+      where: { id: photoReturnId },
+      relations: ['order'],
     });
     if (!photoReturn) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND, '照片回传记录不存在');
@@ -522,7 +529,7 @@ export class PrintOrderService {
 
       if (dto.rejectReason) {
         const note = this.noteRepo.create({
-          orderId,
+          order,
           noteType: NoteType.REJECT_REASON,
           content: dto.rejectReason,
           createdBy: operator,
@@ -546,6 +553,9 @@ export class PrintOrderService {
         action: approved ? 'approve_photo' : 'reject_photo',
         photoReturnId,
         approved,
+        ...(approved
+          ? { reviewNotes: dto.reviewNotes }
+          : { rejectReason: dto.rejectReason, reviewNotes: dto.reviewNotes }),
       },
     );
 
@@ -553,10 +563,10 @@ export class PrintOrderService {
   }
 
   async addNote(id: string, dto: AddOrderNoteDto, operator: User) {
-    await this.findOne(id);
+    const order = await this.findOne(id);
 
     const note = this.noteRepo.create({
-      orderId: id,
+      order,
       noteType: dto.noteType || NoteType.GENERAL,
       content: dto.content,
       createdBy: operator,
@@ -566,13 +576,13 @@ export class PrintOrderService {
     const saved = await this.noteRepo.save(note);
 
     await this.logService.record(
-      'OrderNote',
+      'PrintOrder',
       id,
-      'create',
+      'update',
       operator,
       null,
       saved,
-      { noteType: saved.noteType, contentPreview: dto.content.slice(0, 50) },
+      { action: 'add_note', noteType: saved.noteType, contentPreview: dto.content.slice(0, 50) },
     );
 
     return saved;
@@ -582,7 +592,7 @@ export class PrintOrderService {
     await this.findOne(id);
 
     const [items, total] = await this.noteRepo.findAndCount({
-      where: { orderId: id },
+      where: { order: { id } },
       order: { createdAt: 'DESC' },
       take: pageSize,
       skip: (page - 1) * pageSize,
@@ -712,31 +722,27 @@ export class PrintOrderService {
     });
     const savedTask = await this.taskRepo.save(task);
 
-    // 兼容旧派工表 (暂时完全禁用，避免 NOT NULL 约束异常影响主流程)
-    // TODO: 后续修复 InstallationAssignment 实体的 orderId 写入问题
-    // try {
-    //   await this.assignmentRepo.update(
-    //     { orderId, isActive: true },
-    //     { isActive: false },
-    //   );
-    // } catch (_) {}
-    // try {
-    //   const orderRef = await this.orderRepo.findOne({ where: { id: orderId } });
-    //   const assignment = this.assignmentRepo.create({
-    //     order: orderRef,
-    //     orderId,
-    //     installLeader,
-    //     installTime: dto.installTime ? new Date(dto.installTime) : null,
-    //     installAddress: dto.installAddress,
-    //     assignmentNotes: dto.assignmentNotes,
-    //     assignedBy: operator,
-    //     teamMembers: dto.teamMembers,
-    //     isActive: true,
-    //   });
-    //   await this.assignmentRepo.save(assignment);
-    // } catch (e) {
-    //   console.warn('[兼容旧派工表写入失败，继续流程]', e.message);
-    // }
+    try {
+      await this.assignmentRepo.update(
+        { order: { id: orderId }, isActive: true },
+        { isActive: false },
+      );
+    } catch (_) {}
+    try {
+      const assignment = this.assignmentRepo.create({
+        order,
+        installLeader,
+        installTime: dto.installTime ? new Date(dto.installTime) : null,
+        installAddress: dto.installAddress,
+        assignmentNotes: dto.assignmentNotes,
+        assignedBy: operator,
+        teamMembers: dto.teamMembers,
+        isActive: true,
+      });
+      await this.assignmentRepo.save(assignment);
+    } catch (e) {
+      console.warn('[兼容旧派工表写入失败，继续流程]', e.message);
+    }
 
     order.installLeader = installLeader;
     order.status = PrintOrderStatus.INSTALL_ASSIGNED;
@@ -820,20 +826,18 @@ export class PrintOrderService {
     task.status = InstallationTaskStatus.PHOTO_SUBMITTED;
     const savedTask = await this.taskRepo.save(task);
 
-    // 兼容旧照片回传表 (可能 NOT NULL 约束问题，try-catch 不影响主流程)
-    // TODO: 后续修复 PhotoReturn 实体字段写入一致性问题
-    // try {
-    //   const photoReturn = this.photoReturnRepo.create({
-    //     orderId: task.orderId,
-    //     photoUrls: dto.photoUrls,
-    //     returnNotes: dto.returnNotes,
-    //     submittedBy: operator,
-    //     status: PhotoReturnStatus.PENDING,
-    //   });
-    //   await this.photoReturnRepo.save(photoReturn);
-    // } catch (e) {
-    //   console.warn('[兼容旧照片回传表写入失败，继续]', e.message);
-    // }
+    try {
+      const photoReturn = this.photoReturnRepo.create({
+        order,
+        photoUrls: dto.photoUrls,
+        returnNotes: dto.returnNotes,
+        submittedBy: operator,
+        status: PhotoReturnStatus.PENDING,
+      });
+      await this.photoReturnRepo.save(photoReturn);
+    } catch (e) {
+      console.warn('[兼容旧照片回传表写入失败，继续]', e.message);
+    }
 
     order.status = PrintOrderStatus.PHOTO_RETURNED;
     const savedOrder = await this.orderRepo.save(order);
@@ -889,47 +893,44 @@ export class PrintOrderService {
       task.rejectReason = dto.rejectReason;
       order.status = PrintOrderStatus.PHOTO_REJECTED;
 
-      // 兼容旧备注表 (try-catch 不影响主流程)
-      // TODO: 后续修复 OrderNote 实体字段写入
-      // if (dto.rejectReason) {
-      //   try {
-      //     const note = this.noteRepo.create({
-      //       orderId: task.orderId,
-      //       noteType: NoteType.REJECT_REASON,
-      //       content: dto.rejectReason,
-      //       createdBy: operator,
-      //       metadata: { taskId, source: 'task_photo_reject' },
-      //     });
-      //     await this.noteRepo.save(note);
-      //   } catch (e) {
-      //     console.warn('[兼容旧备注表(退回)写入失败，继续]', e.message);
-      //   }
-      // }
+      if (dto.rejectReason) {
+        try {
+          const note = this.noteRepo.create({
+            order,
+            noteType: NoteType.REJECT_REASON,
+            content: dto.rejectReason,
+            createdBy: operator,
+            metadata: { taskId, source: 'task_photo_reject' },
+          });
+          await this.noteRepo.save(note);
+        } catch (e) {
+          console.warn('[兼容旧备注表(退回)写入失败，继续]', e.message);
+        }
+      }
     }
 
     const savedTask = await this.taskRepo.save(task);
     const savedOrder = await this.orderRepo.save(order);
 
-    // 兼容旧照片回传表 - 更新审核状态 (try-catch 不影响主流程)
-    // TODO: 后续修复 PhotoReturn 实体字段写入
-    // if (task.photoUrls?.length) {
-    //   try {
-    //     const pendingPhoto = await this.photoReturnRepo.findOne({
-    //       where: { orderId: task.orderId, status: PhotoReturnStatus.PENDING },
-    //       order: { createdAt: 'DESC' },
-    //     });
-    //     if (pendingPhoto) {
-    //       pendingPhoto.reviewNotes = dto.reviewNotes;
-    //       pendingPhoto.reviewedBy = operator;
-    //       pendingPhoto.reviewedAt = new Date();
-    //       pendingPhoto.status = approved ? PhotoReturnStatus.APPROVED : PhotoReturnStatus.REJECTED;
-    //       pendingPhoto.rejectReason = dto.rejectReason;
-    //       await this.photoReturnRepo.save(pendingPhoto);
-    //     }
-    //   } catch (e) {
-    //     console.warn('[兼容旧照片回传表审核更新失败，继续]', e.message);
-    //   }
-    // }
+    if (task.photoUrls?.length) {
+      try {
+        const pendingPhoto = await this.photoReturnRepo.findOne({
+          where: { status: PhotoReturnStatus.PENDING },
+          relations: ['order'],
+          order: { createdAt: 'DESC' },
+        });
+        if (pendingPhoto && pendingPhoto.order?.id === task.orderId) {
+          pendingPhoto.reviewNotes = dto.reviewNotes;
+          pendingPhoto.reviewedBy = operator;
+          pendingPhoto.reviewedAt = new Date();
+          pendingPhoto.status = approved ? PhotoReturnStatus.APPROVED : PhotoReturnStatus.REJECTED;
+          pendingPhoto.rejectReason = dto.rejectReason;
+          await this.photoReturnRepo.save(pendingPhoto);
+        }
+      } catch (e) {
+        console.warn('[兼容旧照片回传表审核更新失败，继续]', e.message);
+      }
+    }
 
     await this.logService.record(
       'PrintOrder',
@@ -942,6 +943,9 @@ export class PrintOrderService {
         action: approved ? 'approve_task_photo' : 'reject_task_photo',
         taskId,
         approved,
+        ...(approved
+          ? { reviewNotes: dto.reviewNotes }
+          : { rejectReason: dto.rejectReason, reviewNotes: dto.reviewNotes }),
       },
     );
 
@@ -953,6 +957,8 @@ export class PrintOrderService {
     if (!task) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND, '安装任务不存在');
     }
+
+    const order = await this.findOne(task.orderId);
 
     const supplements = task.supplementNotes || [];
     supplements.unshift({
@@ -966,20 +972,18 @@ export class PrintOrderService {
     task.supplementNotes = supplements;
     const savedTask = await this.taskRepo.save(task);
 
-    // 兼容旧备注表 (try-catch 不影响主流程)
-    // TODO: 后续修复 OrderNote 实体字段写入
-    // try {
-    //   const note = this.noteRepo.create({
-    //     orderId: task.orderId,
-    //     noteType: NoteType.SUPPLEMENT,
-    //     content: dto.content,
-    //     createdBy: operator,
-    //     metadata: { taskId, source: 'task_supplement' },
-    //   });
-    //   await this.noteRepo.save(note);
-    // } catch (e) {
-    //   console.warn('[兼容旧备注表(补充)写入失败，继续]', e.message);
-    // }
+    try {
+      const note = this.noteRepo.create({
+        order,
+        noteType: NoteType.SUPPLEMENT,
+        content: dto.content,
+        createdBy: operator,
+        metadata: { taskId, source: 'task_supplement' },
+      });
+      await this.noteRepo.save(note);
+    } catch (e) {
+      console.warn('[兼容旧备注表(补充)写入失败，继续]', e.message);
+    }
 
     await this.logService.record(
       'PrintOrder',

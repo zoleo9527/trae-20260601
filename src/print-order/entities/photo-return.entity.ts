@@ -23,11 +23,8 @@ export class PhotoReturn {
 
   @ManyToOne(() => PrintOrder, (order) => order.photoReturns)
   @JoinColumn({ name: 'orderId' })
-  order: PrintOrder;
-
-  @Column()
   @Index()
-  orderId: string;
+  order: PrintOrder;
 
   @Column({ type: 'simple-json', nullable: true })
   photoUrls: string[];

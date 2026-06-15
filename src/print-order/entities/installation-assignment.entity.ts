@@ -17,11 +17,8 @@ export class InstallationAssignment {
 
   @ManyToOne(() => PrintOrder, (order) => order.installationAssignments)
   @JoinColumn({ name: 'orderId' })
-  order: PrintOrder;
-
-  @Column()
   @Index()
-  orderId: string;
+  order: PrintOrder;
 
   @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'installLeaderId' })

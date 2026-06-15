@@ -25,11 +25,8 @@ export class OrderNote {
 
   @ManyToOne(() => PrintOrder, (order) => order.notes)
   @JoinColumn({ name: 'orderId' })
-  order: PrintOrder;
-
-  @Column()
   @Index()
-  orderId: string;
+  order: PrintOrder;
 
   @Column({
     type: 'simple-enum',
