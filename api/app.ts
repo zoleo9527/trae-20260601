@@ -13,6 +13,7 @@ import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
 import shopRoutes from './routes/shop.js'
+import { ERROR_CODES, ERROR_MESSAGES } from '../shared/types.js'
 
 // for esm mode
 const _filename = fileURLToPath(import.meta.url)
@@ -28,31 +29,33 @@ app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
 /**
- * API Routes
- */
-app.use('/api/auth', authRoutes)
-app.use('/api', shopRoutes)
-
-/**
  * health
  */
 app.use(
   '/api/health',
   (_req: Request, res: Response, _next: NextFunction): void => {
     res.status(200).json({
-      success: true,
-      message: 'ok',
+      code: ERROR_CODES.SUCCESS,
+      message: ERROR_MESSAGES[ERROR_CODES.SUCCESS],
+      data: { status: 'ok' },
     })
   },
 )
+
+/**
+ * API Routes
+ */
+app.use('/api/auth', authRoutes)
+app.use('/api', shopRoutes)
 
 /**
  * error handler middleware
  */
 app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({
-    success: false,
-    error: 'Server internal error',
+    code: ERROR_CODES.INTERNAL_ERROR,
+    message: ERROR_MESSAGES[ERROR_CODES.INTERNAL_ERROR] + (error.message ? `：${error.message}` : ''),
+    data: null,
   })
 })
 
@@ -60,10 +63,19 @@ app.use((error: Error, _req: Request, res: Response, _next: NextFunction) => {
  * 404 handler
  */
 app.use((req: Request, res: Response) => {
-  res.status(404).json({
-    success: false,
-    error: 'API not found',
-  })
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({
+      code: ERROR_CODES.INVALID_PARAMS,
+      message: `接口不存在：${req.method} ${req.path}`,
+      data: null,
+    })
+  } else {
+    res.status(404).json({
+      code: ERROR_CODES.INVALID_PARAMS,
+      message: '资源不存在',
+      data: null,
+    })
+  }
 })
 
 export default app

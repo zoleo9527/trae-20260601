@@ -110,8 +110,11 @@ export function submitSelection(
 
   const order = orders[orderIdx];
   const user = usersMap[payload.operatorId];
-  if (!user || user.role !== 'TECHNICIAN') {
-    return createResult(ERROR_CODES.PERMISSION_DENIED);
+  if (!user) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：操作员不存在');
+  }
+  if (user.role !== 'TECHNICIAN') {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：仅技师可提交选型');
   }
 
   if (!payload.tireSpecs || payload.tireSpecs.length === 0) {
@@ -127,7 +130,14 @@ export function submitSelection(
   const canGoToPending =
     currentStatus === 'IN_SELECTION' || currentStatus === 'QUOTE_REJECTED';
   if (!canGoToPending) {
-    return createResult(ERROR_CODES.INVALID_TRANSITION);
+    return createResult(ERROR_CODES.INVALID_TRANSITION, null, `当前状态[${currentStatus}]不可提交选型`);
+  }
+
+  if (currentStatus === 'IN_SELECTION' && order.selectionResponsible && order.selectionResponsible !== user.id) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, `无操作权限：此工单选型责任人是${order.selectionResponsibleName}`);
+  }
+  if (currentStatus === 'QUOTE_REJECTED' && order.selectionResponsible && order.selectionResponsible !== user.id) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：驳回工单需原选型技师重新处理');
   }
 
   const newSpecs: TireSpec[] = payload.tireSpecs.map((ts) => ({
@@ -164,11 +174,20 @@ export function claimSelection(orderId: string, operatorId: string): ServiceResu
   if (orderIdx === -1) return createResult(ERROR_CODES.ORDER_NOT_FOUND);
   const order = orders[orderIdx];
   const user = usersMap[operatorId];
-  if (!user || user.role !== 'TECHNICIAN') {
-    return createResult(ERROR_CODES.PERMISSION_DENIED);
+  if (!user) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：操作员不存在');
+  }
+  if (user.role !== 'TECHNICIAN') {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：仅技师可领取选型工单');
   }
   if (order.status !== 'PENDING_SELECTION' && order.status !== 'QUOTE_REJECTED') {
     return createResult(ERROR_CODES.INVALID_TRANSITION, null, '当前状态不可领取');
+  }
+  if (order.selectionResponsible && order.selectionResponsible !== user.id) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, `无操作权限：此工单已由技师${order.selectionResponsibleName}领取`);
+  }
+  if (order.status === 'QUOTE_REJECTED' && order.selectionResponsible && order.selectionResponsible !== user.id) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：驳回工单需原选型技师重新处理');
   }
   const fromStatus = order.status;
   order.status = 'IN_SELECTION';
@@ -197,17 +216,26 @@ export function processQuote(
 
   const order = orders[orderIdx];
   const user = usersMap[payload.operatorId];
-  if (!user || user.role !== 'MANAGER') {
-    return createResult(ERROR_CODES.PERMISSION_DENIED);
+  if (!user) {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：操作员不存在');
+  }
+  if (user.role !== 'MANAGER') {
+    return createResult(ERROR_CODES.PERMISSION_DENIED, null, '无操作权限：仅店长可处理报价');
   }
   if (order.status !== 'PENDING_QUOTE') {
-    return createResult(ERROR_CODES.INVALID_TRANSITION, null, '当前状态不可处理报价');
+    return createResult(ERROR_CODES.INVALID_TRANSITION, null, `当前状态[${order.status}]不可处理报价`);
   }
   if (!order.quote) {
     return createResult(ERROR_CODES.INVALID_AMOUNT, null, '报价数据缺失');
   }
-  if (order.quote.total <= 0 || order.quote.total > 1000000) {
-    return createResult(ERROR_CODES.INVALID_AMOUNT);
+  if (order.quote.total <= 0) {
+    return createResult(ERROR_CODES.INVALID_AMOUNT, null, '报价金额异常：总金额不能为零或负数');
+  }
+  if (order.quote.total > 1000000) {
+    return createResult(ERROR_CODES.INVALID_AMOUNT, null, '报价金额异常：单笔订单金额超过上限');
+  }
+  if (!order.selectionResponsible || !order.selectionResponsibleName) {
+    return createResult(ERROR_CODES.INVALID_TRANSITION, null, '选型责任未记录，报价前必须完成选型责任人确认');
   }
 
   if (payload.action === 'reject') {
