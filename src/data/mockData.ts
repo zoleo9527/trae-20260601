@@ -38,8 +38,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'pending',
+      submittedBy: null,
+      submittedAt: null,
       returnedAt: null,
       confirmedBy: null,
+      confirmedAt: null,
     },
     notes: [
       {
@@ -110,8 +113,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'pending',
+      submittedBy: null,
+      submittedAt: null,
       returnedAt: null,
       confirmedBy: null,
+      confirmedAt: null,
     },
     notes: [
       {
@@ -188,9 +194,12 @@ export const mockOrders: Order[] = [
     partReturn: {
       hasReturn: true,
       reason: '离合器总成拆下来后发现型号不对，库存发错了。换上旧的暂时能用，客户同意下周重新安排更换。',
-      status: 'pending',
+      status: 'submitted',
+      submittedBy: '李明',
+      submittedAt: '2024-06-01 13:30:00',
       returnedAt: null,
       confirmedBy: null,
+      confirmedAt: null,
     },
     notes: [
       {
@@ -275,8 +284,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'confirmed',
+      submittedBy: '王强',
+      submittedAt: '2024-05-30 15:35:00',
       returnedAt: null,
-      confirmedBy: null,
+      confirmedBy: '王强',
+      confirmedAt: '2024-05-30 15:35:00',
     },
     notes: [
       {
@@ -351,8 +363,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'pending',
+      submittedBy: null,
+      submittedAt: null,
       returnedAt: null,
       confirmedBy: null,
+      confirmedAt: null,
     },
     notes: [
       {
@@ -399,8 +414,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'pending',
+      submittedBy: null,
+      submittedAt: null,
       returnedAt: null,
       confirmedBy: null,
+      confirmedAt: null,
     },
     notes: [
       {
@@ -457,8 +475,11 @@ export const mockOrders: Order[] = [
       hasReturn: false,
       reason: '',
       status: 'confirmed',
+      submittedBy: '王强',
+      submittedAt: '2024-06-01 16:10:00',
       returnedAt: null,
-      confirmedBy: '陈仓库',
+      confirmedBy: '王强',
+      confirmedAt: '2024-06-01 16:10:00',
     },
     notes: [
       {

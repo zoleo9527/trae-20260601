@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Order, OrderStatus, UserRole, Note, PartItem, ChargeMethod } from '../types/order';
 import { mockOrders } from '../data/mockData';
+import { importFromExcelOrCSV } from '../utils/export';
 
 interface OrderState {
   orders: Order[];
@@ -23,11 +24,13 @@ interface OrderActions {
   confirmCharge: (orderId: string, amount: number, method: ChargeMethod) => void;
   uploadReceipt: (orderId: string, imageBase64: string) => void;
   confirmReceipt: (orderId: string) => void;
-  confirmPartReturn: (orderId: string, hasReturn: boolean, reason: string) => void;
+  submitPartReturn: (orderId: string, hasReturn: boolean, reason: string) => void;
+  confirmPartReturn: (orderId: string) => void;
   completeOrder: (orderId: string) => void;
   addOrder: (order: Omit<Order, 'id' | 'createdAt' | 'notes'>) => void;
   addPart: (orderId: string, part: PartItem) => void;
   importOrders: (orders: Order[]) => void;
+  handleImportFile: (file: File) => Promise<number>;
   resetToMock: () => void;
 }
 
@@ -135,7 +138,7 @@ export const useOrderStore = create<OrderState & OrderActions>()(
       },
 
       uploadReceipt: (orderId, imageBase64) => {
-        const { currentUser, addNote } = get();
+        const { addNote } = get();
         const now = formatDateTime(new Date());
         set((state) => ({
           orders: state.orders.map((o) =>
@@ -175,8 +178,55 @@ export const useOrderStore = create<OrderState & OrderActions>()(
         updateOrderStatus(orderId, 'pending_return');
       },
 
-      confirmPartReturn: (orderId, hasReturn, reason) => {
-        const { currentRole, currentUser, addNote, updateOrderStatus } = get();
+      submitPartReturn: (orderId, hasReturn, reason) => {
+        const { currentUser, addNote } = get();
+        const now = formatDateTime(new Date());
+        if (hasReturn) {
+          set((state) => ({
+            orders: state.orders.map((o) =>
+              o.id === orderId
+                ? {
+                    ...o,
+                    partReturn: {
+                      ...o.partReturn,
+                      hasReturn: true,
+                      reason,
+                      status: 'submitted' as const,
+                      submittedBy: currentUser,
+                      submittedAt: now,
+                    },
+                  }
+                : o
+            ),
+          }));
+          addNote(orderId, `工程师提交配件退回申请，原因：${reason}`);
+        } else {
+          set((state) => ({
+            orders: state.orders.map((o) =>
+              o.id === orderId
+                ? {
+                    ...o,
+                    partReturn: {
+                      ...o.partReturn,
+                      hasReturn: false,
+                      reason: '',
+                      status: 'confirmed' as const,
+                      submittedBy: currentUser,
+                      submittedAt: now,
+                      confirmedBy: currentUser,
+                      confirmedAt: now,
+                    },
+                  }
+                : o
+            ),
+          }));
+          addNote(orderId, '工程师确认无配件退回，直接进入客服审核');
+          get().updateOrderStatus(orderId, 'pending_review');
+        }
+      },
+
+      confirmPartReturn: (orderId) => {
+        const { currentUser, addNote, updateOrderStatus } = get();
         const now = formatDateTime(new Date());
         set((state) => ({
           orders: state.orders.map((o) =>
@@ -184,21 +234,17 @@ export const useOrderStore = create<OrderState & OrderActions>()(
               ? {
                   ...o,
                   partReturn: {
-                    hasReturn,
-                    reason,
-                    status: hasReturn ? 'returned' : 'confirmed',
-                    returnedAt: hasReturn ? now : null,
-                    confirmedBy: hasReturn ? null : currentUser,
+                    ...o.partReturn,
+                    status: 'confirmed' as const,
+                    confirmedBy: currentUser,
+                    confirmedAt: now,
+                    returnedAt: now,
                   },
                 }
               : o
           ),
         }));
-        if (hasReturn) {
-          addNote(orderId, `配件已退回，原因：${reason}`);
-        } else {
-          addNote(orderId, '确认无配件需要退回');
-        }
+        addNote(orderId, `配件管理员已确认配件退回`);
         updateOrderStatus(orderId, 'pending_review');
       },
 
@@ -235,6 +281,24 @@ export const useOrderStore = create<OrderState & OrderActions>()(
 
       importOrders: (orders) => {
         set({ orders });
+      },
+
+      handleImportFile: async (file: File) => {
+        const ext = file.name.split('.').pop()?.toLowerCase();
+        if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') {
+          const data = await importFromExcelOrCSV(file);
+          const { orders } = get();
+          set({ orders: [...data, ...orders] });
+          return data.length;
+        } else if (ext === 'json') {
+          const text = await file.text();
+          const data = JSON.parse(text) as Order[];
+          const { orders } = get();
+          set({ orders: [...data, ...orders] });
+          return data.length;
+        } else {
+          throw new Error('不支持的文件格式，请使用 Excel(.xlsx/.xls)、CSV 或 JSON 文件');
+        }
       },
 
       resetToMock: () => {

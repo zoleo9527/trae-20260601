@@ -51,9 +51,12 @@ export interface ReceiptInfo {
 export interface PartReturnInfo {
   hasReturn: boolean;
   reason: string;
-  status: 'pending' | 'returned' | 'confirmed';
+  status: 'pending' | 'submitted' | 'confirmed';
+  submittedBy: string | null;
+  submittedAt: string | null;
   returnedAt: string | null;
   confirmedBy: string | null;
+  confirmedAt: string | null;
 }
 
 export interface Note {

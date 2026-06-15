@@ -3,16 +3,15 @@ import { useOrderStore } from '../store/useOrderStore';
 import {
   LayoutDashboard,
   ClipboardList,
-  Settings,
   ChevronDown,
   User,
   Download,
   Upload,
-  Plus,
+  FileSpreadsheet,
   RotateCcw,
 } from 'lucide-react';
 import type { UserRole } from '../types/order';
-import { exportToExcel, exportToJSON, importFromJSON } from '../utils/export';
+import { exportToExcel, exportToJSON, downloadImportTemplate } from '../utils/export';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,7 +20,7 @@ interface LayoutProps {
 const roles: UserRole[] = ['客服', '工程师', '配件管理员'];
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { currentRole, currentUser, orders, setCurrentRole, importOrders, resetToMock } =
+  const { currentRole, currentUser, orders, setCurrentRole, handleImportFile: importFileFromStore, resetToMock } =
     useOrderStore();
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
@@ -36,23 +35,27 @@ export const Layout = ({ children }: LayoutProps) => {
     setShowExportMenu(false);
   };
 
-  const handleImport = () => {
+  const handleImportFile = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json';
+    input.accept = '.xlsx,.xls,.csv,.json';
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (file) {
         try {
-          const data = await importFromJSON(file);
-          importOrders(data);
-          alert(`成功导入 ${data.length} 条工单数据`);
+          const count = await importFileFromStore(file);
+          alert(`成功导入 ${count} 条工单数据`);
         } catch (err) {
           alert('导入失败：' + (err as Error).message);
         }
       }
     };
     input.click();
+    setShowExportMenu(false);
+  };
+
+  const handleDownloadTemplate = () => {
+    downloadImportTemplate();
     setShowExportMenu(false);
   };
 
@@ -65,7 +68,6 @@ export const Layout = ({ children }: LayoutProps) => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* 左侧导航 */}
       <aside className="w-60 bg-slate-900 text-white flex flex-col">
         <div className="p-5 border-b border-slate-700">
           <h1 className="text-lg font-bold flex items-center gap-2">
@@ -96,9 +98,7 @@ export const Layout = ({ children }: LayoutProps) => {
         </div>
       </aside>
 
-      {/* 右侧主内容 */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* 顶部栏 */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6">
           <div className="flex items-center gap-4">
             <h2 className="text-base font-semibold text-slate-800">工作台</h2>
@@ -106,7 +106,6 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* 导入导出 */}
             <div className="relative">
               <button
                 onClick={() => setShowExportMenu(!showExportMenu)}
@@ -117,7 +116,8 @@ export const Layout = ({ children }: LayoutProps) => {
                 <ChevronDown className="w-3.5 h-3.5" />
               </button>
               {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-slate-200 rounded-md shadow-lg z-50 py-1">
+                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-md shadow-lg z-50 py-1">
+                  <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-100">导出</div>
                   <button
                     onClick={handleExportExcel}
                     className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
@@ -133,18 +133,25 @@ export const Layout = ({ children }: LayoutProps) => {
                     导出 JSON
                   </button>
                   <div className="border-t border-slate-100 my-1"></div>
+                  <div className="px-3 py-1.5 text-xs text-slate-400 border-b border-slate-100">导入（旧台账）</div>
                   <button
-                    onClick={handleImport}
+                    onClick={handleImportFile}
                     className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
-                    导入 JSON
+                    导入 Excel/CSV/JSON
+                  </button>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    className="w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    下载导入模板
                   </button>
                 </div>
               )}
             </div>
 
-            {/* 角色切换 */}
             <div className="relative">
               <button
                 onClick={() => setShowRoleDropdown(!showRoleDropdown)}
@@ -182,7 +189,6 @@ export const Layout = ({ children }: LayoutProps) => {
           </div>
         </header>
 
-        {/* 内容区 */}
         <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>

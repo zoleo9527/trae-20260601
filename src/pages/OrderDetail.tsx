@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOrderStore } from '../store/useOrderStore';
 import { StatusBadge } from '../components/StatusBadge';
@@ -19,6 +19,7 @@ import {
   Plus,
   X,
   Download,
+  Send,
 } from 'lucide-react';
 import { formatMoney } from '../utils/format';
 import { downloadTextFile, exportNotesToText } from '../utils/export';
@@ -35,6 +36,7 @@ export const OrderDetail = () => {
     confirmCharge,
     uploadReceipt,
     confirmReceipt,
+    submitPartReturn,
     confirmPartReturn,
     completeOrder,
     updateOrderStatus,
@@ -65,16 +67,23 @@ export const OrderDetail = () => {
     order?.status === 'working' &&
     order.assignedTo === currentUser;
   const canConfirmCharge =
-    (currentRole === '工程师' || currentRole === '客服') &&
-    order?.status === 'pending_charge';
+    currentRole === '工程师' &&
+    order?.status === 'pending_charge' &&
+    order?.assignedTo === currentUser;
   const canUploadReceipt =
     currentRole === '工程师' &&
     order?.status === 'pending_receipt' &&
     order?.assignedTo === currentUser;
   const canConfirmReceipt = currentRole === '客服' && order?.status === 'pending_receipt';
-  const canHandleReturn =
-    (currentRole === '配件管理员' || currentRole === '工程师') &&
-    order?.status === 'pending_return';
+  const canSubmitReturn =
+    currentRole === '工程师' &&
+    order?.status === 'pending_return' &&
+    order?.assignedTo === currentUser &&
+    order?.partReturn.status === 'pending';
+  const canConfirmReturnByAdmin =
+    currentRole === '配件管理员' &&
+    order?.status === 'pending_return' &&
+    order?.partReturn.status === 'submitted';
   const canReview = currentRole === '客服' && order?.status === 'pending_review';
 
   const handleAssign = () => {
@@ -124,16 +133,21 @@ export const OrderDetail = () => {
     confirmReceipt(order.id);
   };
 
-  const handleConfirmReturn = () => {
+  const handleSubmitReturn = () => {
     if (!order) return;
     if (hasReturn && !returnReason.trim()) {
       alert('请填写退回原因');
       return;
     }
-    confirmPartReturn(order.id, hasReturn, returnReason.trim());
+    submitPartReturn(order.id, hasReturn, returnReason.trim());
     setShowReturnModal(false);
     setHasReturn(false);
     setReturnReason('');
+  };
+
+  const handleConfirmReturnAdmin = () => {
+    if (!order) return;
+    confirmPartReturn(order.id);
   };
 
   const handleComplete = () => {
@@ -164,9 +178,17 @@ export const OrderDetail = () => {
     );
   }
 
+  const returnStatusLabel = (status: string) => {
+    switch (status) {
+      case 'pending': return '待工程师提交';
+      case 'submitted': return '待配件管理员确认';
+      case 'confirmed': return '已确认';
+      default: return status;
+    }
+  };
+
   return (
     <div className="p-6 space-y-5">
-      {/* 顶部导航 */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
@@ -190,9 +212,7 @@ export const OrderDetail = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-5">
-        {/* 左侧：主要信息 */}
         <div className="col-span-2 space-y-5">
-          {/* 基础信息 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800">工单基础信息</h3>
@@ -212,9 +232,7 @@ export const OrderDetail = () => {
                   <User className="w-4 h-4 text-slate-400 mt-0.5" />
                   <div>
                     <div className="text-xs text-slate-400">客户姓名</div>
-                    <div className="text-sm text-slate-700 font-medium">
-                      {order.customer.name}
-                    </div>
+                    <div className="text-sm text-slate-700 font-medium">{order.customer.name}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -240,9 +258,7 @@ export const OrderDetail = () => {
                     <div className="text-sm text-slate-700 font-medium">
                       {order.appliance.brand} {order.appliance.type}
                     </div>
-                    <div className="text-xs text-slate-500 mt-0.5">
-                      型号：{order.appliance.model}
-                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">型号：{order.appliance.model}</div>
                   </div>
                 </div>
                 <div className="flex items-start gap-3">
@@ -257,9 +273,7 @@ export const OrderDetail = () => {
                   <div>
                     <div className="text-xs text-slate-400">分配工程师</div>
                     <div className="text-sm text-slate-700">
-                      {order.assignedTo || (
-                        <span className="text-amber-600">未分配</span>
-                      )}
+                      {order.assignedTo || <span className="text-amber-600">未分配</span>}
                     </div>
                   </div>
                 </div>
@@ -267,15 +281,12 @@ export const OrderDetail = () => {
             </div>
           </div>
 
-          {/* 配件信息 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800 flex items-center gap-2">
                 <Package className="w-4 h-4 text-slate-500" />
                 配件清单
-                <span className="text-xs text-slate-400 font-normal">
-                  ({order.parts.length}项)
-                </span>
+                <span className="text-xs text-slate-400 font-normal">({order.parts.length}项)</span>
               </h3>
             </div>
             {order.parts.length === 0 ? (
@@ -296,23 +307,13 @@ export const OrderDetail = () => {
                     {order.parts.map((part) => (
                       <tr key={part.id} className="border-b border-slate-50">
                         <td className="py-2.5 text-slate-700">{part.name}</td>
-                        <td className="py-2.5 text-center text-slate-600">
-                          {part.quantity}
-                        </td>
-                        <td className="py-2.5 text-right text-slate-600">
-                          {formatMoney(part.unitPrice)}
-                        </td>
+                        <td className="py-2.5 text-center text-slate-600">{part.quantity}</td>
+                        <td className="py-2.5 text-right text-slate-600">{formatMoney(part.unitPrice)}</td>
                         <td className="py-2.5 text-right text-slate-700 font-medium">
                           {formatMoney(part.quantity * part.unitPrice)}
                         </td>
                         <td className="py-2.5 text-center">
-                          <span
-                            className={`text-xs px-1.5 py-0.5 rounded ${
-                              part.used
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${part.used ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
                             {part.used ? '已使用' : '未使用'}
                           </span>
                         </td>
@@ -321,15 +322,9 @@ export const OrderDetail = () => {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-slate-200">
-                      <td colSpan={3} className="py-2.5 text-right text-slate-500 text-sm">
-                        配件合计
-                      </td>
+                      <td colSpan={3} className="py-2.5 text-right text-slate-500 text-sm">配件合计</td>
                       <td className="py-2.5 text-right text-slate-800 font-semibold">
-                        {formatMoney(
-                          order.parts
-                            .filter((p) => p.used)
-                            .reduce((sum, p) => sum + p.quantity * p.unitPrice, 0)
-                        )}
+                        {formatMoney(order.parts.filter((p) => p.used).reduce((sum, p) => sum + p.quantity * p.unitPrice, 0))}
                       </td>
                       <td></td>
                     </tr>
@@ -338,8 +333,7 @@ export const OrderDetail = () => {
               </div>
             )}
 
-            {/* 配件退回信息 */}
-            {order.partReturn.hasReturn || order.status === 'pending_return' ? (
+            {(order.partReturn.hasReturn || order.status === 'pending_return') && (
               <div className="px-5 pb-5">
                 <div className="bg-amber-50 border border-amber-200 rounded-md p-3">
                   <div className="flex items-center gap-2 text-amber-700 text-sm font-medium mb-1">
@@ -347,28 +341,32 @@ export const OrderDetail = () => {
                     配件退回
                   </div>
                   <div className="text-xs text-amber-600">
-                    状态：
-                    {order.partReturn.status === 'pending' && '待退回'}
-                    {order.partReturn.status === 'returned' && '已退回'}
-                    {order.partReturn.status === 'confirmed' && '已确认'}
+                    状态：{returnStatusLabel(order.partReturn.status)}
                   </div>
                   {order.partReturn.reason && (
                     <div className="text-xs text-amber-600 mt-1">
                       退回原因：{order.partReturn.reason}
                     </div>
                   )}
+                  {order.partReturn.submittedBy && (
+                    <div className="text-xs text-amber-600 mt-1">
+                      提交人：{order.partReturn.submittedBy}（{order.partReturn.submittedAt}）
+                    </div>
+                  )}
+                  {order.partReturn.confirmedBy && (
+                    <div className="text-xs text-amber-600 mt-1">
+                      确认人：{order.partReturn.confirmedBy}（{order.partReturn.confirmedAt}）
+                    </div>
+                  )}
                 </div>
               </div>
-            ) : null}
+            )}
           </div>
 
-          {/* 历史备注 */}
           <Timeline notes={order.notes} orderId={order.id} />
         </div>
 
-        {/* 右侧：操作和状态 */}
         <div className="space-y-5">
-          {/* 完工收费 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800 flex items-center gap-2">
@@ -377,13 +375,11 @@ export const OrderDetail = () => {
               </h3>
               {order.charge.confirmedAt ? (
                 <span className="text-xs text-green-600 flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  已确认
+                  <CheckCircle className="w-3.5 h-3.5" />已确认
                 </span>
               ) : (
                 <span className="text-xs text-amber-600 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  待处理
+                  <Clock className="w-3.5 h-3.5" />待处理
                 </span>
               )}
             </div>
@@ -399,25 +395,18 @@ export const OrderDetail = () => {
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-slate-500">收费方式</span>
-                <span className="text-sm text-slate-700">
-                  {order.charge.paidAt ? order.charge.method : '-'}
-                </span>
+                <span className="text-sm text-slate-700">{order.charge.paidAt ? order.charge.method : '-'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-slate-500">收费时间</span>
-                <span className="text-sm text-slate-700">
-                  {order.charge.paidAt || '-'}
-                </span>
+                <span className="text-sm text-slate-700">{order.charge.paidAt || '-'}</span>
               </div>
               {order.charge.confirmedBy && (
                 <div className="flex justify-between">
                   <span className="text-sm text-slate-500">确认人</span>
-                  <span className="text-sm text-slate-700">
-                    {order.charge.confirmedBy}
-                  </span>
+                  <span className="text-sm text-slate-700">{order.charge.confirmedBy}</span>
                 </div>
               )}
-
               {canConfirmCharge && (
                 <button
                   onClick={() => {
@@ -433,7 +422,6 @@ export const OrderDetail = () => {
             </div>
           </div>
 
-          {/* 电子回单 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800 flex items-center gap-2">
@@ -442,13 +430,11 @@ export const OrderDetail = () => {
               </h3>
               {order.receipt.confirmedAt ? (
                 <span className="text-xs text-green-600 flex items-center gap-1">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  已确认
+                  <CheckCircle className="w-3.5 h-3.5" />已确认
                 </span>
               ) : order.receipt.images.length > 0 ? (
                 <span className="text-xs text-amber-600 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5" />
-                  待确认
+                  <Clock className="w-3.5 h-3.5" />待确认
                 </span>
               ) : (
                 <span className="text-xs text-slate-400">未上传</span>
@@ -468,40 +454,27 @@ export const OrderDetail = () => {
                       className="aspect-square bg-slate-100 rounded-md overflow-hidden cursor-pointer hover:opacity-80 transition-opacity relative group"
                       onClick={() => setPreviewImage(img)}
                     >
-                      <img
-                        src={img}
-                        alt={`回单 ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={img} alt={`回单 ${idx + 1}`} className="w-full h-full object-cover" />
                       <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
-                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-                          点击查看
-                        </span>
+                        <span className="text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity">点击查看</span>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-
               {order.receipt.uploadedAt && (
-                <div className="mt-3 text-xs text-slate-400">
-                  上传时间：{order.receipt.uploadedAt}
-                </div>
+                <div className="mt-3 text-xs text-slate-400">上传时间：{order.receipt.uploadedAt}</div>
               )}
               {order.receipt.confirmedBy && (
-                <div className="text-xs text-slate-400">
-                  确认人：{order.receipt.confirmedBy}
-                </div>
+                <div className="text-xs text-slate-400">确认人：{order.receipt.confirmedBy}</div>
               )}
-
               <div className="mt-3 space-y-2">
                 {canUploadReceipt && (
                   <button
                     onClick={() => setShowReceiptModal(true)}
                     className="w-full py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    <Upload className="w-4 h-4" />
-                    上传回单
+                    <Upload className="w-4 h-4" />上传回单
                   </button>
                 )}
                 {canConfirmReceipt && order.receipt.images.length > 0 && (
@@ -509,15 +482,13 @@ export const OrderDetail = () => {
                     onClick={handleConfirmReceipt}
                     className="w-full py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                   >
-                    <CheckCircle className="w-4 h-4" />
-                    确认回单
+                    <CheckCircle className="w-4 h-4" />确认回单
                   </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* 操作区 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200">
               <h3 className="font-medium text-slate-800">操作</h3>
@@ -539,13 +510,22 @@ export const OrderDetail = () => {
                   登记完工
                 </button>
               )}
-              {canHandleReturn && (
+              {canSubmitReturn && (
                 <button
                   onClick={() => setShowReturnModal(true)}
                   className="w-full py-2 bg-pink-600 text-white text-sm rounded-md hover:bg-pink-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Package className="w-4 h-4" />
-                  配件退回处理
+                  <Send className="w-4 h-4" />
+                  提交配件退回
+                </button>
+              )}
+              {canConfirmReturnByAdmin && (
+                <button
+                  onClick={handleConfirmReturnAdmin}
+                  className="w-full py-2 bg-pink-600 text-white text-sm rounded-md hover:bg-pink-700 transition-colors flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  确认配件退回
                 </button>
               )}
               {canReview && (
@@ -558,27 +538,23 @@ export const OrderDetail = () => {
                 </button>
               )}
               {order.status === 'completed' && (
-                <div className="text-center py-2 text-sm text-slate-500">
-                  工单已结案
-                </div>
+                <div className="text-center py-2 text-sm text-slate-500">工单已结案</div>
               )}
               {!canStartWork &&
                 !canFinishWork &&
-                !canHandleReturn &&
+                !canSubmitReturn &&
+                !canConfirmReturnByAdmin &&
                 !canReview &&
                 !canConfirmCharge &&
                 !canUploadReceipt &&
                 !canConfirmReceipt &&
                 !canAssign &&
                 order.status !== 'completed' && (
-                  <div className="text-center py-2 text-sm text-slate-400">
-                    当前角色无待操作事项
-                  </div>
+                  <div className="text-center py-2 text-sm text-slate-400">当前角色无待操作事项</div>
                 )}
             </div>
           </div>
 
-          {/* 流程进度 */}
           <div className="bg-white rounded-lg border border-slate-200">
             <div className="px-5 py-3 border-b border-slate-200">
               <h3 className="font-medium text-slate-800">工单进度</h3>
@@ -590,6 +566,7 @@ export const OrderDetail = () => {
                 <span>施工</span>
                 <span>收费</span>
                 <span>回单</span>
+                <span>退回</span>
                 <span>结案</span>
               </div>
               <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -597,18 +574,13 @@ export const OrderDetail = () => {
                   className="h-full bg-gradient-to-r from-blue-500 to-green-500 rounded-full transition-all"
                   style={{
                     width:
-                      order.status === 'pending_assign'
-                        ? '10%'
-                        : order.status === 'pending_work'
-                        ? '25%'
-                        : order.status === 'working'
-                        ? '40%'
-                        : order.status === 'pending_charge'
-                        ? '55%'
-                        : order.status === 'pending_receipt'
-                        ? '70%'
-                        : order.status === 'pending_return' || order.status === 'pending_review'
-                        ? '85%'
+                      order.status === 'pending_assign' ? '8%'
+                        : order.status === 'pending_work' ? '20%'
+                        : order.status === 'working' ? '35%'
+                        : order.status === 'pending_charge' ? '50%'
+                        : order.status === 'pending_receipt' ? '65%'
+                        : order.status === 'pending_return' ? '80%'
+                        : order.status === 'pending_review' ? '90%'
                         : '100%',
                   }}
                 ></div>
@@ -618,29 +590,20 @@ export const OrderDetail = () => {
         </div>
       </div>
 
-      {/* 收费弹窗 */}
       {showChargeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-96">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800">登记收费</h3>
-              <button
-                onClick={() => setShowChargeModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowChargeModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
                 <label className="block text-sm text-slate-600 mb-1.5">收费金额（元）</label>
                 <input
-                  type="number"
-                  value={chargeAmount}
-                  onChange={(e) => setChargeAmount(e.target.value)}
-                  placeholder="请输入收费金额"
+                  type="number" value={chargeAmount} onChange={(e) => setChargeAmount(e.target.value)}
+                  placeholder="请输入收费金额" autoFocus
                   className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  autoFocus
                 />
               </div>
               <div>
@@ -648,50 +611,27 @@ export const OrderDetail = () => {
                 <div className="grid grid-cols-4 gap-2">
                   {(['微信', '支付宝', '现金', '转账'] as ChargeMethod[]).map((m) => (
                     <button
-                      key={m}
-                      onClick={() => setChargeMethod(m)}
-                      className={`py-1.5 text-sm rounded-md border transition-colors ${
-                        chargeMethod === m
-                          ? 'bg-blue-50 border-blue-300 text-blue-700'
-                          : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                    >
-                      {m}
-                    </button>
+                      key={m} onClick={() => setChargeMethod(m)}
+                      className={`py-1.5 text-sm rounded-md border transition-colors ${chargeMethod === m ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                    >{m}</button>
                   ))}
                 </div>
               </div>
             </div>
             <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                onClick={() => setShowChargeModal(false)}
-                className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirmCharge}
-                className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                确认
-              </button>
+              <button onClick={() => setShowChargeModal(false)} className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md">取消</button>
+              <button onClick={handleConfirmCharge} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">确认</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 回单上传弹窗 */}
       {showReceiptModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-96">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800">上传电子回单</h3>
-              <button
-                onClick={() => setShowReceiptModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowReceiptModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5">
               <label className="block">
@@ -700,158 +640,90 @@ export const OrderDetail = () => {
                   <p className="text-sm text-slate-500">点击选择图片</p>
                   <p className="text-xs text-slate-400 mt-1">支持 JPG、PNG 格式</p>
                 </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleReceiptUpload}
-                  className="hidden"
-                />
+                <input type="file" accept="image/*" onChange={handleReceiptUpload} className="hidden" />
               </label>
             </div>
           </div>
         </div>
       )}
 
-      {/* 分配工程师弹窗 */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-96">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
               <h3 className="font-medium text-slate-800">分配工程师</h3>
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5">
               <label className="block text-sm text-slate-600 mb-1.5">选择工程师</label>
               <div className="space-y-2">
                 {engineers.map((eng) => (
                   <button
-                    key={eng}
-                    onClick={() => setSelectedEngineer(eng)}
-                    className={`w-full px-3 py-2.5 text-left text-sm rounded-md border transition-colors ${
-                      selectedEngineer === eng
-                        ? 'bg-blue-50 border-blue-300 text-blue-700'
-                        : 'border-slate-200 text-slate-700 hover:border-slate-300'
-                    }`}
+                    key={eng} onClick={() => setSelectedEngineer(eng)}
+                    className={`w-full px-3 py-2.5 text-left text-sm rounded-md border transition-colors ${selectedEngineer === eng ? 'bg-blue-50 border-blue-300 text-blue-700' : 'border-slate-200 text-slate-700 hover:border-slate-300'}`}
                   >
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-slate-400" />
-                      {eng}
-                    </div>
+                    <div className="flex items-center gap-2"><User className="w-4 h-4 text-slate-400" />{eng}</div>
                   </button>
                 ))}
               </div>
             </div>
             <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleAssign}
-                disabled={!selectedEngineer}
-                className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-              >
-                确认分配
-              </button>
+              <button onClick={() => setShowAssignModal(false)} className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md">取消</button>
+              <button onClick={handleAssign} disabled={!selectedEngineer} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed">确认分配</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 配件退回弹窗 */}
       {showReturnModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg w-96">
             <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
-              <h3 className="font-medium text-slate-800">配件退回处理</h3>
-              <button
-                onClick={() => setShowReturnModal(false)}
-                className="text-slate-400 hover:text-slate-600"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <h3 className="font-medium text-slate-800">提交配件退回</h3>
+              <button onClick={() => setShowReturnModal(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label className="block text-sm text-slate-600 mb-2">是否有配件退回？</label>
+                <label className="block text-sm text-slate-600 mb-2">是否有配件需要退回？</label>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setHasReturn(false)}
-                    className={`flex-1 py-2 text-sm rounded-md border transition-colors ${
-                      !hasReturn
-                        ? 'bg-green-50 border-green-300 text-green-700'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    无退回
-                  </button>
+                    className={`flex-1 py-2 text-sm rounded-md border transition-colors ${!hasReturn ? 'bg-green-50 border-green-300 text-green-700' : 'border-slate-200 text-slate-600'}`}
+                  >无退回</button>
                   <button
                     onClick={() => setHasReturn(true)}
-                    className={`flex-1 py-2 text-sm rounded-md border transition-colors ${
-                      hasReturn
-                        ? 'bg-amber-50 border-amber-300 text-amber-700'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
-                  >
-                    有退回
-                  </button>
+                    className={`flex-1 py-2 text-sm rounded-md border transition-colors ${hasReturn ? 'bg-amber-50 border-amber-300 text-amber-700' : 'border-slate-200 text-slate-600'}`}
+                  >有退回</button>
                 </div>
               </div>
               {hasReturn && (
                 <div>
                   <label className="block text-sm text-slate-600 mb-1.5">退回原因</label>
                   <textarea
-                    value={returnReason}
-                    onChange={(e) => setReturnReason(e.target.value)}
-                    placeholder="请填写退回原因"
-                    rows={3}
+                    value={returnReason} onChange={(e) => setReturnReason(e.target.value)}
+                    placeholder="请填写退回原因" rows={3}
                     className="w-full px-3 py-2 border border-slate-200 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                   />
                 </div>
               )}
+              {!hasReturn && (
+                <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-xs text-blue-600">
+                  确认无配件退回将直接进入客服审核流程
+                </div>
+              )}
             </div>
             <div className="px-5 py-3 border-t border-slate-200 flex justify-end gap-2">
-              <button
-                onClick={() => setShowReturnModal(false)}
-                className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleConfirmReturn}
-                className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                确认
-              </button>
+              <button onClick={() => setShowReturnModal(false)} className="px-4 py-1.5 text-sm text-slate-600 hover:bg-slate-50 rounded-md">取消</button>
+              <button onClick={handleSubmitReturn} className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700">提交</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 图片预览 */}
       {previewImage && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-8"
-          onClick={() => setPreviewImage(null)}
-        >
-          <button
-            onClick={() => setPreviewImage(null)}
-            className="absolute top-4 right-4 text-white hover:text-slate-300"
-          >
-            <X className="w-8 h-8" />
-          </button>
-          <img
-            src={previewImage}
-            alt="回单预览"
-            className="max-w-full max-h-full object-contain rounded-lg"
-          />
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-8" onClick={() => setPreviewImage(null)}>
+          <button onClick={() => setPreviewImage(null)} className="absolute top-4 right-4 text-white hover:text-slate-300"><X className="w-8 h-8" /></button>
+          <img src={previewImage} alt="回单预览" className="max-w-full max-h-full object-contain rounded-lg" />
         </div>
       )}
     </div>

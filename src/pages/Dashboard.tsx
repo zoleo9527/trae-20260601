@@ -15,20 +15,47 @@ import {
   ChevronRight,
   Filter,
 } from 'lucide-react';
-import type { OrderStatus, Order } from '../types/order';
-import { ORDER_STATUS_LABEL } from '../types/order';
+import type { OrderStatus } from '../types/order';
 import { formatMoney } from '../utils/format';
 
-const statusFilters: { key: OrderStatus | 'all'; label: string; icon: React.ReactNode }[] = [
-  { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
-  { key: 'pending_assign', label: '待派单', icon: <Clock className="w-4 h-4" /> },
-  { key: 'pending_work', label: '待施工', icon: <Wrench className="w-4 h-4" /> },
-  { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4" /> },
-  { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4" /> },
-  { key: 'pending_return', label: '待配件退回', icon: <Package className="w-4 h-4" /> },
-  { key: 'pending_review', label: '待审核', icon: <Clock className="w-4 h-4" /> },
-  { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4" /> },
-];
+const roleCards: Record<string, { key: OrderStatus; label: string; icon: React.ReactNode }[]> = {
+  '客服': [
+    { key: 'pending_assign', label: '待派单', icon: <Clock className="w-4 h-4 text-amber-500" /> },
+    { key: 'pending_review', label: '待审核', icon: <FileCheck className="w-4 h-4 text-cyan-500" /> },
+    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4 text-green-500" /> },
+  ],
+  '工程师': [
+    { key: 'pending_work', label: '待施工', icon: <Wrench className="w-4 h-4 text-blue-500" /> },
+    { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4 text-orange-500" /> },
+    { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4 text-purple-500" /> },
+  ],
+  '配件管理员': [
+    { key: 'pending_return', label: '待配件确认', icon: <Package className="w-4 h-4 text-pink-500" /> },
+    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4 text-green-500" /> },
+  ],
+};
+
+const roleStatusFilters: Record<string, { key: OrderStatus | 'all'; label: string; icon: React.ReactNode }[]> = {
+  '客服': [
+    { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
+    { key: 'pending_assign', label: '待派单', icon: <Clock className="w-4 h-4" /> },
+    { key: 'pending_review', label: '待审核', icon: <Clock className="w-4 h-4" /> },
+    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4" /> },
+  ],
+  '工程师': [
+    { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
+    { key: 'pending_work', label: '待施工', icon: <Wrench className="w-4 h-4" /> },
+    { key: 'working', label: '施工中', icon: <Wrench className="w-4 h-4" /> },
+    { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4" /> },
+    { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4" /> },
+    { key: 'pending_return', label: '待退回处理', icon: <Package className="w-4 h-4" /> },
+  ],
+  '配件管理员': [
+    { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
+    { key: 'pending_return', label: '待配件确认', icon: <Package className="w-4 h-4" /> },
+    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4" /> },
+  ],
+};
 
 export const Dashboard = () => {
   const {
@@ -41,6 +68,9 @@ export const Dashboard = () => {
     setStatusFilter,
   } = useOrderStore();
 
+  const cards = roleCards[currentRole] || [];
+  const statusFilters = roleStatusFilters[currentRole] || [];
+
   const stats = useMemo(() => {
     const result: Record<string, number> = {};
     statusFilters.forEach((f) => {
@@ -51,30 +81,49 @@ export const Dashboard = () => {
       }
     });
     return result;
-  }, [orders]);
+  }, [orders, statusFilters]);
 
   const todoStats = useMemo(() => {
-    let myTodo = 0;
     if (currentRole === '客服') {
-      myTodo = orders.filter(
+      return orders.filter(
         (o) => o.status === 'pending_assign' || o.status === 'pending_review'
       ).length;
     } else if (currentRole === '工程师') {
-      myTodo = orders.filter(
+      return orders.filter(
         (o) =>
           o.assignedTo === currentUser &&
           (o.status === 'pending_work' ||
             o.status === 'pending_charge' ||
-            o.status === 'pending_receipt')
+            o.status === 'pending_receipt' ||
+            o.status === 'pending_return')
       ).length;
     } else if (currentRole === '配件管理员') {
-      myTodo = orders.filter((o) => o.status === 'pending_return').length;
+      return orders.filter(
+        (o) => o.status === 'pending_return' && o.partReturn.status === 'submitted'
+      ).length;
     }
-    return myTodo;
+    return 0;
   }, [orders, currentRole, currentUser]);
 
   const filteredOrders = useMemo(() => {
     let result = [...orders];
+
+    if (currentRole === '客服') {
+      // no pre-filter, see all
+    } else if (currentRole === '工程师') {
+      result = result.filter(
+        (o) =>
+          o.assignedTo === currentUser ||
+          o.status === 'pending_assign'
+      );
+    } else if (currentRole === '配件管理员') {
+      result = result.filter(
+        (o) =>
+          o.parts.length > 0 ||
+          o.partReturn.hasReturn ||
+          o.status === 'pending_return'
+      );
+    }
 
     if (statusFilter !== 'all') {
       result = result.filter((o) => o.status === statusFilter);
@@ -90,14 +139,6 @@ export const Dashboard = () => {
           o.appliance.type.toLowerCase().includes(kw) ||
           o.appliance.brand.toLowerCase().includes(kw) ||
           o.appliance.fault.toLowerCase().includes(kw)
-      );
-    }
-
-    if (currentRole === '工程师') {
-      result = result.filter((o) => o.assignedTo === currentUser || o.status === 'pending_assign');
-    } else if (currentRole === '配件管理员') {
-      result = result.filter(
-        (o) => o.parts.length > 0 || o.status === 'pending_return' || o.partReturn.hasReturn
       );
     }
 
@@ -117,7 +158,6 @@ export const Dashboard = () => {
 
   return (
     <div className="p-6 space-y-5">
-      {/* 角色提示 */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex items-center gap-3">
         <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
           {currentRole === '客服' && <Phone className="w-4 h-4" />}
@@ -134,42 +174,24 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-4 gap-4">
-        {[
-          { key: 'pending_assign', label: '待派单', color: 'amber' },
-          { key: 'pending_charge', label: '待收费', color: 'orange' },
-          { key: 'pending_receipt', label: '待回单', color: 'purple' },
-          { key: 'completed', label: '已完成', color: 'green' },
-        ].map((item) => (
+      <div className="grid grid-cols-3 gap-4">
+        {cards.map((item) => (
           <div
             key={item.key}
             className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
-            onClick={() => setStatusFilter(item.key as OrderStatus)}
+            onClick={() => setStatusFilter(item.key)}
           >
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-500">{item.label}</span>
-              {item.key === 'pending_assign' && (
-                <Clock className="w-4 h-4 text-amber-500" />
-              )}
-              {item.key === 'pending_charge' && (
-                <CreditCard className="w-4 h-4 text-orange-500" />
-              )}
-              {item.key === 'pending_receipt' && (
-                <FileCheck className="w-4 h-4 text-purple-500" />
-              )}
-              {item.key === 'completed' && (
-                <FileCheck className="w-4 h-4 text-green-500" />
-              )}
+              {item.icon}
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-800">
-              {stats[item.key] || 0}
+              {orders.filter((o) => o.status === item.key).length}
             </div>
           </div>
         ))}
       </div>
 
-      {/* 筛选和搜索 */}
       <div className="bg-white rounded-lg border border-slate-200">
         <div className="px-5 py-3 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -212,7 +234,6 @@ export const Dashboard = () => {
           </div>
         </div>
 
-        {/* 工单列表 */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50">
@@ -296,6 +317,9 @@ export const Dashboard = () => {
                     </td>
                     <td className="px-5 py-4">
                       <StatusBadge status={order.status} size="sm" />
+                      {order.status === 'pending_return' && order.partReturn.status === 'submitted' && (
+                        <div className="text-xs text-pink-600 mt-1">待配件管理员确认</div>
+                      )}
                     </td>
                     <td className="px-5 py-4 text-right">
                       <button
