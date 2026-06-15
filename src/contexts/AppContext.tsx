@@ -11,6 +11,7 @@ interface AppState {
   feedbacks: ProcessFeedback[]
   additions: AdditionRecord[]
   handles: ExceptionHandle[]
+  users: User[]
   stuckOrders: Order[]
   stuckFeedbacks: ProcessFeedback[]
   incompleteAdditions: AdditionRecord[]
@@ -20,6 +21,7 @@ interface AppState {
   loadFeedbacks: () => void
   loadAdditions: () => void
   loadHandles: () => void
+  loadUsers: () => void
   loadAllData: () => void
   detectStuck: () => void
   resetData: () => void
@@ -30,6 +32,7 @@ export const useAppStore = create<AppState>((set) => ({
   feedbacks: [],
   additions: [],
   handles: [],
+  users: [],
   stuckOrders: [],
   stuckFeedbacks: [],
   incompleteAdditions: [],
@@ -58,6 +61,11 @@ export const useAppStore = create<AppState>((set) => ({
     set({ handles })
   },
   
+  loadUsers: () => {
+    const usersData = JSON.parse(localStorage.getItem('users') || '[]') as User[]
+    set({ users: usersData })
+  },
+  
   loadAllData: () => {
     set({ loading: true })
     const { orders } = orderService.getOrders()
@@ -67,6 +75,7 @@ export const useAppStore = create<AppState>((set) => ({
     const { records } = additionService.getAdditions()
     const incompleteAdditions = additionService.getIncompleteAdditions()
     const { handles } = exceptionService.getHandles()
+    const usersData = JSON.parse(localStorage.getItem('users') || '[]') as User[]
     set({
       orders,
       stuckOrders,
@@ -75,6 +84,7 @@ export const useAppStore = create<AppState>((set) => ({
       additions: records,
       incompleteAdditions,
       handles,
+      users: usersData,
       loading: false,
     })
   },
@@ -100,6 +110,7 @@ export const useAppStore = create<AppState>((set) => ({
     const { records } = additionService.getAdditions()
     const incompleteAdditions = additionService.getIncompleteAdditions()
     const { handles } = exceptionService.getHandles()
+    const usersData = JSON.parse(localStorage.getItem('users') || '[]') as User[]
     
     set({
       orders,
@@ -109,6 +120,7 @@ export const useAppStore = create<AppState>((set) => ({
       additions: records,
       incompleteAdditions,
       handles,
+      users: usersData,
     })
   },
 }))

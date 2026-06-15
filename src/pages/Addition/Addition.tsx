@@ -49,8 +49,10 @@ export function Addition() {
     }, currentUser.id, currentUser.name, currentUser.role)
     
     loadAdditions()
-    setDrawerOpen(false)
-    setSelectedAddition(null)
+    const updated = additionService.getAdditionById(selectedAddition.id)
+    if (updated) {
+      setSelectedAddition(updated)
+    }
     setAction('')
     setReason('')
   }
@@ -366,7 +368,37 @@ export function Addition() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">选择处理方式</option>
-                  <option value="complete">标记完成</option>
+                  {selectedAddition.status === 'pending_confirmation' && (
+                    <>
+                      <option value="confirm">确认加项</option>
+                      <option value="reject">拒绝加项</option>
+                    </>
+                  )}
+                  {selectedAddition.status === 'confirmed' && (
+                    <>
+                      <option value="approve">批准加项</option>
+                      <option value="reject">主管驳回</option>
+                    </>
+                  )}
+                  {selectedAddition.status === 'pending_approval' && (
+                    <>
+                      <option value="approve">批准加项</option>
+                      <option value="reject">主管驳回</option>
+                    </>
+                  )}
+                  {selectedAddition.status === 'approved' && (
+                    <option value="complete">标记完成</option>
+                  )}
+                  {selectedAddition.status === 'in_progress' && (
+                    <option value="complete">标记完成</option>
+                  )}
+                  {(selectedAddition.status === 'approved' || selectedAddition.status === 'in_progress') && (
+                    <option value="mark_incomplete">标记未完成</option>
+                  )}
+                  {(selectedAddition.status === 'rejected_by_housekeeper' || 
+                    selectedAddition.status === 'rejected_by_supervisor') && (
+                    <option value="confirm">重新提交</option>
+                  )}
                   <option value="mark_incomplete">标记未完成</option>
                 </select>
                 

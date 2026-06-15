@@ -50,6 +50,12 @@ export const exceptionService = {
             action: 'reject',
             reason: request.reason,
           })
+        } else if (request.targetType === 'addition') {
+          additionService.handleAddition({
+            recordId: request.targetId,
+            action: 'reject',
+            reason: request.reason,
+          }, handlerId, handlerName, handlerRole)
         }
         break
       case 'supplement':
@@ -82,6 +88,22 @@ export const exceptionService = {
             reason: request.reason,
             transferTo: request.transferTo,
           })
+        } else if (request.targetType === 'addition') {
+          const users = JSON.parse(localStorage.getItem('users') || '[]')
+          const user = users.find(u => u.id === request.transferTo)
+          if (user) {
+            const additions = JSON.parse(localStorage.getItem('additions') || '[]')
+            const index = additions.findIndex((a: any) => a.id === request.targetId)
+            if (index !== -1) {
+              additions[index].currentHandler = {
+                role: user.role as 'customer_service' | 'housekeeper' | 'quality_supervisor',
+                name: user.name,
+                id: user.id,
+              }
+              additions[index].updatedAt = new Date().toISOString()
+              localStorage.setItem('additions', JSON.stringify(additions))
+            }
+          }
         }
         break
       case 'complete':
@@ -108,6 +130,26 @@ export const exceptionService = {
           additionService.handleAddition({
             recordId: request.targetId,
             action: 'mark_incomplete',
+            reason: request.reason,
+          }, handlerId, handlerName, handlerRole)
+        }
+        break
+      case 'confirm':
+        handle.result = '已确认加项'
+        if (request.targetType === 'addition') {
+          additionService.handleAddition({
+            recordId: request.targetId,
+            action: 'confirm',
+            reason: request.reason,
+          }, handlerId, handlerName, handlerRole)
+        }
+        break
+      case 'approve':
+        handle.result = '已批准加项'
+        if (request.targetType === 'addition') {
+          additionService.handleAddition({
+            recordId: request.targetId,
+            action: 'approve',
             reason: request.reason,
           }, handlerId, handlerName, handlerRole)
         }

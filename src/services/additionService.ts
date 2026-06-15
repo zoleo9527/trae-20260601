@@ -40,20 +40,35 @@ export const additionService = {
     
     switch (request.action) {
       case 'confirm':
-        addition.status = 'confirmed'
-        addition.currentHandler = {
-          role: 'quality_supervisor',
-          name: '陈主管',
-          id: 'user-5',
+        if (addition.status === 'rejected_by_housekeeper' || addition.status === 'rejected_by_supervisor') {
+          addition.status = 'pending_confirmation'
+          addition.currentHandler = {
+            role: 'housekeeper',
+            name: addition.housekeeperName,
+            id: addition.housekeeperId,
+          }
+          historyItem.action = '重新提交'
+        } else {
+          addition.status = 'pending_approval'
+          addition.currentHandler = {
+            role: 'quality_supervisor',
+            name: '陈主管',
+            id: 'user-5',
+          }
+          historyItem.action = '家政员确认'
         }
-        historyItem.action = '家政员确认'
         break
       case 'reject':
-        addition.status = 'rejected_by_housekeeper'
-        historyItem.action = '家政员拒绝'
+        if (addition.status === 'pending_confirmation') {
+          addition.status = 'rejected_by_housekeeper'
+          historyItem.action = '家政员拒绝'
+        } else {
+          addition.status = 'rejected_by_supervisor'
+          historyItem.action = '主管驳回'
+        }
         break
       case 'approve':
-        addition.status = 'approved'
+        addition.status = 'in_progress'
         addition.currentHandler = {
           role: 'housekeeper',
           name: addition.housekeeperName,
@@ -64,6 +79,7 @@ export const additionService = {
       case 'complete':
         addition.status = 'completed'
         addition.currentHandler = undefined
+        addition.incompleteReason = undefined
         historyItem.action = '完成服务'
         break
       case 'mark_incomplete':
