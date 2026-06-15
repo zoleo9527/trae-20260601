@@ -4,7 +4,7 @@ import type { ColumnType } from 'antd/es/table';
 import { InboxOutlined, LockOutlined, WarningOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, UserOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { api } from '@/api/mockApi';
 import { ORDER_STATUS_MAP, ORDER_STATUS_COLORS, LOCK_STATUS_MAP, LOCK_STATUS_COLORS, ROLE_MAP, OPERATION_TYPE_MAP } from '@/types';
-import type { Order, OperationLog, TaskAssignment } from '@/types';
+import type { Order, OperationLog } from '@/types';
 
 const STATUS_COUNTS = [
   { key: 'pending', label: '待处理', color: 'orange', icon: ClockCircleOutlined },
@@ -20,7 +20,6 @@ export function Dashboard() {
   const [stats, setStats] = useState<Record<string, number>>({});
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [recentLogs, setRecentLogs] = useState<OperationLog[]>([]);
-  const [tasks, setTasks] = useState<TaskAssignment[]>([]);
   const [riskOrders, setRiskOrders] = useState<Order[]>([]);
 
   useEffect(() => {
@@ -28,23 +27,25 @@ export function Dashboard() {
   }, []);
 
   const loadData = async () => {
-    const [orders, logs, taskAssignments] = await Promise.all([
-      api.orders.list(),
-      api.operationLogs.list(),
-      api.taskAssignments.list(undefined, 'pending'),
-    ]);
+    try {
+      const [orders, logs] = await Promise.all([
+        api.orders.list(),
+        api.logs.list(),
+      ]);
 
-    const statusCounts: Record<string, number> = {};
-    STATUS_COUNTS.forEach(s => {
-      statusCounts[s.key] = orders.filter(o => o.status === s.key).length;
-    });
-    statusCounts['risk'] = orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').length;
+      const statusCounts: Record<string, number> = {};
+      STATUS_COUNTS.forEach(s => {
+        statusCounts[s.key] = orders.filter(o => o.status === s.key).length;
+      });
+      statusCounts['risk'] = orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').length;
 
-    setStats(statusCounts);
-    setRecentOrders(orders.slice(0, 8));
-    setRecentLogs(logs.slice(0, 8));
-    setTasks(taskAssignments.slice(0, 5));
-    setRiskOrders(orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').slice(0, 5));
+      setStats(statusCounts);
+      setRecentOrders(orders.slice(0, 8));
+      setRecentLogs(logs.slice(0, 8));
+      setRiskOrders(orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').slice(0, 5));
+    } catch (error) {
+      console.error('加载数据失败:', error);
+    }
   };
 
   const totalOrders = Object.values(stats).filter((_, i) => i < STATUS_COUNTS.length).reduce((a, b) => a + b, 0);
@@ -90,35 +91,25 @@ export function Dashboard() {
     { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 150 },
   ];
 
-  const taskColumns: ColumnType<TaskAssignment>[] = [
-    { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
-    { title: '任务类型', dataIndex: 'taskType', key: 'taskType', width: 80, render: (type: string) => {
-      const types: Record<string, string> = {
-        lock: '锁货',
-        allocate: '库位分配',
-        pick: '拣货',
-        deliver: '送货',
-        sign: '签收',
-      };
-      return <Tag color="blue">{types[type] || type}</Tag>;
-    }},
-    { title: '经办人', dataIndex: 'assigneeName', key: 'assigneeName', width: 100, render: (name: string, record: TaskAssignment) => (
-      <span className="flex items-center gap-1">
-        <UserOutlined style={{ fontSize: 12 }} />
-        {name}
-        <Tag color={record.assigneeRole === 'warehouse_manager' ? 'blue' : record.assigneeRole === 'driver' ? 'green' : 'orange'}>
-          {ROLE_MAP[record.assigneeRole]}
-        </Tag>
-      </span>
-    )},
-    { title: '分配时间', dataIndex: 'assignedAt', key: 'assignedAt', width: 150 },
-  ];
-
   return (
     <div className="space-y-6">
-      <Row gutter={16}>
-        <Col span={6}>
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100">
+      <Card>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-bold">欢迎回来，张主管</h2>
+            <p className="text-gray-500">以下是今日工作概览</p>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-gray-500">订单完成率</div>
+            <div className="flex items-center gap-2">
+              <Progress type="circle" percent={completionRate} size={60} strokeColor="#52c41a" />
+              <span className="text-2xl font-bold text-green-600">{completionRate}%</span>
+            </div>
+          </div>
+        </div>
+
+        <Row gutter={16}>
+          <Col span={6}>
             <Statistic
               title="今日订单"
               value={totalOrders}
@@ -126,14 +117,8 @@ export function Dashboard() {
               suffix="单"
               valueStyle={{ color: '#1890ff', fontSize: '28px' }}
             />
-            <div className="mt-2">
-              <Progress percent={completionRate} size="small" showInfo={false} strokeColor="#1890ff" />
-              <span className="ml-2 text-sm text-gray-600">{completionRate}% 已完成</span>
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card className="bg-gradient-to-br from-orange-50 to-orange-100">
+          </Col>
+          <Col span={6}>
             <Statistic
               title="待处理"
               value={stats['pending'] || 0}
@@ -141,13 +126,8 @@ export function Dashboard() {
               suffix="单"
               valueStyle={{ color: '#fa8c16', fontSize: '28px' }}
             />
-            <div className="mt-2 text-sm text-gray-600">
-              等待锁货处理
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card className="bg-gradient-to-br from-purple-50 to-purple-100">
+          </Col>
+          <Col span={6}>
             <Statistic
               title="进行中"
               value={(stats['locked'] || 0) + (stats['allocated'] || 0) + (stats['picked'] || 0)}
@@ -155,13 +135,8 @@ export function Dashboard() {
               suffix="单"
               valueStyle={{ color: '#722ed1', fontSize: '28px' }}
             />
-            <div className="mt-2 text-sm text-gray-600">
-              锁货/分配/拣货中
-            </div>
-          </Card>
-        </Col>
-        <Col span={6}>
-          <Card className="bg-gradient-to-br from-red-50 to-red-100">
+          </Col>
+          <Col span={6}>
             <Statistic
               title="风险项"
               value={stats['risk'] || 0}
@@ -169,140 +144,121 @@ export function Dashboard() {
               suffix="项"
               valueStyle={{ color: '#f5222d', fontSize: '28px' }}
             />
-            <div className="mt-2 text-sm text-gray-600">
-              需关注处理
-            </div>
-          </Card>
-        </Col>
-      </Row>
+          </Col>
+        </Row>
+      </Card>
 
       <Row gutter={16}>
-        <Col span={8}>
-          <Card title="状态分布" className="h-full">
-            <div className="space-y-3">
-              {STATUS_COUNTS.map(status => {
-                const Icon = status.icon;
-                const count = stats[status.key] || 0;
-                const percent = totalOrders > 0 ? Math.round(count / totalOrders * 100) : 0;
+        <Col span={12}>
+          <Card title="状态分布">
+            <div className="flex flex-wrap items-center gap-4">
+              {STATUS_COUNTS.map((stat, index) => {
+                const Icon = stat.icon;
                 return (
-                  <div key={status.key} className="flex items-center gap-3">
-                    <Icon style={{ color: status.color, fontSize: 18 }} />
-                    <span className="flex-1">{status.label}</span>
-                    <span className="w-12 text-right font-semibold">{count}</span>
-                    <div className="flex-1">
-                      <Progress percent={percent} size="small" showInfo={false} strokeColor={status.color} />
-                    </div>
-                    <span className="w-12 text-right text-sm text-gray-500">{percent}%</span>
+                  <div key={stat.key} className="flex items-center gap-2">
+                    <Icon style={{ color: stat.color }} />
+                    <span>{stat.label}</span>
+                    <Badge color={stat.color} count={stats[stat.key] || 0} />
+                    {index < STATUS_COUNTS.length - 1 && (
+                      <ArrowRightOutlined className="text-gray-300 mx-2" />
+                    )}
                   </div>
                 );
               })}
             </div>
           </Card>
         </Col>
-        <Col span={8}>
-          <Card title="待处理任务" extra={<Badge count={tasks.length} color="red" />}>
-            {tasks.length > 0 ? (
-              <Table
-                dataSource={tasks}
-                columns={taskColumns}
-                rowKey={(t) => t.orderId + t.taskType}
-                pagination={false}
-                size="small"
-              />
-            ) : (
-              <div className="text-center py-8 text-gray-400">
-                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
-                <p>暂无待处理任务</p>
+        <Col span={12}>
+          <Card title="角色职责">
+            <div className="flex items-center justify-center gap-6 mt-4">
+              <div className="flex items-center gap-2">
+                <UserOutlined className="text-blue-500" />
+                <span className="text-sm text-gray-600">仓库主管</span>
+                <Tag color="blue">锁货/分配/拣货</Tag>
               </div>
-            )}
-          </Card>
-        </Col>
-        <Col span={8}>
-          <Card title="风险订单" extra={<Badge count={riskOrders.length} color="orange" />}>
-            {riskOrders.length > 0 ? (
-              <div className="space-y-2">
-                {riskOrders.map(order => (
-                  <div key={order.id} className="p-3 bg-orange-50 rounded-lg">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold">{order.orderNo}</span>
-                      <Badge color={order.riskLevel === 'high' ? 'red' : 'orange'} text={order.riskLevel === 'high' ? '高' : '中'} />
-                    </div>
-                    <div className="text-sm text-gray-600">{order.customerName}</div>
-                    <div className="text-xs text-gray-500 mt-1">{order.riskReason}</div>
-                  </div>
-                ))}
+              <div className="flex items-center gap-2">
+                <TruckOutlined className="text-green-500" />
+                <span className="text-sm text-gray-600">司机</span>
+                <Tag color="green">装车/配送</Tag>
               </div>
-            ) : (
-              <div className="text-center py-8 text-gray-400">
-                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
-                <p>暂无风险订单</p>
+              <div className="flex items-center gap-2">
+                <CheckCircleOutlined className="text-orange-500" />
+                <span className="text-sm text-gray-600">客服</span>
+                <Tag color="orange">签收/完成</Tag>
               </div>
-            )}
+            </div>
           </Card>
         </Col>
       </Row>
 
       <Row gutter={16}>
         <Col span={12}>
-          <Card title="最近订单" extra={<span className="text-gray-400">更新时间倒序</span>}>
-            <Table
-              dataSource={recentOrders}
-              columns={orderColumns}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
+          <Card title="最近订单" extra={<span className="text-sm text-gray-400">最近更新</span>}>
+            {recentOrders.length > 0 ? (
+              <Table
+                dataSource={recentOrders}
+                columns={orderColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
+                <p>暂无订单</p>
+              </div>
+            )}
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="最近操作记录">
-            <Table
-              dataSource={recentLogs}
-              columns={logColumns}
-              rowKey="id"
-              pagination={false}
-              size="small"
-            />
+          <Card title="操作日志" extra={<span className="text-sm text-gray-400">最近操作</span>}>
+            {recentLogs.length > 0 ? (
+              <Table
+                dataSource={recentLogs}
+                columns={logColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
+                <p>暂无操作日志</p>
+              </div>
+            )}
           </Card>
         </Col>
       </Row>
 
-      <Card title="订单流程概览" className="bg-gradient-to-r from-blue-50 to-purple-50">
-        <div className="flex items-center justify-center gap-2 py-4">
-          {STATUS_COUNTS.slice(0, -1).map((status, index) => {
-            const Icon = status.icon;
-            const count = stats[status.key] || 0;
-            return (
-              <div key={status.key} className="flex items-center">
-                <div className={`w-16 h-16 rounded-full bg-white shadow-sm flex flex-col items-center justify-center ${count > 0 ? 'ring-2 ring-' + status.color : ''}`}>
-                  <Icon style={{ color: status.color }} />
-                  <span className="text-xs font-bold mt-1" style={{ color: status.color }}>{count}</span>
-                </div>
-                <span className="text-xs text-gray-500 mt-4">{status.label}</span>
-                {index < STATUS_COUNTS.length - 2 && (
-                  <ArrowRightOutlined className="text-gray-300 mx-2" />
-                )}
-              </div>
-            );
-          })}
-        </div>
-        <div className="flex items-center justify-center gap-6 mt-4">
-          <div className="flex items-center gap-2">
-            <UserOutlined className="text-blue-500" />
-            <span className="text-sm text-gray-600">仓库主管</span>
-            <Tag color="blue">锁货/分配/拣货</Tag>
+      <Card title="风险订单">
+        {riskOrders.length > 0 ? (
+          <Table
+            dataSource={riskOrders}
+            columns={[
+              { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+              { title: '客户', dataIndex: 'customerName', key: 'customerName', width: 120 },
+              { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (s: string) => (
+                <Tag color={ORDER_STATUS_COLORS[s as keyof typeof ORDER_STATUS_COLORS]}>
+                  {ORDER_STATUS_MAP[s as keyof typeof ORDER_STATUS_MAP]}
+                </Tag>
+              )},
+              { title: '风险等级', dataIndex: 'riskLevel', key: 'riskLevel', width: 80, render: (level: string) => {
+                const colors: Record<string, string> = { high: 'red', medium: 'orange', low: 'yellow' };
+                const labels: Record<string, string> = { high: '高风险', medium: '中风险', low: '低风险' };
+                return <Tag color={colors[level]}>{labels[level]}</Tag>;
+              }},
+              { title: '风险原因', dataIndex: 'riskReason', key: 'riskReason' },
+            ]}
+            rowKey="id"
+            pagination={false}
+            size="small"
+          />
+        ) : (
+          <div className="text-center py-8 text-gray-400">
+            <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
+            <p>暂无风险订单</p>
           </div>
-          <div className="flex items-center gap-2">
-            <TruckOutlined className="text-green-500" />
-            <span className="text-sm text-gray-600">司机</span>
-            <Tag color="green">装车/配送</Tag>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircleOutlined className="text-orange-500" />
-            <span className="text-sm text-gray-600">客服</span>
-            <Tag color="orange">签收/完成</Tag>
-          </div>
-        </div>
+        )}
       </Card>
     </div>
   );

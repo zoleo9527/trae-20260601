@@ -4,7 +4,7 @@ import type { ColumnType } from 'antd/es/table';
 import { LockOutlined, InboxOutlined, TruckOutlined, CheckCircleOutlined, WarningOutlined, UserOutlined, ClockCircleOutlined, ArrowRightOutlined, EditOutlined, EyeOutlined } from '@ant-design/icons';
 import { api } from '@/api/mockApi';
 import { mockUsers } from '@/data/seedData';
-import type { Order, Location, OperationLog, LockRequest, AllocationRequest, PickRequest, LoadRequest } from '@/types';
+import type { Order, Location, OperationLog } from '@/types';
 import { ORDER_STATUS_MAP, ORDER_STATUS_COLORS, LOCK_STATUS_MAP, LOCK_STATUS_COLORS, ROLE_MAP, OPERATION_TYPE_MAP } from '@/types';
 
 const { Step } = Steps;
@@ -31,6 +31,7 @@ export function OrderWorkflow() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<Location[]>([]);
   const [logs, setLogs] = useState<OperationLog[]>([]);
   const [currentRole, setCurrentRole] = useState('warehouse_manager');
   const [showLockModal, setShowLockModal] = useState(false);
@@ -39,10 +40,11 @@ export function OrderWorkflow() {
   const [showLoadModal, setShowLoadModal] = useState(false);
   const [showDeliverModal, setShowDeliverModal] = useState(false);
   const [showSignModal, setShowSignModal] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [lockForm] = Form.useForm();
   const [allocateForm] = Form.useForm();
-  const [pickForm] = Form.useForm();
   const [loadForm] = Form.useForm();
+  const [signForm] = Form.useForm();
 
   useEffect(() => {
     loadOrders();
@@ -50,188 +52,237 @@ export function OrderWorkflow() {
 
   useEffect(() => {
     if (selectedOrder) {
-      loadLocations();
       loadLogs();
+      loadOrderLocations();
     }
   }, [selectedOrder]);
 
+  useEffect(() => {
+    if (showAllocateModal && selectedOrder) {
+      loadAvailableLocations();
+    }
+  }, [showAllocateModal, selectedOrder]);
+
   const loadOrders = async () => {
-    const data = await api.orders.list(undefined, currentRole);
-    setOrders(data);
+    try {
+      const data = await api.orders.list();
+      setOrders(data);
+    } catch (error) {
+      message.error('加载订单失败');
+    }
   };
 
-  const loadLocations = async () => {
+  const loadAvailableLocations = async () => {
+    try {
+      const data = await api.locations.available();
+      setAvailableLocations(data);
+    } catch (error) {
+      message.error('加载可用库位失败');
+    }
+  };
+
+  const loadOrderLocations = async () => {
     if (!selectedOrder) return;
-    const data = await api.locations.list(undefined, selectedOrder.id);
-    setLocations(data);
+    try {
+      const allLocations = await api.locations.list();
+      const orderLocations = allLocations.filter(loc => loc.orderId === selectedOrder.id);
+      setLocations(orderLocations);
+    } catch (error) {
+      message.error('加载库位分配记录失败');
+    }
   };
 
   const loadLogs = async () => {
     if (!selectedOrder) return;
-    const data = await api.operationLogs.list(selectedOrder.id);
-    setLogs(data);
+    try {
+      const data = await api.logs.list(selectedOrder.id);
+      setLogs(data);
+    } catch (error) {
+      message.error('加载操作日志失败');
+    }
   };
 
   const handleLock = async () => {
     if (!selectedOrder) return;
     const values = lockForm.getFieldsValue();
-    const items: { itemId: string; quantity: number }[] = selectedOrder.items.map(item => ({
-      itemId: item.id,
-      quantity: (values[`lock_qty_${item.id}`] as number) || item.quantity,
+    const items = selectedOrder.items.map(item => ({
+      id: item.id,
+      lockedQuantity: (values[`lock_qty_${item.id}`] as number) || item.quantity,
     }));
 
-    const request: LockRequest = {
-      orderId: selectedOrder.id,
-      items,
-      operatorId: 'u1',
-    };
-    const idempotencyKey = `lock_${selectedOrder.id}_${Date.now()}`;
-    const result = await api.orders.lock(request, idempotencyKey);
-
-    if (result.success) {
-      message.success(result.message);
-      setShowLockModal(false);
-      lockForm.resetFields();
-      loadOrders();
-      if (selectedOrder.id === result.order.id) {
-        setSelectedOrder(result.order);
+    try {
+      const result = await api.orders.lock(selectedOrder.id, items);
+      if (result.success) {
+        message.success('锁货成功');
+        setShowLockModal(false);
+        lockForm.resetFields();
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '锁货失败');
       }
-    } else {
-      message.error(result.message);
+    } catch (error) {
+      message.error('锁货失败');
     }
   };
 
   const handleAllocate = async () => {
     if (!selectedOrder) return;
     const values = allocateForm.getFieldsValue();
-    const items: { itemId: string; locationId: string; quantity: number }[] = [];
+    const allocations: Array<{ itemId: string; locationId: string; quantity: number }> = [];
 
     selectedOrder.items.filter(item => item.lockedQuantity > item.allocatedQuantity).forEach(orderItem => {
       const locId = values[`loc_${orderItem.id}`] as string;
       const qty = values[`alloc_qty_${orderItem.id}`] as number;
       if (locId && qty) {
-        items.push({ itemId: orderItem.id, locationId: locId, quantity: qty });
+        allocations.push({ itemId: orderItem.id, locationId: locId, quantity: qty });
       }
     });
 
-    if (items.length === 0) {
+    if (allocations.length === 0) {
       message.warning('请至少选择一个库位进行分配');
       return;
     }
 
-    const request: AllocationRequest = {
-      orderId: selectedOrder.id,
-      items,
-      operatorId: 'u1',
-    };
-    const idempotencyKey = `alloc_${selectedOrder.id}_${Date.now()}`;
-    const result = await api.orders.allocate(request, idempotencyKey);
-
-    if (result.success) {
-      message.success(result.message);
-      setShowAllocateModal(false);
-      allocateForm.resetFields();
-      loadOrders();
-      if (selectedOrder.id === result.order.id) {
-        setSelectedOrder(result.order);
+    try {
+      const result = await api.orders.allocate(selectedOrder.id, allocations);
+      if (result.success) {
+        message.success('库位分配成功');
+        setShowAllocateModal(false);
+        allocateForm.resetFields();
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '库位分配失败');
       }
-    } else {
-      message.error(result.message);
+    } catch (error) {
+      message.error('库位分配失败');
     }
   };
 
   const handlePick = async () => {
     if (!selectedOrder) return;
-    const values = pickForm.getFieldsValue();
-    const items: { itemId: string; quantity: number }[] = selectedOrder.items.map(item => ({
-      itemId: item.id,
-      quantity: (values[`pick_qty_${item.id}`] as number) || item.allocatedQuantity,
-    }));
-
-    const request: PickRequest = {
-      orderId: selectedOrder.id,
-      items,
-      operatorId: 'u1',
-    };
-    const idempotencyKey = `pick_${selectedOrder.id}_${Date.now()}`;
-    const result = await api.orders.pick(request, idempotencyKey);
-
-    if (result.success) {
-      message.success(result.message);
-      setShowPickModal(false);
-      pickForm.resetFields();
-      loadOrders();
-      if (selectedOrder.id === result.order.id) {
-        setSelectedOrder(result.order);
+    try {
+      const result = await api.orders.pick(selectedOrder.id);
+      if (result.success) {
+        message.success('拣货成功');
+        setShowPickModal(false);
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '拣货失败');
       }
-    } else {
-      message.error(result.message);
+    } catch (error) {
+      message.error('拣货失败');
     }
   };
 
   const handleLoad = async () => {
     if (!selectedOrder) return;
     const values = loadForm.getFieldsValue();
-    const request: LoadRequest = {
-      orderId: selectedOrder.id,
-      driverId: values.driverId as string,
-      vehicleNo: values.vehicleNo as string,
-    };
-    const idempotencyKey = `load_${selectedOrder.id}_${Date.now()}`;
-    const result = await api.orders.load(request, idempotencyKey);
+    const driverId = values.driverId as string;
+    const licensePlate = values.vehicleNo as string;
 
-    if (result.success) {
-      message.success(result.message);
-      setShowLoadModal(false);
-      loadForm.resetFields();
-      loadOrders();
-      if (selectedOrder.id === result.order.id) {
-        setSelectedOrder(result.order);
+    if (!driverId) {
+      message.warning('请选择司机');
+      return;
+    }
+
+    try {
+      const driver = mockUsers.find(u => u.id === driverId);
+      if (!driver) {
+        message.error('司机不存在');
+        return;
       }
-    } else {
-      message.error(result.message);
+
+      await api.deliveryNotes.create({
+        orderId: selectedOrder.id,
+        orderNo: selectedOrder.orderNo,
+        driverId: driver.id,
+        driverName: driver.name,
+        licensePlate,
+      });
+
+      const result = await api.orders.load(selectedOrder.id, licensePlate);
+      if (result.success) {
+        message.success('装车成功，送货回单已生成');
+        setShowLoadModal(false);
+        loadForm.resetFields();
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '装车失败');
+      }
+    } catch (error) {
+      message.error('装车失败');
     }
   };
 
   const handleDeliver = async () => {
     if (!selectedOrder) return;
-    const deliveryNote = await api.deliveryNotes.list('in_transit');
-    const note = deliveryNote.find(d => d.orderId === selectedOrder.id);
-    if (!note) {
-      message.error('未找到运输中的送货回单');
-      return;
-    }
-    const result = await api.orders.deliver(note.id, 'u2');
-    if (result.success) {
-      message.success(result.message);
-      setShowDeliverModal(false);
-      loadOrders();
-      if (selectedOrder.id === result.order?.id) {
-        setSelectedOrder(result.order!);
+    try {
+      const result = await api.orders.deliver(selectedOrder.id);
+      if (result.success) {
+        message.success('送达成功');
+        setShowDeliverModal(false);
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '送达失败');
       }
-    } else {
-      message.error(result.message);
+    } catch (error) {
+      message.error('送达失败');
     }
   };
 
   const handleSign = async () => {
     if (!selectedOrder) return;
-    const deliveryNote = await api.deliveryNotes.list('delivered');
-    const note = deliveryNote.find(d => d.orderId === selectedOrder.id);
-    if (!note) {
-      message.error('未找到待签收的送货回单');
+    const values = signForm.getFieldsValue();
+    const signerName = values.signerName as string;
+    const signerPhone = values.signerPhone as string;
+
+    if (!signerName) {
+      message.warning('请输入签收人姓名');
       return;
     }
-    const result = await api.orders.sign(note.id, 'u3');
-    if (result.success) {
-      message.success(result.message);
-      setShowSignModal(false);
-      loadOrders();
-      if (selectedOrder.id === result.order?.id) {
-        setSelectedOrder(result.order!);
+
+    try {
+      const result = await api.orders.sign(selectedOrder.id, signerName, signerPhone);
+      if (result.success) {
+        message.success('签收成功');
+        setShowSignModal(false);
+        signForm.resetFields();
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '签收失败');
       }
-    } else {
-      message.error(result.message);
+    } catch (error) {
+      message.error('签收失败');
+    }
+  };
+
+  const handleComplete = async () => {
+    if (!selectedOrder) return;
+    try {
+      const result = await api.orders.complete(selectedOrder.id);
+      if (result.success) {
+        message.success('订单完成');
+        setShowCompleteModal(false);
+        loadOrders();
+        const updatedOrder = await api.orders.get(selectedOrder.id);
+        setSelectedOrder(updatedOrder);
+      } else {
+        message.error(result.message || '订单完成失败');
+      }
+    } catch (error) {
+      message.error('订单完成失败');
     }
   };
 
@@ -296,11 +347,12 @@ export function OrderWorkflow() {
   const getCurrentRoleInfo = () => ROLE_TASKS[currentRole];
 
   const canLock = selectedOrder?.status === 'pending';
-  const canAllocate = ['locked', 'allocated'].includes(selectedOrder?.status || '');
-  const canPick = ['allocated', 'picked'].includes(selectedOrder?.status || '');
+  const canAllocate = selectedOrder?.lockStatus === 'locked' || selectedOrder?.lockStatus === 'partial';
+  const canPick = selectedOrder?.status === 'allocated';
   const canLoad = selectedOrder?.status === 'picked';
   const canDeliver = selectedOrder?.status === 'in_transit';
   const canSign = selectedOrder?.status === 'delivered';
+  const canComplete = selectedOrder?.status === 'signed';
 
   return (
     <div className="space-y-6">
@@ -445,21 +497,25 @@ export function OrderWorkflow() {
 
               <div className="mb-4">
                 <h4 className="font-semibold mb-2">操作日志</h4>
-                <Timeline>
-                  {logs.map(log => (
-                    <Timeline.Item key={log.id} color={log.operatorRole === 'warehouse_manager' ? 'blue' : log.operatorRole === 'driver' ? 'green' : 'orange'}>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{OPERATION_TYPE_MAP[log.operationType]}</span>
-                        <Tag color={log.operatorRole === 'warehouse_manager' ? 'blue' : log.operatorRole === 'driver' ? 'green' : 'orange'}>
-                          {ROLE_MAP[log.operatorRole]}
-                        </Tag>
-                        <span>{log.operatorName}</span>
-                      </div>
-                      <div className="text-sm text-gray-500">{log.description}</div>
-                      <div className="text-xs text-gray-400">{log.createdAt}</div>
-                    </Timeline.Item>
-                  ))}
-                </Timeline>
+                {logs.length > 0 ? (
+                  <Timeline>
+                    {logs.map(log => (
+                      <Timeline.Item key={log.id} color={log.operatorRole === 'warehouse_manager' ? 'blue' : log.operatorRole === 'driver' ? 'green' : 'orange'}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{OPERATION_TYPE_MAP[log.operationType]}</span>
+                          <Tag color={log.operatorRole === 'warehouse_manager' ? 'blue' : log.operatorRole === 'driver' ? 'green' : 'orange'}>
+                            {ROLE_MAP[log.operatorRole]}
+                          </Tag>
+                          <span>{log.operatorName}</span>
+                        </div>
+                        <div className="text-sm text-gray-500">{log.description}</div>
+                        <div className="text-xs text-gray-400">{log.createdAt}</div>
+                      </Timeline.Item>
+                    ))}
+                  </Timeline>
+                ) : (
+                  <div className="text-center py-4 text-gray-400">暂无操作日志</div>
+                )}
               </div>
 
               <div className="border-t pt-4">
@@ -489,9 +545,14 @@ export function OrderWorkflow() {
                     </>
                   )}
                   {currentRole === 'customer_service' && (
-                    <Button type={canSign ? 'primary' : 'default'} disabled={!canSign} icon={<CheckCircleOutlined />} onClick={() => setShowSignModal(true)} block>
-                      确认签收
-                    </Button>
+                    <>
+                      <Button type={canSign ? 'primary' : 'default'} disabled={!canSign} icon={<CheckCircleOutlined />} onClick={() => setShowSignModal(true)} block>
+                        确认签收
+                      </Button>
+                      <Button type={canComplete ? 'primary' : 'default'} disabled={!canComplete} icon={<CheckCircleOutlined />} onClick={() => setShowCompleteModal(true)} block>
+                        订单完成
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>
@@ -516,9 +577,6 @@ export function OrderWorkflow() {
               <InputNumber min={0} max={item.quantity} defaultValue={item.quantity} name={`lock_qty_${item.id}`} />
             </Form.Item>
           ))}
-          <Form.Item>
-            <Input.TextArea rows={2} placeholder="备注（可选）" />
-          </Form.Item>
           <Form.Item className="flex justify-end">
             <Space>
               <Button onClick={() => setShowLockModal(false)}>取消</Button>
@@ -536,7 +594,7 @@ export function OrderWorkflow() {
               <Form.Item label="选择库位" name={`loc_${item.id}`}>
                 <Select>
                   <Select.Option value="">请选择库位</Select.Option>
-                  {locations.filter(l => l.status === 'empty').map(loc => (
+                  {availableLocations.map(loc => (
                     <Select.Option key={loc.id} value={loc.id}>
                       {loc.code} ({loc.capacity - loc.currentQty}{item.unit}可用)
                     </Select.Option>
@@ -558,24 +616,20 @@ export function OrderWorkflow() {
       </Modal>
 
       <Modal title="拣货确认" open={showPickModal} onCancel={() => setShowPickModal(false)} footer={null}>
-        <Form form={pickForm} layout="vertical" onFinish={handlePick}>
-          {selectedOrder?.items.map(item => (
-            <Form.Item key={item.id} label={`${item.productName} (${item.spec}) - 可拣货: ${item.allocatedQuantity - item.pickedQuantity}${item.unit}`}>
-              <InputNumber min={0} max={item.allocatedQuantity - item.pickedQuantity} defaultValue={item.allocatedQuantity - item.pickedQuantity} name={`pick_qty_${item.id}`} />
-            </Form.Item>
-          ))}
-          <Form.Item className="flex justify-end">
+        <div className="p-4">
+          <p className="mb-4">确认将订单 {selectedOrder?.orderNo} 的所有商品拣货完成？</p>
+          <div className="flex justify-end">
             <Space>
               <Button onClick={() => setShowPickModal(false)}>取消</Button>
-              <Button type="primary" htmlType="submit">确认拣货</Button>
+              <Button type="primary" onClick={handlePick}>确认拣货</Button>
             </Space>
-          </Form.Item>
-        </Form>
+          </div>
+        </div>
       </Modal>
 
       <Modal title="装车出发" open={showLoadModal} onCancel={() => setShowLoadModal(false)} footer={null}>
         <Form form={loadForm} layout="vertical" onFinish={handleLoad}>
-          <Form.Item label="选择司机" name="driverId">
+          <Form.Item label="选择司机" name="driverId" rules={[{ required: true, message: '请选择司机' }]}>
             <Select>
               <Select.Option value="">请选择司机</Select.Option>
               {mockUsers.filter(u => u.role === 'driver').map(driver => (
@@ -610,12 +664,29 @@ export function OrderWorkflow() {
       </Modal>
 
       <Modal title="确认签收" open={showSignModal} onCancel={() => setShowSignModal(false)} footer={null}>
-        <div className="p-4">
-          <p className="mb-4">确认订单 {selectedOrder?.orderNo} 已被客户签收？</p>
-          <div className="flex justify-end">
+        <Form form={signForm} layout="vertical" onFinish={handleSign}>
+          <Form.Item label="签收人姓名" name="signerName" rules={[{ required: true, message: '请输入签收人姓名' }]}>
+            <Input placeholder="请输入签收人姓名" />
+          </Form.Item>
+          <Form.Item label="签收人电话" name="signerPhone">
+            <Input placeholder="请输入签收人电话" />
+          </Form.Item>
+          <Form.Item className="flex justify-end">
             <Space>
               <Button onClick={() => setShowSignModal(false)}>取消</Button>
-              <Button type="primary" onClick={handleSign}>确认签收</Button>
+              <Button type="primary" htmlType="submit">确认签收</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title="订单完成" open={showCompleteModal} onCancel={() => setShowCompleteModal(false)} footer={null}>
+        <div className="p-4">
+          <p className="mb-4">确认订单 {selectedOrder?.orderNo} 已完成所有流程？</p>
+          <div className="flex justify-end">
+            <Space>
+              <Button onClick={() => setShowCompleteModal(false)}>取消</Button>
+              <Button type="primary" onClick={handleComplete}>确认完成</Button>
             </Space>
           </div>
         </div>
