@@ -131,8 +131,8 @@ export class ManagerController {
   @Get('members/:id')
   @Permission('member:read')
   async getMember(@Param('id') id: string): Promise<ApiResponse> {
-    const member = await this.memberService.getMember(id);
-    return ApiResponse.success(member);
+    const detail = await this.memberService.getMemberDetail(id);
+    return ApiResponse.success(detail);
   }
 
   @Get('reminders')

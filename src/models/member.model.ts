@@ -1,5 +1,6 @@
 import { Baby, CreateBabyDto } from './baby.model';
-import { Reminder } from './reminder.model';
+import { Reminder, ReminderHistoryDto } from './reminder.model';
+import { AnomalyRecord } from './operation-log.model';
 
 export enum MemberStatus {
   DRAFT = 'draft',
@@ -32,6 +33,13 @@ export interface Member {
   
   babies: Baby[];
   reminders: Reminder[];
+}
+
+export interface MemberDetailDto {
+  member: Member;
+  anomalyReminders: Reminder[];
+  anomalies: AnomalyRecord[];
+  recentReminders: ReminderHistoryDto[];
 }
 
 export interface CreateMemberDto {

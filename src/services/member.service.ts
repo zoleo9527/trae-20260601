@@ -6,6 +6,7 @@ import {
   CreateMemberDto,
   UpdateMemberDto,
   MemberQueryDto,
+  MemberDetailDto,
 } from '../models/member.model';
 import { Baby, CreateBabyDto, calculateMonthAge, getNextMilestoneMonth } from '../models/baby.model';
 import { ReminderService } from './reminder.service';
@@ -298,6 +299,31 @@ export class MemberService {
       throw new ApiException(ErrorCode.MEMBER_003);
     }
     return member;
+  }
+
+  async getMemberDetail(memberId: string): Promise<MemberDetailDto> {
+    const member = await this.getMember(memberId);
+    
+    const anomalyRemindersResult = await this.reminderService.queryReminders({
+      memberId,
+      isAnomaly: true,
+    });
+    
+    const anomalies = await this.operationLogService.getAnomaliesByMember(memberId);
+    
+    const allReminders = await this.reminderService.getReminderHistoryWithAnomalies(
+      memberId,
+      this
+    );
+    
+    const recentReminders = allReminders.slice(0, 10);
+
+    return {
+      member,
+      anomalyReminders: anomalyRemindersResult.list,
+      anomalies,
+      recentReminders,
+    };
   }
 
   async queryMembers(query: MemberQueryDto): Promise<{ list: Member[]; total: number }> {
