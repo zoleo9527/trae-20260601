@@ -77,6 +77,8 @@ export default function DamageReportPage() {
       alert('请填写完整信息');
       return;
     }
+    
+    e.target.submit();
   };
 
   return (

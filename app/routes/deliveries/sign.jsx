@@ -36,9 +36,7 @@ export async function action({ request }) {
       remark: `客户签收: ${signerName}`,
     });
     
-    if (!hasDamage) {
-      return redirect('/dashboard/driver');
-    }
+    return redirect('/dashboard/driver');
   }
   
   if (actionType === 'report_damage') {
@@ -130,11 +128,12 @@ export default function DeliverySignPage() {
       return;
     }
     
-    if (!formData.hasDamage) {
+    if (formData.hasDamage) {
+      setShowDamageForm(true);
       return;
     }
     
-    setShowDamageForm(true);
+    e.target.submit();
   };
   
   const handleSubmitDamage = (e) => {
@@ -143,6 +142,8 @@ export default function DeliverySignPage() {
       alert('请填写完整破损信息');
       return;
     }
+    
+    e.target.submit();
   };
 
   return (
