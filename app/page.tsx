@@ -192,9 +192,13 @@ export default function Home() {
           newStatus = '待客服受理';
           newAssignee = '客服';
           updates.engineer = {
-            handler,
-            handleTime: now,
-            ...c.engineer,
+            handler: c.engineer?.handler || handler,
+            handleTime: c.engineer?.handleTime || '',
+            repairContent: c.engineer?.repairContent,
+            partsUsed: c.engineer?.partsUsed,
+            remark: c.engineer?.remark,
+            returnHandler: handler,
+            returnTime: now,
             returnReason: data.reason as any,
             returnRemark: data.remark,
           };
@@ -211,9 +215,12 @@ export default function Home() {
           newStatus = '待维修工程师处理';
           newAssignee = '维修工程师';
           updates.partsManager = {
-            handler,
-            handleTime: now,
-            ...c.partsManager,
+            handler: c.partsManager?.handler || handler,
+            handleTime: c.partsManager?.handleTime || '',
+            partsPrepared: c.partsManager?.partsPrepared,
+            remark: c.partsManager?.remark,
+            returnHandler: handler,
+            returnTime: now,
             returnReason: data.reason as any,
             returnRemark: data.remark,
           };
@@ -230,10 +237,12 @@ export default function Home() {
           newStatus = '待配件管理员处理';
           newAssignee = '配件管理员';
           updates.revisit = {
-            handler,
-            revisitTime: now,
-            customerSatisfaction: c.revisit?.customerSatisfaction || '一般',
-            ...c.revisit,
+            handler: c.revisit?.handler || handler,
+            revisitTime: c.revisit?.revisitTime || '',
+            customerSatisfaction: c.revisit?.customerSatisfaction,
+            revisitContent: c.revisit?.revisitContent,
+            returnHandler: handler,
+            returnTime: now,
             returnReason: data.reason as any,
             returnRemark: data.remark,
           };

@@ -45,6 +45,8 @@ export interface ComplaintRecord {
     repairContent?: string;
     partsUsed?: string[];
     remark?: string;
+    returnHandler?: string;
+    returnTime?: string;
     returnReason?: ReturnReason;
     returnRemark?: string;
   };
@@ -54,6 +56,8 @@ export interface ComplaintRecord {
     handleTime?: string;
     partsPrepared?: string[];
     remark?: string;
+    returnHandler?: string;
+    returnTime?: string;
     returnReason?: ReturnReason;
     returnRemark?: string;
   };
@@ -61,8 +65,10 @@ export interface ComplaintRecord {
   revisit?: {
     handler: string;
     revisitTime?: string;
-    customerSatisfaction: '满意' | '一般' | '不满意';
+    customerSatisfaction?: '满意' | '一般' | '不满意';
     revisitContent?: string;
+    returnHandler?: string;
+    returnTime?: string;
     returnReason?: ReturnReason;
     returnRemark?: string;
   };

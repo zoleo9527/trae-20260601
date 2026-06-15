@@ -205,8 +205,10 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
                 {complaint.engineer.remark && (
                   <p><span className="text-gray-500">备注:</span> {complaint.engineer.remark}</p>
                 )}
-                {complaint.engineer.returnReason && (
+                {complaint.engineer.returnHandler && (
                   <div className="mt-3 pt-3 border-t border-blue-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回处理人:</span> {complaint.engineer.returnHandler}</p>
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回时间:</span> {complaint.engineer.returnTime}</p>
                     <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.engineer.returnReason}</p>
                     {complaint.engineer.returnRemark && (
                       <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.engineer.returnRemark}</p>
@@ -232,8 +234,10 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
                 {complaint.partsManager.remark && (
                   <p><span className="text-gray-500">备注:</span> {complaint.partsManager.remark}</p>
                 )}
-                {complaint.partsManager.returnReason && (
+                {complaint.partsManager.returnHandler && (
                   <div className="mt-3 pt-3 border-t border-green-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回处理人:</span> {complaint.partsManager.returnHandler}</p>
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回时间:</span> {complaint.partsManager.returnTime}</p>
                     <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.partsManager.returnReason}</p>
                     {complaint.partsManager.returnRemark && (
                       <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.partsManager.returnRemark}</p>
@@ -253,21 +257,25 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
               <div className="space-y-2">
                 <p><span className="text-gray-500">回访人:</span> {complaint.revisit.handler}</p>
                 <p><span className="text-gray-500">回访时间:</span> {complaint.revisit.revisitTime}</p>
-                <p>
-                  <span className="text-gray-500">满意度:</span> 
-                  <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
-                    complaint.revisit.customerSatisfaction === '满意' ? 'bg-success-100 text-success-600' :
-                    complaint.revisit.customerSatisfaction === '一般' ? 'bg-warning-100 text-warning-600' :
-                    'bg-danger-100 text-danger-600'
-                  }`}>
-                    {complaint.revisit.customerSatisfaction}
-                  </span>
-                </p>
+                {complaint.revisit.customerSatisfaction && (
+                  <p>
+                    <span className="text-gray-500">满意度:</span> 
+                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
+                      complaint.revisit.customerSatisfaction === '满意' ? 'bg-success-100 text-success-600' :
+                      complaint.revisit.customerSatisfaction === '一般' ? 'bg-warning-100 text-warning-600' :
+                      'bg-danger-100 text-danger-600'
+                    }`}>
+                      {complaint.revisit.customerSatisfaction}
+                    </span>
+                  </p>
+                )}
                 {complaint.revisit.revisitContent && (
                   <p><span className="text-gray-500">回访内容:</span> {complaint.revisit.revisitContent}</p>
                 )}
-                {complaint.revisit.returnReason && (
+                {complaint.revisit.returnHandler && (
                   <div className="mt-3 pt-3 border-t border-purple-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回处理人:</span> {complaint.revisit.returnHandler}</p>
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回时间:</span> {complaint.revisit.returnTime}</p>
                     <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.revisit.returnReason}</p>
                     {complaint.revisit.returnRemark && (
                       <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.revisit.returnRemark}</p>

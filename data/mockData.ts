@@ -213,6 +213,38 @@ export const mockComplaints: ComplaintRecord[] = [
     history: [
       { id: 'h23', time: '2026-06-10 08:30', operator: '系统', action: '创建工单', detail: '用户提交返修投诉' }
     ]
+  },
+  {
+    id: 'TS20260609001',
+    customerName: '钱十一',
+    phone: '131****4567',
+    productType: '抽油烟机',
+    productModel: 'CXW-260-JQ36',
+    complaintContent: '抽油烟机噪音过大，排风效果差',
+    complaintTime: '2026-06-09 10:00',
+    status: '待维修工程师处理',
+    currentAssignee: '维修工程师',
+    customerService: {
+      handler: '王芳',
+      handleTime: '2026-06-09 10:15',
+      remark: '用户反馈抽油烟机问题，预约上门检测'
+    },
+    engineer: {
+      handler: '李强',
+      handleTime: '2026-06-09 15:00',
+      repairContent: '电机老化，需要更换',
+      partsUsed: ['电机'],
+      remark: '已检测，待配件',
+      returnHandler: '王芳',
+      returnTime: '2026-06-10 11:00',
+      returnReason: '配件缺失',
+      returnRemark: '配件库存不足，需要采购'
+    },
+    history: [
+      { id: 'h24', time: '2026-06-09 10:00', operator: '系统', action: '创建工单', detail: '用户提交返修投诉' },
+      { id: 'h25', time: '2026-06-09 10:15', operator: '王芳', action: '客服受理', detail: '用户反馈抽油烟机问题，预约上门检测' },
+      { id: 'h26', time: '2026-06-09 15:00', operator: '李强', action: '维修退回', detail: '配件缺失：配件库存不足，需要采购' }
+    ]
   }
 ];
 
