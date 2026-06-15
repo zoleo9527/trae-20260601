@@ -9,6 +9,18 @@ import { UploadPhotoDto, PhotoQueryDto, VerifyPhotoDto } from '../dto/photo.dto'
 import * as fs from 'fs';
 import * as path from 'path';
 
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer?: Buffer;
+}
+
 @Injectable()
 export class PhotoService {
   private uploadDir = path.join(__dirname, '..', '..', 'uploads');
@@ -26,7 +38,7 @@ export class PhotoService {
     }
   }
 
-  async upload(uploadDto: UploadPhotoDto, file: Express.Multer.File, user: User): Promise<Photo> {
+  async upload(uploadDto: UploadPhotoDto, file: MulterFile, user: User): Promise<Photo> {
     const installation = await this.installationRepository.findOne({ where: { id: uploadDto.installationId } });
     if (!installation) {
       throw new NotFoundException('安装工单不存在');
@@ -47,7 +59,7 @@ export class PhotoService {
   }
 
   async findAll(query: PhotoQueryDto): Promise<{ data: Photo[]; total: number }> {
-    const { page, limit, sortBy, sortOrder, ...filters } = query;
+    const { page = 1, limit = 10, sortBy = 'uploadedAt', sortOrder = 'DESC', ...filters } = query;
     
     const queryBuilder = this.photoRepository
       .createQueryBuilder('photo')

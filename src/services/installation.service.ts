@@ -29,7 +29,7 @@ export class InstallationService {
   }
 
   async findAll(query: InstallationQueryDto): Promise<{ data: Installation[]; total: number }> {
-    const { page, limit, sortBy, sortOrder, ...filters } = query;
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'DESC', ...filters } = query;
     
     const queryBuilder = this.installationRepository
       .createQueryBuilder('installation')

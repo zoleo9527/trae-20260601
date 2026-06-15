@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Installation, InstallationStatus } from '../entities/installation.entity';
 import { InstallationRecord, RecordType } from '../entities/installation-record.entity';
 import { Photo, PhotoStatus } from '../entities/photo.entity';
@@ -141,7 +141,7 @@ export class AcceptanceService {
     return this.recordRepository.find({
       where: { 
         installationId,
-        type: [RecordType.ACCEPT, RecordType.REJECT],
+        type: In([RecordType.ACCEPT, RecordType.REJECT]),
       },
       relations: {
         operator: true,
