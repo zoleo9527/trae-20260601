@@ -393,22 +393,27 @@ export const useAppStore = create<AppState>((set, get) => ({
       const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
       set({ expenses: newExpenses });
       await localforage.setItem(`expenses_${orderId}`, newExpenses);
-      await get().updateOrderStatus(orderId, 'completed');
+      await get().updateOrderStatus(orderId, 'settling');
       await get().addLog(orderId, '费用审核通过', get().user?.name || '系统', `审核结果：通过，最终金额 ¥${newExpenses?.totalFee?.toFixed(2)}`);
-      get().addNotification('费用审核通过');
+      get().addNotification('费用审核通过，订单进入待收款状态');
     } catch {
       const { expenses } = get();
       const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
       set({ expenses: newExpenses });
       await localforage.setItem(`expenses_${orderId}`, newExpenses);
       await localforage.setItem(`pending_expense_confirm_${orderId}`, { orderId, ...expenseData });
+      await get().updateOrderStatus(orderId, 'settling');
+      await localforage.setItem('orders', get().orders);
+      if (get().currentOrder?.id === orderId) {
+        await localforage.setItem(`order_${orderId}`, get().currentOrder);
+      }
       await get().addLog(orderId, '费用审核通过', get().user?.name || '系统', `审核结果：通过，最终金额 ¥${newExpenses?.totalFee?.toFixed(2)}（待同步）`);
       get().addPendingAction({
         type: 'confirm_expenses',
         data: { orderId, expenseData },
         orderId,
       });
-      get().addNotification('费用审核通过，将在联网后同步');
+      get().addNotification('费用审核通过，订单进入待收款状态，将在联网后同步');
     }
   },
 

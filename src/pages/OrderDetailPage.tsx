@@ -97,10 +97,6 @@ export default function OrderDetailPage() {
     });
   };
 
-  const getStatusActions = () => {
-    return [];
-  };
-
   const canAssignVehicle = user?.role === 'dispatcher' && currentOrder.status === 'reserved';
   const canArriveSite = user?.role === 'teamLead' && currentOrder.status === 'transporting';
   const canAddAddon = user?.role === 'teamLead' && currentOrder.status === 'serving';
@@ -110,12 +106,18 @@ export default function OrderDetailPage() {
   const canCustomerConfirm = user?.role === 'customerService' && currentOrder.status === 'settling';
 
   const handleArriveSite = async () => {
+    await addLog(id!, '到达现场', user?.name || '系统', '车辆已到达服务现场');
     await updateOrderStatus(id!, 'serving');
   };
 
   const handleCompleteService = async () => {
     await addLog(id!, '完成服务', user?.name || '系统', '服务已完成，等待费用结算');
     await updateOrderStatus(id!, 'settling');
+  };
+
+  const handleReceivePayment = async () => {
+    await addLog(id!, '收款完成', user?.name || '系统', `收款金额: ¥${totalFee.toFixed(2)}`);
+    await updateOrderStatus(id!, 'completed');
   };
 
   const handleAddonSubmit = async () => {
@@ -232,11 +234,11 @@ export default function OrderDetailPage() {
         {canCustomerConfirm && (
           <>
             <button
-              onClick={() => confirmExpenses(id!)}
+              onClick={() => handleReceivePayment()}
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               <ThumbsUp className="w-4 h-4" />
-              <span>客户确认</span>
+              <span>收款完成</span>
             </button>
             <button
               onClick={() => setShowRejectModal(true)}

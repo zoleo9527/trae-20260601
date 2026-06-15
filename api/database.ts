@@ -81,18 +81,14 @@ function initDatabase() {
       total_fee DECIMAL(10, 2) NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       confirmed_at DATETIME,
-      reject_reason TEXT,
       FOREIGN KEY (order_id) REFERENCES orders(id)
     )
-  `);
-
-  db.run(`PRAGMA table_info(expenses)`, (err, rows: unknown[]) => {
-    if (!err && rows) {
-      const hasRejectReason = (rows as { name: string }[]).some((col) => col.name === 'reject_reason');
-      if (!hasRejectReason) {
-        db.run(`ALTER TABLE expenses ADD COLUMN reject_reason TEXT`);
+  `, () => {
+    db.run(`ALTER TABLE expenses ADD COLUMN IF NOT EXISTS reject_reason TEXT`, (alterErr) => {
+      if (alterErr && !alterErr.message.includes('duplicate column name')) {
+        console.log('Optional column add:', alterErr.message);
       }
-    }
+    });
   });
 
   db.run(`
