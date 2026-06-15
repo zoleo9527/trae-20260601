@@ -181,7 +181,7 @@ export default function Receiver() {
       alert('请先输入调价金额')
       return
     }
-    batchAdjustPrice(selectedDeviceIds, delta)
+    batchAdjustPrice(selectedDeviceIds, delta, priceAdjustNote.trim())
     setPriceAdjustOpen(false)
     setPriceAdjustDelta('')
     setPriceAdjustNote('')

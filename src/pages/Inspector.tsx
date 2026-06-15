@@ -42,7 +42,7 @@ function calcSuggestPrice(estimated: number, grade: Grade, items: InspectionItem
 type TabKey = 'queue' | 'history'
 
 export default function Inspector() {
-  const { devices, inspectionReports, riskFlags, startInspection, submitInspection } = useDeviceStore()
+  const { devices, inspectionReports, riskFlags, startInspection, submitInspection, currentDeviceId, setCurrentDevice } = useDeviceStore()
   const [tab, setTab] = useState<TabKey>('queue')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [items, setItems] = useState<InspectionItem[]>(buildInitialItems)
@@ -53,6 +53,18 @@ export default function Inspector() {
   const [expandedCats, setExpandedCats] = useState<Set<string>>(() => new Set(INSPECTION_CATEGORIES.map((c) => c.category)))
   const [submitted, setSubmitted] = useState(false)
   const [historyFilter, setHistoryFilter] = useState<Grade | 'all'>('all')
+
+  useEffect(() => {
+    if (currentDeviceId && !selectedId) {
+      const d = devices.find(x => x.id === currentDeviceId)
+      if (d && (d.status === 'received' || d.status === 'inspecting')) {
+        handleSelectDevice(currentDeviceId)
+      } else if (d && d.grade) {
+        handleSelectDevice(currentDeviceId)
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDeviceId, devices])
 
   const queue = useMemo(
     () => devices.filter((d) => d.status === 'received' || d.status === 'inspecting'),
@@ -89,6 +101,7 @@ export default function Inspector() {
     const device = devices.find((d) => d.id === id)
     if (!device) return
     setSelectedId(id)
+    setCurrentDevice(id)
     const existing = inspectionReports[id]
     if (existing) {
       setItems(existing.items.map((i) => ({ ...i })))
@@ -105,7 +118,7 @@ export default function Inspector() {
     setExpandedCats(new Set(INSPECTION_CATEGORIES.map((c) => c.category)))
     setSubmitted(false)
     if (device.status === 'received') startInspection(id)
-  }, [devices, inspectionReports, startInspection])
+  }, [devices, inspectionReports, startInspection, setCurrentDevice])
 
   const handleResult = useCallback((idx: number, result: InspectionResult) => {
     setItems((prev) => prev.map((item, i) => (i === idx ? { ...item, result } : item)))

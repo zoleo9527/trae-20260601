@@ -33,7 +33,7 @@ export default function DeviceDetail() {
   const {
     devices, inspectionReports, riskFlags, historyEntries,
     resolveRisk, updateRiskStatus, confirmPrice, markPriceRegret, returnDevice,
-    startInspection, verifyPayment, executePayment, addNote
+    startInspection, verifyPayment, executePayment, addNote, setCurrentDevice
   } = useDeviceStore()
   const [noteContent, setNoteContent] = useState('')
   const [priceRegretOpen, setPriceRegretOpen] = useState(false)
@@ -103,9 +103,8 @@ export default function DeviceDetail() {
   function handleGoNext() {
     switch (device.status) {
       case 'received':
-        navigate('/inspector')
-        break
       case 'inspecting':
+        setCurrentDevice(device.id)
         navigate('/inspector')
         break
       case 'graded':
@@ -348,13 +347,13 @@ export default function DeviceDetail() {
                 </button>
               )}
               {hasPaymentError && (
-                <Link
-                  to="/finance"
+                <button
+                  onClick={() => { setCurrentDevice(device.id); navigate('/finance') }}
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-orange-500/20 text-orange-300 rounded-lg text-sm font-medium border border-orange-500/30 hover:bg-orange-500/30 transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
                   前往修复账号
-                </Link>
+                </button>
               )}
             </div>
           </div>

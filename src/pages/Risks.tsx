@@ -30,7 +30,7 @@ export default function Risks() {
   const [activeStatus, setActiveStatus] = useState<RiskStatus | 'all'>('all')
   const [selectedRiskIds, setSelectedRiskIds] = useState<string[]>([])
   const [search, setSearch] = useState('')
-  const { riskFlags, devices, resolveRisk, updateRiskStatus, verifyPayment, startInspection, returnDevice, confirmPrice } = useDeviceStore()
+  const { riskFlags, devices, resolveRisk, updateRiskStatus, verifyPayment, startInspection, returnDevice, confirmPrice, setCurrentDevice } = useDeviceStore()
 
   const stats = useMemo(() => {
     const pending = riskFlags.filter(r => r.status === 'pending').length
@@ -272,7 +272,7 @@ export default function Risks() {
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {!isResolved && d && risk.type === 'payment_error' && (
                             <button
-                              onClick={() => navigate('/finance')}
+                              onClick={() => { setCurrentDevice(d.id); navigate('/finance') }}
                               className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded font-medium hover:bg-orange-500/30 transition-colors"
                             >
                               <AlertTriangle className="w-3 h-3" />去修账号
@@ -280,7 +280,7 @@ export default function Risks() {
                           )}
                           {!isResolved && d && risk.type === 'hidden_defect' && (
                             <button
-                              onClick={() => navigate('/inspector')}
+                              onClick={() => { setCurrentDevice(d.id); navigate('/inspector') }}
                               className="inline-flex items-center gap-1 px-2 py-1 text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30 rounded font-medium hover:bg-orange-500/30 transition-colors"
                             >
                               <Bug className="w-3 h-3" />复核检测

@@ -30,14 +30,16 @@ interface DeviceStore {
   riskFlags: RiskFlag[]
   historyEntries: HistoryEntry[]
   selectedDeviceIds: string[]
+  currentDeviceId: string | null
 
   setSelectedDeviceIds: (ids: string[]) => void
   toggleDeviceSelection: (id: string) => void
   clearSelection: () => void
+  setCurrentDevice: (id: string | null) => void
 
   addDevice: (device: Omit<Device, 'id' | 'status' | 'receivedAt' | 'inspectedAt' | 'inspectedBy' | 'paidAt' | 'paidBy' | 'finalPrice' | 'grade'>) => void
   batchReceiveDevices: (ids: string[]) => void
-  batchAdjustPrice: (ids: string[], percent: number) => void
+  batchAdjustPrice: (ids: string[], amountDelta: number, note?: string) => void
   startInspection: (id: string) => void
   submitInspection: (deviceId: string, report: InspectionReport, grade: Grade) => void
   confirmPrice: (id: string, finalPrice?: number) => void
@@ -68,6 +70,7 @@ export const useDeviceStore = create<DeviceStore>()(
       riskFlags: mockRiskFlags,
       historyEntries: mockHistoryEntries,
       selectedDeviceIds: [],
+      currentDeviceId: null,
 
       setSelectedDeviceIds: (ids) => set({ selectedDeviceIds: ids }),
 
@@ -82,6 +85,8 @@ export const useDeviceStore = create<DeviceStore>()(
         }),
 
       clearSelection: () => set({ selectedDeviceIds: [] }),
+
+      setCurrentDevice: (id) => set({ currentDeviceId: id }),
 
       addDevice: (deviceData) => {
         const id = generateId('DEV')
@@ -119,16 +124,18 @@ export const useDeviceStore = create<DeviceStore>()(
         })
       },
 
-      batchAdjustPrice: (ids, percent) => {
+      batchAdjustPrice: (ids, amountDelta, note) => {
         set((state) => ({
           devices: state.devices.map((d) => {
             if (!ids.includes(d.id)) return d
-            const newPrice = Math.round(d.estimatedPrice * (1 + percent / 100))
+            const newPrice = Math.max(0, d.estimatedPrice + amountDelta)
             return { ...d, estimatedPrice: newPrice }
           }),
         }))
         ids.forEach((id) => {
-          get().addHistoryEntry(id, '批量调价', '小李', 'receiver', `预估价调整${percent > 0 ? '+' : ''}${percent}%`)
+          const d = get().devices.find(x => x.id === id)
+          const detail = `预估价${amountDelta > 0 ? '上调' : '下调'} ¥${Math.abs(amountDelta)}，调整后 ¥${d?.estimatedPrice ?? 0}${note ? ` · ${note}` : ''}`
+          get().addHistoryEntry(id, '批量调价', '小李', 'receiver', detail)
         })
       },
 
@@ -338,6 +345,7 @@ export const useDeviceStore = create<DeviceStore>()(
           riskFlags: mockRiskFlags,
           historyEntries: mockHistoryEntries,
           selectedDeviceIds: [],
+          currentDeviceId: null,
         }),
     }),
     {

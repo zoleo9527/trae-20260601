@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Wallet, AlertCircle, CheckCircle2, Shield, DollarSign, X, Edit2, Check, AlertTriangle, CreditCard, UserCheck } from 'lucide-react'
 import { useDeviceStore } from '@/store/deviceStore'
@@ -20,11 +20,31 @@ function getDeviceRisks(deviceId: string, riskFlags: { deviceId: string; type: s
 }
 
 export default function Finance() {
-  const { devices, riskFlags, selectedDeviceIds, toggleDeviceSelection, setSelectedDeviceIds, clearSelection, executePayment, updatePaymentAccount, verifyPayment, flagRisk } = useDeviceStore()
+  const { devices, riskFlags, selectedDeviceIds, toggleDeviceSelection, setSelectedDeviceIds, clearSelection, executePayment, updatePaymentAccount, verifyPayment, flagRisk, currentDeviceId, setCurrentDevice } = useDeviceStore()
   const [activeTab, setActiveTab] = useState<TabKey>('pending')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editAccount, setEditAccount] = useState({ account: '', bank: '' })
   const [verifyDialog, setVerifyDialog] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!currentDeviceId) return
+    const d = devices.find(x => x.id === currentDeviceId)
+    if (!d) return
+    if (d.status === 'confirmed' || d.status === 'paying') {
+      setActiveTab('pending')
+      if (!selectedDeviceIds.includes(currentDeviceId)) {
+        toggleDeviceSelection(currentDeviceId)
+      }
+      const hasError = riskFlags.some(r => r.deviceId === currentDeviceId && r.type === 'payment_error' && r.status !== 'resolved')
+      if (hasError) {
+        setEditingId(currentDeviceId)
+        setEditAccount({ account: d.paymentAccount, bank: d.paymentBank })
+      }
+    } else if (d.status === 'completed') {
+      setActiveTab('completed')
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDeviceId])
 
   const pendingDevices = useMemo(
     () => devices.filter((d) => d.status === 'confirmed' || d.status === 'paying'),

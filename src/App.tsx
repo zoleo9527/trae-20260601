@@ -11,12 +11,13 @@ export default function App() {
     <Router>
       <Routes>
         <Route element={<Layout />}>
-          <Route path="/" element={<Navigate to="/receiver" replace />} />
+          <Route index element={<Receiver />} />
           <Route path="/receiver" element={<Receiver />} />
           <Route path="/inspector" element={<Inspector />} />
           <Route path="/finance" element={<Finance />} />
           <Route path="/device/:id" element={<DeviceDetail />} />
           <Route path="/risks" element={<Risks />} />
+          <Route path="*" element={<Navigate to="/receiver" replace />} />
         </Route>
       </Routes>
     </Router>
