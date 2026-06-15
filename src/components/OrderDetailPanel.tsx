@@ -82,7 +82,7 @@ const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ order, onClose }) =
             </span>
           </div>
           <div className="text-xs text-muted mt-1">
-            版本 v{order.version}
+            预约版本 v{order.appointmentVersion}
             {hasChanges && (
               <span className="change-indicator ml-2">
                 <AlertTriangle size={10} />
@@ -566,7 +566,7 @@ const SiteCheckItemView: React.FC<SiteCheckItemViewProps> = ({
             )}
           </div>
           <div className="text-xs text-muted mt-1">
-            {formatDateTime(check.checkedAt)} · {passedCount}/{totalCount} 项通过 · 版本 v{check.orderVersion}
+            {formatDateTime(check.checkedAt)} · {passedCount}/{totalCount} 项通过 · 预约版本 v{check.appointmentVersion}
           </div>
         </div>
         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}

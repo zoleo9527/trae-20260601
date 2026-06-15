@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/useStore';
 import { SiteCheckItem, SiteConditionRecord } from '../types';
+import { hasOrderChanges as checkHasOrderChanges } from '../utils/mockData';
 import { X, Camera, CheckCircle, XCircle, AlertTriangle, Save } from 'lucide-react';
 
 interface SiteCheckModalProps {
@@ -65,7 +66,7 @@ const SiteCheckModal: React.FC<SiteCheckModalProps> = ({ orderId, onClose }) => 
   const handleSubmit = () => {
     if (!currentUser) return;
 
-    const siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'hasOrderChanges'> = {
+    const siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'appointmentVersion' | 'hasOrderChanges'> = {
       checkedBy: currentUser.id,
       overallResult,
       items: checkItems,
@@ -77,9 +78,7 @@ const SiteCheckModal: React.FC<SiteCheckModalProps> = ({ orderId, onClose }) => 
     onClose();
   };
 
-  const hasOrderChanges = order && order.siteChecks.length > 0
-    ? order.version > order.siteChecks[order.siteChecks.length - 1].orderVersion
-    : false;
+  const hasOrderChanges = order ? checkHasOrderChanges(order) : false;
 
   const passedCount = checkItems.filter((i) => i.passed === true).length;
   const failedCount = checkItems.filter((i) => i.passed === false).length;

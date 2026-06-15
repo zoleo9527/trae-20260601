@@ -8,7 +8,7 @@ import {
   FilterOptions,
   SiteConditionRecord,
   ChangeLog,
-  SiteCheckItem,
+  APPOINTMENT_FIELDS,
 } from '../types';
 import { generateMockData, generateOrderNo } from '../utils/mockData';
 
@@ -38,7 +38,7 @@ interface AppState {
   updateOrder: (id: string, updates: Partial<InstallationOrder>) => void;
   updateOrderStatus: (id: string, status: OrderStatus, reason?: string) => void;
   assignOrder: (id: string, assigneeId: string, assigneeName: string) => void;
-  addSiteCheck: (orderId: string, siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'hasOrderChanges'>) => void;
+  addSiteCheck: (orderId: string, siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'appointmentVersion' | 'hasOrderChanges'>) => void;
   rejectOrder: (id: string, reason: string) => void;
   delayOrder: (id: string, reason: string, newDate?: string) => void;
   supplementOrder: (id: string, updates: Partial<InstallationOrder>) => void;
@@ -54,6 +54,26 @@ const initialFilters: FilterOptions = {
   assignee: 'all',
   priority: 'all',
   keyword: '',
+};
+
+const isAppointmentField = (field: string): boolean => {
+  return (APPOINTMENT_FIELDS as readonly string[]).includes(field);
+};
+
+const hasAppointmentFieldChanges = (
+  order: InstallationOrder,
+  updates: Partial<InstallationOrder>
+): boolean => {
+  for (const field of APPOINTMENT_FIELDS) {
+    if (field in updates) {
+      const oldVal = String((order as any)[field] || '');
+      const newVal = String((updates as any)[field] || '');
+      if (oldVal !== newVal) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 export const useAppStore = create<AppState>()(
@@ -168,6 +188,7 @@ export const useAppStore = create<AppState>()(
             dispatcherName: currentUser.name,
             priority: order.priority || 'normal',
             version: 1,
+            appointmentVersion: 1,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             scheduledAt: new Date().toISOString(),
@@ -205,6 +226,7 @@ export const useAppStore = create<AppState>()(
             dispatcherName: currentUser.name,
             priority: order.priority || 'normal' as const,
             version: 1,
+            appointmentVersion: 1,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             scheduledAt: new Date().toISOString(),
@@ -228,6 +250,10 @@ export const useAppStore = create<AppState>()(
 
           const oldOrder = { ...order };
           const newVersion = order.version + 1;
+          const hasApptChanges = hasAppointmentFieldChanges(order, updates);
+          const newAppointmentVersion = hasApptChanges
+            ? order.appointmentVersion + 1
+            : order.appointmentVersion;
 
           for (const [key, value] of Object.entries(updates)) {
             if (key in order && (order as any)[key] !== value) {
@@ -242,7 +268,13 @@ export const useAppStore = create<AppState>()(
           set((state) => ({
             orders: state.orders.map((o) =>
               o.id === id
-                ? { ...o, ...updates, version: newVersion, updatedAt: new Date().toISOString() }
+                ? {
+                    ...o,
+                    ...updates,
+                    version: newVersion,
+                    appointmentVersion: newAppointmentVersion,
+                    updatedAt: new Date().toISOString(),
+                  }
                 : o
             ),
           }));
@@ -309,7 +341,7 @@ export const useAppStore = create<AppState>()(
           if (!order) return;
 
           const hasOrderChanges = order.siteChecks.length > 0 &&
-            order.version > order.siteChecks[order.siteChecks.length - 1].orderVersion;
+            order.appointmentVersion > order.siteChecks[order.siteChecks.length - 1].appointmentVersion;
 
           const newSiteCheck: SiteConditionRecord = {
             ...siteCheck,
@@ -317,6 +349,7 @@ export const useAppStore = create<AppState>()(
             orderId,
             checkedAt: new Date().toISOString(),
             orderVersion: order.version,
+            appointmentVersion: order.appointmentVersion,
             hasOrderChanges,
           };
 
@@ -359,15 +392,18 @@ export const useAppStore = create<AppState>()(
             updatedAt: new Date().toISOString(),
           };
 
-          if (newDate) {
+          let newAppointmentVersion = order.appointmentVersion;
+          if (newDate && newDate !== order.appointmentDate) {
             updates.appointmentDate = newDate;
+            newAppointmentVersion = order.appointmentVersion + 1;
+            updates.appointmentVersion = newAppointmentVersion;
             get().addChangeLog(id, 'appointmentDate', order.appointmentDate, newDate);
           }
 
           get().addChangeLog(id, 'status', order.status, 'delayed');
 
           set((state) => ({
-            orders: state.orders.map((o) => (o.id === id ? { ...o, ...updates } : o)),
+            orders: state.orders.map((o) => (o.id === id ? { ...o, ...updates, appointmentVersion: newAppointmentVersion } : o)),
           }));
         },
 
@@ -378,6 +414,8 @@ export const useAppStore = create<AppState>()(
 
           get().addChangeLog(id, 'status', order.status, 'supplemented');
 
+          const hasApptChanges = hasAppointmentFieldChanges(order, updates);
+
           set((state) => ({
             orders: state.orders.map((o) =>
               o.id === id
@@ -386,6 +424,7 @@ export const useAppStore = create<AppState>()(
                     ...updates,
                     status: 'supplemented',
                     version: o.version + 1,
+                    appointmentVersion: hasApptChanges ? o.appointmentVersion + 1 : o.appointmentVersion,
                     updatedAt: new Date().toISOString(),
                   }
                 : o
@@ -455,6 +494,23 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: 'bathroom-installation-storage',
+      version: 2,
+      migrate: (persistedState: any, version: number) => {
+        if (version < 2) {
+          const mockData = generateMockData();
+          return {
+            currentUser: mockData.users[0],
+            orders: mockData.orders,
+            users: mockData.users,
+            filters: initialFilters,
+            selectedOrderId: null,
+            showOrderDetail: false,
+            showBatchEntry: false,
+            showSiteCheckModal: false,
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );

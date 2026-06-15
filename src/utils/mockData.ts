@@ -204,6 +204,10 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
   }
 
   const siteChecks: SiteConditionRecord[] = [];
+  const hasAppointmentChanges = template.hasChanges === true;
+  const siteCheckAppointmentVersion = hasAppointmentChanges ? 1 : 1;
+  const orderAppointmentVersion = hasAppointmentChanges ? 2 : 1;
+
   if (template.hasSiteCheck) {
     const items = generateSiteCheckItems();
     const overallResult = template.siteCheckResult || 'passed';
@@ -221,14 +225,10 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
       notes: actualResult === 'passed'
         ? '现场条件符合安装要求，可以正常安装。'
         : '部分条件不满足，需要客户整改后再次上门。',
-      orderVersion: template.hasChanges ? 1 : 1,
-      hasOrderChanges: false,
+      orderVersion: hasAppointmentChanges ? 2 : 1,
+      appointmentVersion: siteCheckAppointmentVersion,
+      hasOrderChanges: hasAppointmentChanges,
     });
-
-    if (template.hasChanges) {
-      siteChecks[0].orderVersion = 1;
-      siteChecks[0].hasOrderChanges = false;
-    }
   }
 
   const order: InstallationOrder = {
@@ -247,7 +247,8 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
     dispatcher: dispatcher.id,
     dispatcherName: dispatcher.name,
     priority: template.priority || 'normal',
-    version: template.hasChanges ? 3 : 1,
+    version: hasAppointmentChanges ? 5 : 3,
+    appointmentVersion: orderAppointmentVersion,
     createdAt,
     updatedAt,
     scheduledAt,
@@ -379,5 +380,5 @@ export const getFieldLabel = (field: string): string => {
 export const hasOrderChanges = (order: InstallationOrder): boolean => {
   if (order.siteChecks.length === 0) return false;
   const lastSiteCheck = order.siteChecks[order.siteChecks.length - 1];
-  return order.version > lastSiteCheck.orderVersion;
+  return order.appointmentVersion > lastSiteCheck.appointmentVersion;
 };

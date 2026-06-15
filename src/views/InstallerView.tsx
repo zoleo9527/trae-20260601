@@ -5,6 +5,7 @@ import OrderDetailPanel from '../components/OrderDetailPanel';
 import FilterBar from '../components/FilterBar';
 import SiteCheckModal from './SiteCheckModal';
 import { InstallationOrder } from '../types';
+import { hasOrderChanges } from '../utils/mockData';
 import {
   List,
   Calendar,
@@ -89,12 +90,6 @@ const InstallerView: React.FC<InstallerViewProps> = ({ activeView, onViewChange 
 
   const displayOrders = getDisplayOrders();
   const selectedOrder = selectedOrderId ? getOrderById(selectedOrderId) : null;
-
-  const hasOrderChanges = (order: InstallationOrder): boolean => {
-    if (order.siteChecks.length === 0) return false;
-    const lastSiteCheck = order.siteChecks[order.siteChecks.length - 1];
-    return order.version > lastSiteCheck.orderVersion;
-  };
 
   return (
     <div className="flex-1 flex overflow-hidden">

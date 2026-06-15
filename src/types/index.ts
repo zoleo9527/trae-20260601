@@ -50,6 +50,7 @@ export type SiteConditionRecord = {
   photos: string[];
   notes: string;
   orderVersion: number;
+  appointmentVersion: number;
   hasOrderChanges: boolean;
 };
 
@@ -70,6 +71,7 @@ export type InstallationOrder = {
   dispatcherName: string;
   priority: 'normal' | 'urgent' | 'vip';
   version: number;
+  appointmentVersion: number;
   createdAt: string;
   updatedAt: string;
   scheduledAt: string | null;
@@ -109,3 +111,13 @@ export type FilterOptions = {
   priority: 'all' | 'normal' | 'urgent' | 'vip';
   keyword: string;
 };
+
+export const APPOINTMENT_FIELDS = [
+  'appointmentDate',
+  'appointmentTime',
+  'address',
+  'productType',
+  'productModel',
+  'customerName',
+  'customerPhone',
+] as const;
