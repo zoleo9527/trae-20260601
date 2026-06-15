@@ -89,21 +89,12 @@ export const exceptionService = {
             transferTo: request.transferTo,
           })
         } else if (request.targetType === 'addition') {
-          const users = JSON.parse(localStorage.getItem('users') || '[]')
-          const user = users.find(u => u.id === request.transferTo)
-          if (user) {
-            const additions = JSON.parse(localStorage.getItem('additions') || '[]')
-            const index = additions.findIndex((a: any) => a.id === request.targetId)
-            if (index !== -1) {
-              additions[index].currentHandler = {
-                role: user.role as 'customer_service' | 'housekeeper' | 'quality_supervisor',
-                name: user.name,
-                id: user.id,
-              }
-              additions[index].updatedAt = new Date().toISOString()
-              localStorage.setItem('additions', JSON.stringify(additions))
-            }
-          }
+          additionService.handleAddition({
+            recordId: request.targetId,
+            action: 'transfer',
+            reason: request.reason,
+            transferTo: request.transferTo,
+          }, handlerId, handlerName, handlerRole)
         }
         break
       case 'complete':

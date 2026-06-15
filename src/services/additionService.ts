@@ -87,6 +87,18 @@ export const additionService = {
         addition.incompleteReason = request.reason
         historyItem.action = '标记为未完成'
         break
+      case 'transfer':
+        const users = JSON.parse(localStorage.getItem('users') || '[]')
+        const user = users.find(u => u.id === request.transferTo)
+        if (user) {
+          addition.currentHandler = {
+            role: user.role as 'customer_service' | 'housekeeper' | 'quality_supervisor',
+            name: user.name,
+            id: user.id,
+          }
+          historyItem.action = `转交给${user.name}`
+        }
+        break
     }
     
     addition.history.push(historyItem)

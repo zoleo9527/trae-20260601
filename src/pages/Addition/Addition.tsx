@@ -411,6 +411,10 @@ export function Addition() {
                       <option value="transfer">转交处理人</option>
                     </>
                   )}
+                  {(selectedAddition.status === 'rejected_by_housekeeper' || 
+                    selectedAddition.status === 'rejected_by_supervisor') && (
+                    <option value="confirm">重新提交</option>
+                  )}
                 </select>
                 
                 {action === 'transfer' && users && (
