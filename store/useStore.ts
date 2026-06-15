@@ -47,8 +47,8 @@ const initialState: AppState = {
       id: 'pr2',
       orderId: 'po1',
       type: 'quality_update',
-      title: '质检项更新',
-      description: '字体版本核对: 通过；材料规格检查: 通过；颜色核对: 未通过（颜色偏差约5%）',
+      title: '质检结论变更',
+      description: '颜色核对: 待检查 → 未通过（颜色偏差约5%）',
       operatorName: '李师傅',
       operatorRole: 'producer',
       timestamp: '2024-01-20 09:45',
@@ -60,8 +60,8 @@ const initialState: AppState = {
       id: 'pr3',
       orderId: 'po1',
       type: 'quality_update',
-      title: '质检项修正',
-      description: '颜色问题已重新喷涂处理，等待最终检查',
+      title: '质检结论确认',
+      description: '质检结论: 颜色问题已重新喷涂处理，等待最终检查',
       operatorName: '李师傅',
       operatorRole: 'producer',
       timestamp: '2024-01-20 10:15',
@@ -78,7 +78,7 @@ const initialState: AppState = {
       operatorName: '李师傅',
       operatorRole: 'producer',
       timestamp: '2024-01-21 09:45',
-      statusBefore: 'quality_check',
+      statusBefore: 'pending',
       statusAfter: 'pass',
       offline: false
     },
@@ -87,12 +87,34 @@ const initialState: AppState = {
       orderId: 'po3',
       type: 'packaging_create',
       title: '创建打包单',
-      description: '项目专员王专员为订单 PO-2024-003 创建打包单',
+      description: '为订单 PO-2024-003 创建打包单，准备进行打包',
       operatorName: '王专员',
       operatorRole: 'project_manager',
       timestamp: '2024-01-21 10:00',
-      statusBefore: 'quality_check',
+      statusBefore: 'pass',
       statusAfter: 'packaging',
+      offline: false
+    },
+    {
+      id: 'pr6',
+      orderId: 'po3',
+      type: 'packaging_update',
+      title: '打包项更新',
+      description: '主产品: 待装 → 已装',
+      operatorName: '李师傅',
+      operatorRole: 'producer',
+      timestamp: '2024-01-21 10:30',
+      offline: false
+    },
+    {
+      id: 'pr7',
+      orderId: 'po3',
+      type: 'packaging_update',
+      title: '打包项更新',
+      description: '安装配件包: 待装 → 已装',
+      operatorName: '李师傅',
+      operatorRole: 'producer',
+      timestamp: '2024-01-21 10:35',
       offline: false
     }
   ],
@@ -167,6 +189,31 @@ export function useAppStore() {
       const inspection = prev.qualityInspections.find(q => q.id === inspectionId);
       const oldResult = inspection?.overallResult;
       const newResult = updates.overallResult ?? oldResult;
+      const oldRemarks = inspection?.remarks || '';
+      const newRemarks = updates.remarks || '';
+      
+      const shouldAddRecord = updates.remarks !== undefined && newRemarks.trim() !== '' && newRemarks !== oldRemarks;
+      
+      let newRecords = [...prev.processRecords];
+      if (shouldAddRecord) {
+        const offlineText = prev.offlineMode ? '（离线待同步）' : '';
+        newRecords = [
+          {
+            id: `pr${Date.now()}`,
+            orderId: prev.qualityInspections.find(q => q.id === inspectionId)?.productionOrderId || '',
+            type: 'quality_update',
+            title: '质检结论确认',
+            description: `质检结论: ${newRemarks}${offlineText}`,
+            operatorName: prev.currentUser.name,
+            operatorRole: prev.currentUser.role,
+            timestamp: new Date().toLocaleString(),
+            statusBefore: oldResult,
+            statusAfter: newResult,
+            offline: prev.offlineMode
+          },
+          ...prev.processRecords
+        ];
+      }
       
       return {
         ...prev,
@@ -184,22 +231,7 @@ export function useAppStore() {
             relatedOrderId: prev.qualityInspections.find(q => q.id === inspectionId)?.productionOrderId || ''
           }
         ],
-        processRecords: [
-          {
-            id: `pr${Date.now()}`,
-            orderId: prev.qualityInspections.find(q => q.id === inspectionId)?.productionOrderId || '',
-            type: 'quality_update',
-            title: '质检备注更新',
-            description: updates.remarks || '质检备注已更新',
-            operatorName: prev.currentUser.name,
-            operatorRole: prev.currentUser.role,
-            timestamp: new Date().toLocaleString(),
-            statusBefore: oldResult,
-            statusAfter: newResult,
-            offline: prev.offlineMode
-          },
-          ...prev.processRecords
-        ]
+        processRecords: newRecords
       };
     });
   }, []);
@@ -210,20 +242,24 @@ export function useAppStore() {
       const oldResult = inspection?.overallResult;
       const oldItemResult = inspection?.checkItems.find(i => i.id === itemId)?.result;
       
+      const updatedItems = inspection?.checkItems.map(item => item.id === itemId ? { ...item, result, remark, checkedBy: prev.currentUser.name, checkedAt: new Date().toLocaleString() } : item) || [];
+      const allPassed = updatedItems.every(item => item.result === 'pass');
+      const hasFail = updatedItems.some(item => item.result === 'fail');
+      const newOverallResult = hasFail ? 'fail' : allPassed ? 'pass' : 'pending';
+      
+      const offlineText = prev.offlineMode ? '（离线待同步）' : '';
+      const statusChanged = oldResult !== newOverallResult;
+      
       return {
         ...prev,
         qualityInspections: prev.qualityInspections.map(qi => {
           if (qi.id !== inspectionId) return qi;
-          const updatedItems = qi.checkItems.map(item => item.id === itemId ? { ...item, result, remark, checkedBy: prev.currentUser.name, checkedAt: new Date().toLocaleString() } : item);
-          const allPassed = updatedItems.every(item => item.result === 'pass');
-          const hasFail = updatedItems.some(item => item.result === 'fail');
-          const overallResult = hasFail ? 'fail' : allPassed ? 'pass' : 'pending';
           const isFailChanged = result === 'fail' && oldItemResult !== 'fail';
           
           return {
             ...qi,
             checkItems: updatedItems,
-            overallResult,
+            overallResult: newOverallResult,
             revisionCount: isFailChanged ? qi.revisionCount + 1 : qi.revisionCount,
             updatedAt: new Date().toLocaleString()
           };
@@ -233,13 +269,13 @@ export function useAppStore() {
             id: `pr${Date.now()}`,
             orderId: inspection?.productionOrderId || '',
             type: 'quality_update',
-            title: '质检项更新',
-            description: `${inspection?.checkItems.find(i => i.id === itemId)?.name}: ${oldItemResult === 'pass' ? '通过' : oldItemResult === 'fail' ? '未通过' : '待检查'} → ${result === 'pass' ? '通过' : result === 'fail' ? '未通过' : '待检查'}${remark ? ` (${remark})` : ''}`,
+            title: statusChanged ? '质检结论变更' : '质检项更新',
+            description: `${inspection?.checkItems.find(i => i.id === itemId)?.name}: ${oldItemResult === 'pass' ? '通过' : oldItemResult === 'fail' ? '未通过' : '待检查'} → ${result === 'pass' ? '通过' : result === 'fail' ? '未通过' : '待检查'}${remark ? ` (${remark})` : ''}${offlineText}`,
             operatorName: prev.currentUser.name,
             operatorRole: prev.currentUser.role,
             timestamp: new Date().toLocaleString(),
-            statusBefore: oldResult,
-            statusAfter: inspection?.checkItems.find(i => i.id === itemId)?.result,
+            statusBefore: statusChanged ? oldResult : undefined,
+            statusAfter: statusChanged ? newOverallResult : undefined,
             offline: prev.offlineMode
           },
           ...prev.processRecords
@@ -252,6 +288,7 @@ export function useAppStore() {
     setState(prev => {
       const shipment = prev.shipments.find(s => s.id === shipmentId);
       const oldStatus = shipment?.packagingItems.find(i => i.id === itemId)?.status;
+      const offlineText = prev.offlineMode ? '（离线待同步）' : '';
       
       return {
         ...prev,
@@ -271,7 +308,7 @@ export function useAppStore() {
             orderId: shipment?.productionOrderId || '',
             type: 'packaging_update',
             title: '打包项更新',
-            description: `${shipment?.packagingItems.find(i => i.id === itemId)?.name}: ${oldStatus === 'packed' ? '已装' : oldStatus === 'missing' ? '缺失' : '待装'} → ${status === 'packed' ? '已装' : status === 'missing' ? '缺失' : '待装'}`,
+            description: `${shipment?.packagingItems.find(i => i.id === itemId)?.name}: ${oldStatus === 'packed' ? '已装' : oldStatus === 'missing' ? '缺失' : '待装'} → ${status === 'packed' ? '已装' : status === 'missing' ? '缺失' : '待装'}${offlineText}`,
             operatorName: prev.currentUser.name,
             operatorRole: prev.currentUser.role,
             timestamp: new Date().toLocaleString(),
@@ -292,6 +329,8 @@ export function useAppStore() {
       if (info.shippingMethod !== shipment?.shippingMethod) changedFields.push(`物流公司: ${shipment?.shippingMethod || '未设置'} → ${info.shippingMethod || '未设置'}`);
       if (info.trackingNo !== shipment?.trackingNo) changedFields.push(`运单号: ${shipment?.trackingNo || '未设置'} → ${info.trackingNo || '未设置'}`);
       
+      const offlineText = prev.offlineMode ? '（离线待同步）' : '';
+      
       return {
         ...prev,
         shipments: prev.shipments.map(s => s.id === shipmentId ? { ...s, ...info } : s),
@@ -301,7 +340,7 @@ export function useAppStore() {
             orderId: shipment?.productionOrderId || '',
             type: 'packaging_update',
             title: '物流信息更新',
-            description: changedFields.join('; '),
+            description: `${changedFields.join('; ')}${offlineText}`,
             operatorName: prev.currentUser.name,
             operatorRole: prev.currentUser.role,
             timestamp: new Date().toLocaleString(),
@@ -316,6 +355,7 @@ export function useAppStore() {
   const updateShipmentStatus = useCallback((shipmentId: string, status: Shipment['status']) => {
     setState(prev => {
       const shipment = prev.shipments.find(s => s.id === shipmentId);
+      const offlineText = prev.offlineMode ? '（离线待同步）' : '';
       
       return {
         ...prev,
@@ -342,7 +382,7 @@ export function useAppStore() {
             orderId: shipment?.productionOrderId || '',
             type: 'shipment',
             title: '订单发货',
-            description: `订单已发货，物流状态: ${status === 'shipped' ? '已发货' : status === 'delivered' ? '已送达' : '待发货'}`,
+            description: `订单已发货，物流状态: ${status === 'shipped' ? '已发货' : status === 'delivered' ? '已送达' : '待发货'}${offlineText}`,
             operatorName: prev.currentUser.name,
             operatorRole: prev.currentUser.role,
             timestamp: new Date().toLocaleString(),
@@ -379,40 +419,43 @@ export function useAppStore() {
       status: 'packaging'
     };
     
-    setState(prev => ({
-      ...prev,
-      shipments: [...prev.shipments, newShipment],
-      orders: prev.orders.map(o => o.id === orderId ? { ...o, status: 'packaging' } : o),
-      notifications: [
-        ...prev.notifications,
-        {
-          id: `n${Date.now()}`,
-          type: 'packaging_ready',
-          title: '打包准备提醒',
-          message: `订单 ${order.orderNo} 已创建打包单，请安排打包`,
-          read: false,
-          targetRole: 'producer',
-          createdAt: new Date().toLocaleString(),
-          relatedOrderId: orderId
-        }
-      ],
-      processRecords: [
-        {
-          id: `pr${Date.now()}`,
-          orderId: orderId,
-          type: 'packaging_create',
-          title: '创建打包单',
-          description: `为订单 ${order.orderNo} 创建打包单，准备进行打包`,
-          operatorName: prev.currentUser.name,
-          operatorRole: prev.currentUser.role,
-          timestamp: new Date().toLocaleString(),
-          statusBefore: 'quality_check',
-          statusAfter: 'packaging',
-          offline: prev.offlineMode
-        },
-        ...prev.processRecords
-      ]
-    }));
+    setState(prev => {
+      const offlineText = prev.offlineMode ? '（离线待同步）' : '';
+      return {
+        ...prev,
+        shipments: [...prev.shipments, newShipment],
+        orders: prev.orders.map(o => o.id === orderId ? { ...o, status: 'packaging' } : o),
+        notifications: [
+          ...prev.notifications,
+          {
+            id: `n${Date.now()}`,
+            type: 'packaging_ready',
+            title: '打包准备提醒',
+            message: `订单 ${order.orderNo} 已创建打包单，请安排打包`,
+            read: false,
+            targetRole: 'producer',
+            createdAt: new Date().toLocaleString(),
+            relatedOrderId: orderId
+          }
+        ],
+        processRecords: [
+          {
+            id: `pr${Date.now()}`,
+            orderId: orderId,
+            type: 'packaging_create',
+            title: '创建打包单',
+            description: `为订单 ${order.orderNo} 创建打包单，准备进行打包${offlineText}`,
+            operatorName: prev.currentUser.name,
+            operatorRole: prev.currentUser.role,
+            timestamp: new Date().toLocaleString(),
+            statusBefore: 'quality_check',
+            statusAfter: 'packaging',
+            offline: prev.offlineMode
+          },
+          ...prev.processRecords
+        ]
+      };
+    });
   }, [state.orders, state.currentUser.name]);
 
   const markNotificationRead = useCallback((notificationId: string) => {
