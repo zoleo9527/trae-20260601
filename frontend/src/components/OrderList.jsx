@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronRight, Plus, RefreshCw, AlertCircle, Clock, Package, CheckCircle } from 'lucide-react';
+import { Search, Filter, ChevronRight, Plus, RefreshCw, AlertCircle, Clock, Package, CheckCircle, Edit3, Truck, FileText } from 'lucide-react';
 import axios from 'axios';
 const statusLabels = {
  pending: '待量尺',
@@ -48,6 +48,12 @@ function OrderList({ onOrderClick, initialFilters }) {
  const [showFilters, setShowFilters] = useState(false);
  const [currentPage, setCurrentPage] = useState(1);
  const [total, setTotal] = useState(0);
+ const [showRemarkModal, setShowRemarkModal] = useState(false);
+ const [remarkOrderId, setRemarkOrderId] = useState(null);
+ const [remarkContent, setRemarkContent] = useState('');
+ const [showFabricOrderModal, setShowFabricOrderModal] = useState(false);
+ const [fabricOrderData, setFabricOrderData] = useState({ order_id: '', fabric_id: '', quantity: '', supplier: '' });
+ const [fabricStock, setFabricStock] = useState([]);
  useEffect(() => {
  if (initialFilters) {
  if (initialFilters.status) {
@@ -61,6 +67,17 @@ function OrderList({ onOrderClick, initialFilters }) {
  useEffect(() => {
  fetchOrders();
  }, [searchTerm, statusFilter, handlerFilter, currentPage]);
+ useEffect(() => {
+ fetchFabricStock();
+ }, []);
+ const fetchFabricStock = async () => {
+ try {
+ const response = await axios.get('/api/fabric-stock');
+ setFabricStock(response.data);
+ } catch (error) {
+ console.error('Failed to fetch fabric stock:', error);
+ }
+ };
  const fetchOrders = async () => {
  setLoading(true);
  try {
@@ -93,8 +110,58 @@ function OrderList({ onOrderClick, initialFilters }) {
  });
  };
  const handleQuickFilter = (statuses) => {
- setStatusFilter('');
- setCurrentPage(1);
+    setStatusFilter(statuses.join(','));
+    setCurrentPage(1);
+  };
+ const handleAddRemark = (orderId) => {
+ setRemarkOrderId(orderId);
+ setShowRemarkModal(true);
+ };
+ const handleFabricOrder = (orderId) => {
+ setFabricOrderData({ order_id: orderId, fabric_id: '', quantity: '', supplier: '' });
+ setShowFabricOrderModal(true);
+ };
+ const handleFabricReceive = async (orderId) => {
+ try {
+ await axios.put(`/api/orders/${orderId}/fabric-receive`, {
+ note: '面料已到货'
+ });
+ fetchOrders();
+ } catch (error) {
+ console.error('Failed to receive fabric:', error);
+ }
+ };
+ const submitRemark = async () => {
+ try {
+ const order = orders.find(o => o.id === remarkOrderId);
+ await axios.put(`/api/orders/${remarkOrderId}`, {
+ status: order.status,
+ current_handler: order.current_handler,
+ note: remarkContent
+ });
+ fetchOrders();
+ setShowRemarkModal(false);
+ setRemarkContent('');
+ setRemarkOrderId(null);
+ } catch (error) {
+ console.error('Failed to add remark:', error);
+ }
+ };
+ const submitFabricOrder = async () => {
+ try {
+ await axios.post('/api/fabric-order', {
+ order_id: fabricOrderData.order_id,
+ fabric_id: parseInt(fabricOrderData.fabric_id),
+ quantity: parseInt(fabricOrderData.quantity),
+ supplier: fabricOrderData.supplier,
+ note: `面料下单: ${fabricOrderData.supplier}，数量 ${fabricOrderData.quantity}米`
+ });
+ fetchOrders();
+ setShowFabricOrderModal(false);
+ setFabricOrderData({ order_id: '', fabric_id: '', quantity: '', supplier: '' });
+ } catch (error) {
+ console.error('Failed to create fabric order:', error);
+ }
  };
  const totalPages = Math.ceil(total / 10);
  return (<div className="p-6">
@@ -204,36 +271,50 @@ function OrderList({ onOrderClick, initialFilters }) {
  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">状态</th>
  <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">金额</th>
  <th className="text-left py-3 px-4 text-sm font-medium text-slate-500">更新时间</th>
- <th className="text-right py-3 px-4 text-sm font-medium text-slate-500">操作</th>
- </tr>
- </thead>
- <tbody>
+ <th className="text-center py-3 px-4 text-sm font-medium text-slate-500">快捷操作</th>
+<th className="text-right py-3 px-4 text-sm font-medium text-slate-500">操作</th>
+</tr>
+</thead>
+<tbody>
  {loading ? (<tr>
- <td colSpan="9" className="py-12 text-center text-slate-500">
+ <td colSpan="10" className="py-12 text-center text-slate-500">
  <RefreshCw className="inline-block animate-spin h-5 w-5 mr-2"/>
  加载中...
  </td>
  </tr>) : orders.length === 0 ? (<tr>
- <td colSpan="9" className="py-12 text-center text-slate-500">暂无订单</td>
- </tr>) : (orders.map((order) => (<tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => onOrderClick && onOrderClick(order)}>
- <td className="py-3 px-4 text-sm font-medium text-slate-800">{order.order_no}</td>
- <td className="py-3 px-4 text-sm text-slate-800">{order.customer_name}</td>
- <td className="py-3 px-4 text-sm text-slate-600">{order.phone}</td>
- <td className="py-3 px-4 text-sm text-slate-600">{order.fabric_type}</td>
- <td className="py-3 px-4 text-sm text-slate-600">{order.current_handler}</td>
- <td className="py-3 px-4">
+ <td colSpan="10" className="py-12 text-center text-slate-500">暂无订单</td>
+ </tr>) : (orders.map((order) => (<tr key={order.id} className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+ <td className="py-3 px-4 text-sm font-medium text-slate-800" onClick={() => onOrderClick && onOrderClick(order)}>{order.order_no}</td>
+ <td className="py-3 px-4 text-sm text-slate-800" onClick={() => onOrderClick && onOrderClick(order)}>{order.customer_name}</td>
+ <td className="py-3 px-4 text-sm text-slate-600" onClick={() => onOrderClick && onOrderClick(order)}>{order.phone}</td>
+ <td className="py-3 px-4 text-sm text-slate-600" onClick={() => onOrderClick && onOrderClick(order)}>{order.fabric_type}</td>
+ <td className="py-3 px-4 text-sm text-slate-600" onClick={() => onOrderClick && onOrderClick(order)}>{order.current_handler}</td>
+ <td className="py-3 px-4" onClick={() => onOrderClick && onOrderClick(order)}>
  <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}>
  {statusLabels[order.status]}
  </span>
  </td>
- <td className="py-3 px-4 text-sm font-medium text-slate-800 text-right">
+ <td className="py-3 px-4 text-sm font-medium text-slate-800 text-right" onClick={() => onOrderClick && onOrderClick(order)}>
  ¥{order.total_price?.toFixed(2)}
  </td>
- <td className="py-3 px-4 text-sm text-slate-500">
+ <td className="py-3 px-4 text-sm text-slate-500" onClick={() => onOrderClick && onOrderClick(order)}>
  {formatDate(order.updated_at)}
  </td>
+ <td className="py-3 px-4">
+ <div className="flex items-center justify-center space-x-1">
+ {order.status === 'confirmed' && (<button onClick={(e) => { e.stopPropagation(); handleFabricOrder(order.id); }} className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors" title="面料下单">
+ <Package size={16}/>
+ </button>)}
+ {order.status === 'fabric_ordered' && (<button onClick={(e) => { e.stopPropagation(); handleFabricReceive(order.id); }} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="到货登记">
+ <Truck size={16}/>
+ </button>)}
+ <button onClick={(e) => { e.stopPropagation(); handleAddRemark(order.id); }} className="p-1.5 text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors" title="补录备注">
+ <Edit3 size={16}/>
+ </button>
+ </div>
+ </td>
  <td className="py-3 px-4 text-right">
- <ChevronRight size={18} className="inline text-slate-400"/>
+ <ChevronRight size={18} className="inline text-slate-400" onClick={() => onOrderClick && onOrderClick(order)}/>
  </td>
  </tr>)))}
  </tbody>
@@ -262,8 +343,67 @@ function OrderList({ onOrderClick, initialFilters }) {
  下一页
  </button>
  </div>
- </div>)}
  </div>
- </div>);
+ </div>
+
+ {showRemarkModal && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+ <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+ <h3 className="text-lg font-semibold text-slate-800 mb-4">补录备注</h3>
+ <div className="mb-4">
+ <label className="block text-sm font-medium text-slate-600 mb-2">备注内容</label>
+ <textarea value={remarkContent} onChange={(e) => setRemarkContent(e.target.value)} placeholder="请输入备注内容..." className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" rows={4}/>
+ </div>
+ <div className="flex space-x-3">
+ <button onClick={() => {
+ setShowRemarkModal(false);
+ setRemarkContent('');
+ setRemarkOrderId(null);
+ }} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+ 取消
+ </button>
+ <button onClick={submitRemark} className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors">
+ 保存备注
+ </button>
+ </div>
+ </div>
+ </div>)}
+
+ {showFabricOrderModal && (<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+ <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+ <h3 className="text-lg font-semibold text-slate-800 mb-4">面料下单</h3>
+ <div className="space-y-4">
+ <div>
+ <label className="block text-sm font-medium text-slate-600 mb-2">选择面料</label>
+ <select value={fabricOrderData.fabric_id} onChange={(e) => setFabricOrderData({ ...fabricOrderData, fabric_id: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
+ <option value="">请选择面料</option>
+ {fabricStock.map((fabric) => (<option key={fabric.id} value={fabric.id}>
+ {fabric.fabric_name} - {fabric.color} (库存: {fabric.quantity}米)
+ </option>))}
+ </select>
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-slate-600 mb-2">下单数量(米)</label>
+ <input type="number" value={fabricOrderData.quantity} onChange={(e) => setFabricOrderData({ ...fabricOrderData, quantity: e.target.value })} placeholder="请输入数量" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-slate-600 mb-2">供应商</label>
+ <input type="text" value={fabricOrderData.supplier} onChange={(e) => setFabricOrderData({ ...fabricOrderData, supplier: e.target.value })} placeholder="请输入供应商名称" className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500"/>
+ </div>
+ </div>
+ <div className="flex space-x-3 mt-6">
+ <button onClick={() => {
+ setShowFabricOrderModal(false);
+ setFabricOrderData({ order_id: '', fabric_id: '', quantity: '', supplier: '' });
+ }} className="flex-1 px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">
+ 取消
+ </button>
+ <button onClick={submitFabricOrder} className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors">
+ 确认下单
+ </button>
+ </div>
+ </div>
+ </div>)}
+
+ );
 }
 export default OrderList;

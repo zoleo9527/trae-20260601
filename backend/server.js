@@ -97,7 +97,10 @@ app.get('/api/orders', (req, res) => {
   const { status, handler, search, page = 1, limit = 10 } = req.query;
   let result = [...orders].sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   
-  if (status) result = result.filter(o => o.status === status);
+  if (status) {
+    const statuses = status.split(',');
+    result = result.filter(o => statuses.includes(o.status));
+  }
   if (handler) result = result.filter(o => o.current_handler === handler);
   if (search) {
     const searchLower = search.toLowerCase();
@@ -118,8 +121,9 @@ app.get('/api/orders/:id', (req, res) => {
   const order = orders.find(o => o.id === parseInt(req.params.id));
   const details = orderDetails.filter(d => d.order_id === parseInt(req.params.id));
   const orderTracking = tracking.filter(t => t.order_id === parseInt(req.params.id)).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const fabricOrder = fabricOrders.find(f => f.order_id === parseInt(req.params.id));
   
-  res.json({ ...order, details, tracking: orderTracking });
+  res.json({ ...order, details, tracking: orderTracking, fabric_order: fabricOrder });
 });
 
 app.post('/api/orders', (req, res) => {
@@ -147,6 +151,7 @@ app.put('/api/orders/:id', (req, res) => {
   const orderIndex = orders.findIndex(o => o.id === parseInt(req.params.id));
   
   if (orderIndex !== -1) {
+    const order = orders[orderIndex];
     orders[orderIndex] = {
       ...orders[orderIndex],
       status,
@@ -206,6 +211,7 @@ app.put('/api/orders/:id/review', (req, res) => {
     orders[orderIndex] = {
       ...orders[orderIndex],
       status: newStatus,
+      ...(is_approved && { current_handler: '采购' }),
       updated_at: new Date().toISOString()
     };
     
@@ -243,7 +249,7 @@ app.put('/api/fabric-stock/:id', (req, res) => {
 });
 
 app.post('/api/fabric-order', (req, res) => {
-  const { order_id, fabric_id, quantity, supplier } = req.body;
+  const { order_id, fabric_id, quantity, supplier, note } = req.body;
   const newFabricOrder = {
     id: nextId.fabricOrders++,
     order_id,
@@ -258,12 +264,23 @@ app.post('/api/fabric-order', (req, res) => {
   
   const orderIndex = orders.findIndex(o => o.id === order_id);
   if (orderIndex !== -1) {
+    const order = orders[orderIndex];
     orders[orderIndex] = {
       ...orders[orderIndex],
       status: 'fabric_ordered',
       current_handler: '采购',
       updated_at: new Date().toISOString()
     };
+    
+    tracking.push({
+      id: nextId.tracking++,
+      order_id,
+      status: 'fabric_ordered',
+      handler: order.current_handler,
+      action: '面料下单',
+      note: note || `已向 ${supplier} 下单面料，数量: ${quantity}米`,
+      created_at: new Date().toISOString()
+    });
   }
   
   res.json({ success: true, id: newFabricOrder.id });
@@ -285,33 +302,82 @@ app.get('/api/fabric-orders', (req, res) => {
   res.json(enriched);
 });
 
-app.put('/api/fabric-orders/:id', (req, res) => {
-  const { status } = req.body;
-  const index = fabricOrders.findIndex(f => f.id === parseInt(req.params.id));
+app.put('/api/fabric-orders/:id/receive', (req, res) => {
+  const { note } = req.body;
+  const fabricOrderIndex = fabricOrders.findIndex(f => f.id === parseInt(req.params.id));
   
-  if (index !== -1) {
-    fabricOrders[index] = {
-      ...fabricOrders[index],
-      status,
+  if (fabricOrderIndex !== -1) {
+    const fabricOrder = fabricOrders[fabricOrderIndex];
+    fabricOrders[fabricOrderIndex] = {
+      ...fabricOrders[fabricOrderIndex],
+      status: 'received',
       updated_at: new Date().toISOString()
     };
     
-    if (status === 'received') {
-      const fabricOrder = fabricOrders[index];
-      const fabricIndex = fabricStock.findIndex(f => f.id === fabricOrder.fabric_id);
-      if (fabricIndex !== -1) {
-        fabricStock[fabricIndex].quantity += fabricOrder.quantity;
-      }
-      
-      const orderIndex = orders.findIndex(o => o.id === fabricOrder.order_id);
-      if (orderIndex !== -1) {
-        orders[orderIndex] = {
-          ...orders[orderIndex],
-          status: 'fabric_received',
-          updated_at: new Date().toISOString()
-        };
-      }
+    const fabricIndex = fabricStock.findIndex(f => f.id === fabricOrder.fabric_id);
+    if (fabricIndex !== -1) {
+      fabricStock[fabricIndex].quantity += fabricOrder.quantity;
     }
+    
+    const orderIndex = orders.findIndex(o => o.id === fabricOrder.order_id);
+    if (orderIndex !== -1) {
+      orders[orderIndex] = {
+        ...orders[orderIndex],
+        status: 'fabric_received',
+        current_handler: '裁剪工',
+        updated_at: new Date().toISOString()
+      };
+      
+      tracking.push({
+        id: nextId.tracking++,
+        order_id: fabricOrder.order_id,
+        status: 'fabric_received',
+        handler: '采购',
+        action: '面料到货',
+        note: note || '面料已到货入库',
+        created_at: new Date().toISOString()
+      });
+    }
+  }
+  
+  res.json({ success: true });
+});
+
+app.put('/api/orders/:id/fabric-receive', (req, res) => {
+  const { note } = req.body;
+  const orderId = parseInt(req.params.id);
+  
+  const fabricOrder = fabricOrders.find(f => f.order_id === orderId && f.status === 'ordered');
+  if (fabricOrder) {
+    fabricOrders = fabricOrders.map(f => 
+      f.id === fabricOrder.id ? { ...f, status: 'received', updated_at: new Date().toISOString() } : f
+    );
+    
+    const fabricIndex = fabricStock.findIndex(f => f.id === fabricOrder.fabric_id);
+    if (fabricIndex !== -1) {
+      fabricStock[fabricIndex].quantity += fabricOrder.quantity;
+    }
+  }
+  
+  const orderIndex = orders.findIndex(o => o.id === orderId);
+  if (orderIndex !== -1) {
+    const order = orders[orderIndex];
+    orders[orderIndex] = {
+      ...orders[orderIndex],
+      status: 'fabric_received',
+      current_handler: '裁剪工',
+      updated_at: new Date().toISOString()
+    };
+    
+    tracking.push({
+      id: nextId.tracking++,
+      order_id: orderId,
+      status: 'fabric_received',
+      handler: order.current_handler,
+      action: '面料到货',
+      note: note || '面料已到货',
+      created_at: new Date().toISOString()
+    });
   }
   
   res.json({ success: true });
@@ -339,6 +405,7 @@ app.get('/api/dashboard', (req, res) => {
   const stats = {
     pending: orders.filter(o => o.status === 'pending').length,
     measuring: orders.filter(o => o.status === 'measuring').length,
+    measured: orders.filter(o => o.status === 'measured').length,
     confirmed: orders.filter(o => o.status === 'confirmed').length,
     fabric_ordered: orders.filter(o => o.status === 'fabric_ordered').length,
     fabric_received: orders.filter(o => o.status === 'fabric_received').length,
