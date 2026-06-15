@@ -1,0 +1,48 @@
+import { Contract } from '@/types';
+
+export const contracts: Contract[] = [
+  {
+    id: 'c001',
+    contractNo: 'HT-2026-0615-001',
+    lessee: '中建八局第三工程有限公司',
+    lesseeContact: '王经理 13900139001',
+    startDate: '2026-06-10',
+    endDate: '2026-09-10',
+    amount: 180000,
+    equipmentId: 'e001',
+    siteAddress: '北京市朝阳区建国路88号工地',
+  },
+  {
+    id: 'c002',
+    contractNo: 'HT-2026-0615-002',
+    lessee: '北京城建集团有限责任公司',
+    lesseeContact: '李工 13900139002',
+    startDate: '2026-06-01',
+    endDate: '2026-12-01',
+    amount: 450000,
+    equipmentId: 'e003',
+    siteAddress: '北京市海淀区中关村南大街5号',
+  },
+  {
+    id: 'c003',
+    contractNo: 'HT-2026-0614-003',
+    lessee: '中铁建设集团北京分公司',
+    lesseeContact: '张总 13900139003',
+    startDate: '2026-06-20',
+    endDate: '2026-08-20',
+    amount: 96000,
+    equipmentId: 'e002',
+    siteAddress: '北京市丰台区丰台路10号',
+  },
+  {
+    id: 'c004',
+    contractNo: 'HT-2026-0610-004',
+    lessee: '北京建工集团',
+    lesseeContact: '刘工 13900139004',
+    startDate: '2026-05-15',
+    endDate: '2026-07-15',
+    amount: 120000,
+    equipmentId: 'e005',
+    siteAddress: '北京市西城区阜成门外大街1号',
+  },
+];
