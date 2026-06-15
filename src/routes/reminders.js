@@ -381,21 +381,46 @@ router.get('/dashboard', (req, res) => {
 });
 
 router.get('/orders-change-summary', (req, res) => {
+  const AUDIT_CHANGE_ACTIONS = ['拣货复核通过', '拣货复核驳回', '拣货复核变更（装车中重新修改）', '重置拣货复核', '异常上报'];
   const result = state.orders.map(order => {
     const audit = order.pickingAudit;
     const hasAuditDiff = audit && audit.actualItems && audit.actualItems.some(i => i.diff !== 0);
     const auditDiffItems = audit && audit.actualItems ? audit.actualItems.filter(i => i.diff !== 0) : [];
+
+    const auditLogs = order.auditLogs || [];
+    const lastAuditChangeLog = [...auditLogs].reverse().find(l => AUDIT_CHANGE_ACTIONS.includes(l.action));
+    const hasAuditChange = !!lastAuditChangeLog;
+
     const orderExceptions = state.exceptions.filter(e => e.orderId === order.id);
     const openExceptions = orderExceptions.filter(e => e.status === '待处理');
     const latestException = orderExceptions.length ? orderExceptions[orderExceptions.length - 1] : null;
-    const unreadNotices = state.notices.filter(n => n.orderId === order.id && !n.read);
+
+    const orderNotices = state.notices.filter(n => n.orderId === order.id);
+    const unreadNotices = orderNotices.filter(n => !n.read);
     const roleUnreadNotices = unreadNotices.filter(n => n.role === state.currentRole);
+
+    const supervisorNotices = orderNotices.filter(n => n.role === ROLE.WAREHOUSE_SUPERVISOR);
+    const driverNotices = orderNotices.filter(n => n.role === ROLE.DRIVER);
+    const csNotices = orderNotices.filter(n => n.role === ROLE.CUSTOMER_SERVICE);
+    const noticeStatusByRole = {
+      warehouse_supervisor: { total: supervisorNotices.length, unread: supervisorNotices.filter(n => !n.read).length },
+      driver: { total: driverNotices.length, unread: driverNotices.filter(n => !n.read).length },
+      customer_service: { total: csNotices.length, unread: csNotices.filter(n => !n.read).length }
+    };
 
     let diffSummary = null;
     if (auditDiffItems.length) {
       diffSummary = auditDiffItems.map(i =>
         `${i.material} ${i.plannedQty}${i.unit} → ${i.actualQty}${i.unit} (${i.diff > 0 ? '+' : ''}${i.diff})`
       ).join('；');
+    }
+
+    let lastAuditChangeSummary = null;
+    if (lastAuditChangeLog) {
+      lastAuditChangeSummary = `${lastAuditChangeLog.action}（${lastAuditChangeLog.operator}，${lastAuditChangeLog.time}）`;
+      if (lastAuditChangeLog.remark) {
+        lastAuditChangeSummary += ` - ${lastAuditChangeLog.remark}`;
+      }
     }
 
     let exceptionSummary = null;
@@ -411,7 +436,10 @@ router.get('/orders-change-summary', (req, res) => {
       status: order.status,
       customer: order.customer,
       hasAuditDiff,
+      hasAuditChange,
       diffSummary,
+      lastAuditChangeSummary,
+      lastAuditChangeLog: lastAuditChangeLog || null,
       auditDiffCount: auditDiffItems.length,
       exceptionCount: orderExceptions.length,
       openExceptionCount: openExceptions.length,
@@ -421,6 +449,7 @@ router.get('/orders-change-summary', (req, res) => {
       unreadNoticeCount: unreadNotices.length,
       roleUnreadNoticeCount: roleUnreadNotices.length,
       hasUnreadNotice: roleUnreadNotices.length > 0,
+      noticeStatusByRole,
       lastAuditTime: audit?.auditTime || null,
       lastExceptionTime: latestException?.reportTime || null
     };
