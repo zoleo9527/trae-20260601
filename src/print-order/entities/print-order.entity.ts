@@ -12,9 +12,6 @@ import {
 import { PrintOrderStatus } from '../../common/enums/print-order-status.enum';
 import { PriorityLevel } from '../../common/enums/priority-level.enum';
 import { User } from '../../auth/entities/user.entity';
-import { InstallationAssignment } from './installation-assignment.entity';
-import { PhotoReturn } from './photo-return.entity';
-import { OrderNote } from './order-note.entity';
 import { InstallationTask } from './installation-task.entity';
 
 @Entity('print_orders')
@@ -95,15 +92,6 @@ export class PrintOrder {
   @ManyToOne(() => User, { eager: true, nullable: true })
   @JoinColumn({ name: 'installLeaderId' })
   installLeader: User;
-
-  @OneToMany(() => InstallationAssignment, (ia) => ia.order, { cascade: true })
-  installationAssignments: InstallationAssignment[];
-
-  @OneToMany(() => PhotoReturn, (pr) => pr.order, { cascade: true })
-  photoReturns: PhotoReturn[];
-
-  @OneToMany(() => OrderNote, (n) => n.order, { cascade: true })
-  notes: OrderNote[];
 
   @OneToMany(() => InstallationTask, (t) => t.order, { cascade: true })
   installationTasks: InstallationTask[];

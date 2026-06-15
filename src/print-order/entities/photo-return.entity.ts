@@ -7,7 +7,6 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { PrintOrder } from './print-order.entity';
 import { User } from '../../auth/entities/user.entity';
 
 export enum PhotoReturnStatus {
@@ -21,10 +20,10 @@ export class PhotoReturn {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => PrintOrder, (order) => order.photoReturns)
-  @JoinColumn({ name: 'orderId' })
+
+  @Column()
   @Index()
-  order: PrintOrder;
+  orderId: string;
 
   @Column({ type: 'simple-json', nullable: true })
   photoUrls: string[];

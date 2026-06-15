@@ -7,7 +7,6 @@ import {
   JoinColumn,
   Index,
 } from 'typeorm';
-import { PrintOrder } from './print-order.entity';
 import { User } from '../../auth/entities/user.entity';
 
 export enum NoteType {
@@ -23,10 +22,10 @@ export class OrderNote {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @ManyToOne(() => PrintOrder, (order) => order.notes)
-  @JoinColumn({ name: 'orderId' })
+
+  @Column()
   @Index()
-  order: PrintOrder;
+  orderId: string;
 
   @Column({
     type: 'simple-enum',

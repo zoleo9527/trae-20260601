@@ -424,42 +424,62 @@ export class DashboardService {
       update: '更新',
       delete: '删除',
       assign_designer: '分配设计师',
-      submit_design: '提交喷绘',
+      submit_design: '提交设计稿',
       start_print: '开始喷绘',
-      complete_print: '完成喷绘',
+      complete_print: '喷绘完成',
       assign_installation: '安装派工',
       start_installation: '开始安装',
       submit_photo_return: '提交照片回传',
-      approve_photo: '验收通过',
-      reject_photo: '退回重拍',
-      create_install_task: '【一体化】创建安装任务',
-      start_install_task: '【一体化】开始安装',
-      submit_task_photo: '【一体化】提交照片回传',
-      approve_task_photo: '【一体化】验收通过',
-      reject_task_photo: '【一体化】退回重拍',
+      approve_photo: '照片验收通过',
+      reject_photo: '照片退回',
+      create_install_task: '创建安装任务',
+      start_install_task: '开始安装',
+      submit_task_photo: '提交照片回传',
+      approve_task_photo: '照片验收通过',
+      reject_task_photo: '照片退回',
+      task_supplement: '补充备注',
+      add_note: '添加备注',
     };
 
     return logs.map((log) => {
       const meta = log.metadata || {};
+      const realAction = meta.action || log.action;
       let summary = '';
       if (log.entityType === 'PrintOrder') {
         summary = meta.orderNo ? `订单: ${meta.orderNo}` : '订单操作';
-        if (meta.action === 'assign_designer') summary = `分配设计师: ${meta.designerName}`;
-        if (meta.action === 'submit_design') summary = '设计完成，提交喷绘';
-        if (meta.action === 'start_print') summary = '开始喷绘';
-        if (meta.action === 'complete_print') summary = '喷绘完成';
-        if (meta.action === 'assign_installation') summary = `安装派工: ${meta.installLeaderName}`;
-        if (meta.action === 'start_installation') summary = '开始安装';
-        if (meta.action === 'submit_photo_return') summary = `照片回传 (${meta.photoCount}张)`;
-        if (meta.action === 'approve_photo') summary = '照片验收通过';
-        if (meta.action === 'reject_photo') summary = '照片退回重拍';
-        if (meta.action === 'create_install_task') summary = `创建任务#${meta.taskRound} → ${meta.installLeaderName}`;
-        if (meta.action === 'start_install_task') summary = `开始安装任务#${meta.taskRound || ''}`;
-        if (meta.action === 'submit_task_photo') summary = `任务提交照片 (${meta.photoCount}张)`;
-        if (meta.action === 'approve_task_photo') summary = '任务照片验收通过';
-        if (meta.action === 'reject_task_photo') summary = '任务照片退回重拍';
+        if (realAction === 'assign_designer') summary = `分配设计师: ${meta.designerName}`;
+        if (realAction === 'submit_design') summary = '提交设计稿';
+        if (realAction === 'start_print') summary = '开始喷绘';
+        if (realAction === 'complete_print') summary = '喷绘完成';
+        if (realAction === 'assign_installation') summary = `安装派工: ${meta.installLeaderName}`;
+        if (realAction === 'start_installation') summary = '开始安装';
+        if (realAction === 'submit_photo_return') summary = `提交照片回传 (${meta.photoCount}张)`;
+        if (realAction === 'approve_photo') summary = `照片验收通过${meta.reviewNotes ? ' · ' + meta.reviewNotes : ''}`;
+        if (realAction === 'reject_photo') {
+          const parts = [];
+          if (meta.rejectReason) parts.push('退回原因: ' + meta.rejectReason);
+          if (meta.reviewNotes) parts.push('审核意见: ' + meta.reviewNotes);
+          summary = parts.length ? '照片退回 · ' + parts.join(' | ') : '照片退回';
+        }
+        if (realAction === 'create_install_task') summary = `创建安装任务#${meta.taskRound} → ${meta.installLeaderName}`;
+        if (realAction === 'start_install_task') summary = `开始安装任务#${meta.taskRound || ''}`;
+        if (realAction === 'submit_task_photo') summary = `提交照片回传 (${meta.photoCount}张)`;
+        if (realAction === 'approve_task_photo') summary = `照片验收通过${meta.reviewNotes ? ' · ' + meta.reviewNotes : ''}`;
+        if (realAction === 'reject_task_photo') {
+          const parts = [];
+          if (meta.rejectReason) parts.push('退回原因: ' + meta.rejectReason);
+          if (meta.reviewNotes) parts.push('审核意见: ' + meta.reviewNotes);
+          summary = parts.length ? '照片退回 · ' + parts.join(' | ') : '照片退回';
+        }
+        if (realAction === 'task_supplement') summary = `补充备注: ${meta.contentPreview || ''}`;
+        if (realAction === 'add_note') {
+          const parts = [];
+          if (meta.noteType) parts.push(meta.noteType);
+          if (meta.contentPreview) parts.push(meta.contentPreview);
+          summary = parts.length ? '添加备注: ' + parts.join(' · ') : '添加备注';
+        }
       } else if (log.entityType === 'InstallationTask') {
-        summary = meta.contentPreview ? `任务补充备注: ${meta.contentPreview}` : '安装任务更新';
+        summary = meta.contentPreview ? `补充备注: ${meta.contentPreview}` : '安装任务更新';
       } else if (log.entityType === 'OrderNote') {
         summary = meta.contentPreview ? `备注: ${meta.contentPreview}` : '添加备注';
       } else if (log.entityType === 'PhotoReturn') {
@@ -472,8 +492,8 @@ export class DashboardService {
         entityType: log.entityType,
         entityLabel: entityLabels[log.entityType] || log.entityType,
         entityId: log.entityId,
-        action: log.action,
-        actionLabel: actionLabels[log.action] || log.action,
+        action: realAction,
+        actionLabel: actionLabels[realAction] || realAction,
         operatorName: log.operator?.name,
         operatorRole: log.operator?.role,
         metadata: log.metadata,

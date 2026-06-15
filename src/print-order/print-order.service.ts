@@ -146,17 +146,8 @@ export class PrintOrderService {
         'receptionist',
         'designer',
         'printOperator',
-        'installLeader',
-        'installationAssignments',
-        'photoReturns',
-        'notes',
-        'notes.createdBy',
+        'installLeader'
       ],
-      order: {
-        installationAssignments: { createdAt: 'DESC' },
-        photoReturns: { createdAt: 'DESC' },
-        notes: { createdAt: 'DESC' },
-      },
     });
 
     if (!order) {
@@ -367,14 +358,14 @@ export class PrintOrderService {
 
     try {
       await this.assignmentRepo.update(
-        { order: { id }, isActive: true },
+        { orderId: id, isActive: true },
         { isActive: false },
       );
     } catch (_) {}
     let assignment: InstallationAssignment | null = null;
     try {
       assignment = this.assignmentRepo.create({
-        order,
+        orderId: order.id,
         installLeader,
         installTime: dto.installTime ? new Date(dto.installTime) : null,
         installAddress: dto.installAddress,
@@ -454,7 +445,7 @@ export class PrintOrderService {
     }
 
     const photoReturn = this.photoReturnRepo.create({
-      order,
+      orderId: order.id,
       photoUrls: dto.photoUrls,
       returnNotes: dto.returnNotes,
       submittedBy: operator,
@@ -502,7 +493,6 @@ export class PrintOrderService {
 
     const photoReturn = await this.photoReturnRepo.findOne({
       where: { id: photoReturnId },
-      relations: ['order'],
     });
     if (!photoReturn) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND, '照片回传记录不存在');
@@ -529,7 +519,7 @@ export class PrintOrderService {
 
       if (dto.rejectReason) {
         const note = this.noteRepo.create({
-          order,
+          orderId: order.id,
           noteType: NoteType.REJECT_REASON,
           content: dto.rejectReason,
           createdBy: operator,
@@ -566,7 +556,7 @@ export class PrintOrderService {
     const order = await this.findOne(id);
 
     const note = this.noteRepo.create({
-      order,
+      orderId: order.id,
       noteType: dto.noteType || NoteType.GENERAL,
       content: dto.content,
       createdBy: operator,
@@ -592,7 +582,7 @@ export class PrintOrderService {
     await this.findOne(id);
 
     const [items, total] = await this.noteRepo.findAndCount({
-      where: { order: { id } },
+      where: { orderId: id },
       order: { createdAt: 'DESC' },
       take: pageSize,
       skip: (page - 1) * pageSize,
@@ -724,13 +714,13 @@ export class PrintOrderService {
 
     try {
       await this.assignmentRepo.update(
-        { order: { id: orderId }, isActive: true },
+        { orderId, isActive: true },
         { isActive: false },
       );
     } catch (_) {}
     try {
       const assignment = this.assignmentRepo.create({
-        order,
+        orderId: order.id,
         installLeader,
         installTime: dto.installTime ? new Date(dto.installTime) : null,
         installAddress: dto.installAddress,
@@ -828,7 +818,7 @@ export class PrintOrderService {
 
     try {
       const photoReturn = this.photoReturnRepo.create({
-        order,
+        orderId: order.id,
         photoUrls: dto.photoUrls,
         returnNotes: dto.returnNotes,
         submittedBy: operator,
@@ -896,7 +886,7 @@ export class PrintOrderService {
       if (dto.rejectReason) {
         try {
           const note = this.noteRepo.create({
-            order,
+            orderId: order.id,
             noteType: NoteType.REJECT_REASON,
             content: dto.rejectReason,
             createdBy: operator,
@@ -916,10 +906,9 @@ export class PrintOrderService {
       try {
         const pendingPhoto = await this.photoReturnRepo.findOne({
           where: { status: PhotoReturnStatus.PENDING },
-          relations: ['order'],
           order: { createdAt: 'DESC' },
         });
-        if (pendingPhoto && pendingPhoto.order?.id === task.orderId) {
+        if (pendingPhoto && pendingPhoto.orderId === task.orderId) {
           pendingPhoto.reviewNotes = dto.reviewNotes;
           pendingPhoto.reviewedBy = operator;
           pendingPhoto.reviewedAt = new Date();
@@ -974,7 +963,7 @@ export class PrintOrderService {
 
     try {
       const note = this.noteRepo.create({
-        order,
+        orderId: order.id,
         noteType: NoteType.SUPPLEMENT,
         content: dto.content,
         createdBy: operator,
