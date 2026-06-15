@@ -11,15 +11,23 @@ import {
   RoleColor,
   Role,
   ConfirmationDecisionLabel,
+  StatusResponsible,
+  ResponsibleCategoryLabel,
+  ResponsibleCategoryColor,
+  StatusNextActions,
+  SLA_HOURS,
+  type NextAction,
 } from "~/utils/constants";
 import {
   formatDateTime,
   formatCurrency,
   formatDate,
   cn,
+  timeAgo,
 } from "~/utils/misc";
 import { Button, Card, StatusBadge } from "~/components/ui";
 import { Timeline } from "~/components/Timeline";
+import { useMemo } from "react";
 
 export const meta: MetaFunction = () => [
   { title: "工单详情 - 手机维修店管理系统" },
@@ -201,6 +209,62 @@ export default function OrderDetail() {
     order.assignedTechnician?.id === user.id &&
     order.status === WorkOrderStatus.REPAIR_IN_PROGRESS;
 
+  const responsibleInfo = useMemo(() => {
+    const category = StatusResponsible[order.status] || "NONE";
+    const labelMap: Record<string, { name: string; role?: string }> = {
+      RECEPTION: { name: "前台团队", role: "RECEPTION" },
+      MANAGER: { name: "店长", role: "MANAGER" },
+    };
+    if (category === "TECHNICIAN" && order.assignedTechnician) {
+      return {
+        category,
+        name: order.assignedTechnician.name,
+        role: order.assignedTechnician.role,
+        isAssigned: true,
+      };
+    }
+    if (labelMap[category]) {
+      return {
+        category,
+        name: labelMap[category].name,
+        role: labelMap[category].role,
+        isAssigned: category === "MANAGER" || category === "RECEPTION",
+      };
+    }
+    return { category, name: "-", role: null, isAssigned: false };
+  }, [order.status, order.assignedTechnician]);
+
+  const slaInfo = useMemo(() => {
+    const now = Date.now();
+    const lastEvent = order.timelineEvents?.length
+      ? order.timelineEvents[order.timelineEvents.length - 1]
+      : null;
+    const stateEnteredAt = lastEvent
+      ? new Date(lastEvent.createdAt).getTime()
+      : new Date(order.createdAt).getTime();
+    const slaHours = SLA_HOURS[order.status] || 24;
+    const slaMs = slaHours * 60 * 60 * 1000;
+    const age = now - stateEnteredAt;
+    const remaining = slaMs - age;
+    const pct = Math.min(100, Math.max(0, (age / slaMs) * 100));
+    return {
+      isOverdue: age > slaMs,
+      hoursInState: Math.round(age / (60 * 60 * 1000) * 10) / 10,
+      remainingHours: Math.round(remaining / (60 * 60 * 1000) * 10) / 10,
+      slaHours,
+      pct,
+      since: lastEvent ? new Date(lastEvent.createdAt) : new Date(order.createdAt),
+    };
+  }, [order.status, order.createdAt, order.timelineEvents]);
+
+  const availableActions = useMemo<NextAction[]>(() => {
+    const actions = StatusNextActions[order.status] || [];
+    if (!user) return [];
+    return actions.filter((a) => a.roles.includes(user.role as any));
+  }, [order.status, user]);
+
+  const buildRoute = (routeTpl: string) => routeTpl.replace("{id}", order.id);
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -219,58 +283,171 @@ export default function OrderDetail() {
             colorMap={WorkOrderStatusColor}
             labelMap={WorkOrderStatusLabel}
           />
+          {slaInfo.isOverdue && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">
+              ⏰ 已超时 {slaInfo.hoursInState}h / SLA {slaInfo.slaHours}h
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {showReviewButton && (
-            <Link to={`/orders/${order.id}/review`}>
-              <Button variant="secondary">查看客户确认记录</Button>
-            </Link>
-          )}
-          {showQuoteButton && (
-            <Link to={`/orders/${order.id}/quote`}>
-              <Button>填写检测报价</Button>
-            </Link>
-          )}
-          {showConfirmButton && (
-            <Link to={`/orders/${order.id}/confirm`}>
-              <Button>联系客户确认</Button>
-            </Link>
-          )}
-          {showStartRepair && (
-            <Form method="post" className="inline">
-              <input type="hidden" name="intent" value="start-repair" />
-              <Button type="submit">开始维修</Button>
-            </Form>
-          )}
-          {showComplete && (
-            <Form method="post" className="inline">
-              <input type="hidden" name="intent" value="complete" />
-              <Button variant="primary">维修完成</Button>
-            </Form>
-          )}
+          {availableActions.map((action, idx) => {
+            const route = action.route ? buildRoute(action.route) : null;
+            const variant =
+              action.variant === "danger"
+                ? "danger"
+                : action.variant === "warning"
+                ? "secondary"
+                : action.variant === "secondary"
+                ? "secondary"
+                : "primary";
+            if (action.intent && route) {
+              return (
+                <Form method="post" action={route} key={idx} className="inline">
+                  <input type="hidden" name="intent" value={action.intent} />
+                  <Button type="submit" variant={variant as any}>
+                    {action.label}
+                  </Button>
+                </Form>
+              );
+            }
+            return route ? (
+              <Link key={idx} to={route}>
+                <Button variant={variant as any}>{action.label}</Button>
+              </Link>
+            ) : null;
+          })}
         </div>
       </div>
 
-      {order.alerts.length > 0 && (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-4">
-          <div className="flex items-start gap-3">
-            <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center text-white text-sm shrink-0">!</div>
-            <div className="flex-1">
-              <h4 className="text-sm font-semibold text-red-800">
-                该工单存在 {order.alerts.length} 条异常提醒
-              </h4>
-              <div className="mt-2 space-y-1.5">
-                {order.alerts.map((a) => (
-                  <div key={a.id} className="text-sm text-red-700">
-                    <span className="font-medium">{a.title}：</span>
-                    {a.message}
-                  </div>
-                ))}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card
+          title="当前责任人"
+          className="overflow-hidden"
+          icon={
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600 font-bold">
+              {responsibleInfo.name.charAt(0)}
+            </span>
+          }
+        >
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-bold text-slate-900">
+                {responsibleInfo.name}
+              </span>
+              <span
+                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                  responsibleInfo.role
+                    ? RoleColor[responsibleInfo.role as keyof typeof RoleColor]
+                    : ResponsibleCategoryColor[responsibleInfo.category as keyof typeof ResponsibleCategoryColor]
+                }`}
+              >
+                {responsibleInfo.role
+                  ? RoleLabel[responsibleInfo.role as keyof typeof RoleLabel]
+                  : ResponsibleCategoryLabel[responsibleInfo.category as keyof typeof ResponsibleCategoryLabel]}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {order.status === WorkOrderStatus.QUOTE_READY
+                ? "前台需在 SLA 内主动联系客户完成确认"
+                : order.status === WorkOrderStatus.REVISE_REQUESTED
+                ? "维修师需参考客户修改意见，尽快更新报价"
+                : order.status === WorkOrderStatus.CUSTOMER_REJECTED
+                ? "店长需介入处理客户拒绝后续流程"
+                : responsibleInfo.category === "TECHNICIAN"
+                ? "维修师负责当前阶段的处理与推进"
+                : "前台负责流程推进与客户沟通"}
+            </p>
+            {order.assignedTechnician && responsibleInfo.category !== "TECHNICIAN" && (
+              <div className="pt-2 mt-2 border-t border-slate-100 text-xs text-slate-500">
+                关联维修师：
+                <span className="font-medium text-slate-700">
+                  {order.assignedTechnician.name}
+                </span>
               </div>
+            )}
+          </div>
+        </Card>
+
+        <Card
+          title="阶段停留与 SLA"
+          className="overflow-hidden"
+          icon={
+            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${slaInfo.isOverdue ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"} font-bold`}>
+              ⏱
+            </span>
+          }
+        >
+          <div className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <span className="text-2xl font-bold text-slate-900">
+                {slaInfo.hoursInState} <span className="text-sm font-normal text-slate-500">小时</span>
+              </span>
+              <span className={`text-sm font-semibold ${slaInfo.isOverdue ? "text-red-600" : "text-slate-500"}`}>
+                {slaInfo.isOverdue
+                  ? `超出 ${Math.abs(slaInfo.remainingHours)}h`
+                  : `剩余 ${slaInfo.remainingHours}h`}
+              </span>
+            </div>
+            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  slaInfo.pct > 100
+                    ? "bg-red-500"
+                    : slaInfo.pct > 75
+                    ? "bg-amber-500"
+                    : "bg-emerald-500"
+                }`}
+                style={{ width: `${slaInfo.pct}%` }}
+              />
+            </div>
+            <div className="text-xs text-slate-500 space-y-0.5">
+              <p>
+                SLA 要求：{slaInfo.slaHours} 小时内推进下一阶段
+              </p>
+              <p>进入状态时间：{formatDateTime(slaInfo.since)}</p>
             </div>
           </div>
-        </div>
-      )}
+        </Card>
+
+        <Card
+          title={order.alerts.length > 0 ? `异常提醒（${order.alerts.length}）` : "流程健康度"}
+          className="overflow-hidden"
+          icon={
+            <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg ${order.alerts.length > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"} font-bold`}>
+              {order.alerts.length > 0 ? "!" : "✓"}
+            </span>
+          }
+        >
+          {order.alerts.length > 0 ? (
+            <div className="space-y-2 max-h-[120px] overflow-y-auto">
+              {order.alerts.map((a) => (
+                <div
+                  key={a.id}
+                  className="p-2 rounded border border-red-200 bg-red-50 text-xs"
+                >
+                  <p className="font-semibold text-red-800">{a.title}</p>
+                  <p className="text-red-700 mt-0.5 line-clamp-2">{a.message}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-emerald-700">当前无异常</p>
+              <p className="text-xs text-slate-500">
+                工单流程正常推进，责任链清晰。
+              </p>
+              <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200">
+                  ✓ 责任明确
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-medium border border-emerald-200">
+                  ✓ 状态清晰
+                </span>
+              </div>
+            </div>
+          )}
+        </Card>
+      </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="space-y-5 lg:col-span-2">

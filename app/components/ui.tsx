@@ -75,16 +75,20 @@ interface CardProps {
   title?: string;
   subtitle?: string;
   action?: ReactNode;
+  icon?: ReactNode;
 }
 
-export function Card({ children, className, title, subtitle, action }: CardProps) {
+export function Card({ children, className, title, subtitle, action, icon }: CardProps) {
   return (
     <div className={cn("bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden", className)}>
       {(title || action) && (
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            {title && <h3 className="text-base font-semibold text-slate-900">{title}</h3>}
-            {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+          <div className="flex items-center gap-3">
+            {icon}
+            <div>
+              {title && <h3 className="text-base font-semibold text-slate-900">{title}</h3>}
+              {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+            </div>
           </div>
           {action}
         </div>

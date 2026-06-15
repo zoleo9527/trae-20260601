@@ -11,8 +11,16 @@ import {
   Role,
   RoleLabel,
   RoleColor,
+  StatusResponsible,
+  ResponsibleCategoryLabel,
+  ResponsibleCategoryColor,
+  StatusNextActions,
+  SLA_HOURS,
+  type NextAction,
+  AlertStatus,
+  WorkOrderStatus as Status,
 } from "~/utils/constants";
-import { formatDateTime, formatCurrency, cn } from "~/utils/misc";
+import { formatDateTime, formatCurrency, cn, timeAgo } from "~/utils/misc";
 import { Button, Card, Input, Select, StatusBadge, EmptyState } from "~/components/ui";
 import { z } from "zod";
 
@@ -49,9 +57,24 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
         assignedTechnician: { select: { id: true, name: true, role: true } },
         inspectionQuotes: {
           where: { isCurrent: true },
-          select: { totalAmount: true, version: true },
+          select: { totalAmount: true, version: true, createdAt: true },
           orderBy: { version: "desc" },
           take: 1,
+        },
+        customerConfirmations: {
+          where: { isCurrent: true },
+          select: { version: true },
+          orderBy: { version: "desc" },
+          take: 1,
+        },
+        alerts: {
+          where: { status: AlertStatus.ACTIVE },
+          select: { id: true, alertType: true, title: true },
+        },
+        timelineEvents: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: { createdAt: true },
         },
       },
       orderBy: { createdAt: "desc" },
@@ -146,6 +169,60 @@ export default function OrdersIndex() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [technicianId, setTechnicianId] = useState<string>("");
   const batchFetcher = useFetcher();
+
+  const getRowClass = (order: any) => {
+    const now = Date.now();
+    const lastEvent = order.timelineEvents?.[0];
+    const stateEnteredAt = lastEvent ? new Date(lastEvent.createdAt).getTime() : new Date(order.createdAt).getTime();
+    const slaHours = SLA_HOURS[order.status] || 24;
+    const slaMs = slaHours * 60 * 60 * 1000;
+    const age = now - stateEnteredAt;
+    const isOverdue = age > slaMs;
+    const hasAlerts = order.alerts && order.alerts.length > 0;
+
+    if (hasAlerts) return "bg-red-50/70 hover:bg-red-50";
+    if (isOverdue) return "bg-amber-50/60 hover:bg-amber-50";
+    return "hover:bg-slate-50";
+  };
+
+  const getOverdueInfo = (order: any) => {
+    const now = Date.now();
+    const lastEvent = order.timelineEvents?.[0];
+    const stateEnteredAt = lastEvent ? new Date(lastEvent.createdAt).getTime() : new Date(order.createdAt).getTime();
+    const slaHours = SLA_HOURS[order.status] || 24;
+    const slaMs = slaHours * 60 * 60 * 1000;
+    const age = now - stateEnteredAt;
+    return {
+      isOverdue: age > slaMs,
+      hoursInState: Math.round(age / (60 * 60 * 1000) * 10) / 10,
+      slaHours,
+    };
+  };
+
+  const getResponsibleDisplay = (order: any) => {
+    const category = StatusResponsible[order.status] || "NONE";
+    if (category === "TECHNICIAN" && order.assignedTechnician) {
+      return {
+        label: order.assignedTechnician.name,
+        color: RoleColor[order.assignedTechnician.role],
+        badge: RoleLabel[order.assignedTechnician.role],
+        category,
+      };
+    }
+    return {
+      label: ResponsibleCategoryLabel[category],
+      color: ResponsibleCategoryColor[category],
+      badge: null,
+      category,
+    };
+  };
+
+  const getAvailableActions = (order: any): NextAction[] => {
+    const actions = StatusNextActions[order.status] || [];
+    return actions.filter((a) => a.roles.includes(user.role as any));
+  };
+
+  const buildRoute = (routeTpl: string, id: string) => routeTpl.replace("{id}", id);
 
   const statusTabs = useMemo(() => {
     return [
@@ -326,7 +403,7 @@ export default function OrdersIndex() {
               <thead className="bg-slate-50">
                 <tr>
                   {user.role !== Role.TECHNICIAN && (
-                    <th className="px-4 py-3 w-10">
+                    <th className="px-3 py-3 w-10">
                       <input
                         type="checkbox"
                         checked={selectedIds.length === orders.length && orders.length > 0}
@@ -335,29 +412,26 @@ export default function OrdersIndex() {
                       />
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     工单号
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    客户信息
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    客户/设备
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    设备/故障
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    维修师
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    报价
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                     状态
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    接机时间
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    当前责任人
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                    操作
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    报价
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    时长/SLA
+                  </th>
+                  <th className="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    下一步待办
                   </th>
                 </tr>
               </thead>
@@ -366,10 +440,14 @@ export default function OrdersIndex() {
                   const isSelectable =
                     user.role !== Role.TECHNICIAN &&
                     order.status === WorkOrderStatus.PENDING_INSPECTION;
+                  const responsible = getResponsibleDisplay(order);
+                  const overdue = getOverdueInfo(order);
+                  const actions = getAvailableActions(order);
+                  const hasAlerts = order.alerts && order.alerts.length > 0;
                   return (
-                    <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={order.id} className={`transition-colors ${getRowClass(order)}`}>
                       {user.role !== Role.TECHNICIAN && (
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-3">
                           <input
                             type="checkbox"
                             checked={selectedIds.includes(order.id)}
@@ -379,62 +457,136 @@ export default function OrdersIndex() {
                           />
                         </td>
                       )}
-                      <td className="px-4 py-3">
-                        <div className="text-sm font-mono text-slate-900 font-medium">{order.orderNo}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-slate-900 font-medium">{order.customerName}</div>
-                        <div className="text-xs text-slate-500">{order.customerPhone}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-slate-900">
-                          {order.deviceBrand} {order.deviceModel}
-                          {order.deviceColor && (
-                            <span className="text-slate-500 ml-1">({order.deviceColor})</span>
+                      <td className="px-3 py-3">
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-mono text-slate-900 font-medium">{order.orderNo}</div>
+                          {hasAlerts && (
+                            <div className="flex items-center gap-1" title={order.alerts.map((a: any) => a.title).join("；")}>
+                              <span className="inline-flex items-center justify-center w-4.5 h-4.5 rounded-full bg-red-500 text-white text-[10px] font-bold shrink-0">!</span>
+                              <span className="text-[10px] font-semibold text-red-700">异常</span>
+                            </div>
                           )}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5 line-clamp-1 max-w-xs">
-                          {order.faultDescription}
+                      </td>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <div className="text-sm text-slate-900 font-medium">{order.customerName}</div>
+                          <div className="text-xs text-slate-500">{order.customerPhone}</div>
+                          <div className="text-xs text-slate-600 mt-0.5">
+                            {order.deviceBrand} {order.deviceModel}
+                          </div>
+                          <div className="text-xs text-slate-400 line-clamp-1 max-w-[180px]">
+                            {order.faultDescription}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {order.assignedTechnician ? (
-                          <div>
-                            <span className="text-sm text-slate-900">{order.assignedTechnician.name}</span>
-                            <span className={`ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${RoleColor[order.assignedTechnician.role]}`}>
-                              {RoleLabel[order.assignedTechnician.role]}
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          <StatusBadge
+                            status={order.status}
+                            colorMap={WorkOrderStatusColor}
+                            labelMap={WorkOrderStatusLabel}
+                          />
+                          {overdue.isOverdue && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-red-700">
+                              <span>⏰</span>
+                              超时 {overdue.hoursInState}h
                             </span>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">未分配</span>
-                        )}
+                          )}
+                        </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-sm font-medium text-slate-900">
+                              {responsible.label}
+                            </span>
+                            {responsible.badge && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${responsible.color}`}>
+                                {responsible.badge}
+                              </span>
+                            )}
+                            {!responsible.badge && (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${responsible.color}`}>
+                                {ResponsibleCategoryLabel[responsible.category]}
+                              </span>
+                            )}
+                          </div>
+                          {order.assignedTechnician && responsible.category !== "TECHNICIAN" && (
+                            <div className="text-[11px] text-slate-500">
+                              维修师：{order.assignedTechnician.name}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-3">
                         {order.inspectionQuotes?.[0] ? (
-                          <span className="text-sm font-semibold text-slate-900">
-                            {formatCurrency(order.inspectionQuotes[0].totalAmount)}
-                          </span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {formatCurrency(order.inspectionQuotes[0].totalAmount)}
+                            </span>
+                            {order.inspectionQuotes[0].version > 1 && (
+                              <span className="text-[10px] text-slate-500">
+                                V{order.inspectionQuotes[0].version}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-sm text-slate-400">-</span>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <StatusBadge
-                          status={order.status}
-                          colorMap={WorkOrderStatusColor}
-                          labelMap={WorkOrderStatusLabel}
-                        />
+                      <td className="px-3 py-3">
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`text-xs ${overdue.isOverdue ? "text-red-600 font-semibold" : "text-slate-600"}`}>
+                            {overdue.hoursInState} 小时
+                          </span>
+                          <span className="text-[10px] text-slate-400">
+                            SLA {overdue.slaHours}h · {timeAgo(order.receivedAt)}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-500">
-                        {formatDateTime(order.receivedAt)}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <Link
-                          to={`/orders/${order.id}`}
-                          className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                        >
-                          查看详情 →
-                        </Link>
+                      <td className="px-3 py-3">
+                        <div className="flex flex-wrap gap-1.5 items-center justify-end">
+                          {actions.slice(0, 2).map((action, idx) => {
+                            const route = action.route ? buildRoute(action.route, order.id) : null;
+                            const variantClass =
+                              action.variant === "primary"
+                                ? "bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                                : action.variant === "warning"
+                                ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
+                                : action.variant === "danger"
+                                ? "bg-red-600 hover:bg-red-700 text-white border-red-600"
+                                : "bg-white hover:bg-slate-50 text-slate-700 border-slate-300";
+                            if (action.intent && route) {
+                              return (
+                                <Form method="post" action={route} key={idx} className="inline">
+                                  <input type="hidden" name="intent" value={action.intent} />
+                                  <button
+                                    type="submit"
+                                    className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border shadow-sm transition-colors ${variantClass}`}
+                                  >
+                                    {action.label}
+                                  </button>
+                                </Form>
+                              );
+                            }
+                            return route ? (
+                              <Link
+                                key={idx}
+                                to={route}
+                                className={`inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-md border shadow-sm transition-colors ${variantClass}`}
+                              >
+                                {action.label} →
+                              </Link>
+                            ) : null;
+                          })}
+                          <Link
+                            to={`/orders/${order.id}`}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-slate-600 hover:text-slate-800 hover:bg-slate-100 transition-colors"
+                          >
+                            详情
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );

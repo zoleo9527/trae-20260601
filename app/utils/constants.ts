@@ -95,3 +95,146 @@ export const AlertTypeLabel: Record<string, string> = {
   [AlertType.ABNORMAL_DETECTION]: "检测异常",
   [AlertType.REVISE_REQUESTED]: "需修改报价",
 };
+
+export const SLA_HOURS: Record<string, number> = {
+  [WorkOrderStatus.PENDING_INSPECTION]: 2,
+  [WorkOrderStatus.INSPECTION_IN_PROGRESS]: 4,
+  [WorkOrderStatus.REVISE_REQUESTED]: 2,
+  [WorkOrderStatus.QUOTE_READY]: 4,
+  [WorkOrderStatus.CUSTOMER_CONFIRMED]: 2,
+  [WorkOrderStatus.CUSTOMER_REJECTED]: 4,
+  [WorkOrderStatus.REPAIR_IN_PROGRESS]: 24,
+  [WorkOrderStatus.COMPLETED]: 48,
+};
+
+export type ResponsibleCategory = "RECEPTION" | "TECHNICIAN" | "MANAGER" | "CUSTOMER" | "NONE";
+
+export const StatusResponsible: Record<string, ResponsibleCategory> = {
+  [WorkOrderStatus.PENDING_INSPECTION]: "RECEPTION",
+  [WorkOrderStatus.INSPECTION_IN_PROGRESS]: "TECHNICIAN",
+  [WorkOrderStatus.REVISE_REQUESTED]: "TECHNICIAN",
+  [WorkOrderStatus.QUOTE_READY]: "RECEPTION",
+  [WorkOrderStatus.CUSTOMER_CONFIRMED]: "TECHNICIAN",
+  [WorkOrderStatus.CUSTOMER_REJECTED]: "MANAGER",
+  [WorkOrderStatus.REPAIR_IN_PROGRESS]: "TECHNICIAN",
+  [WorkOrderStatus.COMPLETED]: "RECEPTION",
+  [WorkOrderStatus.CANCELLED]: "NONE",
+};
+
+export const ResponsibleCategoryLabel: Record<ResponsibleCategory, string> = {
+  RECEPTION: "前台",
+  TECHNICIAN: "维修师",
+  MANAGER: "店长",
+  CUSTOMER: "客户",
+  NONE: "-",
+};
+
+export const ResponsibleCategoryColor: Record<ResponsibleCategory, string> = {
+  RECEPTION: "bg-emerald-100 text-emerald-800",
+  TECHNICIAN: "bg-blue-100 text-blue-800",
+  MANAGER: "bg-purple-100 text-purple-800",
+  CUSTOMER: "bg-sky-100 text-sky-800",
+  NONE: "bg-slate-100 text-slate-500",
+};
+
+export interface NextAction {
+  label: string;
+  route?: string;
+  intent?: string;
+  roles: Role[];
+  variant: "primary" | "secondary" | "danger" | "warning";
+}
+
+export const StatusNextActions: Record<string, NextAction[]> = {
+  [WorkOrderStatus.PENDING_INSPECTION]: [
+    {
+      label: "分配维修师",
+      route: "/orders/{id}",
+      roles: [Role.RECEPTIONIST, Role.MANAGER],
+      variant: "primary",
+    },
+  ],
+  [WorkOrderStatus.INSPECTION_IN_PROGRESS]: [
+    {
+      label: "填写检测报价",
+      route: "/orders/{id}/quote",
+      roles: [Role.TECHNICIAN],
+      variant: "primary",
+    },
+  ],
+  [WorkOrderStatus.REVISE_REQUESTED]: [
+    {
+      label: "修改报价",
+      route: "/orders/{id}/quote",
+      roles: [Role.TECHNICIAN],
+      variant: "warning",
+    },
+    {
+      label: "查看修改意见",
+      route: "/orders/{id}",
+      roles: [Role.RECEPTIONIST, Role.MANAGER, Role.TECHNICIAN],
+      variant: "secondary",
+    },
+  ],
+  [WorkOrderStatus.QUOTE_READY]: [
+    {
+      label: "联系客户确认",
+      route: "/orders/{id}/confirm",
+      roles: [Role.RECEPTIONIST, Role.MANAGER],
+      variant: "warning",
+    },
+    {
+      label: "查看报价",
+      route: "/orders/{id}",
+      roles: [Role.TECHNICIAN],
+      variant: "secondary",
+    },
+  ],
+  [WorkOrderStatus.CUSTOMER_CONFIRMED]: [
+    {
+      label: "开始维修",
+      route: "/orders/{id}",
+      intent: "start-repair",
+      roles: [Role.TECHNICIAN],
+      variant: "primary",
+    },
+    {
+      label: "查看确认记录",
+      route: "/orders/{id}/review",
+      roles: [Role.RECEPTIONIST, Role.MANAGER, Role.TECHNICIAN],
+      variant: "secondary",
+    },
+  ],
+  [WorkOrderStatus.CUSTOMER_REJECTED]: [
+    {
+      label: "处理拒绝",
+      route: "/orders/{id}",
+      roles: [Role.MANAGER],
+      variant: "danger",
+    },
+    {
+      label: "查看确认记录",
+      route: "/orders/{id}/review",
+      roles: [Role.RECEPTIONIST, Role.MANAGER],
+      variant: "secondary",
+    },
+  ],
+  [WorkOrderStatus.REPAIR_IN_PROGRESS]: [
+    {
+      label: "维修完成",
+      route: "/orders/{id}",
+      intent: "complete",
+      roles: [Role.TECHNICIAN],
+      variant: "primary",
+    },
+  ],
+  [WorkOrderStatus.COMPLETED]: [
+    {
+      label: "查看工单",
+      route: "/orders/{id}",
+      roles: [Role.RECEPTIONIST, Role.MANAGER, Role.TECHNICIAN],
+      variant: "secondary",
+    },
+  ],
+  [WorkOrderStatus.CANCELLED]: [],
+};
