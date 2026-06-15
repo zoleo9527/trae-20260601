@@ -27,12 +27,13 @@ function PaymentInner() {
   const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const router = useRouter();
-  const [mode, setMode] = useState<"submit" | "review" | null>(null);
+  const [mode, setMode] = useState<"submit" | "resubmit" | "review" | null>(null);
   const [order, setOrder] = useState<PayOrder | null>(null);
   const [payment, setPayment] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [returnRemark, setReturnRemark] = useState<string | null>(null);
 
   // 表单
   const [payeeName, setPayeeName] = useState("");
@@ -57,6 +58,16 @@ function PaymentInner() {
         setPayeeName(d.customerName);
         if (d.status === "BARGAIN_APPROVED") {
           setMode("submit");
+        } else if (d.status === "PAYMENT_RETURNED" && d.payments?.[0]) {
+          // 打款被退回，检测师重新编辑提交
+          const lastPay = d.payments[0];
+          setPayment(lastPay);
+          setReturnRemark(lastPay.reviewRemark || null);
+          setPayeeName(lastPay.payeeName);
+          setPayeeBank(lastPay.payeeBank || "");
+          setPayeeAccount(lastPay.payeeAccount);
+          setSubmitRemark(lastPay.submitRemark || "");
+          setMode("resubmit");
         } else if (d.payments?.[0]) {
           // 是订单，但已有 payment，跳转到 payment 详情
           setPayment(d.payments[0]);
@@ -143,7 +154,7 @@ function PaymentInner() {
   const amount = order.finalPrice || order.detectPrice;
   const isFinance = user?.role === "FINANCE";
   const isDetecter = user?.role === "DETECTER";
-  const canSubmit = mode === "submit" && isDetecter;
+  const canSubmit = (mode === "submit" || mode === "resubmit") && isDetecter;
   const canReview = mode === "review" && isFinance && payment && !payment.paidAt && !payment.reviewRemark;
   const readonly = mode === "review" && (payment?.paidAt || payment?.reviewRemark);
 
@@ -154,12 +165,33 @@ function PaymentInner() {
           ← 返回打款列表
         </Link>
         <h1 className="font-display text-3xl tracking-wide mt-2">
-          {mode === "submit" ? "提交打款申请" : readonly ? "打款记录回看" : "处理打款申请"}
+          {mode === "submit"
+            ? "提交打款申请"
+            : mode === "resubmit"
+            ? "重新提交打款申请"
+            : readonly
+            ? "打款记录回看"
+            : "处理打款申请"}
         </h1>
         <p className="text-sm text-slate-500 mt-1">
           订单号 <span className="font-mono">{order.orderNo}</span> · {order.deviceType} · {order.customerName}
         </p>
       </div>
+
+      {mode === "resubmit" && returnRemark && (
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-4">
+          <div className="flex items-start gap-2">
+            <div className="text-rose-500 mt-0.5">⚠</div>
+            <div>
+              <div className="text-sm font-medium text-rose-800">财务退回原因</div>
+              <div className="text-sm text-rose-700 mt-1">{returnRemark}</div>
+              <div className="text-xs text-rose-600 mt-1">
+                请根据上述原因修改收款信息后重新提交
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl border border-slate-200 p-5 grid grid-cols-2 gap-4 text-sm">
         <div>
@@ -186,9 +218,11 @@ function PaymentInner() {
         </div>
       </div>
 
-      {mode === "submit" && (
+      {(mode === "submit" || mode === "resubmit") && (
         <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
-          <h3 className="font-medium">打款账户信息</h3>
+          <h3 className="font-medium">
+            {mode === "resubmit" ? "重新编辑打款账户信息" : "打款账户信息"}
+          </h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -251,7 +285,11 @@ function PaymentInner() {
               disabled={submitting || !canSubmit}
               className="px-5 py-2 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-700 disabled:opacity-40"
             >
-              {submitting ? "提交中..." : "提交打款申请"}
+              {submitting
+                ? "提交中..."
+                : mode === "resubmit"
+                ? "重新提交打款申请"
+                : "提交打款申请"}
             </button>
           </div>
         </div>

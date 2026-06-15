@@ -131,6 +131,26 @@ async function main() {
       remark: "已完成打款 ¥1700",
       payment: { bank: "工商银行", account: "6222****1122", paid: true, review: "账号无误，已打款" },
     },
+    {
+      orderNo: "RC20260615-007",
+      customerName: "郑女士",
+      customerPhone: "13800000007",
+      deviceType: "DJI Mini 3 Pro",
+      deviceSn: "0B7CD007",
+      appearance: "95成新，飞行时长12小时",
+      accessories: "遥控器、电池×2、原包装",
+      initialPrice: 4200,
+      detectPrice: 4000,
+      status: "PAYMENT_RETURNED",
+      remark: "打款申请被财务退回，需修改收款账号",
+      bargain: { reason: "议价通过", result: "确认价格 ¥4000", action: "APPROVE" },
+      payment: {
+        bank: "建设银行",
+        account: "6217****0000",
+        paid: false,
+        review: "账号位数不正确，请核对后重新提交",
+      },
+    },
   ];
 
   for (const o of orders) {
@@ -148,7 +168,8 @@ async function main() {
         finalPrice:
           o.status === "BARGAIN_APPROVED" ||
           o.status === "PAYMENT_REQUESTED" ||
-          o.status === "PAYMENT_PAID"
+          o.status === "PAYMENT_PAID" ||
+          o.status === "PAYMENT_RETURNED"
             ? o.detectPrice
             : null,
         status: o.status,
@@ -205,7 +226,7 @@ async function main() {
           payeeName: o.customerName,
           payeeBank: o.payment.bank,
           payeeAccount: o.payment.account,
-          financeId: o.payment.paid ? finance.id : null,
+          financeId: o.payment.paid || o.payment.review ? finance.id : null,
           submitRemark: "议价通过，申请打款",
           reviewRemark: o.payment.review || null,
           paidAt: o.payment.paid ? new Date() : null,

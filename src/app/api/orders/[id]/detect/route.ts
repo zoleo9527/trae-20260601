@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseAuth } from "@/lib/auth";
-import { transitionOrderStatus } from "@/lib/order-flow";
+import { transitionOrderStatusInternal } from "@/lib/order-flow";
 import type { OrderStatus } from "@/types";
 
+// 检测定价：更新检测价 + 状态流转到 DETECTED + 日志，在同一事务内完成
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const auth = parseAuth(req);
@@ -12,21 +13,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "请输入有效检测价" }, { status: 400 });
     }
 
-    await prisma.recycleOrder.update({
-      where: { id: params.id },
-      data: {
-        detectPrice,
-        detecterId: auth.userId,
-      },
+    const updated = await prisma.$transaction(async (tx) => {
+      await tx.recycleOrder.update({
+        where: { id: params.id },
+        data: {
+          detectPrice,
+          detecterId: auth.userId,
+        },
+      });
+      return transitionOrderStatusInternal(
+        tx,
+        params.id,
+        auth,
+        "DETECTED" as OrderStatus,
+        "DETECT",
+        remark || `检测完成，检测价 ¥${detectPrice}`
+      );
     });
-
-    const updated = await transitionOrderStatus(
-      params.id,
-      auth,
-      "DETECTED",
-      "DETECT",
-      remark || `检测完成，检测价 ¥${detectPrice}`
-    );
 
     return NextResponse.json(updated);
   } catch (e) {

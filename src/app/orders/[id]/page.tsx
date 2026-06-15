@@ -97,7 +97,15 @@ function DetailInner() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {order.status === "RECEIVED" && user!.role === "DETECTER" && (
+            <Link
+              href={`/orders/${order.id}/detect`}
+              className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-700"
+            >
+              检测定价
+            </Link>
+          )}
           {order.status === "BARGAIN_REVIEW" && user!.role === "DETECTER" && (
             <Link
               href={`/bargain/${order.id}`}
@@ -120,6 +128,14 @@ function DetailInner() {
               className="px-4 py-2 rounded-lg bg-brand-600 text-white text-sm hover:bg-brand-700"
             >
               发起议价复核
+            </Link>
+          )}
+          {order.status === "PAYMENT_RETURNED" && user!.role === "DETECTER" && (
+            <Link
+              href={`/payment/${order.id}`}
+              className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm hover:bg-amber-700"
+            >
+              重新提交打款
             </Link>
           )}
           {order.status === "PAYMENT_REQUESTED" &&

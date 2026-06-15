@@ -23,7 +23,7 @@ interface PayOrder {
 
 function PaymentListInner() {
   const { user } = useAuth();
-  const [tab, setTab] = useState<"requested" | "approved" | "all">("requested");
+  const [tab, setTab] = useState<"requested" | "approved" | "returned" | "all">("requested");
   const [orders, setOrders] = useState<PayOrder[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +35,7 @@ function PaymentListInner() {
     const params = new URLSearchParams();
     if (tab === "requested") params.set("status", "PAYMENT_REQUESTED");
     else if (tab === "approved") params.set("status", "BARGAIN_APPROVED");
+    else if (tab === "returned") params.set("status", "PAYMENT_RETURNED");
     fetch(`/api/orders?${params}`, { headers: authHeaders(user.token) })
       .then((r) => r.json())
       .then((d) => setOrders(d.orders || []))
@@ -98,6 +99,7 @@ function PaymentListInner() {
   const tabs = [
     { k: "requested" as const, label: "待打款", count: 0, show: isFinance || isDetecter },
     { k: "approved" as const, label: "待提交打款", count: 0, show: isDetecter },
+    { k: "returned" as const, label: "已退回(需重提)", count: 0, show: isDetecter || isFinance },
     { k: "all" as const, label: "全部记录", count: 0, show: true },
   ];
 
@@ -110,7 +112,7 @@ function PaymentListInner() {
             {isFinance
               ? "财务视角：审核打款信息、确认打款或退回；全程留痕"
               : isDetecter
-              ? "检测师视角：议价通过后提交打款申请"
+              ? "检测师视角：议价通过后提交打款申请；退回的申请可重新编辑收款信息后重提"
               : "仅可查看打款记录"}
           </p>
         </div>
@@ -159,7 +161,7 @@ function PaymentListInner() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
-              {((tab === "requested" && isFinance) || (tab === "approved" && isDetecter)) && (
+              {((tab === "requested" && isFinance) || (tab === "approved" && isDetecter) || (tab === "returned" && isDetecter)) && (
                 <th className="px-4 py-3 w-10"></th>
               )}
               <th className="px-4 py-3 text-left font-medium">单号</th>
@@ -189,7 +191,9 @@ function PaymentListInner() {
                 const pay = o.payments[0];
                 const amount = o.finalPrice || o.detectPrice;
                 const showCheckbox =
-                  (tab === "requested" && isFinance) || (tab === "approved" && isDetecter);
+                  (tab === "requested" && isFinance) ||
+                  (tab === "approved" && isDetecter) ||
+                  (tab === "returned" && isDetecter);
                 return (
                   <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                     {showCheckbox && (
@@ -242,16 +246,30 @@ function PaymentListInner() {
                           提交申请
                         </Link>
                       )}
-                      {(o.status === "PAYMENT_PAID" ||
-                        o.status === "PAYMENT_RETURNED") &&
-                        pay && (
-                          <Link
-                            href={`/payment/${pay.id}`}
-                            className="inline-block px-3 py-1.5 rounded-md text-xs font-medium bg-slate-50 text-slate-600 hover:bg-slate-100"
-                          >
-                            查看
-                          </Link>
-                        )}
+                      {o.status === "PAYMENT_RETURNED" && isDetecter && (
+                        <Link
+                          href={`/payment/${o.id}`}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 hover:bg-amber-100"
+                        >
+                          重新提交
+                        </Link>
+                      )}
+                      {o.status === "PAYMENT_PAID" && pay && (
+                        <Link
+                          href={`/payment/${pay.id}`}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-medium bg-slate-50 text-slate-600 hover:bg-slate-100"
+                        >
+                          查看
+                        </Link>
+                      )}
+                      {o.status === "PAYMENT_RETURNED" && !isDetecter && pay && (
+                        <Link
+                          href={`/payment/${pay.id}`}
+                          className="inline-block px-3 py-1.5 rounded-md text-xs font-medium bg-slate-50 text-slate-600 hover:bg-slate-100"
+                        >
+                          查看
+                        </Link>
+                      )}
                     </td>
                   </tr>
                 );

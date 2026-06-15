@@ -1,6 +1,7 @@
 import { prisma } from "./prisma";
 import type { OrderStatus, Role } from "@/types";
 import { canTransition } from "./constants";
+import type { PrismaClient } from "@prisma/client";
 
 export interface AuthContext {
   userId: string;
@@ -8,6 +9,10 @@ export interface AuthContext {
 }
 
 type Trans = [OrderStatus, OrderStatus];
+type TxClient = Omit<
+  PrismaClient,
+  "$connect" | "$disconnect" | "$on" | "$transaction" | "$use" | "$extends"
+>;
 
 export function assertRoleCanTransition(role: Role, from: OrderStatus, to: OrderStatus): void {
   const allowedByRole: Record<Role, Trans[]> = {
@@ -36,7 +41,9 @@ export function assertRoleCanTransition(role: Role, from: OrderStatus, to: Order
   }
 }
 
-export async function transitionOrderStatus(
+// 核心内部实现：接受一个 tx 客户端，可嵌套在外部事务中
+export async function transitionOrderStatusInternal(
+  tx: TxClient,
   orderId: string,
   auth: AuthContext,
   to: OrderStatus,
@@ -44,7 +51,7 @@ export async function transitionOrderStatus(
   remark?: string,
   detail?: string
 ) {
-  const order = await prisma.recycleOrder.findUnique({ where: { id: orderId } });
+  const order = await tx.recycleOrder.findUnique({ where: { id: orderId } });
   if (!order) throw new Error("回收单不存在");
   const from = order.status as OrderStatus;
   if (!canTransition(from, to)) {
@@ -52,7 +59,7 @@ export async function transitionOrderStatus(
   }
   assertRoleCanTransition(auth.role, from, to);
 
-  const updated = await prisma.recycleOrder.update({
+  const updated = await tx.recycleOrder.update({
     where: { id: orderId },
     data: {
       status: to,
@@ -62,7 +69,7 @@ export async function transitionOrderStatus(
     },
   });
 
-  await prisma.operationLog.create({
+  await tx.operationLog.create({
     data: {
       orderId,
       operatorId: auth.userId,
@@ -75,4 +82,18 @@ export async function transitionOrderStatus(
   });
 
   return updated;
+}
+
+// 对外 API：独立事务
+export async function transitionOrderStatus(
+  orderId: string,
+  auth: AuthContext,
+  to: OrderStatus,
+  action: string,
+  remark?: string,
+  detail?: string
+) {
+  return prisma.$transaction((tx) =>
+    transitionOrderStatusInternal(tx, orderId, auth, to, action, remark, detail)
+  );
 }
