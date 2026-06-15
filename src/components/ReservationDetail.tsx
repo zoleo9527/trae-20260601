@@ -132,7 +132,7 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
         createdAt: new Date().toLocaleString('zh-CN'),
       }];
       
-      if (reservation.responsibilityFlag) {
+      if (reservation.responsibilityFlag && !colorLock.responsibilityFlag) {
         lockRemarks.push({
           id: `R${Date.now()}`,
           content: `⚠️ [库存预留${reservationId}] 责任不清标记已同步`,
@@ -142,11 +142,16 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
         });
       }
       
-      updateColorLock(colorLock.id, { 
+      const lockUpdates: Partial<{ status: string; responsibilityFlag: boolean; remarks: any[] }> = {
         status: 'completed',
-        responsibilityFlag: reservation.responsibilityFlag,
         remarks: [...colorLock.remarks, ...lockRemarks]
-      });
+      };
+      
+      if (!colorLock.responsibilityFlag && reservation.responsibilityFlag) {
+        lockUpdates.responsibilityFlag = true;
+      }
+      
+      updateColorLock(colorLock.id, lockUpdates as any);
     }
   };
 
