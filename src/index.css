@@ -1,0 +1,81 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  background: #f0f2f5;
+}
+
+.alert-flash {
+  animation: flash 1s infinite;
+}
+
+@keyframes flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.pulse-danger {
+  animation: pulse-danger 2s infinite;
+}
+
+@keyframes pulse-danger {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(255, 77, 79, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 0 10px rgba(255, 77, 79, 0);
+  }
+}
+
+.timeline-issue {
+  border-left: 2px solid #ff4d4f;
+}
+
+.signature-canvas {
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+  cursor: crosshair;
+  background: #fafafa;
+}
+
+.preview-image {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.status-badge-large .ant-badge-status-dot {
+  width: 10px;
+  height: 10px;
+}
+
+.order-card-urgent {
+  border-left: 4px solid #ff4d4f !important;
+}
+
+.order-card-urgent .ant-card-head {
+  background: linear-gradient(90deg, #fff1f0 0%, transparent 100%);
+}
+
+.revision-diff {
+  background: #fafafa;
+  border-radius: 4px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+}
+
+.revision-diff .before {
+  color: #ff4d4f;
+  text-decoration: line-through;
+}
+
+.revision-diff .after {
+  color: #52c41a;
+  font-weight: bold;
+}

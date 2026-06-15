@@ -1,0 +1,33 @@
+{
+  "name": "advertising-print-shop",
+  "version": "1.0.0",
+  "description": "广告喷绘店-设计改稿与客户确认系统",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "node --watch server/index.js",
+    "client": "vite",
+    "build": "tsc && vite build",
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.0",
+    "antd": "^5.12.0",
+    "dayjs": "^1.11.10",
+    "@ant-design/icons": "^5.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0",
+    "concurrently": "^8.2.2"
+  }
+}
