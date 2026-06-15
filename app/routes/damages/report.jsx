@@ -32,11 +32,16 @@ export async function action({ request }) {
     damageDescription,
     damageQuantity,
     photos: [],
+    source: 'direct_report',
+    sourceInfo: {
+      signedAt: now,
+      triggerReason: '独立上报破损',
+    },
     history: [{
       action: 'reported',
       user: '司机张师傅',
       time: now,
-      remark: damageDescription,
+      remark: `【独立上报】上报时间: ${now}，破损原因: ${damageDescription}`,
     }],
   });
   

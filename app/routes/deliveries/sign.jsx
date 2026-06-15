@@ -64,11 +64,18 @@ export async function action({ request }) {
       damageDescription,
       damageQuantity,
       photos: [],
+      source: 'sign_flow',
+      sourceInfo: {
+        signerName,
+        signerPhone,
+        signedAt: now,
+        triggerReason: '签收时发现破损',
+      },
       history: [{
         action: 'reported',
         user: '司机张师傅',
         time: now,
-        remark: damageDescription,
+        remark: `【签收转破损】签收人: ${signerName}，签收时间: ${now}，破损原因: ${damageDescription}`,
       }],
     });
     

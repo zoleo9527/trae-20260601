@@ -97,6 +97,41 @@ export default function DamageDetailPage() {
     );
   }
   
+  const extractSourceInfo = () => {
+    if (!damage.history || damage.history.length === 0) return null;
+    const firstHistory = damage.history[0];
+    if (!firstHistory.remark) return null;
+    
+    const remark = firstHistory.remark;
+    const isSignFlow = remark.includes('【签收转破损】');
+    const isDirectReport = remark.includes('【独立上报】');
+    
+    if (isSignFlow) {
+      const signerMatch = remark.match(/签收人:\s*([^，,]+)/);
+      const timeMatch = remark.match(/签收时间:\s*([^，,]+)/);
+      return {
+        source: 'sign_flow',
+        sourceLabel: '📦 签收转破损',
+        signerName: signerMatch ? signerMatch[1].trim() : '',
+        signerPhone: damage.delivery?.signerPhone || '',
+        signedAt: timeMatch ? timeMatch[1].trim() : '',
+        triggerReason: '签收时发现破损',
+      };
+    } else if (isDirectReport) {
+      return {
+        source: 'direct_report',
+        sourceLabel: '📝 独立上报',
+        signerName: damage.delivery?.signerName || '',
+        signerPhone: damage.delivery?.signerPhone || '',
+        signedAt: firstHistory.time ? formatTime(firstHistory.time) : '',
+        triggerReason: '独立上报破损',
+      };
+    }
+    return null;
+  };
+  
+  const sourceInfo = extractSourceInfo();
+  
   const getDamageTypeLabel = (value) => {
     const type = damageTypes.find(t => t.value === value);
     return type ? type.label : value;
@@ -157,6 +192,33 @@ export default function DamageDetailPage() {
       </header>
 
       <main style={styles.main}>
+        {sourceInfo && (
+          <div style={styles.sourceBanner}>
+            <div style={styles.sourceHeader}>
+              <span style={styles.sourceIcon}>{sourceInfo.source === 'sign_flow' ? '📦' : '📝'}</span>
+              <span style={styles.sourceTitle}>{sourceInfo.sourceLabel}</span>
+            </div>
+            <div style={styles.sourceDetails}>
+              {sourceInfo.signerName && (
+                <div style={styles.sourceItem}>
+                  <span style={styles.sourceLabel}>签收人</span>
+                  <span>{sourceInfo.signerName} {sourceInfo.signerPhone && `(${sourceInfo.signerPhone})`}</span>
+                </div>
+              )}
+              {sourceInfo.signedAt && (
+                <div style={styles.sourceItem}>
+                  <span style={styles.sourceLabel}>签收时间</span>
+                  <span>{sourceInfo.signedAt}</span>
+                </div>
+              )}
+              <div style={styles.sourceItem}>
+                <span style={styles.sourceLabel}>触发原因</span>
+                <span>{sourceInfo.triggerReason}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>基本信息</h2>
           <div style={styles.infoGrid}>
@@ -369,6 +431,41 @@ const styles = {
     padding: '24px',
     maxWidth: '800px',
     margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '24px',
+  },
+  sourceBanner: {
+    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    borderRadius: '12px',
+    padding: '20px',
+    color: '#fff',
+  },
+  sourceHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    marginBottom: '12px',
+  },
+  sourceIcon: {
+    fontSize: '20px',
+  },
+  sourceTitle: {
+    fontSize: '16px',
+    fontWeight: '600',
+  },
+  sourceDetails: {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '16px',
+  },
+  sourceItem: {
+    display: 'flex',
+    gap: '8px',
+    fontSize: '14px',
+  },
+  sourceLabel: {
+    opacity: 0.8,
   },
   notFound: {
     background: '#fff',
