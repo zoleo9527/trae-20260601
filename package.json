@@ -1,0 +1,19 @@
+{
+  "name": "curtain-store-installation",
+  "version": "1.0.0",
+  "description": "窗帘门店-安装预约与师傅排班系统",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/examples/runAllExamples.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "nanoid": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.3.0"
+  }
+}
