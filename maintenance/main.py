@@ -154,7 +154,7 @@ async def get_project(project_id: str):
     return project
 
 @app.post("/api/projects/{project_id}/photos")
-async def upload_photo(project_id: str, file: UploadFile = File(...), category: str = "整体"):
+async def upload_photo(project_id: str, file: UploadFile = File(...), category: str = Form("整体")):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -229,7 +229,7 @@ async def add_rectification(project_id: str, description: str = Form(...), deadl
     return {"message": "整改记录已添加", "rectification": rectification}
 
 @app.post("/api/projects/{project_id}/documents")
-async def upload_document(project_id: str, file: UploadFile = File(...), doc_type: str = "design"):
+async def upload_document(project_id: str, file: UploadFile = File(...), doc_type: str = Form("design")):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -251,7 +251,7 @@ async def upload_document(project_id: str, file: UploadFile = File(...), doc_typ
     return {"message": "文件上传成功", "filename": filename}
 
 @app.post("/api/projects/{project_id}/rectifications/{rect_id}/photos")
-async def upload_rectification_photo(project_id: str, rect_id: str, file: UploadFile = File(...), photo_type: str = "before"):
+async def upload_rectification_photo(project_id: str, rect_id: str, file: UploadFile = File(...), photo_type: str = Form("before")):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
