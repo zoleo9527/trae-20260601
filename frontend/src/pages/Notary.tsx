@@ -21,10 +21,11 @@ export const NotaryPage: React.FC<NotaryProps> = ({ user }) => {
   const loadData = async () => {
     try {
       const [filesRes, remindersRes] = await Promise.all([
-        api.getFiles(undefined, OperatorRole.NOTARY),
+        api.getFiles(),
         api.getMyReminders(),
       ]);
-      setFiles(filesRes.data);
+      const archivingFiles = filesRes.data.filter(f => f.currentStatus === 'ARCHIVING');
+      setFiles(archivingFiles);
       setReminders(remindersRes.data);
     } catch (error) {
       console.error('加载数据失败:', error);
@@ -43,44 +44,47 @@ export const NotaryPage: React.FC<NotaryProps> = ({ user }) => {
     }
   };
 
-  const handleApproveArchive = async (file: FileRecord) => {
-    const approvalNote = prompt('请输入审核意见:');
-    if (!approvalNote) return;
+  const handleApproveArchive = async (fileId: string) => {
+    const archiveLocation = prompt('请输入归档位置（如：档案室A区-第3排-第12格）:');
+    if (!archiveLocation) return;
+
+    const archiveReason = prompt('请输入归档原因:') || '审核通过';
+    const archiveNote = prompt('请输入归档说明:') || '审核通过，签字盖章完毕';
 
     setActionLoading(true);
     try {
       await api.completeArchive(
-        file.id,
-        file,
-        file.archiveInfo?.archiveLocation || '档案室A区',
-        '审核通过',
-        approvalNote,
+        fileId,
+        archiveLocation,
+        archiveReason,
+        archiveNote,
         {
           notaryId: user.id,
           notaryName: user.name,
-          approvalNote,
+          approvalNote: archiveNote,
         }
       );
       await loadData();
-      alert('归档审核已完成');
-    } catch (error) {
-      alert('操作失败');
+      setSelectedFile(null);
+      alert('归档审核已完成，已自动转移至档案室');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleRequestCorrection = async (file: FileRecord) => {
+  const handleRequestCorrection = async (fileId: string) => {
     const correctionContent = prompt('请输入补正内容:');
     if (!correctionContent) return;
 
     setActionLoading(true);
     try {
-      await api.requestCorrection(file.id, file, correctionContent);
+      await api.requestCorrection(fileId, correctionContent);
       await loadData();
       alert('补正通知已发送');
-    } catch (error) {
-      alert('操作失败');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
@@ -90,8 +94,8 @@ export const NotaryPage: React.FC<NotaryProps> = ({ user }) => {
     try {
       await api.acknowledgeReminder(reminderId);
       await loadData();
-    } catch (error) {
-      alert('确认失败');
+    } catch (error: any) {
+      alert(error.message || '确认失败');
     }
   };
 
@@ -137,13 +141,6 @@ export const NotaryPage: React.FC<NotaryProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">公证员工作台</h1>
-          <p className="text-sm text-gray-600 mt-1">欢迎，{user.name}</p>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
@@ -196,30 +193,26 @@ export const NotaryPage: React.FC<NotaryProps> = ({ user }) => {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          {file.currentStatus === 'ARCHIVING' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleApproveArchive(file);
-                                }}
-                                disabled={actionLoading}
-                                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-                              >
-                                审核通过
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRequestCorrection(file);
-                                }}
-                                disabled={actionLoading}
-                                className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
-                              >
-                                要求补正
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleApproveArchive(file.id);
+                            }}
+                            disabled={actionLoading}
+                            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                          >
+                            审核通过
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRequestCorrection(file.id);
+                            }}
+                            disabled={actionLoading}
+                            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+                          >
+                            要求补正
+                          </button>
                         </div>
                       </div>
                     </div>

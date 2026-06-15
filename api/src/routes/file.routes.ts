@@ -15,7 +15,7 @@ interface AuthenticatedRequest extends Request {
 const requireRole = (...allowedRoles: OperatorRole[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ error: '未认证' });
+      return res.status(401).json({ error: '未认证，请先登录' });
     }
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({
@@ -27,6 +27,22 @@ const requireRole = (...allowedRoles: OperatorRole[]) => {
     next();
   };
 };
+
+router.get(
+  '/logs',
+  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY, OperatorRole.ARCHIVE_KEEPER),
+  (req: AuthenticatedRequest, res: Response) => {
+    const { fileId } = req.query;
+
+    const logs = workflowService.getOperationLogs(fileId as string | undefined);
+
+    res.json({
+      success: true,
+      data: logs,
+      count: logs.length
+    });
+  }
+);
 
 router.get(
   '/',
@@ -76,11 +92,15 @@ router.post(
   requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY),
   (req: AuthenticatedRequest, res: Response) => {
     const { fileId } = req.params;
-    const { fileData } = req.body;
+    const file = workflowService.getFileById(fileId);
+
+    if (!file) {
+      return res.status(404).json({ error: '卷宗不存在' });
+    }
 
     try {
       const result = workflowService.startArchiveProcess(
-        fileData,
+        file,
         req.user!.id,
         req.user!.name
       );
@@ -99,14 +119,19 @@ router.post(
 
 router.post(
   '/:fileId/archive/complete',
-  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.ARCHIVE_KEEPER),
+  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY, OperatorRole.ARCHIVE_KEEPER),
   (req: AuthenticatedRequest, res: Response) => {
     const { fileId } = req.params;
-    const { fileData, archiveLocation, archiveReason, archiveNote, notarialApproval } = req.body;
+    const { archiveLocation, archiveReason, archiveNote, notarialApproval } = req.body;
+
+    const file = workflowService.getFileById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: '卷宗不存在' });
+    }
 
     try {
       const result = workflowService.completeArchive(
-        fileData,
+        file,
         archiveLocation,
         archiveReason,
         archiveNote,
@@ -114,6 +139,15 @@ router.post(
         req.user!.name,
         notarialApproval
       );
+
+      if (req.user!.role === OperatorRole.NOTARY || req.user!.role === OperatorRole.ARCHIVE_KEEPER) {
+        workflowService.autoTransferToCollection(
+          fileId,
+          req.user!.id,
+          req.user!.name,
+          OperatorRole.ARCHIVE_KEEPER
+        );
+      }
 
       res.json({
         success: true,
@@ -123,7 +157,7 @@ router.post(
           operator: req.user!.name,
           timestamp: new Date()
         },
-        message: '归档已完成，请在24小时内转移至档案室'
+        message: '归档已完成，已自动转移至档案室等待领取'
       });
     } catch (error) {
       res.status(400).json({ error: '完成归档失败' });
@@ -133,26 +167,27 @@ router.post(
 
 router.post(
   '/:fileId/transfer-to-collection',
-  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY),
+  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY, OperatorRole.ARCHIVE_KEEPER),
   (req: AuthenticatedRequest, res: Response) => {
     const { fileId } = req.params;
-    const {
-      fileData,
-      assignedRole,
-      assignedOperatorId,
-      assignedOperatorName,
-      transferReason
-    } = req.body;
+    const { assignedRole, assignedOperatorId, assignedOperatorName, transferReason } = req.body;
+
+    const file = workflowService.getFileById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: '卷宗不存在' });
+    }
 
     try {
-      const { file, handoverRecord } = workflowService.transferToCollectionConfirmation(
-        fileData,
-        {
-          role: assignedRole,
-          operatorId: assignedOperatorId,
-          operatorName: assignedOperatorName
-        },
-        transferReason,
+      const assignedTo = {
+        role: assignedRole || OperatorRole.ARCHIVE_KEEPER,
+        operatorId: assignedOperatorId || 'USER-A001',
+        operatorName: assignedOperatorName || '李档案'
+      };
+
+      const { file: updatedFile, handoverRecord } = workflowService.transferToCollectionConfirmation(
+        file,
+        assignedTo,
+        transferReason || '归档完成，转移至档案室等待领取',
         req.user!.id,
         req.user!.name
       );
@@ -161,18 +196,18 @@ router.post(
 
       res.json({
         success: true,
-        data: file,
+        data: updatedFile,
         handoverRecord,
         transferredContext: {
-          responsiblePerson: file.responsiblePerson,
-          archiveInfo: file.archiveInfo,
-          responsibilityChain: file.responsibilityChain,
+          responsiblePerson: updatedFile.responsiblePerson,
+          archiveInfo: updatedFile.archiveInfo,
+          responsibilityChain: updatedFile.responsibilityChain,
           recentHistory: history.slice(0, 5)
         },
         operationLog: {
           action: 'TRANSFER_TO_COLLECTION',
           from: req.user!.name,
-          to: assignedOperatorName,
+          to: assignedTo.operatorName,
           reason: transferReason,
           timestamp: new Date()
         },
@@ -242,11 +277,16 @@ router.post(
   requireRole(OperatorRole.ARCHIVE_KEEPER),
   (req: AuthenticatedRequest, res: Response) => {
     const { fileId } = req.params;
-    const { fileData, collectorName, collectorId, collectionNote } = req.body;
+    const { collectorName, collectorId, collectionNote } = req.body;
+
+    const file = workflowService.getFileById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: '卷宗不存在' });
+    }
 
     try {
       const result = workflowService.confirmCollection(
-        fileData,
+        file,
         collectorName,
         collectorId,
         collectionNote,
@@ -276,11 +316,16 @@ router.post(
   requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY, OperatorRole.ARCHIVE_KEEPER),
   (req: AuthenticatedRequest, res: Response) => {
     const { fileId } = req.params;
-    const { fileData, correctionContent } = req.body;
+    const { correctionContent } = req.body;
+
+    const file = workflowService.getFileById(fileId);
+    if (!file) {
+      return res.status(404).json({ error: '卷宗不存在' });
+    }
 
     try {
       const result = workflowService.requestCorrection(
-        fileData,
+        file,
         correctionContent,
         req.user!.id,
         req.user!.name,
@@ -357,22 +402,6 @@ router.post(
       success,
       acknowledgedAt: success ? new Date() : null,
       message: success ? '提醒已确认' : '确认失败'
-    });
-  }
-);
-
-router.get(
-  '/logs',
-  requireRole(OperatorRole.WINDOW_STAFF, OperatorRole.NOTARY, OperatorRole.ARCHIVE_KEEPER),
-  (req: AuthenticatedRequest, res: Response) => {
-    const { fileId } = req.query;
-
-    const logs = workflowService.getOperationLogs(fileId as string | undefined);
-
-    res.json({
-      success: true,
-      data: logs,
-      count: logs.length
     });
   }
 );

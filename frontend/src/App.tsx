@@ -3,6 +3,7 @@ import { WindowStaffPage } from './pages/WindowStaff';
 import { NotaryPage } from './pages/Notary';
 import { ArchiveKeeperPage } from './pages/ArchiveKeeper';
 import { OperatorRole } from './types';
+import { setCurrentUser } from './services/api';
 
 const demoUsers = [
   { id: 'USER-W001', name: '陈窗口', role: OperatorRole.WINDOW_STAFF },
@@ -11,14 +12,20 @@ const demoUsers = [
 ];
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<typeof demoUsers[0] | null>(null);
+  const [currentUser, setCurrentUserState] = useState<typeof demoUsers[0] | null>(null);
 
   const handleLogin = (user: typeof demoUsers[0]) => {
+    setCurrentUserState(user);
     setCurrentUser(user);
   };
 
   const handleLogout = () => {
-    setCurrentUser(null);
+    setCurrentUserState(null);
+    setCurrentUser({
+      id: '',
+      name: '',
+      role: OperatorRole.WINDOW_STAFF
+    });
   };
 
   if (!currentUser) {
@@ -51,6 +58,7 @@ function App() {
                         ? '公证员'
                         : '档案员'}
                     </p>
+                    <p className="text-xs text-gray-400 mt-1">ID: {user.id}</p>
                   </div>
                   <svg
                     className="w-5 h-5 text-gray-400"
@@ -103,13 +111,12 @@ function App() {
           <div>
             <h1 className="text-xl font-bold text-gray-900">公证处窗口系统</h1>
             <p className="text-sm text-gray-600">
-              当前用户: {currentUser.name} (
+              当前用户: {currentUser.name} (ID: {currentUser.id}) |{' '}
               {currentUser.role === OperatorRole.WINDOW_STAFF
                 ? '窗口人员'
                 : currentUser.role === OperatorRole.NOTARY
                 ? '公证员'
                 : '档案员'}
-              )
             </p>
           </div>
           <button

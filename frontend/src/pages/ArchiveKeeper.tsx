@@ -45,7 +45,7 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
     setSelectedContext(item.collectionContext);
   };
 
-  const handleConfirmCollection = async (file: FileRecord) => {
+  const handleConfirmCollection = async (fileId: string) => {
     const collectorName = prompt('请输入领取人姓名:');
     if (!collectorName) return;
 
@@ -55,13 +55,13 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
 
     setActionLoading(true);
     try {
-      await api.confirmCollection(file.id, file, collectorName, collectorId, collectionNote);
+      await api.confirmCollection(fileId, collectorName, collectorId, collectionNote);
       await loadData();
       setSelectedFile(null);
       setSelectedContext(null);
       alert('领取确认已完成');
-    } catch (error) {
-      alert('操作失败');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
@@ -71,8 +71,8 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
     try {
       await api.acknowledgeReminder(reminderId);
       await loadData();
-    } catch (error) {
-      alert('确认失败');
+    } catch (error: any) {
+      alert(error.message || '确认失败');
     }
   };
 
@@ -81,8 +81,8 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
       await api.acknowledgeHandover(handoverId);
       await loadData();
       alert('交接已确认');
-    } catch (error) {
-      alert('确认失败');
+    } catch (error: any) {
+      alert(error.message || '确认失败');
     }
   };
 
@@ -91,8 +91,8 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
       await api.triggerScenarioReminder(scenarioId);
       await loadData();
       alert('提醒已触发');
-    } catch (error) {
-      alert('触发失败');
+    } catch (error: any) {
+      alert(error.message || '触发失败');
     }
   };
 
@@ -121,13 +121,6 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">档案员工作台</h1>
-          <p className="text-sm text-gray-600 mt-1">欢迎，{user.name}</p>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">
@@ -199,7 +192,7 @@ export const ArchiveKeeperPage: React.FC<ArchiveKeeperProps> = ({ user }) => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleConfirmCollection(item.file);
+                              handleConfirmCollection(item.file.id);
                             }}
                             disabled={actionLoading}
                             className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"

@@ -2,16 +2,39 @@ import { FileRecord, OperationLog, Reminder, FileStatus, OperatorRole, Imperfect
 
 const API_BASE_URL = '/api';
 
+interface CurrentUser {
+  id: string;
+  name: string;
+  role: OperatorRole;
+}
+
+let currentUser: CurrentUser | null = null;
+
+export const setCurrentUser = (user: CurrentUser) => {
+  currentUser = user;
+};
+
+export const getCurrentUser = () => currentUser;
+
 class FileWorkflowAPI {
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (currentUser) {
+      headers['X-User-Id'] = currentUser.id;
+    }
+
+    return headers;
+  }
+
   private async request<T>(
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers: this.getHeaders(),
       ...options,
     });
 
@@ -35,19 +58,14 @@ class FileWorkflowAPI {
     return this.request(`/files/${fileId}`);
   }
 
-  startArchive(
-    fileId: string,
-    fileData: FileRecord
-  ): Promise<{ success: boolean; data: FileRecord; message: string }> {
+  startArchive(fileId: string): Promise<{ success: boolean; data: FileRecord; message: string }> {
     return this.request(`/files/${fileId}/archive/start`, {
       method: 'POST',
-      body: JSON.stringify({ fileData }),
     });
   }
 
   completeArchive(
     fileId: string,
-    fileData: FileRecord,
     archiveLocation: string,
     archiveReason: string,
     archiveNote: string,
@@ -56,7 +74,6 @@ class FileWorkflowAPI {
     return this.request(`/files/${fileId}/archive/complete`, {
       method: 'POST',
       body: JSON.stringify({
-        fileData,
         archiveLocation,
         archiveReason,
         archiveNote,
@@ -67,11 +84,10 @@ class FileWorkflowAPI {
 
   transferToCollection(
     fileId: string,
-    fileData: FileRecord,
-    assignedRole: OperatorRole,
-    assignedOperatorId: string,
-    assignedOperatorName: string,
-    transferReason: string
+    assignedRole?: OperatorRole,
+    assignedOperatorId?: string,
+    assignedOperatorName?: string,
+    transferReason?: string
   ): Promise<{
     success: boolean;
     data: FileRecord;
@@ -87,7 +103,6 @@ class FileWorkflowAPI {
     return this.request(`/files/${fileId}/transfer-to-collection`, {
       method: 'POST',
       body: JSON.stringify({
-        fileData,
         assignedRole,
         assignedOperatorId,
         assignedOperatorName,
@@ -136,7 +151,6 @@ class FileWorkflowAPI {
 
   confirmCollection(
     fileId: string,
-    fileData: FileRecord,
     collectorName: string,
     collectorId: string,
     collectionNote: string
@@ -144,7 +158,6 @@ class FileWorkflowAPI {
     return this.request(`/files/${fileId}/collection/confirm`, {
       method: 'POST',
       body: JSON.stringify({
-        fileData,
         collectorName,
         collectorId,
         collectionNote,
@@ -154,13 +167,11 @@ class FileWorkflowAPI {
 
   requestCorrection(
     fileId: string,
-    fileData: FileRecord,
     correctionContent: string
   ): Promise<{ success: boolean; data: FileRecord; message: string }> {
     return this.request(`/files/${fileId}/correction`, {
       method: 'POST',
       body: JSON.stringify({
-        fileData,
         correctionContent,
       }),
     });

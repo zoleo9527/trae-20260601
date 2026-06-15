@@ -20,7 +20,7 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
   const loadData = async () => {
     try {
       const [filesRes, remindersRes] = await Promise.all([
-        api.getFiles(undefined, OperatorRole.WINDOW_STAFF),
+        api.getFiles(),
         api.getMyReminders(),
       ]);
       setFiles(filesRes.data);
@@ -32,14 +32,14 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
     }
   };
 
-  const handleStartArchive = async (file: FileRecord) => {
+  const handleStartArchive = async (fileId: string) => {
     setActionLoading(true);
     try {
-      await api.startArchive(file.id, file);
+      await api.startArchive(fileId);
       await loadData();
       alert('归档流程已启动');
-    } catch (error) {
-      alert('操作失败');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
@@ -57,39 +57,24 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
 
     setActionLoading(true);
     try {
-      await api.completeArchive(file.id, file, archiveLocation, archiveReason, archiveNote);
+      await api.completeArchive(file.id, archiveLocation, archiveReason, archiveNote);
       await loadData();
-      alert('归档已完成，请在24小时内转移至档案室');
-    } catch (error) {
-      alert('操作失败');
+      alert('归档已完成，已自动转移至档案室等待领取');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleTransferToCollection = async (file: FileRecord) => {
-    const assignedOperatorId = prompt('请输入档案员ID（如：USER-A001）:');
-    if (!assignedOperatorId) return;
-
-    const assignedOperatorName = prompt('请输入档案员姓名:');
-    if (!assignedOperatorName) return;
-
-    const transferReason = prompt('请输入转移原因:') || '归档完成，转移至档案室等待领取';
-
+  const handleTransferToCollection = async (fileId: string) => {
     setActionLoading(true);
     try {
-      await api.transferToCollection(
-        file.id,
-        file,
-        OperatorRole.ARCHIVE_KEEPER,
-        assignedOperatorId,
-        assignedOperatorName,
-        transferReason
-      );
+      await api.transferToCollection(fileId);
       await loadData();
       alert('卷宗已转移至档案室，等待领取确认');
-    } catch (error) {
-      alert('操作失败');
+    } catch (error: any) {
+      alert(error.message || '操作失败');
     } finally {
       setActionLoading(false);
     }
@@ -99,8 +84,8 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
     try {
       await api.acknowledgeReminder(reminderId);
       await loadData();
-    } catch (error) {
-      alert('确认失败');
+    } catch (error: any) {
+      alert(error.message || '确认失败');
     }
   };
 
@@ -133,13 +118,6 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="bg-white shadow">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <h1 className="text-2xl font-bold text-gray-900">窗口人员工作台</h1>
-          <p className="text-sm text-gray-600 mt-1">欢迎，{user.name}</p>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
@@ -171,6 +149,8 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
                                   ? 'bg-green-100 text-green-800'
                                   : file.currentStatus === 'RETURNED_FOR_CORRECTION'
                                   ? 'bg-red-100 text-red-800'
+                                  : file.currentStatus === 'PENDING_COLLECTION'
+                                  ? 'bg-yellow-100 text-yellow-800'
                                   : 'bg-gray-100 text-gray-800'
                               }`}
                             >
@@ -203,7 +183,7 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleTransferToCollection(file);
+                                  handleTransferToCollection(file.id);
                                 }}
                                 disabled={actionLoading}
                                 className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
@@ -211,6 +191,18 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
                                 转移至领取
                               </button>
                             </>
+                          )}
+                          {file.currentStatus === 'PENDING_ARCHIVE' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStartArchive(file.id);
+                              }}
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              启动归档
+                            </button>
                           )}
                         </div>
                       </div>

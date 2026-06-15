@@ -482,6 +482,35 @@ export class FileWorkflowService {
     return { file, handoverRecord };
   }
 
+  autoTransferToCollection(
+    fileId: string,
+    operatorId: string,
+    operatorName: string,
+    targetRole: OperatorRole = OperatorRole.ARCHIVE_KEEPER
+  ): { file: FileRecord; handoverRecord: HandoverRecord } | null {
+    const file = this.getFileById(fileId);
+    if (!file || file.currentStatus !== FileStatus.ARCHIVED) {
+      return null;
+    }
+
+    const defaultArchiveKeeper = {
+      operatorId: 'USER-A001',
+      operatorName: '李档案'
+    };
+
+    return this.transferToCollectionConfirmation(
+      file,
+      {
+        role: targetRole,
+        operatorId: defaultArchiveKeeper.operatorId,
+        operatorName: defaultArchiveKeeper.operatorName
+      },
+      '归档完成，自动转移至档案室等待领取',
+      operatorId,
+      operatorName
+    );
+  }
+
   getCollectionContext(fileId: string): CollectionContext | null {
     const file = this.getFileById(fileId);
     if (!file || !file.archiveInfo) {
