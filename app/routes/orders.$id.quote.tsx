@@ -1,6 +1,6 @@
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from "@remix-run/node";
 import { json, redirect } from "@remix-run/node";
-import { Form, Link, useLoaderData, useFetcher } from "@remix-run/react";
+import { Form, Link, useLoaderData, useActionData } from "@remix-run/react";
 import { useState } from "react";
 import { requireRole } from "~/utils/session.server";
 import { prisma } from "~/utils/db.server";
@@ -20,8 +20,16 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   const order = await prisma.workOrder.findUnique({
     where: { id: params.id },
     include: {
-      inspectionQuote: {
+      inspectionQuotes: {
+        where: { isCurrent: true },
         include: { parts: true },
+        orderBy: { version: "desc" },
+        take: 1,
+      },
+      customerConfirmations: {
+        where: { isCurrent: true },
+        orderBy: { version: "desc" },
+        take: 1,
       },
     },
   });
@@ -34,12 +42,15 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
   if (
     order.status !== WorkOrderStatus.INSPECTION_IN_PROGRESS &&
-    order.status !== WorkOrderStatus.CUSTOMER_REJECTED
+    order.status !== WorkOrderStatus.CUSTOMER_REJECTED &&
+    order.status !== WorkOrderStatus.REVISE_REQUESTED
   ) {
     return redirect(`/orders/${order.id}`);
   }
 
-  return json({ order, user });
+  const currentQuote = order.inspectionQuotes[0] || null;
+
+  return json({ order: { ...order, inspectionQuote: currentQuote }, user });
 };
 
 const PartSchema = z.object({
@@ -114,21 +125,30 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   );
   const totalAmount = Number(validated.data.laborCost) + partsTotal;
 
-  const prevQuote = await prisma.inspectionQuote.findUnique({
-    where: { workOrderId: order.id },
+  const prevQuote = await prisma.inspectionQuote.findFirst({
+    where: { workOrderId: order.id, isCurrent: true },
+    orderBy: { version: "desc" },
   });
 
+  const nextVersion = prevQuote ? prevQuote.version + 1 : 1;
+
   if (prevQuote) {
-    await prisma.quotePart.deleteMany({ where: { inspectionQuoteId: prevQuote.id } });
-    await prisma.inspectionQuote.delete({ where: { id: prevQuote.id } });
+    await prisma.inspectionQuote.updateMany({
+      where: { workOrderId: order.id, isCurrent: true },
+      data: { isCurrent: false },
+    });
   }
+
+  const fromStatus = order.status;
 
   await prisma.workOrder.update({
     where: { id: order.id },
     data: {
       status: WorkOrderStatus.QUOTE_READY,
-      inspectionQuote: {
+      inspectionQuotes: {
         create: {
+          version: nextVersion,
+          isCurrent: true,
           faultDiagnosis: validated.data.faultDiagnosis,
           keyJudgments: validated.data.keyJudgments,
           repairSolution: validated.data.repairSolution,
@@ -153,13 +173,14 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
       },
       timelineEvents: {
         create: {
-          fromStatus: order.status,
+          fromStatus,
           toStatus: WorkOrderStatus.QUOTE_READY,
-          eventType: validated.data.hasAbnormal === "true" ? "QUOTE_CREATED_ABNORMAL" : "QUOTE_CREATED",
-          description:
-            validated.data.hasAbnormal === "true"
-              ? `维修师完成检测（检测存在异常：${validated.data.abnormalNote || "详见报价"}），已提交报价单，等待客户确认。`
-              : "维修师完成检测，已提交报价单，等待客户确认。",
+          eventType: prevQuote ? "QUOTE_REVISED" : "QUOTE_CREATED",
+          description: prevQuote
+            ? `维修师提交了第 ${nextVersion} 版报价单（修改后），等待客户确认。`
+            : validated.data.hasAbnormal === "true"
+            ? `维修师完成检测（检测存在异常：${validated.data.abnormalNote || "详见报价"}），已提交报价单，等待客户确认。`
+            : "维修师完成检测，已提交报价单，等待客户确认。",
           responsibleId: user.id,
         },
       },
@@ -183,14 +204,17 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
 
 export default function QuotePage() {
   const { order } = useLoaderData<typeof loader>();
-  const actionData = useFetcher<typeof action>();
+  const actionData = useActionData<typeof action>();
+  const isRevise = order.status === WorkOrderStatus.REVISE_REQUESTED;
+  const latestConfirmation = (order as any).customerConfirmations?.[0] || null;
+
   const [parts, setParts] = useState<any[]>(
     order.inspectionQuote?.parts?.length
       ? order.inspectionQuote.parts
       : [{ partName: "", partNumber: "", quantity: 1, unitPrice: 0, inStock: "true", stockLocation: "", notes: "" }]
   );
   const [laborCost, setLaborCost] = useState<number>(order.inspectionQuote?.laborCost || 0);
-  const [hasAbnormal, setHasAbnormal] = useState(false);
+  const [hasAbnormal, setHasAbnormal] = useState<boolean>(false);
 
   const partsTotal = parts.reduce(
     (sum, p) => sum + (Number(p.quantity) || 0) * (Number(p.unitPrice) || 0),
@@ -225,13 +249,29 @@ export default function QuotePage() {
             ← 返回工单详情
           </Link>
           <h1 className="text-2xl font-bold text-slate-900 mt-1">
-            填写检测报价 · {order.orderNo}
+            {isRevise ? "修改检测报价" : "填写检测报价"} · {order.orderNo}
           </h1>
           <p className="text-sm text-slate-500 mt-1">
             {order.deviceBrand} {order.deviceModel} - {order.customerName} - {order.faultDescription}
           </p>
         </div>
       </div>
+
+      {isRevise && latestConfirmation?.reviseNotes && (
+        <div className="rounded-lg border-2 border-amber-300 bg-amber-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-amber-500 flex items-center justify-center text-white text-sm shrink-0">!</div>
+            <div className="flex-1">
+              <h4 className="text-sm font-semibold text-amber-800">
+                客户修改意见（必须回应）
+              </h4>
+              <p className="text-sm text-amber-700 mt-1 whitespace-pre-line">
+                {latestConfirmation.reviseNotes}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Form method="post">
         <div className="grid gap-5 lg:grid-cols-3">
@@ -250,8 +290,8 @@ export default function QuotePage() {
                     placeholder="描述检测发现的具体故障原因..."
                     defaultValue={order.inspectionQuote?.faultDiagnosis}
                   />
-                  {actionData.data?.errors?.faultDiagnosis && (
-                    <p className="mt-1 text-xs text-red-600">{actionData.data.errors.faultDiagnosis[0]}</p>
+                  {actionData?.errors?.faultDiagnosis && (
+                    <p className="mt-1 text-xs text-red-600">{actionData?.errors.faultDiagnosis[0]}</p>
                   )}
                 </div>
 
@@ -267,8 +307,8 @@ export default function QuotePage() {
                     defaultValue={order.inspectionQuote?.keyJudgments}
                     className="bg-white"
                   />
-                  {actionData.data?.errors?.keyJudgments && (
-                    <p className="mt-1 text-xs text-red-600">{actionData.data.errors.keyJudgments[0]}</p>
+                  {actionData?.errors?.keyJudgments && (
+                    <p className="mt-1 text-xs text-red-600">{actionData?.errors.keyJudgments[0]}</p>
                   )}
                 </div>
 

@@ -35,17 +35,23 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
     include: {
       receivedBy: { select: { id: true, name: true, role: true } },
       assignedTechnician: { select: { id: true, name: true, role: true } },
-      inspectionQuote: {
+      inspectionQuotes: {
+        where: { isCurrent: true },
         include: {
           parts: true,
           photos: true,
           createdBy: { select: { id: true, name: true, role: true } },
         },
+        orderBy: { version: "desc" },
+        take: 1,
       },
-      customerConfirmation: {
+      customerConfirmations: {
+        where: { isCurrent: true },
         include: {
           confirmedBy: { select: { id: true, name: true, role: true } },
         },
+        orderBy: { version: "desc" },
+        take: 1,
       },
       timelineEvents: {
         include: {
@@ -62,12 +68,19 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
 
   if (!order) throw new Response("Not Found", { status: 404 });
 
+  const currentQuote = order.inspectionQuotes[0] || null;
+  const currentConfirmation = order.customerConfirmations[0] || null;
+
   const technicians = await prisma.user.findMany({
     where: { role: Role.TECHNICIAN },
     select: { id: true, name: true },
   });
 
-  return json({ order, user, technicians });
+  return json({
+    order: { ...order, inspectionQuote: currentQuote, customerConfirmation: currentConfirmation },
+    user,
+    technicians,
+  });
 };
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
@@ -164,16 +177,19 @@ export default function OrderDetail() {
   const showQuoteButton =
     user.role === Role.TECHNICIAN &&
     order.assignedTechnician?.id === user.id &&
-    order.status === WorkOrderStatus.INSPECTION_IN_PROGRESS;
+    (order.status === WorkOrderStatus.INSPECTION_IN_PROGRESS ||
+      order.status === WorkOrderStatus.REVISE_REQUESTED ||
+      order.status === WorkOrderStatus.CUSTOMER_REJECTED);
 
   const showConfirmButton =
     (user.role === Role.RECEPTIONIST || user.role === Role.MANAGER) &&
     order.status === WorkOrderStatus.QUOTE_READY;
 
+  const hasConfirmationHistory = (order as any).customerConfirmations?.length > 0 || order.customerConfirmation;
+
   const showReviewButton =
-    (user.role === Role.RECEPTIONIST || user.role === Role.MANAGER) &&
-    (order.status === WorkOrderStatus.CUSTOMER_CONFIRMED ||
-      order.status === WorkOrderStatus.CUSTOMER_REJECTED);
+    (user.role === Role.RECEPTIONIST || user.role === Role.MANAGER || user.role === Role.TECHNICIAN) &&
+    hasConfirmationHistory;
 
   const showStartRepair =
     user.role === Role.TECHNICIAN &&

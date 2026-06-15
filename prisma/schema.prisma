@@ -49,8 +49,8 @@ model WorkOrder {
   assignedTechnician   User?  @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id])
   technicianAssignedAt DateTime?
 
-  inspectionQuote      InspectionQuote?
-  customerConfirmation CustomerConfirmation?
+  inspectionQuotes     InspectionQuote[]
+  customerConfirmations CustomerConfirmation[]
   timelineEvents       TimelineEvent[]
   alerts               Alert[]
 
@@ -60,8 +60,10 @@ model WorkOrder {
 
 model InspectionQuote {
   id                String   @id @default(cuid())
-  workOrderId       String   @unique
+  workOrderId       String
   workOrder         WorkOrder @relation(fields: [workOrderId], references: [id])
+  version           Int      @default(1)
+  isCurrent         Boolean  @default(true)
 
   faultDiagnosis    String
   keyJudgments      String
@@ -80,6 +82,8 @@ model InspectionQuote {
   createdBy         User     @relation(fields: [createdById], references: [id])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
+
+  @@index([workOrderId, isCurrent])
 }
 
 model QuotePart {
@@ -107,8 +111,10 @@ model InspectionPhoto {
 
 model CustomerConfirmation {
   id                 String   @id @default(cuid())
-  workOrderId        String   @unique
+  workOrderId        String
   workOrder          WorkOrder @relation(fields: [workOrderId], references: [id])
+  version            Int      @default(1)
+  isCurrent          Boolean  @default(true)
 
   decision           String
   customerSignature  String?
@@ -120,6 +126,8 @@ model CustomerConfirmation {
 
   confirmedById      String
   confirmedBy        User     @relation(fields: [confirmedById], references: [id])
+
+  @@index([workOrderId, isCurrent])
 }
 
 model TimelineEvent {

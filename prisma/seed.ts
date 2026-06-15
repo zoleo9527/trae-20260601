@@ -166,6 +166,21 @@ async function seed() {
       assignedTechnicianId: technician2.id,
       technicianAssignedAt: new Date(Date.now() - 10800000),
     },
+    {
+      orderNo: "WO20260615007",
+      customerName: "吴先生",
+      customerPhone: "13800000007",
+      deviceBrand: "荣耀",
+      deviceModel: "Magic 6 Pro",
+      deviceColor: "黑色",
+      faultDescription: "屏幕有时闪屏，亮度不稳",
+      appearanceNotes: "外观完好",
+      accessoryItems: "无",
+      status: WorkOrderStatus.INSPECTION_IN_PROGRESS,
+      receivedById: receptionist.id,
+      assignedTechnicianId: technician.id,
+      technicianAssignedAt: new Date(Date.now() - 1800000),
+    },
   ];
 
   for (const data of ordersData) {
@@ -179,11 +194,11 @@ async function seed() {
 
   const order3 = await db.workOrder.findUnique({ where: { orderNo: "WO20260615003" } });
   if (order3) {
-    await db.inspectionQuote.upsert({
-      where: { workOrderId: order3.id },
-      update: {},
-      create: {
+    await db.inspectionQuote.create({
+      data: {
         workOrderId: order3.id,
+        version: 1,
+        isCurrent: true,
         faultDiagnosis: "电池健康度仅 62%，存在明显老化。主板功耗检测正常，排除漏电因素。",
         keyJudgments: "1. 确认电池为原装且无鼓包现象；\n2. 主板供电电路检测正常，无短路漏电；\n3. 建议更换原装电池，维修后预计续航恢复 90% 以上。",
         repairSolution: "更换原厂正品电池，进行电池健康校准。",
@@ -207,7 +222,6 @@ async function seed() {
         },
       },
     });
-    console.log(`已为工单 ${order3.orderNo} 创建检测报价`);
 
     await db.timelineEvent.create({
       data: {
@@ -219,15 +233,16 @@ async function seed() {
         responsibleId: technician.id,
       },
     });
+    console.log(`已为工单 ${order3.orderNo} 创建检测报价`);
   }
 
   const order4 = await db.workOrder.findUnique({ where: { orderNo: "WO20260615004" } });
   if (order4) {
-    await db.inspectionQuote.upsert({
-      where: { workOrderId: order4.id },
-      update: {},
-      create: {
+    await db.inspectionQuote.create({
+      data: {
         workOrderId: order4.id,
+        version: 1,
+        isCurrent: true,
         faultDiagnosis: "后置摄像头排线接口松动，摄像头模组本身检测正常。",
         keyJudgments: "1. 前置摄像头功能正常，排除系统级相机故障；\n2. 拆解后发现后置摄像头排线卡扣松脱；\n3. 非硬件损坏，无需更换摄像头模组。",
         repairSolution: "重新插拔并固定摄像头排线，清理内部灰尘。",
@@ -240,11 +255,11 @@ async function seed() {
       },
     });
 
-    await db.customerConfirmation.upsert({
-      where: { workOrderId: order4.id },
-      update: {},
-      create: {
+    await db.customerConfirmation.create({
+      data: {
         workOrderId: order4.id,
+        version: 1,
+        isCurrent: true,
         decision: "APPROVED",
         customerName: "张女士",
         customerPhone: "13800000004",
@@ -279,11 +294,11 @@ async function seed() {
 
   const order5 = await db.workOrder.findUnique({ where: { orderNo: "WO20260615005" } });
   if (order5) {
-    await db.inspectionQuote.upsert({
-      where: { workOrderId: order5.id },
-      update: {},
-      create: {
+    await db.inspectionQuote.create({
+      data: {
         workOrderId: order5.id,
+        version: 1,
+        isCurrent: true,
         faultDiagnosis: "充电接口内部金属触点氧化磨损，导致接触不良。",
         keyJudgments: "1. 更换充电线测试确认故障在尾插而非线材；\n2. 主板充电管理芯片检测正常；\n3. 更换尾插小板即可解决。",
         repairSolution: "更换尾插排线组件。",
@@ -308,11 +323,11 @@ async function seed() {
       },
     });
 
-    await db.customerConfirmation.upsert({
-      where: { workOrderId: order5.id },
-      update: {},
-      create: {
+    await db.customerConfirmation.create({
+      data: {
         workOrderId: order5.id,
+        version: 1,
+        isCurrent: true,
         decision: "APPROVED",
         customerName: "孙先生",
         customerPhone: "13800000005",
@@ -375,11 +390,11 @@ async function seed() {
 
   const order6 = await db.workOrder.findUnique({ where: { orderNo: "WO20260615006" } });
   if (order6) {
-    await db.inspectionQuote.upsert({
-      where: { workOrderId: order6.id },
-      update: {},
-      create: {
+    await db.inspectionQuote.create({
+      data: {
         workOrderId: order6.id,
+        version: 1,
+        isCurrent: true,
         faultDiagnosis: "主板 CPU 虚焊导致系统不稳定，可能需要重植或更换主板。",
         keyJudgments: "1. 软件刷机后故障依旧，排除系统问题；\n2. 检测到 CPU 周边电流异常波动；\n3. 重植成功率约 70%，失败则需更换主板。",
         repairSolution: "方案A：CPU 重植（成功率约70%）；方案B：直接更换主板。",
@@ -392,11 +407,11 @@ async function seed() {
       },
     });
 
-    await db.customerConfirmation.upsert({
-      where: { workOrderId: order6.id },
-      update: {},
-      create: {
+    await db.customerConfirmation.create({
+      data: {
         workOrderId: order6.id,
+        version: 1,
+        isCurrent: true,
         decision: "REJECTED",
         customerName: "周先生",
         customerPhone: "13800000006",
@@ -448,6 +463,72 @@ async function seed() {
     });
 
     console.log(`已为工单 ${order6.orderNo} 创建客户拒绝记录和异常提醒`);
+  }
+
+  const order7 = await db.workOrder.findUnique({ where: { orderNo: "WO20260615007" } });
+  if (order7) {
+    await db.inspectionQuote.create({
+      data: {
+        workOrderId: order7.id,
+        version: 1,
+        isCurrent: false,
+        faultDiagnosis: "初步判断为屏幕排线问题，建议更换屏幕总成。",
+        keyJudgments: "1. 按压屏幕时闪屏现象有变化，疑似排线接触不良；\n2. 更换屏幕总成报价。",
+        repairSolution: "更换原装屏幕总成。",
+        estimatedDuration: "约 1 小时",
+        riskWarning: "拆机有一定风险。",
+        laborCost: 150,
+        partsTotal: 980,
+        totalAmount: 1130,
+        createdById: technician.id,
+      },
+    });
+
+    await db.customerConfirmation.create({
+      data: {
+        workOrderId: order7.id,
+        version: 1,
+        isCurrent: false,
+        decision: "REVISE_NEEDED",
+        customerName: "吴先生",
+        customerPhone: "13800000007",
+        reviseNotes: "价格太贵了，能不能只修排线，不换总成？有没有更便宜的方案？",
+        confirmedById: receptionist.id,
+      },
+    });
+
+    await db.timelineEvent.createMany({
+      data: [
+        {
+          workOrderId: order7.id,
+          fromStatus: WorkOrderStatus.PENDING_INSPECTION,
+          toStatus: WorkOrderStatus.INSPECTION_IN_PROGRESS,
+          eventType: "ASSIGNED",
+          description: "工单已分配给维修师。",
+          responsibleId: receptionist.id,
+          createdAt: new Date(Date.now() - 1800000),
+        },
+        {
+          workOrderId: order7.id,
+          fromStatus: WorkOrderStatus.INSPECTION_IN_PROGRESS,
+          toStatus: WorkOrderStatus.QUOTE_READY,
+          eventType: "QUOTE_CREATED",
+          description: "维修师提交第一版报价（更换屏幕总成）。",
+          responsibleId: technician.id,
+          createdAt: new Date(Date.now() - 900000),
+        },
+        {
+          workOrderId: order7.id,
+          fromStatus: WorkOrderStatus.QUOTE_READY,
+          toStatus: WorkOrderStatus.INSPECTION_IN_PROGRESS,
+          eventType: "CUSTOMER_REVISE",
+          description: "客户要求修改报价：希望只修排线不换总成，降低费用。",
+          responsibleId: receptionist.id,
+        },
+      ],
+    });
+
+    console.log(`已为工单 ${order7.orderNo} 创建多轮确认历史（V1 已退回修改）`);
   }
 
   console.log("\n种子数据初始化完成！");

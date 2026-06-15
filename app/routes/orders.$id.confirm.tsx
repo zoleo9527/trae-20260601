@@ -26,22 +26,37 @@ export const loader = async ({ params, request }: LoaderFunctionArgs) => {
   const order = await prisma.workOrder.findUnique({
     where: { id: params.id },
     include: {
-      inspectionQuote: {
+      inspectionQuotes: {
+        where: { isCurrent: true },
         include: {
           parts: true,
           createdBy: { select: { id: true, name: true } },
         },
+        orderBy: { version: "desc" },
+        take: 1,
+      },
+      customerConfirmations: {
+        where: { isCurrent: true },
+        orderBy: { version: "desc" },
+        take: 1,
       },
       assignedTechnician: { select: { id: true, name: true } },
     },
   });
 
   if (!order) throw new Response("Not Found", { status: 404 });
-  if (!order.inspectionQuote || order.status !== WorkOrderStatus.QUOTE_READY) {
+
+  const currentQuote = order.inspectionQuotes[0] || null;
+  const currentConfirmation = order.customerConfirmations[0] || null;
+
+  if (!currentQuote || order.status !== WorkOrderStatus.QUOTE_READY) {
     return redirect(`/orders/${order.id}`);
   }
 
-  return json({ order, user });
+  return json({
+    order: { ...order, inspectionQuote: currentQuote, customerConfirmation: currentConfirmation },
+    user,
+  });
 };
 
 const ConfirmSchema = z.object({
@@ -79,12 +94,26 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   const order = await prisma.workOrder.findUnique({ where: { id: params.id } });
   if (!order) throw new Response("Not Found", { status: 404 });
 
+  const prevConfirmation = await prisma.customerConfirmation.findFirst({
+    where: { workOrderId: order.id, isCurrent: true },
+    orderBy: { version: "desc" },
+  });
+
+  const nextVersion = prevConfirmation ? prevConfirmation.version + 1 : 1;
+
+  if (prevConfirmation) {
+    await prisma.customerConfirmation.updateMany({
+      where: { workOrderId: order.id, isCurrent: true },
+      data: { isCurrent: false },
+    });
+  }
+
   const newStatus =
     validated.data.decision === "APPROVED"
       ? WorkOrderStatus.CUSTOMER_CONFIRMED
       : validated.data.decision === "REJECTED"
       ? WorkOrderStatus.CUSTOMER_REJECTED
-      : WorkOrderStatus.INSPECTION_IN_PROGRESS;
+      : WorkOrderStatus.REVISE_REQUESTED;
 
   const descriptionMap: Record<string, string> = {
     APPROVED: "客户签字确认同意维修方案及报价。",
@@ -96,8 +125,10 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     where: { id: order.id },
     data: {
       status: newStatus,
-      customerConfirmation: {
+      customerConfirmations: {
         create: {
+          version: nextVersion,
+          isCurrent: true,
           decision: validated.data.decision,
           customerName: validated.data.customerName,
           customerPhone: validated.data.customerPhone,
@@ -117,7 +148,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
               : validated.data.decision === "REJECTED"
               ? "CUSTOMER_REJECTED"
               : "CUSTOMER_REVISE",
-          description: descriptionMap[validated.data.decision],
+          description: `第 ${nextVersion} 次确认 - ${descriptionMap[validated.data.decision]}`,
           responsibleId: user.id,
         },
       },
@@ -139,7 +170,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
               create: {
                 alertType: AlertType.REVISE_REQUESTED,
                 title: "客户要求修改报价",
-                message: `工单 ${order.orderNo} 客户要求修改报价，意见：${validated.data.reviseNotes || "未填写"}。请维修师重新检测报价。`,
+                message: `工单 ${order.orderNo} 客户要求修改报价（第 ${nextVersion} 次），意见：${validated.data.reviseNotes || "未填写"}。请维修师重新检测报价。`,
                 status: AlertStatus.ACTIVE,
                 assignedToId: order.assignedTechnicianId,
               },

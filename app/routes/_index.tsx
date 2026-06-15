@@ -47,7 +47,12 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
       where,
       include: {
         assignedTechnician: { select: { id: true, name: true, role: true } },
-        inspectionQuote: { select: { totalAmount: true } },
+        inspectionQuotes: {
+          where: { isCurrent: true },
+          select: { totalAmount: true, version: true },
+          orderBy: { version: "desc" },
+          take: 1,
+        },
       },
       orderBy: { createdAt: "desc" },
       take: 100,
@@ -129,6 +134,7 @@ export default function OrdersIndex() {
   const { orders, technicians, counts, user, filters } = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [technicianId, setTechnicianId] = useState<string>("");
   const batchFetcher = useFetcher();
 
   const statusTabs = useMemo(() => {
@@ -160,9 +166,16 @@ export default function OrdersIndex() {
     (o) => o.status === WorkOrderStatus.PENDING_INSPECTION && user.role !== Role.TECHNICIAN
   );
 
+  const selectableCount = selectedIds.filter((id) =>
+    assignableOrders.find((o) => o.id === id)
+  ).length;
+
   const canBatchAssign =
     (user.role === Role.RECEPTIONIST || user.role === Role.MANAGER) &&
-    selectedIds.filter((id) => assignableOrders.find((o) => o.id === id)).length > 0;
+    selectableCount > 0;
+
+  const isSubmitting =
+    batchFetcher.state === "loading" || batchFetcher.state === "submitting";
 
   const buildQuery = (patch: Record<string, string>) => {
     const params = new URLSearchParams(searchParams);
@@ -249,26 +262,43 @@ export default function OrdersIndex() {
           </Form>
 
           {canBatchAssign && (
-            <batchFetcher.Form method="post" className="flex items-center gap-2 ml-auto">
+            <batchFetcher.Form
+              method="post"
+              className="flex items-center gap-2 ml-auto"
+              onSubmit={() => {
+                const selectedAssignable = selectedIds.filter((id) =>
+                  assignableOrders.find((o) => o.id === id)
+                );
+                if (!technicianId || selectedAssignable.length === 0) return;
+              }}
+            >
               <input type="hidden" name="intent" value="batch-assign" />
-              <input type="hidden" name="orderIds" value={selectedIds.join(",")} />
-              <Select name="technicianId" className="min-w-40" defaultValue="">
+              <input
+                type="hidden"
+                name="orderIds"
+                value={selectedIds
+                  .filter((id) => assignableOrders.find((o) => o.id === id))
+                  .join(",")}
+              />
+              <input type="hidden" name="technicianId" value={technicianId} />
+              <select
+                value={technicianId}
+                onChange={(e) => setTechnicianId(e.target.value)}
+                className="block min-w-40 rounded-md border-0 py-2 px-3 text-sm shadow-sm ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 outline-none bg-white"
+              >
                 <option value="">选择维修师...</option>
                 {technicians.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
                   </option>
                 ))}
-              </Select>
+              </select>
               <Button
                 type="submit"
                 size="sm"
-                disabled={
-                  !batchFetcher.formData?.get("technicianId") ||
-                  (batchFetcher.state === "loading" || batchFetcher.state === "submitting")
-                }
+                disabled={!technicianId || selectableCount === 0 || isSubmitting}
               >
-                批量分配检测 ({selectedIds.filter((id) => assignableOrders.find((o) => o.id === id)).length})
+                {isSubmitting ? "分配中..." : `批量分配检测 (${selectableCount})`}
               </Button>
             </batchFetcher.Form>
           )}
@@ -369,9 +399,9 @@ export default function OrdersIndex() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        {order.inspectionQuote ? (
+                        {order.inspectionQuotes?.[0] ? (
                           <span className="text-sm font-semibold text-slate-900">
-                            {formatCurrency(order.inspectionQuote.totalAmount)}
+                            {formatCurrency(order.inspectionQuotes[0].totalAmount)}
                           </span>
                         ) : (
                           <span className="text-sm text-slate-400">-</span>
