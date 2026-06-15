@@ -1,11 +1,14 @@
-import { sveltekit } from '@sveltejs/vite';
+import { svelte } from '@sveltejs/vite';
 import { defineConfig } from 'vite';
+import { resolve } from 'path';
 
 export default defineConfig({
-  plugins: [sveltekit()],
+  plugins: [svelte()],
   resolve: {
     alias: {
-      '$lib': '/src/lib'
+      '$lib': resolve(__dirname, 'src/lib'),
+      '$server': resolve(__dirname, 'src/server'),
+      '$routes': resolve(__dirname, 'src/routes')
     }
   }
 });

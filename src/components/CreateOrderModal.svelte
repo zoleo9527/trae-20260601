@@ -1,12 +1,9 @@
 <script lang="ts">
-  import type { User, WorkOrder } from '../lib/types';
+  import type { User, WorkOrder } from '$lib/types';
 
   export let user: User;
-
-  const emit = defineEmits<{
-    close: [];
-    submit: [data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>];
-  }>();
+  export let onClose: () => void;
+  export let onSubmit: (data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>) => void;
 
   let plateNumber = '';
   let customerName = '';
@@ -20,7 +17,7 @@
       return;
     }
     
-    emit('submit', {
+    onSubmit({
       plateNumber,
       customerName,
       phone,
@@ -32,11 +29,11 @@
   }
 </script>
 
-<div class="modal-overlay" on:click|self={() => emit('close')}>
+<div class="modal-overlay" on:click|self={onClose}>
   <div class="modal-content">
     <div class="modal-header">
       <h2>新建工单</h2>
-      <button class="modal-close" on:click={() => emit('close')}>×</button>
+      <button class="modal-close" on:click={onClose}>×</button>
     </div>
 
     <form on:submit|preventDefault={handleSubmit}>
@@ -82,7 +79,7 @@
       </div>
 
       <div class="flex-end mt-20">
-        <button type="button" class="btn btn-outline" on:click={() => emit('close')}>
+        <button type="button" class="btn btn-outline" on:click={onClose}>
           取消
         </button>
         <button type="submit" class="btn btn-primary">

@@ -2,9 +2,7 @@
   let username = '';
   let password = '';
 
-  const emit = defineEmits<{
-    login: [username: string, password: string];
-  }>();
+  export let onLogin: (username: string, password: string) => void;
 
   const roles = [
     { value: 'front', label: '前台', username: 'front', password: '123456' },
@@ -19,7 +17,7 @@
 
   function handleSubmit() {
     if (username && password) {
-      emit('login', username, password);
+      onLogin(username, password);
     }
   }
 </script>

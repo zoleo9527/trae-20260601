@@ -1,51 +1,58 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { User, WorkOrder } from '../lib/types';
-  import { getWorkOrders, createWorkOrder, createOperationLog } from '../lib/db';
+  import type { User, WorkOrder } from '$lib/types';
   import CreateOrderModal from './CreateOrderModal.svelte';
 
   export let user: User;
-
-  const emit = defineEmits<{
-    'select-order': [order: WorkOrder];
-    logout: [];
-  }>();
+  export let onSelectOrder: (order: WorkOrder) => void;
+  export let onLogout: () => void;
 
   let orders: WorkOrder[] = [];
   let showCreateModal = false;
   let filterPlateNumber = '';
   let filterCustomerName = '';
   let filterStatus = '';
-  let filterStartDate = '';
-  let filterEndDate = '';
 
   async function loadOrders() {
-    const params: any = {};
-    if (filterPlateNumber) params.plateNumber = filterPlateNumber;
-    if (filterCustomerName) params.customerName = filterCustomerName;
-    if (filterStatus) params.status = filterStatus;
-    if (filterStartDate) params.startDate = filterStartDate;
-    if (filterEndDate) params.endDate = filterEndDate;
+    const params: URLSearchParams = new URLSearchParams();
+    if (filterPlateNumber) params.set('plateNumber', filterPlateNumber);
+    if (filterCustomerName) params.set('customerName', filterCustomerName);
+    if (filterStatus) params.set('status', filterStatus);
     
-    orders = getWorkOrders(params);
+    const response = await fetch(`/api/orders?${params.toString()}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      orders = result.data;
+    }
   }
 
-  async function handleCreateOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>) {
-    const orderId = createWorkOrder(data);
-    createOperationLog({
-      workOrderId: orderId,
-      action: '创建工单',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: `创建工单: ${data.plateNumber} - ${data.customerName}`
+  async function handleCreateOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>) {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
     });
-    showCreateModal = false;
-    await loadOrders();
-  }
-
-  function handleSelectOrder(order: WorkOrder) {
-    emit('select-order', order);
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: result.orderId,
+          action: '创建工单',
+          operatorId: user.id,
+          operatorName: user.name,
+          operatorRole: user.role,
+          details: `创建工单: ${data.plateNumber} - ${data.customerName}`
+        })
+      });
+      
+      showCreateModal = false;
+      await loadOrders();
+    }
   }
 
   function formatDate(dateStr: string) {
@@ -58,7 +65,7 @@
   }
 
   function getBalanceStatus(order: WorkOrder) {
-    if (order.balanceRecords.length === 0) return '待录入';
+    if (!order.balanceRecords || order.balanceRecords.length === 0) return '待录入';
     if (order.balanceRecords.some(r => r.status === '待处理' || r.status === '处理中')) return '处理中';
     if (order.balanceRecords.some(r => r.status === '需复检')) return '需复检';
     return '已完成';
@@ -73,8 +80,6 @@
     filterPlateNumber = '';
     filterCustomerName = '';
     filterStatus = '';
-    filterStartDate = '';
-    filterEndDate = '';
     loadOrders();
   }
 
@@ -96,7 +101,7 @@
           + 新建工单
         </button>
       {/if}
-      <button class="btn btn-outline" on:click={() => emit('logout')}>
+      <button class="btn btn-outline" on:click={onLogout}>
         退出登录
       </button>
     </div>
@@ -120,16 +125,6 @@
       <option value="进行中">进行中</option>
       <option value="已完成">已完成</option>
     </select>
-    <input 
-      type="date" 
-      bind:value={filterStartDate} 
-      on:change={loadOrders}
-    />
-    <input 
-      type="date" 
-      bind:value={filterEndDate} 
-      on:change={loadOrders}
-    />
     <button class="btn btn-outline" on:click={resetFilter}>
       重置筛选
     </button>
@@ -185,7 +180,7 @@
             </td>
             <td>{formatDate(order.createdAt)}</td>
             <td>
-              <button class="btn btn-outline btn-sm" on:click={() => handleSelectOrder(order)}>
+              <button class="btn btn-outline btn-sm" on:click={() => onSelectOrder(order)}>
                 查看详情
               </button>
             </td>
@@ -205,8 +200,8 @@
   {#if showCreateModal}
     <CreateOrderModal 
       user={user}
-      on:close={() => showCreateModal = false}
-      on:submit={handleCreateOrder}
+      onClose={() => showCreateModal = false}
+      onSubmit={handleCreateOrder}
     />
   {/if}
 </div>

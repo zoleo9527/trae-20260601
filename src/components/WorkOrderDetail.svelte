@@ -1,26 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { User, WorkOrder, BalanceRecord, InspectionRecord, OperationLog } from '../lib/types';
-  import { 
-    getWorkOrderById, 
-    createBalanceRecord, 
-    updateBalanceRecord,
-    createInspectionRecord,
-    updateInspectionRecord,
-    updateWorkOrder,
-    createOperationLog,
-    getOperationLogs
-  } from '../lib/db';
+  import type { User, WorkOrder, BalanceRecord, OperationLog } from '$lib/types';
   import BalanceRecordForm from './BalanceRecordForm.svelte';
   import InspectionForm from './InspectionForm.svelte';
 
   export let order: WorkOrder;
   export let user: User;
-
-  const emit = defineEmits<{
-    back: [];
-    logout: [];
-  }>();
+  export let onBack: () => void;
+  export let onLogout: () => void;
 
   let logs: OperationLog[] = [];
   let showBalanceForm = false;
@@ -30,81 +17,142 @@
   const wheelPositions = ['左前轮', '右前轮', '左后轮', '右后轮', '备胎'];
 
   async function loadLogs() {
-    logs = getOperationLogs(order.id);
+    const response = await fetch(`/api/logs?workOrderId=${order.id}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      logs = result.data;
+    }
+  }
+
+  async function refreshOrder() {
+    const response = await fetch(`/api/orders/${order.id}`);
+    const result = await response.json();
+    
+    if (result.success) {
+      Object.assign(order, result.data);
+    }
+    
+    await loadLogs();
   }
 
   async function handleAddBalance(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>) {
-    createBalanceRecord({ ...data, workOrderId: order.id });
-    createOperationLog({
-      workOrderId: order.id,
-      action: '更新动平衡',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: `添加动平衡记录: ${data.wheelPosition}，平衡值: ${data.balanceValue}g`
+    await fetch('/api/balance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...data, workOrderId: order.id })
     });
+    
+    await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: order.id,
+        action: '更新动平衡',
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorRole: user.role,
+        details: `添加动平衡记录: ${data.wheelPosition}，平衡值: ${data.balanceValue}g`
+      })
+    });
+    
     showBalanceForm = false;
     await refreshOrder();
   }
 
   async function handleUpdateBalance(record: BalanceRecord, data: Partial<BalanceRecord>) {
     const oldValue = record.balanceValue;
-    updateBalanceRecord(record.id, data);
-    createOperationLog({
-      workOrderId: order.id,
-      action: '修改记录',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: `修改动平衡记录: ${record.wheelPosition}，平衡值从 ${oldValue}g 改为 ${data.balanceValue}g`
+    
+    await fetch('/api/balance', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: record.id, ...data })
     });
+    
+    await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: order.id,
+        action: '修改记录',
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorRole: user.role,
+        details: `修改动平衡记录: ${record.wheelPosition}，平衡值从 ${oldValue}g 改为 ${data.balanceValue}g`
+      })
+    });
+    
     showBalanceForm = false;
     await refreshOrder();
   }
 
   async function handleCompleteBalance(recordId: string) {
-    const record = order.balanceRecords.find(r => r.id === recordId);
+    const record = order.balanceRecords?.find(r => r.id === recordId);
     if (record) {
-      updateBalanceRecord(recordId, { status: '已完成' });
-      createOperationLog({
-        workOrderId: order.id,
-        action: '完成动平衡',
-        operatorId: user.id,
-        operatorName: user.name,
-        operatorRole: user.role,
-        details: `完成动平衡: ${record.wheelPosition}`
+      await fetch('/api/balance', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: recordId, status: '已完成' })
       });
+      
+      await fetch('/api/logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workOrderId: order.id,
+          action: '完成动平衡',
+          operatorId: user.id,
+          operatorName: user.name,
+          operatorRole: user.role,
+          details: `完成动平衡: ${record.wheelPosition}`
+        })
+      });
+      
       await refreshOrder();
     }
   }
 
   async function handleStartInspection() {
-    if (order.balanceRecords.length === 0) {
+    if (!order.balanceRecords || order.balanceRecords.length === 0) {
       alert('请先录入动平衡记录');
       return;
     }
     
+    const inspectionData = {
+      workOrderId: order.id,
+      status: '质检中',
+      inspectorId: user.id,
+      checkItems: [],
+      passedItems: [],
+      failedItems: [],
+      remark: ''
+    };
+    
     if (!order.inspectionRecord) {
-      createInspectionRecord({
-        workOrderId: order.id,
-        status: '质检中',
-        inspectorId: user.id,
-        checkItems: [],
-        passedItems: [],
-        failedItems: [],
-        remark: ''
+      await fetch('/api/inspection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inspectionData)
       });
     } else {
-      updateInspectionRecord(order.inspectionRecord.id, { status: '质检中' });
+      await fetch('/api/inspection', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: order.inspectionRecord.id, status: '质检中' })
+      });
     }
     
-    createOperationLog({
-      workOrderId: order.id,
-      action: '开始质检',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: '开始质检流程'
+    await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: order.id,
+        action: '开始质检',
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorRole: user.role,
+        details: '开始质检流程'
+      })
     });
     
     showInspectionForm = true;
@@ -119,34 +167,41 @@
   }) {
     const status = data.failedItems.length > 0 ? '质检不通过' : '质检通过';
     
+    const inspectionData = {
+      workOrderId: order.id,
+      status,
+      inspectorId: user.id,
+      checkItems: data.checkItems,
+      passedItems: data.passedItems,
+      failedItems: data.failedItems,
+      remark: data.remark
+    };
+    
     if (!order.inspectionRecord) {
-      createInspectionRecord({
-        workOrderId: order.id,
-        status,
-        inspectorId: user.id,
-        checkItems: data.checkItems,
-        passedItems: data.passedItems,
-        failedItems: data.failedItems,
-        remark: data.remark
+      await fetch('/api/inspection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inspectionData)
       });
     } else {
-      updateInspectionRecord(order.inspectionRecord.id, {
-        status,
-        inspectorId: user.id,
-        checkItems: data.checkItems,
-        passedItems: data.passedItems,
-        failedItems: data.failedItems,
-        remark: data.remark
+      await fetch('/api/inspection', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: order.inspectionRecord.id, ...inspectionData })
       });
     }
     
-    createOperationLog({
-      workOrderId: order.id,
-      action: status === '质检通过' ? '质检通过' : '质检不通过',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: `${status}: 合格项(${data.passedItems.length})，不合格项(${data.failedItems.length})`
+    await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: order.id,
+        action: status === '质检通过' ? '质检通过' : '质检不通过',
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorRole: user.role,
+        details: `${status}: 合格项(${data.passedItems.length})，不合格项(${data.failedItems.length})`
+      })
     });
     
     showInspectionForm = false;
@@ -159,24 +214,26 @@
       return;
     }
     
-    updateWorkOrder(order.id, { status: '已完成' });
-    createOperationLog({
-      workOrderId: order.id,
-      action: '交车完成',
-      operatorId: user.id,
-      operatorName: user.name,
-      operatorRole: user.role,
-      details: '工单完成，客户已取车'
+    await fetch(`/api/orders/${order.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: '已完成' })
     });
+    
+    await fetch('/api/logs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        workOrderId: order.id,
+        action: '交车完成',
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorRole: user.role,
+        details: '工单完成，客户已取车'
+      })
+    });
+    
     await refreshOrder();
-  }
-
-  async function refreshOrder() {
-    const updated = getWorkOrderById(order.id);
-    if (updated) {
-      Object.assign(order, updated);
-    }
-    await loadLogs();
   }
 
   function formatDate(dateStr: string) {
@@ -212,14 +269,14 @@
 <div class="container">
   <header class="page-header">
     <div class="header-left">
-      <button class="btn btn-outline" on:click={() => emit('back')}>← 返回列表</button>
+      <button class="btn btn-outline" on:click={onBack}>← 返回列表</button>
       <h1>工单详情</h1>
     </div>
     <div class="header-right">
       <span class="badge {order.status === '进行中' ? 'badge-warning' : 'badge-success'}">
         {order.status}
       </span>
-      <button class="btn btn-outline" on:click={() => emit('logout')}>退出登录</button>
+      <button class="btn btn-outline" on:click={onLogout}>退出登录</button>
     </div>
   </header>
 
@@ -276,7 +333,7 @@
       </div>
     </div>
     
-    {#if order.balanceRecords.length === 0}
+    {#if !order.balanceRecords || order.balanceRecords.length === 0}
       <p class="empty-text">暂无动平衡记录</p>
     {:else}
       <table class="table">
@@ -340,7 +397,7 @@
         <button 
           class="btn btn-primary btn-sm" 
           on:click={handleStartInspection}
-          disabled={!order.inspectionRecord && order.balanceRecords.length === 0}
+          disabled={!order.inspectionRecord && (!order.balanceRecords || order.balanceRecords.length === 0)}
         >
           {order.inspectionRecord && order.inspectionRecord.status === '质检中' ? '继续质检' : '开始质检'}
         </button>
@@ -438,9 +495,9 @@
       record={editRecord}
       wheelPositions={wheelPositions}
       user={user}
-      on:close={() => showBalanceForm = false}
-      on:submit={handleAddBalance}
-      on:update={(data) => handleUpdateBalance(editRecord, data)}
+      onClose={() => showBalanceForm = false}
+      onSubmit={handleAddBalance}
+      onUpdate={(data) => handleUpdateBalance(editRecord, data)}
     />
   {/if}
 
@@ -448,8 +505,8 @@
     <InspectionForm 
       inspection={order.inspectionRecord}
       user={user}
-      on:close={() => showInspectionForm = false}
-      on:submit={handleSubmitInspection}
+      onClose={() => showInspectionForm = false}
+      onSubmit={handleSubmitInspection}
     />
   {/if}
 </div>

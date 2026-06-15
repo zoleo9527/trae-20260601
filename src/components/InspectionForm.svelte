@@ -1,18 +1,15 @@
 <script lang="ts">
-  import type { User, InspectionRecord } from '../lib/types';
+  import type { User, InspectionRecord } from '$lib/types';
 
   export let inspection: InspectionRecord | null;
   export let user: User;
-
-  const emit = defineEmits<{
-    close: [];
-    submit: [data: {
-      checkItems: string[];
-      passedItems: string[];
-      failedItems: string[];
-      remark: string;
-    }];
-  }>();
+  export let onClose: () => void;
+  export let onSubmit: (data: {
+    checkItems: string[];
+    passedItems: string[];
+    failedItems: string[];
+    remark: string;
+  }) => void;
 
   const defaultCheckItems = [
     '动平衡值检查',
@@ -65,7 +62,7 @@
       return;
     }
 
-    emit('submit', {
+    onSubmit({
       checkItems,
       passedItems,
       failedItems,
@@ -74,11 +71,11 @@
   }
 </script>
 
-<div class="modal-overlay" on:click|self={() => emit('close')}>
+<div class="modal-overlay" on:click|self={onClose}>
   <div class="modal-content" style="max-width: 600px;">
     <div class="modal-header">
       <h2>质检检查</h2>
-      <button class="modal-close" on:click={() => emit('close')}>×</button>
+      <button class="modal-close" on:click={onClose}>×</button>
     </div>
 
     <form on:submit|preventDefault={handleSubmit}>
@@ -119,7 +116,7 @@
       </div>
 
       <div class="flex-end mt-20">
-        <button type="button" class="btn btn-outline" on:click={() => emit('close')}>
+        <button type="button" class="btn btn-outline" on:click={onClose}>
           取消
         </button>
         <button type="submit" class="btn btn-primary">

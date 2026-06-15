@@ -13,10 +13,9 @@
     "noEmit": true,
     "paths": {
       "$lib/*": ["./src/lib/*"],
-      "$data/*": ["./src/data/*"],
       "$server/*": ["./src/server/*"]
     },
-    "types": ["node"]
+    "types": ["node", "svelte"]
   },
   "include": ["src/**/*.ts", "src/**/*.svelte"]
 }

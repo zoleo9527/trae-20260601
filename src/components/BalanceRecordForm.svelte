@@ -1,15 +1,12 @@
 <script lang="ts">
-  import type { User, BalanceRecord } from '../lib/types';
+  import type { User, BalanceRecord } from '$lib/types';
 
   export let record: BalanceRecord | null = null;
   export let wheelPositions: string[];
   export let user: User;
-
-  const emit = defineEmits<{
-    close: [];
-    submit: [data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>];
-    update: [data: Partial<BalanceRecord>];
-  }>();
+  export let onClose: () => void;
+  export let onSubmit: (data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  export let onUpdate: (data: Partial<BalanceRecord>) => void;
 
   let wheelPosition = '';
   let beforeValue = 0;
@@ -36,7 +33,7 @@
     }
 
     if (record) {
-      emit('update', {
+      onUpdate({
         wheelPosition,
         beforeValue,
         balanceValue,
@@ -45,7 +42,7 @@
         remark
       });
     } else {
-      emit('submit', {
+      onSubmit({
         wheelPosition,
         beforeValue,
         balanceValue,
@@ -57,11 +54,11 @@
   }
 </script>
 
-<div class="modal-overlay" on:click|self={() => emit('close')}>
+<div class="modal-overlay" on:click|self={onClose}>
   <div class="modal-content">
     <div class="modal-header">
       <h2>{record ? '编辑动平衡记录' : '添加动平衡记录'}</h2>
-      <button class="modal-close" on:click={() => emit('close')}>×</button>
+      <button class="modal-close" on:click={onClose}>×</button>
     </div>
 
     <form on:submit|preventDefault={handleSubmit}>
@@ -111,7 +108,7 @@
       </div>
 
       <div class="flex-end mt-20">
-        <button type="button" class="btn btn-outline" on:click={() => emit('close')}>
+        <button type="button" class="btn btn-outline" on:click={onClose}>
           取消
         </button>
         <button type="submit" class="btn btn-primary">
