@@ -9,7 +9,8 @@ import {
   StarOutlined,
   CalendarOutlined,
   FileTextOutlined,
-  AlertOutlined
+  AlertOutlined,
+  CustomerServiceOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -722,7 +723,7 @@ const MasterDispatch: React.FC = () => {
         open={historyVisible}
         onCancel={() => setHistoryVisible(false)}
         footer={null}
-        width={800}
+        width={900}
         destroyOnClose
       >
         {currentOrder && (
@@ -748,6 +749,82 @@ const MasterDispatch: React.FC = () => {
               </Row>
             </Card>
 
+            {(currentOrder.afterSale || currentOrder.partRequests.length > 0 || currentOrder.status !== 'completed') && (
+              <Card title="订单关键信息" size="small" style={{ marginBottom: 16 }}>
+                <Row gutter={16}>
+                  {currentOrder.afterSale && currentOrder.afterSale.handler && (
+                    <Col span={12}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                        <CustomerServiceOutlined style={{ color: '#722ed1', marginRight: 8 }} />
+                        <span style={{ fontWeight: 500 }}>售后处理人:</span>
+                        <span style={{ marginLeft: 8 }}>{currentOrder.afterSale.handler}</span>
+                        {currentOrder.afterSale.status && (
+                          <Tag color={currentOrder.afterSale.status === 'processing' ? 'blue' : 'green'} style={{ marginLeft: 8 }}>
+                            {currentOrder.afterSale.status === 'processing' ? '处理中' : '已解决'}
+                          </Tag>
+                        )}
+                      </div>
+                      {currentOrder.afterSale.issue && (
+                        <div style={{ padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                          <div style={{ color: '#999', fontSize: 12, marginBottom: 4 }}>问题描述:</div>
+                          <div style={{ color: '#666' }}>{currentOrder.afterSale.issue}</div>
+                        </div>
+                      )}
+                    </Col>
+                  )}
+                  {currentOrder.partRequests.length > 0 && (
+                    <Col span={currentOrder.afterSale && currentOrder.afterSale.handler ? 12 : 24}>
+                      <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
+                        <AlertOutlined style={{ color: '#fa8c16', marginRight: 8 }} />
+                        <span style={{ fontWeight: 500 }}>配件状态:</span>
+                      </div>
+                      <Space wrap>
+                        {currentOrder.partRequests.map(part => (
+                          <Tag key={part.id} color={
+                            part.status === 'requested' ? 'orange' :
+                            part.status === 'approved' ? 'blue' :
+                            part.status === 'picked' ? 'cyan' : 'green'
+                          }>
+                            {part.partName} - {
+                              part.status === 'requested' ? '待审批' :
+                              part.status === 'approved' ? '已批准' :
+                              part.status === 'picked' ? '已领取' : '已安装'
+                            }
+                            {part.status === 'approved' && part.currentHandler && (
+                              <span style={{ marginLeft: 4 }}>({part.currentHandler})</span>
+                            )}
+                          </Tag>
+                        ))}
+                      </Space>
+                    </Col>
+                  )}
+                </Row>
+                
+                {currentOrder.status !== 'completed' && (
+                  <div style={{ marginTop: 12, padding: 12, backgroundColor: '#fff7e6', borderRadius: 4 }}>
+                    <div style={{ color: '#fa8c16', fontWeight: 500, marginBottom: 8 }}>未完成原因分析</div>
+                    {(() => {
+                      const block = getBlockReason(currentOrder);
+                      if (block) {
+                        return (
+                          <div>
+                            <p><strong>当前卡点:</strong> {block}</p>
+                            {currentOrder.partRequests.some(p => p.status === 'requested') && (
+                              <p><strong>待审批配件:</strong> {currentOrder.partRequests.filter(p => p.status === 'requested').map(p => p.partName).join(', ')}</p>
+                            )}
+                            {currentOrder.afterSale && (
+                              <p><strong>售后状态:</strong> {currentOrder.afterSale.status === 'processing' ? '处理中' : currentOrder.afterSale.status === 'resolved' ? '已解决' : '待处理'}</p>
+                            )}
+                          </div>
+                        );
+                      }
+                      return <p>订单正在处理中</p>;
+                    })()}
+                  </div>
+                )}
+              </Card>
+            )}
+
             <Card title="订单状态变迁" size="small" style={{ marginBottom: 16 }}>
               <Timeline
                 mode="left"
@@ -768,7 +845,8 @@ const MasterDispatch: React.FC = () => {
                       <div style={{ display: 'flex', alignItems: 'center', marginBottom: 8 }}>
                         <Avatar size="small" style={{ 
                           backgroundColor: item.operatorRole === '调度员' ? '#1890ff' :
-                                          item.operatorRole === '安装师傅' ? '#52c41a' : '#999'
+                                          item.operatorRole === '安装师傅' ? '#52c41a' :
+                                          item.operatorRole === '仓库管理' ? '#fa8c16' : '#999'
                         }}>
                           {item.operator[0]}
                         </Avatar>

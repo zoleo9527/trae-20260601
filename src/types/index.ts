@@ -12,6 +12,23 @@ export interface StatusChange {
   remark: string;
 }
 
+export interface AfterSaleCommunication {
+  id: string;
+  type: 'customer' | 'handler' | 'system';
+  content: string;
+  operator: string;
+  timestamp: string;
+}
+
+export interface AfterSaleInfo {
+  issue?: string;
+  handler?: string;
+  status?: 'pending' | 'processing' | 'resolved';
+  createTime?: string;
+  updateTime?: string;
+  communications: AfterSaleCommunication[];
+}
+
 export interface PartRequest {
   id: string;
   orderId: string;
@@ -68,8 +85,7 @@ export interface InstallationOrder {
   partRequests: PartRequest[];
   dispatchRecords: DispatchRecord[];
   statusHistory: StatusChange[];
-  afterSaleHandler?: string;
-  afterSaleStatus?: 'processing' | 'resolved' | 'pending';
+  afterSale?: AfterSaleInfo;
   remark?: string;
 }
 

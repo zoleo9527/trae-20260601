@@ -25,111 +25,28 @@ const orderStatusConfig: Record<string, { color: string; text: string }> = {
   delayed: { color: 'red', text: '已延期' }
 };
 
-interface Communication {
-  id: string;
-  type: 'customer' | 'handler' | 'system';
-  content: string;
-  operator: string;
-  timestamp: string;
-}
-
 interface AfterSaleRecord {
   id: string;
   orderId: string;
   customerName: string;
   customerPhone: string;
   productType: string;
-  issue: string;
-  status: 'pending' | 'processing' | 'resolved';
+  issue?: string;
+  status?: 'pending' | 'processing' | 'resolved';
   handler?: string;
-  createTime: string;
-  updateTime: string;
-  communications: Communication[];
+  createTime?: string;
+  updateTime?: string;
+  communications: {
+    id: string;
+    type: 'customer' | 'handler' | 'system';
+    content: string;
+    operator: string;
+    timestamp: string;
+  }[];
 }
 
-const mockAfterSaleRecords: AfterSaleRecord[] = [
-  {
-    id: 'AS001',
-    orderId: 'ORD001',
-    customerName: '陈先生',
-    customerPhone: '13900139001',
-    productType: '智能马桶',
-    issue: '客户反馈安装后马桶有轻微晃动，需要师傅上门检查',
-    status: 'processing',
-    handler: '客服小美',
-    createTime: '2024-01-17T16:00:00Z',
-    updateTime: '2024-01-17T17:30:00Z',
-    communications: [
-      {
-        id: 'C001',
-        type: 'customer',
-        content: '安装后马桶有点晃动，不太放心',
-        operator: '陈先生',
-        timestamp: '2024-01-17T16:00:00Z'
-      },
-      {
-        id: 'C002',
-        type: 'handler',
-        content: '已记录问题，正在联系师傅安排上门检查',
-        operator: '客服小美',
-        timestamp: '2024-01-17T16:15:00Z'
-      },
-      {
-        id: 'C003',
-        type: 'handler',
-        content: '已联系李师傅，预计明天上午上门',
-        operator: '客服小美',
-        timestamp: '2024-01-17T17:30:00Z'
-      }
-    ]
-  },
-  {
-    id: 'AS002',
-    orderId: 'ORD005',
-    customerName: '吴先生',
-    customerPhone: '13900139005',
-    productType: '整体卫浴',
-    issue: '混水阀漏水导致安装延期，客户催促配件到位时间',
-    status: 'processing',
-    handler: '客服小美',
-    createTime: '2024-01-16T17:00:00Z',
-    updateTime: '2024-01-17T10:00:00Z',
-    communications: [
-      {
-        id: 'C004',
-        type: 'customer',
-        content: '配件什么时候能到？已经等了一天了',
-        operator: '吴先生',
-        timestamp: '2024-01-16T17:00:00Z'
-      },
-      {
-        id: 'C005',
-        type: 'handler',
-        content: '正在协调仓库，配件预计明天到货',
-        operator: '客服小美',
-        timestamp: '2024-01-16T17:30:00Z'
-      },
-      {
-        id: 'C006',
-        type: 'system',
-        content: '配件申请已提交审批',
-        operator: '系统',
-        timestamp: '2024-01-16T18:00:00Z'
-      },
-      {
-        id: 'C007',
-        type: 'handler',
-        content: '配件已到货，已通知师傅领取',
-        operator: '客服小美',
-        timestamp: '2024-01-17T10:00:00Z'
-      }
-    ]
-  }
-];
-
 const AfterSaleService: React.FC = () => {
-  const { orders } = useOrderContext();
-  const [records, setRecords] = useState<AfterSaleRecord[]>(mockAfterSaleRecords);
+  const { orders, addAfterSaleReply, resolveAfterSale } = useOrderContext();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [detailVisible, setDetailVisible] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<AfterSaleRecord | null>(null);
@@ -137,12 +54,28 @@ const AfterSaleService: React.FC = () => {
   const [searchText, setSearchText] = useState('');
   const [replyContent, setReplyContent] = useState('');
 
-  const filteredRecords = records.filter(record => {
+  const afterSaleRecords: AfterSaleRecord[] = orders
+    .filter(order => order.afterSale && (order.afterSale.status === 'processing' || order.afterSale.status === 'pending'))
+    .map(order => ({
+      id: `AS-${order.id}`,
+      orderId: order.id,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      productType: order.productType,
+      issue: order.afterSale?.issue,
+      status: order.afterSale?.status,
+      handler: order.afterSale?.handler,
+      createTime: order.afterSale?.createTime,
+      updateTime: order.afterSale?.updateTime,
+      communications: order.afterSale?.communications || []
+    }));
+
+  const filteredRecords = afterSaleRecords.filter(record => {
     const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
     const matchesSearch = !searchText || 
       record.customerName.includes(searchText) || 
       record.orderId.toLowerCase().includes(searchText.toLowerCase()) ||
-      record.issue.includes(searchText);
+      (record.issue && record.issue.includes(searchText));
     return matchesStatus && matchesSearch;
   });
 
@@ -158,75 +91,43 @@ const AfterSaleService: React.FC = () => {
       return;
     }
 
-    const newCommunication: Communication = {
-      id: `C-${Date.now()}`,
-      type: 'handler',
-      content: replyContent,
-      operator: '客服小美',
-      timestamp: new Date().toISOString()
-    };
-
-    setRecords(prev => prev.map(r => {
-      if (r.id === currentRecord.id) {
-        return {
-          ...r,
-          updateTime: new Date().toISOString(),
-          communications: [...r.communications, newCommunication]
-        };
-      }
-      return r;
-    }));
-
+    addAfterSaleReply(currentRecord.orderId, replyContent);
     setCurrentRecord(prev => prev ? {
       ...prev,
-      communications: [...prev.communications, newCommunication]
+      communications: [...prev.communications, {
+        id: `C-${Date.now()}`,
+        type: 'handler',
+        content: replyContent,
+        operator: '客服小美',
+        timestamp: new Date().toISOString()
+      }]
     } : null);
     
     setReplyContent('');
     message.success('回复成功');
   };
 
-  const handleResolve = (recordId: string) => {
-    setRecords(prev => prev.map(r => {
-      if (r.id === recordId) {
-        return {
-          ...r,
-          status: 'resolved' as const,
-          updateTime: new Date().toISOString(),
-          communications: [...r.communications, {
-            id: `C-${Date.now()}`,
-            type: 'system' as const,
-            content: '售后问题已解决',
-            operator: '系统',
-            timestamp: new Date().toISOString()
-          }]
-        };
-      }
-      return r;
-    }));
+  const handleResolve = (orderId: string) => {
+    resolveAfterSale(orderId);
     message.success('已标记为已解决');
     setDetailVisible(false);
   };
 
   const handleBatchResolve = () => {
     const processingRecords = selectedRowKeys.filter(key => 
-      records.find(r => r.id === key && r.status === 'processing')
+      afterSaleRecords.find(r => r.id === key && r.status === 'processing')
     );
     if (processingRecords.length === 0) {
       message.warning('请选择处理中的记录');
       return;
     }
 
-    setRecords(prev => prev.map(r => {
-      if (selectedRowKeys.includes(r.id) && r.status === 'processing') {
-        return {
-          ...r,
-          status: 'resolved' as const,
-          updateTime: new Date().toISOString()
-        };
+    processingRecords.forEach(recordId => {
+      const record = afterSaleRecords.find(r => r.id === recordId);
+      if (record) {
+        resolveAfterSale(record.orderId);
       }
-      return r;
-    }));
+    });
 
     setSelectedRowKeys([]);
     message.success(`已批量解决 ${processingRecords.length} 条售后记录`);
@@ -307,7 +208,7 @@ const AfterSaleService: React.FC = () => {
       dataIndex: 'updateTime',
       key: 'updateTime',
       width: 140,
-      render: (time: string) => dayjs(time).format('MM-DD HH:mm')
+      render: (time: string) => time ? dayjs(time).format('MM-DD HH:mm') : '-'
     },
     {
       title: '操作',
@@ -329,7 +230,7 @@ const AfterSaleService: React.FC = () => {
               type="link" 
               size="small" 
               icon={<CheckCircleOutlined />}
-              onClick={() => handleResolve(record.id)}
+              onClick={() => handleResolve(record.orderId)}
             >
               解决
             </Button>
@@ -352,7 +253,7 @@ const AfterSaleService: React.FC = () => {
         }
         extra={
           <Space>
-            <Badge count={records.filter(r => r.status === 'processing').length}>
+            <Badge count={afterSaleRecords.filter(r => r.status === 'processing').length}>
               <Button type="primary" onClick={handleBatchResolve}>
                 批量解决
               </Button>
@@ -421,9 +322,11 @@ const AfterSaleService: React.FC = () => {
                     <Descriptions bordered column={2} size="small">
                       <Descriptions.Item label="售后单号">{currentRecord.id}</Descriptions.Item>
                       <Descriptions.Item label="状态">
-                        <Tag color={statusConfig[currentRecord.status].color}>
-                          {statusConfig[currentRecord.status].text}
-                        </Tag>
+                        {currentRecord.status && (
+                          <Tag color={statusConfig[currentRecord.status].color}>
+                            {statusConfig[currentRecord.status].text}
+                          </Tag>
+                        )}
                       </Descriptions.Item>
                       <Descriptions.Item label="关联订单">{currentRecord.orderId}</Descriptions.Item>
                       <Descriptions.Item label="产品">{currentRecord.productType}</Descriptions.Item>
@@ -431,11 +334,13 @@ const AfterSaleService: React.FC = () => {
                       <Descriptions.Item label="电话">{currentRecord.customerPhone}</Descriptions.Item>
                       <Descriptions.Item label="处理人">{currentRecord.handler || '-'}</Descriptions.Item>
                       <Descriptions.Item label="创建时间">
-                        {dayjs(currentRecord.createTime).format('YYYY-MM-DD HH:mm:ss')}
+                        {currentRecord.createTime ? dayjs(currentRecord.createTime).format('YYYY-MM-DD HH:mm:ss') : '-'}
                       </Descriptions.Item>
-                      <Descriptions.Item label="问题描述" span={2}>
-                        {currentRecord.issue}
-                      </Descriptions.Item>
+                      {currentRecord.issue && (
+                        <Descriptions.Item label="问题描述" span={2}>
+                          {currentRecord.issue}
+                        </Descriptions.Item>
+                      )}
                     </Descriptions>
 
                     {relatedOrder && (
@@ -552,7 +457,7 @@ const AfterSaleService: React.FC = () => {
                             回复
                           </Button>
                           {currentRecord.status === 'processing' && (
-                            <Button type="primary" danger icon={<CheckCircleOutlined />} onClick={() => handleResolve(currentRecord.id)}>
+                            <Button type="primary" danger icon={<CheckCircleOutlined />} onClick={() => handleResolve(currentRecord.orderId)}>
                               标记解决
                             </Button>
                           )}

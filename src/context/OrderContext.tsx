@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import type { InstallationOrder, Master, DispatchRecord, StatusChange, PartRequest } from '../types';
+import type { InstallationOrder, Master, DispatchRecord, StatusChange, PartRequest, AfterSaleCommunication } from '../types';
 import { orders as initialOrders, masters as initialMasters } from '../data/mockData';
 
 interface OrderContextType {
@@ -9,6 +9,8 @@ interface OrderContextType {
   batchDispatchOrders: (orderIds: string[]) => void;
   approvePart: (partId: string) => void;
   batchApproveParts: (partIds: string[]) => void;
+  addAfterSaleReply: (orderId: string, content: string) => void;
+  resolveAfterSale: (orderId: string) => void;
   getOrderById: (orderId: string) => InstallationOrder | undefined;
   getMasterById: (masterId: string) => Master | undefined;
   getPendingPartsCount: () => number;
@@ -172,28 +174,43 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const approvePart = useCallback(
     (partId: string) => {
       setOrders(prev =>
-        prev.map(o => ({
-          ...o,
-          partRequests: o.partRequests.map(p => {
-            if (p.id === partId && p.status === 'requested') {
-              const newStatusChange = createStatusChange(
-                'requested',
-                'approved',
+        prev.map(o => {
+          const hasApprovedPart = o.partRequests.some(p => p.id === partId && p.status === 'requested');
+          const approvedPart = o.partRequests.find(p => p.id === partId);
+          
+          return {
+            ...o,
+            partRequests: o.partRequests.map(p => {
+              if (p.id === partId && p.status === 'requested') {
+                const newStatusChange = createStatusChange(
+                  'requested',
+                  'approved',
+                  '仓库管理员小张',
+                  '仓库管理',
+                  '审批通过，配件已准备好领取'
+                );
+                return {
+                  ...p,
+                  status: 'approved',
+                  statusHistory: [...p.statusHistory, newStatusChange],
+                  currentHandler: p.requester,
+                  currentHandlerRole: '安装师傅'
+                };
+              }
+              return p;
+            }),
+            statusHistory: hasApprovedPart ? [
+              ...o.statusHistory,
+              createStatusChange(
+                o.status,
+                o.status,
                 '仓库管理员小张',
                 '仓库管理',
-                '审批通过，配件已准备好领取'
-              );
-              return {
-                ...p,
-                status: 'approved',
-                statusHistory: [...p.statusHistory, newStatusChange],
-                currentHandler: p.requester,
-                currentHandlerRole: '安装师傅'
-              };
-            }
-            return p;
-          })
-        }))
+                `配件【${approvedPart?.partName}】已审批通过，等待${approvedPart?.requester}领取`
+              )
+            ] : o.statusHistory
+          };
+        })
       );
     },
     [createStatusChange]
@@ -202,31 +219,105 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const batchApproveParts = useCallback(
     (partIds: string[]) => {
       setOrders(prev =>
-        prev.map(o => ({
-          ...o,
-          partRequests: o.partRequests.map(p => {
-            if (partIds.includes(p.id) && p.status === 'requested') {
-              const newStatusChange = createStatusChange(
-                'requested',
-                'approved',
+        prev.map(o => {
+          const approvedParts = o.partRequests.filter(p => partIds.includes(p.id) && p.status === 'requested');
+          
+          return {
+            ...o,
+            partRequests: o.partRequests.map(p => {
+              if (partIds.includes(p.id) && p.status === 'requested') {
+                const newStatusChange = createStatusChange(
+                  'requested',
+                  'approved',
+                  '仓库管理员小张',
+                  '仓库管理',
+                  '批量审批通过'
+                );
+                return {
+                  ...p,
+                  status: 'approved',
+                  statusHistory: [...p.statusHistory, newStatusChange],
+                  currentHandler: p.requester,
+                  currentHandlerRole: '安装师傅'
+                };
+              }
+              return p;
+            }),
+            statusHistory: approvedParts.length > 0 ? [
+              ...o.statusHistory,
+              createStatusChange(
+                o.status,
+                o.status,
                 '仓库管理员小张',
                 '仓库管理',
-                '批量审批通过'
-              );
-              return {
-                ...p,
-                status: 'approved',
-                statusHistory: [...p.statusHistory, newStatusChange],
-                currentHandler: p.requester,
-                currentHandlerRole: '安装师傅'
-              };
-            }
-            return p;
-          })
-        }))
+                `批量审批通过 ${approvedParts.length} 个配件申请: ${approvedParts.map(p => p.partName).join(', ')}`
+              )
+            ] : o.statusHistory
+          };
+        })
       );
     },
     [createStatusChange]
+  );
+
+  const addAfterSaleReply = useCallback(
+    (orderId: string, content: string) => {
+      const newCommunication: AfterSaleCommunication = {
+        id: `C-${Date.now()}`,
+        type: 'handler',
+        content,
+        operator: '客服小美',
+        timestamp: new Date().toISOString()
+      };
+
+      setOrders(prev =>
+        prev.map(o => {
+          if (o.id === orderId) {
+            return {
+              ...o,
+              afterSale: {
+                ...o.afterSale,
+                status: 'processing',
+                updateTime: new Date().toISOString(),
+                communications: [...(o.afterSale?.communications || []), newCommunication]
+              }
+            };
+          }
+          return o;
+        })
+      );
+    },
+    []
+  );
+
+  const resolveAfterSale = useCallback(
+    (orderId: string) => {
+      const resolveCommunication: AfterSaleCommunication = {
+        id: `C-${Date.now()}`,
+        type: 'system',
+        content: '售后问题已解决',
+        operator: '系统',
+        timestamp: new Date().toISOString()
+      };
+
+      setOrders(prev =>
+        prev.map(o => {
+          if (o.id === orderId) {
+            return {
+              ...o,
+              afterSale: {
+                ...o.afterSale,
+                status: 'resolved',
+                updateTime: new Date().toISOString(),
+                communications: [...(o.afterSale?.communications || []), resolveCommunication]
+              }
+            };
+          }
+          return o;
+        })
+      );
+    },
+    []
   );
 
   const getOrderById = useCallback(
@@ -256,6 +347,8 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         batchDispatchOrders,
         approvePart,
         batchApproveParts,
+        addAfterSaleReply,
+        resolveAfterSale,
         getOrderById,
         getMasterById,
         getPendingPartsCount,

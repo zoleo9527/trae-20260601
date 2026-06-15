@@ -147,8 +147,18 @@ export const orders: InstallationOrder[] = [
       createStatusChange('pending', 'assigned', '调度员小王', '调度员', '已分配给李师傅，电话已通知', '2024-01-15T09:30:00Z'),
       createStatusChange('assigned', 'in_progress', '李师傅', '安装师傅', '师傅已到场开始安装，客户已确认', '2024-01-17T14:00:00Z')
     ],
-    afterSaleHandler: '客服小美',
-    afterSaleStatus: 'processing',
+    afterSale: {
+      issue: '客户反馈安装后马桶有轻微晃动，需要师傅上门检查',
+      handler: '客服小美',
+      status: 'processing',
+      createTime: '2024-01-17T16:00:00Z',
+      updateTime: '2024-01-17T17:30:00Z',
+      communications: [
+        { id: 'C001', type: 'customer' as const, content: '安装后马桶有点晃动，不太放心', operator: '陈先生', timestamp: '2024-01-17T16:00:00Z' },
+        { id: 'C002', type: 'handler' as const, content: '已记录问题，正在联系师傅安排上门检查', operator: '客服小美', timestamp: '2024-01-17T16:15:00Z' },
+        { id: 'C003', type: 'handler' as const, content: '已联系李师傅，预计明天上午上门', operator: '客服小美', timestamp: '2024-01-17T17:30:00Z' }
+      ]
+    },
     remark: '客户要求下午2点后上门，地址位于张江园区内'
   },
   {
@@ -347,8 +357,19 @@ export const orders: InstallationOrder[] = [
       createStatusChange('assigned', 'in_progress', '王师傅', '安装师傅', '师傅到场开始安装', '2024-01-16T15:00:00Z'),
       createStatusChange('in_progress', 'delayed', '王师傅', '安装师傅', '发现混水阀漏水，等待配件', '2024-01-16T16:30:00Z')
     ],
-    afterSaleHandler: '客服小美',
-    afterSaleStatus: 'processing',
+    afterSale: {
+      issue: '混水阀漏水导致安装延期，客户催促配件到位时间',
+      handler: '客服小美',
+      status: 'processing',
+      createTime: '2024-01-16T17:00:00Z',
+      updateTime: '2024-01-17T10:00:00Z',
+      communications: [
+        { id: 'C004', type: 'customer' as const, content: '配件什么时候能到？已经等了一天了', operator: '吴先生', timestamp: '2024-01-16T17:00:00Z' },
+        { id: 'C005', type: 'handler' as const, content: '正在协调仓库，配件预计明天到货', operator: '客服小美', timestamp: '2024-01-16T17:30:00Z' },
+        { id: 'C006', type: 'system' as const, content: '配件申请已提交审批', operator: '系统', timestamp: '2024-01-16T18:00:00Z' },
+        { id: 'C007', type: 'handler' as const, content: '配件已到货，已通知师傅领取', operator: '客服小美', timestamp: '2024-01-17T10:00:00Z' }
+      ]
+    },
     remark: '配件缺货，预计延迟2天，已通知客户'
   },
   {
