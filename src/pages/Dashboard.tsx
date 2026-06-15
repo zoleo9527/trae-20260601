@@ -73,7 +73,7 @@ export function Dashboard() {
 
       <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-xl p-6 text-white">
         <h3 className="font-semibold text-lg mb-2">处理流程指引</h3>
-        <div className="flex flex-wrap gap-8 mt-4">
+        <div className="flex flex-wrap gap-6 mt-4">
           <div className="flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">1</span>
             <span className="text-sm">客户报修</span>
@@ -93,6 +93,10 @@ export function Dashboard() {
           <div className="flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">5</span>
             <span className="text-sm">完成赔付</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-sm font-bold">6</span>
+            <span className="text-sm">工单归档</span>
           </div>
         </div>
       </div>

@@ -34,6 +34,26 @@ export function PaymentsPage() {
     { value: 'rejected', label: '已拒绝' },
   ];
 
+  const claimStatusLabels: Record<string, string> = {
+    pending: '待处理',
+    processing: '处理中',
+    review: '审核中',
+    approved: '已批准',
+    paid: '已赔付',
+    archived: '已归档',
+    exception: '异常',
+  };
+
+  const claimStatusColors: Record<string, string> = {
+    pending: 'bg-yellow-100 text-yellow-800',
+    processing: 'bg-blue-100 text-blue-800',
+    review: 'bg-purple-100 text-purple-800',
+    approved: 'bg-indigo-100 text-indigo-800',
+    paid: 'bg-green-100 text-green-800',
+    archived: 'bg-gray-100 text-gray-600',
+    exception: 'bg-red-100 text-red-800',
+  };
+
   const formatDate = (date?: Date) => {
     if (!date) return '-';
     return new Date(date).toLocaleString('zh-CN', {
@@ -194,7 +214,8 @@ export function PaymentsPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">客户</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">金额</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">支付方式</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">赔付状态</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">工单状态</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>
               <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
             </tr>
@@ -230,6 +251,13 @@ export function PaymentsPage() {
                       {payment.status === 'pending' ? '待审核' :
                        payment.status === 'approved' ? '已批准' :
                        payment.status === 'paid' ? '已打款' : '已拒绝'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
+                      claim ? claimStatusColors[claim.status] : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {claim ? claimStatusLabels[claim.status] : '-'}
                     </span>
                   </td>
                   <td className="px-6 py-4">
@@ -285,7 +313,7 @@ export function PaymentsPage() {
                           打款
                         </button>
                       )}
-                      {payment.status === 'paid' && (
+                      {payment.status === 'paid' && claim?.status !== 'archived' && (
                         <button
                           onClick={() => claim && handleArchive(claim.id)}
                           className="px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1"
@@ -293,6 +321,12 @@ export function PaymentsPage() {
                           <Archive className="w-3 h-3" />
                           归档
                         </button>
+                      )}
+                      {claim?.status === 'archived' && (
+                        <span className="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs rounded-lg flex items-center gap-1">
+                          <Archive className="w-3 h-3" />
+                          已归档
+                        </span>
                       )}
                     </div>
                   </td>

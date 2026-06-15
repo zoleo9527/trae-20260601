@@ -143,6 +143,24 @@ export const mockClaims: Claim[] = [
     createdAt: new Date('2024-01-18T14:30:00'),
     updatedAt: new Date('2024-01-18T15:00:00'),
   },
+  {
+    id: 'c5',
+    orderId: 'o1',
+    vehicleId: 'v1',
+    customerName: '周先生',
+    customerPhone: '13900139005',
+    damageDescription: '一台微波炉在搬运过程中被摔落，外壳变形，无法正常使用。',
+    damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=damaged%20microwave%20oven%20dropped&image_size=square'],
+    responsibility: 'company',
+    status: 'paid',
+    remarks: [
+      { id: 'r9', claimId: 'c5', userId: 'u1', userName: '陈处理员', content: '已确认微波炉完全损坏，同意全额赔付。', createdAt: new Date('2024-01-19T10:00:00') },
+      { id: 'r10', claimId: 'c5', userId: 'u3', userName: '财务小李', content: '已通过微信完成打款。', createdAt: new Date('2024-01-19T11:00:00') },
+    ],
+    exceptionHistory: [],
+    createdAt: new Date('2024-01-19T09:30:00'),
+    updatedAt: new Date('2024-01-19T11:00:00'),
+  },
 ];
 
 export const mockPayments: Payment[] = [
@@ -163,5 +181,15 @@ export const mockPayments: Payment[] = [
     method: 'wechat',
     status: 'pending',
     remarks: '等待审核',
+  },
+  {
+    id: 'p3',
+    claimId: 'c5',
+    amount: 800,
+    method: 'wechat',
+    status: 'paid',
+    approvedAt: new Date('2024-01-19T10:30:00'),
+    paidAt: new Date('2024-01-19T11:00:00'),
+    remarks: '微信转账赔付',
   },
 ];

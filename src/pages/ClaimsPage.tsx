@@ -225,7 +225,7 @@ export function ClaimsPage() {
                   <Eye className="w-4 h-4" />
                   详情
                 </button>
-                {claim.status !== 'archived' && (
+                {claim.status !== 'archived' && claim.status !== 'paid' && (
                   <button
                     onClick={() => handleOpenActionModal(claim)}
                     className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
@@ -245,6 +245,11 @@ export function ClaimsPage() {
                     <ArrowRight className="w-4 h-4" />
                     提交审核
                   </button>
+                )}
+                {(claim.status === 'paid' || claim.status === 'archived') && (
+                  <span className="px-4 py-1.5 bg-gray-100 text-gray-500 text-sm rounded-lg">
+                    {claim.status === 'paid' ? '等待归档' : '已归档'}
+                  </span>
                 )}
               </div>
             </div>
