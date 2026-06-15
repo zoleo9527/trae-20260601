@@ -1,5 +1,5 @@
 const http = require('http');
-const BASE = 'localhost';
+const BASE = '127.0.0.1';
 const PORT = 3000;
 
 function req(path, opt = {}) {

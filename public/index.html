@@ -272,7 +272,7 @@
   <div id="detailModal" class="detail-modal"><div class="detail-content"><div class="detail-header"><h2 id="detailTitle">订单详情</h2><span class="close" onclick="closeDetail()">×</span></div><div class="detail-body" id="detailBody"></div></div></div>
 
   <script>
-    const API_BASE = 'http://localhost:3000';
+    const API_BASE = 'http://127.0.0.1:3000';
     let currentUser = null, accessToken = null, currentPage = 'overview', currentOrder = null;
     const statusLabels = { pending_design:'待设计', designing:'设计中', pending_print:'待喷绘', printing:'喷绘中', pending_install:'待安装派工', install_assigned:'已派工待安装', installing:'安装中', pending_photo:'待照片回传', photo_returned:'已回传待验收', photo_rejected:'照片被退回', completed:'已完成', cancelled:'已取消' };
     const priorityLabels = { urgent:'紧急', high:'高', normal:'普通', low:'低' };
@@ -603,12 +603,12 @@
               </div></div>
               <div class="detail-section"><h3>项目信息</h3><div class="detail-grid">
                 <div class="item"><div class="label">项目名称</div><div class="value">${currentOrder.projectName}</div></div>
-                <div class="item"><div class="label">物料类型</div><div class="value">${currentOrder.materialType||'-'}</div></div>
-                <div class="item"><div class="label">尺寸</div><div class="value">${currentOrder.size||'-'}</div></div>
-                <div class="item"><div class="label">数量</div><div class="value">${currentOrder.quantity||0}</div></div>
-                <div class="item"><div class="label">安装地址</div><div class="value">${currentOrder.installAddress||'-'}</div></div>
-                <div class="item"><div class="label">要求完成时间</div><div class="value">${formatTime(currentOrder.deadline)}</div></div>
-                <div class="item" style="grid-column:1/-1;"><div class="label">项目描述</div><div class="value">${currentOrder.description||'-'}</div></div>
+                <div class="item"><div class="label">物料类型</div><div class="value">${currentOrder.specifications?.material||'-'}</div></div>
+                <div class="item"><div class="label">尺寸(宽×高)</div><div class="value">${(currentOrder.specifications?.width||'-')+' × '+(currentOrder.specifications?.height||'-')}</div></div>
+                <div class="item"><div class="label">数量</div><div class="value">${(currentOrder.specifications?.quantity||0)+' '+(currentOrder.specifications?.unit||'件')}</div></div>
+                <div class="item"><div class="label">要求完成时间</div><div class="value">${formatTime(currentOrder.expectedDelivery)}</div></div>
+                <div class="item"><div class="label">总金额</div><div class="value">${currentOrder.totalPrice?('¥'+Number(currentOrder.totalPrice).toFixed(2)):'-'}</div></div>
+                <div class="item" style="grid-column:1/-1;"><div class="label">内容描述(喷绘与安装要求)</div><div class="value">${currentOrder.contentDescription||'-'}</div></div>
               </div></div>
               <div class="detail-section"><h3>人员信息</h3><div class="detail-grid">
                 <div class="item"><div class="label">接单员</div><div class="value">${currentOrder.receptionist?.name||'-'}</div></div>
@@ -618,14 +618,10 @@
               </div></div>
               <div class="action-bar">
                 ${can.canAssignDesigner?`<button class="btn-secondary" onclick="actionAssignDesigner()">分配设计师</button>`:''}
-                ${can.canStartDesign?`<button class="btn-warning" onclick="actionStartDesign()">开始设计</button>`:''}
                 ${can.canSubmitDesign?`<button class="btn-success" onclick="actionSubmitDesign()">提交设计稿</button>`:''}
-                ${can.canAssignPrinter?`<button class="btn-secondary" onclick="actionAssignPrinter()">分配喷绘</button>`:''}
                 ${can.canStartPrint?`<button class="btn-warning" onclick="actionStartPrint()">开始喷绘</button>`:''}
                 ${can.canFinishPrint?`<button class="btn-success" onclick="actionFinishPrint()">喷绘完成</button>`:''}
                 ${can.canCreateTask?`<button class="btn-primary" onclick="actionCreateTask()">🔧 创建安装任务(一体化派工)</button>`:''}
-                ${can.canCancel?`<button class="btn-danger" onclick="actionCancel()">取消订单</button>`:''}
-                ${can.canComplete?`<button class="btn-success" onclick="actionComplete()">标记完成</button>`:''}
               </div>
             </div>
             ${allTasks.length?`<div id="tab-tasks" class="tab-content">
@@ -655,16 +651,18 @@
               ${currentOrder.photoReturns?.length?`
                 ${currentOrder.photoReturns.map(p=>`<div class="detail-section">
                   <h3>回传 - ${formatTime(p.createdAt)}</h3>
-                  <div style="margin-bottom:10px;font-size:13px;color:#6b7280;">提交人: ${p.submittedBy?.name||'-'} · 状态: ${p.status}</div>
+                  <div style="margin-bottom:10px;font-size:13px;color:#6b7280;">提交人: ${p.submittedBy?.name||'-'} · 状态: ${p.status||'pending'}</div>
                   ${p.photoUrls?.length?`<div class="photo-grid">${p.photoUrls.map((u,i)=>`<div class="photo-item" onclick="viewPhoto('${u}')"><div class="placeholder">📷 ${i+1}</div></div>`).join('')}</div>`:''}
-                  ${p.notes?`<div style="margin-top:10px;font-size:13px;">说明: ${p.notes}</div>`:''}
+                  ${p.returnNotes?`<div style="margin-top:10px;font-size:13px;">说明: ${p.returnNotes}</div>`:''}
+                  ${p.reviewNotes?`<div style="margin-top:6px;font-size:13px;color:#6366f1;">审核意见: ${p.reviewNotes}</div>`:''}
+                  ${p.rejectReason?`<div style="margin-top:6px;font-size:13px;color:#dc2626;">退回原因: ${p.rejectReason}</div>`:''}
                 </div>`).join('')}`:'<div class="empty-state">暂无旧照片回传记录（建议使用一体化安装任务）</div>'}
             </div>
             <div id="tab-notes" class="tab-content">
               <div style="margin-bottom:16px;">
                 <ul class="order-list" style="border:1px solid #e5e7eb;border-radius:8px;">
-                  ${currentOrder.notes?.length?currentOrder.notes.map(n=>`<li class="note-item ${n.type==='reject_reason'?'reject':''}">
-                    <div class="note-header"><span><span class="note-author">${n.author?.name||'-'}</span> <span class="note-type">${noteTypeLabels[n.type]||n.type}</span></span><span class="note-time">${formatTime(n.createdAt)}</span></div>
+                  ${currentOrder.notes?.length?currentOrder.notes.map(n=>`<li class="note-item ${n.noteType==='reject_reason'?'reject':''}">
+                    <div class="note-header"><span><span class="note-author">${n.createdBy?.name||'-'}</span> <span class="note-type">${noteTypeLabels[n.noteType]||n.noteType}</span></span><span class="note-time">${formatTime(n.createdAt)}</span></div>
                     <div class="note-content">${n.content}</div>
                   </li>`).join(''):'<li class="empty-state">暂无备注</li>'}
                 </ul>
@@ -699,14 +697,10 @@
       const r=currentUser.role;
       return {
         canAssignDesigner:o.status==='pending_design'&&(r==='manager'||r==='receptionist'),
-        canStartDesign:o.status==='designing'&&r==='designer',
-        canSubmitDesign:o.status==='designing'&&r==='designer',
-        canAssignPrinter:(o.status==='pending_print')&&(r==='manager'||r==='receptionist'),
-        canStartPrint:o.status==='printing'&&r==='print_operator',
-        canFinishPrint:o.status==='printing'&&r==='print_operator',
-        canCreateTask:(o.status==='pending_install'||o.status==='photo_rejected')&&(r==='manager'||r==='receptionist'),
-        canCancel:['pending_design','designing','pending_print','printing','pending_install'].includes(o.status)&&r==='manager',
-        canComplete:o.status==='photo_returned'&&(r==='manager'||r==='receptionist')
+        canSubmitDesign:o.status==='designing'&&(r==='designer'||r==='manager'),
+        canStartPrint:o.status==='pending_print'&&(r==='print_operator'||r==='manager'),
+        canFinishPrint:o.status==='printing'&&(r==='print_operator'||r==='manager'),
+        canCreateTask:(o.status==='pending_install'||o.status==='photo_rejected'||o.status==='install_assigned')&&(r==='manager'||r==='receptionist'),
       };
     }
     async function taskStart(taskId){
@@ -762,79 +756,76 @@
     }
     async function actionAssignDesigner(){
       try{
-        const ul=await api('/users?role=designer'); const users=ul.code===0?ul.data:[];
+        const ul=await api('/auth/users'); const users=(ul.code===0?ul.data:[]).filter(u=>u.role==='designer');
         if(!users.length){ alert('没有设计师账号'); return; }
         const sel=prompt(`请输入设计师ID:\n可选列表:\n${users.map(u=>`  ${u.id} - ${u.name}`).join('\n')}`,users[0].id);
         if(!sel) return;
         const d=await api('/print-orders/'+currentOrder.id+'/assign-designer',{method:'POST',body:JSON.stringify({designerId:sel})});
-        if(d.code===0){ alert('已分配'); openDetail(currentOrder.id); } else alert(d.message);
+        if(d.code===0){ alert('✅ 已分配设计师，已进入「设计中」状态'); openDetail(currentOrder.id); } else alert('❌ '+d.message);
       }catch(e){alert('操作失败');}
-    }
-    async function actionStartDesign(){
-      const d=await api('/print-orders/'+currentOrder.id+'/start-design',{method:'POST'});
-      if(d.code===0){ alert('已开始'); openDetail(currentOrder.id); } else alert(d.message);
     }
     async function actionSubmitDesign(){
-      const url=prompt('请输入设计稿URL:',''); if(!url) return;
-      const d=await api('/print-orders/'+currentOrder.id+'/submit-design',{method:'POST',body:JSON.stringify({designFile:url})});
-      if(d.code===0){ alert('已提交'); openDetail(currentOrder.id); } else alert(d.message);
-    }
-    async function actionAssignPrinter(){
-      try{
-        const ul=await api('/users?role=print_operator'); const users=ul.code===0?ul.data:[];
-        if(!users.length){ alert('没有喷绘员账号'); return; }
-        const sel=prompt(`请输入喷绘员ID:\n可选列表:\n${users.map(u=>`  ${u.id} - ${u.name}`).join('\n')}`,users[0].id);
-        if(!sel) return;
-        const d=await api('/print-orders/'+currentOrder.id+'/assign-printer',{method:'POST',body:JSON.stringify({printOperatorId:sel})});
-        if(d.code===0){ alert('已分配'); openDetail(currentOrder.id); } else alert(d.message);
-      }catch(e){alert('操作失败');}
+      const url=prompt('📎 请输入设计稿URL(可留空):','http://demo/design.psd');
+      const d=await api('/print-orders/'+currentOrder.id+'/submit-design',{method:'POST',body:JSON.stringify({designFile:url||''})});
+      if(d.code===0){ alert('✅ 设计提交成功，进入「待喷绘」状态'); openDetail(currentOrder.id); } else alert('❌ '+d.message);
     }
     async function actionStartPrint(){
       const d=await api('/print-orders/'+currentOrder.id+'/start-print',{method:'POST'});
-      if(d.code===0){ alert('已开始喷绘'); openDetail(currentOrder.id); } else alert(d.message);
+      if(d.code===0){ alert('✅ 已开始喷绘（自动绑定当前登录用户为喷绘员）'); openDetail(currentOrder.id); } else alert('❌ '+d.message);
     }
     async function actionFinishPrint(){
-      const d=await api('/print-orders/'+currentOrder.id+'/finish-print',{method:'POST'});
-      if(d.code===0){ alert('喷绘完成'); openDetail(currentOrder.id); } else alert(d.message);
+      const d=await api('/print-orders/'+currentOrder.id+'/complete-print',{method:'POST'});
+      if(d.code===0){ alert('✅ 喷绘完成，进入「待派工安装」'); openDetail(currentOrder.id); } else alert('❌ '+d.message);
     }
     async function actionCreateTask(){
       try{
-        const ul=await api('/users?role=install_leader'); const users=ul.code===0?ul.data:[];
+        const ul=await api('/auth/users'); const users=(ul.code===0?ul.data:[]).filter(u=>u.role==='install_leader');
         if(!users.length){ alert('没有安装队长账号'); return; }
-        const leaderId=prompt(`请输入安装队长ID:\n可选列表:\n${users.map(u=>`  ${u.id} - ${u.name}`).join('\n')}`,users[0].id);
+        const leaderId=prompt(`👷 请输入安装队长ID:\n可选列表:\n${users.map(u=>`  ${u.id} - ${u.name}`).join('\n')}`,users[0].id);
         if(!leaderId) return;
-        const installTime=prompt('安装时间 (YYYY-MM-DD HH:mm):',new Date(Date.now()+86400000).toISOString().slice(0,16).replace('T',' '));
-        const installAddress=prompt('安装地址:',currentOrder.installAddress||'')||currentOrder.installAddress||'';
-        const teamMembersStr=prompt('队员（用逗号分隔，可留空）:','')||'';
-        const assignmentNotes=prompt('派工备注（可留空）:','')||'';
-        const payload={installLeaderId,installTime,installAddress,teamMembers:teamMembersStr?teamMembersStr.split(',').map(s=>s.trim()).filter(Boolean):[],assignmentNotes};
+        const installTime=prompt('📅 安装时间 (可留空，示例 2026-06-16T09:00:00.000Z):','')||undefined;
+        const installAddress=prompt('📍 安装地址(可留空):','')||undefined;
+        const teamMembersStr=prompt('👥 队员（用逗号分隔，可留空）:','')||'';
+        const assignmentNotes=prompt('📝 派工备注(可留空):','')||undefined;
+        const payload={installLeaderId};
+        if(installTime) payload.installTime=installTime;
+        if(installAddress) payload.installAddress=installAddress;
+        if(teamMembersStr) payload.teamMembers=teamMembersStr.split(',').map(s=>s.trim()).filter(Boolean);
+        if(assignmentNotes) payload.assignmentNotes=assignmentNotes;
         const d=await api('/print-orders/'+currentOrder.id+'/tasks',{method:'POST',body:JSON.stringify(payload)});
-        if(d.code===0){ alert('派工成功，已创建一体化任务'); openDetail(currentOrder.id); } else alert(d.message);
+        if(d.code===0){ alert('✅ 派工成功，已创建一体化任务(责任人和历史信息不会丢失)'); openDetail(currentOrder.id); } else alert('❌ '+d.message);
       }catch(e){alert('操作失败');}
-    }
-    async function actionCancel(){
-      if(!confirm('确定取消订单？')) return;
-      const d=await api('/print-orders/'+currentOrder.id+'/cancel',{method:'POST'});
-      if(d.code===0){ alert('已取消'); closeDetail(); refreshCurrentPage(); } else alert(d.message);
-    }
-    async function actionComplete(){
-      if(!confirm('确定标记完成？')) return;
-      const d=await api('/print-orders/'+currentOrder.id+'/complete',{method:'POST'});
-      if(d.code===0){ alert('已完成'); closeDetail(); refreshCurrentPage(); } else alert(d.message);
     }
     async function addNote(){
       const input=document.getElementById('newNoteInput');
       const content=input.value.trim(); if(!content) return;
-      const d=await api('/print-orders/'+currentOrder.id+'/notes',{method:'POST',body:JSON.stringify({content,type:'general'})});
-      if(d.code===0){ openDetail(currentOrder.id); } else alert(d.message);
+      const noteType=prompt('备注类型 (general/reject_reason/supplement/design/install，留空默认 general):','general')||'general';
+      const d=await api('/print-orders/'+currentOrder.id+'/notes',{method:'POST',body:JSON.stringify({content,noteType})});
+      if(d.code===0){ openDetail(currentOrder.id); } else alert('❌ '+d.message);
     }
     async function openCreateModal(){
-      const projectName=prompt('项目名称:','示例项目'); if(!projectName) return;
-      const customerName=prompt('客户名称:','示例客户'); if(!customerName) return;
-      const customerPhone=prompt('客户电话:','13800000000')||'';
-      const p=prompt('优先级 (urgent/high/normal/low):','normal')||'normal';
-      const d=await api('/print-orders',{method:'POST',body:JSON.stringify({projectName,customerName,customerPhone,priority:p,description:prompt('项目描述(可留空):','')||''})});
-      if(d.code===0){ alert('创建成功'); refreshCurrentPage(); } else alert(d.message);
+      const projectName=prompt('📋 项目名称(必填):','示例广告牌'); if(!projectName) return;
+      const customerName=prompt('👤 客户名称(必填):','示例客户'); if(!customerName) return;
+      const customerPhone=prompt('📞 客户电话(必填):','13800000000')||''; if(!customerPhone){ alert('电话必填'); return; }
+      const contentDescription=prompt('📝 内容描述(必填·喷绘内容和要求):','楼顶大型喷绘，5米×3米，含安装')||''; if(!contentDescription){ alert('内容描述必填'); return; }
+      const p=prompt('⚡ 优先级 (urgent/high/normal/low):','normal')||'normal';
+      const customerWechat=prompt('💬 客户微信(可留空):','')||undefined;
+      const expectedDelivery=prompt('📅 预计交付日期(ISO格式·可留空，示例 2026-06-20T10:00:00.000Z):','')||undefined;
+      const matWidth=prompt('📐 宽度(可留空):','')||undefined;
+      const matHeight=prompt('📐 高度(可留空):','')||undefined;
+      const matMaterial=prompt('🎨 材质(可留空，示例 550灯布):','')||undefined;
+      const matQty=parseInt(prompt('🔢 数量(可留空):','')||'0')||undefined;
+      const specifications={};
+      if(matWidth) specifications.width=matWidth;
+      if(matHeight) specifications.height=matHeight;
+      if(matMaterial) specifications.material=matMaterial;
+      if(matQty) specifications.quantity=matQty;
+      const payload={projectName,customerName,customerPhone,contentDescription,priority:p};
+      if(customerWechat) payload.customerWechat=customerWechat;
+      if(expectedDelivery) payload.expectedDelivery=expectedDelivery;
+      if(Object.keys(specifications).length) payload.specifications=specifications;
+      const d=await api('/print-orders',{method:'POST',body:JSON.stringify(payload)});
+      if(d.code===0){ alert('✅ 创建成功'); refreshCurrentPage(); } else alert('❌ '+d.message);
     }
     function refreshCurrentPage(){ switchPage(currentPage); }
     function init(){
