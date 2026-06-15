@@ -18,6 +18,7 @@ export default function Home() {
   
   const [statusFilter, setStatusFilter] = useState<ComplaintStatus | 'all'>('all');
   const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('客服');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const handleRoleChange = (role: UserRole) => {
     setCurrentRole(role);
@@ -191,6 +192,8 @@ export default function Home() {
           newStatus = '待客服受理';
           newAssignee = '客服';
           updates.engineer = {
+            handler,
+            handleTime: now,
             ...c.engineer,
             returnReason: data.reason as any,
             returnRemark: data.remark,
@@ -208,6 +211,8 @@ export default function Home() {
           newStatus = '待维修工程师处理';
           newAssignee = '维修工程师';
           updates.partsManager = {
+            handler,
+            handleTime: now,
             ...c.partsManager,
             returnReason: data.reason as any,
             returnRemark: data.remark,
@@ -225,6 +230,9 @@ export default function Home() {
           newStatus = '待配件管理员处理';
           newAssignee = '配件管理员';
           updates.revisit = {
+            handler,
+            revisitTime: now,
+            customerSatisfaction: c.revisit?.customerSatisfaction || '一般',
             ...c.revisit,
             returnReason: data.reason as any,
             returnRemark: data.remark,

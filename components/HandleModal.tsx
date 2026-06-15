@@ -12,12 +12,46 @@ interface HandleModalProps {
 
 export default function HandleModal({ complaint, action, onClose, onSubmit }: HandleModalProps) {
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    
+    switch (action) {
+      case 'reject':
+        if (!formData.reason) newErrors.reason = '请选择驳回原因';
+        if (!formData.remark?.trim()) newErrors.remark = '请填写驳回说明';
+        break;
+      case 'repair':
+        if (!formData.content?.trim()) newErrors.content = '请填写维修内容';
+        break;
+      case 'parts':
+        if (!formData.parts?.trim()) newErrors.parts = '请填写准备配件';
+        break;
+      case 'revisit':
+        if (!formData.satisfaction) newErrors.satisfaction = '请选择客户满意度';
+        break;
+      case 'return_repair':
+      case 'return_parts':
+      case 'return_revisit':
+        if (!formData.reason) newErrors.reason = '请选择退回原因';
+        if (!formData.remark?.trim()) newErrors.remark = '请填写补充备注';
+        break;
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = () => {
+    if (!validate()) return;
     onSubmit(formData);
     onClose();
   };
@@ -60,7 +94,9 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">驳回原因 *</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                  errors.reason ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 value={formData.reason || ''}
                 onChange={(e) => handleChange('reason', e.target.value)}
               >
@@ -71,16 +107,20 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
                   </option>
                 ))}
               </select>
+              {errors.reason && <p className="text-danger-500 text-sm mt-1">{errors.reason}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">驳回说明 *</label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none ${
+                  errors.remark ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 rows={3}
                 placeholder="请输入驳回说明..."
                 value={formData.remark || ''}
                 onChange={(e) => handleChange('remark', e.target.value)}
               />
+              {errors.remark && <p className="text-danger-500 text-sm mt-1">{errors.remark}</p>}
             </div>
           </div>
         );
@@ -91,12 +131,15 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">维修内容 *</label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none ${
+                  errors.content ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 rows={3}
                 placeholder="请输入维修内容..."
                 value={formData.content || ''}
                 onChange={(e) => handleChange('content', e.target.value)}
               />
+              {errors.content && <p className="text-danger-500 text-sm mt-1">{errors.content}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">使用配件</label>
@@ -127,12 +170,15 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">准备配件 *</label>
               <input
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                  errors.parts ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 type="text"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
                 placeholder="多个配件用逗号分隔"
                 value={formData.parts || ''}
                 onChange={(e) => handleChange('parts', e.target.value)}
               />
+              {errors.parts && <p className="text-danger-500 text-sm mt-1">{errors.parts}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">备注</label>
@@ -170,6 +216,7 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
                   </button>
                 ))}
               </div>
+              {errors.satisfaction && <p className="text-danger-500 text-sm mt-1">{errors.satisfaction}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">回访内容</label>
@@ -192,7 +239,9 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">退回原因 *</label>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                  errors.reason ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 value={formData.reason || ''}
                 onChange={(e) => handleChange('reason', e.target.value)}
               >
@@ -203,16 +252,20 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
                   </option>
                 ))}
               </select>
+              {errors.reason && <p className="text-danger-500 text-sm mt-1">{errors.reason}</p>}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">补充备注 *</label>
               <textarea
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none ${
+                  errors.remark ? 'border-danger-500' : 'border-gray-300'
+                }`}
                 rows={3}
                 placeholder="请输入退回说明..."
                 value={formData.remark || ''}
                 onChange={(e) => handleChange('remark', e.target.value)}
               />
+              {errors.remark && <p className="text-danger-500 text-sm mt-1">{errors.remark}</p>}
             </div>
           </div>
         );
