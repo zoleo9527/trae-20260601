@@ -2,6 +2,7 @@ from ninja import NinjaAPI, Schema, ModelSchema
 from ninja.security import HttpBearer
 from django.contrib.auth import authenticate
 from django.http import HttpRequest
+from django.utils import timezone
 from .models import (
     User, PartsRequest, PartsRequestItem, PartsRequestNote,
     CustomerEquipment, PartsInventory, OutboundRecord, OutboundItem, VerificationRecord
@@ -252,6 +253,8 @@ def generate_verification_no():
 
 @api.post('/requests/', response=PartsRequestSchema)
 def create_request(request, data: CreateRequestSchema):
+    now = timezone.now()
+    
     if PartsRequest.objects.filter(idempotency_key=data.idempotency_key).exists():
         return PartsRequest.objects.prefetch_related(
             'items__part', 'notes__author', 'outbound_records__items__part', 
@@ -271,13 +274,16 @@ def create_request(request, data: CreateRequestSchema):
         is_emergency=data.is_emergency,
         downtime_start=data.downtime_start,
         idempotency_key=data.idempotency_key,
+        created_at=now,
+        updated_at=now,
     )
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=requester,
         note_type='create',
-        content=f"创建配件申请单，原因：{data.reason}"
+        content=f"创建配件申请单，原因：{data.reason}",
+        created_at=now,
     )
     
     for item_data in data.items:
@@ -317,6 +323,7 @@ def get_request(request, request_id: int):
 def approve_request(request, request_id: int, data: ApproveRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法审核")
@@ -326,13 +333,15 @@ def approve_request(request, request_id: int, data: ApproveRequestSchema):
     
     parts_request.status = 'approved'
     parts_request.approver = current_user
+    parts_request.updated_at = now
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=current_user,
         note_type='approve',
-        content=f"审核通过。{data.remark}" if data.remark else "审核通过"
+        content=f"审核通过。{data.remark}" if data.remark else "审核通过",
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
@@ -345,6 +354,7 @@ def approve_request(request, request_id: int, data: ApproveRequestSchema):
 def reject_request(request, request_id: int, data: RejectRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法拒绝")
@@ -354,13 +364,15 @@ def reject_request(request, request_id: int, data: RejectRequestSchema):
     
     parts_request.status = 'rejected'
     parts_request.approver = current_user
+    parts_request.updated_at = now
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=current_user,
         note_type='reject',
-        content=f"审核拒绝：{data.remark}"
+        content=f"审核拒绝：{data.remark}",
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
@@ -373,6 +385,7 @@ def reject_request(request, request_id: int, data: RejectRequestSchema):
 def assign_request(request, request_id: int, data: AssignRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'approved':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法分派")
@@ -386,13 +399,15 @@ def assign_request(request, request_id: int, data: AssignRequestSchema):
     
     parts_request.status = 'assigned'
     parts_request.assignee = assignee
+    parts_request.updated_at = now
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=current_user,
         note_type='assign',
-        content=f"分派给{assignee.username}。{data.remark}" if data.remark else f"分派给{assignee.username}"
+        content=f"分派给{assignee.username}。{data.remark}" if data.remark else f"分派给{assignee.username}",
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
@@ -405,6 +420,7 @@ def assign_request(request, request_id: int, data: AssignRequestSchema):
 def warehouse_check(request, request_id: int, data: WarehouseCheckSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'assigned':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法仓库确认")
@@ -414,13 +430,15 @@ def warehouse_check(request, request_id: int, data: WarehouseCheckSchema):
     
     parts_request.status = 'warehouse_pending'
     parts_request.warehouse_operator = current_user
+    parts_request.updated_at = now
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=current_user,
         note_type='warehouse_check',
-        content=f"仓库确认完成。{data.remark}" if data.remark else "仓库确认完成"
+        content=f"仓库确认完成。{data.remark}" if data.remark else "仓库确认完成",
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
@@ -433,6 +451,7 @@ def warehouse_check(request, request_id: int, data: WarehouseCheckSchema):
 def ship_request(request, request_id: int, data: ShipRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'warehouse_pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法出库")
@@ -448,6 +467,7 @@ def ship_request(request, request_id: int, data: ShipRequestSchema):
         tracking_no=data.tracking_no,
         shipping_address=data.shipping_address,
         remark=data.remark,
+        outbound_date=now,
     )
     
     for item in parts_request.items.all():
@@ -464,13 +484,15 @@ def ship_request(request, request_id: int, data: ShipRequestSchema):
         item.save()
     
     parts_request.status = 'shipped'
+    parts_request.updated_at = now
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
         author=current_user,
         note_type='ship',
-        content=f"已出库，运单号：{data.tracking_no}。{data.remark}" if data.remark else f"已出库，运单号：{data.tracking_no}"
+        content=f"已出库，运单号：{data.tracking_no}。{data.remark}" if data.remark else f"已出库，运单号：{data.tracking_no}",
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
@@ -483,6 +505,7 @@ def ship_request(request, request_id: int, data: ShipRequestSchema):
 def verify_request(request, request_id: int, data: VerifyRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
     current_user = request.auth
+    now = timezone.now()
     
     if parts_request.status != 'shipped':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法核销")
@@ -499,9 +522,11 @@ def verify_request(request, request_id: int, data: VerifyRequestSchema):
         problem_description=data.problem_description,
         is_qualified=data.is_qualified,
         signature=data.signature,
+        verification_date=now,
     )
     
     parts_request.status = 'verified'
+    parts_request.updated_at = now
     parts_request.save()
     
     content = f"核销完成，合格：{data.is_qualified}"
@@ -514,7 +539,8 @@ def verify_request(request, request_id: int, data: VerifyRequestSchema):
         request=parts_request,
         author=current_user,
         note_type='verify',
-        content=content
+        content=content,
+        created_at=now,
     )
     
     return PartsRequest.objects.prefetch_related(
