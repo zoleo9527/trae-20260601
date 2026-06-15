@@ -1,109 +1,186 @@
-import React, { useState } from 'react';
-import { Appeal } from '../types';
-import { APPEAL_TYPE_MAP, APPEAL_STATUS_MAP, USER_ROLE_MAP } from '../types';
-import { formatDateTime, formatDeadline, getCurrentUserRole, canUserHandleAppeal } from '../utils/appealLogic';
+import React, { useState, useEffect } from 'react';
+import { Appeal, Evidence, AuditLog } from '../types';
+import { APPEAL_TYPE_MAP, APPEAL_STATUS_MAP, USER_ROLE_MAP, ROLE_ALLOWED_STATUS } from '../types';
+import { formatDeadline } from '../utils/appealLogic';
 import { EvidenceList } from './EvidenceList';
 import { AuditLogList } from './AuditLogList';
-import { getEvidencesByAppealId, getAuditLogsByAppealId, getUserById } from '../data/mockData';
+import { appealService } from '../services/appealService';
+import { useAppealContext } from '../contexts/AppealContext';
 
 interface AppealDetailProps {
   appeal: Appeal;
   onClose: () => void;
-  onUpdate: (appeal: Appeal) => void;
 }
 
-export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose, onUpdate }) => {
+export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'evidence' | 'audit'>('info');
   const [comment, setComment] = useState('');
   const [resolutionAmount, setResolutionAmount] = useState('');
-  
-  const evidences = getEvidencesByAppealId(appeal.id);
-  const auditLogs = getAuditLogsByAppealId(appeal.id);
-  const assignedUser = appeal.assignedTo ? getUserById(appeal.assignedTo) : undefined;
-  const currentRole = getCurrentUserRole();
-  const canHandle = canUserHandleAppeal(currentRole, appeal);
+  const [evidences, setEvidences] = useState<Evidence[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<{ code: string; message: string } | null>(null);
 
-  const handleAction = (action: 'forward' | 'reject' | 'return' | 'resolve') => {
+  const { 
+    handleAppeal, 
+    currentUserId, 
+    currentUserRole, 
+    setSelectedAppeal,
+    fetchSummary
+  } = useAppealContext();
+
+  useEffect(() => {
+    loadEvidencesAndLogs();
+  }, [appeal.id]);
+
+  const loadEvidencesAndLogs = async () => {
+    const evidencesRes = await appealService.getEvidencesByAppealId(appeal.id);
+    if (evidencesRes.success && evidencesRes.data) {
+      setEvidences(evidencesRes.data);
+    }
+    
+    const logsRes = await appealService.getAuditLogsByAppealId(appeal.id);
+    if (logsRes.success && logsRes.data) {
+      setAuditLogs(logsRes.data);
+    }
+  };
+
+  const assignedUser = appeal.assignedTo ? appealService.getUserById(appeal.assignedTo) : undefined;
+  const currentUser = appealService.getUserById(currentUserId);
+  
+  const canHandle = ROLE_ALLOWED_STATUS[currentUserRole].includes(appeal.status) && 
+    (!appeal.assignedTo || appeal.assignedTo === currentUserId);
+
+  const handleAction = async (action: 'forward' | 'reject' | 'return' | 'resolve') => {
+    setIsProcessing(true);
+    setError(null);
+
     let resolutionAmt: number | undefined;
     if (action === 'resolve' && resolutionAmount) {
       resolutionAmt = parseFloat(resolutionAmount);
     }
-    
-    const updatedAppeal: Appeal = {
-      ...appeal,
-      status: getNextStatus(action),
-      updatedAt: new Date().toISOString(),
-      rejectionReason: action === 'reject' ? comment : appeal.rejectionReason,
-      returnReason: action === 'return' ? comment : appeal.returnReason,
-      resolutionAmount: action === 'resolve' ? resolutionAmt : appeal.resolutionAmount,
-    };
-    
-    onUpdate(updatedAppeal);
-    onClose();
+
+    const response = await handleAppeal({
+      appealId: appeal.id,
+      action,
+      comment,
+      resolutionAmount: resolutionAmt,
+      actorId: currentUserId,
+      actorName: currentUser?.name || '未知用户',
+      actorRole: currentUserRole,
+    });
+
+    if (response.success && response.data) {
+      setSelectedAppeal(response.data.appeal);
+      await loadEvidencesAndLogs();
+      await fetchSummary();
+      onClose();
+    } else if (response.error) {
+      setError(response.error);
+    }
+
+    setIsProcessing(false);
   };
 
-  const getNextStatus = (action: string): string => {
-    const statusMap: Record<string, string> = {
-      forward: appeal.status === 'pending_receipt' ? 'pending_inspection' : 
-               appeal.status === 'pending_inspection' ? 'pending_finance' :
-               appeal.status === 'pending_finance' ? 'pending_confirmation' : 'resolved',
-      reject: 'rejected',
-      return: 'returned',
-      resolve: 'resolved',
-    };
-    return statusMap[action] || appeal.status;
+  const getAvailableActions = () => {
+    const actions: { key: string; label: string; visible: boolean }[] = [
+      { 
+        key: 'forward', 
+        label: '转交下一环节', 
+        visible: ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'].includes(appeal.status)
+      },
+      { 
+        key: 'reject', 
+        label: '驳回申诉', 
+        visible: ['pending_inspection', 'pending_finance'].includes(appeal.status)
+      },
+      { 
+        key: 'return', 
+        label: '退回补充', 
+        visible: ['pending_receipt', 'pending_confirmation'].includes(appeal.status)
+      },
+      { 
+        key: 'resolve', 
+        label: '确认解决', 
+        visible: ['pending_confirmation'].includes(appeal.status)
+      },
+    ];
+    return actions.filter(a => a.visible);
   };
 
   const renderActionButtons = () => {
-    if (!canHandle) return null;
+    if (!canHandle) {
+      return (
+        <div className="bg-gray-100 rounded-lg p-4 mt-4">
+          <p className="text-sm text-gray-500">
+            {appeal.assignedTo && appeal.assignedTo !== currentUserId 
+              ? `当前由 ${assignedUser?.name} 处理` 
+              : '当前角色无权处理此申诉'}
+          </p>
+        </div>
+      );
+    }
 
-    const actions = [
-      { key: 'forward', label: '转交下一环节', visible: ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'].includes(appeal.status) },
-      { key: 'reject', label: '驳回申诉', visible: ['pending_inspection', 'pending_finance'].includes(appeal.status) },
-      { key: 'return', label: '退回补充', visible: ['pending_receipt', 'pending_confirmation'].includes(appeal.status) },
-      { key: 'resolve', label: '确认解决', visible: ['pending_confirmation'].includes(appeal.status) },
-    ].filter(a => a.visible);
+    const actions = getAvailableActions();
 
     return (
       <div className="bg-gray-50 rounded-lg p-4 mt-4">
         <h4 className="text-sm font-medium text-gray-700 mb-3">处理操作</h4>
+        
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium text-red-600 bg-red-100 px-2 py-0.5 rounded">
+                {error.code}
+              </span>
+              <span className="text-sm text-red-700">{error.message}</span>
+            </div>
+          </div>
+        )}
+
         <textarea
-          className="w-full p-3 border border-gray-300 rounded-lg text-sm mb-3 resize-none"
+          className="w-full p-3 border border-gray-300 rounded-lg text-sm mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
           rows={3}
           placeholder="请输入处理备注..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
+          disabled={isProcessing}
         />
+        
         {appeal.status === 'pending_confirmation' && (
           <div className="mb-3">
             <label className="block text-sm text-gray-600 mb-1">处理金额</label>
             <input
               type="number"
-              className="w-full p-2 border border-gray-300 rounded-lg text-sm"
+              className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="输入处理金额"
               value={resolutionAmount}
               onChange={(e) => setResolutionAmount(e.target.value)}
+              disabled={isProcessing}
             />
           </div>
         )}
+        
         <div className="flex gap-2">
           {actions.map(action => (
             <button
               key={action.key}
               onClick={() => handleAction(action.key as any)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              disabled={isProcessing}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                 action.key === 'resolve' ? 'bg-green-600 text-white hover:bg-green-700' :
                 action.key === 'reject' ? 'bg-red-600 text-white hover:bg-red-700' :
                 action.key === 'return' ? 'bg-yellow-600 text-white hover:bg-yellow-700' :
                 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {action.label}
+              {isProcessing ? '处理中...' : action.label}
             </button>
           ))}
           <button
             onClick={onClose}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300"
+            disabled={isProcessing}
+            className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50"
           >
             关闭
           </button>

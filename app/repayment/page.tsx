@@ -1,35 +1,50 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+import { AppealProvider, useAppealContext } from '../../contexts/AppealContext';
 import { Navigation } from '../../components/Navigation';
 import { StatsCard } from '../../components/StatsCard';
 import { AppealCard } from '../../components/AppealCard';
 import { AppealDetail } from '../../components/AppealDetail';
 import { StatusTabs } from '../../components/StatusTabs';
-import { mockAppeals, getAppealSummary } from '../../data/mockData';
 import { Appeal } from '../../types';
-import { getCurrentUserRole, isOverdue, isTodayCreated } from '../../utils/appealLogic';
+import { isOverdue, isTodayCreated } from '../../utils/appealLogic';
 
-export default function Page() {
-  const [appeals] = useState<Appeal[]>(mockAppeals);
-  const [selectedAppeal, setSelectedAppeal] = useState<Appeal | null>(null);
+function AppealDashboard() {
+  const { 
+    appeals, 
+    summary, 
+    selectedAppeal, 
+    setSelectedAppeal, 
+    isLoading,
+    currentUserId,
+    currentUserRole
+  } = useAppealContext();
+  
   const [activeTab, setActiveTab] = useState('all');
-  const [summary, setSummary] = useState(getAppealSummary());
 
-  const currentRole = getCurrentUserRole();
-
-  const todayPendingList = appeals.filter(a => isTodayCreated(a.createdAt) && 
-    ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'].includes(a.status));
+  const todayPendingList = useMemo(() => 
+    appeals.filter(a => isTodayCreated(a.createdAt) && 
+      ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'].includes(a.status)),
+    [appeals]
+  );
   
-  const overdueList = appeals.filter(a => isOverdue(a.deadline) && !['resolved', 'rejected'].includes(a.status));
+  const overdueList = useMemo(() => 
+    appeals.filter(a => isOverdue(a.deadline) && !['resolved', 'rejected'].includes(a.status)),
+    [appeals]
+  );
   
-  const returnedList = appeals.filter(a => a.status === 'returned');
+  const returnedList = useMemo(() => 
+    appeals.filter(a => a.status === 'returned'),
+    [appeals]
+  );
 
-  const filteredAppeals = activeTab === 'all' 
-    ? appeals 
-    : appeals.filter(a => a.status === activeTab);
+  const filteredAppeals = useMemo(() => 
+    activeTab === 'all' ? appeals : appeals.filter(a => a.status === activeTab),
+    [appeals, activeTab]
+  );
 
-  const statusCounts = {
+  const statusCounts = useMemo(() => ({
     all: appeals.length,
     pending_receipt: appeals.filter(a => a.status === 'pending_receipt').length,
     pending_inspection: appeals.filter(a => a.status === 'pending_inspection').length,
@@ -38,13 +53,7 @@ export default function Page() {
     resolved: appeals.filter(a => a.status === 'resolved').length,
     rejected: appeals.filter(a => a.status === 'rejected').length,
     returned: appeals.filter(a => a.status === 'returned').length,
-  };
-
-  const handleUpdateAppeal = (updatedAppeal: Appeal) => {
-    // In a real app, this would update the backend
-    console.log('Updated appeal:', updatedAppeal);
-    setSummary(getAppealSummary());
-  };
+  }), [appeals]);
 
   const urgentIcon = (
     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -72,9 +81,13 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation currentUserRole={currentRole} />
+      <Navigation />
       
       <main className="max-w-7xl mx-auto px-4 py-6">
+        {isLoading && (
+          <div className="fixed top-0 left-0 right-0 h-1 bg-blue-500 animate-pulse z-50"></div>
+        )}
+
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-800">售后申诉管理</h1>
           <p className="text-gray-500 mt-1">处理数码回收售后申诉，查看证据归档</p>
@@ -178,9 +191,16 @@ export default function Page() {
         <AppealDetail 
           appeal={selectedAppeal} 
           onClose={() => setSelectedAppeal(null)}
-          onUpdate={handleUpdateAppeal}
         />
       )}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <AppealProvider>
+      <AppealDashboard />
+    </AppealProvider>
   );
 }
