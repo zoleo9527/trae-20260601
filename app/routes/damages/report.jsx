@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLoaderData, redirect } from '@remix-run/react';
-import { getDeliveriesInTransit } from '~/models/delivery.server';
+import { getDeliveriesInTransit, updateDeliveryStatus } from '~/models/delivery.server';
 import { createDamageRecord } from '~/models/damage.server';
 import { createOperationLog } from '~/models/log.server';
 import { damageTypes } from '~/data/mockData';
@@ -19,6 +19,10 @@ export async function action({ request }) {
   const damageQuantity = parseInt(formData.get('damageQuantity'));
   
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  
+  await updateDeliveryStatus(deliveryId, 'damaged', {
+    signedAt: now,
+  });
   
   const newDamage = await createDamageRecord({
     deliveryRecordId: deliveryId,
@@ -73,11 +77,6 @@ export default function DamageReportPage() {
       alert('请填写完整信息');
       return;
     }
-    
-    const form = e.target;
-    form.action = '/damages/report';
-    form.method = 'POST';
-    form.submit();
   };
 
   return (
@@ -94,7 +93,7 @@ export default function DamageReportPage() {
             ⚠️ 请详细填写破损信息，以便后续责任认定和处理
           </div>
           
-          <form onSubmit={handleSubmit} style={styles.form}>
+          <form method="post" style={styles.form} onSubmit={handleSubmit}>
             <input type="hidden" name="salesOrderId" value={selectedDelivery?.order?.id} />
             
             <div style={styles.formGroup}>
@@ -129,7 +128,7 @@ export default function DamageReportPage() {
                   </div>
                   <div style={styles.previewItem}>
                     <span style={styles.previewLabel}>地址</span>
-                    <span>{selectedDelivery.delivery_address}</span>
+                    <span>{selectedDelivery.deliveryAddress}</span>
                   </div>
                 </div>
               </div>

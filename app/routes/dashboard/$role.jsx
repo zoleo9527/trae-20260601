@@ -1,4 +1,4 @@
-import { Link, useNavigate } from '@remix-run/react';
+import { Link, useNavigate, useLoaderData } from '@remix-run/react';
 import { getUserById } from '~/models/user.server';
 import { getDeliveryRecords, getPendingDeliveries, getDeliveriesInTransit } from '~/models/delivery.server';
 import { getDamageRecords, getPendingDamageRecords, getProcessingDamageRecords } from '~/models/damage.server';
@@ -45,15 +45,17 @@ export async function loader({ params, request }) {
   };
 }
 
-export default function DashboardPage({
-  user,
-  role,
-  pendingDeliveries,
-  inTransitDeliveries,
-  pendingDamages,
-  processingDamages,
-  logs,
-}) {
+export default function DashboardPage() {
+  const {
+    user,
+    role,
+    pendingDeliveries,
+    inTransitDeliveries,
+    pendingDamages,
+    processingDamages,
+    logs,
+  } = useLoaderData();
+  
   const navigate = useNavigate();
   
   const roleConfig = {

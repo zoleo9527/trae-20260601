@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLoaderData, redirect, json } from '@remix-run/react';
+import { Link, useNavigate, useLoaderData, redirect } from '@remix-run/react';
 import { getDeliveriesInTransit, updateDeliveryStatus } from '~/models/delivery.server';
 import { createDamageRecord } from '~/models/damage.server';
 import { createOperationLog } from '~/models/log.server';
@@ -39,8 +39,6 @@ export async function action({ request }) {
     if (!hasDamage) {
       return redirect('/dashboard/driver');
     }
-    
-    return json({ success: true, deliveryId, showDamageForm: true });
   }
   
   if (actionType === 'report_damage') {
@@ -132,9 +130,11 @@ export default function DeliverySignPage() {
       return;
     }
     
-    if (formData.hasDamage) {
-      setShowDamageForm(true);
+    if (!formData.hasDamage) {
+      return;
     }
+    
+    setShowDamageForm(true);
   };
   
   const handleSubmitDamage = (e) => {
