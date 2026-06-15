@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, Param } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Request } from '@nestjs/common';
 import { AcceptanceService } from '../services/acceptance.service';
 import { SubmitAcceptanceDto, VerifyAcceptanceDto } from '../dto/acceptance.dto';
 import { User } from '../entities/user.entity';
@@ -8,15 +8,13 @@ export class AcceptanceController {
   constructor(private readonly acceptanceService: AcceptanceService) {}
 
   @Post('submit')
-  submit(@Body() submitDto: SubmitAcceptanceDto) {
-    const mockInstaller: Partial<User> = { id: '2', name: '安装师傅' } as User;
-    return this.acceptanceService.submitAcceptance(submitDto, mockInstaller);
+  submit(@Body() submitDto: SubmitAcceptanceDto, @Request() req: { user: User }) {
+    return this.acceptanceService.submitAcceptance(submitDto, req.user);
   }
 
   @Post('verify')
-  verify(@Body() verifyDto: VerifyAcceptanceDto) {
-    const mockVerifier: Partial<User> = { id: '3', name: '客服' } as User;
-    return this.acceptanceService.verifyAcceptance(verifyDto, mockVerifier);
+  verify(@Body() verifyDto: VerifyAcceptanceDto, @Request() req: { user: User }) {
+    return this.acceptanceService.verifyAcceptance(verifyDto, req.user);
   }
 
   @Get('history/:installationId')

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsDate, IsNumber, IsEnum, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsDate, IsNumber, IsEnum, IsUUID, IsDefined } from 'class-validator';
 import { InstallationStatus, PaymentStatus } from '../entities/installation.entity';
 
 export class CreateInstallationDto {
@@ -6,15 +6,19 @@ export class CreateInstallationDto {
   @IsString()
   orderNo?: string;
 
+  @IsDefined()
   @IsString()
   customerName: string;
 
+  @IsDefined()
   @IsString()
   customerPhone: string;
 
+  @IsDefined()
   @IsString()
   address: string;
 
+  @IsDefined()
   @IsString()
   productType: string;
 
@@ -163,6 +167,6 @@ export class InstallationQueryDto {
   sortBy?: string = 'createdAt';
 
   @IsOptional()
-  @IsString()
+  @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }

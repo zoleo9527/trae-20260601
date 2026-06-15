@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Photo, PhotoStatus, PhotoType } from '../entities/photo.entity';
 import { Installation } from '../entities/installation.entity';
+import { InstallationRecord, RecordType } from '../entities/installation-record.entity';
 import { User } from '../entities/user.entity';
 import { UploadPhotoDto, PhotoQueryDto, VerifyPhotoDto } from '../dto/photo.dto';
 import * as fs from 'fs';
@@ -17,6 +18,8 @@ export class PhotoService {
     private photoRepository: Repository<Photo>,
     @InjectRepository(Installation)
     private installationRepository: Repository<Installation>,
+    @InjectRepository(InstallationRecord)
+    private recordRepository: Repository<InstallationRecord>,
   ) {
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
@@ -77,7 +80,10 @@ export class PhotoService {
   async findOne(id: string): Promise<Photo> {
     const photo = await this.photoRepository.findOne({
       where: { id },
-      relations: ['uploadedBy', 'installation'],
+      relations: {
+        uploadedBy: true,
+        installation: true,
+      },
     });
     if (!photo) {
       throw new NotFoundException('照片不存在');
@@ -88,7 +94,9 @@ export class PhotoService {
   async findByInstallation(installationId: string): Promise<Photo[]> {
     return this.photoRepository.find({
       where: { installationId },
-      relations: ['uploadedBy'],
+      relations: {
+        uploadedBy: true,
+      },
       order: { uploadedAt: 'ASC' },
     });
   }
@@ -96,11 +104,23 @@ export class PhotoService {
   async verify(id: string, verifyDto: VerifyPhotoDto, user: User): Promise<Photo> {
     const photo = await this.findOne(id);
     
+    const previousStatus = photo.status;
     photo.status = verifyDto.status;
     photo.verifiedBy = user.id;
     photo.verifiedAt = new Date();
     
-    return this.photoRepository.save(photo);
+    const saved = await this.photoRepository.save(photo);
+    
+    const statusText = verifyDto.status === PhotoStatus.VERIFIED ? '审核通过' : '审核驳回';
+    const reason = verifyDto.reason ? `，原因：${verifyDto.reason}` : '';
+    await this.recordRepository.save({
+      installationId: photo.installationId,
+      operatorId: user.id,
+      type: RecordType.COMMENT,
+      content: `照片审核${statusText}${reason}`,
+    });
+    
+    return saved;
   }
 
   async verifyByInstallation(installationId: string, verifyDto: VerifyPhotoDto, user: User): Promise<Photo[]> {
@@ -112,7 +132,18 @@ export class PhotoService {
       photo.verifiedAt = new Date();
     }
     
-    return this.photoRepository.save(photos);
+    const saved = await this.photoRepository.save(photos);
+    
+    const statusText = verifyDto.status === PhotoStatus.VERIFIED ? '全部审核通过' : '全部审核驳回';
+    const reason = verifyDto.reason ? `，原因：${verifyDto.reason}` : '';
+    await this.recordRepository.save({
+      installationId,
+      operatorId: user.id,
+      type: RecordType.COMMENT,
+      content: `工单照片${statusText}${reason}`,
+    });
+    
+    return saved;
   }
 
   async remove(id: string): Promise<void> {

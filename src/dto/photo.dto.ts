@@ -1,10 +1,12 @@
-import { IsString, IsOptional, IsEnum, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsUUID, IsNumber, IsDefined } from 'class-validator';
 import { PhotoType, PhotoStatus } from '../entities/photo.entity';
 
 export class UploadPhotoDto {
+  @IsDefined()
   @IsUUID()
   installationId: string;
 
+  @IsDefined()
   @IsEnum(PhotoType)
   type: PhotoType;
 
@@ -43,11 +45,12 @@ export class PhotoQueryDto {
   sortBy?: string = 'uploadedAt';
 
   @IsOptional()
-  @IsString()
+  @IsEnum(['ASC', 'DESC'])
   sortOrder?: 'ASC' | 'DESC' = 'DESC';
 }
 
 export class VerifyPhotoDto {
+  @IsDefined()
   @IsEnum(PhotoStatus)
   status: PhotoStatus;
 

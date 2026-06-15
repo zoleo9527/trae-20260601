@@ -1,9 +1,11 @@
-import { IsString, IsOptional, IsBoolean, IsUUID } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsUUID, IsDefined } from 'class-validator';
 
 export class SubmitAcceptanceDto {
+  @IsDefined()
   @IsUUID()
   installationId: string;
 
+  @IsDefined()
   @IsBoolean()
   isAccepted: boolean;
 
@@ -17,9 +19,11 @@ export class SubmitAcceptanceDto {
 }
 
 export class VerifyAcceptanceDto {
+  @IsDefined()
   @IsUUID()
   installationId: string;
 
+  @IsDefined()
   @IsBoolean()
   isVerified: boolean;
 

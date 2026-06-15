@@ -30,7 +30,10 @@ export class AcceptanceService {
 
     const installation = await this.installationRepository.findOne({
       where: { id: submitDto.installationId },
-      relations: ['installer', 'photos'],
+      relations: {
+        installer: true,
+        photos: true,
+      },
     });
     
     if (!installation) {
@@ -87,7 +90,9 @@ export class AcceptanceService {
 
     const installation = await this.installationRepository.findOne({
       where: { id: verifyDto.installationId },
-      relations: ['photos'],
+      relations: {
+        photos: true,
+      },
     });
     
     if (!installation) {
@@ -138,7 +143,9 @@ export class AcceptanceService {
         installationId,
         type: [RecordType.ACCEPT, RecordType.REJECT],
       },
-      relations: ['operator'],
+      relations: {
+        operator: true,
+      },
       order: { createdAt: 'ASC' },
     });
   }

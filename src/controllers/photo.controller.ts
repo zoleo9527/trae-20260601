@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query, UseInterceptors, UploadedFile, Res, Request } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -21,9 +21,8 @@ export class PhotoController {
       },
     }),
   }))
-  upload(@Body() uploadDto: UploadPhotoDto, @UploadedFile() file: Express.Multer.File) {
-    const mockUser: Partial<User> = { id: '2', name: '安装师傅' } as User;
-    return this.photoService.upload(uploadDto, file, mockUser);
+  upload(@Body() uploadDto: UploadPhotoDto, @UploadedFile() file: Express.Multer.File, @Request() req: { user: User }) {
+    return this.photoService.upload(uploadDto, file, req.user);
   }
 
   @Get()
@@ -51,15 +50,13 @@ export class PhotoController {
   }
 
   @Patch(':id/verify')
-  verify(@Param('id') id: string, @Body() verifyDto: VerifyPhotoDto) {
-    const mockVerifier: Partial<User> = { id: '3', name: '客服' } as User;
-    return this.photoService.verify(id, verifyDto, mockVerifier);
+  verify(@Param('id') id: string, @Body() verifyDto: VerifyPhotoDto, @Request() req: { user: User }) {
+    return this.photoService.verify(id, verifyDto, req.user);
   }
 
   @Patch('installation/:installationId/verify')
-  verifyByInstallation(@Param('installationId') installationId: string, @Body() verifyDto: VerifyPhotoDto) {
-    const mockVerifier: Partial<User> = { id: '3', name: '客服' } as User;
-    return this.photoService.verifyByInstallation(installationId, verifyDto, mockVerifier);
+  verifyByInstallation(@Param('installationId') installationId: string, @Body() verifyDto: VerifyPhotoDto, @Request() req: { user: User }) {
+    return this.photoService.verifyByInstallation(installationId, verifyDto, req.user);
   }
 
   @Delete(':id')

@@ -23,7 +23,7 @@ export class InstallationService {
     });
     const saved = await this.installationRepository.save(installation);
     
-    await this.createRecord(saved.id, dispatcher.id, RecordType.DISPATCH, '工单已创建并分配');
+    await this.createRecord(saved.id, dispatcher.id, RecordType.COMMENT, '工单已创建');
     
     return saved;
   }
@@ -83,7 +83,14 @@ export class InstallationService {
   async findOne(id: string): Promise<Installation> {
     const installation = await this.installationRepository.findOne({
       where: { id },
-      relations: ['dispatcher', 'installer', 'records', 'records.operator', 'photos'],
+      relations: {
+        dispatcher: true,
+        installer: true,
+        records: {
+          operator: true,
+        },
+        photos: true,
+      },
     });
     if (!installation) {
       throw new NotFoundException('安装工单不存在');
@@ -160,7 +167,9 @@ export class InstallationService {
   async getRecords(installationId: string): Promise<InstallationRecord[]> {
     return this.recordRepository.find({
       where: { installationId },
-      relations: ['operator'],
+      relations: {
+        operator: true,
+      },
       order: { createdAt: 'ASC' },
     });
   }
