@@ -9,18 +9,20 @@ interface AppealCardProps {
   showUrgency?: boolean;
 }
 
+type StatusColor = 'orange' | 'blue' | 'purple' | 'cyan' | 'green' | 'red' | 'gray';
+
 export const AppealCard: React.FC<AppealCardProps> = ({ appeal, onClick, showUrgency = true }) => {
-  const statusColor = getStatusColor(appeal.status);
+  const statusColor = getStatusColor(appeal.status) as StatusColor;
   const urgencyLevel = getUrgencyLevel(appeal.deadline);
   const daysRemaining = calculateDaysRemaining(appeal.deadline);
 
-  const urgencyStyle = {
+  const urgencyStyle: Record<string, string> = {
     normal: 'bg-gray-100 text-gray-600',
     warning: 'bg-yellow-100 text-yellow-700',
     danger: 'bg-red-100 text-red-700',
   };
 
-  const statusStyle = {
+  const statusStyle: Record<StatusColor, string> = {
     orange: 'bg-orange-100 text-orange-700 border-orange-200',
     blue: 'bg-blue-100 text-blue-700 border-blue-200',
     purple: 'bg-purple-100 text-purple-700 border-purple-200',

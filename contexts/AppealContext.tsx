@@ -5,14 +5,28 @@ import {
   AuditLog, 
   AppealSummary, 
   UserRole,
-  APPEAL_STATUS_MAP
+  AppealStatus,
+  ROLE_ALLOWED_STATUS
 } from '../types';
-import { 
-  appealService, 
-  HandleAppealRequest, 
-  UploadEvidenceRequest,
-  ApiResponse 
-} from '../services/appealService';
+
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+interface HandleAppealRequest {
+  appealId: string;
+  action: 'forward' | 'reject' | 'return' | 'resolve';
+  comment?: string;
+  resolutionAmount?: number;
+  actorId: string;
+  actorName: string;
+  actorRole: UserRole;
+}
 
 interface AppealContextType {
   appeals: Appeal[];
@@ -27,7 +41,6 @@ interface AppealContextType {
   fetchAppeals: () => Promise<void>;
   fetchSummary: () => Promise<void>;
   handleAppeal: (request: HandleAppealRequest) => Promise<ApiResponse<{ appeal: Appeal; auditLog: AuditLog }>>;
-  uploadEvidence: (request: UploadEvidenceRequest) => Promise<ApiResponse<{ evidence: Evidence; auditLog: AuditLog }>>;
   getEvidences: (appealId: string) => Promise<Evidence[]>;
   getAuditLogs: (appealId: string) => Promise<AuditLog[]>;
   setCurrentUser: (userId: string, role: UserRole) => void;
@@ -54,11 +67,12 @@ export const AppealProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchAppeals = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await appealService.getAppeals();
-      if (response.success && response.data) {
-        setAppeals(response.data);
-      } else if (response.error) {
-        setError(response.error);
+      const response = await fetch('/api/appeals');
+      const result: ApiResponse<Appeal[]> = await response.json();
+      if (result.success && result.data) {
+        setAppeals(result.data);
+      } else if (result.error) {
+        setError(result.error);
       }
     } catch (err) {
       setError({ code: 'NETWORK_ERROR', message: '网络请求失败' });
@@ -69,9 +83,10 @@ export const AppealProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const fetchSummary = useCallback(async () => {
     try {
-      const response = await appealService.getSummary();
-      if (response.success && response.data) {
-        setSummary(response.data);
+      const response = await fetch('/api/appeals/summary');
+      const result: ApiResponse<AppealSummary> = await response.json();
+      if (result.success && result.data) {
+        setSummary(result.data);
       }
     } catch (err) {
       console.error('Failed to fetch summary:', err);
@@ -81,18 +96,32 @@ export const AppealProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const handleAppealAction = useCallback(async (request: HandleAppealRequest) => {
     setIsLoading(true);
     try {
-      const response = await appealService.handleAppeal(request);
-      if (response.success && response.data) {
-        const { appeal, auditLog } = response.data;
+      const response = await fetch(`/api/appeals/${request.appealId}/handle`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: request.action,
+          comment: request.comment,
+          resolutionAmount: request.resolutionAmount,
+          actorId: request.actorId,
+          actorName: request.actorName,
+          actorRole: request.actorRole,
+        }),
+      });
+      const result: ApiResponse<{ appeal: Appeal; auditLog: AuditLog }> = await response.json();
+      if (result.success && result.data) {
+        const { appeal, auditLog } = result.data;
         setAppeals(prev => prev.map(a => a.id === appeal.id ? appeal : a));
         if (selectedAppeal?.id === appeal.id) {
           setSelectedAppeal(appeal);
         }
         await fetchSummary();
-      } else if (response.error) {
-        setError(response.error);
+      } else if (result.error) {
+        setError(result.error);
       }
-      return response;
+      return result;
     } catch (err) {
       setError({ code: 'NETWORK_ERROR', message: '网络请求失败' });
       return { success: false, error: { code: 'NETWORK_ERROR', message: '网络请求失败' } };
@@ -101,44 +130,26 @@ export const AppealProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [selectedAppeal, fetchSummary]);
 
-  const uploadEvidenceAction = useCallback(async (request: UploadEvidenceRequest) => {
-    setIsLoading(true);
-    try {
-      const response = await appealService.uploadEvidence(request);
-      if (response.success && response.data) {
-        const { evidence, auditLog } = response.data;
-        setAppeals(prev => prev.map(a => 
-          a.id === evidence.appealId 
-            ? { ...a, evidenceIds: [...a.evidenceIds, evidence.id], updatedAt: new Date().toISOString() }
-            : a
-        ));
-        if (selectedAppeal?.id === evidence.appealId) {
-          setSelectedAppeal(prev => prev ? {
-            ...prev,
-            evidenceIds: [...prev.evidenceIds, evidence.id],
-            updatedAt: new Date().toISOString(),
-          } : null);
-        }
-      } else if (response.error) {
-        setError(response.error);
-      }
-      return response;
-    } catch (err) {
-      setError({ code: 'NETWORK_ERROR', message: '网络请求失败' });
-      return { success: false, error: { code: 'NETWORK_ERROR', message: '网络请求失败' } };
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedAppeal]);
-
   const getEvidences = useCallback(async (appealId: string) => {
-    const response = await appealService.getEvidencesByAppealId(appealId);
-    return response.data || [];
+    try {
+      const response = await fetch(`/api/appeals/${appealId}/evidences`);
+      const result: ApiResponse<Evidence[]> = await response.json();
+      return result.data || [];
+    } catch (err) {
+      console.error('Failed to fetch evidences:', err);
+      return [];
+    }
   }, []);
 
   const getAuditLogs = useCallback(async (appealId: string) => {
-    const response = await appealService.getAuditLogsByAppealId(appealId);
-    return response.data || [];
+    try {
+      const response = await fetch(`/api/appeals/${appealId}/logs`);
+      const result: ApiResponse<AuditLog[]> = await response.json();
+      return result.data || [];
+    } catch (err) {
+      console.error('Failed to fetch audit logs:', err);
+      return [];
+    }
   }, []);
 
   const setCurrentUser = useCallback((userId: string, role: UserRole) => {
@@ -167,7 +178,6 @@ export const AppealProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     fetchAppeals,
     fetchSummary,
     handleAppeal: handleAppealAction,
-    uploadEvidence: uploadEvidenceAction,
     getEvidences,
     getAuditLogs,
     setCurrentUser,
@@ -206,6 +216,11 @@ export const useAppealDetail = () => {
     isLoading 
   } = useAppealContext();
   
+  const canHandle = selectedAppeal 
+    ? ROLE_ALLOWED_STATUS[currentUserRole].includes(selectedAppeal.status) && 
+      (!selectedAppeal.assignedTo || selectedAppeal.assignedTo === currentUserId)
+    : false;
+  
   return {
     selectedAppeal,
     setSelectedAppeal,
@@ -215,6 +230,7 @@ export const useAppealDetail = () => {
     currentUserId,
     currentUserRole,
     isLoading,
+    canHandle,
   };
 };
 
@@ -225,11 +241,19 @@ export const useAppealSummary = () => {
 
 export const useCurrentUser = () => {
   const { currentUserId, currentUserRole, setCurrentUser } = useAppealContext();
-  const user = appealService.getUserById(currentUserId);
+  const roleOptions: { id: string; role: UserRole; label: string }[] = [
+    { id: 'u1', role: 'receiver', label: '收货员 - 王收货' },
+    { id: 'u2', role: 'inspector', label: '检测师 - 李检测' },
+    { id: 'u3', role: 'finance', label: '财务 - 张财务' },
+    { id: 'u4', role: 'admin', label: '管理员 - 赵管理员' },
+  ];
+  const currentOption = roleOptions.find(r => r.id === currentUserId);
+  
   return {
     userId: currentUserId,
     role: currentUserRole,
-    name: user?.name || '未知用户',
+    name: currentOption?.label.split(' - ')[1] || '未知用户',
+    roleOptions,
     setCurrentUser,
   };
 };

@@ -4,8 +4,7 @@ import { APPEAL_TYPE_MAP, APPEAL_STATUS_MAP, USER_ROLE_MAP, ROLE_ALLOWED_STATUS 
 import { formatDeadline } from '../utils/appealLogic';
 import { EvidenceList } from './EvidenceList';
 import { AuditLogList } from './AuditLogList';
-import { appealService } from '../services/appealService';
-import { useAppealContext } from '../contexts/AppealContext';
+import { useAppealDetail } from '../contexts/AppealContext';
 
 interface AppealDetailProps {
   appeal: Appeal;
@@ -25,29 +24,23 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
     handleAppeal, 
     currentUserId, 
     currentUserRole, 
+    getEvidences, 
+    getAuditLogs,
     setSelectedAppeal,
-    fetchSummary
-  } = useAppealContext();
+  } = useAppealDetail();
 
   useEffect(() => {
     loadEvidencesAndLogs();
   }, [appeal.id]);
 
   const loadEvidencesAndLogs = async () => {
-    const evidencesRes = await appealService.getEvidencesByAppealId(appeal.id);
-    if (evidencesRes.success && evidencesRes.data) {
-      setEvidences(evidencesRes.data);
-    }
+    const evidencesRes = await getEvidences(appeal.id);
+    setEvidences(evidencesRes);
     
-    const logsRes = await appealService.getAuditLogsByAppealId(appeal.id);
-    if (logsRes.success && logsRes.data) {
-      setAuditLogs(logsRes.data);
-    }
+    const logsRes = await getAuditLogs(appeal.id);
+    setAuditLogs(logsRes);
   };
 
-  const assignedUser = appeal.assignedTo ? appealService.getUserById(appeal.assignedTo) : undefined;
-  const currentUser = appealService.getUserById(currentUserId);
-  
   const canHandle = ROLE_ALLOWED_STATUS[currentUserRole].includes(appeal.status) && 
     (!appeal.assignedTo || appeal.assignedTo === currentUserId);
 
@@ -60,20 +53,26 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
       resolutionAmt = parseFloat(resolutionAmount);
     }
 
+    const currentUserName = {
+      'u1': '王收货',
+      'u2': '李检测', 
+      'u3': '张财务',
+      'u4': '赵管理员',
+    }[currentUserId] || '未知用户';
+
     const response = await handleAppeal({
       appealId: appeal.id,
       action,
       comment,
       resolutionAmount: resolutionAmt,
       actorId: currentUserId,
-      actorName: currentUser?.name || '未知用户',
+      actorName: currentUserName,
       actorRole: currentUserRole,
     });
 
     if (response.success && response.data) {
       setSelectedAppeal(response.data.appeal);
       await loadEvidencesAndLogs();
-      await fetchSummary();
       onClose();
     } else if (response.error) {
       setError(response.error);
@@ -114,7 +113,7 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
         <div className="bg-gray-100 rounded-lg p-4 mt-4">
           <p className="text-sm text-gray-500">
             {appeal.assignedTo && appeal.assignedTo !== currentUserId 
-              ? `当前由 ${assignedUser?.name} 处理` 
+              ? '当前由其他人员处理中' 
               : '当前角色无权处理此申诉'}
           </p>
         </div>
@@ -229,7 +228,12 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
               <p className="text-xs text-gray-500 mb-1">处理人</p>
-              <p className="font-medium text-gray-800">{assignedUser?.name || '-'}</p>
+              <p className="font-medium text-gray-800">{appeal.assignedTo ? {
+                'u1': '王收货',
+                'u2': '李检测', 
+                'u3': '张财务',
+                'u4': '赵管理员',
+              }[appeal.assignedTo] : '-'}</p>
             </div>
           </div>
 
@@ -315,10 +319,10 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
                   <div className="absolute left-[11px] top-4 bottom-4 w-0.5 bg-blue-200"></div>
                   <div className="space-y-4">
                     {[
-                      { status: 'pending_receipt', label: '收货确认', role: 'receiver', done: appeal.status !== 'pending_receipt' },
-                      { status: 'pending_inspection', label: '检测复核', role: 'inspector', done: ['pending_finance', 'pending_confirmation', 'resolved', 'rejected'].includes(appeal.status) },
-                      { status: 'pending_finance', label: '财务处理', role: 'finance', done: ['pending_confirmation', 'resolved'].includes(appeal.status) },
-                      { status: 'pending_confirmation', label: '用户确认', role: 'finance', done: appeal.status === 'resolved' },
+                      { status: 'pending_receipt', label: '收货确认', role: '收货员', done: appeal.status !== 'pending_receipt' },
+                      { status: 'pending_inspection', label: '检测复核', role: '检测师', done: ['pending_finance', 'pending_confirmation', 'resolved', 'rejected'].includes(appeal.status) },
+                      { status: 'pending_finance', label: '财务处理', role: '财务', done: ['pending_confirmation', 'resolved'].includes(appeal.status) },
+                      { status: 'pending_confirmation', label: '用户确认', role: '财务', done: appeal.status === 'resolved' },
                       { status: 'resolved', label: '已解决', role: '-', done: appeal.status === 'resolved' },
                     ].map((step, index) => (
                       <div key={step.status} className="flex gap-3 relative">
@@ -337,7 +341,7 @@ export const AppealDetail: React.FC<AppealDetailProps> = ({ appeal, onClose }) =
                           <p className={`text-sm font-medium ${step.done ? 'text-gray-800' : 'text-gray-500'}`}>
                             {step.label}
                           </p>
-                          <p className="text-xs text-gray-500">{USER_ROLE_MAP[step.role as any]}</p>
+                          <p className="text-xs text-gray-500">{step.role}</p>
                         </div>
                       </div>
                     ))}

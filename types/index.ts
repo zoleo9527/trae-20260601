@@ -13,6 +13,8 @@ export type UserRole = 'receiver' | 'inspector' | 'finance' | 'admin';
 
 export type EvidenceType = 'photo' | 'video' | 'document' | 'chat_log' | 'system_snapshot';
 
+export type AuditAction = 'create' | 'status_change' | 'evidence_upload' | 'reject' | 'return' | 'resolve' | 'reassign' | 'forward';
+
 export interface User {
   id: string;
   name: string;
@@ -35,14 +37,30 @@ export interface Evidence {
 export interface AuditLog {
   id: string;
   appealId: string;
-  action: string;
+  action: AuditAction;
   actorId: string;
   actorName: string;
   actorRole: UserRole;
   timestamp: string;
-  details: Record<string, unknown>;
+  details: AuditLogDetails;
   previousStatus?: AppealStatus;
   newStatus?: AppealStatus;
+}
+
+export interface AuditLogDetails {
+  actionLabel?: string;
+  comment?: string;
+  resolutionAmount?: number;
+  reason?: string;
+  evidenceId?: string;
+  evidenceType?: string;
+  evidenceTitle?: string;
+  orderId?: string;
+  customerName?: string;
+  previousAssignee?: string;
+  newAssignee?: string;
+  newAssigneeName?: string;
+  [key: string]: unknown;
 }
 
 export interface Appeal {
@@ -77,6 +95,26 @@ export interface AppealSummary {
   resolvedCount: number;
 }
 
+export interface ErrorCode {
+  APPEAL_NOT_FOUND: string;
+  EVIDENCE_UPLOAD_FAILED: string;
+  INVALID_STATUS_TRANSITION: string;
+  ROLE_PERMISSION_DENIED: string;
+  DEADLINE_EXCEEDED: string;
+  INTERNAL_ERROR: string;
+  METHOD_NOT_ALLOWED: string;
+}
+
+export const ERROR_CODES: ErrorCode = {
+  APPEAL_NOT_FOUND: 'APPEAL_001',
+  EVIDENCE_UPLOAD_FAILED: 'EVIDENCE_001',
+  INVALID_STATUS_TRANSITION: 'STATUS_001',
+  ROLE_PERMISSION_DENIED: 'PERMISSION_001',
+  DEADLINE_EXCEEDED: 'TIMEOUT_001',
+  INTERNAL_ERROR: 'INTERNAL_001',
+  METHOD_NOT_ALLOWED: 'METHOD_001',
+};
+
 export const APPEAL_TYPE_MAP: Record<AppealType, string> = {
   price_regret: '估价反悔',
   hidden_defect: '暗病争议',
@@ -108,12 +146,15 @@ export const EVIDENCE_TYPE_MAP: Record<EvidenceType, string> = {
   system_snapshot: '系统快照',
 };
 
-export const ERROR_CODES = {
-  APPEAL_NOT_FOUND: 'APPEAL_001',
-  EVIDENCE_UPLOAD_FAILED: 'EVIDENCE_001',
-  INVALID_STATUS_TRANSITION: 'STATUS_001',
-  ROLE_PERMISSION_DENIED: 'PERMISSION_001',
-  DEADLINE_EXCEEDED: 'TIMEOUT_001',
+export const AUDIT_ACTION_MAP: Record<AuditAction, string> = {
+  create: '创建申诉',
+  status_change: '状态变更',
+  evidence_upload: '上传证据',
+  reject: '驳回申诉',
+  return: '退回补充',
+  resolve: '确认解决',
+  reassign: '重新分配',
+  forward: '转交下一环节',
 };
 
 export const STATUS_TRANSITIONS: Record<AppealStatus, AppealStatus[]> = {
@@ -137,4 +178,14 @@ export const SLA_DAYS: Record<AppealType, number> = {
   price_regret: 3,
   hidden_defect: 5,
   payment_account_error: 2,
+};
+
+export const STATUS_ASSIGNEE_MAP: Record<AppealStatus, string | undefined> = {
+  pending_receipt: 'u1',
+  pending_inspection: 'u2',
+  pending_finance: 'u3',
+  pending_confirmation: 'u3',
+  resolved: undefined,
+  rejected: undefined,
+  returned: undefined,
 };

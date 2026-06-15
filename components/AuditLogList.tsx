@@ -1,6 +1,5 @@
 import React from 'react';
-import { AuditLog } from '../types';
-import { APPEAL_STATUS_MAP, USER_ROLE_MAP } from '../types';
+import { AuditLog, AUDIT_ACTION_MAP, APPEAL_STATUS_MAP, USER_ROLE_MAP } from '../types';
 import { formatDateTime } from '../utils/appealLogic';
 
 interface AuditLogListProps {
@@ -8,23 +7,11 @@ interface AuditLogListProps {
 }
 
 export const AuditLogList: React.FC<AuditLogListProps> = ({ logs }) => {
-  const getActionLabel = (action: string, log: AuditLog): string => {
-    const actions: Record<string, string> = {
-      create: '创建申诉',
-      status_change: '状态变更',
-      evidence_upload: '上传证据',
-      reject: '驳回申诉',
-      return: '退回申诉',
-      resolve: '确认解决',
-    };
-    
-    let label = actions[action] || action;
-    
-    if (action === 'status_change' && log.previousStatus && log.newStatus) {
-      label = `${APPEAL_STATUS_MAP[log.previousStatus]} → ${APPEAL_STATUS_MAP[log.newStatus]}`;
+  const getActionLabel = (log: AuditLog): string => {
+    if (log.action === 'status_change' && log.previousStatus && log.newStatus) {
+      return `${APPEAL_STATUS_MAP[log.previousStatus]} → ${APPEAL_STATUS_MAP[log.newStatus]}`;
     }
-    
-    return label;
+    return AUDIT_ACTION_MAP[log.action] || log.action;
   };
 
   const getActionColor = (action: string): string => {
@@ -35,6 +22,7 @@ export const AuditLogList: React.FC<AuditLogListProps> = ({ logs }) => {
       reject: 'bg-red-100 text-red-700',
       return: 'bg-yellow-100 text-yellow-700',
       resolve: 'bg-green-100 text-green-700',
+      reassign: 'bg-cyan-100 text-cyan-700',
     };
     return colors[action] || 'bg-gray-100 text-gray-700';
   };
@@ -46,8 +34,11 @@ export const AuditLogList: React.FC<AuditLogListProps> = ({ logs }) => {
     if (log.details.reason) {
       return <p className="text-sm text-gray-600 mt-1">原因: {log.details.reason}</p>;
     }
-    if (log.details.resolutionAmount) {
+    if (log.details.resolutionAmount !== undefined) {
       return <p className="text-sm text-gray-600 mt-1">处理金额: {log.details.resolutionAmount}</p>;
+    }
+    if (log.details.evidenceTitle) {
+      return <p className="text-sm text-gray-600 mt-1">上传证据: {log.details.evidenceTitle}</p>;
     }
     return null;
   };
@@ -70,7 +61,7 @@ export const AuditLogList: React.FC<AuditLogListProps> = ({ logs }) => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`px-2 py-1 rounded-full text-xs font-medium ${getActionColor(log.action)}`}>
-                {getActionLabel(log.action, log)}
+                {getActionLabel(log)}
               </div>
               <span className="text-xs text-gray-500">{USER_ROLE_MAP[log.actorRole]}</span>
             </div>

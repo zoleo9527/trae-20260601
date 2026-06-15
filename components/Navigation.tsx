@@ -1,11 +1,9 @@
 import React from 'react';
-import { useAppealContext } from '../contexts/AppealContext';
+import { useCurrentUser } from '../contexts/AppealContext';
 import { USER_ROLE_MAP } from '../types';
-import { appealService } from '../services/appealService';
 
 export const Navigation: React.FC = () => {
-  const { currentUserId, currentUserRole, setCurrentUser } = useAppealContext();
-  const currentUser = appealService.getUserById(currentUserId);
+  const { userId, role, name, roleOptions, setCurrentUser } = useCurrentUser();
 
   const navItems = [
     { key: 'dashboard', label: '工作台', icon: (
@@ -23,13 +21,6 @@ export const Navigation: React.FC = () => {
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       </svg>
     )},
-  ];
-
-  const roleOptions = [
-    { id: 'u1', role: 'receiver', label: '收货员 - 王收货' },
-    { id: 'u2', role: 'inspector', label: '检测师 - 李检测' },
-    { id: 'u3', role: 'finance', label: '财务 - 张财务' },
-    { id: 'u4', role: 'admin', label: '管理员 - 管理员' },
   ];
 
   return (
@@ -62,7 +53,7 @@ export const Navigation: React.FC = () => {
               <span className="text-sm text-gray-600">当前角色:</span>
               <select
                 className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium border-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                value={currentUserId}
+                value={userId}
                 onChange={(e) => {
                   const selected = roleOptions.find(r => r.id === e.target.value);
                   if (selected) {
@@ -83,7 +74,7 @@ export const Navigation: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
               </div>
-              <span className="text-sm font-medium text-gray-700">{currentUser?.name}</span>
+              <span className="text-sm font-medium text-gray-700">{name}</span>
             </div>
           </div>
         </div>

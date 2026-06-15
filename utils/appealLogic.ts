@@ -1,4 +1,4 @@
-import { Appeal, AppealStatus, UserRole, AuditLog } from '../types';
+import { Appeal, AppealStatus, UserRole, AuditLog, AuditAction } from '../types';
 import { STATUS_TRANSITIONS, ROLE_ALLOWED_STATUS, ERROR_CODES, SLA_DAYS } from '../types';
 
 export const isStatusTransitionValid = (
@@ -86,7 +86,7 @@ export const generateNextStatus = (
 
 export const createAuditLog = (
   appealId: string,
-  action: string,
+  action: AuditAction,
   actorId: string,
   actorName: string,
   actorRole: UserRole,
@@ -163,7 +163,7 @@ export const handleAppeal = (
   
   const auditLog = createAuditLog(
     appeal.id,
-    action,
+    action as AuditAction,
     userId,
     actorName,
     userRole,
