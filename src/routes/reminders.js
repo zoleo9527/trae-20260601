@@ -8,7 +8,9 @@ const {
   resetAll,
   addAuditLog,
   addNotice,
-  addException
+  addException,
+  clearOrderRelatedNotices,
+  clearOrderExceptions
 } = require('../data/store');
 
 router.get('/role', (req, res) => {
@@ -104,6 +106,7 @@ router.post('/orders/:id/picking-audit/reset', (req, res) => {
   if (!order) return res.status(404).json({ error: '订单不存在' });
 
   const { operator } = req.body;
+
   order.status = STATUS.PICKING_AUDIT;
   order.pickingAudit = {
     auditor: null,
@@ -118,8 +121,20 @@ router.post('/orders/:id/picking-audit/reset', (req, res) => {
     })),
     remark: ''
   };
-  addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, operator || '张主管', '重置拣货复核', '需要重新进行拣货复核');
+
+  if (order.loadingArrange) {
+    order.loadingArrange = null;
+  }
+  if (order.deliveryReceipt) {
+    order.deliveryReceipt = null;
+  }
+
+  clearOrderExceptions(id);
+  clearOrderRelatedNotices(id);
+
+  addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, operator || '张主管', '重置拣货复核', '已清理装车安排、异常记录和相关通知，重新进入拣货复核');
   addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${id} 已重置为待复核状态`, '请重新进行拣货复核', id);
+  addNotice(ROLE.DRIVER, `订单 ${id} 装车安排已取消`, '拣货复核被重置，相关装车安排已撤销', id);
 
   res.json(order);
 });
@@ -264,6 +279,82 @@ router.post('/exceptions/:id/escalate', (req, res) => {
   addNotice(ROLE.CUSTOMER_SERVICE, `异常 ${exception.id} 已升级处理`, `订单 ${exception.orderId} 的 ${exception.type} 异常需要紧急处理`, exception.orderId);
 
   res.json(exception);
+});
+
+router.post('/demo/trigger-exception', (req, res) => {
+  const { orderId, type = 'reject' } = req.body;
+  let order;
+
+  if (orderId) {
+    order = state.orders.find(o => o.id === orderId);
+  } else {
+    order = state.orders.find(o =>
+      o.status === STATUS.PICKING_AUDIT || o.status === STATUS.PICKING_AUDIT_REJECTED
+    );
+  }
+
+  if (!order) return res.status(400).json({ error: '没有合适的订单可触发异常' });
+
+  if (type === 'reject') {
+    order.status = STATUS.PICKING_AUDIT_REJECTED;
+    if (!order.pickingAudit) {
+      order.pickingAudit = {
+        auditor: '系统演示',
+        auditTime: new Date().toLocaleString('zh-CN'),
+        actualItems: order.items.map(i => ({
+          material: i.material, unit: i.unit, plannedQty: i.qty, actualQty: i.qty, diff: 0, reason: ''
+        })),
+        remark: ''
+      };
+    }
+    addAuditLog(order.id, ROLE.WAREHOUSE_SUPERVISOR, '系统演示', '拣货复核驳回', '演示触发：数据不一致，需要重新拣货');
+    addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${order.id} 拣货复核驳回`, '演示触发：拣货复核被驳回，请重新核对后提交', order.id);
+    addNotice(ROLE.CUSTOMER_SERVICE, `订单 ${order.id} 拣货复核异常`, '演示触发：拣货复核被驳回，可能影响配送时效', order.id);
+
+    res.json({ ok: true, orderId: order.id, type: 'reject', message: '已触发拣货复核驳回异常' });
+  } else if (type === 'shortage') {
+    const targetItem = order.items[0];
+    const shortageQty = Math.floor(targetItem.qty * 0.15) || 1;
+    const actualQty = targetItem.qty - shortageQty;
+
+    if (!order.pickingAudit) {
+      order.pickingAudit = {
+        auditor: null, auditTime: null,
+        actualItems: order.items.map(i => ({
+          material: i.material, unit: i.unit, plannedQty: i.qty, actualQty: i.qty, diff: 0, reason: ''
+        })),
+        remark: ''
+      };
+    }
+
+    const targetActual = order.pickingAudit.actualItems.find(i => i.material === targetItem.material);
+    if (targetActual) {
+      targetActual.actualQty = actualQty;
+      targetActual.diff = -shortageQty;
+      targetActual.reason = '演示触发：库存短缺';
+    }
+
+    addException(order.id, '库存不足', targetItem.material, targetItem.qty, actualQty, -shortageQty, '系统演示', '演示触发的库存短缺异常');
+    addNotice(ROLE.CUSTOMER_SERVICE, `订单 ${order.id} 拣货复核数量异常`, `演示触发：${targetItem.material} 短缺 ${shortageQty}${targetItem.unit}，请联系客户确认处理方式`, order.id);
+    addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${order.id} 出现库存异常`, `演示触发：${targetItem.material} 数量有差异，请复核`, order.id);
+    addAuditLog(order.id, ROLE.WAREHOUSE_SUPERVISOR, '系统演示', '异常上报', `演示触发：${targetItem.material} 库存短缺 ${shortageQty}${targetItem.unit}`);
+
+    if (order.status === STATUS.PICKING_AUDIT) {
+    } else if (order.status === STATUS.LOADING_ARRANGE || order.status === STATUS.LOADING) {
+      addNotice(ROLE.DRIVER, `订单 ${order.id} 装车数据已更新`, `演示触发：${targetItem.material} 数量变更，请核对装车数量`, order.id);
+    }
+
+    res.json({
+      ok: true,
+      orderId: order.id,
+      type: 'shortage',
+      material: targetItem.material,
+      shortage: shortageQty,
+      message: `已触发 ${targetItem.material} 库存短缺异常`
+    });
+  } else {
+    res.status(400).json({ error: '未知异常类型' });
+  }
 });
 
 router.post('/reset', (req, res) => {

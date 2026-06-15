@@ -577,6 +577,19 @@ async function resetPickingAudit(orderId) {
   }
 }
 
+async function openLoadingView(orderId) {
+  if (currentView !== 'loading') {
+    switchView('loading', { scrollToOrder: orderId });
+  } else {
+    const el = document.getElementById(`loading-card-${orderId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-change');
+      setTimeout(() => el.classList.remove('highlight-change'), 3000);
+    }
+  }
+}
+
 async function loadLoadingView() {
   const all = await api('/orders');
   const list = all.filter(o =>
@@ -914,13 +927,43 @@ async function submitExceptionHandle(id) {
 }
 
 async function triggerDemoException() {
+  showModal('🎯 异常演示触发', `
+    <p style="margin-bottom:16px;color:#6b7280">选择要触发的异常类型，系统会自动生成对应的异常记录、通知和状态变更：</p>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-danger" style="justify-content:flex-start" onclick="doTriggerDemo('reject')">
+        🚫 拣货复核驳回 &nbsp;<span style="font-weight:400;font-size:12px;color:#fecaca">订单状态变为"拣货复核驳回"，通知仓库主管和客服</span>
+      </button>
+      <button class="btn btn-warning" style="justify-content:flex-start" onclick="doTriggerDemo('shortage')">
+        📦 库存短缺异常 &nbsp;<span style="font-weight:400;font-size:12px;color:#fde68a">生成库存短缺异常记录，通知多角色同步感知</span>
+      </button>
+    </div>
+    <div style="margin-top:16px;padding:10px;background:#f0f9ff;border-radius:6px;font-size:12px;color:#1e40af">
+      💡 提示：触发后请切换不同角色查看通知和状态变化，体验真实流程。
+    </div>
+  `, `
+    <button class="btn btn-secondary" onclick="hideModal()">取消</button>
+  `);
+}
+
+async function doTriggerDemo(type) {
   try {
-    await fetch('/api/exceptions', { method: 'GET' });
-    const demoOrder = ordersCache.find(o => o.status === '拣货复核中');
-    if (demoOrder) {
-      openExceptionDrawer(demoOrder.id);
+    const res = await api('/demo/trigger-exception', {
+      method: 'POST',
+      body: JSON.stringify({ type })
+    });
+    hideModal();
+    toast(res.message || '异常已触发', 'warning');
+    markOrderChanged(res.orderId);
+    refreshAll();
+
+    if (type === 'shortage') {
+      setTimeout(() => {
+        switchRole('customer_service');
+        setTimeout(() => {
+          loadNotices().then(() => openDrawer('noticeDrawer'));
+        }, 500);
+      }, 500);
     }
-    toast('请在订单中修改数量来触发异常，或拣货复核时设置差异数量', 'info');
   } catch (e) {
     toast(e.message, 'error');
   }
@@ -1159,12 +1202,24 @@ async function refreshBadge() {
   } catch (e) {}
 }
 
-function switchView(view) {
+function switchView(view, options = {}) {
   currentView = view;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(`view-${view}`).classList.add('active');
-  renderView(view);
+  renderView(view).then(() => {
+    if (options.scrollToOrder) {
+      setTimeout(() => {
+        const el = document.getElementById(`loading-card-${options.scrollToOrder}`) ||
+                   document.querySelector(`[data-order-id="${options.scrollToOrder}"]`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.classList.add('highlight-change');
+          setTimeout(() => el.classList.remove('highlight-change'), 3000);
+        }
+      }, 100);
+    }
+  });
 }
 
 async function renderView(view) {

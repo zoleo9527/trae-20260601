@@ -213,15 +213,29 @@ function resetAll() {
   auditLogSeq = 1;
   state.orders = createInitialOrders();
   state.locations = JSON.parse(JSON.stringify(initialLocations));
+
+  const soPicking = state.orders[0];
+  const soWaiting = state.orders[1];
+  const soLoading = state.orders[2];
+  const soException = state.orders[3];
+
   state.notices = [
-    { id: genNoticeId(), role: ROLE.CUSTOMER_SERVICE, title: '订单 SO1001 拣货复核异常', content: '红砖短缺50块，需要联系客户确认是否部分发货或等待补货', time: new Date(Date.now() - 1800000).toLocaleString('zh-CN'), read: false, orderId: 'SO1003' },
-    { id: genNoticeId(), role: ROLE.WAREHOUSE_SUPERVISOR, title: '订单 SO1002 等待装车安排', content: '拣货复核已通过，请安排装车', time: new Date(Date.now() - 7200000).toLocaleString('zh-CN'), read: false, orderId: 'SO1002' },
-    { id: genNoticeId(), role: ROLE.DRIVER, title: '订单 SO1000 拣货复核变更', content: '高强度水泥数量由30袋调整为28袋，请注意核对装车数量', time: new Date(Date.now() - 600000).toLocaleString('zh-CN'), read: false, orderId: 'SO1001' }
+    { id: genNoticeId(), role: ROLE.CUSTOMER_SERVICE, title: `订单 ${soException.id} 拣货复核异常`, content: '红砖短缺50块，需要联系客户确认是否部分发货或等待补货', time: new Date(Date.now() - 1800000).toLocaleString('zh-CN'), read: false, orderId: soException.id },
+    { id: genNoticeId(), role: ROLE.WAREHOUSE_SUPERVISOR, title: `订单 ${soWaiting.id} 等待装车安排`, content: '拣货复核已通过，请安排装车', time: new Date(Date.now() - 7200000).toLocaleString('zh-CN'), read: false, orderId: soWaiting.id },
+    { id: genNoticeId(), role: ROLE.DRIVER, title: `订单 ${soLoading.id} 已分配装车任务`, content: '碧桂园-云麓华府订单已安排装车，请及时处理', time: new Date(Date.now() - 600000).toLocaleString('zh-CN'), read: false, orderId: soLoading.id }
   ];
   state.exceptions = [
-    { id: genExceptionId(), orderId: 'SO1003', type: '库存不足', material: '红砖', plannedQty: 1000, actualQty: 950, diff: -50, reporter: '张主管', reportTime: new Date(Date.now() - 1800000).toLocaleString('zh-CN'), status: '待处理', handler: null, handleTime: null, handleRemark: '' }
+    { id: genExceptionId(), orderId: soException.id, type: '库存不足', material: '红砖', plannedQty: 1000, actualQty: 950, diff: -50, reporter: '张主管', reportTime: new Date(Date.now() - 1800000).toLocaleString('zh-CN'), status: '待处理', handler: null, handleTime: null, handleRemark: '' }
   ];
   state.currentRole = ROLE.WAREHOUSE_SUPERVISOR;
+}
+
+function clearOrderRelatedNotices(orderId) {
+  state.notices = state.notices.filter(n => n.orderId !== orderId);
+}
+
+function clearOrderExceptions(orderId) {
+  state.exceptions = state.exceptions.filter(e => e.orderId !== orderId);
 }
 
 function addAuditLog(orderId, role, operator, action, remark) {
@@ -279,6 +293,8 @@ module.exports = {
   addAuditLog,
   addNotice,
   addException,
+  clearOrderRelatedNotices,
+  clearOrderExceptions,
   genAuditLogId,
   genNoticeId,
   genExceptionId
