@@ -82,8 +82,8 @@ class PartsRequest(models.Model):
     is_emergency = models.BooleanField(default=False)
     downtime_start = models.DateTimeField(null=True, blank=True)
     
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField()
+    updated_at = models.DateTimeField()
     idempotency_key = models.CharField(max_length=64, unique=True)
 
     def __str__(self):
@@ -117,7 +117,7 @@ class PartsRequestNote(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE)
     note_type = models.CharField(max_length=20, choices=NOTE_TYPE_CHOICES)
     content = models.TextField()
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField()
 
     def __str__(self):
         return f"{self.get_note_type_display()} - {self.author.username}"
@@ -127,7 +127,7 @@ class OutboundRecord(models.Model):
     request = models.ForeignKey(PartsRequest, on_delete=models.CASCADE, related_name='outbound_records')
     operator = models.ForeignKey(User, on_delete=models.CASCADE)
     outbound_no = models.CharField(max_length=50, unique=True)
-    outbound_date = models.DateTimeField(auto_now_add=True)
+    outbound_date = models.DateTimeField()
     carrier = models.CharField(max_length=100, blank=True)
     tracking_no = models.CharField(max_length=100, blank=True)
     shipping_address = models.TextField(blank=True)
@@ -152,7 +152,7 @@ class VerificationRecord(models.Model):
     request = models.ForeignKey(PartsRequest, on_delete=models.CASCADE, related_name='verification_records')
     operator = models.ForeignKey(User, on_delete=models.CASCADE)
     verification_no = models.CharField(max_length=50, unique=True)
-    verification_date = models.DateTimeField(auto_now_add=True)
+    verification_date = models.DateTimeField()
     actual_used_quantities = models.JSONField(default=dict)
     remaining_parts = models.TextField(blank=True)
     problem_description = models.TextField(blank=True)

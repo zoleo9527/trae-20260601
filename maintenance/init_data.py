@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'maintenance.settings')
 django.setup()
 
+from django.utils import timezone
 from parts.models import (
     User, CustomerEquipment, PartsInventory, PartsRequest,
     PartsRequestItem, PartsRequestNote, OutboundRecord, OutboundItem, VerificationRecord
@@ -136,8 +137,16 @@ def create_sample_requests():
     part_air_filter = PartsInventory.objects.get(part_code='P002')
     part_oil_filter = PartsInventory.objects.get(part_code='P003')
     
+    dt_20240310_0830 = timezone.make_aware(datetime(2024, 3, 10, 8, 30))
+    dt_20240310_0835 = timezone.make_aware(datetime(2024, 3, 10, 8, 35))
+    dt_20240310_0840 = timezone.make_aware(datetime(2024, 3, 10, 8, 40))
+    dt_20240310_0842 = timezone.make_aware(datetime(2024, 3, 10, 8, 42))
+    dt_20240310_0900 = timezone.make_aware(datetime(2024, 3, 10, 9, 0))
+    dt_20240310_0930 = timezone.make_aware(datetime(2024, 3, 10, 9, 30))
+    dt_20240310_1400 = timezone.make_aware(datetime(2024, 3, 10, 14, 0))
+    
     sample_request1 = PartsRequest.objects.create(
-        request_no=f"PR{datetime.now().strftime('%Y%m%d')}001",
+        request_no="PR20240310001",
         equipment=equipment1,
         requester=technician,
         approver=manager,
@@ -148,28 +157,31 @@ def create_sample_requests():
         reason='客户现场叉车制动失灵，紧急更换刹车片',
         fault_description='叉车行驶中刹车踏板下沉，制动距离明显变长，已影响正常作业，客户要求紧急处理',
         is_emergency=True,
-        downtime_start=datetime(2024, 3, 10, 8, 30),
-        idempotency_key=generate_random_id(64)
+        downtime_start=dt_20240310_0830,
+        idempotency_key=generate_random_id(64),
+        created_at=dt_20240310_0830,
+        updated_at=dt_20240310_1400
     )
     
     PartsRequestItem.objects.create(request=sample_request1, part=part_brake, requested_quantity=2, issued_quantity=2)
     PartsRequestItem.objects.create(request=sample_request1, part=part_seal, requested_quantity=1, issued_quantity=1)
     
-    PartsRequestNote.objects.create(request=sample_request1, author=technician, note_type='create', content='客户反馈叉车刹车失灵，已确认故障，需要紧急更换刹车片和油封', created_at=datetime(2024, 3, 10, 8, 35))
-    PartsRequestNote.objects.create(request=sample_request1, author=manager, note_type='approve', content='紧急审批通过，仓库优先处理', created_at=datetime(2024, 3, 10, 8, 40))
-    PartsRequestNote.objects.create(request=sample_request1, author=manager, note_type='assign', content='分派给仓管张三处理出库', created_at=datetime(2024, 3, 10, 8, 42))
-    PartsRequestNote.objects.create(request=sample_request1, author=warehouse, note_type='warehouse_check', content='配件库存充足，已备好待出库', created_at=datetime(2024, 3, 10, 9, 0))
-    PartsRequestNote.objects.create(request=sample_request1, author=warehouse, note_type='ship', content='已出库，快递单号SF1234567890，预计当日送达', created_at=datetime(2024, 3, 10, 9, 30))
-    PartsRequestNote.objects.create(request=sample_request1, author=technician, note_type='verify', content='核销完成，刹车片已更换，制动恢复正常。客户确认签字', created_at=datetime(2024, 3, 10, 14, 0))
+    PartsRequestNote.objects.create(request=sample_request1, author=technician, note_type='create', content='客户反馈叉车刹车失灵，已确认故障，需要紧急更换刹车片和油封', created_at=dt_20240310_0835)
+    PartsRequestNote.objects.create(request=sample_request1, author=manager, note_type='approve', content='紧急审批通过，仓库优先处理', created_at=dt_20240310_0840)
+    PartsRequestNote.objects.create(request=sample_request1, author=manager, note_type='assign', content='分派给仓管张三处理出库', created_at=dt_20240310_0842)
+    PartsRequestNote.objects.create(request=sample_request1, author=warehouse, note_type='warehouse_check', content='配件库存充足，已备好待出库', created_at=dt_20240310_0900)
+    PartsRequestNote.objects.create(request=sample_request1, author=warehouse, note_type='ship', content='已出库，快递单号SF1234567890，预计当日送达', created_at=dt_20240310_0930)
+    PartsRequestNote.objects.create(request=sample_request1, author=technician, note_type='verify', content='核销完成，刹车片已更换，制动恢复正常。客户确认签字', created_at=dt_20240310_1400)
     
     outbound1 = OutboundRecord.objects.create(
         request=sample_request1,
         operator=warehouse,
-        outbound_no=f"OB{datetime.now().strftime('%Y%m%d')}001",
+        outbound_no="OB20240310001",
         carrier='顺丰速运',
         tracking_no='SF1234567890',
         shipping_address='上海市闵行区物流园B区',
-        remark='紧急配件，优先派送'
+        remark='紧急配件，优先派送',
+        outbound_date=dt_20240310_0930
     )
     OutboundItem.objects.create(outbound=outbound1, part=part_brake, quantity=2, batch_no='20240301', expiry_date=datetime(2026, 3, 1).date())
     OutboundItem.objects.create(outbound=outbound1, part=part_seal, quantity=1, batch_no='20240215', expiry_date=datetime(2026, 2, 15).date())
@@ -177,18 +189,26 @@ def create_sample_requests():
     VerificationRecord.objects.create(
         request=sample_request1,
         operator=technician,
-        verification_no=f"VF{datetime.now().strftime('%Y%m%d')}001",
+        verification_no="VF20240310001",
         actual_used_quantities={'P004': 2, 'P006': 1},
         remaining_parts='无剩余配件',
         problem_description='',
         is_qualified=True,
-        signature='王经理'
+        signature='王经理',
+        verification_date=dt_20240310_1400
     )
     
     print(f"Created sample request 1: {sample_request1.request_no}")
     
+    dt_20240311_1000 = timezone.make_aware(datetime(2024, 3, 11, 10, 0))
+    dt_20240311_1005 = timezone.make_aware(datetime(2024, 3, 11, 10, 5))
+    dt_20240311_1015 = timezone.make_aware(datetime(2024, 3, 11, 10, 15))
+    dt_20240311_1018 = timezone.make_aware(datetime(2024, 3, 11, 10, 18))
+    dt_20240311_1100 = timezone.make_aware(datetime(2024, 3, 11, 11, 0))
+    dt_20240311_1400 = timezone.make_aware(datetime(2024, 3, 11, 14, 0))
+    
     sample_request2 = PartsRequest.objects.create(
-        request_no=f"PR{datetime.now().strftime('%Y%m%d')}002",
+        request_no="PR20240311001",
         equipment=equipment2,
         requester=technician,
         approver=manager,
@@ -199,35 +219,41 @@ def create_sample_requests():
         reason='叉车液压系统漏油，需要更换密封件',
         fault_description='液压油缸漏油严重，已影响起升功能，客户现场停机等待维修',
         is_emergency=True,
-        downtime_start=datetime(2024, 3, 11, 10, 0),
-        idempotency_key=generate_random_id(64)
+        downtime_start=dt_20240311_1000,
+        idempotency_key=generate_random_id(64),
+        created_at=dt_20240311_1000,
+        updated_at=dt_20240311_1400
     )
     
     PartsRequestItem.objects.create(request=sample_request2, part=part_seal, requested_quantity=2, issued_quantity=2)
     PartsRequestItem.objects.create(request=sample_request2, part=part_hydraulic_filter, requested_quantity=1, issued_quantity=1)
     
-    PartsRequestNote.objects.create(request=sample_request2, author=technician, note_type='create', content='杭州菜鸟基地叉车液压系统漏油，需要紧急处理', created_at=datetime(2024, 3, 11, 10, 5))
-    PartsRequestNote.objects.create(request=sample_request2, author=manager, note_type='approve', content='审批通过，安排出库', created_at=datetime(2024, 3, 11, 10, 15))
-    PartsRequestNote.objects.create(request=sample_request2, author=manager, note_type='assign', content='分派仓管处理', created_at=datetime(2024, 3, 11, 10, 18))
-    PartsRequestNote.objects.create(request=sample_request2, author=warehouse, note_type='warehouse_check', content='油封库存充足，滤芯需要从B仓调拨', created_at=datetime(2024, 3, 11, 11, 0))
-    PartsRequestNote.objects.create(request=sample_request2, author=warehouse, note_type='ship', content='已出库，德邦快递DB9876543210', created_at=datetime(2024, 3, 11, 14, 0))
+    PartsRequestNote.objects.create(request=sample_request2, author=technician, note_type='create', content='杭州菜鸟基地叉车液压系统漏油，需要紧急处理', created_at=dt_20240311_1005)
+    PartsRequestNote.objects.create(request=sample_request2, author=manager, note_type='approve', content='审批通过，安排出库', created_at=dt_20240311_1015)
+    PartsRequestNote.objects.create(request=sample_request2, author=manager, note_type='assign', content='分派仓管处理', created_at=dt_20240311_1018)
+    PartsRequestNote.objects.create(request=sample_request2, author=warehouse, note_type='warehouse_check', content='油封库存充足，滤芯需要从B仓调拨', created_at=dt_20240311_1100)
+    PartsRequestNote.objects.create(request=sample_request2, author=warehouse, note_type='ship', content='已出库，德邦快递DB9876543210', created_at=dt_20240311_1400)
     
     outbound2 = OutboundRecord.objects.create(
         request=sample_request2,
         operator=warehouse,
-        outbound_no=f"OB{datetime.now().strftime('%Y%m%d')}002",
+        outbound_no="OB20240311001",
         carrier='德邦快递',
         tracking_no='DB9876543210',
         shipping_address='杭州市余杭区物流基地',
-        remark=''
+        remark='',
+        outbound_date=dt_20240311_1400
     )
     OutboundItem.objects.create(outbound=outbound2, part=part_seal, quantity=2, batch_no='20240305', expiry_date=datetime(2026, 3, 5).date())
     OutboundItem.objects.create(outbound=outbound2, part=part_hydraulic_filter, quantity=1, batch_no='20240220', expiry_date=datetime(2026, 2, 20).date())
     
     print(f"Created sample request 2: {sample_request2.request_no}")
     
+    dt_20240312_0900 = timezone.make_aware(datetime(2024, 3, 12, 9, 0))
+    dt_20240312_0905 = timezone.make_aware(datetime(2024, 3, 12, 9, 5))
+    
     sample_request3 = PartsRequest.objects.create(
-        request_no=f"PR{datetime.now().strftime('%Y%m%d')}003",
+        request_no="PR20240312001",
         equipment=equipment3,
         requester=technician,
         status='pending',
@@ -235,15 +261,17 @@ def create_sample_requests():
         reason='定期保养，更换三滤',
         fault_description='按保养计划进行季度保养，需要更换机油滤芯、空气滤芯、液压油滤芯',
         is_emergency=False,
-        idempotency_key=generate_random_id(64)
+        idempotency_key=generate_random_id(64),
+        created_at=dt_20240312_0900,
+        updated_at=dt_20240312_0905
     )
     
     PartsRequestItem.objects.create(request=sample_request3, part=part_hydraulic_filter, requested_quantity=1, issued_quantity=0)
     PartsRequestItem.objects.create(request=sample_request3, part=part_air_filter, requested_quantity=1, issued_quantity=0)
     PartsRequestItem.objects.create(request=sample_request3, part=part_oil_filter, requested_quantity=1, issued_quantity=0)
     
-    PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='create', content='上海顺丰FD30-001叉车季度保养申请', created_at=datetime(2024, 3, 12, 9, 0))
-    PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='remark', content='客户希望本周五前完成保养', created_at=datetime(2024, 3, 12, 9, 5))
+    PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='create', content='上海顺丰FD30-001叉车季度保养申请', created_at=dt_20240312_0900)
+    PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='remark', content='客户希望本周五前完成保养', created_at=dt_20240312_0905)
     
     print(f"Created sample request 3: {sample_request3.request_no}")
 
