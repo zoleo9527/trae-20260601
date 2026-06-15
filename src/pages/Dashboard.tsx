@@ -1,39 +1,52 @@
 import { FileWarning, Clock, AlertTriangle, CheckCircle, TrendingUp, Archive, FileCheck } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import { ClaimCard } from '../components/ClaimCard';
+import { CLAIM_STATUS_CONFIG, ClaimStatus } from '../constants/statusConfig';
 
 export function Dashboard() {
   const { claims } = useClaimStore();
 
-  const stats = {
-    total: claims.length,
-    pending: claims.filter((c) => c.status === 'pending').length,
-    processing: claims.filter((c) => c.status === 'processing').length,
-    review: claims.filter((c) => c.status === 'review').length,
-    approved: claims.filter((c) => c.status === 'approved').length,
-    exception: claims.filter((c) => c.status === 'exception').length,
-    paid: claims.filter((c) => c.status === 'paid').length,
-    archived: claims.filter((c) => c.status === 'archived').length,
+  const statusIcons: Record<ClaimStatus, typeof Clock> = {
+    pending: Clock,
+    processing: TrendingUp,
+    review: FileWarning,
+    approved: FileCheck,
+    paid: CheckCircle,
+    archived: Archive,
+    exception: AlertTriangle,
   };
 
-  const recentClaims = [...claims].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt)).slice(0, 5);
+  const statCards = Object.entries(CLAIM_STATUS_CONFIG).map(([status, config]) => {
+    const statusKey = status as ClaimStatus;
+    const count = claims.filter((c) => c.status === statusKey).length;
+    const Icon = statusIcons[statusKey];
+    
+    let statColor = config.color;
+    if (statColor.includes('bg-yellow-100')) statColor = 'bg-yellow-50 text-yellow-600 border-yellow-200';
+    if (statColor.includes('bg-blue-100')) statColor = 'bg-blue-50 text-blue-600 border-blue-200';
+    if (statColor.includes('bg-purple-100')) statColor = 'bg-purple-50 text-purple-600 border-purple-200';
+    if (statColor.includes('bg-indigo-100')) statColor = 'bg-indigo-50 text-indigo-600 border-indigo-200';
+    if (statColor.includes('bg-green-100')) statColor = 'bg-green-50 text-green-600 border-green-200';
+    if (statColor.includes('bg-gray-100')) statColor = 'bg-gray-50 text-gray-600 border-gray-200';
+    if (statColor.includes('bg-red-100')) statColor = 'bg-red-50 text-red-600 border-red-200';
 
-  const statCards = [
-    { label: '待处理', value: stats.pending, icon: Clock, color: 'bg-yellow-50 text-yellow-600 border-yellow-200' },
-    { label: '处理中', value: stats.processing, icon: TrendingUp, color: 'bg-blue-50 text-blue-600 border-blue-200' },
-    { label: '审核中', value: stats.review, icon: FileWarning, color: 'bg-purple-50 text-purple-600 border-purple-200' },
-    { label: '已批准', value: stats.approved, icon: FileCheck, color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
-    { label: '异常', value: stats.exception, icon: AlertTriangle, color: 'bg-red-50 text-red-600 border-red-200' },
-    { label: '已赔付', value: stats.paid, icon: CheckCircle, color: 'bg-green-50 text-green-600 border-green-200' },
-    { label: '已归档', value: stats.archived, icon: Archive, color: 'bg-gray-50 text-gray-600 border-gray-200' },
-  ];
+    return {
+      status: statusKey,
+      label: config.label,
+      value: count,
+      icon: Icon,
+      color: statColor,
+    };
+  });
+
+  const recentClaims = [...claims].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt)).slice(0, 5);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">工作台</h2>
-          <p className="text-sm text-gray-500 mt-1">欢迎回来，今天有 {stats.pending} 个待处理工单</p>
+          <p className="text-sm text-gray-500 mt-1">欢迎回来，今天有 {statCards.find((s) => s.status === 'pending')?.value || 0} 个待处理工单</p>
         </div>
       </div>
 

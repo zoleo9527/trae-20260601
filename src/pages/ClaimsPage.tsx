@@ -77,12 +77,21 @@ export function ClaimsPage() {
   };
 
   const getAvailableStatusOptions = () => {
-    const currentConfig = CLAIM_STATUS_CONFIG[selectedClaim?.status as keyof typeof CLAIM_STATUS_CONFIG];
+    if (!selectedClaim) return [];
+    const currentConfig = CLAIM_STATUS_CONFIG[selectedClaim.status as keyof typeof CLAIM_STATUS_CONFIG];
     if (!currentConfig) return [];
-    return currentConfig.allowedTransitions.map((status) => ({
+    
+    const currentOption = {
+      value: selectedClaim.status,
+      label: `当前: ${getStatusLabel(selectedClaim.status)}`,
+    };
+    
+    const transitionOptions = currentConfig.allowedTransitions.map((status) => ({
       value: status,
       label: getStatusLabel(status),
     }));
+    
+    return [currentOption, ...transitionOptions];
   };
 
   return (
