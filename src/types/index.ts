@@ -1,8 +1,20 @@
 export type MachineStatus = 'pending' | 'testing' | 'test_passed' | 'test_failed' | 'pending_approval' | 'approved' | 'rejected' | 'completed';
 
-export type TestItemStatus = 'pending' | 'passed' | 'failed' | 'skipped';
+export type TestItemStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
 
 export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+
+export type OperationType = 'start_test' | 'update_test_item' | 'complete_test' | 'approve' | 'reject' | 'return' | 'complete_delivery' | 'add_exception' | 'resolve_exception';
+
+export interface OperationRecord {
+  id: string;
+  machineId: string;
+  type: OperationType;
+  operator: string;
+  description: string;
+  createdAt: string;
+  data?: Record<string, unknown>;
+}
 
 export interface HardwareComponent {
   id: string;
@@ -99,10 +111,13 @@ export interface Machine {
   oldLedgerNo?: string;
   siteRecord?: string;
   burnInTest?: BurnInTest;
+  burnInTestHistory: BurnInTest[];
   delivery?: DeliveryRecord;
   approval?: ApprovalRecord;
+  approvalHistory: ApprovalRecord[];
   exceptions: ExceptionRecord[];
   communications: CommunicationLog[];
+  operations: OperationRecord[];
   createdAt: string;
   updatedAt: string;
   lastModifiedBy: string;

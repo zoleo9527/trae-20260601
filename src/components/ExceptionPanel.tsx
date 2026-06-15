@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, CheckCircle, Clock, Edit3, XCircle, MessageCircle } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Edit3, MessageCircle } from 'lucide-react';
 import type { Machine, ExceptionRecord } from '@/types';
 import { exceptionTypeLabels, exceptionSeverityLabels, exceptionSeverityColors, communicationTypeLabels, statusLabels, statusColors } from '@/utils/helpers';
 
@@ -29,7 +29,7 @@ export function ExceptionPanel({ machines, onAddException, onResolveException }:
 
   const handleAddException = () => {
     if (selectedMachine && newException.description.trim()) {
-      onAddException(selectedMachine.id, newException);
+      onAddException(selectedMachine.id, { ...newException, machineId: selectedMachine.id, resolved: false });
       setNewException({ type: 'hardware', description: '', severity: 'medium' });
       setShowAddForm(false);
     }

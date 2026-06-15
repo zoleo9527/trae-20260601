@@ -8,12 +8,16 @@ interface ApprovalPanelProps {
   onApprove: (machineId: string, approver: string, comments: string) => void;
   onReject: (machineId: string, approver: string, comments: string) => void;
   onCompleteDelivery: (machineId: string, delivery: Omit<Machine['delivery'], 'id' | 'createdAt'>) => void;
+  onReturnToTesting: (machineId: string, operator: string, reason: string) => void;
 }
 
-export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery }: ApprovalPanelProps) {
+export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery, onReturnToTesting }: ApprovalPanelProps) {
   const [approver, setApprover] = useState('');
   const [comments, setComments] = useState('');
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnOperator, setReturnOperator] = useState('');
   const [deliveryData, setDeliveryData] = useState({
     customerName: machine.customerName,
     customerPhone: machine.customerPhone,
@@ -41,6 +45,15 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
     if (deliveryData.signer.trim() && deliveryData.address.trim()) {
       onCompleteDelivery(machine.id, deliveryData);
       setShowDeliveryForm(false);
+    }
+  };
+
+  const handleReturn = () => {
+    if (returnReason.trim() && returnOperator.trim()) {
+      onReturnToTesting(machine.id, returnOperator.trim(), returnReason.trim());
+      setShowReturnModal(false);
+      setReturnReason('');
+      setReturnOperator('');
     }
   };
 
@@ -259,8 +272,11 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
             <div className="border border-red-200 bg-red-50 rounded-xl p-6">
               <h3 className="font-semibold text-gray-900 mb-4">验收驳回</h3>
               <p className="text-sm text-gray-600 mb-4">此订单已被驳回，需要退回重新测试或调整配置。</p>
+              {machine.approval && machine.approval.comments && (
+                <p className="text-sm text-red-600 mb-4"><strong>驳回原因:</strong> {machine.approval.comments}</p>
+              )}
               <button
-                onClick={() => {}}
+                onClick={() => setShowReturnModal(true)}
                 className="btn btn-warning w-full flex items-center justify-center gap-2"
               >
                 <RotateCcw className="h-4 w-4" />
@@ -270,6 +286,50 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
           )}
         </div>
       </div>
+
+      {showReturnModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">退回处理</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">操作人员</label>
+                <input
+                  type="text"
+                  value={returnOperator}
+                  onChange={(e) => setReturnOperator(e.target.value)}
+                  placeholder="请输入操作人员姓名"
+                  className="input"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退回原因</label>
+                <textarea
+                  value={returnReason}
+                  onChange={(e) => setReturnReason(e.target.value)}
+                  placeholder="请输入退回原因..."
+                  className="text-area h-24"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowReturnModal(false)}
+                  className="btn btn-secondary flex-1"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleReturn}
+                  disabled={!returnReason.trim() || !returnOperator.trim()}
+                  className="btn btn-warning flex-1"
+                >
+                  确认退回
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeliveryForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">

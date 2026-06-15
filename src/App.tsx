@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Dashboard } from '@/components/Dashboard';
 import { MachineList } from '@/components/MachineList';
@@ -6,26 +6,71 @@ import { BurnInTestPanel } from '@/components/BurnInTestPanel';
 import { ApprovalPanel } from '@/components/ApprovalPanel';
 import { ExceptionPanel } from '@/components/ExceptionPanel';
 import { ExportPanel } from '@/components/ExportPanel';
-import { useMachineStore } from '@/store/machineStore';
-import type { Machine } from '@/types';
+import type { Machine, ExportTask, DashboardStats, TestItem } from '@/types';
+import {
+  getMachines,
+  getStats,
+  startBurnInTest,
+  updateTestItem,
+  addException,
+  resolveException,
+  approveMachine,
+  rejectMachine,
+  returnToTesting,
+  completeDelivery,
+  getExportTasks,
+  createExportTask,
+  completeExportTask,
+  generateReportData,
+  saveReportAsFile,
+} from '@/api/machineApi';
+import { setStoredData, STORAGE_KEYS } from '@/utils/storage';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
-  const {
-    machines,
-    exportTasks,
-    getStats,
-    startBurnInTest,
-    updateTestItem,
-    addException,
-    resolveException,
-    approveMachine,
-    rejectMachine,
-    returnToTesting,
-    completeDelivery,
-    createExportTask,
-  } = useMachineStore();
+  const [machines, setMachines] = useState<Machine[]>([]);
+  const [exportTasks, setExportTasks] = useState<ExportTask[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalMachines: 0,
+    pendingTest: 0,
+    testing: 0,
+    pendingApproval: 0,
+    approved: 0,
+    rejected: 0,
+    completed: 0,
+    exceptions: 0,
+    todayTests: 0,
+    todayDeliveries: 0,
+  });
+
+  useEffect(() => {
+    refreshData();
+  }, []);
+
+  const refreshData = () => {
+    setMachines(getMachines());
+    setExportTasks(getExportTasks());
+    setStats(getStats());
+  };
+
+  const saveAndRefresh = (newMachines: Machine[]) => {
+    setStoredData(STORAGE_KEYS.MACHINES, newMachines);
+    refreshData();
+    if (selectedMachine) {
+      const updated = newMachines.find(m => m.id === selectedMachine.id);
+      if (updated) {
+        setSelectedMachine(updated);
+      } else {
+        setSelectedMachine(null);
+      }
+    }
+  };
+
+  const saveTasksAndRefresh = (newTasks: ExportTask[]) => {
+    setStoredData(STORAGE_KEYS.EXPORT_TASKS, newTasks);
+    setExportTasks(newTasks);
+  };
 
   const handleSelectMachine = (machine: Machine) => {
     setSelectedMachine(machine);
@@ -36,7 +81,61 @@ function App() {
     setSelectedMachine(null);
   };
 
-  const stats = getStats();
+  const handleStartTest = (machineId: string, operator: string) => {
+    const newMachines = startBurnInTest(machineId, operator);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleUpdateTestItem = (machineId: string, itemId: string, update: Partial<TestItem>) => {
+    const newMachines = updateTestItem(machineId, itemId, update);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleAddException = (machineId: string, exception: Parameters<typeof addException>[1]) => {
+    const newMachines = addException(machineId, exception);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleResolveException = (machineId: string, exceptionId: string, resolution: string, resolvedBy: string) => {
+    const newMachines = resolveException(machineId, exceptionId, resolution, resolvedBy);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleApprove = (machineId: string, approver: string, comments: string) => {
+    const newMachines = approveMachine(machineId, approver, comments);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleReject = (machineId: string, approver: string, comments: string) => {
+    const newMachines = rejectMachine(machineId, approver, comments);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleReturnToTesting = (machineId: string, operator: string, reason: string) => {
+    const newMachines = returnToTesting(machineId, operator, reason);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleCompleteDelivery = (machineId: string, delivery: Parameters<typeof completeDelivery>[1]) => {
+    const newMachines = completeDelivery(machineId, delivery);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleCreateExport = (type: ExportTask['type']) => {
+    const result = createExportTask(type);
+    saveTasksAndRefresh(result.tasks);
+    
+    setTimeout(() => {
+      const completedTasks = completeExportTask(result.tasks[result.tasks.length - 1].id, result.machines);
+      saveTasksAndRefresh(completedTasks);
+      
+      const reportContent = generateReportData(type, result.machines);
+      const task = completedTasks.find(t => t.id === result.tasks[result.tasks.length - 1].id);
+      if (task) {
+        saveReportAsFile(reportContent, task.filename);
+      }
+    }, 1000);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -60,16 +159,17 @@ function App() {
                 activeTab === 'testing' ? (
                   <BurnInTestPanel
                     machine={selectedMachine}
-                    onStartTest={startBurnInTest}
-                    onUpdateTestItem={updateTestItem}
-                    onReturnToPending={returnToTesting}
+                    onStartTest={handleStartTest}
+                    onUpdateTestItem={handleUpdateTestItem}
+                    onReturnToPending={handleReturnToTesting}
                   />
                 ) : (
                   <ApprovalPanel
                     machine={selectedMachine}
-                    onApprove={approveMachine}
-                    onReject={rejectMachine}
-                    onCompleteDelivery={completeDelivery}
+                    onApprove={handleApprove}
+                    onReject={handleReject}
+                    onCompleteDelivery={handleCompleteDelivery}
+                    onReturnToTesting={handleReturnToTesting}
                   />
                 )
               ) : (
@@ -87,15 +187,15 @@ function App() {
         {activeTab === 'exceptions' && (
           <ExceptionPanel
             machines={machines}
-            onAddException={addException}
-            onResolveException={resolveException}
+            onAddException={handleAddException}
+            onResolveException={handleResolveException}
           />
         )}
 
         {activeTab === 'export' && (
           <ExportPanel
             tasks={exportTasks}
-            onCreateExport={createExportTask}
+            onCreateExport={handleCreateExport}
           />
         )}
       </main>

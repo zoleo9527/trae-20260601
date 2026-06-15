@@ -217,12 +217,13 @@ export function useMachineStore() {
     setMachines(prev => prev.map(m => {
       if (m.id === machineId && m.status === 'approved') {
         const now = new Date().toLocaleString('zh-CN');
-        return {
+        const updatedMachine: Machine = {
           ...m,
           status: 'completed',
-          delivery: { ...delivery, id: `D${Date.now()}`, createdAt: now },
+          delivery: { ...delivery, id: `D${Date.now()}`, machineId, createdAt: now } as Machine['delivery'],
           updatedAt: now,
         };
+        return updatedMachine;
       }
       return m;
     }));

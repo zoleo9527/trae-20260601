@@ -24,6 +24,7 @@ export const statusColors: Record<MachineStatus, string> = {
 
 export const testItemStatusLabels: Record<TestItemStatus, string> = {
   pending: '待测试',
+  running: '测试中',
   passed: '通过',
   failed: '失败',
   skipped: '跳过',
@@ -31,6 +32,7 @@ export const testItemStatusLabels: Record<TestItemStatus, string> = {
 
 export const testItemStatusColors: Record<TestItemStatus, string> = {
   pending: 'bg-gray-100 text-gray-700',
+  running: 'bg-blue-100 text-blue-700',
   passed: 'bg-green-100 text-green-700',
   failed: 'bg-red-100 text-red-700',
   skipped: 'bg-gray-100 text-gray-500',
