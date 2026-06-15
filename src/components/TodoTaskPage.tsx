@@ -14,17 +14,27 @@ export function TodoTaskPage() {
   const [continuousMode, setContinuousMode] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  const filteredTasks = tasks.filter(task => {
+  const getTasksForCurrentRole = (taskList: Task[]) => {
+    return taskList.filter(task => {
+      if (currentRole === 'clerk') {
+        return task.assignee === '张三' && task.type === 'adjustment_audit';
+      } else if (currentRole === 'manager') {
+        return task.assignee === '王经理' && task.type === 'adjustment_audit';
+      } else if (currentRole === 'buyer') {
+        return task.assignee === '采购刘';
+      }
+      return false;
+    });
+  };
+
+  const filteredTasks = getTasksForCurrentRole(tasks).filter(task => {
     const matchesType = !filterType || task.type === filterType;
     const matchesPriority = !filterPriority || task.priority === filterPriority;
     const matchesStatus = !filterStatus || task.status === filterStatus;
     const matchesKeyword = !searchKeyword || 
       task.id.toLowerCase().includes(searchKeyword.toLowerCase()) ||
       task.title.toLowerCase().includes(searchKeyword.toLowerCase());
-    const isManagerAlertTask = currentRole === 'manager' && task.type === 'alert_response';
-    const matchesRole = currentRole === 'clerk' ? task.type === 'adjustment_audit' : 
-                       currentRole === 'manager' ? !isManagerAlertTask : true;
-    return matchesType && matchesPriority && matchesStatus && matchesKeyword && matchesRole;
+    return matchesType && matchesPriority && matchesStatus && matchesKeyword;
   });
 
   const handleComplete = (taskId: string) => {
@@ -41,10 +51,18 @@ export function TodoTaskPage() {
     } else {
       setSelectedTask(null);
     }
+    setSelectedItems(prev => prev.filter(id => id !== taskId));
+  };
+
+  const handleBatchComplete = () => {
+    if (selectedItems.length > 0) {
+      selectedItems.forEach(id => completeTask(id));
+      setSelectedItems([]);
+    }
   };
 
   const typeLabels: Record<string, string> = {
-    adjustment_audit: '批号调整审核',
+    adjustment_audit: '批号调整',
     emergency_adjustment: '紧急批号调整',
     alert_response: '库存预警响应',
     purchase_confirm: '采购计划确认'
@@ -74,16 +92,21 @@ export function TodoTaskPage() {
     completed: 'green'
   };
 
+  const roleLabels: Record<string, string> = {
+    clerk: '店员',
+    manager: '店长',
+    buyer: '采购'
+  };
+
   const columns = [
     { key: 'id', label: '任务编号', width: '100px' },
-    { key: 'title', label: '任务标题', width: '250px' },
-    { key: 'type', label: '任务类型', width: '120px' },
-    { key: 'priority', label: '优先级', width: '100px' },
+    { key: 'title', label: '任务标题', width: '280px' },
+    { key: 'type', label: '任务类型', width: '100px' },
+    { key: 'priority', label: '优先级', width: '80px' },
     { key: 'status', label: '状态', width: '80px' },
-    { key: 'assignee', label: '负责人', width: '100px' },
     { key: 'createTime', label: '创建时间', width: '140px' },
     { key: 'dueTime', label: '截止时间', width: '140px' },
-    { key: 'actions', label: '操作', width: '120px' }
+    { key: 'actions', label: '操作', width: '100px' }
   ];
 
   const tableData = filteredTasks.map(task => ({
@@ -92,7 +115,6 @@ export function TodoTaskPage() {
     type: typeLabels[task.type],
     priority: <Badge color={priorityColors[task.priority]}>{priorityLabels[task.priority]}</Badge>,
     status: <Badge color={statusColors[task.status]}>{statusLabels[task.status]}</Badge>,
-    assignee: task.assignee,
     createTime: task.createTime,
     dueTime: task.dueTime || '-',
     actions: (
@@ -107,40 +129,50 @@ export function TodoTaskPage() {
     )
   }));
 
-  const taskSummary = {
-    pending: tasks.filter(t => t.status === 'pending').length,
-    processing: tasks.filter(t => t.status === 'processing').length,
-    completed: tasks.filter(t => t.status === 'completed').length
+  const roleTaskSummary = {
+    pending: getTasksForCurrentRole(tasks).filter(t => t.status === 'pending').length,
+    processing: getTasksForCurrentRole(tasks).filter(t => t.status === 'processing').length,
+    completed: getTasksForCurrentRole(tasks).filter(t => t.status === 'completed').length
   };
 
   const unreadCount = notifications.filter(n => !n.read && 
     (n.targetRole === currentRole || n.targetRole === 'all')).length;
 
+  const selectedPendingCount = selectedItems.filter(id => {
+    const task = tasks.find(t => t.id === id);
+    return task?.status === 'pending';
+  }).length;
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2>待办任务</h2>
-        {unreadCount > 0 && (
-          <Badge color="red">{unreadCount} 条未读通知</Badge>
-        )}
+        <div>
+          <h2>待办任务</h2>
+          <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>当前角色: {roleLabels[currentRole]}</p>
+        </div>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {unreadCount > 0 && (
+            <Badge color="red">{unreadCount} 条未读通知</Badge>
+          )}
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
         <Card style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{taskSummary.pending}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{roleTaskSummary.pending}</span>
             <span style={{ color: '#666' }}>待处理</span>
           </div>
         </Card>
         <Card style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{taskSummary.processing}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{roleTaskSummary.processing}</span>
             <span style={{ color: '#666' }}>处理中</span>
           </div>
         </Card>
         <Card style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{taskSummary.completed}</span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>{roleTaskSummary.completed}</span>
             <span style={{ color: '#666' }}>已完成</span>
           </div>
         </Card>
@@ -156,10 +188,8 @@ export function TodoTaskPage() {
           <Select
             options={[
               { value: '', label: '全部类型' },
-              { value: 'adjustment_audit', label: '批号调整审核' },
-              { value: 'emergency_adjustment', label: '紧急批号调整' },
-              { value: 'alert_response', label: '库存预警响应' },
-              { value: 'purchase_confirm', label: '采购计划确认' }
+              { value: 'adjustment_audit', label: '批号调整' },
+              { value: 'alert_response', label: '库存预警响应' }
             ]}
             value={filterType}
             onChange={setFilterType}
@@ -184,10 +214,29 @@ export function TodoTaskPage() {
             value={filterStatus}
             onChange={setFilterStatus}
           />
-          {!continuousMode && filteredTasks.length > 0 && (
-            <Button variant="secondary" onClick={() => { setContinuousMode(true); setCurrentIndex(0); setSelectedTask(filteredTasks[0]); }}>
-              连续处理模式
-            </Button>
+          
+          {selectedItems.length > 0 ? (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
+              <span style={{ color: '#666', fontSize: '14px' }}>已选择 {selectedItems.length} 项</span>
+              {selectedPendingCount > 0 && (
+                <Button size="small" variant="success" onClick={handleBatchComplete}>批量标记完成 ({selectedPendingCount})</Button>
+              )}
+              <Button size="small" variant="secondary" onClick={() => setSelectedItems([])}>取消选择</Button>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
+              {!continuousMode && filteredTasks.filter(t => t.status !== 'completed').length > 0 && (
+                <Button variant="secondary" size="small" onClick={() => {
+                  const pendingIds = filteredTasks.filter(t => t.status === 'pending').map(t => t.id);
+                  setSelectedItems(pendingIds);
+                }}>全选待处理</Button>
+              )}
+              {!continuousMode && filteredTasks.filter(t => t.status !== 'completed').length > 0 && (
+                <Button variant="secondary" onClick={() => { setContinuousMode(true); setCurrentIndex(0); setSelectedTask(filteredTasks.find(t => t.status !== 'completed') || null); }}>
+                  连续处理模式
+                </Button>
+              )}
+            </div>
           )}
         </div>
 
@@ -206,7 +255,7 @@ export function TodoTaskPage() {
 
       {selectedTask && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Card style={{ width: '500px' }} title={selectedTask.title}>
+          <Card style={{ width: '520px' }} title={selectedTask.title}>
             <div style={{ marginBottom: '16px' }}>
               <p><strong>任务编号:</strong> {selectedTask.id}</p>
               <p><strong>任务类型:</strong> {typeLabels[selectedTask.type]}</p>
@@ -218,17 +267,24 @@ export function TodoTaskPage() {
             </div>
             {selectedTask.type === 'adjustment_audit' && (
               <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f7fa', borderRadius: '4px' }}>
-                <p><strong>关联申请信息:</strong></p>
+                <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>关联批号调整</p>
                 {adjustments.find(a => a.id === selectedTask.relatedData) && (
-                  <p>申请单号: {selectedTask.relatedData}</p>
+                  <>
+                    <p>申请单号: {selectedTask.relatedData}</p>
+                    <p>状态: <Badge color={statusColors[adjustments.find(a => a.id === selectedTask.relatedData)?.status || 'pending']}>{adjustments.find(a => a.id === selectedTask.relatedData)?.status === 'pending' ? '待审核' : adjustments.find(a => a.id === selectedTask.relatedData)?.status === 'approved' ? '已通过' : adjustments.find(a => a.id === selectedTask.relatedData)?.status}</Badge></p>
+                  </>
                 )}
               </div>
             )}
             {selectedTask.type === 'alert_response' && (
-              <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f7fa', borderRadius: '4px' }}>
-                <p><strong>关联预警信息:</strong></p>
+              <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fff7e6', borderRadius: '4px' }}>
+                <p style={{ fontWeight: 'bold', marginBottom: '8px', color: '#fa8c16' }}>关联库存预警</p>
                 {alerts.find(a => a.id === selectedTask.relatedData) && (
-                  <p>预警编号: {selectedTask.relatedData}</p>
+                  <>
+                    <p>预警编号: {selectedTask.relatedData}</p>
+                    <p>预警级别: <Badge color={alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'red' ? 'red' : alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'orange' ? 'orange' : 'yellow'}>{alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'red' ? '红色' : alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'orange' ? '橙色' : '黄色'}预警</Badge></p>
+                    <p>当前库存: {alerts.find(a => a.id === selectedTask.relatedData)?.currentStock} / 安全库存: {alerts.find(a => a.id === selectedTask.relatedData)?.safetyStock}</p>
+                  </>
                 )}
               </div>
             )}
@@ -237,18 +293,25 @@ export function TodoTaskPage() {
                 {continuousMode && (
                   <>
                     <Button variant="secondary" size="small" onClick={() => {
+                      const pendingTasks = filteredTasks.filter(t => t.status !== 'completed');
                       if (currentIndex > 0) {
                         setCurrentIndex(currentIndex - 1);
-                        setSelectedTask(filteredTasks[currentIndex - 1]);
+                        setSelectedTask(pendingTasks[currentIndex - 1]);
                       }
                     }} disabled={currentIndex === 0}>上一条</Button>
-                    <span style={{ margin: '0 12px', color: '#666' }}>{currentIndex + 1} / {filteredTasks.length}</span>
+                    <span style={{ margin: '0 12px', color: '#666' }}>
+                      {currentIndex + 1} / {filteredTasks.filter(t => t.status !== 'completed').length}
+                    </span>
                     <Button variant="secondary" size="small" onClick={() => {
-                      if (currentIndex < filteredTasks.length - 1) {
+                      const pendingTasks = filteredTasks.filter(t => t.status !== 'completed');
+                      if (currentIndex < pendingTasks.length - 1) {
                         setCurrentIndex(currentIndex + 1);
-                        setSelectedTask(filteredTasks[currentIndex + 1]);
+                        setSelectedTask(pendingTasks[currentIndex + 1]);
+                      } else {
+                        setContinuousMode(false);
+                        setSelectedTask(null);
                       }
-                    }} disabled={currentIndex === filteredTasks.length - 1}>下一条</Button>
+                    }} disabled={currentIndex === filteredTasks.filter(t => t.status !== 'completed').length - 1}>下一条</Button>
                   </>
                 )}
               </div>
@@ -259,7 +322,11 @@ export function TodoTaskPage() {
                 {!continuousMode && (
                   <Button variant="secondary" onClick={() => setSelectedTask(null)}>取消</Button>
                 )}
-                <Button onClick={() => handleComplete(selectedTask.id)}>完成任务</Button>
+                {selectedTask.status !== 'completed' && (
+                  <Button onClick={() => handleComplete(selectedTask.id)}>
+                    {selectedTask.type === 'adjustment_audit' ? (selectedTask.title.includes('完成') ? '确认完成' : '完成任务') : '完成任务'}
+                  </Button>
+                )}
               </div>
             </div>
           </Card>

@@ -17,8 +17,12 @@ interface WorkbenchContextType {
   completeAdjustment: (id: string) => void;
   handleAlert: (id: string, handler: string, result: string) => void;
   markNotificationRead: (id: string) => void;
+  markTaskBatchComplete: (taskIds: string[]) => void;
   completeTask: (id: string) => void;
-  refreshAlertsAfterAdjustment: (skuId: string) => void;
+  refreshAlertsAfterAdjustment: (skuId: string, adjustmentId: string) => void;
+  batchApproveAdjustments: (ids: string[], approver: string) => void;
+  batchCompleteAdjustments: (ids: string[]) => void;
+  batchRejectAdjustments: (ids: string[], approver: string, reason: string) => void;
 }
 
 const WorkbenchContext = createContext<WorkbenchContextType | null>(null);
@@ -64,6 +68,8 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, [adjustments.length, notifications.length, tasks.length]);
 
   const approveAdjustment = useCallback((id: string, approver: string) => {
+    const adjustment = adjustments.find(a => a.id === id);
+    
     setAdjustments(prev => prev.map(adj => 
       adj.id === id ? { ...adj, status: 'approved', approver, approveTime: new Date().toLocaleString('zh-CN') } : adj
     ));
@@ -72,18 +78,58 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       id: `NOT${String(prev.length + 1).padStart(3, '0')}`,
       type: 'adjustment',
       title: '批号调整已通过',
-      content: `您提交的批号调整申请已通过${approver}审核`,
+      content: `您提交的批号调整申请已通过${approver}审核，请执行完成操作`,
       targetRole: 'clerk',
       read: false,
       createTime: new Date().toLocaleString('zh-CN'),
       relatedId: id
     }]);
 
-    const adjustment = adjustments.find(a => a.id === id);
     if (adjustment) {
-      refreshAlertsAfterAdjustment(adjustment.skuId);
+      const newTask: Task = {
+        id: `TSK${String(tasks.length + 1).padStart(3, '0')}`,
+        type: 'adjustment_audit',
+        title: `完成批号调整 ${id}`,
+        priority: 'high',
+        status: 'pending',
+        assignee: adjustment.applicant,
+        createTime: new Date().toLocaleString('zh-CN'),
+        dueTime: new Date(Date.now() + 1 * 60 * 60 * 1000).toLocaleString('zh-CN'),
+        relatedData: id
+      };
+      setTasks(prev => [...prev, newTask]);
+
+      const relatedAlert = alerts.find(a => a.skuId === adjustment.skuId && a.status !== 'resolved');
+      if (relatedAlert) {
+        const buyerTask: Task = {
+          id: `TSK${String(tasks.length + 1).padStart(3, '0')}`,
+          type: 'alert_response',
+          title: `批号调整完成，请重新评估采购计划 ${id}`,
+          priority: 'high',
+          status: 'pending',
+          assignee: '采购刘',
+          createTime: new Date().toLocaleString('zh-CN'),
+          dueTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toLocaleString('zh-CN'),
+          relatedData: relatedAlert.id
+        };
+        setTasks(prev => [...prev, buyerTask]);
+
+        const buyerNotification: Notification = {
+          id: `NOT${String(notifications.length + 1).padStart(3, '0')}`,
+          type: 'alert',
+          title: '批号调整完成，请评估采购计划',
+          content: `批号调整${id}已完成，库存数据已更新，请重新评估采购计划`,
+          targetRole: 'buyer',
+          read: false,
+          createTime: new Date().toLocaleString('zh-CN'),
+          relatedId: relatedAlert.id
+        };
+        setNotifications(prev => [buyerNotification, ...prev]);
+      }
+
+      refreshAlertsAfterAdjustment(adjustment.skuId, id);
     }
-  }, [adjustments]);
+  }, [adjustments, alerts, tasks.length, notifications.length]);
 
   const rejectAdjustment = useCallback((id: string, approver: string, reason: string) => {
     setAdjustments(prev => prev.map(adj => 
@@ -100,14 +146,21 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       createTime: new Date().toLocaleString('zh-CN'),
       relatedId: id
     }]);
+
+    setTasks(prev => prev.map(task =>
+      task.relatedData === id && task.type === 'adjustment_audit' && task.status === 'pending'
+        ? { ...task, status: 'completed' }
+        : task
+    ));
   }, []);
 
   const completeAdjustment = useCallback((id: string) => {
+    const adjustment = adjustments.find(a => a.id === id);
+    
     setAdjustments(prev => prev.map(adj => 
       adj.id === id ? { ...adj, status: 'completed' } : adj
     ));
 
-    const adjustment = adjustments.find(a => a.id === id);
     if (adjustment) {
       setBatches(prev => prev.map(batch => {
         if (batch.id === adjustment.originalBatchId) {
@@ -118,24 +171,50 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
         }
         return batch;
       }));
+
+      setTasks(prev => prev.map(task =>
+        task.relatedData === id && task.type === 'adjustment_audit'
+          ? { ...task, status: 'completed' }
+          : task
+      ));
+
+      refreshAlertsAfterAdjustment(adjustment.skuId, id);
     }
   }, [adjustments]);
 
   const handleAlert = useCallback((id: string, handler: string, result: string) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === id ? { 
-        ...alert, 
+    const alert = alerts.find(a => a.id === id);
+    
+    setAlerts(prev => prev.map(alt => 
+      alt.id === id ? { 
+        ...alt, 
         status: result === 'resolved' ? 'resolved' : 'processing',
         handler,
         handleTime: new Date().toLocaleString('zh-CN'),
         handleResult: result
-      } : alert
+      } : alt
     ));
 
     setTasks(prev => prev.map(task => 
-      task.relatedData === id ? { ...task, status: 'completed' } : task
+      task.relatedData === id && task.type === 'alert_response'
+        ? { ...task, status: 'completed' }
+        : task
     ));
-  }, []);
+
+    if (alert && result !== 'resolved') {
+      const newNotification: Notification = {
+        id: `NOT${String(notifications.length + 1).padStart(3, '0')}`,
+        type: 'alert',
+        title: '库存预警处理中',
+        content: `预警${id}已由${handler}标记为处理中，处理方式：${result}`,
+        targetRole: 'manager',
+        read: false,
+        createTime: new Date().toLocaleString('zh-CN'),
+        relatedId: id
+      };
+      setNotifications(prev => [newNotification, ...prev]);
+    }
+  }, [alerts, notifications.length]);
 
   const markNotificationRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(notif => 
@@ -144,12 +223,28 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const completeTask = useCallback((id: string) => {
-    setTasks(prev => prev.map(task => 
-      task.id === id ? { ...task, status: 'completed' } : task
+    const task = tasks.find(t => t.id === id);
+    setTasks(prev => prev.map(t => 
+      t.id === id ? { ...t, status: 'completed' } : t
+    ));
+
+    if (task) {
+      if (task.type === 'adjustment_audit' && task.title.includes('完成批号调整')) {
+        const adjustmentId = task.relatedData;
+        completeAdjustment(adjustmentId);
+      }
+    }
+  }, [tasks, completeAdjustment]);
+
+  const markTaskBatchComplete = useCallback((taskIds: string[]) => {
+    setTasks(prev => prev.map(task =>
+      taskIds.includes(task.id)
+        ? { ...task, status: 'completed' }
+        : task
     ));
   }, []);
 
-  const refreshAlertsAfterAdjustment = useCallback((skuId: string) => {
+  const refreshAlertsAfterAdjustment = useCallback((skuId: string, adjustmentId: string) => {
     const sku = skus.find(s => s.id === skuId);
     const skuBatches = batches.filter(b => b.skuId === skuId);
     const totalStock = skuBatches.reduce((sum, b) => sum + b.quantity, 0);
@@ -169,7 +264,7 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
             alertLevel,
             status: 'pending',
             createTime: new Date().toLocaleString('zh-CN'),
-            relatedAdjustments: []
+            relatedAdjustments: [adjustmentId]
           }];
         }
         return prev;
@@ -182,14 +277,44 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
                           totalStock < sku!.safetyStock ? 'yellow' : 'resolved';
           
           if (newLevel === 'resolved') {
-            return { ...alert, status: 'resolved', currentStock: totalStock };
+            const resolvedNotification: Notification = {
+              id: `NOT${String(notifications.length + 1).padStart(3, '0')}`,
+              type: 'alert',
+              title: '库存预警已解除',
+              content: `批号调整${adjustmentId}完成后，${sku?.name}库存已恢复至安全水位以上，预警自动解除`,
+              targetRole: 'buyer',
+              read: false,
+              createTime: new Date().toLocaleString('zh-CN'),
+              relatedId: alert.id
+            };
+            setNotifications(prev => [resolvedNotification, ...prev]);
+
+            setTasks(taskPrev => taskPrev.map(t =>
+              t.relatedData === alert.id && t.type === 'alert_response' && t.status === 'pending'
+                ? { ...t, status: 'completed' }
+                : t
+            ));
+
+            return { ...alert, status: 'resolved', currentStock: totalStock, relatedAdjustments: [...alert.relatedAdjustments, adjustmentId] };
           }
-          return { ...alert, currentStock: totalStock, alertLevel: newLevel as 'red' | 'orange' | 'yellow' };
+          return { ...alert, currentStock: totalStock, alertLevel: newLevel as 'red' | 'orange' | 'yellow', relatedAdjustments: [...alert.relatedAdjustments, adjustmentId] };
         }
         return alert;
       });
     });
-  }, [skus, batches]);
+  }, [skus, batches, notifications.length]);
+
+  const batchApproveAdjustments = useCallback((ids: string[], approver: string) => {
+    ids.forEach(id => approveAdjustment(id, approver));
+  }, [approveAdjustment]);
+
+  const batchCompleteAdjustments = useCallback((ids: string[]) => {
+    ids.forEach(id => completeAdjustment(id));
+  }, [completeAdjustment]);
+
+  const batchRejectAdjustments = useCallback((ids: string[], approver: string, reason: string) => {
+    ids.forEach(id => rejectAdjustment(id, approver, reason));
+  }, [rejectAdjustment]);
 
   return (
     <WorkbenchContext.Provider value={{
@@ -207,8 +332,12 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       completeAdjustment,
       handleAlert,
       markNotificationRead,
+      markTaskBatchComplete,
       completeTask,
-      refreshAlertsAfterAdjustment
+      refreshAlertsAfterAdjustment,
+      batchApproveAdjustments,
+      batchCompleteAdjustments,
+      batchRejectAdjustments
     }}>
       {children}
     </WorkbenchContext.Provider>

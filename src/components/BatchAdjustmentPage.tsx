@@ -5,7 +5,7 @@ import { adjustReasons } from '../data/mockData';
 import { BatchAdjustment } from '../types';
 
 export function BatchAdjustmentPage() {
-  const { adjustments, skus, batches, addAdjustment, approveAdjustment, rejectAdjustment, completeAdjustment, currentRole } = useWorkbench();
+  const { adjustments, skus, batches, addAdjustment, approveAdjustment, rejectAdjustment, completeAdjustment, batchApproveAdjustments, batchCompleteAdjustments, batchRejectAdjustments, currentRole } = useWorkbench();
   const [showForm, setShowForm] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -20,6 +20,8 @@ export function BatchAdjustmentPage() {
   const [selectedAdjustment, setSelectedAdjustment] = useState<BatchAdjustment | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [batchRejectReason, setBatchRejectReason] = useState('');
+  const [showBatchRejectModal, setShowBatchRejectModal] = useState(false);
 
   const filteredAdjustments = adjustments.filter(adj => {
     const matchesStatus = !filterStatus || adj.status === filterStatus;
@@ -70,6 +72,7 @@ export function BatchAdjustmentPage() {
     if (selectedAdjustment) {
       approveAdjustment(selectedAdjustment.id, '王经理');
       setSelectedAdjustment(null);
+      setSelectedItems([]);
     }
   };
 
@@ -79,6 +82,7 @@ export function BatchAdjustmentPage() {
       setSelectedAdjustment(null);
       setRejectReason('');
       setShowRejectModal(false);
+      setSelectedItems([]);
     }
   };
 
@@ -86,6 +90,30 @@ export function BatchAdjustmentPage() {
     if (selectedAdjustment) {
       completeAdjustment(selectedAdjustment.id);
       setSelectedAdjustment(null);
+      setSelectedItems([]);
+    }
+  };
+
+  const handleBatchApprove = () => {
+    if (selectedItems.length > 0) {
+      batchApproveAdjustments(selectedItems, '王经理');
+      setSelectedItems([]);
+    }
+  };
+
+  const handleBatchComplete = () => {
+    if (selectedItems.length > 0) {
+      batchCompleteAdjustments(selectedItems);
+      setSelectedItems([]);
+    }
+  };
+
+  const handleBatchReject = () => {
+    if (selectedItems.length > 0 && batchRejectReason) {
+      batchRejectAdjustments(selectedItems, '王经理', batchRejectReason);
+      setSelectedItems([]);
+      setBatchRejectReason('');
+      setShowBatchRejectModal(false);
     }
   };
 
@@ -135,9 +163,7 @@ export function BatchAdjustmentPage() {
       actions: (
         <div style={{ display: 'flex', gap: '8px' }}>
           {currentRole === 'manager' && adj.status === 'pending' && (
-            <>
-              <Button size="small" onClick={(e?: React.MouseEvent<HTMLButtonElement>) => { e?.stopPropagation(); setSelectedAdjustment(adj); }}>审核</Button>
-            </>
+            <Button size="small" onClick={(e?: React.MouseEvent<HTMLButtonElement>) => { e?.stopPropagation(); setSelectedAdjustment(adj); }}>审核</Button>
           )}
           {currentRole === 'manager' && adj.status === 'approved' && (
             <Button size="small" variant="success" onClick={(e?: React.MouseEvent<HTMLButtonElement>) => { e?.stopPropagation(); setSelectedAdjustment(adj); }}>完成</Button>
@@ -145,10 +171,23 @@ export function BatchAdjustmentPage() {
           {currentRole === 'clerk' && adj.status === 'rejected' && (
             <Button size="small" variant="secondary" onClick={(e?: React.MouseEvent<HTMLButtonElement>) => { e?.stopPropagation(); }}>修改</Button>
           )}
+          {currentRole === 'clerk' && adj.status === 'approved' && (
+            <Button size="small" variant="success" onClick={(e?: React.MouseEvent<HTMLButtonElement>) => { e?.stopPropagation(); setSelectedAdjustment(adj); }}>完成</Button>
+          )}
         </div>
       )
     };
   });
+
+  const selectedPendingCount = selectedItems.filter(id => {
+    const adj = adjustments.find(a => a.id === id);
+    return adj?.status === 'pending';
+  }).length;
+
+  const selectedApprovedCount = selectedItems.filter(id => {
+    const adj = adjustments.find(a => a.id === id);
+    return adj?.status === 'approved';
+  }).length;
 
   return (
     <div>
@@ -160,7 +199,7 @@ export function BatchAdjustmentPage() {
       </div>
 
       <Card>
-        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
           <Input
             placeholder="搜索申请单号或商品名称"
             value={searchKeyword}
@@ -177,10 +216,28 @@ export function BatchAdjustmentPage() {
             value={filterStatus}
             onChange={setFilterStatus}
           />
-          {selectedItems.length > 0 && (
-            <Button variant="secondary" onClick={() => setSelectedItems([])}>
-              取消选择 ({selectedItems.length})
-            </Button>
+          
+          {selectedItems.length > 0 ? (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
+              <span style={{ color: '#666', fontSize: '14px' }}>已选择 {selectedItems.length} 项</span>
+              {currentRole === 'manager' && selectedPendingCount > 0 && (
+                <Button size="small" onClick={handleBatchApprove}>批量审核通过 ({selectedPendingCount})</Button>
+              )}
+              {(currentRole === 'manager' || currentRole === 'clerk') && selectedApprovedCount > 0 && (
+                <Button size="small" variant="success" onClick={handleBatchComplete}>批量完成 ({selectedApprovedCount})</Button>
+              )}
+              {currentRole === 'manager' && selectedPendingCount > 0 && (
+                <Button size="small" variant="danger" onClick={() => setShowBatchRejectModal(true)}>批量驳回 ({selectedPendingCount})</Button>
+              )}
+              <Button size="small" variant="secondary" onClick={() => setSelectedItems([])}>取消选择</Button>
+            </div>
+          ) : (
+            <div style={{ marginLeft: 'auto' }}>
+              <Button size="small" variant="secondary" onClick={() => {
+                const pendingIds = filteredAdjustments.filter(a => a.status === 'pending').map(a => a.id);
+                setSelectedItems(pendingIds);
+              }}>全选待审核</Button>
+            </div>
           )}
         </div>
 
@@ -293,6 +350,26 @@ export function BatchAdjustmentPage() {
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
               <Button variant="secondary" onClick={() => { setShowRejectModal(false); setSelectedAdjustment(null); }}>取消</Button>
               <Button variant="danger" onClick={handleReject} disabled={!rejectReason}>确认驳回</Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showBatchRejectModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Card style={{ width: '400px' }} title={`批量驳回 ${selectedItems.length} 项申请`}>
+            <div style={{ marginBottom: '16px' }}>
+              <label>驳回原因（统一原因）</label>
+              <textarea
+                value={batchRejectReason}
+                onChange={(e) => setBatchRejectReason(e.target.value)}
+                placeholder="请输入驳回原因，将应用于所有选中的待审核申请"
+                style={{ width: '100%', height: '100px', padding: '8px', border: '1px solid #d9d9d9', borderRadius: '4px' }}
+              />
+            </div>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <Button variant="secondary" onClick={() => { setShowBatchRejectModal(false); setBatchRejectReason(''); }}>取消</Button>
+              <Button variant="danger" onClick={handleBatchReject} disabled={!batchRejectReason}>确认批量驳回</Button>
             </div>
           </Card>
         </div>
