@@ -2,27 +2,90 @@
   <el-container class="layout-container">
     <el-aside width="200px" class="sidebar">
       <div class="logo">手机维修店管理系统</div>
-      <el-menu :default-active="$route.name" class="sidebar-menu" router>
-        <el-menu-item index="/dashboard">
-          <el-icon><Home /></el-icon>
-          <span>仪表盘</span>
-        </el-menu-item>
-        <el-menu-item index="/repair-orders">
-          <el-icon><Document /></el-icon>
-          <span>维修工单</span>
-        </el-menu-item>
-        <el-menu-item index="/spare-parts">
-          <el-icon><Box /></el-icon>
-          <span>备件管理</span>
-        </el-menu-item>
-        <el-menu-item index="/records">
-          <el-icon><Clock /></el-icon>
-          <span>维修记录</span>
-        </el-menu-item>
-        <el-menu-item index="/shift-report">
-          <el-icon><DataLine /></el-icon>
-          <span>交班报表</span>
-        </el-menu-item>
+      <el-menu :default-active="currentRouteName" class="sidebar-menu" router>
+        <template v-if="userRole === 'frontdesk'">
+          <el-menu-item index="/dashboard">
+            <el-icon><Home /></el-icon>
+            <span>仪表盘</span>
+          </el-menu-item>
+          <el-menu-item index="/repair-orders">
+            <el-icon><Document /></el-icon>
+            <span>新建工单</span>
+          </el-menu-item>
+          <el-menu-item index="/records">
+            <el-icon><Clock /></el-icon>
+            <span>维修记录</span>
+          </el-menu-item>
+          <el-menu-item index="/shift-report">
+            <el-icon><DataLine /></el-icon>
+            <span>交班查看</span>
+          </el-menu-item>
+        </template>
+        
+        <template v-else-if="userRole === 'technician'">
+          <el-menu-item index="/dashboard">
+            <el-icon><Home /></el-icon>
+            <span>仪表盘</span>
+          </el-menu-item>
+          <el-menu-item index="/repair-orders">
+            <el-icon><Document /></el-icon>
+            <span>待修工单</span>
+          </el-menu-item>
+          <el-menu-item index="/spare-parts">
+            <el-icon><Box /></el-icon>
+            <span>备件领用</span>
+          </el-menu-item>
+          <el-menu-item index="/records">
+            <el-icon><Clock /></el-icon>
+            <span>维修记录</span>
+          </el-menu-item>
+        </template>
+        
+        <template v-else-if="userRole === 'manager'">
+          <el-menu-item index="/dashboard">
+            <el-icon><Home /></el-icon>
+            <span>仪表盘</span>
+          </el-menu-item>
+          <el-menu-item index="/repair-orders">
+            <el-icon><Document /></el-icon>
+            <span>工单管理</span>
+          </el-menu-item>
+          <el-menu-item index="/spare-parts">
+            <el-icon><Box /></el-icon>
+            <span>备件管理</span>
+          </el-menu-item>
+          <el-menu-item index="/records">
+            <el-icon><Clock /></el-icon>
+            <span>维修记录</span>
+          </el-menu-item>
+          <el-menu-item index="/shift-report">
+            <el-icon><DataLine /></el-icon>
+            <span>交班管理</span>
+          </el-menu-item>
+        </template>
+        
+        <template v-else>
+          <el-menu-item index="/dashboard">
+            <el-icon><Home /></el-icon>
+            <span>仪表盘</span>
+          </el-menu-item>
+          <el-menu-item index="/repair-orders">
+            <el-icon><Document /></el-icon>
+            <span>维修工单</span>
+          </el-menu-item>
+          <el-menu-item index="/spare-parts">
+            <el-icon><Box /></el-icon>
+            <span>备件管理</span>
+          </el-menu-item>
+          <el-menu-item index="/records">
+            <el-icon><Clock /></el-icon>
+            <span>维修记录</span>
+          </el-menu-item>
+          <el-menu-item index="/shift-report">
+            <el-icon><DataLine /></el-icon>
+            <span>交班报表</span>
+          </el-menu-item>
+        </template>
       </el-menu>
       <div class="logout">
         <el-button @click="logout" type="text" style="color: #fff;">退出登录</el-button>
@@ -32,6 +95,7 @@
       <el-header class="header">
         <div class="header-left">
           <span>欢迎, {{ user?.full_name || user?.username }}</span>
+          <el-tag :type="getRoleTagType(userRole)" style="margin-left: 10px">{{ getRoleText(userRole) }}</el-tag>
         </div>
         <div class="header-right">
           <el-badge :value="unreadCount" :hidden="unreadCount === 0" class="notification-badge">
@@ -59,7 +123,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeMount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { Home, Document, Box, Clock, DataLine, Bell } from '@element-plus/icons-vue'
 import { records as recordsApi } from '../api'
@@ -68,9 +132,32 @@ const router = useRouter()
 const route = useRoute()
 
 const user = computed(() => JSON.parse(localStorage.getItem('user') || '{}'))
+const userRole = computed(() => user.value.role || 'admin')
+const currentRouteName = computed(() => route.name || '')
+
 const notifications = ref([])
 const unreadCount = ref(0)
 const showNotificationDialog = ref(false)
+
+const getRoleTagType = (role) => {
+  const types = {
+    admin: 'info',
+    frontdesk: 'primary',
+    technician: 'success',
+    manager: 'warning'
+  }
+  return types[role] || 'info'
+}
+
+const getRoleText = (role) => {
+  const texts = {
+    admin: '管理员',
+    frontdesk: '前台',
+    technician: '维修师',
+    manager: '店长'
+  }
+  return texts[role] || role
+}
 
 const logout = () => {
   localStorage.removeItem('token')
@@ -110,13 +197,6 @@ const loadUnreadCount = async () => {
     }
   }
 }
-
-onBeforeMount(() => {
-  const token = localStorage.getItem('token')
-  if (!token) {
-    router.push('/')
-  }
-})
 
 onMounted(() => {
   loadUnreadCount()

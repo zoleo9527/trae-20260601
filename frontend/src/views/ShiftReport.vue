@@ -1,5 +1,16 @@
 <template>
   <div class="shift-report">
+    <div class="page-header">
+      <h2>{{ pageTitle }}</h2>
+      <el-tag :type="getRoleTagType(userRole)">{{ getRoleText(userRole) }}</el-tag>
+    </div>
+
+    <div v-if="userRole === 'frontdesk'" class="role-hint">
+      <el-alert title="前台提示" type="info" show-icon>
+        您只能查看交班记录，如需确认交班请联系店长。
+      </el-alert>
+    </div>
+
     <div class="toolbar">
       <el-select v-model="selectedShift" placeholder="选择班次">
         <el-option label="早班 (8:00-12:00)" value="morning" />
@@ -60,24 +71,26 @@
         </el-table>
       </el-card>
 
-      <el-card title="交班签字" class="sign-off">
-        <el-form :model="signForm" label-width="100px">
-          <el-form-item label="交班人">
-            <el-input v-model="signForm.off_duty_user" placeholder="请输入交班人姓名" />
-          </el-form-item>
-          <el-form-item label="接班人">
-            <el-input v-model="signForm.on_duty_user" placeholder="请输入接班人姓名" />
-          </el-form-item>
-          <el-form-item label="交接备注">
-            <el-input type="textarea" v-model="signForm.summary" rows="3" placeholder="请输入交接备注" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="confirmHandover" :loading="submitting">
-              确认交接
-            </el-button>
-          </el-form-item>
-        </el-form>
-      </el-card>
+      <template v-if="canConfirm">
+        <el-card title="交班签字" class="sign-off">
+          <el-form :model="signForm" label-width="100px">
+            <el-form-item label="交班人">
+              <el-input v-model="signForm.off_duty_user" placeholder="请输入交班人姓名" />
+            </el-form-item>
+            <el-form-item label="接班人">
+              <el-input v-model="signForm.on_duty_user" placeholder="请输入接班人姓名" />
+            </el-form-item>
+            <el-form-item label="交接备注">
+              <el-input type="textarea" v-model="signForm.summary" rows="3" placeholder="请输入交接备注" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="confirmHandover" :loading="submitting">
+                确认交接
+              </el-button>
+            </el-form-item>
+          </el-form>
+        </el-card>
+      </template>
     </div>
 
     <el-card v-if="!reportData" class="empty-state">
@@ -113,6 +126,20 @@ const reportData = ref(null)
 const handoverHistory = ref([])
 const submitting = ref(false)
 
+const user = JSON.parse(localStorage.getItem('user') || '{}')
+const userRole = computed(() => user.role || 'admin')
+const canConfirm = computed(() => ['admin', 'manager'].includes(userRole.value))
+
+const pageTitle = computed(() => {
+  const titles = {
+    admin: '交班管理',
+    frontdesk: '交班查看',
+    technician: '交班记录',
+    manager: '交班管理'
+  }
+  return titles[userRole.value] || '交班报表'
+})
+
 const signForm = reactive({
   off_duty_user: '',
   on_duty_user: '',
@@ -146,6 +173,26 @@ const getStatusText = (status) => {
     cancelled: '已取消'
   }
   return texts[status] || status
+}
+
+const getRoleTagType = (role) => {
+  const types = {
+    admin: 'info',
+    frontdesk: 'primary',
+    technician: 'success',
+    manager: 'warning'
+  }
+  return types[role] || 'info'
+}
+
+const getRoleText = (role) => {
+  const texts = {
+    admin: '管理员',
+    frontdesk: '前台',
+    technician: '维修师',
+    manager: '店长'
+  }
+  return texts[role] || role
 }
 
 const completionRate = computed(() => {
@@ -231,6 +278,17 @@ onMounted(() => {
 <style scoped>
 .shift-report {
   padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.role-hint {
+  margin-bottom: 20px;
 }
 
 .toolbar {
