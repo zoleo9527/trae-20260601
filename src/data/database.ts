@@ -265,7 +265,19 @@ class Database {
             version: 1,
           },
         ],
-        confirmations: [],
+        confirmations: [
+          {
+            id: 'conf-seed-002',
+            orderId: '',
+            valuationId: 'val-seed-002',
+            status: 'PENDING',
+            customerName: '王女士',
+            customerPhone: '13900139002',
+            createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+            confirmationMethod: 'ONLINE',
+            seenValuationRemarks: [],
+          },
+        ],
         tags: ['线上预约', 'Mac系列'],
       },
       {

@@ -23,19 +23,20 @@ const Docs: NextPage = () => {
               │                            │
               │ 1:N                        │ 1:N
               ▼                            ▼
-┌──────────────────────────────┐  ┌─────────────────────────────┐
-│      Valuation (*)           │  │  CustomerConfirmation (*)   │
-├──────────────────────────────┤  ├─────────────────────────────┤
-│ id, version, status          │  │ id, status, method          │
-│ estimatedPrice, minPrice     │  │ valuationId → 关联估价(关键)│
-│ maxPrice                     │  │ confirmedPrice              │
-│ inspectionItems {7项}        │  │ objectionContent            │
-│ parentValuationId → 上一版本 │  │ initiatedBy, confirmedAt    │
-│ processorId, processorName   │  │ seenValuationRemarks[]      │
-│ submittedAt, approvedAt      │  │ customerName, customerPhone │
-│ approvedBy, remarks[]        │  │ customerIdCard, signature   │
-│ photos[]                     │  │ objectionPhotos[]           │
-└──────────────┬───────────────┘  └─────────────────────────────┘
+┌──────────────────────────────┐  ┌─────────────────────────────────────┐
+│      Valuation (*)           │  │        CustomerConfirmation (*)      │
+├──────────────────────────────┤  ├─────────────────────────────────────┤
+│ id, version, status          │  │ id, status                          │
+│ estimatedPrice, minPrice     │  │ valuationId → 关联估价(关键)         │
+│ maxPrice                     │  │ confirmationMethod: ON_SITE/ONLINE/  │
+│ inspectionItems {7项}        │  │                    PHONE (非method)  │
+│ parentValuationId → 上一版本 │  │ confirmedPrice, confirmedAt         │
+│ processorId, processorName   │  │ objectionContent, objectionPhotos[] │
+│ submittedAt, approvedAt      │  │ signature, expiredAt, createdAt     │
+│ approvedBy, remarks[]        │  │ seenValuationRemarks[] (初始为空)    │
+│ photos[]                     │  │ customerName, customerPhone          │
+│                              │  │ customerIdCard (可选)               │
+└──────────────┬───────────────┘  └─────────────────────────────────────┘
                │ 1:N
                ▼
 ┌──────────────────────────────┐
@@ -489,7 +490,7 @@ const Docs: NextPage = () => {
                   status: 'PENDING_CONFIRMATION',
                   urgency: 'NORMAL',
                   price: '¥9,500',
-                  desc: '估价9500元已审批通过，有待确认的估价备注（1条客户可见"连笔一起收"），线上预约客户',
+                  desc: '估价9500元已审批通过。已有1条线上方式的待确认记录（PENDING，created 10分钟前），seenValuationRemarks 初始为空（客户尚未查看备注）。1条客户可见备注："客户说因为换新款所以出，机器爱护得很好，底部磕碰是放包里钥匙蹭的，功能全好。" 另有2条内部备注（处理人员利润分析、店长提醒数据备份）',
                 },
                 {
                   no: '订单3',
@@ -674,13 +675,17 @@ const Docs: NextPage = () => {
             <h4 style={styles.subTitle}>路径1：正常确认流程（订单2 - MacBook Pro 14寸 M2）</h4>
             <div style={styles.testSteps}>
               <ol>
-                <li>以 <strong>前台</strong> 登录 → 工作台中找到王女士的MacBook订单</li>
-                <li>点击进入客户确认详情 → 看到估价9500元和1条客户可见备注</li>
-                <li>点击"发起客户确认" → 选择确认方式 → 状态变为 PENDING_CONFIRMATION</li>
-                <li>备注初始为"未查看"状态，点击"👁️ 客户已查看全部备注"</li>
+                <li>以 <strong>前台</strong> 登录 → 工作台中找到王女士的MacBook订单（状态 PENDING_CONFIRMATION）</li>
+                <li>点击进入客户确认详情 → 确认历史中已有1条 PENDING 状态的线上确认记录，自动被选中</li>
+                <li>看到关联估价v1（9500元）和1条客户可见备注，备注标记为"客户未查看"（seenValuationRemarks为空）</li>
+                <li>点击"👁️ 客户已查看全部备注" → 备注状态变为"客户已查看"，右侧确认按钮解锁</li>
                 <li>点击"客户确认接受价格" → 状态变为 CONFIRMED</li>
                 <li>点击"完成回收" → 状态变为 COMPLETED</li>
               </ol>
+              <p style={styles.testNote}>
+                💡 此路径验证：<strong>seenValuationRemarks 初始为空</strong>、<strong>客户确认时校验所有可见备注已查看</strong>、
+                <strong>备注查看状态持久化</strong> 三个责任追踪特性
+              </p>
             </div>
 
             <h4 style={styles.subTitle}>路径2：异议-重估流程（订单3 ⭐ 华为Mate 60 Pro - 推荐）</h4>
