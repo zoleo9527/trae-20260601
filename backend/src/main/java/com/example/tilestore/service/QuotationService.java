@@ -46,6 +46,10 @@ public class QuotationService {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
 
+        if (measurement.getDesignerId() == null) {
+            throw new BusinessException(ErrorCode.MEASUREMENT_STATUS_ERROR, "量房记录未分配设计师，无法创建报价单");
+        }
+
         if (!measurement.getDesignerId().equals(currentUser.getId()) && !"ADMIN".equals(currentUser.getRole())) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }

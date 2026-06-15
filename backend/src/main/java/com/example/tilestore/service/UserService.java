@@ -21,6 +21,8 @@ public class UserService {
     private final SysUserMapper sysUserMapper;
 
     public LoginResponse login(LoginRequest request) {
+        UserContext.clear();
+        
         SysUser user = sysUserMapper.findByUsername(request.getUsername());
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
@@ -31,7 +33,6 @@ public class UserService {
         if (user.getStatus() != 1) {
             throw new BusinessException(ErrorCode.USER_DISABLED);
         }
-        UserContext.setCurrentUser(user);
         
         String token = JwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
         

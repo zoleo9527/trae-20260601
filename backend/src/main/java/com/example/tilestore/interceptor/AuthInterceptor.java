@@ -1,6 +1,5 @@
 package com.example.tilestore.interceptor;
 
-import com.example.tilestore.common.ErrorCode;
 import com.example.tilestore.common.UserContext;
 import com.example.tilestore.entity.SysUser;
 import com.example.tilestore.mapper.SysUserMapper;
@@ -23,6 +22,8 @@ public class AuthInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        UserContext.clear();
+        
         String token = extractToken(request);
         
         if (token != null && !token.isEmpty()) {
