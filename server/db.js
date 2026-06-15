@@ -37,15 +37,34 @@ function generateOrderNo() {
   return prefix + '-' + (++orderIdCounter).toString().padStart(4, '0');
 }
 
-function getOrders({ status, role, urgent } = {}) {
+function getOrders({ status, role, urgent, hasIssues } = {}) {
   let filtered = [...orders];
   
   if (status) {
     filtered = filtered.filter(o => o.status === status);
   }
   
+  if (role) {
+    const roleStatusMap = {
+      'receptionist': ['pending_review', 'created'],
+      'designer': ['designing', 'revision_needed'],
+      'production': ['approved', 'printing'],
+      'quality': ['quality_check'],
+      'installer': ['ready_for_install', 'installing'],
+      'customer': ['pending_approval']
+    };
+    const allowedStatuses = roleStatusMap[role];
+    if (allowedStatuses) {
+      filtered = filtered.filter(o => allowedStatuses.includes(o.status));
+    }
+  }
+
   if (urgent === 'true') {
     filtered = filtered.filter(o => o.urgent);
+  }
+
+  if (hasIssues === 'true') {
+    filtered = filtered.filter(o => o.issues?.some(i => i.status === 'pending'));
   }
   
   return filtered.sort((a, b) => {
@@ -160,7 +179,50 @@ function addRevision(id, revisionData) {
     ...revisionData,
     timestamp: now
   });
-  
+
+  const after = revisionData.afterData || {};
+  const type = revisionData.type;
+
+  if (type === 'dimension') {
+    if (after.width !== undefined) order.width = Number(after.width);
+    if (after.height !== undefined) order.height = Number(after.height);
+    if (after.unit !== undefined) order.unit = after.unit;
+  }
+  if (type === 'color') {
+    if (after.color !== undefined || after.pantone !== undefined) {
+      if (after.color !== undefined) order.description += `\n[颜色更新] ${after.color}`;
+      if (after.pantone !== undefined) order.colorMode = after.pantone;
+    }
+  }
+
+  const issueTypeMap = {
+    'color': 'color',
+    'dimension': 'dimension',
+    'content': 'customer_revision',
+    'layout': 'design',
+    'typography': 'design',
+    'other': null
+  };
+  const matchedIssueType = issueTypeMap[type];
+  if (matchedIssueType) {
+    let resolved = 0;
+    for (const issue of order.issues) {
+      if (issue.status === 'pending' && issue.type === matchedIssueType) {
+        issue.status = 'resolved';
+        issue.resolvedAt = now;
+        resolved++;
+      }
+    }
+    if (resolved > 0) {
+      order.history.push({
+        status: 'issue_resolved',
+        operator: revisionData.operator,
+        remark: `改稿自动关闭 ${resolved} 个同类问题（${matchedIssueType}）`,
+        timestamp: now
+      });
+    }
+  }
+
   order.updatedAt = now;
   order.history.push({
     status: 'revision',

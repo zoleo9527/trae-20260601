@@ -35,9 +35,16 @@ export default function Dashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
+      const params: any = {};
+      if (currentUser?.role === 'receptionist') params.role = 'receptionist';
+      else if (currentUser?.role === 'designer') params.role = 'designer';
+      else if (currentUser?.role === 'installer') params.role = 'installer';
+      else if (currentUser?.role === 'production') params.role = 'production';
+      else if (currentUser?.role === 'quality') params.role = 'quality';
+
       const [statsData, ordersData] = await Promise.all([
         orderApi.getStatistics(),
-        orderApi.getOrders()
+        orderApi.getOrders(params)
       ]);
       setStats(statsData);
       setRecentOrders(ordersData.slice(0, 5));
@@ -54,14 +61,14 @@ export default function Dashboard() {
       value: stats.pendingReview + stats.designing + stats.revisionNeeded,
       icon: <FileTextOutlined style={{ color: '#1890ff' }} />,
       color: '#1890ff',
-      link: '/orders?view=receptionist'
+      link: '/orders?role=receptionist'
     },
     { 
       title: '待改稿', 
       value: stats.revisionNeeded,
       icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
       color: '#ff4d4f',
-      link: '/orders?view=revisions'
+      link: '/orders?role=designer'
     },
     { 
       title: '待客户确认', 
@@ -75,7 +82,7 @@ export default function Dashboard() {
       value: stats.readyForInstall + stats.installing,
       icon: <FireOutlined style={{ color: '#13c2c2' }} />,
       color: '#13c2c2',
-      link: '/orders?view=installer'
+      link: '/orders?role=installer'
     },
     { 
       title: '待处理问题', 
@@ -181,7 +188,7 @@ export default function Dashboard() {
                 hoverable 
                 onClick={() => navigate(card.link)}
                 style={{ cursor: 'pointer' }}
-                bodyStyle={{ padding: '20px 16px' }}
+                styles={{ body: { padding: '20px 16px' } }}
               >
                 <Space direction="vertical" size="small" style={{ width: '100%' }}>
                   <div style={{ fontSize: 24 }}>{card.icon}</div>
@@ -281,7 +288,7 @@ export default function Dashboard() {
                     type="warning"
                     showIcon
                     action={
-                      <Button size="small" type="primary" onClick={() => navigate('/orders?view=revisions')}>
+                      <Button size="small" type="primary" onClick={() => navigate('/orders?role=designer')}>
                         去改稿
                       </Button>
                     }
@@ -305,7 +312,7 @@ export default function Dashboard() {
                     type="info"
                     showIcon
                     action={
-                      <Button size="small" type="primary" onClick={() => navigate('/orders?view=installer')}>
+                      <Button size="small" type="primary" onClick={() => navigate('/orders?role=installer')}>
                         安排安装
                       </Button>
                     }

@@ -87,6 +87,7 @@ export default function OrderDetail() {
 
   const [revisionFile, setRevisionFile] = useState<File | null>(null);
   const [installPhotos, setInstallPhotos] = useState<File[]>([]);
+  const [revisionType, setRevisionType] = useState<string>('');
 
   useEffect(() => {
     loadOrder();
@@ -132,15 +133,38 @@ export default function OrderDetail() {
   const handleAddRevision = async (values: any) => {
     if (!order) return;
     try {
+      const type = values.type;
+      let beforeData: Record<string, any> = {};
+      let afterData: Record<string, any> = {};
+
+      if (type === 'dimension') {
+        beforeData = { width: values.beforeWidth ?? order.width, height: values.beforeHeight ?? order.height };
+        afterData = { width: values.afterWidth, height: values.afterHeight };
+        if (values.afterUnit) afterData.unit = values.afterUnit;
+      } else if (type === 'color') {
+        beforeData = { color: values.beforeColor || '', pantone: values.beforePantone || '' };
+        afterData = { color: values.afterColor || '', pantone: values.afterPantone || '' };
+      } else if (type === 'typography') {
+        beforeData = { font: values.beforeFont || '', content: values.beforeContent || '' };
+        afterData = { font: values.afterFont || '', content: values.afterContent || '' };
+      } else {
+        beforeData = { detail: values.beforeDetail || '' };
+        afterData = { detail: values.afterDetail || '' };
+      }
+
       await orderApi.addRevision(order.id, {
-        ...values,
+        type,
+        description: values.description,
         operator: currentUser?.name || '系统',
-        file: revisionFile || undefined
+        file: revisionFile || undefined,
+        beforeData,
+        afterData,
       });
       message.success('改稿记录已添加');
       setRevisionModalVisible(false);
       revisionForm.resetFields();
       setRevisionFile(null);
+      setRevisionType('');
       loadOrder();
       refreshStats();
     } catch (e) {
@@ -751,56 +775,136 @@ export default function OrderDetail() {
           setRevisionModalVisible(false);
           revisionForm.resetFields();
           setRevisionFile(null);
+          setRevisionType('');
         }}
         footer={null}
-        width={600}
+        width={650}
       >
         <Form form={revisionForm} layout="vertical" onFinish={handleAddRevision}>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Form.Item
-                name="type"
-                label="改稿类型"
-                rules={[{ required: true, message: '请选择改稿类型' }]}
-              >
-                <Select placeholder="请选择">
-                  {Object.entries(REVISION_TYPE_LABELS).map(([value, label]) => (
-                    <Option key={value} value={value}>{label}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-            </Col>
-            <Col xs={24}>
-              <Form.Item
-                name="description"
-                label="改稿说明"
-                rules={[{ required: true, message: '请输入改稿说明' }]}
-              >
-                <TextArea rows={2} placeholder="详细描述改稿内容..." />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            name="type"
+            label="改稿类型"
+            rules={[{ required: true, message: '请选择改稿类型' }]}
+          >
+            <Select
+              placeholder="请选择"
+              onChange={(v) => {
+                setRevisionType(v);
+                if (v === 'dimension' && order) {
+                  revisionForm.setFieldsValue({
+                    beforeWidth: order.width,
+                    beforeHeight: order.height,
+                  });
+                }
+              }}
+            >
+              {Object.entries(REVISION_TYPE_LABELS).map(([value, label]) => (
+                <Option key={value} value={value}>{label}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="description"
+            label="改稿说明"
+            rules={[{ required: true, message: '请输入改稿说明' }]}
+          >
+            <TextArea rows={2} placeholder="详细描述改稿内容..." />
+          </Form.Item>
+
           <Divider orientation="left">修改前后对比</Divider>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} sm={12}>
-              <Title level={5} style={{ margin: '0 0 8px' }}>修改前</Title>
-              <Form.Item name={['beforeData', 'key']} label="项目">
-                <Input placeholder="如：颜色、尺寸、字体" />
-              </Form.Item>
-              <Form.Item name={['beforeData', 'value']} label="原值">
-                <Input placeholder="修改前的值" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} sm={12}>
-              <Title level={5} style={{ margin: '0 0 8px' }}>修改后</Title>
-              <Form.Item name={['afterData', 'key']} label="项目">
-                <Input placeholder="如：颜色、尺寸、字体" />
-              </Form.Item>
-              <Form.Item name={['afterData', 'value']} label="新值">
-                <Input placeholder="修改后的值" />
-              </Form.Item>
-            </Col>
-          </Row>
+
+          {revisionType === 'dimension' && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改前</Title>
+                <Form.Item name="beforeWidth" label="宽度(cm)">
+                  <Input type="number" disabled />
+                </Form.Item>
+                <Form.Item name="beforeHeight" label="高度(cm)">
+                  <Input type="number" disabled />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改后</Title>
+                <Form.Item name="afterWidth" label="宽度(cm)" rules={[{ required: true, message: '请输入新宽度' }]}>
+                  <Input type="number" placeholder="新宽度" />
+                </Form.Item>
+                <Form.Item name="afterHeight" label="高度(cm)" rules={[{ required: true, message: '请输入新高度' }]}>
+                  <Input type="number" placeholder="新高度" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {revisionType === 'color' && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改前</Title>
+                <Form.Item name="beforeColor" label="颜色值">
+                  <Input placeholder="如：#1E40AF" />
+                </Form.Item>
+                <Form.Item name="beforePantone" label="PANTONE号">
+                  <Input placeholder="如：PANTONE 287C" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改后</Title>
+                <Form.Item name="afterColor" label="颜色值" rules={[{ required: true, message: '请输入新颜色' }]}>
+                  <Input placeholder="如：#1D3557" />
+                </Form.Item>
+                <Form.Item name="afterPantone" label="PANTONE号">
+                  <Input placeholder="如：PANTONE 286C" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {revisionType === 'typography' && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改前</Title>
+                <Form.Item name="beforeFont" label="字体">
+                  <Input placeholder="原字体" />
+                </Form.Item>
+                <Form.Item name="beforeContent" label="文案内容">
+                  <Input placeholder="原文案" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改后</Title>
+                <Form.Item name="afterFont" label="字体">
+                  <Input placeholder="新字体" />
+                </Form.Item>
+                <Form.Item name="afterContent" label="文案内容">
+                  <Input placeholder="新文案" />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {(revisionType === 'content' || revisionType === 'layout' || revisionType === 'other') && (
+            <Row gutter={[16, 16]}>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改前</Title>
+                <Form.Item name="beforeDetail" label="原内容">
+                  <TextArea rows={3} placeholder="描述修改前的内容..." />
+                </Form.Item>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Title level={5} style={{ margin: '0 0 8px' }}>修改后</Title>
+                <Form.Item name="afterDetail" label="新内容" rules={[{ required: true, message: '请输入修改后内容' }]}>
+                  <TextArea rows={3} placeholder="描述修改后的内容..." />
+                </Form.Item>
+              </Col>
+            </Row>
+          )}
+
+          {!revisionType && (
+            <div style={{ textAlign: 'center', color: '#999', padding: '20px 0' }}>
+              请先选择改稿类型
+            </div>
+          )}
+
           <Divider orientation="left">上传文件（可选）</Divider>
           <Upload
             beforeUpload={(file) => {
@@ -822,6 +926,7 @@ export default function OrderDetail() {
                 setRevisionModalVisible(false);
                 revisionForm.resetFields();
                 setRevisionFile(null);
+                setRevisionType('');
               }}>
                 取消
               </Button>

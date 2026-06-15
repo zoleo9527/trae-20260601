@@ -63,30 +63,50 @@ export default function OrderList() {
   });
 
   const view = searchParams.get('view');
+  const roleParam = searchParams.get('role');
+  const statusParam = searchParams.get('status');
+  const urgentParam = searchParams.get('urgent');
+  const hasIssuesParam = searchParams.get('hasIssues');
 
   useEffect(() => {
     loadOrders();
-  }, [view]);
+  }, [view, roleParam, statusParam, urgentParam, hasIssuesParam]);
 
   const loadOrders = async () => {
     setLoading(true);
     try {
       let params: any = {};
       
-      if (view === 'receptionist') {
+      if (roleParam) {
+        params.role = roleParam;
+      } else if (view === 'receptionist') {
         params.role = 'receptionist';
       } else if (view === 'designer') {
-        params.status = 'designing';
-      } else if (view === 'revisions') {
-        params.status = 'revision_needed';
+        params.role = 'designer';
       } else if (view === 'installer') {
-        params.status = 'ready_for_install';
+        params.role = 'installer';
       } else if (view === 'production') {
-        params.status = 'approved';
+        params.role = 'production';
       } else if (view === 'quality') {
-        params.status = 'quality_check';
+        params.role = 'quality';
       } else if (view === 'customer') {
         params.role = 'customer';
+      }
+
+      if (view === 'revisions') {
+        params.status = 'revision_needed';
+      }
+
+      if (statusParam) {
+        params.status = statusParam;
+      }
+
+      if (urgentParam === 'true') {
+        params.urgent = 'true';
+      }
+
+      if (hasIssuesParam === 'true') {
+        params.hasIssues = 'true';
       }
 
       const data = await orderApi.getOrders(params);

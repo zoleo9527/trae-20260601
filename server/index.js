@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import multer from 'multer';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
 import { 
@@ -20,16 +21,21 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
 const app = express();
 const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, 'uploads/');
+    cb(null, UPLOAD_DIR);
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + '-' + file.originalname);
@@ -39,8 +45,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.get('/api/orders', (req, res) => {
-  const { status, role, urgent } = req.query;
-  const orders = getOrders({ status, role, urgent });
+  const { status, role, urgent, hasIssues } = req.query;
+  const orders = getOrders({ status, role, urgent, hasIssues });
   res.json(orders);
 });
 

@@ -7,57 +7,123 @@
       "customerPhone": "13800138001",
       "businessType": "门店招牌",
       "title": "美味餐饮新店开业招牌",
-      "description": "客户提供的logo文件，要求做发光字招牌，安装在门店门头。客户强调要与总店颜色完全一致。",
+      "description": "客户提供的logo文件，要求做发光字招牌，安装在门店门头。客户强调要与总店颜色完全一致。\n[颜色更新] #1D3557",
       "width": 480,
       "height": 120,
       "unit": "cm",
       "quantity": 1,
       "material": "不锈钢包边发光字",
-      "colorMode": "CMYK",
-      "status": "revision_needed",
+      "colorMode": "PANTONE 286C",
+      "status": "completed",
       "urgent": true,
-      "expectedDelivery": "2026-06-15T08:21:27.095Z",
+      "expectedDelivery": "2026-06-15T08:44:45.933Z",
       "installAddress": "朝阳区建国路88号SOHO现代城底商",
-      "installTime": "2026-06-16T06:21:27.095Z",
-      "createdAt": "2026-06-15T01:21:27.095Z",
-      "updatedAt": "2026-06-15T04:51:27.095Z",
-      "currentHandler": "designer",
+      "installTime": "2026-06-16T06:44:45.933Z",
+      "createdAt": "2026-06-15T01:44:45.933Z",
+      "updatedAt": "2026-06-15T06:46:13.158Z",
+      "currentHandler": "installer",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "客户到店下单，急单，明天必须安装完成",
-          "timestamp": "2026-06-15T01:21:27.095Z"
+          "timestamp": "2026-06-15T01:44:45.933Z"
         },
         {
           "status": "pending_review",
           "operator": "张接单",
           "remark": "已录入系统，转设计师处理",
-          "timestamp": "2026-06-15T01:33:27.095Z"
+          "timestamp": "2026-06-15T01:56:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "开始设计，根据客户提供的logo制作效果图",
-          "timestamp": "2026-06-15T01:51:27.095Z"
+          "timestamp": "2026-06-15T02:14:45.933Z"
         },
         {
           "status": "pending_approval",
           "operator": "李设计",
           "remark": "第一稿完成，发送客户确认",
-          "timestamp": "2026-06-15T03:21:27.095Z"
+          "timestamp": "2026-06-15T03:44:45.933Z"
         },
         {
           "status": "customer_confirm",
           "operator": "王总(客户)",
           "remark": "客户要求改稿：logo颜色偏蓝，需要调整PANTONE 286C",
-          "timestamp": "2026-06-15T03:51:27.095Z"
+          "timestamp": "2026-06-15T04:14:45.933Z"
         },
         {
           "status": "revision_needed",
           "operator": "李设计",
           "remark": "颜色调整完成，等待二次确认。客户一直在打电话催！",
-          "timestamp": "2026-06-15T04:51:27.095Z"
+          "timestamp": "2026-06-15T05:14:45.933Z"
+        },
+        {
+          "status": "issue_resolved",
+          "operator": "李设计",
+          "remark": "改稿自动关闭 1 个同类问题（dimension）",
+          "timestamp": "2026-06-15T06:46:12.519Z"
+        },
+        {
+          "status": "revision",
+          "operator": "李设计",
+          "remark": "改稿: 修正尺寸",
+          "timestamp": "2026-06-15T06:46:12.519Z"
+        },
+        {
+          "status": "revision",
+          "operator": "李设计",
+          "remark": "改稿: 修正颜色",
+          "timestamp": "2026-06-15T06:46:12.663Z"
+        },
+        {
+          "status": "pending_approval",
+          "operator": "李设计",
+          "remark": "修正完成",
+          "timestamp": "2026-06-15T06:46:12.804Z"
+        },
+        {
+          "status": "customer_confirm",
+          "operator": "王总",
+          "remark": "客户确认通过",
+          "timestamp": "2026-06-15T06:46:12.939Z"
+        },
+        {
+          "status": "printing",
+          "operator": "张喷绘",
+          "remark": "开始喷绘",
+          "timestamp": "2026-06-15T06:46:13.082Z"
+        },
+        {
+          "status": "quality_check",
+          "operator": "张喷绘",
+          "remark": "喷绘完成",
+          "timestamp": "2026-06-15T06:46:13.096Z"
+        },
+        {
+          "status": "ready_for_install",
+          "operator": "刘质检",
+          "remark": "质检通过",
+          "timestamp": "2026-06-15T06:46:13.112Z"
+        },
+        {
+          "status": "installing",
+          "operator": "赵安装",
+          "remark": "开始安装",
+          "timestamp": "2026-06-15T06:46:13.127Z"
+        },
+        {
+          "status": "installation",
+          "operator": "赵安装",
+          "remark": "安装完成",
+          "timestamp": "2026-06-15T06:46:13.143Z"
+        },
+        {
+          "status": "completed",
+          "operator": "赵安装",
+          "remark": "完成",
+          "timestamp": "2026-06-15T06:46:13.158Z"
         }
       ],
       "revisions": [
@@ -75,16 +141,54 @@
             "color": "#1D3557",
             "pantone": "PANTONE 286C"
           },
-          "timestamp": "2026-06-15T04:21:27.095Z"
+          "timestamp": "2026-06-15T04:44:45.933Z"
+        },
+        {
+          "id": "R1781505972519",
+          "type": "dimension",
+          "description": "修正尺寸",
+          "operator": "李设计",
+          "fileUrl": null,
+          "beforeData": {
+            "width": 500,
+            "height": 120
+          },
+          "afterData": {
+            "width": 480,
+            "height": 120
+          },
+          "timestamp": "2026-06-15T06:46:12.519Z"
+        },
+        {
+          "id": "R1781505972663",
+          "type": "color",
+          "description": "修正颜色",
+          "operator": "李设计",
+          "fileUrl": null,
+          "beforeData": {
+            "color": "#1E40AF"
+          },
+          "afterData": {
+            "color": "#1D3557",
+            "pantone": "PANTONE 286C"
+          },
+          "timestamp": "2026-06-15T06:46:12.663Z"
         }
       ],
-      "installation": null,
+      "installation": {
+        "installTime": "2026-06-15T10:00:00.000Z",
+        "operator": "赵安装",
+        "remark": "安装完成",
+        "photos": [],
+        "issueReported": false,
+        "completedAt": "2026-06-15T06:46:13.143Z"
+      },
       "customerConfirmation": {
         "customerName": "王总",
-        "signature": "data:image/png;base64,iVBORw0KGgoAAAANS",
-        "confirmType": "revise",
-        "feedback": "logo颜色不对，总店是PANTONE 286C，你们做的偏蓝了。还有尺寸再确认一下，门头实际是4.8米，不是5米。",
-        "confirmedAt": "2026-06-15T03:51:27.095Z"
+        "signature": "data:image/png;base64,sign",
+        "confirmType": "approve",
+        "feedback": "OK",
+        "confirmedAt": "2026-06-15T06:46:12.939Z"
       },
       "issues": [
         {
@@ -92,15 +196,16 @@
           "type": "customer_revision",
           "description": "颜色偏差：客户要求PANTONE 286C，初稿用了287C",
           "status": "resolved",
-          "reportedAt": "2026-06-15T03:51:27.095Z",
-          "resolvedAt": "2026-06-15T04:51:27.095Z"
+          "reportedAt": "2026-06-15T04:14:45.933Z",
+          "resolvedAt": "2026-06-15T05:14:45.933Z"
         },
         {
           "id": "I002",
           "type": "dimension",
           "description": "尺寸疑问：客户提到门头实际4.8米，系统录入5米，需要复核",
-          "status": "pending",
-          "reportedAt": "2026-06-15T03:51:27.095Z"
+          "status": "resolved",
+          "reportedAt": "2026-06-15T04:14:45.933Z",
+          "resolvedAt": "2026-06-15T06:46:12.519Z"
         }
       ]
     },
@@ -120,36 +225,36 @@
       "colorMode": "CMYK",
       "status": "pending_approval",
       "urgent": false,
-      "expectedDelivery": "2026-06-17T06:21:27.095Z",
+      "expectedDelivery": "2026-06-17T06:44:45.933Z",
       "installAddress": "海淀区中关村大街1号科技园B座2层",
-      "installTime": "2026-06-18T06:21:27.095Z",
-      "createdAt": "2026-06-14T22:21:27.095Z",
-      "updatedAt": "2026-06-15T05:51:27.095Z",
+      "installTime": "2026-06-18T06:44:45.933Z",
+      "createdAt": "2026-06-14T22:44:45.933Z",
+      "updatedAt": "2026-06-15T06:14:45.933Z",
       "currentHandler": "customer",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "电话接单，客户发了参考图",
-          "timestamp": "2026-06-14T22:21:27.095Z"
+          "timestamp": "2026-06-14T22:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "字体设计中，客户要粗体、有力量感",
-          "timestamp": "2026-06-14T23:21:27.095Z"
+          "timestamp": "2026-06-14T23:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "字体从\"黑体\"改为\"超粗黑\"，字间距调整",
-          "timestamp": "2026-06-15T01:21:27.095Z"
+          "timestamp": "2026-06-15T01:44:45.933Z"
         },
         {
           "status": "pending_approval",
           "operator": "李设计",
           "remark": "第三稿完成，等待客户确认。客户对字体效果很满意",
-          "timestamp": "2026-06-15T05:51:27.095Z"
+          "timestamp": "2026-06-15T06:14:45.933Z"
         }
       ],
       "revisions": [
@@ -169,7 +274,7 @@
             "fontWeight": "900",
             "letterSpacing": "20px"
           },
-          "timestamp": "2026-06-15T01:21:27.095Z"
+          "timestamp": "2026-06-15T01:44:45.933Z"
         },
         {
           "id": "R003",
@@ -185,7 +290,7 @@
             "logoPosition": "top",
             "alignment": "center"
           },
-          "timestamp": "2026-06-15T04:21:27.095Z"
+          "timestamp": "2026-06-15T04:44:45.933Z"
         }
       ],
       "installation": null,
@@ -208,54 +313,54 @@
       "colorMode": "CMYK",
       "status": "ready_for_install",
       "urgent": true,
-      "expectedDelivery": "2026-06-15T07:21:27.095Z",
+      "expectedDelivery": "2026-06-15T07:44:45.933Z",
       "installAddress": "通州区新华大街阳光花园项目工地",
-      "installTime": "2026-06-15T12:21:27.095Z",
-      "createdAt": "2026-06-13T06:21:27.095Z",
-      "updatedAt": "2026-06-15T04:21:27.095Z",
+      "installTime": "2026-06-15T12:44:45.933Z",
+      "createdAt": "2026-06-13T06:44:45.933Z",
+      "updatedAt": "2026-06-15T04:44:45.933Z",
       "currentHandler": "installer",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "大客户订单，8块围挡，要求明天全部安装完成",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "设计中，注意拼接处图案对齐",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "pending_approval",
           "operator": "李设计",
           "remark": "效果图完成，发送客户",
-          "timestamp": "2026-06-13T18:21:27.095Z"
+          "timestamp": "2026-06-13T18:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "刘经理(客户)",
           "remark": "客户确认通过，可以喷绘",
-          "timestamp": "2026-06-14T06:21:27.095Z"
+          "timestamp": "2026-06-14T06:44:45.933Z"
         },
         {
           "status": "printing",
           "operator": "赵喷绘",
           "remark": "开始喷绘，注意色彩饱和度，地产品牌色要正",
-          "timestamp": "2026-06-14T06:21:27.095Z"
+          "timestamp": "2026-06-14T06:44:45.933Z"
         },
         {
           "status": "quality_check",
           "operator": "质检刘",
           "remark": "第3块发现轻微色差，已重喷。其余合格",
-          "timestamp": "2026-06-15T01:21:27.095Z"
+          "timestamp": "2026-06-15T01:44:45.933Z"
         },
         {
           "status": "ready_for_install",
           "operator": "质检刘",
           "remark": "全部合格，已通知安装队长王队长安排",
-          "timestamp": "2026-06-15T04:21:27.095Z"
+          "timestamp": "2026-06-15T04:44:45.933Z"
         }
       ],
       "revisions": [],
@@ -265,7 +370,7 @@
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "设计效果很好，就按这个来。注意喷绘颜色要和效果图一致。",
-        "confirmedAt": "2026-06-14T06:21:27.095Z"
+        "confirmedAt": "2026-06-14T06:44:45.933Z"
       },
       "issues": [
         {
@@ -273,8 +378,8 @@
           "type": "color",
           "description": "质检发现第3块喷绘有轻微色差，已安排重喷",
           "status": "resolved",
-          "reportedAt": "2026-06-15T01:21:27.095Z",
-          "resolvedAt": "2026-06-15T03:21:27.095Z"
+          "reportedAt": "2026-06-15T01:44:45.933Z",
+          "resolvedAt": "2026-06-15T03:44:45.933Z"
         }
       ]
     },
@@ -296,46 +401,46 @@
       "urgent": false,
       "expectedDelivery": "2026-06-15T15:59:59.999Z",
       "installAddress": "丰台区方庄路10号快乐超市各门店",
-      "installTime": "2026-06-15T05:21:27.095Z",
-      "createdAt": "2026-06-12T06:21:27.095Z",
-      "updatedAt": "2026-06-15T05:21:27.095Z",
+      "installTime": "2026-06-15T05:44:45.933Z",
+      "createdAt": "2026-06-12T06:44:45.933Z",
+      "updatedAt": "2026-06-15T05:44:45.933Z",
       "currentHandler": "installer",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "老客户，每年618都做，直接按去年模板改日期和价格",
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "修改价格和活动信息",
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "李店长(客户)",
           "remark": "客户确认，没问题",
-          "timestamp": "2026-06-12T18:21:27.095Z"
+          "timestamp": "2026-06-12T18:44:45.933Z"
         },
         {
           "status": "printing",
           "operator": "赵喷绘",
           "remark": "打印中，注意价格数字要清晰",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "ready_for_install",
           "operator": "质检刘",
           "remark": "质检通过，等待安装",
-          "timestamp": "2026-06-14T06:21:27.095Z"
+          "timestamp": "2026-06-14T06:44:45.933Z"
         },
         {
           "status": "installing",
           "operator": "王队长",
           "remark": "王队长出发，现场安装。客户说3号店的海报位置变了",
-          "timestamp": "2026-06-15T05:21:27.095Z"
+          "timestamp": "2026-06-15T05:44:45.933Z"
         }
       ],
       "revisions": [
@@ -351,7 +456,7 @@
           "afterData": {
             "promotion": "全场8折 + 满200减50"
           },
-          "timestamp": "2026-06-12T11:09:27.095Z"
+          "timestamp": "2026-06-12T11:32:45.933Z"
         }
       ],
       "installation": null,
@@ -360,7 +465,7 @@
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "没问题，记得覆膜，超市里容易沾油。",
-        "confirmedAt": "2026-06-12T18:21:27.095Z"
+        "confirmedAt": "2026-06-12T18:44:45.933Z"
       },
       "issues": [
         {
@@ -368,7 +473,7 @@
           "type": "installation",
           "description": "3号店海报位置变更，原定入口处改到收银台后方",
           "status": "pending",
-          "reportedAt": "2026-06-15T05:51:27.095Z"
+          "reportedAt": "2026-06-15T06:14:45.933Z"
         }
       ]
     },
@@ -388,66 +493,66 @@
       "colorMode": "CMYK",
       "status": "completed",
       "urgent": false,
-      "expectedDelivery": "2026-06-14T06:21:27.095Z",
+      "expectedDelivery": "2026-06-14T06:44:45.933Z",
       "installAddress": "东城区王府井大街100号星美KTV",
-      "installTime": "2026-06-14T06:21:27.095Z",
-      "createdAt": "2026-06-08T06:21:27.095Z",
-      "updatedAt": "2026-06-14T10:21:27.095Z",
+      "installTime": "2026-06-14T06:44:45.933Z",
+      "createdAt": "2026-06-08T06:44:45.933Z",
+      "updatedAt": "2026-06-14T10:44:45.933Z",
       "currentHandler": null,
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "装修公司介绍的客户，10幅装饰画",
-          "timestamp": "2026-06-08T06:21:27.095Z"
+          "timestamp": "2026-06-08T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "根据10个不同主题设计画面",
-          "timestamp": "2026-06-09T06:21:27.095Z"
+          "timestamp": "2026-06-09T06:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "第5幅太空主题，客户要求增加更多星云效果",
-          "timestamp": "2026-06-10T06:21:27.095Z"
+          "timestamp": "2026-06-10T06:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "第8幅复古主题，颜色太暗，调亮增加对比度",
-          "timestamp": "2026-06-11T06:21:27.095Z"
+          "timestamp": "2026-06-11T06:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "陈总(客户)",
           "remark": "客户全部确认通过",
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "status": "printing",
           "operator": "赵喷绘",
           "remark": "高清相纸打印中",
-          "timestamp": "2026-06-12T18:21:27.095Z"
+          "timestamp": "2026-06-12T18:44:45.933Z"
         },
         {
           "status": "ready_for_install",
           "operator": "质检刘",
           "remark": "装框完成，等待安装",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "installing",
           "operator": "王队长",
           "remark": "现场安装",
-          "timestamp": "2026-06-13T18:21:27.095Z"
+          "timestamp": "2026-06-13T18:44:45.933Z"
         },
         {
           "status": "completed",
           "operator": "王队长",
           "remark": "安装完成，客户非常满意，说要介绍朋友",
-          "timestamp": "2026-06-14T10:21:27.095Z"
+          "timestamp": "2026-06-14T10:44:45.933Z"
         }
       ],
       "revisions": [
@@ -465,7 +570,7 @@
             "theme": "space",
             "effects": "stars + nebula + galaxy"
           },
-          "timestamp": "2026-06-10T06:21:27.095Z"
+          "timestamp": "2026-06-10T06:44:45.933Z"
         },
         {
           "id": "R006",
@@ -481,23 +586,23 @@
             "brightness": 110,
             "contrast": 120
           },
-          "timestamp": "2026-06-11T06:21:27.095Z"
+          "timestamp": "2026-06-11T06:44:45.933Z"
         }
       ],
       "installation": {
-        "installTime": "2026-06-13T18:21:27.095Z",
+        "installTime": "2026-06-13T18:44:45.933Z",
         "operator": "王队长",
         "remark": "安装顺利，客户对效果非常满意。所有画面位置都按客户要求调整过。",
         "photos": [],
         "issueReported": false,
-        "completedAt": "2026-06-14T10:21:27.095Z"
+        "completedAt": "2026-06-14T10:44:45.933Z"
       },
       "customerConfirmation": {
         "customerName": "陈总",
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "设计很有品味，每幅都很喜欢。安装师傅也很专业。",
-        "confirmedAt": "2026-06-12T06:21:27.095Z"
+        "confirmedAt": "2026-06-12T06:44:45.933Z"
       },
       "issues": []
     },
@@ -517,24 +622,24 @@
       "colorMode": "CMYK",
       "status": "designing",
       "urgent": false,
-      "expectedDelivery": "2026-06-20T06:21:27.095Z",
+      "expectedDelivery": "2026-06-20T06:44:45.933Z",
       "installAddress": "西城区金融街20号科技大厦15层",
-      "installTime": "2026-06-22T06:21:27.095Z",
-      "createdAt": "2026-06-15T03:21:27.095Z",
-      "updatedAt": "2026-06-15T05:21:27.095Z",
+      "installTime": "2026-06-22T06:44:45.933Z",
+      "createdAt": "2026-06-15T03:44:45.933Z",
+      "updatedAt": "2026-06-15T05:44:45.933Z",
       "currentHandler": "designer",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "新客户，需要设计文化墙。提供了一些老照片",
-          "timestamp": "2026-06-15T03:21:27.095Z"
+          "timestamp": "2026-06-15T03:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "正在整理照片，设计时间轴布局。照片质量参差不齐，需要修复",
-          "timestamp": "2026-06-15T05:21:27.095Z"
+          "timestamp": "2026-06-15T05:44:45.933Z"
         }
       ],
       "revisions": [],
@@ -546,7 +651,7 @@
           "type": "design",
           "description": "客户提供的老照片分辨率低，部分需要重新绘制或找替代图",
           "status": "pending",
-          "reportedAt": "2026-06-15T05:21:27.095Z"
+          "reportedAt": "2026-06-15T05:44:45.933Z"
         }
       ]
     },
@@ -566,18 +671,18 @@
       "colorMode": "CMYK",
       "status": "pending_review",
       "urgent": true,
-      "expectedDelivery": "2026-06-15T18:21:27.095Z",
+      "expectedDelivery": "2026-06-15T18:44:45.933Z",
       "installAddress": "全市5家门店",
-      "installTime": "2026-06-16T06:21:27.095Z",
-      "createdAt": "2026-06-15T04:21:27.095Z",
-      "updatedAt": "2026-06-15T04:21:27.095Z",
+      "installTime": "2026-06-16T06:44:45.933Z",
+      "createdAt": "2026-06-15T04:44:45.933Z",
+      "updatedAt": "2026-06-15T04:44:45.933Z",
       "currentHandler": "receptionist",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "老客户急单！新品明天上市，今天必须做好",
-          "timestamp": "2026-06-15T04:21:27.095Z"
+          "timestamp": "2026-06-15T04:44:45.933Z"
         }
       ],
       "revisions": [],
@@ -601,36 +706,36 @@
       "colorMode": "CMYK",
       "status": "approved",
       "urgent": false,
-      "expectedDelivery": "2026-06-18T06:21:27.095Z",
+      "expectedDelivery": "2026-06-18T06:44:45.933Z",
       "installAddress": "昌平区回龙观大街50号教育培训中心",
       "installTime": null,
-      "createdAt": "2026-06-11T06:21:27.095Z",
-      "updatedAt": "2026-06-15T00:21:27.095Z",
+      "createdAt": "2026-06-11T06:44:45.933Z",
+      "updatedAt": "2026-06-15T00:44:45.933Z",
       "currentHandler": "production",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "全套招生物料，量比较大",
-          "timestamp": "2026-06-11T06:21:27.095Z"
+          "timestamp": "2026-06-11T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "设计中，突出优惠力度和师资力量",
-          "timestamp": "2026-06-11T18:21:27.095Z"
+          "timestamp": "2026-06-11T18:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "客户要求增加\"前50名报名立减500\"字样",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "王老师(客户)",
           "remark": "确认通过，可以印刷",
-          "timestamp": "2026-06-15T00:21:27.095Z"
+          "timestamp": "2026-06-15T00:44:45.933Z"
         }
       ],
       "revisions": [
@@ -646,7 +751,7 @@
           "afterData": {
             "promotion": "原价2999，现价1999，前50名再减500！"
           },
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         }
       ],
       "installation": null,
@@ -655,7 +760,7 @@
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "设计很吸引人，优惠信息突出。印刷质量要好，这是给家长看的。",
-        "confirmedAt": "2026-06-15T00:21:27.095Z"
+        "confirmedAt": "2026-06-15T00:44:45.933Z"
       },
       "issues": []
     },
@@ -675,48 +780,48 @@
       "colorMode": "CMYK",
       "status": "quality_check",
       "urgent": true,
-      "expectedDelivery": "2026-06-15T10:21:27.095Z",
+      "expectedDelivery": "2026-06-15T10:44:45.933Z",
       "installAddress": "顺义区天竺镇汽车城A区1号",
-      "installTime": "2026-06-15T14:21:27.095Z",
-      "createdAt": "2026-06-12T06:21:27.095Z",
-      "updatedAt": "2026-06-15T03:51:27.095Z",
+      "installTime": "2026-06-15T14:44:45.933Z",
+      "createdAt": "2026-06-12T06:44:45.933Z",
+      "updatedAt": "2026-06-15T04:14:45.933Z",
       "currentHandler": "quality",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "重要客户！新车发布会，下周三举行",
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "科技感设计，深色背景配霓虹灯效果",
-          "timestamp": "2026-06-12T18:21:27.095Z"
+          "timestamp": "2026-06-12T18:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "logo放大，车型图更突出",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "张经理(客户)",
           "remark": "通过，效果很棒",
-          "timestamp": "2026-06-14T06:21:27.095Z"
+          "timestamp": "2026-06-14T06:44:45.933Z"
         },
         {
           "status": "printing",
           "operator": "赵喷绘",
           "remark": "大面积喷绘中，注意拼接处对齐",
-          "timestamp": "2026-06-14T22:21:27.095Z"
+          "timestamp": "2026-06-14T22:44:45.933Z"
         },
         {
           "status": "quality_check",
           "operator": "质检刘",
           "remark": "正在质检。发现右下角有一处轻微划痕，正在评估是否重喷",
-          "timestamp": "2026-06-15T03:51:27.095Z"
+          "timestamp": "2026-06-15T04:14:45.933Z"
         }
       ],
       "revisions": [
@@ -734,7 +839,7 @@
             "logoSize": "260px",
             "carImagePosition": "center"
           },
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         }
       ],
       "installation": null,
@@ -743,7 +848,7 @@
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "设计非常有科技感，符合我们品牌调性。喷绘一定要保证质量！",
-        "confirmedAt": "2026-06-14T06:21:27.095Z"
+        "confirmedAt": "2026-06-14T06:44:45.933Z"
       },
       "issues": [
         {
@@ -751,7 +856,7 @@
           "type": "quality",
           "description": "喷绘右下角有轻微划痕，位置在车标附近，需评估是否重喷",
           "status": "pending",
-          "reportedAt": "2026-06-15T03:51:27.095Z"
+          "reportedAt": "2026-06-15T04:14:45.933Z"
         }
       ]
     },
@@ -771,48 +876,48 @@
       "colorMode": "CMYK",
       "status": "printing",
       "urgent": true,
-      "expectedDelivery": "2026-06-15T14:21:27.095Z",
+      "expectedDelivery": "2026-06-15T14:44:45.933Z",
       "installAddress": "朝阳区朝阳公园路8号婚礼会所",
-      "installTime": "2026-06-16T18:21:27.095Z",
-      "createdAt": "2026-06-10T06:21:27.095Z",
-      "updatedAt": "2026-06-15T03:21:27.095Z",
+      "installTime": "2026-06-16T18:44:45.933Z",
+      "createdAt": "2026-06-10T06:44:45.933Z",
+      "updatedAt": "2026-06-15T03:44:45.933Z",
       "currentHandler": "production",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "婚礼订单，周六要用，时间紧",
-          "timestamp": "2026-06-10T06:21:27.095Z"
+          "timestamp": "2026-06-10T06:44:45.933Z"
         },
         {
           "status": "designing",
           "operator": "李设计",
           "remark": "紫色浪漫主题，配合新人婚纱照",
-          "timestamp": "2026-06-11T06:21:27.095Z"
+          "timestamp": "2026-06-11T06:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "新娘要求紫色再浅一点，不要太深",
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "status": "revision",
           "operator": "李设计",
           "remark": "增加花艺装饰元素，字体改为花体",
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         },
         {
           "status": "approved",
           "operator": "李小姐(客户)",
           "remark": "新娘非常满意，说就是她想要的感觉",
-          "timestamp": "2026-06-14T06:21:27.095Z"
+          "timestamp": "2026-06-14T06:44:45.933Z"
         },
         {
           "status": "printing",
           "operator": "赵喷绘",
           "remark": "正在喷绘，注意紫色一定要正，不能偏色",
-          "timestamp": "2026-06-15T03:21:27.095Z"
+          "timestamp": "2026-06-15T03:44:45.933Z"
         }
       ],
       "revisions": [
@@ -830,7 +935,7 @@
             "primaryColor": "#A855F7",
             "secondaryColor": "#C084FC"
           },
-          "timestamp": "2026-06-12T06:21:27.095Z"
+          "timestamp": "2026-06-12T06:44:45.933Z"
         },
         {
           "id": "R010",
@@ -846,7 +951,7 @@
             "fontFamily": "花体",
             "decorations": "floral borders"
           },
-          "timestamp": "2026-06-13T06:21:27.095Z"
+          "timestamp": "2026-06-13T06:44:45.933Z"
         }
       ],
       "installation": null,
@@ -855,7 +960,7 @@
         "signature": "data:image/png;base64,xxx",
         "confirmType": "approve",
         "feedback": "太漂亮了！就是我梦想中的婚礼风格。你们设计太棒了！",
-        "confirmedAt": "2026-06-14T06:21:27.095Z"
+        "confirmedAt": "2026-06-14T06:44:45.933Z"
       },
       "issues": []
     },
@@ -875,18 +980,18 @@
       "colorMode": "CMYK",
       "status": "pending_review",
       "urgent": false,
-      "expectedDelivery": "2026-06-25T06:21:27.095Z",
+      "expectedDelivery": "2026-06-25T06:44:45.933Z",
       "installAddress": "东城区簋街美食街",
-      "installTime": "2026-06-27T06:21:27.095Z",
-      "createdAt": "2026-06-15T05:51:27.095Z",
-      "updatedAt": "2026-06-15T05:51:27.095Z",
+      "installTime": "2026-06-27T06:44:45.933Z",
+      "createdAt": "2026-06-15T06:14:45.933Z",
+      "updatedAt": "2026-06-15T06:14:45.933Z",
       "currentHandler": "receptionist",
       "history": [
         {
           "status": "created",
           "operator": "张接单",
           "remark": "大项目，整套导视系统，需要现场测量尺寸",
-          "timestamp": "2026-06-15T05:51:27.095Z"
+          "timestamp": "2026-06-15T06:14:45.933Z"
         }
       ],
       "revisions": [],
@@ -898,7 +1003,7 @@
           "type": "dimension",
           "description": "需要安排设计师现场测量各安装位置的精确尺寸",
           "status": "pending",
-          "reportedAt": "2026-06-15T05:51:27.095Z"
+          "reportedAt": "2026-06-15T06:14:45.933Z"
         }
       ]
     }

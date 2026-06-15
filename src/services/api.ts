@@ -3,12 +3,21 @@ import type { Order, Statistics } from '../types';
 const API_BASE = '/api';
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const isFormData = options?.body instanceof FormData;
+  const headers: Record<string, string> = {};
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (options?.headers) {
+    Object.assign(headers, options.headers as Record<string, string>);
+    if (isFormData) {
+      delete headers['Content-Type'];
+    }
+  }
+  
   const response = await fetch(`${API_BASE}${url}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
   
   if (!response.ok) {
@@ -19,7 +28,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const orderApi = {
-  getOrders: (params?: { status?: string; role?: string; urgent?: string }) => {
+  getOrders: (params?: { status?: string; role?: string; urgent?: string; hasIssues?: string }) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return request<Order[]>(`/orders${query}`);
   },
@@ -70,7 +79,6 @@ export const orderApi = {
     return request<Order>(`/orders/${id}/revisions`, {
       method: 'POST',
       body: formData,
-      headers: {},
     });
   },
 
@@ -93,7 +101,6 @@ export const orderApi = {
     return request<Order>(`/orders/${id}/installation`, {
       method: 'POST',
       body: formData,
-      headers: {},
     });
   },
 

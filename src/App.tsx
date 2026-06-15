@@ -220,24 +220,24 @@ function AppSider({ currentUser, collapsed, setCollapsed }: {
 
     const roleItems: Record<UserRole, any[]> = {
       receptionist: [
-        { key: '/orders?view=receptionist', icon: <FileTextOutlined />, label: '订单管理' },
+        { key: '/orders?role=receptionist', icon: <FileTextOutlined />, label: '订单管理' },
         { key: '/orders/create', icon: <EditOutlined />, label: '录入订单' },
       ],
       designer: [
-        { key: '/orders?view=designer', icon: <EditOutlined />, label: '设计改稿' },
+        { key: '/orders?role=designer', icon: <EditOutlined />, label: '设计改稿' },
         { key: '/orders?view=revisions', icon: <ToolOutlined />, label: '待改稿' },
       ],
       installer: [
-        { key: '/orders?view=installer', icon: <ToolOutlined />, label: '安装任务' },
+        { key: '/orders?role=installer', icon: <ToolOutlined />, label: '安装任务' },
       ],
       production: [
-        { key: '/orders?view=production', icon: <FileTextOutlined />, label: '喷绘任务' },
+        { key: '/orders?role=production', icon: <FileTextOutlined />, label: '喷绘任务' },
       ],
       quality: [
-        { key: '/orders?view=quality', icon: <FileTextOutlined />, label: '质检任务' },
+        { key: '/orders?role=quality', icon: <FileTextOutlined />, label: '质检任务' },
       ],
       customer: [
-        { key: '/orders?view=customer', icon: <FileTextOutlined />, label: '我的订单' },
+        { key: '/orders?role=customer', icon: <FileTextOutlined />, label: '我的订单' },
       ],
       admin: [
         { key: '/orders', icon: <FileTextOutlined />, label: '全部订单' },

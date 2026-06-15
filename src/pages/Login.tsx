@@ -66,7 +66,7 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     border: `2px solid ${item.color}20`,
                     transition: 'all 0.3s'
                   }}
-                  bodyStyle={{ padding: '24px 16px' }}
+                  styles={{ body: { padding: '24px 16px' } }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.transform = 'translateY(-4px)';
                     e.currentTarget.style.boxShadow = `0 8px 16px ${item.color}30`;
