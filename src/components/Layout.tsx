@@ -20,18 +20,18 @@ interface LayoutProps {
 const roles: UserRole[] = ['客服', '工程师', '配件管理员'];
 
 export const Layout = ({ children }: LayoutProps) => {
-  const { currentRole, currentUser, orders, setCurrentRole, handleImportFile: importFileFromStore, resetToMock, getVisibleOrders } =
+  const { currentRole, currentUser, setCurrentRole, handleImportFile: importFileFromStore, resetToMock, getVisibleOrders } =
     useOrderStore();
   const [showRoleDropdown, setShowRoleDropdown] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
 
   const handleExportExcel = () => {
-    exportToExcel(orders);
+    exportToExcel(getVisibleOrders());
     setShowExportMenu(false);
   };
 
   const handleExportJSON = () => {
-    exportToJSON(orders);
+    exportToJSON(getVisibleOrders());
     setShowExportMenu(false);
   };
 
