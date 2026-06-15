@@ -97,7 +97,7 @@ export function ProcessTimeline({ records }: ProcessTimelineProps) {
                       {record.statusBefore === 'quality_check' ? '质检中' :
                        record.statusBefore === 'pass' ? '已通过' :
                        record.statusBefore === 'fail' ? '未通过' :
-                       record.statusBefore === 'pending' ? '待检查' :
+                       record.statusBefore === 'pending' ? '进行中' :
                        record.statusBefore === 'packaging' ? '打包中' :
                        record.statusBefore === 'ready' ? '待发货' :
                        record.statusBefore === 'shipped' ? '已发货' :
@@ -110,7 +110,7 @@ export function ProcessTimeline({ records }: ProcessTimelineProps) {
                       {record.statusAfter === 'quality_check' ? '质检中' :
                        record.statusAfter === 'pass' ? '已通过' :
                        record.statusAfter === 'fail' ? '未通过' :
-                       record.statusAfter === 'pending' ? '待检查' :
+                       record.statusAfter === 'pending' ? '进行中' :
                        record.statusAfter === 'packaging' ? '打包中' :
                        record.statusAfter === 'ready' ? '待发货' :
                        record.statusAfter === 'shipped' ? '已发货' :

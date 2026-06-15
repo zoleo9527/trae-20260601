@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquare, XSquare, Clock, FileText, AlertTriangle, ChevronRight, Search, Filter, Edit2, Save, Eye, History } from 'lucide-react';
+import { CheckSquare, XSquare, Clock, FileText, AlertTriangle, ChevronRight, Search, Filter, Edit2, Save, Eye, History, Cancel } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { QualityInspection as QualityInspectionType } from '../types';
 import { ProcessTimeline } from '../components/ProcessTimeline';
@@ -11,6 +11,8 @@ export default function QualityInspection() {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingRemark, setEditingRemark] = useState<string | null>(null);
   const [remarkValue, setRemarkValue] = useState('');
+  const [editingConclusion, setEditingConclusion] = useState(false);
+  const [conclusionValue, setConclusionValue] = useState('');
 
   const ordersForQuality = orders.filter(o => o.status === 'quality_check' || o.status === 'completed');
   const filteredOrders = ordersForQuality.filter(order => {
@@ -33,6 +35,25 @@ export default function QualityInspection() {
   const startEditRemark = (itemId: string, currentRemark: string) => {
     setEditingRemark(itemId);
     setRemarkValue(currentRemark);
+  };
+
+  const startEditConclusion = () => {
+    if (selectedInspection) {
+      setConclusionValue(selectedInspection.remarks);
+      setEditingConclusion(true);
+    }
+  };
+
+  const saveConclusion = () => {
+    if (selectedInspection) {
+      updateQualityInspection(selectedInspection.id, { remarks: conclusionValue });
+      setEditingConclusion(false);
+    }
+  };
+
+  const cancelEditConclusion = () => {
+    setEditingConclusion(false);
+    setConclusionValue('');
   };
 
   const saveRemark = (inspectionId: string, itemId: string) => {
@@ -296,13 +317,48 @@ export default function QualityInspection() {
                     {selectedInspection.overallResult === 'pending' && '进行中'}
                   </span>
                 </div>
-                <textarea
-                  value={selectedInspection.remarks}
-                  onChange={(e) => updateQualityInspection(selectedInspection.id, { remarks: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                  rows={3}
-                  placeholder="输入质检备注..."
-                />
+                
+                {editingConclusion ? (
+                  <div className="space-y-3">
+                    <textarea
+                      value={conclusionValue}
+                      onChange={(e) => setConclusionValue(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      rows={3}
+                      placeholder="输入质检结论..."
+                      autoFocus
+                    />
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={cancelEditConclusion}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        <Cancel className="w-4 h-4" />
+                        取消
+                      </button>
+                      <button
+                        onClick={saveConclusion}
+                        className="flex items-center gap-1 px-3 py-1.5 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                      >
+                        <Save className="w-4 h-4" />
+                        保存结论
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3 min-h-[60px]">
+                      {selectedInspection.remarks || '暂无质检结论'}
+                    </p>
+                    <button
+                      onClick={startEditConclusion}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      编辑结论
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="mt-4 pt-4 border-t border-gray-100">
