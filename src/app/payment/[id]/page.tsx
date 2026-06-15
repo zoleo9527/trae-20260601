@@ -35,6 +35,7 @@ interface PayOrder {
   latestHandler: { name: string; role: string } | null;
   latestProcessTime: string | null;
   returnReason: string | null;
+  currentPaymentId?: string;
 }
 
 // 此页有两种路由：
@@ -63,20 +64,18 @@ function PaymentInner() {
   useEffect(() => {
     if (!user || !params.id) return;
     setLoading(true);
-    // 先尝试当 payment id 查（通过 /api/orders 的列表无法直接取 payment）
+    setError("");
     fetch(`/api/orders/${params.id}`, { headers: authHeaders(user.token) })
       .then((r) => {
-        if (!r.ok) throw new Error("not found");
+        if (!r.ok) throw new Error("not found as order");
         return r.json();
       })
       .then((d) => {
-        // 作为订单查到了
         setOrder(d);
         setPayeeName(d.customerName);
         if (d.status === "BARGAIN_APPROVED") {
           setMode("submit");
         } else if (d.status === "PAYMENT_RETURNED" && d.payments?.[0]) {
-          // 打款被退回，检测师重新编辑提交
           const lastPay = d.payments[0];
           setPayment(lastPay);
           setReturnRemark(lastPay.reviewRemark || null);
@@ -86,33 +85,29 @@ function PaymentInner() {
           setSubmitRemark(lastPay.submitRemark || "");
           setMode("resubmit");
         } else if (d.payments?.[0]) {
-          // 是订单，但已有 payment，跳转到 payment 详情
           setPayment(d.payments[0]);
+          setReturnRemark(d.returnReason || null);
           setMode("review");
         }
       })
       .catch(() => {
-        // 可能传入的是 payment id —— 通过 orders/_all 来找
-        fetch(`/api/orders`, { headers: authHeaders(user.token) })
-          .then((r) => r.json())
-          .then(({ orders }) => {
-            for (const o of orders) {
-              const p = o.payments?.find((x: any) => x.id === params.id);
-              if (p) {
-                setOrder(o);
-                setPayment(p);
-                setMode("review");
-                return;
-              }
-            }
-            throw new Error("未找到相关单据");
+        fetch(`/api/payments/${params.id}`, { headers: authHeaders(user.token) })
+          .then((r) => {
+            if (!r.ok) throw new Error("打款申请不存在");
+            return r.json();
+          })
+          .then((d) => {
+            setOrder(d);
+            const currentPay = d.payments.find((p: any) => p.id === d.currentPaymentId) || d.payments[0];
+            setPayment(currentPay);
+            setReturnRemark(d.returnReason || null);
+            setMode("review");
           })
           .catch((e) => setError(e.message))
           .finally(() => setLoading(false));
         return;
       })
       .finally(() => {
-        // 如果前面 throw 了这个会重复，但是设置 loading 没问题
         setTimeout(() => setLoading(false), 0);
       });
   }, [user, params.id]);
@@ -249,6 +244,25 @@ function PaymentInner() {
             <div className="text-xs text-slate-400 mb-1">申请次数</div>
             <div className="font-semibold text-slate-700">
               共 {order.payments.length} 次
+            </div>
+          </div>
+        </div>
+      )}
+
+      {order.returnReason && order.status !== "PAYMENT_RETURNED" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-2">
+            <div className="text-amber-500 mt-0.5">⚠</div>
+            <div>
+              <div className="text-sm font-medium text-amber-800">
+                {order.status === "PAYMENT_PAID" ? "历史退回原因（已完成打款）" : "最近一次退回原因"}
+              </div>
+              <div className="text-sm text-amber-700 mt-1">{order.returnReason}</div>
+              {order.status === "PAYMENT_REQUESTED" && (
+                <div className="text-xs text-amber-600 mt-1">
+                  当前为重提后的打款申请，请注意核对以上问题是否已修正
+                </div>
+              )}
             </div>
           </div>
         </div>

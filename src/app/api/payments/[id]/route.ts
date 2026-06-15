@@ -5,34 +5,43 @@ import { parseAuth } from "@/lib/auth";
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     parseAuth(req);
-    const order = await prisma.recycleOrder.findUnique({
+
+    const payment = await prisma.paymentRequest.findUnique({
       where: { id: params.id },
       include: {
-        receiver: { select: { id: true, name: true, role: true } },
-        detecter: { select: { id: true, name: true, role: true } },
-        bargains: {
-          orderBy: { createdAt: "desc" },
-          include: { operator: { select: { id: true, name: true, role: true } } },
-        },
-        payments: {
-          orderBy: { createdAt: "desc" },
-          include: { finance: { select: { id: true, name: true, role: true } } },
-        },
-        logs: {
-          orderBy: { createdAt: "asc" },
-          include: { operator: { select: { id: true, name: true, role: true } } },
+        finance: { select: { id: true, name: true, role: true } },
+        order: {
+          include: {
+            receiver: { select: { id: true, name: true, role: true } },
+            detecter: { select: { id: true, name: true, role: true } },
+            bargains: {
+              orderBy: { createdAt: "desc" },
+              include: { operator: { select: { id: true, name: true, role: true } } },
+            },
+            payments: {
+              orderBy: { createdAt: "desc" },
+              include: { finance: { select: { id: true, name: true, role: true } } },
+            },
+            logs: {
+              orderBy: { createdAt: "asc" },
+              include: { operator: { select: { id: true, name: true, role: true } } },
+            },
+          },
         },
       },
     });
-    if (!order) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+    if (!payment) {
+      return NextResponse.json({ error: "打款申请不存在" }, { status: 404 });
+    }
+
+    const order = payment.order;
     const payments = order.payments || [];
     const lastPay = payments[0];
     const resubmitCount = Math.max(0, payments.length - 1);
 
     let latestHandler: { name: string; role: string } | null = null;
     let latestProcessTime: string | null = null;
-    let returnReason: string | null = null;
 
     if (lastPay) {
       if (lastPay.paidAt || lastPay.reviewRemark) {
@@ -42,18 +51,14 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         latestHandler = order.detecter ? { name: order.detecter.name, role: order.detecter.role } : null;
         latestProcessTime = lastPay.createdAt.toISOString();
       }
-      if (order.status === "PAYMENT_RETURNED" && lastPay.reviewRemark) {
-        returnReason = lastPay.reviewRemark;
-      } else {
-        const returnedPayment = payments.find((p) => p.reviewRemark && !p.paidAt);
-        if (returnedPayment) {
-          returnReason = returnedPayment.reviewRemark;
-        }
-      }
     }
+
+    const returnedPayment = payments.find((p) => p.reviewRemark && !p.paidAt);
+    const returnReason = returnedPayment ? returnedPayment.reviewRemark : null;
 
     const enriched = {
       ...order,
+      currentPaymentId: payment.id,
       resubmitCount,
       latestHandler,
       latestProcessTime,

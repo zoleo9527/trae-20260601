@@ -54,6 +54,11 @@ export async function GET(req: NextRequest) {
         }
         if (o.status === "PAYMENT_RETURNED" && lastPay.reviewRemark) {
           returnReason = lastPay.reviewRemark;
+        } else {
+          const returnedPayment = payments.find((p) => p.reviewRemark && !p.paidAt);
+          if (returnedPayment) {
+            returnReason = returnedPayment.reviewRemark;
+          }
         }
       }
 
