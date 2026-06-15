@@ -217,6 +217,19 @@ for (let i = 0; i < 10; i++) {
   if (i < 2) {
     status = 'incomplete'
     incompleteReason = i === 0 ? '家政员临时请假，无法完成服务' : '客户临时取消加项服务'
+    currentHandler = {
+      role: 'quality_supervisor',
+      name: '陈主管',
+      id: 'user-5',
+    }
+    history.push({
+      id: generateId(),
+      action: '质检主管批准',
+      operatorId: 'user-5',
+      operatorName: '陈主管',
+      operatorRole: 'quality_supervisor',
+      timestamp: formatDate(new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000)),
+    })
     history.push({
       id: generateId(),
       action: '标记为未完成',

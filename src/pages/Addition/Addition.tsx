@@ -290,24 +290,24 @@ export function Addition() {
               </div>
             </div>
             
-            {selectedAddition.currentHandler && (
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">当前处理人</h3>
+            <div>
+                <h3 className="font-semibold text-gray-900 mb-2">责任人</h3>
                 <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
                   <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAddition.currentHandler.id}`}
-                    alt={selectedAddition.currentHandler.name}
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAddition.currentHandler?.id || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorId : selectedAddition.housekeeperId)}`}
+                    alt={selectedAddition.currentHandler?.name || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorName : selectedAddition.housekeeperName)}
                     className="w-10 h-10 rounded-full"
                   />
                   <div>
-                    <p className="font-medium">{selectedAddition.currentHandler.name}</p>
+                    <p className="font-medium">{selectedAddition.currentHandler?.name || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorName : selectedAddition.housekeeperName) || '待分配'}</p>
                     <p className="text-sm text-gray-500">
-                      {selectedAddition.currentHandler.role === 'housekeeper' ? '家政员' : '质检主管'}
+                      {(selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'customer_service' ? '客服' :
+                       (selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'housekeeper' ? '家政员' :
+                       (selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'quality_supervisor' ? '质检主管' : '家政员'}
                     </p>
                   </div>
                 </div>
               </div>
-            )}
             
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">处理历史回看</h3>
@@ -374,12 +374,6 @@ export function Addition() {
                       <option value="reject">拒绝加项</option>
                     </>
                   )}
-                  {selectedAddition.status === 'confirmed' && (
-                    <>
-                      <option value="approve">批准加项</option>
-                      <option value="reject">主管驳回</option>
-                    </>
-                  )}
                   {selectedAddition.status === 'pending_approval' && (
                     <>
                       <option value="approve">批准加项</option>
@@ -387,19 +381,24 @@ export function Addition() {
                     </>
                   )}
                   {selectedAddition.status === 'approved' && (
-                    <option value="complete">标记完成</option>
+                    <>
+                      <option value="complete">标记完成</option>
+                      <option value="mark_incomplete">标记未完成</option>
+                    </>
                   )}
                   {selectedAddition.status === 'in_progress' && (
-                    <option value="complete">标记完成</option>
+                    <>
+                      <option value="complete">标记完成</option>
+                      <option value="mark_incomplete">标记未完成</option>
+                    </>
                   )}
-                  {(selectedAddition.status === 'approved' || selectedAddition.status === 'in_progress') && (
-                    <option value="mark_incomplete">标记未完成</option>
+                  {selectedAddition.status === 'incomplete' && (
+                    <option value="confirm">重新提交</option>
                   )}
                   {(selectedAddition.status === 'rejected_by_housekeeper' || 
                     selectedAddition.status === 'rejected_by_supervisor') && (
                     <option value="confirm">重新提交</option>
                   )}
-                  <option value="mark_incomplete">标记未完成</option>
                 </select>
                 
                 <textarea

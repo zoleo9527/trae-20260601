@@ -91,10 +91,37 @@ export function Dashboard() {
     exceptionService.handleException(request, currentUser.id, currentUser.name, currentUser.role)
     
     loadAllData()
-    setDrawerOpen(false)
-    setSelectedOrder(null)
-    setSelectedFeedback(null)
-    setSelectedAddition(null)
+    
+    if (drawerTargetType === 'addition' && selectedAddition) {
+      const additions = JSON.parse(localStorage.getItem('additions') || '[]')
+      const updated = additions.find((a: AdditionRecord) => a.id === selectedAddition.id)
+      if (updated) {
+        setSelectedAddition(updated)
+        const history = exceptionService.getHandlesByTarget('addition', updated.id)
+        setHandles(history)
+      }
+    } else if (drawerTargetType === 'feedback' && selectedFeedback) {
+      const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]')
+      const updated = feedbacks.find((f: ProcessFeedback) => f.id === selectedFeedback.id)
+      if (updated) {
+        setSelectedFeedback(updated)
+        const history = exceptionService.getHandlesByTarget('feedback', updated.id)
+        setHandles(history)
+      }
+    } else if (drawerTargetType === 'order' && selectedOrder) {
+      const orders = JSON.parse(localStorage.getItem('orders') || '[]')
+      const updated = orders.find((o: Order) => o.id === selectedOrder.id)
+      if (updated) {
+        setSelectedOrder(updated)
+        const detail = orderService.getOrderDetail(updated.id)
+        if (detail) {
+          setTimeline(detail)
+        }
+        const history = exceptionService.getHandlesByTarget('order', updated.id)
+        setHandles(history)
+      }
+    }
+    
     setAction('')
     setReason('')
     setTransferTo('')
@@ -294,15 +321,15 @@ export function Dashboard() {
                 <CardContent>
                   <div className="space-y-2">
                     <p className="text-sm text-gray-700 line-clamp-2">{addition.additionContent}</p>
-                    {addition.currentHandler && (
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm text-gray-600">
-                          当前处理人: {addition.currentHandler.name} (
-                          {addition.currentHandler.role === 'housekeeper' ? '家政员' : '质检主管'})
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        责任人: {(addition.currentHandler?.name || (addition.history && addition.history.length > 0 ? addition.history[addition.history.length - 1]?.operatorName : addition.housekeeperName)) || '待分配'} (
+                        {(addition.currentHandler?.role || (addition.history && addition.history.length > 0 ? addition.history[addition.history.length - 1]?.operatorRole : 'housekeeper')) === 'customer_service' ? '客服' :
+                         (addition.currentHandler?.role || (addition.history && addition.history.length > 0 ? addition.history[addition.history.length - 1]?.operatorRole : 'housekeeper')) === 'housekeeper' ? '家政员' :
+                         (addition.currentHandler?.role || (addition.history && addition.history.length > 0 ? addition.history[addition.history.length - 1]?.operatorRole : 'housekeeper')) === 'quality_supervisor' ? '质检主管' : '家政员'})
+                      </span>
+                    </div>
                     <p className="text-sm text-red-600 font-medium">
                       未完成原因: {addition.incompleteReason}
                     </p>
@@ -425,31 +452,31 @@ export function Dashboard() {
                   <p><span className="text-gray-500">预计费用:</span> ¥{selectedAddition.estimatedCost}</p>
                   <p><span className="text-gray-500">家政员:</span> {selectedAddition.housekeeperName}</p>
                   <p><span className="text-gray-500">创建人:</span> {selectedAddition.creatorName}</p>
-                  <p><span className="text-gray-500">当前状态:</span> {selectedAddition.status === 'pending_confirmation' ? '待确认' : selectedAddition.status === 'pending_approval' ? '待批准' : selectedAddition.status === 'in_progress' ? '进行中' : selectedAddition.status === 'completed' ? '已完成' : selectedAddition.status === 'incomplete' ? '未完成' : '已驳回'}</p>
+                  <p><span className="text-gray-500">当前状态:</span> {selectedAddition.status === 'pending_confirmation' ? '待确认' : selectedAddition.status === 'pending_approval' ? '待批准' : selectedAddition.status === 'in_progress' ? '进行中' : selectedAddition.status === 'completed' ? '已完成' : selectedAddition.status === 'incomplete' ? '未完成' : selectedAddition.status === 'rejected_by_housekeeper' ? '家政员拒绝' : selectedAddition.status === 'rejected_by_supervisor' ? '主管驳回' : '已确认'}</p>
                   {selectedAddition.incompleteReason && (
                     <p><span className="text-gray-500">未完成原因:</span> {selectedAddition.incompleteReason}</p>
                   )}
                 </div>
               </div>
               
-              {selectedAddition.currentHandler && (
-                <div>
-                  <h3 className="font-semibold text-gray-900 mb-2">当前处理人</h3>
-                  <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
-                    <img 
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAddition.currentHandler.id}`}
-                      alt={selectedAddition.currentHandler.name}
-                      className="w-10 h-10 rounded-full"
-                    />
-                    <div>
-                      <p className="font-medium">{selectedAddition.currentHandler.name}</p>
-                      <p className="text-sm text-gray-500">
-                        {selectedAddition.currentHandler.role === 'housekeeper' ? '家政员' : '质检主管'}
-                      </p>
-                    </div>
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-2">责任人</h3>
+                <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
+                  <img 
+                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAddition.currentHandler?.id || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorId : selectedAddition.housekeeperId)}`}
+                    alt={selectedAddition.currentHandler?.name || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorName : selectedAddition.housekeeperName)}
+                    className="w-10 h-10 rounded-full"
+                  />
+                  <div>
+                    <p className="font-medium">{selectedAddition.currentHandler?.name || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorName : selectedAddition.housekeeperName) || '待分配'}</p>
+                    <p className="text-sm text-gray-500">
+                      {(selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'customer_service' ? '客服' :
+                       (selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'housekeeper' ? '家政员' :
+                       (selectedAddition.currentHandler?.role || (selectedAddition.history && selectedAddition.history.length > 0 ? selectedAddition.history[selectedAddition.history.length - 1]?.operatorRole : 'housekeeper')) === 'quality_supervisor' ? '质检主管' : '家政员'}
+                    </p>
                   </div>
                 </div>
-              )}
+              </div>
               
               {selectedAddition.history && selectedAddition.history.length > 0 && (
                 <div>
@@ -514,14 +541,48 @@ export function Dashboard() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">选择处理方式</option>
-                {drawerTargetType === 'addition' ? (
+                {drawerTargetType === 'addition' && selectedAddition ? (
                   <>
-                    <option value="confirm">确认加项</option>
-                    <option value="reject">拒绝加项</option>
-                    <option value="approve">批准加项</option>
-                    <option value="complete">标记完成</option>
-                    <option value="mark_incomplete">标记未完成</option>
-                    <option value="transfer">转交处理人</option>
+                    {selectedAddition.status === 'pending_confirmation' && (
+                      <>
+                        <option value="confirm">确认加项</option>
+                        <option value="reject">拒绝加项</option>
+                      </>
+                    )}
+                    {selectedAddition.status === 'pending_approval' && (
+                      <>
+                        <option value="approve">批准加项</option>
+                        <option value="reject">主管驳回</option>
+                      </>
+                    )}
+                    {selectedAddition.status === 'approved' && (
+                      <>
+                        <option value="complete">标记完成</option>
+                        <option value="mark_incomplete">标记未完成</option>
+                      </>
+                    )}
+                    {selectedAddition.status === 'in_progress' && (
+                      <>
+                        <option value="complete">标记完成</option>
+                        <option value="mark_incomplete">标记未完成</option>
+                      </>
+                    )}
+                    {selectedAddition.status === 'incomplete' && (
+                      <>
+                        <option value="confirm">重新提交</option>
+                        <option value="transfer">转交处理人</option>
+                      </>
+                    )}
+                    {(selectedAddition.status === 'rejected_by_housekeeper' || selectedAddition.status === 'rejected_by_supervisor') && (
+                      <option value="confirm">重新提交</option>
+                    )}
+                  </>
+                ) : drawerTargetType === 'feedback' ? (
+                  <>
+                    <option value="reject">驳回</option>
+                    <option value="supplement">补录信息</option>
+                    <option value="transfer">转交其他处理人</option>
+                    <option value="complete">完成处理</option>
                   </>
                 ) : (
                   <>
@@ -540,11 +601,25 @@ export function Dashboard() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">选择转交对象</option>
-                  {users.filter(u => u.role !== 'admin').map(user => (
-                    <option key={user.id} value={user.id}>
-                      {user.name} ({user.role === 'customer_service' ? '客服' : user.role === 'housekeeper' ? '家政员' : user.role === 'quality_supervisor' ? '质检主管' : '管理员'})
-                    </option>
-                  ))}
+                  {drawerTargetType === 'feedback' ? (
+                    users.filter(u => u.role === 'customer_service' || u.role === 'quality_supervisor').map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'customer_service' ? '客服' : '质检主管'})
+                      </option>
+                    ))
+                  ) : drawerTargetType === 'addition' ? (
+                    users.filter(u => u.role === 'housekeeper' || u.role === 'quality_supervisor').map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'housekeeper' ? '家政员' : '质检主管'})
+                      </option>
+                    ))
+                  ) : (
+                    users.filter(u => u.role === 'customer_service' || u.role === 'quality_supervisor').map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'customer_service' ? '客服' : '质检主管'})
+                      </option>
+                    ))
+                  )}
                 </select>
               )}
               
