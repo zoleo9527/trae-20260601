@@ -88,23 +88,8 @@ export function calculateOverdueInfo(
   const diffTime = effectiveDate.getTime() - endDate.getTime();
   const calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
-  const isOverdueByDate = calculatedDays > 0;
-  const isOverdueByStatus = contractStatus === 'overdue';
-  
-  const isOverdue = isOverdueByDate || isOverdueByStatus;
-  
-  const isClosed = actualEndDate !== null && actualEndDate !== undefined;
-  
-  let overdueDays = 0;
-  if (isOverdue) {
-    if (isClosed) {
-      overdueDays = Math.max(0, calculatedDays);
-    } else if (contractOverdueDays && contractOverdueDays > calculatedDays) {
-      overdueDays = contractOverdueDays;
-    } else {
-      overdueDays = Math.max(0, calculatedDays);
-    }
-  }
+  const isOverdue = calculatedDays > 0;
+  const overdueDays = Math.max(0, calculatedDays);
   
   const daysLeft = isOverdue ? -overdueDays : Math.max(0, -calculatedDays);
   const overdueFee = overdueDays * dailyRate * 1.5;
@@ -145,10 +130,6 @@ export function deriveContractDisplayStatus(
     const end = parseDate(actualEndDate);
     const expected = parseDate(expectedEndDate);
     return end > expected ? 'overdue' : 'active';
-  }
-  
-  if (contractStatus === 'overdue') {
-    return 'overdue';
   }
   
   const today = getTodayDate();

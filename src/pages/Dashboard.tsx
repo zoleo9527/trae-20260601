@@ -35,7 +35,6 @@ const Dashboard: React.FC = () => {
 
   const upcomingExpiries = useMemo(() => {
     return contracts
-      .filter((c) => c.status === 'active' || c.status === 'overdue')
       .map((c) => {
         const reservation = getReservationById(c.reservationId);
         if (!reservation) return null;
@@ -49,6 +48,10 @@ const Dashboard: React.FC = () => {
           equipment,
           customer,
         });
+
+        if (displayInfo.displayStatus !== 'active' && displayInfo.displayStatus !== 'overdue') {
+          return null;
+        }
 
         return {
           contractId: c.id,
@@ -67,7 +70,18 @@ const Dashboard: React.FC = () => {
   }, [contracts, getReservationById, getEquipmentById, getCustomerById]);
 
   const pendingReservations = reservations.filter((r) => r.status === 'pending').length;
-  const activeContracts = contracts.filter((c) => c.status === 'active' || c.status === 'overdue').length;
+
+  const activeContracts = useMemo(() => {
+    return contracts.filter((c) => {
+      const reservation = getReservationById(c.reservationId);
+      if (!reservation) return false;
+      const equipment = getEquipmentById(reservation.equipmentId);
+      const customer = getCustomerById(reservation.customerId);
+      if (!equipment || !customer) return false;
+      const displayInfo = getContractDisplayInfo({ contract: c, reservation, equipment, customer });
+      return displayInfo.displayStatus === 'active' || displayInfo.displayStatus === 'overdue';
+    }).length;
+  }, [contracts, getReservationById, getEquipmentById, getCustomerById]);
 
   const typeOptions = [
     { value: 'all' as const, label: '全部', count: anomalies.filter(a => a.status !== 'resolved').length },
