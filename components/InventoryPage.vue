@@ -1,8 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 
-const { appointments, getAppointmentById, updateAppointment } = useAppointments()
+const { appointments, loading, fetchAppointments, getAppointmentById, updateItemConclusion } = useAppointments()
+
+onMounted(() => {
+  fetchAppointments()
+})
 
 const searchQuery = ref('')
 const selectedAppointmentId = ref<string | null>(null)
@@ -33,13 +37,9 @@ const startEdit = (itemId: string, currentConclusion: string) => {
   editingConclusion.value = currentConclusion || ''
 }
 
-const saveConclusion = () => {
+const saveConclusion = async () => {
   if (selectedAppointment.value && editingItemId.value) {
-    const item = selectedAppointment.value.items.find(i => i.id === editingItemId.value)
-    if (item) {
-      item.lastConclusion = editingConclusion.value
-      updateAppointment(selectedAppointment.value.id, { items: [...selectedAppointment.value.items] })
-    }
+    await updateItemConclusion(selectedAppointment.value.id, editingItemId.value, editingConclusion.value)
     editingItemId.value = null
     editingConclusion.value = ''
   }
@@ -89,7 +89,11 @@ const conclusionStatus: Record<string, string> = {
           />
         </div>
         
-        <div style="max-height: calc(100vh - 200px); overflow-y: auto;">
+        <div v-if="loading" style="text-align: center; padding: 20px; color: #999;">
+          正在加载...
+        </div>
+        
+        <div v-else style="max-height: calc(100vh - 200px); overflow-y: auto;">
           <div 
             v-for="appointment in filteredAppointments" 
             :key="appointment.id"

@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import type { Appointment } from '~/data/types'
 
 const { 
   appointments, 
+  loading,
+  fetchAppointments,
   pendingAppointments, 
   confirmedAppointments, 
   inProgressAppointments,
@@ -14,6 +16,10 @@ const {
   cancelAppointment,
   getAppointmentById
 } = useAppointments()
+
+onMounted(() => {
+  fetchAppointments()
+})
 
 const activeTab = ref('all')
 const showDetail = ref(false)
@@ -48,30 +54,30 @@ const filteredAppointments = computed(() => {
   }
 })
 
-const tabs = [
+const tabs = computed(() => [
   { key: 'all', label: '全部', count: appointments.value.length },
   { key: 'pending', label: '待确认', count: pendingAppointments.value.length },
   { key: 'confirmed', label: '已确认', count: confirmedAppointments.value.length },
   { key: 'in_progress', label: '进行中', count: inProgressAppointments.value.length },
   { key: 'completed', label: '已完成', count: completedAppointments.value.length },
   { key: 'canceled', label: '已取消', count: canceledAppointments.value.length }
-]
+])
 
 const viewDetail = (appointment: Appointment) => {
   selectedAppointment.value = appointment
   showDetail.value = true
 }
 
-const handleConfirm = (id: string) => {
-  confirmAppointment(id)
+const handleConfirm = async (id: string) => {
+  await confirmAppointment(id)
   if (selectedAppointment.value?.id === id) {
     selectedAppointment.value = getAppointmentById(id) || null
   }
 }
 
-const handleCancel = () => {
+const handleCancel = async () => {
   if (selectedAppointment.value && cancelReason.value) {
-    cancelAppointment(selectedAppointment.value.id, cancelReason.value)
+    await cancelAppointment(selectedAppointment.value.id, cancelReason.value)
     selectedAppointment.value = getAppointmentById(selectedAppointment.value.id) || null
     showCancelModal.value = false
     cancelReason.value = ''
@@ -85,84 +91,90 @@ const formatAddress = (addr: any) => {
 
 <template>
   <div>
-    <div class="nav-tabs">
-      <div 
-        v-for="tab in tabs" 
-        :key="tab.key"
-        @click="activeTab = tab.key"
-        class="nav-tab"
-        :class="{ active: activeTab === tab.key }"
-      >
-        {{ tab.label }} ({{ tab.count }})
-      </div>
+    <div v-if="loading" class="card" style="text-align: center; padding: 40px;">
+      <div style="color: #999;">正在加载预约数据...</div>
     </div>
     
-    <div class="card">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>订单号</th>
-            <th>客户</th>
-            <th>地址</th>
-            <th>时间</th>
-            <th>车辆</th>
-            <th>预估费用</th>
-            <th>状态</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="appointment in filteredAppointments" :key="appointment.id">
-            <td><a href="#" @click.prevent="viewDetail(appointment)" style="color: #4080ff;">{{ appointment.orderNo }}</a></td>
-            <td>
-              <div>{{ appointment.customer.name }}</div>
-              <div style="font-size: 12px; color: #999;">{{ appointment.customer.phone }}</div>
-            </td>
-            <td style="max-width: 300px;">
-              <div style="font-size: 12px;">📦 {{ formatAddress(appointment.fromAddress) }}</div>
-              <div style="font-size: 12px; color: #999;">📍 {{ formatAddress(appointment.toAddress) }}</div>
-            </td>
-            <td>
-              <div>{{ appointment.date }}</div>
-              <div style="font-size: 12px; color: #999;">{{ appointment.timeSlot }}</div>
-            </td>
-            <td>{{ appointment.vehicleType }}</td>
-            <td>¥{{ appointment.estimatedPrice.toLocaleString() }}</td>
-            <td><span :class="['badge', statusBadgeClass[appointment.status]]">{{ statusLabels[appointment.status] }}</span></td>
-            <td>
-              <div style="display: flex; gap: 8px;">
-                <button 
-                  v-if="appointment.status === 'pending'"
-                  class="btn btn-primary"
-                  style="padding: 4px 8px; font-size: 12px;"
-                  @click="handleConfirm(appointment.id)"
-                >
-                  确认
-                </button>
-                <button 
-                  v-if="appointment.status === 'pending' || appointment.status === 'confirmed'"
-                  class="btn btn-danger"
-                  style="padding: 4px 8px; font-size: 12px;"
-                  @click="selectedAppointment = appointment; showCancelModal = true"
-                >
-                  取消
-                </button>
-                <button 
-                  v-if="appointment.status !== 'completed' && appointment.status !== 'canceled'"
-                  class="btn btn-secondary"
-                  style="padding: 4px 8px; font-size: 12px;"
-                  @click="viewDetail(appointment)"
-                >
-                  详情
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div v-else>
+      <div class="nav-tabs">
+        <div 
+          v-for="tab in tabs" 
+          :key="tab.key"
+          @click="activeTab = tab.key"
+          class="nav-tab"
+          :class="{ active: activeTab === tab.key }"
+        >
+          {{ tab.label }} ({{ tab.count }})
+        </div>
+      </div>
       
-      <div v-if="filteredAppointments.length === 0" class="empty-state">
-        <div>暂无预约记录</div>
+      <div class="card">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>订单号</th>
+              <th>客户</th>
+              <th>地址</th>
+              <th>时间</th>
+              <th>车辆</th>
+              <th>预估费用</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="appointment in filteredAppointments" :key="appointment.id">
+              <td><a href="#" @click.prevent="viewDetail(appointment)" style="color: #4080ff;">{{ appointment.orderNo }}</a></td>
+              <td>
+                <div>{{ appointment.customer.name }}</div>
+                <div style="font-size: 12px; color: #999;">{{ appointment.customer.phone }}</div>
+              </td>
+              <td style="max-width: 300px;">
+                <div style="font-size: 12px;">📦 {{ formatAddress(appointment.fromAddress) }}</div>
+                <div style="font-size: 12px; color: #999;">📍 {{ formatAddress(appointment.toAddress) }}</div>
+              </td>
+              <td>
+                <div>{{ appointment.date }}</div>
+                <div style="font-size: 12px; color: #999;">{{ appointment.timeSlot }}</div>
+              </td>
+              <td>{{ appointment.vehicleType }}</td>
+              <td>¥{{ appointment.estimatedPrice.toLocaleString() }}</td>
+              <td><span :class="['badge', statusBadgeClass[appointment.status]]">{{ statusLabels[appointment.status] }}</span></td>
+              <td>
+                <div style="display: flex; gap: 8px;">
+                  <button 
+                    v-if="appointment.status === 'pending'"
+                    class="btn btn-primary"
+                    style="padding: 4px 8px; font-size: 12px;"
+                    @click="handleConfirm(appointment.id)"
+                  >
+                    确认
+                  </button>
+                  <button 
+                    v-if="appointment.status === 'pending' || appointment.status === 'confirmed'"
+                    class="btn btn-danger"
+                    style="padding: 4px 8px; font-size: 12px;"
+                    @click="selectedAppointment = appointment; showCancelModal = true"
+                  >
+                    取消
+                  </button>
+                  <button 
+                    v-if="appointment.status !== 'completed' && appointment.status !== 'canceled'"
+                    class="btn btn-secondary"
+                    style="padding: 4px 8px; font-size: 12px;"
+                    @click="viewDetail(appointment)"
+                  >
+                    详情
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        
+        <div v-if="filteredAppointments.length === 0" class="empty-state">
+          <div>暂无预约记录</div>
+        </div>
       </div>
     </div>
     

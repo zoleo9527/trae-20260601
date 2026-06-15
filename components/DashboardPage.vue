@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useAppointments } from '~/composables/useAppointments'
 import { getTodosByRole } from '~/data/mockData'
 import type { TodoItem } from '~/data/types'
 
+const emit = defineEmits<{
+  navigate: [page: string, appointmentId?: string]
+}>()
+
 const { currentRole, roleName } = useAuth()
-const { pendingAppointments, getPendingExceptions } = useAppointments()
+const { fetchAppointments, pendingAppointments, getPendingExceptions } = useAppointments()
+
+onMounted(() => {
+  fetchAppointments()
+})
 
 const todos = computed<TodoItem[]>(() => {
   if (!currentRole.value) return []
@@ -23,12 +31,6 @@ const stats = computed(() => ({
   today: todos.value.filter(t => t.dueTime?.startsWith('2024-01-16') || false).length
 }))
 
-const priorityColors: Record<string, string> = {
-  high: '#f5222d',
-  medium: '#faad14',
-  low: '#52c41a'
-}
-
 const priorityLabels: Record<string, string> = {
   high: '紧急',
   medium: '中等',
@@ -42,8 +44,12 @@ const typeIcons: Record<string, string> = {
 }
 
 const handleTodoClick = (todo: TodoItem) => {
-  if (todo.appointmentId) {
-    window.location.href = `/appointments/${todo.appointmentId}`
+  if (todo.type === 'appointment' && todo.appointmentId) {
+    emit('navigate', 'appointments', todo.appointmentId)
+  } else if (todo.type === 'exception' && todo.appointmentId) {
+    emit('navigate', 'exceptions', todo.appointmentId)
+  } else if (todo.type === 'task') {
+    emit('navigate', 'appointments')
   }
 }
 </script>

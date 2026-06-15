@@ -1,19 +1,26 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import { useAuth } from '~/composables/useAuth'
-import type { ExceptionRecord, ExceptionType } from '~/data/types'
+import type { ExceptionRecord, ExceptionType, Appointment } from '~/data/types'
 
 const { 
+  appointments,
+  loading,
+  fetchAppointments,
   getPendingExceptions, 
   getProcessingExceptions,
-  updateException,
-  resolveException,
   addException,
+  startProcessingException,
+  resolveException,
   getAppointmentById
 } = useAppointments()
 
 const { currentUser } = useAuth()
+
+onMounted(() => {
+  fetchAppointments()
+})
 
 const activeTab = ref<'all' | 'price_increase' | 'damage' | 'delay'>('all')
 const showAddException = ref(false)
@@ -46,12 +53,12 @@ const stats = computed(() => ({
   delay: allExceptions.value.filter(e => e.type === 'delay').length
 }))
 
-const tabs = [
-  { key: 'all', label: '全部', count: computed(() => stats.value.total) },
-  { key: 'price_increase', label: '临时加价', count: computed(() => stats.value.priceIncrease) },
-  { key: 'damage', label: '物品破损', count: computed(() => stats.value.damage) },
-  { key: 'delay', label: '车辆迟到', count: computed(() => stats.value.delay) }
-]
+const tabs = computed(() => [
+  { key: 'all', label: '全部', count: stats.value.total },
+  { key: 'price_increase', label: '临时加价', count: stats.value.priceIncrease },
+  { key: 'damage', label: '物品破损', count: stats.value.damage },
+  { key: 'delay', label: '车辆迟到', count: stats.value.delay }
+])
 
 const typeLabels: Record<string, string> = {
   price_increase: '临时加价',
@@ -69,13 +76,14 @@ const getAppointment = (appointmentId: string) => {
   return getAppointmentById(appointmentId)
 }
 
-const handleAddException = () => {
+const handleAddException = async () => {
   if (newException.value.appointmentId && newException.value.description) {
-    addException(newException.value.appointmentId, {
-      type: newException.value.type,
-      description: newException.value.description,
-      amount: newException.value.type === 'price_increase' ? newException.value.amount : undefined
-    })
+    await addException(
+      newException.value.appointmentId,
+      newException.value.type,
+      newException.value.description,
+      newException.value.type === 'price_increase' ? newException.value.amount : undefined
+    )
     showAddException.value = false
     newException.value = {
       appointmentId: '',
@@ -86,9 +94,9 @@ const handleAddException = () => {
   }
 }
 
-const handleResolve = () => {
+const handleResolve = async () => {
   if (selectedException.value && resolution.value && currentUser.value) {
-    resolveException(
+    await resolveException(
       selectedException.value.appointmentId,
       selectedException.value.id,
       resolution.value,
@@ -100,12 +108,9 @@ const handleResolve = () => {
   }
 }
 
-const handleStartProcessing = (exception: ExceptionRecord) => {
+const handleStartProcessing = async (exception: ExceptionRecord) => {
   if (currentUser.value) {
-    updateException(exception.appointmentId, exception.id, {
-      status: 'processing',
-      handledBy: currentUser.value.name
-    })
+    await startProcessingException(exception.appointmentId, exception.id, currentUser.value.name)
   }
 }
 </script>
@@ -133,7 +138,11 @@ const handleStartProcessing = (exception: ExceptionRecord) => {
       </div>
     </div>
     
-    <div class="card">
+    <div v-if="loading" class="card" style="text-align: center; padding: 40px;">
+      <div style="color: #999;">正在加载异常数据...</div>
+    </div>
+    
+    <div v-else class="card">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <div class="nav-tabs" style="margin-bottom: 0;">
           <div 
@@ -143,7 +152,7 @@ const handleStartProcessing = (exception: ExceptionRecord) => {
             class="nav-tab"
             :class="{ active: activeTab === tab.key }"
           >
-            {{ tab.label }} ({{ tab.count.value }})
+            {{ tab.label }} ({{ tab.count }})
           </div>
         </div>
         <button class="btn btn-primary" @click="showAddException = true">
@@ -233,8 +242,8 @@ const handleStartProcessing = (exception: ExceptionRecord) => {
             <label>关联订单</label>
             <select v-model="newException.appointmentId">
               <option value="">请选择订单</option>
-              <option v-for="appointment in getPendingExceptions().map(e => getAppointment(e.appointmentId)).filter(Boolean)" :key="appointment?.id" :value="appointment?.id">
-                {{ appointment?.orderNo }} - {{ appointment?.customer.name }}
+              <option v-for="appointment in appointments" :key="appointment.id" :value="appointment.id">
+                {{ appointment.orderNo }} - {{ appointment.customer.name }}
               </option>
             </select>
           </div>
