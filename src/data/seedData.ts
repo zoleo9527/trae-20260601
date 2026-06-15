@@ -441,25 +441,43 @@ export const seedAuditLogs: AuditLog[] = [
 export const seedExceptionRecords: ExceptionRecord[] = [
   {
     id: 'exception-001',
-    scheduleId: '',
-    scheduleNo: '',
+    scheduleId: 'draft-002',
+    scheduleNo: 'DD20260615002',
     type: 'size_error',
-    description: '稿件DD20260615002尺寸标注有误，设计图为120x180cm，但订单标注为100x150cm，已通知前台与客户确认',
+    description:
+      '处理人员核稿发现：DD20260615002 稿件尺寸录入为100×150cm，而设计图标注为120×180cm，已标记尺寸问题等待前台联系客户确认',
     status: 'pending',
     reportedBy: 'user-002',
-    reportedAt: dayjs().subtract(3, 'hour').toISOString(),
+    reportedAt: dayjs().subtract(4, 'hour').toISOString(),
   },
   {
     id: 'exception-002',
     scheduleId: 'schedule-003',
     scheduleNo: 'PH20260615003',
     type: 'color_complaint',
-    description: '客户反馈喷绘颜色与设计稿有轻微色差，经解释是喷绘与屏幕显示差异，客户表示理解',
+    description:
+      '蓝天幼儿园喷绘550喷绘布背景板，客户反馈蓝色天空部分颜色偏深偏暗，与设计稿RGB显示有明显差异',
     status: 'resolved',
     reportedBy: 'user-002',
     reportedAt: dayjs().subtract(2, 'day').toISOString(),
     handledBy: 'user-003',
-    handledAt: dayjs().subtract(2, 'day').toISOString(),
-    resolution: '向客户解释喷绘色彩原理，提供色彩校准样册供下次参考，客户表示理解并接受',
+    handledAt: dayjs().subtract(2, 'day').add(2, 'hour').toISOString(),
+    resolution:
+      '店长携带色彩校准样册上门解释：喷绘使用CMYK四色油墨叠加，无法完全还原屏幕RGB光色。已与客户沟通并重新打印2个色块对比，客户选择颜色加深方案并接受现有成品。承诺下次订单先打样确认再批量生产。',
+  },
+  {
+    id: 'exception-003',
+    scheduleId: 'schedule-003',
+    scheduleNo: 'PH20260615003',
+    type: 'install_time_change',
+    description:
+      '幼儿园原定6月12日安装，因六一儿童节彩排场地被占用，要求延后到6月14日上午再进场安装',
+    status: 'resolved',
+    reportedBy: 'user-001',
+    reportedAt: dayjs().subtract(4, 'day').toISOString(),
+    handledBy: 'user-003',
+    handledAt: dayjs().subtract(4, 'day').add(30, 'minute').toISOString(),
+    resolution:
+      '已协调安装人员改期，6月14日上午7:30准时到场；客户非常配合，6月14日实际提前完成安装，对活动无影响。',
   },
 ];

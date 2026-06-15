@@ -65,17 +65,38 @@ export default function ScheduleDetail() {
   const schedule = api.getScheduleById(id || '');
   const materialPickups = id ? api.getMaterialPickupsByScheduleId(id) : [];
   const installation = id ? api.getInstallationByScheduleId(id) : null;
-  const exceptions = id ? api.getExceptionsByScheduleId(id) : [];
+  const scheduleExceptions = id ? api.getExceptionsByScheduleId(id) : [];
+  const draftExceptions = schedule
+    ? api
+        .getExceptions()
+        .filter((e) => e.scheduleId === schedule.draftId && !scheduleExceptions.includes(e))
+    : [];
+  const exceptions = [...scheduleExceptions, ...draftExceptions];
   const auditLogs = id ? api.getAuditLogsByEntity('schedule', id) : [];
+  const exceptionIds = exceptions.map((e) => e.id);
+  const extraExceptionLogs = auditLogs.filter(
+    (log) =>
+      (log.action === 'exception_create' || log.action === 'exception_resolve') &&
+      exceptionIds.includes(
+        (log.newValues as Record<string, unknown>)?.exceptionId as string
+      ) ||
+      (log.entityType === 'schedule' &&
+        (log.action === 'exception_create' || log.action === 'exception_resolve'))
+  );
   const materialLogs = materialPickups.flatMap((p) =>
     api.getAuditLogsByEntity('material', p.id)
   );
   const installLogs = installation
     ? api.getAuditLogsByEntity('installation', installation.id)
     : [];
-  const allLogs = [...auditLogs, ...materialLogs, ...installLogs].sort(
-    (a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf()
-  );
+  const allLogs = [
+    ...auditLogs,
+    ...extraExceptionLogs,
+    ...materialLogs,
+    ...installLogs,
+  ]
+    .filter((log, idx, arr) => arr.findIndex((l) => l.id === log.id) === idx)
+    .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf());
 
   useEffect(() => {
     if (!schedule) {
@@ -361,7 +382,56 @@ export default function ScheduleDetail() {
           }
           entityType="schedule"
           entityId={schedule.id}
-          showMaterialDialog={() => setMaterialDialogOpen(true)}
+          showMaterialDialog={() => {
+            const pendingPickup = materialPickups.find((p) => p.status === 'pending');
+            const confirmedPickup = materialPickups.find(
+              (p) => p.status === 'confirmed'
+            );
+
+            if (confirmedPickup) {
+              Modal.confirm({
+                title: '确认推进排产到「材料已确认」？',
+                content: `领用单号 ${confirmedPickup.pickupNo} 已确认，点击确定将推进排产状态。`,
+                onOk: () =>
+                  workflow.transitionSchedule(schedule.id, 'material_confirmed'),
+              });
+              return { handled: true };
+            }
+
+            if (pendingPickup) {
+              Modal.confirm({
+                title: '确认材料领用？',
+                content: (
+                  <div>
+                    <p>待确认领用单：{pendingPickup.pickupNo}</p>
+                    <p>
+                      合计金额：
+                      <strong>¥{pendingPickup.totalAmount.toFixed(2)}</strong>
+                    </p>
+                    <p style={{ color: '#999', fontSize: 12 }}>
+                      确认后将把领用单状态改为「已确认」，之后才能推进排产。
+                    </p>
+                  </div>
+                ),
+                onOk: () => {
+                  const ok = workflow.transitionMaterialPickup(
+                    pendingPickup.id,
+                    'confirmed'
+                  );
+                  if (ok) {
+                    message.success(
+                      '材料领用已确认，现在可以推进排产到「材料已确认」'
+                    );
+                  }
+                },
+              });
+              return { handled: true };
+            }
+
+            setMaterialDialogOpen(true);
+            return { handled: true };
+          }}
+          showInstallTimeDialog={() => setInstallTimeDialogOpen(true)}
         />
       </Card>
 

@@ -8,7 +8,7 @@ interface ActionButtonsProps {
   onAction: (targetStatus: string, remark?: string) => boolean;
   entityType: string;
   entityId: string;
-  showMaterialDialog?: () => void;
+  showMaterialDialog?: () => { handled: boolean } | void;
   showInstallTimeDialog?: () => void;
 }
 
@@ -24,8 +24,8 @@ export default function ActionButtons({
 
   const handleClick = (action: StateTransition) => {
     if (action.to === 'material_confirmed' && showMaterialDialog) {
-      showMaterialDialog();
-      return;
+      const result = showMaterialDialog();
+      if (result && result.handled) return;
     }
     if (action.to === 'time_changed' && showInstallTimeDialog) {
       showInstallTimeDialog();

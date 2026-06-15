@@ -223,7 +223,7 @@ export function useWorkflow() {
       const existing = api.getSchedulesByDraftId(draftId);
       const related = existing[0];
       api.createException({
-        scheduleId: related?.id || '',
+        scheduleId: related?.id || draftId,
         scheduleNo: related?.scheduleNo || draft.orderNo,
         type: 'size_error',
         description,
@@ -241,7 +241,7 @@ export function useWorkflow() {
       const existing = api.getSchedulesByDraftId(draftId);
       const related = existing[0];
       api.createException({
-        scheduleId: related?.id || '',
+        scheduleId: related?.id || draftId,
         scheduleNo: related?.scheduleNo || draft.orderNo,
         type: 'color_complaint',
         description,

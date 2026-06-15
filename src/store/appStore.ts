@@ -320,6 +320,51 @@ export const useAppStore = create<AppState>((set, get) => ({
       schedules: [newSchedule, ...state.schedules],
     }));
 
+    const draftExceptions = get().exceptions.filter(
+      (e) =>
+        (e.scheduleId === '' &&
+          (e.scheduleNo === newSchedule.orderNo ||
+            e.scheduleNo === newSchedule.draftId)) ||
+        e.scheduleId === newSchedule.draftId
+    );
+    if (draftExceptions.length > 0) {
+      set((state) => ({
+        exceptions: state.exceptions.map((e) => {
+          if (
+            (e.scheduleId === '' &&
+              (e.scheduleNo === newSchedule.orderNo ||
+                e.scheduleNo === newSchedule.draftId)) ||
+            e.scheduleId === newSchedule.draftId
+          ) {
+            return {
+              ...e,
+              scheduleId: newSchedule.id,
+              scheduleNo: newSchedule.scheduleNo,
+            };
+          }
+          return e;
+        }),
+      }));
+
+      draftExceptions.forEach((e) => {
+        createAuditLog(
+          'schedule',
+          newSchedule.id,
+          'exception_create',
+          `稿件异常自动挂接：${
+            exceptionTypeMap[e.type] || e.type
+          } - ${e.description}（稿件审核阶段上报）`,
+          undefined,
+          {
+            exceptionId: e.id,
+            type: e.type,
+            description: e.description,
+            migratedFrom: 'draft_' + newSchedule.draftId,
+          }
+        );
+      });
+    }
+
     createAuditLog(
       'schedule',
       newSchedule.id,
