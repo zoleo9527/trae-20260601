@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>叉车维保现场服务系统</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>叉车维保现场服务系统</h1>
+            <p>现场签到与故障诊断管理</p>
+        </div>
+    </header>
+
+    <nav class="main-nav">
+        <button class="nav-btn active" data-tab="dashboard">服务概览</button>
+        <button class="nav-btn" data-tab="equipment">设备档案</button>
+        <button class="nav-btn" data-tab="service">现场服务</button>
+        <button class="nav-btn" data-tab="parts">配件申请</button>
+        <button class="nav-btn" data-tab="records">历史记录</button>
+    </nav>
+
+    <main>
+        <section id="dashboard" class="tab-content active">
+            <div class="section-header">
+                <h2>服务概览</h2>
+                <p>实时监控现场服务状态</p>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📋</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="total-services">0</div>
+                        <div class="stat-label">总服务记录</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="completed-services">0</div>
+                        <div class="stat-label">已签收</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🔧</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="diagnosis-services">0</div>
+                        <div class="stat-label">诊断中</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📦</div>
+                    <div class="stat-info">
+                        <div class="stat-value" id="parts-requests">0</div>
+                        <div class="stat-label">配件申请</div>
+                    </div>
+                </div>
+            </div>
+            <div class="recent-services">
+                <h3>最近服务记录</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>客户</th>
+                            <th>设备型号</th>
+                            <th>服务时间</th>
+                            <th>技师</th>
+                            <th>状态</th>
+                            <th>故障类型</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-services-body">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="equipment" class="tab-content">
+            <div class="section-header">
+                <h2>设备档案</h2>
+                <div class="search-bar">
+                    <input type="text" id="equipment-search" placeholder="搜索设备型号或序列号...">
+                    <button onclick="searchEquipment()">搜索</button>
+                </div>
+            </div>
+            <div class="equipment-list" id="equipment-list">
+            </div>
+            <div class="equipment-detail" id="equipment-detail" style="display: none;">
+                <button class="back-btn" onclick="hideEquipmentDetail()">← 返回列表</button>
+                <h3>设备详情</h3>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="label">设备型号</span>
+                        <span class="value" id="eq-model"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">序列号</span>
+                        <span class="value" id="eq-serial"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">客户名称</span>
+                        <span class="value" id="eq-customer"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">购买日期</span>
+                        <span class="value" id="eq-purchase"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">当前状态</span>
+                        <span class="value" id="eq-status"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">存放位置</span>
+                        <span class="value" id="eq-location"></span>
+                    </div>
+                </div>
+                <div class="sub-section">
+                    <h4>历史保养记录</h4>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>保养日期</th>
+                                <th>保养类型</th>
+                                <th>内容描述</th>
+                                <th>技师</th>
+                                <th>下次保养</th>
+                            </tr>
+                        </thead>
+                        <tbody id="maintenance-history">
+                        </tbody>
+                    </table>
+                </div>
+                <div class="sub-section">
+                    <h4>服务记录</h4>
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>服务日期</th>
+                                <th>技师</th>
+                                <th>故障类型</th>
+                                <th>是否停机</th>
+                                <th>状态</th>
+                            </tr>
+                        </thead>
+                        <tbody id="service-history">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="service" class="tab-content">
+            <div class="section-header">
+                <h2>现场服务管理</h2>
+                <button class="new-service-btn" onclick="showNewServiceModal()">+ 新建服务</button>
+            </div>
+            <div class="service-filters">
+                <select id="status-filter" onchange="filterServices()">
+                    <option value="all">全部状态</option>
+                    <option value="待签到">待签到</option>
+                    <option value="已签到">已签到</option>
+                    <option value="诊断完成">诊断完成</option>
+                    <option value="已签收">已签收</option>
+                </select>
+            </div>
+            <div class="service-cards" id="service-cards">
+            </div>
+        </section>
+
+        <section id="parts" class="tab-content">
+            <div class="section-header">
+                <h2>配件申请管理</h2>
+            </div>
+            <div class="parts-filters">
+                <select id="parts-status-filter" onchange="filterPartsRequests()">
+                    <option value="all">全部状态</option>
+                    <option value="待审核">待审核</option>
+                    <option value="已审核">已审核</option>
+                </select>
+                <select id="warehouse-status-filter" onchange="filterPartsRequests()">
+                    <option value="all">仓库状态</option>
+                    <option value="待处理">待处理</option>
+                    <option value="备货中">备货中</option>
+                    <option value="已发货">已发货</option>
+                </select>
+            </div>
+            <div class="parts-list" id="parts-list">
+            </div>
+        </section>
+
+        <section id="records" class="tab-content">
+            <div class="section-header">
+                <h2>历史记录</h2>
+                <div class="date-filter">
+                    <input type="date" id="start-date">
+                    <span>至</span>
+                    <input type="date" id="end-date">
+                    <button onclick="filterByDate()">筛选</button>
+                </div>
+            </div>
+            <table class="records-table">
+                <thead>
+                    <tr>
+                        <th>客户</th>
+                        <th>设备型号</th>
+                        <th>序列号</th>
+                        <th>服务日期</th>
+                        <th>技师</th>
+                        <th>故障类型</th>
+                        <th>是否停机</th>
+                        <th>诊断结论</th>
+                        <th>签收人</th>
+                    </tr>
+                </thead>
+                <tbody id="records-body">
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <div class="modal" id="new-service-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('new-service-modal')">&times;</span>
+            <h3>新建服务记录</h3>
+            <form id="new-service-form">
+                <div class="form-group">
+                    <label>客户</label>
+                    <select id="new-service-customer" required></select>
+                </div>
+                <div class="form-group">
+                    <label>设备</label>
+                    <select id="new-service-equipment" required></select>
+                </div>
+                <div class="form-group">
+                    <label>技师</label>
+                    <select id="new-service-technician"></select>
+                </div>
+                <button type="submit">创建</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="checkin-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('checkin-modal')">&times;</span>
+            <h3>现场签到</h3>
+            <form id="checkin-form">
+                <div class="form-group">
+                    <label>签到位置</label>
+                    <input type="text" id="checkin-location" placeholder="自动定位中..." value="客户现场">
+                </div>
+                <div class="location-placeholder">
+                    <div class="map-icon">📍</div>
+                    <p>定位占位 - 实际应用中调用GPS定位</p>
+                </div>
+                <button type="submit">确认签到</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="diagnosis-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('diagnosis-modal')">&times;</span>
+            <h3>故障诊断</h3>
+            <form id="diagnosis-form">
+                <div class="form-group">
+                    <label>故障类型</label>
+                    <select id="fault-type" required>
+                        <option value="">请选择故障类型</option>
+                        <option value="液压异常">液压异常</option>
+                        <option value="电池老化">电池老化</option>
+                        <option value="客户现场停机">客户现场停机</option>
+                        <option value="电气故障">电气故障</option>
+                        <option value="机械磨损">机械磨损</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>诊断结论</label>
+                    <textarea id="diagnosis-content" rows="4" placeholder="请输入详细诊断结论..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="need-stop"> 需要停机维修
+                    </label>
+                </div>
+                <button type="submit">提交诊断</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="sign-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('sign-modal')">&times;</span>
+            <h3>客户签收</h3>
+            <form id="sign-form">
+                <div class="form-group">
+                    <label>签收人姓名</label>
+                    <input type="text" id="sign-name" required placeholder="请输入签收人姓名">
+                </div>
+                <button type="submit">确认签收</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="parts-request-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('parts-request-modal')">&times;</span>
+            <h3>配件申请</h3>
+            <form id="parts-request-form">
+                <div class="form-group">
+                    <label>配件名称</label>
+                    <input type="text" id="parts-name" required placeholder="请输入配件名称">
+                </div>
+                <div class="form-group">
+                    <label>数量</label>
+                    <input type="number" id="parts-quantity" min="1" value="1">
+                </div>
+                <button type="submit">提交申请</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="parts-approve-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('parts-approve-modal')">&times;</span>
+            <h3>审核配件申请</h3>
+            <div id="approve-info"></div>
+            <button onclick="approvePartsRequest()">同意申请</button>
+        </div>
+    </div>
+
+    <div class="modal" id="warehouse-modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal('warehouse-modal')">&times;</span>
+            <h3>仓库处理</h3>
+            <div id="warehouse-info"></div>
+            <div class="form-group">
+                <label>处理状态</label>
+                <select id="warehouse-status">
+                    <option value="备货中">备货中</option>
+                    <option value="已发货">已发货</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>处理人</label>
+                <input type="text" id="warehouse-handler" placeholder="请输入处理人姓名">
+            </div>
+            <button onclick="processWarehouse()">确认处理</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
