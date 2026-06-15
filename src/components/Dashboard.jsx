@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Package, Clock, AlertTriangle, Activity, ArrowUpRight, ArrowDownRight, RefreshCw } from 'lucide-react'
+import { Package, Clock, AlertTriangle, Activity, ArrowUpRight, ArrowDownRight, RefreshCw, Eye } from 'lucide-react'
 import axios from 'axios'
 
 const statusLabels = {
@@ -34,7 +34,7 @@ const statusColors = {
   needs_revision: 'bg-amber-100 text-amber-800'
 }
 
-function Dashboard({ onOrderClick }) {
+function Dashboard({ onViewOrders }) {
   const [stats, setStats] = useState(null)
   const [recentChanges, setRecentChanges] = useState([])
   const [loading, setLoading] = useState(true)
@@ -70,12 +70,17 @@ function Dashboard({ onOrderClick }) {
   }
 
   const statCards = [
-    { label: '待处理', value: 'pending', icon: Clock, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
+    { label: '待量尺', value: 'pending', icon: Clock, color: 'bg-yellow-500', bgColor: 'bg-yellow-50' },
     { label: '量尺中', value: 'measuring', icon: Activity, color: 'bg-blue-500', bgColor: 'bg-blue-50' },
+    { label: '待复核', value: 'measured', icon: Eye, color: 'bg-purple-500', bgColor: 'bg-purple-50' },
     { label: '面料待到', value: 'fabric_ordered', icon: Package, color: 'bg-orange-500', bgColor: 'bg-orange-50' },
     { label: '加工中', value: 'processing', icon: Activity, color: 'bg-indigo-500', bgColor: 'bg-indigo-50' },
     { label: '待安装', value: 'installing', icon: Package, color: 'bg-emerald-500', bgColor: 'bg-emerald-50' },
-    { label: '待修改', value: 'needs_revision', icon: AlertTriangle, color: 'bg-amber-500', bgColor: 'bg-amber-50' },
+  ]
+
+  const pendingStats = [
+    { label: '待处理合计', value: stats?.stats?.pending + stats?.stats?.measuring + stats?.stats?.measured || 0, color: 'bg-gradient-to-br from-yellow-500 to-orange-500', bgColor: 'bg-gradient-to-br from-yellow-50 to-orange-50' },
+    { label: '问题订单', value: stats?.stats?.rejected + stats?.stats?.needs_revision || 0, color: 'bg-gradient-to-br from-red-500 to-amber-500', bgColor: 'bg-gradient-to-br from-red-50 to-amber-50' },
   ]
 
   if (loading) {
@@ -102,15 +107,38 @@ function Dashboard({ onOrderClick }) {
         </button>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        {pendingStats.map((card) => (
+          <div
+            key={card.label}
+            className={`${card.bgColor} rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow`}
+            onClick={() => onViewOrders && onViewOrders({ status: card.label === '待处理合计' ? 'pending,measuring,measured,needs_revision' : 'rejected,needs_revision' })}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-slate-500 mb-1">{card.label}</p>
+                <p className="text-3xl font-bold text-slate-800">{card.value}</p>
+              </div>
+              <div className={`w-14 h-14 ${card.color} rounded-xl flex items-center justify-center`}>
+                <AlertTriangle className="text-white" size={24} />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
         {statCards.map((card) => (
           <div
             key={card.value}
-            className={`${card.bgColor} rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow`}
-            onClick={() => onOrderClick && onOrderClick({ status: card.value })}
+            className={`${card.bgColor} rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow group`}
+            onClick={() => onViewOrders && onViewOrders({ status: card.value })}
           >
-            <div className={`w-10 h-10 ${card.color} rounded-lg flex items-center justify-center mb-3`}>
-              <card.icon className="text-white" size={20} />
+            <div className="flex items-center justify-between">
+              <div className={`w-10 h-10 ${card.color} rounded-lg flex items-center justify-center mb-3`}>
+                <card.icon className="text-white" size={20} />
+              </div>
+              <ArrowUpRight size={16} className="text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <p className="text-sm text-slate-500 mb-1">{card.label}</p>
             <p className="text-2xl font-bold text-slate-800">{stats?.stats[card.value] || 0}</p>
@@ -147,7 +175,13 @@ function Dashboard({ onOrderClick }) {
                 <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                 <span>待到面料订单 ({stats?.pendingFabricOrders || 0}单)</span>
               </div>
-              <span className="text-sm text-orange-600">采购跟进</span>
+              <button
+                onClick={() => onViewOrders && onViewOrders({ status: 'fabric_ordered' })}
+                className="text-sm text-orange-600 hover:text-orange-700 flex items-center space-x-1"
+              >
+                <span>查看订单</span>
+                <ArrowUpRight size={14} />
+              </button>
             </div>
           </div>
         </div>
@@ -155,13 +189,20 @@ function Dashboard({ onOrderClick }) {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-slate-800">最近变更</h2>
-            <ArrowUpRight size={18} className="text-slate-400" />
+            <button
+              onClick={() => onViewOrders && onViewOrders({})}
+              className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center space-x-1"
+            >
+              <span>全部订单</span>
+              <ArrowUpRight size={16} />
+            </button>
           </div>
           <div className="space-y-3 max-h-64 overflow-y-auto scrollbar-thin">
             {recentChanges.slice(0, 6).map((change) => (
               <div
                 key={change.id}
                 className="flex items-start space-x-3 p-3 hover:bg-slate-50 rounded-lg cursor-pointer transition-colors"
+                onClick={() => onViewOrders && onViewOrders({ status: change.status })}
               >
                 <div className={`w-8 h-8 ${statusColors[change.status]} rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium`}>
                   {change.action?.charAt(0)}
@@ -185,7 +226,7 @@ function Dashboard({ onOrderClick }) {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-slate-800">待处理订单</h2>
           <button
-            onClick={() => onOrderClick && onOrderClick({ status: 'pending' })}
+            onClick={() => onViewOrders && onViewOrders({ status: 'pending,measuring,measured,needs_revision' })}
             className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center space-x-1"
           >
             <span>查看全部</span>
@@ -212,7 +253,7 @@ function Dashboard({ onOrderClick }) {
                   <tr
                     key={change.order_id}
                     className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors"
-                    onClick={() => onOrderClick && onOrderClick({ id: change.order_id })}
+                    onClick={() => onViewOrders && onViewOrders({ status: change.status })}
                   >
                     <td className="py-3 px-4 text-sm text-slate-800">ORD{change.order_id}</td>
                     <td className="py-3 px-4 text-sm text-slate-800">待加载...</td>
