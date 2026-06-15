@@ -12,10 +12,6 @@
             <el-icon><Document /></el-icon>
             <span>新建工单</span>
           </el-menu-item>
-          <el-menu-item index="/records">
-            <el-icon><Clock /></el-icon>
-            <span>维修记录</span>
-          </el-menu-item>
           <el-menu-item index="/shift-report">
             <el-icon><DataLine /></el-icon>
             <span>交班查看</span>
@@ -34,10 +30,6 @@
           <el-menu-item index="/spare-parts">
             <el-icon><Box /></el-icon>
             <span>备件领用</span>
-          </el-menu-item>
-          <el-menu-item index="/records">
-            <el-icon><Clock /></el-icon>
-            <span>维修记录</span>
           </el-menu-item>
         </template>
         

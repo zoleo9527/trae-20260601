@@ -11,6 +11,12 @@
       </el-alert>
     </div>
 
+    <div v-if="userRole === 'frontdesk'" class="role-hint">
+      <el-alert title="前台提示" type="info" show-icon>
+        您只能查看备件信息，如需领用或管理请联系维修师或店长。
+      </el-alert>
+    </div>
+
     <div class="toolbar">
       <template v-if="canManage">
         <el-button @click="showCreateDialog = true" type="primary">新建备件</el-button>
@@ -62,9 +68,12 @@
               领用
             </el-button>
           </template>
-          <template v-else>
+          <template v-else-if="canManage">
             <el-button @click="editPart(scope.row)" type="text">编辑</el-button>
             <el-button @click="deletePart(scope.row.id)" type="text" danger>删除</el-button>
+          </template>
+          <template v-else>
+            <span class="no-action">-</span>
           </template>
         </template>
       </el-table-column>
@@ -366,5 +375,9 @@ onMounted(() => {
 .low-stock {
   color: #f56c6c;
   font-weight: bold;
+}
+
+.no-action {
+  color: #999;
 }
 </style>
