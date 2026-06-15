@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>建材仓配 - 拣货复核与装车安排</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="app-header">
+      <div class="header-left">
+        <h1 class="app-title">🏗️ 建材仓配系统</h1>
+        <span class="app-subtitle">拣货复核与装车安排</span>
+      </div>
+      <div class="header-right">
+        <div class="role-switcher">
+          <span class="role-label">当前角色：</span>
+          <div class="role-buttons" id="roleButtons"></div>
+        </div>
+        <button class="notice-btn" id="noticeBtn" title="通知">
+          🔔 <span class="badge" id="noticeBadge">0</span>
+        </button>
+        <button class="reset-btn" id="resetBtn" title="重置演示数据">🔄 重置数据</button>
+      </div>
+    </header>
+
+    <nav class="app-nav">
+      <button class="nav-item active" data-view="dashboard">📊 工作台</button>
+      <button class="nav-item" data-view="orders">📋 订单列表</button>
+      <button class="nav-item" data-view="picking">✅ 拣货复核</button>
+      <button class="nav-item" data-view="loading">🚚 装车安排</button>
+      <button class="nav-item" data-view="exceptions">⚠️ 异常处理</button>
+      <button class="nav-item" data-view="locations">🗄️ 库位表</button>
+    </nav>
+
+    <main class="app-main">
+      <section id="view-dashboard" class="view active"></section>
+      <section id="view-orders" class="view"></section>
+      <section id="view-picking" class="view"></section>
+      <section id="view-loading" class="view"></section>
+      <section id="view-exceptions" class="view"></section>
+      <section id="view-locations" class="view"></section>
+    </main>
+
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+    <aside class="drawer" id="noticeDrawer">
+      <div class="drawer-header">
+        <h3>📬 消息通知</h3>
+        <button class="close-btn" id="closeNoticeDrawer">✕</button>
+      </div>
+      <div class="drawer-body" id="noticeList"></div>
+      <div class="drawer-footer">
+        <button class="btn btn-secondary" id="markAllReadBtn">全部标为已读</button>
+      </div>
+    </aside>
+
+    <aside class="drawer drawer-right" id="exceptionDrawer">
+      <div class="drawer-header">
+        <h3>⚠️ 异常处理</h3>
+        <button class="close-btn" id="closeExceptionDrawer">✕</button>
+      </div>
+      <div class="drawer-body" id="exceptionDrawerBody"></div>
+    </aside>
+
+    <aside class="drawer drawer-right drawer-wide" id="orderDetailDrawer">
+      <div class="drawer-header">
+        <h3 id="orderDetailTitle">订单详情</h3>
+        <button class="close-btn" id="closeOrderDetailDrawer">✕</button>
+      </div>
+      <div class="drawer-body" id="orderDetailBody"></div>
+    </aside>
+
+    <div class="modal-overlay" id="modalOverlay">
+      <div class="modal" id="modal">
+        <div class="modal-header">
+          <h3 id="modalTitle">提示</h3>
+          <button class="close-btn" id="closeModal">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+        <div class="modal-footer" id="modalFooter"></div>
+      </div>
+    </div>
+
+    <div class="toast-container" id="toastContainer"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
