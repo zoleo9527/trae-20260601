@@ -100,7 +100,7 @@ export default function Finance() {
     verifyPayment(id)
     setVerifyDialog(null)
     if (id === currentDeviceId) {
-      setTimeout(() => navigate(`/device/${id}`), 600)
+      setTimeout(() => navigate(`/device/${id}?from=finance&action=verify`), 600)
     }
   }
 
@@ -111,17 +111,18 @@ export default function Finance() {
 
   function handleSaveEdit() {
     if (!editingId || !editAccount.account.trim() || !editAccount.bank.trim()) return
+    const id = editingId
     updatePaymentAccount(editingId, editAccount.account.trim(), editAccount.bank.trim())
     setEditingId(null)
-    if (editingId === currentDeviceId) {
-      setTimeout(() => navigate(`/device/${editingId}`), 600)
+    if (id === currentDeviceId) {
+      setTimeout(() => navigate(`/device/${id}?from=finance&action=fix_account`), 600)
     }
   }
 
   function handleConfirmPayment(id: string) {
     executePayment([id])
     if (id === currentDeviceId) {
-      setTimeout(() => navigate(`/device/${id}`), 600)
+      setTimeout(() => navigate(`/device/${id}?from=finance&action=pay`), 600)
     }
   }
 
@@ -131,7 +132,7 @@ export default function Finance() {
     executePayment(payableSelected)
     clearSelection()
     if (hadCurrent) {
-      setTimeout(() => navigate(`/device/${currentDeviceId}`), 600)
+      setTimeout(() => navigate(`/device/${currentDeviceId}?from=finance&action=pay`), 600)
     }
   }
 

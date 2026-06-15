@@ -162,7 +162,7 @@ export default function Inspector() {
     submitInspection(selectedId, report, grade)
     setSubmitted(true)
     setTimeout(() => {
-      navigate(`/device/${selectedId}`)
+      navigate(`/device/${selectedId}?from=inspector&action=inspect_submit`)
     }, 1200)
   }, [selectedId, grade, items, hiddenDefects, gradeReason, submitInspection, navigate])
 
