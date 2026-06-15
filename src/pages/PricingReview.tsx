@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle, Clock, AlertTriangle, Calculator, ArrowUp, ArrowDown, RefreshCw } from 'lucide-react';
+import { CheckCircle, Clock, AlertTriangle, Calculator, ArrowUp, ArrowDown, RefreshCw, Package } from 'lucide-react';
 import { useStore } from '../store';
 
 const changeTypeConfig = {
@@ -26,9 +26,11 @@ export default function PricingReview() {
 
   const configTotal = order.config_items.reduce((sum, item) => sum + item.total_price, 0);
   const modifyTotal = order.modify_records.reduce((sum, record) => sum + record.price_diff, 0);
+  const installedTotal = order.installed_parts.reduce((sum, part) => sum + part.total_price, 0);
   const finalTotal = configTotal + modifyTotal;
   const remainingAmount = finalTotal - order.paid_amount;
   const hasPendingDiff = remainingAmount > 0;
+  const installedDiff = installedTotal - configTotal;
 
   const handleConfirmPayment = () => {
     if (confirmAmount > 0) {
@@ -40,7 +42,7 @@ export default function PricingReview() {
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-5 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -49,6 +51,20 @@ export default function PricingReview() {
             </div>
             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
               <Calculator className="w-5 h-5 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className={`bg-white rounded-xl p-4 shadow-sm ${installedDiff !== 0 ? (installedDiff > 0 ? 'ring-2 ring-green-300' : 'ring-2 ring-red-300') : ''}`}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-500 text-sm">实装差价</p>
+              <p className={`text-xl font-bold ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {installedDiff >= 0 ? '+' : ''}¥{installedDiff.toLocaleString()}
+              </p>
+            </div>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${installedDiff >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+              <Package className={`w-5 h-5 ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`} />
             </div>
           </div>
         </div>
@@ -102,10 +118,10 @@ export default function PricingReview() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-3 gap-6">
         <div className="bg-white rounded-xl shadow-sm">
           <div className="p-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-800">配置价格明细</h3>
+            <h3 className="font-semibold text-gray-800">配置价格明细（原单）</h3>
           </div>
           <div className="divide-y divide-gray-100">
             {order.config_items.map((item) => (
@@ -120,6 +136,52 @@ export default function PricingReview() {
             <div className="p-4 bg-gray-50 flex items-center justify-between">
               <span className="font-semibold text-gray-700">配置总价</span>
               <span className="text-lg font-bold text-gray-900">¥{configTotal.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-800">实装配件价格</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {order.installed_parts.length === 0 ? (
+              <div className="p-8 text-center">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">暂无实装记录</p>
+              </div>
+            ) : (
+              order.installed_parts.map((part) => {
+                const configItem = order.config_items.find(
+                  (item) => item.part_name === part.part_name || item.part_id === part.part_id
+                );
+                const diff = configItem ? part.total_price - configItem.total_price : 0;
+                return (
+                  <div key={part.id} className="p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-medium text-gray-900">{part.part_name}</p>
+                        <p className="text-sm text-gray-500">{part.spec} × {part.quantity}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-medium">¥{part.total_price.toLocaleString()}</span>
+                        {diff !== 0 && (
+                          <p className={`text-xs ${diff > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {diff > 0 ? '+' : ''}{diff}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    {part.remarks && (
+                      <p className="text-xs text-orange-600">{part.remarks}</p>
+                    )}
+                  </div>
+                );
+              })
+            )}
+            <div className={`p-4 flex items-center justify-between ${installedDiff !== 0 ? (installedDiff > 0 ? 'bg-green-50' : 'bg-red-50') : 'bg-gray-50'}`}>
+              <span className="font-semibold text-gray-700">实装总价</span>
+              <span className="text-lg font-bold text-gray-900">¥{installedTotal.toLocaleString()}</span>
             </div>
           </div>
         </div>
@@ -165,6 +227,35 @@ export default function PricingReview() {
         </div>
       </div>
 
+      {(installedDiff !== 0 || order.installed_parts.length > 0) && (
+        <div className="bg-white rounded-xl shadow-sm border-l-4 border-cyan-500">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <Package className="w-5 h-5 text-cyan-600" />
+              实装与原单价格对比
+            </h3>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">原单总价</p>
+                <p className="text-xl font-bold text-gray-900">¥{configTotal.toLocaleString()}</p>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">实装总价</p>
+                <p className="text-xl font-bold text-gray-900">¥{installedTotal.toLocaleString()}</p>
+              </div>
+              <div className={`text-center p-4 rounded-lg ${installedDiff >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                <p className="text-sm text-gray-500">价格差异</p>
+                <p className={`text-xl font-bold ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {installedDiff >= 0 ? '+' : ''}¥{installedDiff.toLocaleString()}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm">
         <div className="p-4 border-b border-gray-200 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -185,7 +276,7 @@ export default function PricingReview() {
           )}
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-3 gap-6">
+          <div className="grid grid-cols-4 gap-6">
             <div className="text-center">
               <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center ${hasPendingDiff ? 'bg-orange-100' : 'bg-green-100'}`}>
                 {hasPendingDiff ? (
@@ -207,6 +298,13 @@ export default function PricingReview() {
               </div>
               <p className="mt-3 font-semibold text-blue-600">价格变动次数</p>
               <p className="text-sm text-gray-500 mt-1">{order.modify_records.length} 次改配</p>
+            </div>
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto rounded-full bg-cyan-100 flex items-center justify-center">
+                <Package className="w-8 h-8 text-cyan-600" />
+              </div>
+              <p className="mt-3 font-semibold text-cyan-600">实装配件数</p>
+              <p className="text-sm text-gray-500 mt-1">{order.installed_parts.length} 种</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 mx-auto rounded-full bg-purple-100 flex items-center justify-center">

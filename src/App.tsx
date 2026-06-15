@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Layout from "@/components/Layout";
 import OrderList from "@/pages/OrderList";
 import OrderDetail from "@/pages/OrderDetail";
+import InstalledParts from "@/pages/InstalledParts";
 import ModifyRecord from "@/pages/ModifyRecord";
 import PricingReview from "@/pages/PricingReview";
 import DeliveryCheck from "@/pages/DeliveryCheck";
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<OrderList />} />
           <Route path="/orders/:id" element={<OrderDetail />} />
+          <Route path="/orders/:id/installed" element={<InstalledParts />} />
           <Route path="/orders/:id/modify" element={<ModifyRecord />} />
           <Route path="/orders/:id/pricing" element={<PricingReview />} />
           <Route path="/orders/:id/delivery" element={<DeliveryCheck />} />

@@ -9,6 +9,22 @@ export interface ConfigItem {
   total_price: number;
 }
 
+export interface InstalledPart {
+  id: string;
+  order_id: string;
+  part_id: string;
+  part_name: string;
+  spec: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  batch_no: string;
+  expire_date: string;
+  installed_by: string;
+  installed_at: string;
+  remarks?: string;
+}
+
 export interface ModifyRecord {
   id: string;
   order_id: string;
@@ -51,11 +67,13 @@ export interface Order {
   phone: string;
   order_date: string;
   status: 'pending' | 'installing' | 'delivered' | 'repairing';
+  install_status: 'not_started' | 'in_progress' | 'completed';
   total_price: number;
   paid_amount: number;
   created_by: string;
   created_at: string;
   config_items: ConfigItem[];
+  installed_parts: InstalledPart[];
   modify_records: ModifyRecord[];
   delivery_records: DeliveryRecord[];
 }

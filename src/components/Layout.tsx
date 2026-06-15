@@ -19,6 +19,7 @@ const navItems = [
 
 const orderDetailItems = [
   { id: 'detail', label: '配置原单', path: '' },
+  { id: 'installed', label: '实装配件', path: '/installed' },
   { id: 'modify', label: '改配记录', path: '/modify' },
   { id: 'pricing', label: '差价复核', path: '/pricing' },
   { id: 'delivery', label: '交付验收', path: '/delivery' },

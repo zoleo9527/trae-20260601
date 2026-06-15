@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Package, CheckCircle, Clock, AlertTriangle, Calendar, User, FileText, Plus } from 'lucide-react';
+import { Package, CheckCircle, Clock, AlertTriangle, Calendar, User, FileText, Plus, Layers } from 'lucide-react';
 import { useStore } from '../store';
 import { DeliveryRecord as DeliveryRecordType } from '../types';
 
@@ -68,9 +68,19 @@ export default function DeliveryCheck() {
     }
   };
 
+  const getPartCategory = (name: string) => {
+    if (name.includes('Core') || name.includes('Ryzen')) return 'CPU';
+    if (name.includes('DDR') || name.includes('内存')) return '内存';
+    if (name.includes('RTX') || name.includes('RX') || name.includes('显卡')) return '显卡';
+    if (name.includes('主板') || name.includes('B760') || name.includes('Z790')) return '主板';
+    if (name.includes('电源') || name.includes('W') || name.includes('FOCUS')) return '电源';
+    if (name.includes('SSD') || name.includes('PRO') || name.includes('硬盘')) return '硬盘';
+    return '其他';
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -118,82 +128,162 @@ export default function DeliveryCheck() {
             </div>
           </div>
         </div>
+
+        <div className="bg-white rounded-xl p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-500 text-sm">实装配件</p>
+              <p className="text-xl font-bold text-cyan-600">{order.installed_parts.length} 种</p>
+            </div>
+            <div className="w-12 h-12 bg-cyan-100 rounded-lg flex items-center justify-center">
+              <Layers className="w-6 h-6 text-cyan-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm">
-        <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">交付记录</h2>
-            <p className="text-sm text-gray-500 mt-1">订单号：{order.id}</p>
-          </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            添加记录
-          </button>
-        </div>
-
-        <div className="divide-y divide-gray-200">
-          {order.delivery_records.length === 0 ? (
-            <div className="py-12 text-center">
-              <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <p className="text-gray-500">暂无交付记录</p>
+      <div className="grid grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">交付记录</h2>
+              <p className="text-sm text-gray-500 mt-1">订单号：{order.id}</p>
             </div>
-          ) : (
-            order.delivery_records.map((record, index) => {
-              const StatusIcon = statusConfig[record.status].icon;
-              const statusColor = statusConfig[record.status].color;
-              const statusLabel = statusConfig[record.status].label;
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              添加记录
+            </button>
+          </div>
 
-              return (
-                <div key={record.id} className="p-4 hover:bg-gray-50">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${statusColor}`}>
-                          <StatusIcon className="w-5 h-5" />
+          <div className="divide-y divide-gray-200">
+            {order.delivery_records.length === 0 ? (
+              <div className="py-12 text-center">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">暂无交付记录</p>
+              </div>
+            ) : (
+              order.delivery_records.map((record, index) => {
+                const StatusIcon = statusConfig[record.status].icon;
+                const statusColor = statusConfig[record.status].color;
+                const statusLabel = statusConfig[record.status].label;
+
+                return (
+                  <div key={record.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${statusColor}`}>
+                            <StatusIcon className="w-5 h-5" />
+                          </div>
+                          {index < order.delivery_records.length - 1 && (
+                            <div className="w-0.5 h-8 bg-gray-200 my-2" />
+                          )}
                         </div>
-                        {index < order.delivery_records.length - 1 && (
-                          <div className="w-0.5 h-8 bg-gray-200 my-2" />
-                        )}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
-                            {statusLabel}
-                          </span>
-                          <span className="text-sm text-gray-400">#{index + 1}</span>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
+                              {statusLabel}
+                            </span>
+                            <span className="text-sm text-gray-400">#{index + 1}</span>
+                          </div>
+                          {record.delivery_date && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+                              <Calendar className="w-4 h-4" />
+                              <span>{record.delivery_date}</span>
+                            </div>
+                          )}
+                          {record.signer && (
+                            <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
+                              <User className="w-4 h-4" />
+                              <span>签收人：{record.signer}</span>
+                            </div>
+                          )}
+                          {record.remarks && (
+                            <div className="flex items-start gap-2 text-sm text-gray-600 mt-2">
+                              <FileText className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                              <span>{record.remarks}</span>
+                            </div>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2">记录时间：{record.created_at}</p>
                         </div>
-                        {record.delivery_date && (
-                          <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
-                            <Calendar className="w-4 h-4" />
-                            <span>{record.delivery_date}</span>
-                          </div>
-                        )}
-                        {record.signer && (
-                          <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-                            <User className="w-4 h-4" />
-                            <span>签收人：{record.signer}</span>
-                          </div>
-                        )}
-                        {record.remarks && (
-                          <div className="flex items-start gap-2 text-sm text-gray-600 mt-2">
-                            <FileText className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                            <span>{record.remarks}</span>
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-400 mt-2">记录时间：{record.created_at}</p>
                       </div>
                     </div>
                   </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-cyan-600" />
+              实装配件清单
+            </h2>
+          </div>
+          <div className="divide-y divide-gray-200 max-h-[500px] overflow-y-auto">
+            {order.installed_parts.length === 0 ? (
+              <div className="py-12 text-center">
+                <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">暂无实装记录</p>
+              </div>
+            ) : (
+              order.installed_parts.map((part) => (
+                <div key={part.id} className="p-4 hover:bg-gray-50">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs px-2 py-1 bg-gray-100 rounded">{getPartCategory(part.part_name)}</span>
+                        <span className="font-medium text-gray-900">{part.part_name}</span>
+                      </div>
+                      <p className="text-sm text-gray-500 mt-1">{part.spec} × {part.quantity}</p>
+                      {part.remarks && (
+                        <p className="text-sm text-orange-600 mt-2">{part.remarks}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500 font-mono">{part.batch_no}</p>
+                      <p className="text-xs text-gray-400">质保至 {part.expire_date}</p>
+                    </div>
+                  </div>
                 </div>
-              );
-            })
-          )}
+              ))
+            )}
+          </div>
         </div>
       </div>
+
+      {hasRepair && order.installed_parts.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border-l-4 border-red-500">
+          <div className="p-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-800 flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-600" />
+              返修配件追溯
+            </h3>
+          </div>
+          <div className="p-4">
+            <div className="grid grid-cols-3 gap-4">
+              {order.installed_parts.map((part) => (
+                <div key={part.id} className="p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs px-2 py-1 bg-gray-200 rounded">{getPartCategory(part.part_name)}</span>
+                  </div>
+                  <p className="font-medium text-gray-900">{part.part_name}</p>
+                  <p className="text-sm text-gray-500 mt-1">批次: {part.batch_no}</p>
+                  <p className="text-xs text-gray-400">质保至: {part.expire_date}</p>
+                  {part.remarks && (
+                    <p className="text-xs text-orange-600 mt-2">{part.remarks}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
