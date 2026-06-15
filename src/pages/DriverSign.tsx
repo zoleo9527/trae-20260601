@@ -135,7 +135,7 @@ export default function DriverSign() {
         remark || undefined
       );
       setIsSubmitting(false);
-      navigate(`/inspections/${inspection.id}`, { state: { signed: true } });
+      navigate(`/inspections/${inspection.id}/review`, { state: { signed: true } });
     }, 500);
   };
 

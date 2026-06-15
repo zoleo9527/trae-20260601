@@ -25,6 +25,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Timeline } from '@/components/ui/Timeline';
 import { InspectionItems } from '@/components/business/InspectionItems';
+import { SignatureSummaryCard } from '@/components/business/SignatureSummaryCard';
 import { useInspectionStore } from '@/store/useInspectionStore';
 import { useUserStore } from '@/store/useUserStore';
 import { statusMap, priorityMap, roleMap } from '@/utils/status';
@@ -413,36 +414,11 @@ export default function InspectionDetail() {
       )}
 
       {inspection.status === 'completed' && inspection.signature && (
-        <Card className="border-emerald-200 bg-gradient-to-r from-emerald-50 to-white">
-          <CardContent className="py-5 px-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-500 flex items-center justify-center text-white flex-shrink-0">
-                  <CheckCircle2 size={22} />
-                </div>
-                <div>
-                  <p className="font-semibold text-emerald-900 text-base">验机已完成</p>
-                  <p className="text-sm text-emerald-700 mt-0.5">
-                    设备已由 <span className="font-medium">{inspection.signature.driverName}</span> 于 {formatDateTime(inspection.signature.signedAt)} 签收
-                  </p>
-                  {inspection.signature.remark && (
-                    <p className="text-sm text-emerald-600 mt-0.5">
-                      备注：{inspection.signature.remark}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                onClick={() => navigate(`/inspections/${inspection.id}/review`)}
-                rightIcon={<ExternalLink size={14} />}
-                className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-              >
-                查看签收详情
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <SignatureSummaryCard
+          signature={inspection.signature}
+          items={inspection.items}
+          onViewReview={() => navigate(`/inspections/${inspection.id}/review`)}
+        />
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -13,9 +13,7 @@ import {
   Clock,
   Calendar,
   Phone,
-  ShieldCheck,
   AlertTriangle,
-  ChevronRight,
   ExternalLink,
   ShieldAlert,
   ArrowRight,
@@ -25,6 +23,7 @@ import { Button } from '@/components/ui/Button';
 import { Timeline } from '@/components/ui/Timeline';
 import { useInspectionStore } from '@/store/useInspectionStore';
 import { useUserStore } from '@/store/useUserStore';
+import { SignatureSummaryCard } from '@/components/business/SignatureSummaryCard';
 import { statusMap } from '@/utils/status';
 import { formatDateTime, formatDate, formatMoney } from '@/utils/date';
 import { cn } from '@/lib/utils';
@@ -137,37 +136,12 @@ export default function SignReview() {
         </Button>
       </div>
 
-      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm">
-            <ShieldCheck size={28} />
-          </div>
-          <div className="flex-1">
-            <p className="text-lg font-semibold">设备已签收确认</p>
-            <p className="text-sm text-emerald-100 mt-1">
-              司机 {signature?.driverName || '未知'} 已于{' '}
-              {signature ? formatDateTime(signature.signedAt) : '未知时间'}{' '}
-              确认签收，验机流程完成
-            </p>
-          </div>
-        </div>
-        <div className="grid grid-cols-3 gap-4 mt-5 pt-5 border-t border-white/20">
-          <div>
-            <p className="text-xs text-emerald-200">验机单号</p>
-            <p className="text-sm font-medium mt-1">{inspection.inspectionNo}</p>
-          </div>
-          <div>
-            <p className="text-xs text-emerald-200">签收司机</p>
-            <p className="text-sm font-medium mt-1">{signature?.driverName || '未知'}</p>
-          </div>
-          <div>
-            <p className="text-xs text-emerald-200">签收时间</p>
-            <p className="text-sm font-medium mt-1">
-              {signature ? formatDateTime(signature.signedAt) : '未知'}
-            </p>
-          </div>
-        </div>
-      </div>
+      <SignatureSummaryCard
+        signature={signature}
+        items={inspection.items}
+        onViewDetail={() => navigate(`/inspections/${inspection.id}`)}
+        className="mt-2"
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
