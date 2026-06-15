@@ -1,14 +1,10 @@
 <script lang="ts">
-  import { reactive } from 'svelte';
+  let username = '';
+  let password = '';
 
   const emit = defineEmits<{
     login: [username: string, password: string];
   }>();
-
-  const form = reactive({
-    username: '',
-    password: ''
-  });
 
   const roles = [
     { value: 'front', label: '前台', username: 'front', password: '123456' },
@@ -17,13 +13,13 @@
   ];
 
   function selectRole(role: typeof roles[0]) {
-    form.username = role.username;
-    form.password = role.password;
+    username = role.username;
+    password = role.password;
   }
 
   function handleSubmit() {
-    if (form.username && form.password) {
-      emit('login', form.username, form.password);
+    if (username && password) {
+      emit('login', username, password);
     }
   }
 </script>
@@ -40,7 +36,7 @@
           <button 
             class="role-btn" 
             on:click={() => selectRole(role)}
-            class:active={form.username === role.username}
+            class:active={username === role.username}
           >
             {role.label}
           </button>
@@ -53,7 +49,7 @@
         <label>用户名</label>
         <input 
           type="text" 
-          bind:value={form.username} 
+          bind:value={username} 
           placeholder="请输入用户名"
         />
       </div>
@@ -61,7 +57,7 @@
         <label>密码</label>
         <input 
           type="password" 
-          bind:value={form.password} 
+          bind:value={password} 
           placeholder="请输入密码"
         />
       </div>

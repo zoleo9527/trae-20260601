@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { reactive, onMount } from 'svelte';
   import type { User, BalanceRecord } from '../lib/types';
 
   export let record: BalanceRecord | null = null;
@@ -12,51 +11,47 @@
     update: [data: Partial<BalanceRecord>];
   }>();
 
-  const form = reactive({
-    wheelPosition: '',
-    beforeValue: 0,
-    balanceValue: 0,
-    status: '处理中' as BalanceRecord['status'],
-    remark: ''
-  });
+  let wheelPosition = '';
+  let beforeValue = 0;
+  let balanceValue = 0;
+  let status: BalanceRecord['status'] = '处理中';
+  let remark = '';
 
-  onMount(() => {
-    if (record) {
-      form.wheelPosition = record.wheelPosition;
-      form.beforeValue = record.beforeValue;
-      form.balanceValue = record.balanceValue;
-      form.status = record.status;
-      form.remark = record.remark;
-    }
-  });
+  if (record) {
+    wheelPosition = record.wheelPosition;
+    beforeValue = record.beforeValue;
+    balanceValue = record.balanceValue;
+    status = record.status;
+    remark = record.remark;
+  }
 
   function handleSubmit() {
-    if (!form.wheelPosition) {
+    if (!wheelPosition) {
       alert('请选择车轮位置');
       return;
     }
-    if (form.balanceValue < 0) {
+    if (balanceValue < 0) {
       alert('平衡值不能为负数');
       return;
     }
 
     if (record) {
       emit('update', {
-        wheelPosition: form.wheelPosition,
-        beforeValue: form.beforeValue,
-        balanceValue: form.balanceValue,
-        status: form.status,
+        wheelPosition,
+        beforeValue,
+        balanceValue,
+        status,
         technicianId: user.id,
-        remark: form.remark
+        remark
       });
     } else {
       emit('submit', {
-        wheelPosition: form.wheelPosition,
-        beforeValue: form.beforeValue,
-        balanceValue: form.balanceValue,
-        status: form.status,
+        wheelPosition,
+        beforeValue,
+        balanceValue,
+        status,
         technicianId: user.id,
-        remark: form.remark
+        remark
       });
     }
   }
@@ -72,7 +67,7 @@
     <form on:submit|preventDefault={handleSubmit}>
       <div class="form-group">
         <label>车轮位置 *</label>
-        <select bind:value={form.wheelPosition}>
+        <select bind:value={wheelPosition}>
           <option value="">请选择位置</option>
           {#each wheelPositions as pos}
             <option value={pos}>{pos}</option>
@@ -84,7 +79,7 @@
         <label>平衡前 (g)</label>
         <input 
           type="number" 
-          bind:value={form.beforeValue} 
+          bind:value={beforeValue} 
           min="0"
           placeholder="平衡前重量"
         />
@@ -94,7 +89,7 @@
         <label>平衡后 (g) *</label>
         <input 
           type="number" 
-          bind:value={form.balanceValue} 
+          bind:value={balanceValue} 
           min="0"
           placeholder="平衡后重量"
         />
@@ -102,7 +97,7 @@
       
       <div class="form-group">
         <label>状态</label>
-        <select bind:value={form.status}>
+        <select bind:value={status}>
           <option value="待处理">待处理</option>
           <option value="处理中">处理中</option>
           <option value="已完成">已完成</option>
@@ -112,7 +107,7 @@
       
       <div class="form-group">
         <label>备注</label>
-        <textarea bind:value={form.remark} placeholder="备注信息"></textarea>
+        <textarea bind:value={remark} placeholder="备注信息"></textarea>
       </div>
 
       <div class="flex-end mt-20">

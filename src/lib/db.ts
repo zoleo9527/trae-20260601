@@ -1,6 +1,7 @@
-import type { User, WorkOrder, BalanceRecord, InspectionRecord, OperationLog } from './types';
-
-let db: IDBDatabase | null = null;
+import Database from 'better-sqlite3';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
+import type { BalanceRecord, InspectionRecord, OperationLog, User, WorkOrder } from './types';
 
 const users: User[] = [
   { id: '1', name: '王前台', role: '前台', username: 'front', password: '123456' },
@@ -8,45 +9,76 @@ const users: User[] = [
   { id: '3', name: '张店长', role: '店长', username: 'manager', password: '123456' }
 ];
 
-function initDB(): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open('TireShopDB', 1);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dbPath = join(__dirname, '../../tire_shop.db');
+const db = new Database(dbPath);
+
+function initDB(): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS workOrders (
+      id TEXT PRIMARY KEY,
+      plateNumber TEXT NOT NULL,
+      customerName TEXT NOT NULL,
+      phone TEXT,
+      vehicleModel TEXT,
+      tireType TEXT,
+      createdBy TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT '进行中',
+      needsReinspection INTEGER NOT NULL DEFAULT 0,
+      balanceUpdatedAfterInspection INTEGER NOT NULL DEFAULT 0,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
     
-    request.onerror = () => reject(request.error);
+    CREATE INDEX IF NOT EXISTS idx_workOrders_plateNumber ON workOrders(plateNumber);
+    CREATE INDEX IF NOT EXISTS idx_workOrders_customerName ON workOrders(customerName);
+    CREATE INDEX IF NOT EXISTS idx_workOrders_status ON workOrders(status);
+    CREATE INDEX IF NOT EXISTS idx_workOrders_createdAt ON workOrders(createdAt);
     
-    request.onsuccess = () => {
-      db = request.result;
-      resolve();
-    };
+    CREATE TABLE IF NOT EXISTS balanceRecords (
+      id TEXT PRIMARY KEY,
+      workOrderId TEXT NOT NULL,
+      wheelPosition TEXT NOT NULL,
+      balanceValue INTEGER NOT NULL,
+      beforeValue INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT '待处理',
+      technicianId TEXT NOT NULL,
+      remark TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
     
-    request.onupgradeneeded = (event) => {
-      const database = (event.target as IDBOpenDBRequest).result;
-      
-      if (!database.objectStoreNames.contains('workOrders')) {
-        const workOrderStore = database.createObjectStore('workOrders', { keyPath: 'id' });
-        workOrderStore.createIndex('plateNumber', 'plateNumber', { unique: false });
-        workOrderStore.createIndex('customerName', 'customerName', { unique: false });
-        workOrderStore.createIndex('status', 'status', { unique: false });
-        workOrderStore.createIndex('createdAt', 'createdAt', { unique: false });
-      }
-      
-      if (!database.objectStoreNames.contains('balanceRecords')) {
-        const balanceStore = database.createObjectStore('balanceRecords', { keyPath: 'id' });
-        balanceStore.createIndex('workOrderId', 'workOrderId', { unique: false });
-      }
-      
-      if (!database.objectStoreNames.contains('inspectionRecords')) {
-        const inspectionStore = database.createObjectStore('inspectionRecords', { keyPath: 'id' });
-        inspectionStore.createIndex('workOrderId', 'workOrderId', { unique: true });
-      }
-      
-      if (!database.objectStoreNames.contains('operationLogs')) {
-        const logStore = database.createObjectStore('operationLogs', { keyPath: 'id' });
-        logStore.createIndex('workOrderId', 'workOrderId', { unique: false });
-        logStore.createIndex('timestamp', 'timestamp', { unique: false });
-      }
-    };
-  });
+    CREATE INDEX IF NOT EXISTS idx_balanceRecords_workOrderId ON balanceRecords(workOrderId);
+    
+    CREATE TABLE IF NOT EXISTS inspectionRecords (
+      id TEXT PRIMARY KEY,
+      workOrderId TEXT NOT NULL UNIQUE,
+      status TEXT NOT NULL DEFAULT '待质检',
+      inspectorId TEXT NOT NULL,
+      checkItems TEXT NOT NULL DEFAULT '[]',
+      passedItems TEXT NOT NULL DEFAULT '[]',
+      failedItems TEXT NOT NULL DEFAULT '[]',
+      remark TEXT,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_inspectionRecords_workOrderId ON inspectionRecords(workOrderId);
+    
+    CREATE TABLE IF NOT EXISTS operationLogs (
+      id TEXT PRIMARY KEY,
+      workOrderId TEXT NOT NULL,
+      action TEXT NOT NULL,
+      operatorId TEXT NOT NULL,
+      operatorName TEXT NOT NULL,
+      operatorRole TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      details TEXT
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_operationLogs_workOrderId ON operationLogs(workOrderId);
+    CREATE INDEX IF NOT EXISTS idx_operationLogs_timestamp ON operationLogs(timestamp);
+  `);
 }
 
 function uuidv4(): string {
@@ -56,378 +88,245 @@ function uuidv4(): string {
   });
 }
 
-export async function getUserByUsername(username: string): Promise<User | null> {
-  await initDB();
-  return Promise.resolve(users.find(u => u.username === username) || null);
+initDB();
+
+export function getUserByUsername(username: string): User | null {
+  return users.find(u => u.username === username) || null;
 }
 
-export async function createWorkOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>): Promise<string> {
-  await initDB();
+export function createWorkOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>): string {
   const id = uuidv4();
   const now = new Date().toISOString();
   
-  const order: WorkOrder = {
-    id,
-    ...data,
-    balanceRecords: [],
-    inspectionRecord: null,
-    createdAt: now,
-    updatedAt: now,
-    needsReinspection: false,
-    balanceUpdatedAfterInspection: false
-  };
+  const stmt = db.prepare(`
+    INSERT INTO workOrders (id, plateNumber, customerName, phone, vehicleModel, tireType, createdBy, status, needsReinspection, balanceUpdatedAfterInspection, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['workOrders'], 'readwrite');
-    const store = transaction.objectStore('workOrders');
-    const request = store.add(order);
-    
-    request.onsuccess = () => resolve(id);
-    request.onerror = () => reject(request.error);
-  });
+  stmt.run(id, data.plateNumber, data.customerName, data.phone, data.vehicleModel, data.tireType, data.createdBy, data.status || '进行中', 0, 0, now, now);
+  
+  return id;
 }
 
-export async function getWorkOrders(filter?: {
+export function getWorkOrders(filter?: {
   plateNumber?: string;
   customerName?: string;
   status?: string;
   startDate?: string;
   endDate?: string;
-}): Promise<WorkOrder[]> {
-  await initDB();
+}): WorkOrder[] {
+  let query = `SELECT * FROM workOrders WHERE 1=1`;
+  const params: any[] = [];
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['workOrders'], 'readonly');
-    const store = transaction.objectStore('workOrders');
-    const request = store.getAll();
-    
-    request.onsuccess = async () => {
-      let results: WorkOrder[] = request.result;
-      
-      if (filter?.plateNumber) {
-        results = results.filter(o => o.plateNumber.includes(filter.plateNumber));
-      }
-      if (filter?.customerName) {
-        results = results.filter(o => o.customerName.includes(filter.customerName));
-      }
-      if (filter?.status) {
-        results = results.filter(o => o.status === filter.status);
-      }
-      if (filter?.startDate) {
-        results = results.filter(o => o.createdAt >= filter.startDate);
-      }
-      if (filter?.endDate) {
-        results = results.filter(o => o.createdAt <= filter.endDate + 'T23:59:59.999Z');
-      }
-      
-      for (const order of results) {
-        order.balanceRecords = await getBalanceRecords(order.id);
-        order.inspectionRecord = await getInspectionRecord(order.id);
-      }
-      
-      results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      resolve(results);
-    };
-    
-    request.onerror = () => reject(request.error);
-  });
+  if (filter?.plateNumber) {
+    query += ` AND plateNumber LIKE ?`;
+    params.push(`%${filter.plateNumber}%`);
+  }
+  if (filter?.customerName) {
+    query += ` AND customerName LIKE ?`;
+    params.push(`%${filter.customerName}%`);
+  }
+  if (filter?.status) {
+    query += ` AND status = ?`;
+    params.push(filter.status);
+  }
+  if (filter?.startDate) {
+    query += ` AND createdAt >= ?`;
+    params.push(filter.startDate);
+  }
+  if (filter?.endDate) {
+    query += ` AND createdAt <= ?`;
+    params.push(filter.endDate + 'T23:59:59.999Z');
+  }
+  
+  query += ` ORDER BY createdAt DESC`;
+  
+  const results = db.prepare(query).all(params) as any[];
+  
+  return results.map(order => ({
+    ...order,
+    needsReinspection: Boolean(order.needsReinspection),
+    balanceUpdatedAfterInspection: Boolean(order.balanceUpdatedAfterInspection),
+    balanceRecords: getBalanceRecords(order.id),
+    inspectionRecord: getInspectionRecord(order.id)
+  }));
 }
 
-export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
-  await initDB();
+export function getWorkOrderById(id: string): WorkOrder | null {
+  const result = db.prepare(`SELECT * FROM workOrders WHERE id = ?`).get(id) as any;
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['workOrders'], 'readonly');
-    const store = transaction.objectStore('workOrders');
-    const request = store.get(id);
-    
-    request.onsuccess = async () => {
-      if (!request.result) {
-        resolve(null);
-        return;
-      }
-      
-      const order = request.result as WorkOrder;
-      order.balanceRecords = await getBalanceRecords(id);
-      order.inspectionRecord = await getInspectionRecord(id);
-      resolve(order);
-    };
-    
-    request.onerror = () => reject(request.error);
-  });
+  if (!result) {
+    return null;
+  }
+  
+  return {
+    ...result,
+    needsReinspection: Boolean(result.needsReinspection),
+    balanceUpdatedAfterInspection: Boolean(result.balanceUpdatedAfterInspection),
+    balanceRecords: getBalanceRecords(id),
+    inspectionRecord: getInspectionRecord(id)
+  };
 }
 
-export async function updateWorkOrder(id: string, data: Partial<WorkOrder>): Promise<void> {
-  await initDB();
+export function updateWorkOrder(id: string, data: Partial<WorkOrder>): void {
+  const updates: string[] = [];
+  const params: any[] = [];
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['workOrders'], 'readwrite');
-    const store = transaction.objectStore('workOrders');
-    const getRequest = store.get(id);
-    
-    getRequest.onsuccess = () => {
-      const order = getRequest.result as WorkOrder;
-      const updatedOrder = {
-        ...order,
-        ...data,
-        updatedAt: new Date().toISOString()
-      };
-      
-      const putRequest = store.put(updatedOrder);
-      putRequest.onsuccess = () => resolve();
-      putRequest.onerror = () => reject(putRequest.error);
-    };
-    
-    getRequest.onerror = () => reject(getRequest.error);
-  });
+  if (data.plateNumber !== undefined) { updates.push('plateNumber = ?'); params.push(data.plateNumber); }
+  if (data.customerName !== undefined) { updates.push('customerName = ?'); params.push(data.customerName); }
+  if (data.phone !== undefined) { updates.push('phone = ?'); params.push(data.phone); }
+  if (data.vehicleModel !== undefined) { updates.push('vehicleModel = ?'); params.push(data.vehicleModel); }
+  if (data.tireType !== undefined) { updates.push('tireType = ?'); params.push(data.tireType); }
+  if (data.status !== undefined) { updates.push('status = ?'); params.push(data.status); }
+  if (data.needsReinspection !== undefined) { updates.push('needsReinspection = ?'); params.push(data.needsReinspection ? 1 : 0); }
+  if (data.balanceUpdatedAfterInspection !== undefined) { updates.push('balanceUpdatedAfterInspection = ?'); params.push(data.balanceUpdatedAfterInspection ? 1 : 0); }
+  
+  updates.push('updatedAt = ?');
+  params.push(new Date().toISOString());
+  params.push(id);
+  
+  const stmt = db.prepare(`UPDATE workOrders SET ${updates.join(', ')} WHERE id = ?`);
+  stmt.run(params);
 }
 
-export async function createBalanceRecord(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  await initDB();
+export function createBalanceRecord(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>): string {
   const id = uuidv4();
   const now = new Date().toISOString();
   
-  const record: BalanceRecord = {
-    id,
-    ...data,
-    createdAt: now,
-    updatedAt: now
-  };
+  const stmt = db.prepare(`
+    INSERT INTO balanceRecords (id, workOrderId, wheelPosition, balanceValue, beforeValue, status, technicianId, remark, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['balanceRecords', 'workOrders', 'inspectionRecords'], 'readwrite');
-    const balanceStore = transaction.objectStore('balanceRecords');
-    
-    balanceStore.add(record).onsuccess = async () => {
-      const order = await getWorkOrderById(data.workOrderId);
-      if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
-        const workOrderStore = transaction.objectStore('workOrders');
-        const inspectionStore = transaction.objectStore('inspectionRecords');
-        
-        workOrderStore.get(data.workOrderId).onsuccess = (event) => {
-          const wo = (event.target as IDBRequest).result;
-          wo.needsReinspection = true;
-          wo.balanceUpdatedAfterInspection = true;
-          wo.updatedAt = now;
-          workOrderStore.put(wo);
-        };
-        
-        inspectionStore.index('workOrderId').get(data.workOrderId).onsuccess = (event) => {
-          const ir = (event.target as IDBRequest).result;
-          if (ir) {
-            ir.status = '待重新质检';
-            ir.updatedAt = now;
-            inspectionStore.put(ir);
-          }
-        };
-      }
-      resolve(id);
-    };
-    
-    balanceStore.onerror = () => reject(balanceStore.error);
-  });
-}
-
-export async function updateBalanceRecord(id: string, data: Partial<BalanceRecord>): Promise<void> {
-  await initDB();
+  stmt.run(id, data.workOrderId, data.wheelPosition, data.balanceValue, data.beforeValue, data.status, data.technicianId, data.remark, now, now);
   
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['balanceRecords', 'workOrders', 'inspectionRecords'], 'readwrite');
-    const balanceStore = transaction.objectStore('balanceRecords');
-    
-    balanceStore.get(id).onsuccess = (event) => {
-      const record = (event.target as IDBRequest).result as BalanceRecord;
-      const workOrderId = record.workOrderId;
-      
-      const updatedRecord = {
-        ...record,
-        ...data,
-        updatedAt: new Date().toISOString()
-      };
-      
-      balanceStore.put(updatedRecord).onsuccess = async () => {
-        const order = await getWorkOrderById(workOrderId);
-        if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
-          const workOrderStore = transaction.objectStore('workOrders');
-          const inspectionStore = transaction.objectStore('inspectionRecords');
-          const now = new Date().toISOString();
-          
-          workOrderStore.get(workOrderId).onsuccess = (e) => {
-            const wo = (e.target as IDBRequest).result;
-            wo.needsReinspection = true;
-            wo.balanceUpdatedAfterInspection = true;
-            wo.updatedAt = now;
-            workOrderStore.put(wo);
-          };
-          
-          inspectionStore.index('workOrderId').get(workOrderId).onsuccess = (e) => {
-            const ir = (e.target as IDBRequest).result;
-            if (ir) {
-              ir.status = '待重新质检';
-              ir.updatedAt = now;
-              inspectionStore.put(ir);
-            }
-          };
-        }
-        resolve();
-      };
-      
-      balanceStore.onerror = () => reject(balanceStore.error);
-    };
-    
-    balanceStore.onerror = () => reject(balanceStore.error);
-  });
-}
-
-export async function getBalanceRecords(workOrderId: string): Promise<BalanceRecord[]> {
-  await initDB();
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['balanceRecords'], 'readonly');
-    const store = transaction.objectStore('balanceRecords');
-    const index = store.index('workOrderId');
-    const request = index.getAll(workOrderId);
-    
-    request.onsuccess = () => {
-      const results = request.result as BalanceRecord[];
-      results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-      resolve(results);
-    };
-    
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function createInspectionRecord(data: Omit<InspectionRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-  await initDB();
-  const id = uuidv4();
-  const now = new Date().toISOString();
-  
-  const record: InspectionRecord = {
-    id,
-    ...data,
-    createdAt: now,
-    updatedAt: now
-  };
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['inspectionRecords', 'workOrders'], 'readwrite');
-    const inspectionStore = transaction.objectStore('inspectionRecords');
-    
-    inspectionStore.add(record).onsuccess = () => {
-      const workOrderStore = transaction.objectStore('workOrders');
-      workOrderStore.get(data.workOrderId).onsuccess = (event) => {
-        const wo = (event.target as IDBRequest).result;
-        wo.needsReinspection = false;
-        wo.balanceUpdatedAfterInspection = false;
-        wo.updatedAt = now;
-        workOrderStore.put(wo);
-      };
-      resolve(id);
-    };
-    
-    inspectionStore.onerror = () => reject(inspectionStore.error);
-  });
-}
-
-export async function updateInspectionRecord(id: string, data: Partial<InspectionRecord>): Promise<void> {
-  await initDB();
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['inspectionRecords', 'workOrders'], 'readwrite');
-    const inspectionStore = transaction.objectStore('inspectionRecords');
-    
-    inspectionStore.get(id).onsuccess = (event) => {
-      const record = (event.target as IDBRequest).result as InspectionRecord;
-      const workOrderId = record.workOrderId;
-      const now = new Date().toISOString();
-      
-      const updatedRecord = {
-        ...record,
-        ...data,
-        updatedAt: now
-      };
-      
-      inspectionStore.put(updatedRecord).onsuccess = () => {
-        if (data.status === '质检通过') {
-          const workOrderStore = transaction.objectStore('workOrders');
-          workOrderStore.get(workOrderId).onsuccess = (e) => {
-            const wo = (e.target as IDBRequest).result;
-            wo.needsReinspection = false;
-            wo.balanceUpdatedAfterInspection = false;
-            wo.updatedAt = now;
-            workOrderStore.put(wo);
-          };
-        }
-        resolve();
-      };
-      
-      inspectionStore.onerror = () => reject(inspectionStore.error);
-    };
-    
-    inspectionStore.onerror = () => reject(inspectionStore.error);
-  });
-}
-
-export async function getInspectionRecord(workOrderId: string): Promise<InspectionRecord | null> {
-  await initDB();
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['inspectionRecords'], 'readonly');
-    const store = transaction.objectStore('inspectionRecords');
-    const index = store.index('workOrderId');
-    const request = index.get(workOrderId);
-    
-    request.onsuccess = () => {
-      resolve(request.result as InspectionRecord | null);
-    };
-    
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function createOperationLog(data: Omit<OperationLog, 'id' | 'timestamp'>): Promise<void> {
-  await initDB();
-  const id = uuidv4();
-  const now = new Date().toISOString();
-  
-  const log: OperationLog = {
-    id,
-    ...data,
-    timestamp: now
-  };
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['operationLogs'], 'readwrite');
-    const store = transaction.objectStore('operationLogs');
-    const request = store.add(log);
-    
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function getOperationLogs(workOrderId?: string): Promise<OperationLog[]> {
-  await initDB();
-  
-  return new Promise((resolve, reject) => {
-    const transaction = db!.transaction(['operationLogs'], 'readonly');
-    const store = transaction.objectStore('operationLogs');
-    
-    let request: IDBRequest;
-    if (workOrderId) {
-      const index = store.index('workOrderId');
-      request = index.getAll(workOrderId);
-    } else {
-      request = store.getAll();
+  const order = getWorkOrderById(data.workOrderId);
+  if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
+    updateWorkOrder(data.workOrderId, { needsReinspection: true, balanceUpdatedAfterInspection: true });
+    const inspection = getInspectionRecord(data.workOrderId);
+    if (inspection) {
+      updateInspectionRecord(inspection.id, { status: '待重新质检' });
     }
-    
-    request.onsuccess = () => {
-      const results = request.result as OperationLog[];
-      results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-      resolve(results);
-    };
-    
-    request.onerror = () => reject(request.error);
-  });
+  }
+  
+  return id;
+}
+
+export function updateBalanceRecord(id: string, data: Partial<BalanceRecord>): void {
+  const record = db.prepare(`SELECT * FROM balanceRecords WHERE id = ?`).get(id) as any;
+  const workOrderId = record.workOrderId;
+  
+  const updates: string[] = [];
+  const params: any[] = [];
+  
+  if (data.wheelPosition !== undefined) { updates.push('wheelPosition = ?'); params.push(data.wheelPosition); }
+  if (data.balanceValue !== undefined) { updates.push('balanceValue = ?'); params.push(data.balanceValue); }
+  if (data.beforeValue !== undefined) { updates.push('beforeValue = ?'); params.push(data.beforeValue); }
+  if (data.status !== undefined) { updates.push('status = ?'); params.push(data.status); }
+  if (data.technicianId !== undefined) { updates.push('technicianId = ?'); params.push(data.technicianId); }
+  if (data.remark !== undefined) { updates.push('remark = ?'); params.push(data.remark); }
+  
+  updates.push('updatedAt = ?');
+  params.push(new Date().toISOString());
+  params.push(id);
+  
+  const stmt = db.prepare(`UPDATE balanceRecords SET ${updates.join(', ')} WHERE id = ?`);
+  stmt.run(params);
+  
+  const order = getWorkOrderById(workOrderId);
+  if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
+    updateWorkOrder(workOrderId, { needsReinspection: true, balanceUpdatedAfterInspection: true });
+    const inspection = getInspectionRecord(workOrderId);
+    if (inspection) {
+      updateInspectionRecord(inspection.id, { status: '待重新质检' });
+    }
+  }
+}
+
+export function getBalanceRecords(workOrderId: string): BalanceRecord[] {
+  const results = db.prepare(`SELECT * FROM balanceRecords WHERE workOrderId = ? ORDER BY createdAt ASC`).all(workOrderId) as any[];
+  return results;
+}
+
+export function createInspectionRecord(data: Omit<InspectionRecord, 'id' | 'createdAt' | 'updatedAt'>): string {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  
+  const stmt = db.prepare(`
+    INSERT INTO inspectionRecords (id, workOrderId, status, inspectorId, checkItems, passedItems, failedItems, remark, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  stmt.run(id, data.workOrderId, data.status, data.inspectorId, JSON.stringify(data.checkItems), JSON.stringify(data.passedItems), JSON.stringify(data.failedItems), data.remark, now, now);
+  
+  updateWorkOrder(data.workOrderId, { needsReinspection: false, balanceUpdatedAfterInspection: false });
+  
+  return id;
+}
+
+export function updateInspectionRecord(id: string, data: Partial<InspectionRecord>): void {
+  const record = db.prepare(`SELECT * FROM inspectionRecords WHERE id = ?`).get(id) as any;
+  const workOrderId = record.workOrderId;
+  
+  const updates: string[] = [];
+  const params: any[] = [];
+  
+  if (data.status !== undefined) { updates.push('status = ?'); params.push(data.status); }
+  if (data.inspectorId !== undefined) { updates.push('inspectorId = ?'); params.push(data.inspectorId); }
+  if (data.checkItems !== undefined) { updates.push('checkItems = ?'); params.push(JSON.stringify(data.checkItems)); }
+  if (data.passedItems !== undefined) { updates.push('passedItems = ?'); params.push(JSON.stringify(data.passedItems)); }
+  if (data.failedItems !== undefined) { updates.push('failedItems = ?'); params.push(JSON.stringify(data.failedItems)); }
+  if (data.remark !== undefined) { updates.push('remark = ?'); params.push(data.remark); }
+  
+  updates.push('updatedAt = ?');
+  params.push(new Date().toISOString());
+  params.push(id);
+  
+  const stmt = db.prepare(`UPDATE inspectionRecords SET ${updates.join(', ')} WHERE id = ?`);
+  stmt.run(params);
+  
+  if (data.status === '质检通过') {
+    updateWorkOrder(workOrderId, { needsReinspection: false, balanceUpdatedAfterInspection: false });
+  }
+}
+
+export function getInspectionRecord(workOrderId: string): InspectionRecord | null {
+  const result = db.prepare(`SELECT * FROM inspectionRecords WHERE workOrderId = ?`).get(workOrderId) as any;
+  
+  if (!result) {
+    return null;
+  }
+  
+  return {
+    ...result,
+    checkItems: JSON.parse(result.checkItems),
+    passedItems: JSON.parse(result.passedItems),
+    failedItems: JSON.parse(result.failedItems)
+  };
+}
+
+export function createOperationLog(data: Omit<OperationLog, 'id' | 'timestamp'>): void {
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  
+  const stmt = db.prepare(`
+    INSERT INTO operationLogs (id, workOrderId, action, operatorId, operatorName, operatorRole, timestamp, details)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  
+  stmt.run(id, data.workOrderId, data.action, data.operatorId, data.operatorName, data.operatorRole, now, data.details);
+}
+
+export function getOperationLogs(workOrderId?: string): OperationLog[] {
+  let query: string;
+  let params: any[] = [];
+  
+  if (workOrderId) {
+    query = `SELECT * FROM operationLogs WHERE workOrderId = ? ORDER BY timestamp DESC`;
+    params.push(workOrderId);
+  } else {
+    query = `SELECT * FROM operationLogs ORDER BY timestamp DESC`;
+  }
+  
+  return db.prepare(query).all(params) as OperationLog[];
 }

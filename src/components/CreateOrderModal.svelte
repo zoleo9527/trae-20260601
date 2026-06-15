@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { reactive } from 'svelte';
   import type { User, WorkOrder } from '../lib/types';
 
   export let user: User;
@@ -9,26 +8,24 @@
     submit: [data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>];
   }>();
 
-  const form = reactive({
-    plateNumber: '',
-    customerName: '',
-    phone: '',
-    vehicleModel: '',
-    tireType: ''
-  });
+  let plateNumber = '';
+  let customerName = '';
+  let phone = '';
+  let vehicleModel = '';
+  let tireType = '';
 
   function handleSubmit() {
-    if (!form.plateNumber || !form.customerName) {
+    if (!plateNumber || !customerName) {
       alert('请填写车牌号和客户姓名');
       return;
     }
     
     emit('submit', {
-      plateNumber: form.plateNumber,
-      customerName: form.customerName,
-      phone: form.phone,
-      vehicleModel: form.vehicleModel,
-      tireType: form.tireType,
+      plateNumber,
+      customerName,
+      phone,
+      vehicleModel,
+      tireType,
       createdBy: user.id,
       status: '进行中'
     });
@@ -47,7 +44,7 @@
         <label>车牌号 *</label>
         <input 
           type="text" 
-          bind:value={form.plateNumber} 
+          bind:value={plateNumber} 
           placeholder="请输入车牌号"
         />
       </div>
@@ -55,7 +52,7 @@
         <label>客户姓名 *</label>
         <input 
           type="text" 
-          bind:value={form.customerName} 
+          bind:value={customerName} 
           placeholder="请输入客户姓名"
         />
       </div>
@@ -63,7 +60,7 @@
         <label>联系电话</label>
         <input 
           type="tel" 
-          bind:value={form.phone} 
+          bind:value={phone} 
           placeholder="请输入联系电话"
         />
       </div>
@@ -71,7 +68,7 @@
         <label>车型</label>
         <input 
           type="text" 
-          bind:value={form.vehicleModel} 
+          bind:value={vehicleModel} 
           placeholder="请输入车型"
         />
       </div>
@@ -79,7 +76,7 @@
         <label>轮胎型号</label>
         <input 
           type="text" 
-          bind:value={form.tireType} 
+          bind:value={tireType} 
           placeholder="请输入轮胎型号"
         />
       </div>

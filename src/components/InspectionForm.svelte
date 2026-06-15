@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { reactive, onMount } from 'svelte';
   import type { User, InspectionRecord } from '../lib/types';
 
   export let inspection: InspectionRecord | null;
@@ -26,68 +25,51 @@
     '轮胎动平衡测试'
   ];
 
-  const form = reactive({
-    checkItems: [] as string[],
-    passedItems: [] as string[],
-    failedItems: [] as string[],
-    remark: ''
-  });
-
-  onMount(() => {
-    if (inspection) {
-      form.checkItems = [...inspection.checkItems];
-      form.passedItems = [...inspection.passedItems];
-      form.failedItems = [...inspection.failedItems];
-      form.remark = inspection.remark;
-    } else {
-      form.checkItems = [...defaultCheckItems];
-    }
-  });
+  let checkItems: string[] = inspection ? [...inspection.checkItems] : [...defaultCheckItems];
+  let passedItems: string[] = inspection ? [...inspection.passedItems] : [];
+  let failedItems: string[] = inspection ? [...inspection.failedItems] : [];
+  let remark = inspection?.remark || '';
 
   function toggleItem(item: string, isPassed: boolean) {
-    const passedIndex = form.passedItems.indexOf(item);
-    const failedIndex = form.failedItems.indexOf(item);
+    const passedIndex = passedItems.indexOf(item);
+    const failedIndex = failedItems.indexOf(item);
 
     if (isPassed) {
       if (passedIndex === -1) {
-        form.passedItems.push(item);
+        passedItems = [...passedItems, item];
       } else {
-        form.passedItems.splice(passedIndex, 1);
+        passedItems = passedItems.filter(i => i !== item);
       }
-      if (failedIndex !== -1) {
-        form.failedItems.splice(failedIndex, 1);
-      }
+      failedItems = failedItems.filter(i => i !== item);
     } else {
       if (failedIndex === -1) {
-        form.failedItems.push(item);
+        failedItems = [...failedItems, item];
       } else {
-        form.failedItems.splice(failedIndex, 1);
+        failedItems = failedItems.filter(i => i !== item);
       }
-      if (passedIndex !== -1) {
-        form.passedItems.splice(passedIndex, 1);
-      }
+      passedItems = passedItems.filter(i => i !== item);
     }
   }
 
   function isPassed(item: string) {
-    return form.passedItems.includes(item);
+    return passedItems.includes(item);
   }
 
   function isFailed(item: string) {
-    return form.failedItems.includes(item);
+    return failedItems.includes(item);
   }
 
   function handleSubmit() {
-    if (form.passedItems.length + form.failedItems.length === 0) {
+    if (passedItems.length + failedItems.length === 0) {
       alert('请至少选择一项检查结果');
       return;
     }
 
     emit('submit', {
-      checkItems: form.checkItems,
-      passedItems: form.passedItems,
-      failedItems: form.failedItems,
-      remark: form.remark
+      checkItems,
+      passedItems,
+      failedItems,
+      remark
     });
   }
 </script>
@@ -103,7 +85,7 @@
       <div class="form-group">
         <label>检查项目</label>
         <div class="check-list">
-          {#each form.checkItems as item}
+          {#each checkItems as item}
             <div class="check-item">
               <button 
                 type="button" 
@@ -122,17 +104,17 @@
       
       <div class="form-group">
         <label>备注</label>
-        <textarea bind:value={form.remark} placeholder="质检备注信息"></textarea>
+        <textarea bind:value={remark} placeholder="质检备注信息"></textarea>
       </div>
 
       <div class="summary-row">
         <div class="summary-item">
           <span class="summary-label">合格项</span>
-          <span class="summary-value success">{form.passedItems.length} 项</span>
+          <span class="summary-value success">{passedItems.length} 项</span>
         </div>
         <div class="summary-item">
           <span class="summary-label">不合格项</span>
-          <span class="summary-value danger">{form.failedItems.length} 项</span>
+          <span class="summary-value danger">{failedItems.length} 项</span>
         </div>
       </div>
 

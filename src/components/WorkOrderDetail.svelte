@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { reactive, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { User, WorkOrder, BalanceRecord, InspectionRecord, OperationLog } from '../lib/types';
   import { 
     getWorkOrderById, 
@@ -22,21 +22,20 @@
     logout: [];
   }>();
 
-  const logs = reactive<OperationLog[]>([]);
-  const showBalanceForm = reactive({ value: false, editRecord: null as BalanceRecord | null });
-  const showInspectionForm = reactive({ value: false });
+  let logs: OperationLog[] = [];
+  let showBalanceForm = false;
+  let editRecord: BalanceRecord | null = null;
+  let showInspectionForm = false;
 
   const wheelPositions = ['左前轮', '右前轮', '左后轮', '右后轮', '备胎'];
 
   async function loadLogs() {
-    logs.length = 0;
-    const loadedLogs = await getOperationLogs(order.id);
-    loadedLogs.forEach(log => logs.push(log));
+    logs = getOperationLogs(order.id);
   }
 
   async function handleAddBalance(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>) {
-    await createBalanceRecord({ ...data, workOrderId: order.id });
-    await createOperationLog({
+    createBalanceRecord({ ...data, workOrderId: order.id });
+    createOperationLog({
       workOrderId: order.id,
       action: '更新动平衡',
       operatorId: user.id,
@@ -44,14 +43,14 @@
       operatorRole: user.role,
       details: `添加动平衡记录: ${data.wheelPosition}，平衡值: ${data.balanceValue}g`
     });
-    showBalanceForm.value = false;
+    showBalanceForm = false;
     await refreshOrder();
   }
 
   async function handleUpdateBalance(record: BalanceRecord, data: Partial<BalanceRecord>) {
     const oldValue = record.balanceValue;
-    await updateBalanceRecord(record.id, data);
-    await createOperationLog({
+    updateBalanceRecord(record.id, data);
+    createOperationLog({
       workOrderId: order.id,
       action: '修改记录',
       operatorId: user.id,
@@ -59,15 +58,15 @@
       operatorRole: user.role,
       details: `修改动平衡记录: ${record.wheelPosition}，平衡值从 ${oldValue}g 改为 ${data.balanceValue}g`
     });
-    showBalanceForm.value = false;
+    showBalanceForm = false;
     await refreshOrder();
   }
 
   async function handleCompleteBalance(recordId: string) {
     const record = order.balanceRecords.find(r => r.id === recordId);
     if (record) {
-      await updateBalanceRecord(recordId, { status: '已完成' });
-      await createOperationLog({
+      updateBalanceRecord(recordId, { status: '已完成' });
+      createOperationLog({
         workOrderId: order.id,
         action: '完成动平衡',
         operatorId: user.id,
@@ -86,7 +85,7 @@
     }
     
     if (!order.inspectionRecord) {
-      await createInspectionRecord({
+      createInspectionRecord({
         workOrderId: order.id,
         status: '质检中',
         inspectorId: user.id,
@@ -96,10 +95,10 @@
         remark: ''
       });
     } else {
-      await updateInspectionRecord(order.inspectionRecord.id, { status: '质检中' });
+      updateInspectionRecord(order.inspectionRecord.id, { status: '质检中' });
     }
     
-    await createOperationLog({
+    createOperationLog({
       workOrderId: order.id,
       action: '开始质检',
       operatorId: user.id,
@@ -108,7 +107,7 @@
       details: '开始质检流程'
     });
     
-    showInspectionForm.value = true;
+    showInspectionForm = true;
     await refreshOrder();
   }
 
@@ -121,7 +120,7 @@
     const status = data.failedItems.length > 0 ? '质检不通过' : '质检通过';
     
     if (!order.inspectionRecord) {
-      await createInspectionRecord({
+      createInspectionRecord({
         workOrderId: order.id,
         status,
         inspectorId: user.id,
@@ -131,7 +130,7 @@
         remark: data.remark
       });
     } else {
-      await updateInspectionRecord(order.inspectionRecord.id, {
+      updateInspectionRecord(order.inspectionRecord.id, {
         status,
         inspectorId: user.id,
         checkItems: data.checkItems,
@@ -141,7 +140,7 @@
       });
     }
     
-    await createOperationLog({
+    createOperationLog({
       workOrderId: order.id,
       action: status === '质检通过' ? '质检通过' : '质检不通过',
       operatorId: user.id,
@@ -150,7 +149,7 @@
       details: `${status}: 合格项(${data.passedItems.length})，不合格项(${data.failedItems.length})`
     });
     
-    showInspectionForm.value = false;
+    showInspectionForm = false;
     await refreshOrder();
   }
 
@@ -160,8 +159,8 @@
       return;
     }
     
-    await updateWorkOrder(order.id, { status: '已完成' });
-    await createOperationLog({
+    updateWorkOrder(order.id, { status: '已完成' });
+    createOperationLog({
       workOrderId: order.id,
       action: '交车完成',
       operatorId: user.id,
@@ -173,7 +172,7 @@
   }
 
   async function refreshOrder() {
-    const updated = await getWorkOrderById(order.id);
+    const updated = getWorkOrderById(order.id);
     if (updated) {
       Object.assign(order, updated);
     }
@@ -200,7 +199,8 @@
 
   function canCompleteDelivery() {
     return (user.role === '前台' || user.role === '店长') && 
-           order.inspectionRecord?.status === '质检通过' && 
+           order.inspectionRecord && 
+           order.inspectionRecord.status === '质检通过' && 
            order.status === '进行中';
   }
 
@@ -267,8 +267,8 @@
         {/if}
         {#if canAddBalance()}
           <button class="btn btn-primary btn-sm" on:click={() => {
-            showBalanceForm.value = true;
-            showBalanceForm.editRecord = null;
+            showBalanceForm = true;
+            editRecord = null;
           }}>
             + 添加记录
           </button>
@@ -314,8 +314,8 @@
               <td>
                 {#if canAddBalance()}
                   <button class="btn btn-outline btn-sm" on:click={() => {
-                    showBalanceForm.value = true;
-                    showBalanceForm.editRecord = record;
+                    showBalanceForm = true;
+                    editRecord = record;
                   }}>
                     编辑
                   </button>
@@ -342,7 +342,7 @@
           on:click={handleStartInspection}
           disabled={!order.inspectionRecord && order.balanceRecords.length === 0}
         >
-          {order.inspectionRecord?.status === '质检中' ? '继续质检' : '开始质检'}
+          {order.inspectionRecord && order.inspectionRecord.status === '质检中' ? '继续质检' : '开始质检'}
         </button>
       {/if}
     </div>
@@ -433,22 +433,22 @@
     {/if}
   </div>
 
-  {#if showBalanceForm.value}
+  {#if showBalanceForm}
     <BalanceRecordForm 
-      record={showBalanceForm.editRecord}
+      record={editRecord}
       wheelPositions={wheelPositions}
       user={user}
-      on:close={() => showBalanceForm.value = false}
+      on:close={() => showBalanceForm = false}
       on:submit={handleAddBalance}
-      on:update={(data) => handleUpdateBalance(showBalanceForm.editRecord!, data)}
+      on:update={(data) => handleUpdateBalance(editRecord, data)}
     />
   {/if}
 
-  {#if showInspectionForm.value}
+  {#if showInspectionForm}
     <InspectionForm 
       inspection={order.inspectionRecord}
       user={user}
-      on:close={() => showInspectionForm.value = false}
+      on:close={() => showInspectionForm = false}
       on:submit={handleSubmitInspection}
     />
   {/if}

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { reactive, onMount } from 'svelte';
+  import { onMount } from 'svelte';
   import type { User, WorkOrder } from '../lib/types';
   import { getWorkOrders, createWorkOrder, createOperationLog } from '../lib/db';
   import CreateOrderModal from './CreateOrderModal.svelte';
@@ -11,33 +11,28 @@
     logout: [];
   }>();
 
-  const orders = reactive<WorkOrder[]>([]);
-  const showCreateModal = reactive({ value: false });
-  const filter = reactive({
-    plateNumber: '',
-    customerName: '',
-    status: '',
-    startDate: '',
-    endDate: ''
-  });
+  let orders: WorkOrder[] = [];
+  let showCreateModal = false;
+  let filterPlateNumber = '';
+  let filterCustomerName = '';
+  let filterStatus = '';
+  let filterStartDate = '';
+  let filterEndDate = '';
 
   async function loadOrders() {
     const params: any = {};
-    if (filter.plateNumber) params.plateNumber = filter.plateNumber;
-    if (filter.customerName) params.customerName = filter.customerName;
-    if (filter.status) params.status = filter.status;
-    if (filter.startDate) params.startDate = filter.startDate;
-    if (filter.endDate) params.endDate = filter.endDate;
+    if (filterPlateNumber) params.plateNumber = filterPlateNumber;
+    if (filterCustomerName) params.customerName = filterCustomerName;
+    if (filterStatus) params.status = filterStatus;
+    if (filterStartDate) params.startDate = filterStartDate;
+    if (filterEndDate) params.endDate = filterEndDate;
     
-    orders.length = 0;
-    const loadedOrders = await getWorkOrders(params);
-    loadedOrders.forEach(order => orders.push(order));
-    return loadedOrders;
+    orders = getWorkOrders(params);
   }
 
   async function handleCreateOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>) {
-    const orderId = await createWorkOrder(data);
-    await createOperationLog({
+    const orderId = createWorkOrder(data);
+    createOperationLog({
       workOrderId: orderId,
       action: '创建工单',
       operatorId: user.id,
@@ -45,7 +40,7 @@
       operatorRole: user.role,
       details: `创建工单: ${data.plateNumber} - ${data.customerName}`
     });
-    showCreateModal.value = false;
+    showCreateModal = false;
     await loadOrders();
   }
 
@@ -74,6 +69,15 @@
     return order.inspectionRecord.status;
   }
 
+  function resetFilter() {
+    filterPlateNumber = '';
+    filterCustomerName = '';
+    filterStatus = '';
+    filterStartDate = '';
+    filterEndDate = '';
+    loadOrders();
+  }
+
   onMount(async () => {
     await loadOrders();
     window['loadOrders'] = loadOrders;
@@ -88,7 +92,7 @@
     </div>
     <div class="header-right">
       {#if user.role === '前台' || user.role === '店长'}
-        <button class="btn btn-primary" on:click={() => showCreateModal.value = true}>
+        <button class="btn btn-primary" on:click={() => showCreateModal = true}>
           + 新建工单
         </button>
       {/if}
@@ -101,39 +105,32 @@
   <div class="search-bar">
     <input 
       type="text" 
-      bind:value={filter.plateNumber} 
+      bind:value={filterPlateNumber} 
       placeholder="车牌号"
       on:input={loadOrders}
     />
     <input 
       type="text" 
-      bind:value={filter.customerName} 
+      bind:value={filterCustomerName} 
       placeholder="客户姓名"
       on:input={loadOrders}
     />
-    <select bind:value={filter.status} on:change={loadOrders}>
+    <select bind:value={filterStatus} on:change={loadOrders}>
       <option value="">全部状态</option>
       <option value="进行中">进行中</option>
       <option value="已完成">已完成</option>
     </select>
     <input 
       type="date" 
-      bind:value={filter.startDate} 
+      bind:value={filterStartDate} 
       on:change={loadOrders}
     />
     <input 
       type="date" 
-      bind:value={filter.endDate} 
+      bind:value={filterEndDate} 
       on:change={loadOrders}
     />
-    <button class="btn btn-outline" on:click={() => {
-      filter.plateNumber = '';
-      filter.customerName = '';
-      filter.status = '';
-      filter.startDate = '';
-      filter.endDate = '';
-      loadOrders();
-    }}>
+    <button class="btn btn-outline" on:click={resetFilter}>
       重置筛选
     </button>
   </div>
@@ -205,10 +202,10 @@
     </table>
   </div>
 
-  {#if showCreateModal.value}
+  {#if showCreateModal}
     <CreateOrderModal 
       user={user}
-      on:close={() => showCreateModal.value = false}
+      on:close={() => showCreateModal = false}
       on:submit={handleCreateOrder}
     />
   {/if}
