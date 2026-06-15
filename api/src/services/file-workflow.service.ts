@@ -343,6 +343,7 @@ export class FileWorkflowService {
     archiveNote: string,
     operatorId: string,
     operatorName: string,
+    operatorRole: OperatorRole,
     notarialApproval?: { notaryId: string; notaryName: string; approvalNote?: string }
   ): FileRecord {
     const now = new Date();
@@ -350,11 +351,11 @@ export class FileWorkflowService {
     const log: OperationLog = {
       id: uuidv4(),
       fileId: file.id,
-      operatorRole: OperatorRole.WINDOW_STAFF,
+      operatorRole,
       operatorId,
       operatorName,
       action: ActionType.COMPLETE_ARCHIVE,
-      fromStatus: FileStatus.ARCHIVING,
+      fromStatus: file.currentStatus,
       toStatus: FileStatus.ARCHIVED,
       reason: archiveNote,
       timestamp: now,
@@ -377,6 +378,21 @@ export class FileWorkflowService {
         approvalDate: now
       } : undefined
     };
+
+    file.responsiblePerson = {
+      role: operatorRole,
+      operatorId,
+      operatorName,
+      assignedAt: now
+    };
+
+    file.responsibilityChain.push({
+      role: operatorRole,
+      operatorId,
+      operatorName,
+      assignedAt: now
+    });
+
     file.updatedAt = now;
 
     this.logs.push(log);

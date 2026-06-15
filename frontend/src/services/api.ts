@@ -244,6 +244,81 @@ class FileWorkflowAPI {
       method: 'POST',
     });
   }
+
+  processExpiredFiles(): Promise<{
+    success: boolean;
+    summary: {
+      processed: number;
+      failed: number;
+      timestamp: Date;
+    };
+    results: Array<{ fileId: string; success: boolean; error?: string }>;
+    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
+    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+  }> {
+    return this.request('/batch/expired-files', {
+      method: 'POST',
+    });
+  }
+
+  sendPendingReminders(): Promise<{
+    success: boolean;
+    summary: {
+      processed: number;
+      remindersTriggered: number;
+      timestamp: Date;
+    };
+    results: Array<{ fileId: string; success: boolean; error?: string }>;
+    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
+    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+  }> {
+    return this.request('/batch/send-reminders', {
+      method: 'POST',
+    });
+  }
+
+  transferResponsibility(
+    fromRole: OperatorRole,
+    toRole: OperatorRole,
+    reason: string
+  ): Promise<{
+    success: boolean;
+    summary: {
+      processed: number;
+      failed: number;
+      reason: string;
+      timestamp: Date;
+    };
+    results: Array<{ fileId: string; success: boolean; error?: string }>;
+    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
+    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+  }> {
+    return this.request('/batch/transfer-responsibility', {
+      method: 'POST',
+      body: JSON.stringify({ fromRole, toRole, reason }),
+    });
+  }
+
+  batchCompleteArchive(
+    fileIds: string[],
+    archiveLocation: string,
+    archiveReason: string
+  ): Promise<{
+    success: boolean;
+    summary: {
+      processed: number;
+      failed: number;
+      timestamp: Date;
+    };
+    results: Array<{ fileId: string; success: boolean; error?: string }>;
+    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
+    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+  }> {
+    return this.request('/batch/complete-archive', {
+      method: 'POST',
+      body: JSON.stringify({ fileIds, archiveLocation, archiveReason }),
+    });
+  }
 }
 
 export const api = new FileWorkflowAPI();

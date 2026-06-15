@@ -137,17 +137,16 @@ router.post(
         archiveNote,
         req.user!.id,
         req.user!.name,
+        req.user!.role,
         notarialApproval
       );
 
-      if (req.user!.role === OperatorRole.NOTARY || req.user!.role === OperatorRole.ARCHIVE_KEEPER) {
-        workflowService.autoTransferToCollection(
-          fileId,
-          req.user!.id,
-          req.user!.name,
-          OperatorRole.ARCHIVE_KEEPER
-        );
-      }
+      workflowService.autoTransferToCollection(
+        fileId,
+        req.user!.id,
+        req.user!.name,
+        OperatorRole.ARCHIVE_KEEPER
+      );
 
       res.json({
         success: true,
@@ -155,6 +154,7 @@ router.post(
         operationLog: {
           action: 'COMPLETE_ARCHIVE',
           operator: req.user!.name,
+          operatorRole: req.user!.role,
           timestamp: new Date()
         },
         message: '归档已完成，已自动转移至档案室等待领取'

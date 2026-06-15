@@ -67,19 +67,6 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
     }
   };
 
-  const handleTransferToCollection = async (fileId: string) => {
-    setActionLoading(true);
-    try {
-      await api.transferToCollection(fileId);
-      await loadData();
-      alert('卷宗已转移至档案室，等待领取确认');
-    } catch (error: any) {
-      alert(error.message || '操作失败');
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   const handleAcknowledgeReminder = async (reminderId: string) => {
     try {
       await api.acknowledgeReminder(reminderId);
@@ -169,28 +156,16 @@ export const WindowStaffPage: React.FC<WindowStaffProps> = ({ user }) => {
                         </div>
                         <div className="flex gap-2">
                           {file.currentStatus === 'ARCHIVING' && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCompleteArchive(file);
-                                }}
-                                disabled={actionLoading}
-                                className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
-                              >
-                                完成归档
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTransferToCollection(file.id);
-                                }}
-                                disabled={actionLoading}
-                                className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-                              >
-                                转移至领取
-                              </button>
-                            </>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCompleteArchive(file);
+                              }}
+                              disabled={actionLoading}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              完成归档
+                            </button>
                           )}
                           {file.currentStatus === 'PENDING_ARCHIVE' && (
                             <button
