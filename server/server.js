@@ -70,7 +70,7 @@ app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
   const user = users.find(u => u.username === username && u.password === password);
   if (user) {
-    res.json({ success: true, user: { id: user.id, name: user.name, role: u.role, username: user.username } });
+    res.json({ success: true, user: { id: user.id, name: user.name, role: user.role, username: user.username } });
   } else {
     res.json({ success: false, message: '用户名或密码错误' });
   }

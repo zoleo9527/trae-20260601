@@ -35,6 +35,8 @@ function App() {
 
   const loadData = async () => {
     try {
+      await systemAPI.checkOverdue();
+      
       const [eq, mp, pi, lg, ex] = await Promise.all([
         equipmentAPI.getAll(),
         maintenanceAPI.getAll(),
@@ -47,8 +49,6 @@ function App() {
       setPartsInventory(pi);
       setLogs(lg);
       setExceptions(ex);
-      
-      await systemAPI.checkOverdue();
     } catch (error) {
       console.error('加载数据失败:', error);
     }

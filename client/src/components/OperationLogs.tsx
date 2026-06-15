@@ -40,6 +40,13 @@ export function OperationLogs({ logs }: OperationLogsProps) {
     update_equipment_status: '设备状态变更',
     report_issue: '上报异常',
     emergency_repair: '紧急维修',
+    report_equipment_down: '上报设备停机',
+    complete_repair: '设备维修完成',
+    report_wrong_delivery: '登记配件错发',
+    resolve_wrong_delivery: '处理配件错发',
+    acknowledge_equipment_change: '确认设备档案变更',
+    detect_overdue: '检测到保养逾期',
+    resolve_exception: '处理异常',
   };
 
   const getTargetIcon = (targetType: string) => {
