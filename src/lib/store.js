@@ -219,6 +219,11 @@ const createWritableStore = (initialValue) => {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getSnapshot: () => {
+      let result = null;
+      subscribe(items => result = items)();
+      return result;
     }
   };
 };
@@ -234,58 +239,56 @@ export const currentUser = writable({
 
 export const selectedOrderId = writable(null);
 
-export const updateDeliverySchedule = (scheduleId, updates) => {
+export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false, feedbackList = null) => {
+  let prevSchedule = null;
+  
+  deliverySchedules.subscribe(schedules => {
+    prevSchedule = schedules.find(s => s.id === scheduleId);
+  })();
+  
   deliverySchedules.updateItem(scheduleId, updates);
-  const schedule = deliverySchedules.find(scheduleId);
-  if (schedule && updates.scheduledDate) {
-    const feedback = installationFeedbacks.subscribe(fbs => 
-      fbs.find(fb => fb.deliveryScheduleId === scheduleId)
-    )();
-    if (feedback) {
-      installationFeedbacks.updateItem(feedback.id, {
-        timeline: [
-          ...feedback.timeline,
-          {
-            time: new Date().toISOString().replace('T', ' ').substr(0, 19),
-            action: '送货排期变更',
-            operator: '系统',
-            remark: `送货日期从${schedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}`
-          }
-        ]
-      });
+  
+  if (dateChanged && updates.scheduledDate && prevSchedule) {
+    const currentFeedbacks = feedbackList || installationFeedbacks.getSnapshot();
+    const relatedFeedback = currentFeedbacks.find(fb => fb.deliveryScheduleId === scheduleId);
+    
+    if (relatedFeedback) {
+      const newTimelineEntry = {
+        time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+        action: '送货排期变更',
+        operator: '系统',
+        remark: `送货日期从${prevSchedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}`
+      };
+      
+      installationFeedbacks.update(items => 
+        items.map(item => 
+          item.id === relatedFeedback.id 
+            ? { ...item, timeline: [...item.timeline, newTimelineEntry] }
+            : item
+        )
+      );
     }
   }
 };
 
-export const addInstallationFeedback = (orderId, feedback) => {
-  const schedule = deliverySchedules.subscribe(schedules => 
-    schedules.find(s => s.orderId === orderId)
-  )();
-  if (schedule) {
-    installationFeedbacks.add({
-      ...feedback,
-      orderId,
-      deliveryScheduleId: schedule.id,
-      timeline: [
-        {
-          time: new Date().toISOString().replace('T', ' ').substr(0, 19),
-          action: '铺贴反馈创建',
-          operator: currentUser.subscribe(u => u.name)(),
-          remark: '开始铺贴流程'
-        }
-      ]
-    });
-  }
-};
-
 export const updateInstallationStatus = (feedbackId, status, remark = '') => {
-  installationFeedbacks.updateItem(feedbackId, {
-    status,
-    timeline: [...installationFeedbacks.find(feedbackId).timeline, {
-      time: new Date().toISOString().replace('T', ' ').substr(0, 19),
-      action: status === 'completed' ? '铺贴完成' : status === 'installing' ? '铺贴进行中' : '暂停铺贴',
-      operator: currentUser.subscribe(u => u.name)(),
-      remark
-    }]
-  });
+  installationFeedbacks.update(items => 
+    items.map(item => 
+      item.id === feedbackId 
+        ? { 
+            ...item, 
+            status,
+            timeline: [
+              ...item.timeline, 
+              {
+                time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+                action: status === 'completed' ? '铺贴完成' : status === 'installing' ? '铺贴进行中' : '暂停铺贴',
+                operator: '系统',
+                remark
+              }
+            ]
+          }
+        : item
+    )
+  );
 };

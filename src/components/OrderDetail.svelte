@@ -1,22 +1,27 @@
 <script>
-  import { orders, deliverySchedules, installationFeedbacks } from '$lib/store';
+  import { orders, deliverySchedules, installationFeedbacks, selectedOrderId } from '$lib/store';
   
   let orderList = [];
   let scheduleList = [];
   let feedbackList = [];
+  let currentSelectedOrderId = 'ORD001';
   
   orders.subscribe(o => orderList = o);
   deliverySchedules.subscribe(s => scheduleList = s);
   installationFeedbacks.subscribe(f => feedbackList = f);
+  selectedOrderId.subscribe(id => {
+    if (id) {
+      currentSelectedOrderId = id;
+    }
+  });
   
-  let selectedOrderId = 'ORD001';
-  
-  $: order = orderList.find(o => o.id === selectedOrderId);
-  $: schedule = scheduleList.find(s => s.orderId === selectedOrderId);
-  $: feedback = feedbackList.find(f => f.orderId === selectedOrderId);
+  $: order = orderList.find(o => o.id === currentSelectedOrderId);
+  $: schedule = scheduleList.find(s => s.orderId === currentSelectedOrderId);
+  $: feedback = feedbackList.find(f => f.orderId === currentSelectedOrderId);
   
   const handleOrderChange = (e) => {
-    selectedOrderId = e.target.value;
+    currentSelectedOrderId = e.target.value;
+    selectedOrderId.set(e.target.value);
   };
   
   const statusLabels = {
@@ -82,7 +87,7 @@
   <div class="section-header">
     <h2>订单详情时间线</h2>
     <div class="order-selector">
-      <select value={selectedOrderId} on:change={handleOrderChange}>
+      <select value={currentSelectedOrderId} on:change={handleOrderChange}>
         {#each orderList as o}
           <option value={o.id}>{o.id} - {o.customerName}</option>
         {/each}
@@ -200,7 +205,7 @@
       <div class="timeline-section">
         <h3>处理时间线</h3>
         <div class="timeline">
-          {#each getTimelineItems() as (item, index)}
+          {#each getTimelineItems() as item}
             <div class="timeline-item">
               <div class="timeline-marker" 
                    class={item.category || 'order'}

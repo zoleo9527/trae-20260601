@@ -1,13 +1,15 @@
 <script>
-  import { deliverySchedules, orders, updateDeliverySchedule } from '$lib/store';
+  import { deliverySchedules, orders, installationFeedbacks, updateDeliverySchedule } from '$lib/store';
   import { currentUser } from '$lib/store';
   
   let scheduleList = [];
   let orderList = [];
+  let feedbackList = [];
   let user = {};
   
   deliverySchedules.subscribe(s => scheduleList = s);
   orders.subscribe(o => orderList = o);
+  installationFeedbacks.subscribe(f => feedbackList = f);
   currentUser.subscribe(u => user = u);
   
   const statusLabels = {
@@ -36,8 +38,11 @@
     remarks: ''
   };
   
+  let originalScheduledDate = '';
+  
   const handleEdit = (schedule) => {
     editingSchedule = schedule.id;
+    originalScheduledDate = schedule.scheduledDate;
     editForm = {
       scheduledDate: schedule.scheduledDate,
       scheduledTime: schedule.scheduledTime,
@@ -49,7 +54,8 @@
   };
   
   const handleSave = () => {
-    updateDeliverySchedule(editingSchedule, editForm);
+    const dateChanged = editForm.scheduledDate !== originalScheduledDate;
+    updateDeliverySchedule(editingSchedule, editForm, dateChanged, feedbackList);
     editingSchedule = null;
   };
   
@@ -58,7 +64,7 @@
   };
   
   const handleConfirm = (scheduleId) => {
-    updateDeliverySchedule(scheduleId, { status: 'scheduled' });
+    updateDeliverySchedule(scheduleId, { status: 'scheduled' }, false, feedbackList);
   };
   
   const handleComplete = (scheduleId) => {
@@ -69,7 +75,7 @@
       status: 'completed',
       actualDate: date,
       actualTime: time
-    });
+    }, false, feedbackList);
   };
 </script>
 
@@ -88,120 +94,118 @@
   
   <div class="schedule-container">
     {#each scheduleList as schedule}
-      {#set order = getOrderInfo(schedule.orderId)}
-        <div class="schedule-card" class={schedule.status}>
-          <div class="schedule-header">
-            <div class="schedule-info">
-              <span class="schedule-id">{schedule.id}</span>
-              <span class="order-ref">关联订单: {schedule.orderId}</span>
-            </div>
-            <span class="status-badge" style="background-color: {statusColors[schedule.status]}">
-              {statusLabels[schedule.status]}
-            </span>
+      <div class="schedule-card" class={schedule.status}>
+        <div class="schedule-header">
+          <div class="schedule-info">
+            <span class="schedule-id">{schedule.id}</span>
+            <span class="order-ref">关联订单: {schedule.orderId}</span>
           </div>
-          
-          {#if order}
-            <div class="customer-info">
-              <span class="customer-name">{order.customerName}</span>
-              <span class="customer-address">{order.address}</span>
-            </div>
-          {/if}
-          
-          {#if editingSchedule === schedule.id}
-            <div class="edit-form">
-              <div class="form-row">
-                <label>排期日期</label>
-                <input type="date" bind:value={editForm.scheduledDate} />
-              </div>
-              <div class="form-row">
-                <label>排期时间</label>
-                <input type="time" bind:value={editForm.scheduledTime} />
-              </div>
-              <div class="form-row">
-                <label>仓库员</label>
-                <input type="text" bind:value={editForm.warehouseStaff} />
-              </div>
-              <div class="form-row">
-                <label>司机</label>
-                <input type="text" bind:value={editForm.driver} />
-              </div>
-              <div class="form-row">
-                <label>车辆</label>
-                <input type="text" bind:value={editForm.vehicle} />
-              </div>
-              <div class="form-row">
-                <label>备注</label>
-                <textarea bind:value={editForm.remarks} rows="2"></textarea>
-              </div>
-              <div class="form-actions">
-                <button class="btn btn-secondary" on:click={handleCancel}>取消</button>
-                <button class="btn btn-primary" on:click={handleSave}>保存</button>
-              </div>
-            </div>
-          {:else}
-            <div class="schedule-details">
-              <div class="detail-row">
-                <span class="detail-label">排期日期</span>
-                <span class="detail-value">{schedule.scheduledDate}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">排期时间</span>
-                <span class="detail-value">{schedule.scheduledTime}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">仓库员</span>
-                <span class="detail-value">{schedule.warehouseStaff}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">司机</span>
-                <span class="detail-value">{schedule.driver}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">车辆</span>
-                <span class="detail-value">{schedule.vehicle}</span>
-              </div>
-              {#if schedule.actualDate}
-                <div class="detail-row highlight">
-                  <span class="detail-label">实际送达</span>
-                  <span class="detail-value">{schedule.actualDate} {schedule.actualTime}</span>
-                </div>
-              {/if}
-              {#if schedule.remarks}
-                <div class="detail-row">
-                  <span class="detail-label">备注</span>
-                  <span class="detail-value">{schedule.remarks}</span>
-                </div>
-              {/if}
-            </div>
-            
-            <div class="schedule-timeline">
-              <h4>处理记录</h4>
-              {#each schedule.timeline as (item, index)}
-                <div class="timeline-mini-item">
-                  <span class="timeline-time">{item.time}</span>
-                  <span class="timeline-desc">{item.action} - {item.operator}</span>
-                  {#if item.remark}
-                    <span class="timeline-note">{item.remark}</span>
-                  {/if}
-                </div>
-              {/each}
-            </div>
-            
-            <div class="schedule-actions">
-              {#if schedule.status === 'pending'}
-                <button class="btn btn-primary" on:click={() => handleConfirm(schedule.id)}>确认排期</button>
-              {/if}
-              {#if schedule.status === 'scheduled'}
-                <button class="btn btn-primary" on:click={() => handleEdit(schedule)}>修改排期</button>
-                <button class="btn btn-success" on:click={() => handleComplete(schedule.id)}>确认送达</button>
-              {/if}
-              {#if schedule.status === 'completed'}
-                <button class="btn btn-secondary" on:click={() => handleEdit(schedule)}>查看详情</button>
-              {/if}
-            </div>
-          {/if}
+          <span class="status-badge" style="background-color: {statusColors[schedule.status]}">
+            {statusLabels[schedule.status]}
+          </span>
         </div>
-      {/set}
+        
+        {#if getOrderInfo(schedule.orderId)}
+          <div class="customer-info">
+            <span class="customer-name">{getOrderInfo(schedule.orderId).customerName}</span>
+            <span class="customer-address">{getOrderInfo(schedule.orderId).address}</span>
+          </div>
+        {/if}
+        
+        {#if editingSchedule === schedule.id}
+          <div class="edit-form">
+            <div class="form-row">
+              <label>排期日期</label>
+              <input type="date" bind:value={editForm.scheduledDate} />
+            </div>
+            <div class="form-row">
+              <label>排期时间</label>
+              <input type="time" bind:value={editForm.scheduledTime} />
+            </div>
+            <div class="form-row">
+              <label>仓库员</label>
+              <input type="text" bind:value={editForm.warehouseStaff} />
+            </div>
+            <div class="form-row">
+              <label>司机</label>
+              <input type="text" bind:value={editForm.driver} />
+            </div>
+            <div class="form-row">
+              <label>车辆</label>
+              <input type="text" bind:value={editForm.vehicle} />
+            </div>
+            <div class="form-row">
+              <label>备注</label>
+              <textarea bind:value={editForm.remarks} rows="2"></textarea>
+            </div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" on:click={handleCancel}>取消</button>
+              <button class="btn btn-primary" on:click={handleSave}>保存</button>
+            </div>
+          </div>
+        {:else}
+          <div class="schedule-details">
+            <div class="detail-row">
+              <span class="detail-label">排期日期</span>
+              <span class="detail-value">{schedule.scheduledDate}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">排期时间</span>
+              <span class="detail-value">{schedule.scheduledTime}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">仓库员</span>
+              <span class="detail-value">{schedule.warehouseStaff}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">司机</span>
+              <span class="detail-value">{schedule.driver}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">车辆</span>
+              <span class="detail-value">{schedule.vehicle}</span>
+            </div>
+            {#if schedule.actualDate}
+              <div class="detail-row highlight">
+                <span class="detail-label">实际送达</span>
+                <span class="detail-value">{schedule.actualDate} {schedule.actualTime}</span>
+              </div>
+            {/if}
+            {#if schedule.remarks}
+              <div class="detail-row">
+                <span class="detail-label">备注</span>
+                <span class="detail-value">{schedule.remarks}</span>
+              </div>
+            {/if}
+          </div>
+            
+          <div class="schedule-timeline">
+            <h4>处理记录</h4>
+            {#each schedule.timeline as item}
+              <div class="timeline-mini-item">
+                <span class="timeline-time">{item.time}</span>
+                <span class="timeline-desc">{item.action} - {item.operator}</span>
+                {#if item.remark}
+                  <span class="timeline-note">{item.remark}</span>
+                {/if}
+              </div>
+            {/each}
+          </div>
+            
+          <div class="schedule-actions">
+            {#if schedule.status === 'pending'}
+              <button class="btn btn-primary" on:click={() => handleConfirm(schedule.id)}>确认排期</button>
+            {/if}
+            {#if schedule.status === 'scheduled'}
+              <button class="btn btn-primary" on:click={() => handleEdit(schedule)}>修改排期</button>
+              <button class="btn btn-success" on:click={() => handleComplete(schedule.id)}>确认送达</button>
+            {/if}
+            {#if schedule.status === 'completed'}
+              <button class="btn btn-secondary" on:click={() => handleEdit(schedule)}>查看详情</button>
+            {/if}
+          </div>
+        {/if}
+      </div>
     {/each}
   </div>
 </section>

@@ -93,68 +93,63 @@
   <div class="feedback-container">
     <div class="feedback-list">
       {#each feedbackList as feedback}
-        {#set order = getOrderInfo(feedback.orderId)}
-          <div class="feedback-card" 
-               class={feedback.status}
-               class:active={selectedFeedback?.id === feedback.id}
-               on:click={() => handleSelectFeedback(feedback)}>
-            <div class="feedback-header">
-              <span class="feedback-id">{feedback.id}</span>
-              <span class="status-badge" style="background-color: {statusColors[feedback.status]}">
-                {statusLabels[feedback.status]}
-              </span>
+        <div class="feedback-card" 
+             class={feedback.status}
+             class:active={selectedFeedback?.id === feedback.id}
+             on:click={() => handleSelectFeedback(feedback)}>
+          <div class="feedback-header">
+            <span class="feedback-id">{feedback.id}</span>
+            <span class="status-badge" style="background-color: {statusColors[feedback.status]}">
+              {statusLabels[feedback.status]}
+            </span>
+          </div>
+          
+          {#if getOrderInfo(feedback.orderId)}
+            <div class="customer-info">
+              <span class="customer-name">{getOrderInfo(feedback.orderId).customerName}</span>
+              <span class="order-link">{feedback.orderId}</span>
             </div>
-            
-            {#if order}
-              <div class="customer-info">
-                <span class="customer-name">{order.customerName}</span>
-                <span class="order-link">{feedback.orderId}</span>
+          {/if}
+          
+          <div class="feedback-summary">
+            <div class="summary-item">
+              <span class="label">施工师傅</span>
+              <span class="value">{feedback.installer}</span>
+            </div>
+            <div class="summary-item">
+              <span class="label">开始日期</span>
+              <span class="value">{feedback.startDate}</span>
+            </div>
+            {#if feedback.endDate}
+              <div class="summary-item">
+                <span class="label">完成日期</span>
+                <span class="value">{feedback.endDate}</span>
               </div>
             {/if}
-            
-            <div class="feedback-summary">
+            {#if feedback.qualityRating}
               <div class="summary-item">
-                <span class="label">施工师傅</span>
-                <span class="value">{feedback.installer}</span>
-              </div>
-              <div class="summary-item">
-                <span class="label">开始日期</span>
-                <span class="value">{feedback.startDate}</span>
-              </div>
-              {#if feedback.endDate}
-                <div class="summary-item">
-                  <span class="label">完成日期</span>
-                  <span class="value">{feedback.endDate}</span>
-                </div>
-              {/if}
-              {#if feedback.qualityRating}
-                <div class="summary-item">
-                  <span class="label">质量评分</span>
-                  <span class="value stars">
-                    {#each Array(5) as _, i}
-                      <span class={i < feedback.qualityRating ? 'filled' : ''}>★</span>
-                    {/each}
-                  </span>
-                </div>
-              {/if}
-            </div>
-            
-            {#if feedback.issues && feedback.issues.length > 0}
-              <div class="issues-warning">
-                <span class="warning-icon">⚠</span>
-                <span>{feedback.issues.length} 个问题待处理</span>
+                <span class="label">质量评分</span>
+                <span class="value stars">
+                  {#each Array(5) as _, i}
+                    <span class={i < feedback.qualityRating ? 'filled' : ''}>★</span>
+                  {/each}
+                </span>
               </div>
             {/if}
           </div>
-        {/set}
+          
+          {#if feedback.issues && feedback.issues.length > 0}
+            <div class="issues-warning">
+              <span class="warning-icon">⚠</span>
+              <span>{feedback.issues.length} 个问题待处理</span>
+            </div>
+          {/if}
+        </div>
       {/each}
     </div>
     
     <div class="feedback-detail">
       {#if selectedFeedback}
-        {#set order = getOrderInfo(selectedFeedback.orderId)}
-        {#set schedule = getScheduleInfo(selectedFeedback.deliveryScheduleId)}
-        
         <div class="detail-header">
           <h3>铺贴详情</h3>
           <div class="detail-actions">
@@ -181,7 +176,7 @@
             </div>
             <div class="info-row">
               <span class="label">送货排期</span>
-              <span class="value">{schedule?.scheduledDate || '未安排'}</span>
+              <span class="value">{getScheduleInfo(selectedFeedback.deliveryScheduleId)?.scheduledDate || '未安排'}</span>
             </div>
             <div class="info-row">
               <span class="label">施工状态</span>
@@ -210,7 +205,7 @@
           <div class="info-section">
             <h4>施工时间线</h4>
             <div class="timeline">
-              {#each selectedFeedback.timeline as (item, index)}
+              {#each selectedFeedback.timeline as item}
                 <div class="timeline-item">
                   <div class="timeline-marker">
                     <span class="marker-dot"></span>
@@ -240,8 +235,6 @@
             </div>
           </div>
         </div>
-        {/set}
-        {/set}
       {:else}
         <div class="empty-state">
           <div class="empty-icon">📋</div>

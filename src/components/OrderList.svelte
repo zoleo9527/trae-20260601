@@ -1,5 +1,5 @@
 <script>
-  import { orders } from '$lib/store';
+  import { orders, selectedOrderId } from '$lib/store';
   
   let orderList = [];
   orders.subscribe(o => orderList = o);
@@ -20,9 +20,16 @@
     completed: '#4CAF50'
   };
   
+  let selectedId = null;
+  
   const handleViewDetail = (orderId) => {
-    document.getElementById('order-detail-section').scrollIntoView({ behavior: 'smooth' });
-    window.currentOrderId = orderId;
+    selectedId = orderId;
+    selectedOrderId.set(orderId);
+    
+    const element = document.getElementById('order-detail-section');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 </script>
 
@@ -43,7 +50,9 @@
   
   <div class="order-grid">
     {#each orderList as order}
-      <div class="order-card" on:click={() => handleViewDetail(order.id)}>
+      <div class="order-card" 
+           class:active={selectedId === order.id}
+           on:click={() => handleViewDetail(order.id)}>
         <div class="order-header">
           <span class="order-id">{order.id}</span>
           <span class="status-badge" style="background-color: {statusColors[order.status]}">
@@ -109,11 +118,17 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     cursor: pointer;
     transition: all 0.2s;
+    border-left: 4px solid transparent;
   }
   
   .order-card:hover {
     box-shadow: 0 4px 16px rgba(0,0,0,0.1);
     transform: translateY(-2px);
+  }
+  
+  .order-card.active {
+    border-left-color: #1e3c72;
+    box-shadow: 0 4px 16px rgba(30, 60, 114, 0.15);
   }
   
   .order-header {
