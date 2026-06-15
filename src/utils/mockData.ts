@@ -205,30 +205,69 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
 
   const siteChecks: SiteConditionRecord[] = [];
   const hasAppointmentChanges = template.hasChanges === true;
-  const siteCheckAppointmentVersion = hasAppointmentChanges ? 1 : 1;
   const orderAppointmentVersion = hasAppointmentChanges ? 2 : 1;
 
   if (template.hasSiteCheck) {
-    const items = generateSiteCheckItems();
-    const overallResult = template.siteCheckResult || 'passed';
-    const passedCount = items.filter(i => i.passed).length;
-    const actualResult = overallResult === 'passed' || passedCount >= 6 ? 'passed' : 'failed';
+    if (hasAppointmentChanges) {
+      const oldItems = generateSiteCheckItems();
+      const oldPassed = oldItems.filter(i => i.passed).length;
+      const oldResult = oldPassed >= 6 ? 'passed' : 'failed';
 
-    siteChecks.push({
-      id: `site-check-1`,
-      orderId: '',
-      checkedBy: assignee.id,
-      checkedAt: generateDateTime(-Math.abs(template.daysFromNow), 15),
-      overallResult: actualResult,
-      items,
-      photos: [],
-      notes: actualResult === 'passed'
-        ? '现场条件符合安装要求，可以正常安装。'
-        : '部分条件不满足，需要客户整改后再次上门。',
-      orderVersion: hasAppointmentChanges ? 2 : 1,
-      appointmentVersion: siteCheckAppointmentVersion,
-      hasOrderChanges: hasAppointmentChanges,
-    });
+      siteChecks.push({
+        id: `site-check-1`,
+        orderId: '',
+        checkedBy: assignee.id,
+        checkedAt: generateDateTime(-Math.abs(template.daysFromNow) - 1, 10),
+        overallResult: oldResult,
+        items: oldItems,
+        photos: [],
+        notes: oldResult === 'passed'
+          ? '第一次现场确认：现场条件符合安装要求。'
+          : '第一次现场确认：部分条件不满足。',
+        orderVersion: 1,
+        appointmentVersion: 1,
+      });
+
+      const newItems = generateSiteCheckItems();
+      const newPassed = newItems.filter(i => i.passed).length;
+      const overallResult = template.siteCheckResult || 'passed';
+      const newResult = overallResult === 'passed' || newPassed >= 6 ? 'passed' : 'failed';
+
+      siteChecks.push({
+        id: `site-check-2`,
+        orderId: '',
+        checkedBy: assignee.id,
+        checkedAt: generateDateTime(-Math.abs(template.daysFromNow), 15),
+        overallResult: newResult,
+        items: newItems,
+        photos: [],
+        notes: newResult === 'passed'
+          ? '预约变更后重新确认：现场条件符合安装要求，可以正常安装。'
+          : '预约变更后重新确认：部分条件不满足，需要客户整改后再次上门。',
+        orderVersion: 3,
+        appointmentVersion: 2,
+      });
+    } else {
+      const items = generateSiteCheckItems();
+      const overallResult = template.siteCheckResult || 'passed';
+      const passedCount = items.filter(i => i.passed).length;
+      const actualResult = overallResult === 'passed' || passedCount >= 6 ? 'passed' : 'failed';
+
+      siteChecks.push({
+        id: `site-check-1`,
+        orderId: '',
+        checkedBy: assignee.id,
+        checkedAt: generateDateTime(-Math.abs(template.daysFromNow), 15),
+        overallResult: actualResult,
+        items,
+        photos: [],
+        notes: actualResult === 'passed'
+          ? '现场条件符合安装要求，可以正常安装。'
+          : '部分条件不满足，需要客户整改后再次上门。',
+        orderVersion: 1,
+        appointmentVersion: 1,
+      });
+    }
   }
 
   const order: InstallationOrder = {
@@ -377,8 +416,24 @@ export const getFieldLabel = (field: string): string => {
   return map[field] || field;
 };
 
-export const hasOrderChanges = (order: InstallationOrder): boolean => {
+export const hasUnconfirmedAppointmentChanges = (order: InstallationOrder): boolean => {
   if (order.siteChecks.length === 0) return false;
   const lastSiteCheck = order.siteChecks[order.siteChecks.length - 1];
   return order.appointmentVersion > lastSiteCheck.appointmentVersion;
+};
+
+export const hasOrderChanges = (order: InstallationOrder): boolean => {
+  return hasUnconfirmedAppointmentChanges(order);
+};
+
+export const isOldAppointmentCheck = (
+  order: InstallationOrder,
+  checkIndex: number
+): boolean => {
+  if (order.siteChecks.length === 0) return false;
+  if (checkIndex < 0 || checkIndex >= order.siteChecks.length) return false;
+  if (checkIndex === order.siteChecks.length - 1) return false;
+  const currentCheck = order.siteChecks[checkIndex];
+  const nextCheck = order.siteChecks[checkIndex + 1];
+  return currentCheck.appointmentVersion < nextCheck.appointmentVersion;
 };

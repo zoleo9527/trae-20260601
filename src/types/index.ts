@@ -51,7 +51,6 @@ export type SiteConditionRecord = {
   notes: string;
   orderVersion: number;
   appointmentVersion: number;
-  hasOrderChanges: boolean;
 };
 
 export type InstallationOrder = {

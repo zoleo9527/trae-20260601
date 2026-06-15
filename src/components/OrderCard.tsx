@@ -1,6 +1,6 @@
 import React from 'react';
 import { ORDER_STATUS_LABELS, InstallationOrder } from '../types';
-import { getStatusBadgeClass, getPriorityLabel, hasOrderChanges } from '../utils/mockData';
+import { getStatusBadgeClass, getPriorityLabel, hasUnconfirmedAppointmentChanges } from '../utils/mockData';
 import {
   MapPin,
   Calendar,
@@ -18,7 +18,7 @@ interface OrderCardProps {
 }
 
 const OrderCard: React.FC<OrderCardProps> = ({ order, selected, onClick }) => {
-  const hasChanges = hasOrderChanges(order);
+  const hasChanges = hasUnconfirmedAppointmentChanges(order);
   const priorityClass = `priority-${order.priority}`;
 
   return (

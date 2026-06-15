@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../store/useStore';
 import { ORDER_STATUS_LABELS, InstallationOrder, SiteConditionRecord } from '../types';
-import { getStatusBadgeClass, formatDateTime, getFieldLabel, getPriorityLabel, hasOrderChanges } from '../utils/mockData';
+import { getStatusBadgeClass, formatDateTime, getFieldLabel, getPriorityLabel, hasUnconfirmedAppointmentChanges, isOldAppointmentCheck } from '../utils/mockData';
 import {
   X,
   MapPin,
@@ -48,7 +48,7 @@ const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ order, onClose }) =
   const [newDate, setNewDate] = useState('');
 
   const installerUsers = getUsersByRole('installer');
-  const hasChanges = hasOrderChanges(order);
+  const hasChanges = hasUnconfirmedAppointmentChanges(order);
 
   const handleSave = () => {
     updateOrder(order.id, editData);
@@ -329,19 +329,24 @@ const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ order, onClose }) =
             {order.siteChecks
               .slice()
               .reverse()
-              .map((check, index) => (
-                <SiteCheckItemView
-                  key={check.id}
-                  check={check}
-                  isExpanded={expandedSiteCheck === check.id}
-                  onToggle={() =>
-                    setExpandedSiteCheck(
-                      expandedSiteCheck === check.id ? null : check.id
-                    )
-                  }
-                  isLatest={index === 0}
-                />
-              ))}
+              .map((check, reverseIndex) => {
+                const originalIndex = order.siteChecks.length - 1 - reverseIndex;
+                return (
+                  <SiteCheckItemView
+                    key={check.id}
+                    order={order}
+                    check={check}
+                    checkIndex={originalIndex}
+                    isExpanded={expandedSiteCheck === check.id}
+                    onToggle={() =>
+                      setExpandedSiteCheck(
+                        expandedSiteCheck === check.id ? null : check.id
+                      )
+                    }
+                    isLatest={reverseIndex === 0}
+                  />
+                );
+              })}
           </div>
         )}
 
@@ -526,20 +531,25 @@ const OrderDetailPanel: React.FC<OrderDetailPanelProps> = ({ order, onClose }) =
 };
 
 interface SiteCheckItemViewProps {
+  order: InstallationOrder;
   check: SiteConditionRecord;
+  checkIndex: number;
   isExpanded: boolean;
   onToggle: () => void;
   isLatest: boolean;
 }
 
 const SiteCheckItemView: React.FC<SiteCheckItemViewProps> = ({
+  order,
   check,
+  checkIndex,
   isExpanded,
   onToggle,
   isLatest,
 }) => {
   const passedCount = check.items.filter((i) => i.passed).length;
   const totalCount = check.items.length;
+  const isOldAppointment = isOldAppointmentCheck(order, checkIndex);
 
   return (
     <div
@@ -558,10 +568,10 @@ const SiteCheckItemView: React.FC<SiteCheckItemViewProps> = ({
           <div className="text-sm font-medium">
             {check.overallResult === 'passed' ? '现场确认通过' : '现场确认不通过'}
             {isLatest && <span className="badge badge-primary ml-2">最新</span>}
-            {check.hasOrderChanges && (
+            {isOldAppointment && (
               <span className="change-indicator ml-2">
                 <AlertTriangle size={10} />
-                预约已变更
+                基于旧预约
               </span>
             )}
           </div>

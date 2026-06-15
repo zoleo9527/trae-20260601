@@ -5,7 +5,7 @@ import OrderDetailPanel from '../components/OrderDetailPanel';
 import FilterBar from '../components/FilterBar';
 import SiteCheckModal from './SiteCheckModal';
 import { InstallationOrder } from '../types';
-import { hasOrderChanges } from '../utils/mockData';
+import { hasUnconfirmedAppointmentChanges } from '../utils/mockData';
 import {
   List,
   Calendar,
@@ -166,7 +166,7 @@ const InstallerView: React.FC<InstallerViewProps> = ({ activeView, onViewChange 
                       安装完成
                     </button>
                   )}
-                  {hasOrderChanges(order) && order.status !== 'completed' && order.status !== 'rejected' && (
+                  {hasUnconfirmedAppointmentChanges(order) && order.status !== 'completed' && order.status !== 'rejected' && (
                     <button
                       className="quick-action-btn warning"
                       onClick={(e) => {

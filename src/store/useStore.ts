@@ -38,7 +38,7 @@ interface AppState {
   updateOrder: (id: string, updates: Partial<InstallationOrder>) => void;
   updateOrderStatus: (id: string, status: OrderStatus, reason?: string) => void;
   assignOrder: (id: string, assigneeId: string, assigneeName: string) => void;
-  addSiteCheck: (orderId: string, siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'appointmentVersion' | 'hasOrderChanges'>) => void;
+  addSiteCheck: (orderId: string, siteCheck: Omit<SiteConditionRecord, 'id' | 'orderId' | 'checkedAt' | 'orderVersion' | 'appointmentVersion'>) => void;
   rejectOrder: (id: string, reason: string) => void;
   delayOrder: (id: string, reason: string, newDate?: string) => void;
   supplementOrder: (id: string, updates: Partial<InstallationOrder>) => void;
@@ -340,9 +340,6 @@ export const useAppStore = create<AppState>()(
           const order = state.orders.find((o) => o.id === orderId);
           if (!order) return;
 
-          const hasOrderChanges = order.siteChecks.length > 0 &&
-            order.appointmentVersion > order.siteChecks[order.siteChecks.length - 1].appointmentVersion;
-
           const newSiteCheck: SiteConditionRecord = {
             ...siteCheck,
             id: crypto.randomUUID(),
@@ -350,7 +347,6 @@ export const useAppStore = create<AppState>()(
             checkedAt: new Date().toISOString(),
             orderVersion: order.version,
             appointmentVersion: order.appointmentVersion,
-            hasOrderChanges,
           };
 
           const newStatus = siteCheck.overallResult === 'passed'
@@ -494,9 +490,9 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: 'bathroom-installation-storage',
-      version: 2,
+      version: 3,
       migrate: (persistedState: any, version: number) => {
-        if (version < 2) {
+        if (version < 3) {
           const mockData = generateMockData();
           return {
             currentUser: mockData.users[0],
