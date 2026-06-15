@@ -17,7 +17,7 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 import { Timeline } from '@/components/common/Timeline';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { formatDate, calculateDaysBetween, calculateOverdueInfo, getTodayDate, parseDate } from '@/utils/dateUtils';
+import { formatDate, calculateDaysBetween, calculateOverdueInfo, getTodayDate, parseDate, deriveContractDisplayStatus, ContractDisplayStatus } from '@/utils/dateUtils';
 import { ROLE_LABELS, ANOMALY_STATUS_LABELS } from '@/types';
 
 const ContractDetail: React.FC = () => {
@@ -66,6 +66,10 @@ const ContractDetail: React.FC = () => {
 
   const today = getTodayDate();
 
+  const displayStatus: ContractDisplayStatus = contract && reservation
+    ? deriveContractDisplayStatus(contract.status, reservation.expectedEndDate, contract.actualEndDate)
+    : 'active';
+
   const rentalDays = contract
     ? contract.actualEndDate
       ? calculateDaysBetween(contract.actualStartDate, contract.actualEndDate)
@@ -77,7 +81,8 @@ const ContractDetail: React.FC = () => {
         contract.status,
         reservation.expectedEndDate,
         equipment.dailyRate,
-        contract.overdueDays
+        contract.overdueDays,
+        contract.actualEndDate
       )
     : { isOverdue: false, overdueDays: 0, daysLeft: 0, overdueFee: 0 };
 
@@ -136,7 +141,7 @@ const ContractDetail: React.FC = () => {
   const canConfirmReturn = currentRole === 'dispatcher' && (contract.status === 'active' || contract.status === 'overdue');
   const canUpdateFuel = currentRole === 'dispatcher' && contract.status === 'returned';
 
-  const statusLabel = {
+  const displayStatusLabel: Record<ContractDisplayStatus, string> = {
     active: '租期进行中',
     overdue: '已超期',
     returned: '已归还待核验',
@@ -171,10 +176,10 @@ const ContractDetail: React.FC = () => {
                 当前状态：
                 <span
                   className={`font-medium ${
-                    contract.status === 'overdue' ? 'text-red-600' : 'text-orange-600'
+                    displayStatus === 'overdue' ? 'text-red-600' : displayStatus === 'completed' ? 'text-green-600' : 'text-orange-600'
                   }`}
                 >
-                  {statusLabel[contract.status]}
+                  {displayStatusLabel[displayStatus]}
                 </span>
               </p>
             </div>

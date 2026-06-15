@@ -72,7 +72,8 @@ export function calculateOverdueInfo(
   contractStatus: string,
   expectedEndDate: string,
   dailyRate: number,
-  contractOverdueDays?: number
+  contractOverdueDays?: number,
+  actualEndDate?: string | null
 ): {
   isOverdue: boolean;
   overdueDays: number;
@@ -82,7 +83,9 @@ export function calculateOverdueInfo(
   const today = getTodayDate();
   const endDate = parseDate(expectedEndDate);
   
-  const diffTime = today.getTime() - endDate.getTime();
+  const effectiveDate = actualEndDate ? parseDate(actualEndDate) : today;
+  
+  const diffTime = effectiveDate.getTime() - endDate.getTime();
   const calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   
   const isOverdueByDate = calculatedDays > 0;
@@ -108,4 +111,47 @@ export function calculateOverdueInfo(
     daysLeft,
     overdueFee,
   };
+}
+
+export type ContractDisplayStatus =
+  | 'active'
+  | 'overdue'
+  | 'returned'
+  | 'fuel_verified'
+  | 'completed';
+
+export function deriveContractDisplayStatus(
+  contractStatus: string,
+  expectedEndDate: string,
+  actualEndDate?: string | null
+): ContractDisplayStatus {
+  if (contractStatus === 'completed') {
+    return 'completed';
+  }
+  
+  if (contractStatus === 'fuel_verified') {
+    return 'fuel_verified';
+  }
+  
+  if (contractStatus === 'returned') {
+    return 'returned';
+  }
+  
+  if (actualEndDate) {
+    const end = parseDate(actualEndDate);
+    const expected = parseDate(expectedEndDate);
+    return end > expected ? 'overdue' : 'active';
+  }
+  
+  if (contractStatus === 'overdue') {
+    return 'overdue';
+  }
+  
+  const today = getTodayDate();
+  const expected = parseDate(expectedEndDate);
+  if (today > expected) {
+    return 'overdue';
+  }
+  
+  return 'active';
 }

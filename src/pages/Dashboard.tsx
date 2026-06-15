@@ -46,7 +46,8 @@ const Dashboard: React.FC = () => {
           c.status,
           reservation.expectedEndDate,
           equipment?.dailyRate || 0,
-          c.overdueDays
+          c.overdueDays,
+          c.actualEndDate
         );
         
         return {
