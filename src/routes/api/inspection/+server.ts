@@ -1,9 +1,10 @@
-import { createBalanceRecord, updateBalanceRecord } from '$server/db';
+import { createInspectionRecord, updateInspectionRecord } from '$server/db';
+import type { RequestHandler } from './$types';
 
-export async function POST(request: Request): Promise<Response> {
+export const POST: RequestHandler = async ({ request }) => {
   const data = await request.json();
   
-  const recordId = createBalanceRecord(data);
+  const recordId = createInspectionRecord(data);
   
   return new Response(JSON.stringify({
     success: true,
@@ -12,12 +13,12 @@ export async function POST(request: Request): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     status: 201
   });
-}
+};
 
-export async function PUT(request: Request): Promise<Response> {
+export const PUT: RequestHandler = async ({ request }) => {
   const { id, ...data } = await request.json();
   
-  updateBalanceRecord(id, data);
+  updateInspectionRecord(id, data);
   
   return new Response(JSON.stringify({
     success: true
@@ -25,4 +26,4 @@ export async function PUT(request: Request): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     status: 200
   });
-}
+};

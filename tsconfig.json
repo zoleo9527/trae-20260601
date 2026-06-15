@@ -15,7 +15,8 @@
       "$lib/*": ["./src/lib/*"],
       "$server/*": ["./src/server/*"]
     },
-    "types": ["node", "svelte"]
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts", "src/**/*.svelte"]
+  "include": ["src/**/*.ts", "src/**/*.svelte"],
+  "exclude": ["node_modules", ".svelte-kit"]
 }

@@ -1,6 +1,7 @@
 import { getWorkOrderById, updateWorkOrder } from '$server/db';
+import type { RequestHandler } from './$types';
 
-export async function GET(request: Request, params: { id: string }): Promise<Response> {
+export const GET: RequestHandler = async ({ params }) => {
   const order = getWorkOrderById(params.id);
   
   if (order) {
@@ -20,9 +21,9 @@ export async function GET(request: Request, params: { id: string }): Promise<Res
     headers: { 'Content-Type': 'application/json' },
     status: 404
   });
-}
+};
 
-export async function PUT(request: Request, params: { id: string }): Promise<Response> {
+export const PUT: RequestHandler = async ({ params, request }) => {
   const data = await request.json();
   
   updateWorkOrder(params.id, data);
@@ -33,4 +34,4 @@ export async function PUT(request: Request, params: { id: string }): Promise<Res
     headers: { 'Content-Type': 'application/json' },
     status: 200
   });
-}
+};

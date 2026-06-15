@@ -1,6 +1,7 @@
 import { validateUser } from '$server/db';
+import type { RequestHandler } from './$types';
 
-export async function POST(request: Request): Promise<Response> {
+export const POST: RequestHandler = async ({ request }) => {
   const { username, password } = await request.json();
   
   const user = validateUser(username, password);
@@ -22,4 +23,4 @@ export async function POST(request: Request): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     status: 401
   });
-}
+};

@@ -1,8 +1,7 @@
 import { createWorkOrder, getWorkOrders } from '$server/db';
-import type { WorkOrder } from '$lib/types';
+import type { RequestHandler } from './$types';
 
-export async function GET(request: Request): Promise<Response> {
-  const url = new URL(request.url);
+export const GET: RequestHandler = async ({ url }) => {
   const plateNumber = url.searchParams.get('plateNumber') || undefined;
   const customerName = url.searchParams.get('customerName') || undefined;
   const status = url.searchParams.get('status') || undefined;
@@ -16,9 +15,9 @@ export async function GET(request: Request): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     status: 200
   });
-}
+};
 
-export async function POST(request: Request): Promise<Response> {
+export const POST: RequestHandler = async ({ request }) => {
   const data = await request.json();
   
   const orderId = createWorkOrder(data);
@@ -30,4 +29,4 @@ export async function POST(request: Request): Promise<Response> {
     headers: { 'Content-Type': 'application/json' },
     status: 201
   });
-}
+};

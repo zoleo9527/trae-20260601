@@ -118,21 +118,19 @@
       return;
     }
     
-    const inspectionData = {
-      workOrderId: order.id,
-      status: '质检中',
-      inspectorId: user.id,
-      checkItems: [],
-      passedItems: [],
-      failedItems: [],
-      remark: ''
-    };
-    
     if (!order.inspectionRecord) {
       await fetch('/api/inspection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inspectionData)
+        body: JSON.stringify({
+          workOrderId: order.id,
+          status: '质检中',
+          inspectorId: user.id,
+          checkItems: [],
+          passedItems: [],
+          failedItems: [],
+          remark: ''
+        })
       });
     } else {
       await fetch('/api/inspection', {
@@ -167,27 +165,33 @@
   }) {
     const status = data.failedItems.length > 0 ? '质检不通过' : '质检通过';
     
-    const inspectionData = {
-      workOrderId: order.id,
-      status,
-      inspectorId: user.id,
-      checkItems: data.checkItems,
-      passedItems: data.passedItems,
-      failedItems: data.failedItems,
-      remark: data.remark
-    };
-    
     if (!order.inspectionRecord) {
       await fetch('/api/inspection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inspectionData)
+        body: JSON.stringify({
+          workOrderId: order.id,
+          status,
+          inspectorId: user.id,
+          checkItems: data.checkItems,
+          passedItems: data.passedItems,
+          failedItems: data.failedItems,
+          remark: data.remark
+        })
       });
     } else {
       await fetch('/api/inspection', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: order.inspectionRecord.id, ...inspectionData })
+        body: JSON.stringify({ 
+          id: order.inspectionRecord.id,
+          status,
+          inspectorId: user.id,
+          checkItems: data.checkItems,
+          passedItems: data.passedItems,
+          failedItems: data.failedItems,
+          remark: data.remark
+        })
       });
     }
     
