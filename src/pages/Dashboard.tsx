@@ -26,7 +26,7 @@ import type { Order, User, TodayTasks, UserRole } from '../types'
 import { orderApi } from '../api'
 import { statusMap, roleMap } from '../types'
 
-const { Title, Text } = Typography
+const { Title, Text, Paragraph } = Typography
 
 interface Props {
   currentUser: User
@@ -59,9 +59,61 @@ export default function Dashboard({ currentUser }: Props) {
   const everSecondModification = (order: Order) =>
     order.dimensionReviewHistory.filter((r) => r.supersededAt).length >= 1
 
+  type ReviewTriggerType = 'first' | 'rejected' | 'second_mod' | null
+
+  const getReviewTriggerType = (order: Order): ReviewTriggerType => {
+    if (order.status !== 'pending_review' && order.status !== 'review_rejected') return null
+    if (order.status === 'review_rejected') return 'rejected'
+    const hasSuperseded = order.dimensionReviewHistory.some((r) => r.supersededAt)
+    if (order.dimensionModified && hasSuperseded) {
+      const lastSuperseded = [...order.dimensionReviewHistory].reverse().find((r) => r.supersededAt)
+      if (lastSuperseded && lastSuperseded.passed === false) {
+        return 'rejected'
+      }
+      return 'second_mod'
+    }
+    if (order.manuscriptVersion === 1 && !order.dimensionReviewed) return 'first'
+    const lastRejected = [...order.history].reverse().find((h) => h.action === '尺寸复核驳回')
+    if (lastRejected) return 'rejected'
+    return null
+  }
+
+  const triggerTypeMap: Record<NonNullable<ReviewTriggerType>, { text: string; color: string; icon: string }> = {
+    first: { text: '首次接稿', color: 'blue', icon: '📥' },
+    rejected: { text: '驳回重提', color: 'red', icon: '↩️' },
+    second_mod: { text: '二次改稿', color: 'magenta', icon: '🔄' },
+  }
+
+  const getLastReviewNote = (order: Order) => {
+    const reviewedRecords = order.dimensionReviewHistory.filter((r) => r.reviewedAt)
+    if (reviewedRecords.length === 0) return null
+    const last = reviewedRecords[reviewedRecords.length - 1]
+    return {
+      version: last.version,
+      note: last.note,
+      passed: last.passed,
+      reviewer: last.reviewedBy,
+      reviewedAt: last.reviewedAt,
+    }
+  }
+
+  const getLastManuscriptNote = (order: Order) => {
+    const manuscriptActions = ['接收稿件', '修改稿件', '更新稿件']
+    const lastManuscript = [...order.history].reverse().find(
+      (h) => manuscriptActions.includes(h.action)
+    )
+    return lastManuscript ? { content: lastManuscript.content, operator: lastManuscript.operator, timestamp: lastManuscript.timestamp } : null
+  }
+
   const renderOrderCard = (order: Order) => {
     const secondMod = isSecondModification(order)
     const isInstallCompleted = order.status === 'install_completed'
+    const triggerType = getReviewTriggerType(order)
+    const lastReviewNote = getLastReviewNote(order)
+    const lastManuscriptNote = getLastManuscriptNote(order)
+
+    const triggerInfo = triggerType ? triggerTypeMap[triggerType] : null
+
     return (
       <Card
         key={order.id}
@@ -74,6 +126,10 @@ export default function Dashboard({ currentUser }: Props) {
             ? '4px solid #faad14'
             : isInstallCompleted
             ? '4px solid #52c41a'
+            : triggerType === 'rejected'
+            ? '4px solid #ff4d4f'
+            : triggerType === 'first'
+            ? '4px solid #1890ff'
             : undefined,
         }}
         hoverable
@@ -87,10 +143,15 @@ export default function Dashboard({ currentUser }: Props) {
           title={
             <Space>
               <span style={{ fontWeight: 500 }}>{order.projectName}</span>
-              {secondMod && (
+              {triggerInfo && (
+                <Tag color={triggerInfo.color}>
+                  {triggerInfo.icon} {triggerInfo.text}
+                </Tag>
+              )}
+              {!triggerInfo && secondMod && (
                 <Badge count="二次改稿" style={{ backgroundColor: '#ff4d4f' }} />
               )}
-              {order.dimensionModified && !secondMod && (
+              {!triggerInfo && order.dimensionModified && !secondMod && (
                 <Badge count="尺寸已改" color="red" />
               )}
               {order.installTimeModified && !order.dimensionModified && !secondMod && (
@@ -108,14 +169,14 @@ export default function Dashboard({ currentUser }: Props) {
             </Space>
           }
           description={
-            <Space direction="vertical" size={4} style={{ width: '100%' }}>
+            <Space direction="vertical" size={triggerType ? 10 : 4} style={{ width: '100%' }}>
               <Space size={16}>
                 <Text type="secondary">{order.orderNo}</Text>
                 <Text>{order.customerName}</Text>
               </Space>
               <Space>
                 <Text strong>尺寸：</Text>
-                <Text>
+                <Text style={{ fontSize: 15, fontWeight: 600 }}>
                   {order.originalDimension.width} × {order.originalDimension.height} {order.originalDimension.unit}
                 </Text>
                 {order.reviewedDimension && !order.dimensionModified && (
@@ -127,7 +188,56 @@ export default function Dashboard({ currentUser }: Props) {
                   <Text type="danger">⚠ 需重新复核</Text>
                 )}
               </Space>
-              {order.dimensionReviewHistory.length > 0 && (
+
+              {triggerType && (
+                <div style={{
+                  background: triggerType === 'rejected' ? '#fff1f0'
+                    : triggerType === 'second_mod' ? '#fff7e6'
+                    : '#e6f7ff',
+                  padding: '10px 12px',
+                  borderRadius: 6,
+                  border: `1px solid ${
+                    triggerType === 'rejected' ? '#ffa39e'
+                    : triggerType === 'second_mod' ? '#ffd591'
+                    : '#91d5ff'
+                  }`,
+                }}>
+                  <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                    {lastReviewNote && (
+                      <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                        <Space>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            上一版（v{lastReviewNote.version}）{lastReviewNote.passed ? '复核通过' : '复核驳回'} 备注
+                            {lastReviewNote.reviewer && ` · ${lastReviewNote.reviewer}`}
+                          </Text>
+                        </Space>
+                        <Paragraph
+                          type={lastReviewNote.passed ? 'success' : 'danger'}
+                          style={{ margin: 0, fontSize: 13 }}
+                          ellipsis={{ rows: 2 }}
+                        >
+                          {lastReviewNote.note || '（无备注）'}
+                        </Paragraph>
+                      </Space>
+                    )}
+                    {lastManuscriptNote && (lastReviewNote || triggerType === 'first') && (
+                      <div style={{ borderTop: triggerType === 'first' ? 'none' : '1px dashed #d9d9d9', paddingTop: triggerType === 'first' ? 0 : 6 }} />
+                    )}
+                    {lastManuscriptNote && (
+                      <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          最近{triggerType === 'second_mod' || triggerType === 'rejected' ? '改稿' : '接稿'}说明 · {lastManuscriptNote.operator}
+                        </Text>
+                        <Paragraph style={{ margin: 0, fontSize: 13 }} ellipsis={{ rows: 2 }}>
+                          {lastManuscriptNote.content}
+                        </Paragraph>
+                      </Space>
+                    )}
+                  </Space>
+                </div>
+              )}
+
+              {!triggerType && order.dimensionReviewHistory.length > 0 && (
                 <Space>
                   <SwapOutlined style={{ color: '#888' }} />
                   <Text type="secondary" style={{ fontSize: 12 }}>

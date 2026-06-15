@@ -18,3 +18,8 @@ body {
   max-width: 1400px;
   margin: 0 auto;
 }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

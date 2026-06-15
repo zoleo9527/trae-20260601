@@ -533,29 +533,74 @@ export default function DeviceDetail({ currentUser }: Props) {
               items={order.dimensionReviewHistory.map((record, idx) => {
                 const isCurrent = idx === order.dimensionReviewHistory.length - 1 && !record.supersededAt
                 const isSuperseded = !!record.supersededAt
+                const isPending = record.passed === undefined && !isSuperseded
                 return {
-                  color: isSuperseded
+                  color: isPending
+                    ? 'red'
+                    : isSuperseded
                     ? 'gray'
                     : record.passed
                     ? 'green'
                     : 'red',
                   children: (
-                    <div style={{ opacity: isSuperseded ? 0.6 : 1 }}>
+                    <div
+                      style={{
+                        opacity: isSuperseded ? 0.6 : 1,
+                        background: isPending
+                          ? '#fff1f0'
+                          : isCurrent
+                          ? '#f6ffed'
+                          : 'transparent',
+                        border: isPending
+                          ? '2px solid #ff4d4f'
+                          : isCurrent
+                          ? '1px solid #b7eb8f'
+                          : '1px solid transparent',
+                        borderRadius: 8,
+                        padding: isPending || isCurrent ? '12px 14px' : '4px 6px',
+                        marginLeft: isPending || isCurrent ? -8 : 0,
+                        marginBottom: 8,
+                        boxShadow: isPending
+                          ? '0 2px 8px rgba(255,77,79,0.15)'
+                          : isCurrent
+                          ? '0 2px 8px rgba(82,196,26,0.12)'
+                          : 'none',
+                      }}
+                    >
                       <Space style={{ marginBottom: 8 }}>
-                        <Tag color={isCurrent ? 'blue' : 'default'}>
+                        {isPending && (
+                          <Tag
+                            color="red"
+                            style={{
+                              fontWeight: 600,
+                              animation: 'pulse 2s infinite',
+                            }}
+                          >
+                            ⚠️ 待处理 · 当前版本
+                          </Tag>
+                        )}
+                        <Tag color={isCurrent && !isPending ? 'green' : 'default'}>
                           稿件 v{record.version}
                         </Tag>
                         {isSuperseded && <Tag color="default">已过期</Tag>}
-                        {isCurrent && !isSuperseded && <Tag color="blue">当前版本</Tag>}
+                        {isCurrent && !isSuperseded && !isPending && <Tag color="green">✓ 当前版本</Tag>}
                         {record.passed === true && <Tag color="green">复核通过</Tag>}
                         {record.passed === false && <Tag color="red">复核驳回</Tag>}
-                        {record.passed === undefined && <Tag color="orange">待复核</Tag>}
+                        {record.passed === undefined && !isSuperseded && <Tag color="orange">待复核</Tag>}
                       </Space>
+                      {isPending && (
+                        <Alert
+                          message="请优先复核此版本"
+                          type="error"
+                          showIcon
+                          style={{ marginBottom: 10 }}
+                        />
+                      )}
                       <Row gutter={24} style={{ marginBottom: 4 }}>
                         <Col span={8}>
                           <Text type="secondary">原始尺寸</Text>
                           <div>
-                            <Text strong>
+                            <Text strong style={{ fontSize: isPending ? 15 : undefined }}>
                               {record.originalDimension.width} × {record.originalDimension.height} {record.originalDimension.unit}
                             </Text>
                           </div>
@@ -587,13 +632,18 @@ export default function DeviceDetail({ currentUser }: Props) {
                       {record.note && (
                         <Paragraph
                           type={isSuperseded ? 'secondary' : undefined}
-                          style={{ marginTop: 4, marginBottom: 0, fontSize: 13 }}
+                          style={{
+                            marginTop: 4,
+                            marginBottom: 0,
+                            fontSize: 13,
+                            fontWeight: isPending || isCurrent ? 500 : undefined,
+                          }}
                         >
                           备注：{record.note}
                         </Paragraph>
                       )}
                       {isSuperseded && record.supersededAt && (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                           此版本于 {dayjs(record.supersededAt).format('MM-DD HH:mm')} 被新稿件替代
                         </Text>
                       )}
