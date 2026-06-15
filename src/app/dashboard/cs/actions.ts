@@ -1,0 +1,238 @@
+'use server';
+
+import prisma from '@/lib/prisma';
+import { requireRole, getCurrentUser } from '@/lib/auth';
+import { Role, RepairStatus, AppointmentStatus } from '@/lib/enums';
+import { generateOrderNo } from '@/lib/status';
+import { redirect } from 'next/navigation';
+
+export async function createRepairOrder(formData: FormData) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const customerName = formData.get('customerName') as string;
+  const customerPhone = formData.get('customerPhone') as string;
+  const customerAddress = formData.get('customerAddress') as string;
+  const applianceType = formData.get('applianceType') as string;
+  const applianceBrand = formData.get('applianceBrand') as string;
+  const applianceModel = formData.get('applianceModel') as string;
+  const faultDescription = formData.get('faultDescription') as string;
+  const priority = formData.get('priority') as string;
+
+  let customer = await prisma.customer.findFirst({
+    where: { phone: customerPhone },
+  });
+
+  if (!customer) {
+    customer = await prisma.customer.create({
+      data: {
+        name: customerName,
+        phone: customerPhone,
+        address: customerAddress,
+      },
+    });
+  } else {
+    customer = await prisma.customer.update({
+      where: { id: customer.id },
+      data: {
+        name: customerName,
+        address: customerAddress,
+      },
+    });
+  }
+
+  const order = await prisma.repairOrder.create({
+    data: {
+      orderNo: generateOrderNo(),
+      customerId: customer.id,
+      applianceType,
+      applianceBrand,
+      applianceModel: applianceModel || undefined,
+      faultDescription,
+      priority,
+      status: RepairStatus.PENDING,
+    },
+  });
+
+  await prisma.statusLog.create({
+    data: {
+      repairOrderId: order.id,
+      fromStatus: null,
+      toStatus: RepairStatus.PENDING,
+      note: `客服${user.name}新建报修单，记录故障信息`,
+      operatorId: user.id,
+    },
+  });
+
+  redirect(`/dashboard/cs/orders/${order.id}`);
+}
+
+export async function acceptOrder(orderId: string) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { error: '工单不存在' };
+  if (order.status !== RepairStatus.PENDING) return { error: '当前状态不可受理' };
+
+  await prisma.$transaction([
+    prisma.repairOrder.update({
+      where: { id: orderId },
+      data: {
+        status: RepairStatus.ACCEPTED,
+        acceptedById: user.id,
+      },
+    }),
+    prisma.statusLog.create({
+      data: {
+        repairOrderId: orderId,
+        fromStatus: RepairStatus.PENDING,
+        toStatus: RepairStatus.ACCEPTED,
+        note: `客服${user.name}受理工单`,
+        operatorId: user.id,
+      },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+export async function assignOrder(formData: FormData) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const orderId = formData.get('orderId') as string;
+  const engineerId = formData.get('engineerId') as string;
+  const note = formData.get('note') as string;
+
+  const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { error: '工单不存在' };
+
+  const engineer = await prisma.user.findUnique({ where: { id: engineerId } });
+  if (!engineer || engineer.role !== Role.ENGINEER) return { error: '无效的工程师' };
+
+  await prisma.$transaction([
+    prisma.repairOrder.update({
+      where: { id: orderId },
+      data: {
+        status: RepairStatus.ASSIGNED,
+        assignedToId: engineerId,
+      },
+    }),
+    prisma.statusLog.create({
+      data: {
+        repairOrderId: orderId,
+        fromStatus: order.status,
+        toStatus: RepairStatus.ASSIGNED,
+        note: note || `分配给工程师${engineer.name}`,
+        operatorId: user.id,
+      },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+export async function scheduleAppointment(formData: FormData) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const orderId = formData.get('orderId') as string;
+  const scheduledDate = formData.get('scheduledDate') as string;
+  const timeSlot = formData.get('timeSlot') as string;
+  const note = formData.get('note') as string;
+  const engineerId = formData.get('engineerId') as string;
+
+  const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { error: '工单不存在' };
+
+  await prisma.$transaction([
+    prisma.appointment.create({
+      data: {
+        repairOrderId: orderId,
+        scheduledDate: new Date(scheduledDate),
+        timeSlot,
+        note,
+        engineerId: engineerId || order.assignedToId || undefined,
+        createdById: user.id,
+        status: AppointmentStatus.SCHEDULED,
+      },
+    }),
+    prisma.repairOrder.update({
+      where: { id: orderId },
+      data: {
+        status: RepairStatus.APPOINTMENT_SCHEDULED,
+      },
+    }),
+    prisma.statusLog.create({
+      data: {
+        repairOrderId: orderId,
+        fromStatus: order.status,
+        toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+        note: `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`,
+        operatorId: user.id,
+      },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+export async function confirmCustomer(orderId: string) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { error: '工单不存在' };
+  if (order.status !== RepairStatus.REPAIR_COMPLETED) return { error: '当前状态不可操作' };
+
+  await prisma.$transaction([
+    prisma.repairOrder.update({
+      where: { id: orderId },
+      data: { status: RepairStatus.CUSTOMER_CONFIRMED },
+    }),
+    prisma.statusLog.create({
+      data: {
+        repairOrderId: orderId,
+        fromStatus: RepairStatus.REPAIR_COMPLETED,
+        toStatus: RepairStatus.CUSTOMER_CONFIRMED,
+        note: `客服${user.name}电话回访，客户确认维修满意`,
+        operatorId: user.id,
+      },
+    }),
+  ]);
+
+  return { success: true };
+}
+
+export async function closeOrder(formData: FormData) {
+  const user = await requireRole([Role.CUSTOMER_SERVICE]);
+
+  const orderId = formData.get('orderId') as string;
+  const closedNote = formData.get('closedNote') as string;
+
+  const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
+  if (!order) return { error: '工单不存在' };
+  if (
+    order.status !== RepairStatus.CUSTOMER_CONFIRMED &&
+    order.status !== RepairStatus.REPAIR_COMPLETED
+  )
+    return { error: '当前状态不可关闭' };
+
+  await prisma.$transaction([
+    prisma.repairOrder.update({
+      where: { id: orderId },
+      data: {
+        status: RepairStatus.CLOSED,
+        closedById: user.id,
+        closedNote,
+      },
+    }),
+    prisma.statusLog.create({
+      data: {
+        repairOrderId: orderId,
+        fromStatus: order.status,
+        toStatus: RepairStatus.CLOSED,
+        note: closedNote || `客服${user.name}关闭工单`,
+        operatorId: user.id,
+      },
+    }),
+  ]);
+
+  return { success: true };
+}

@@ -1,0 +1,143 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  role      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repairOrdersAccepted    RepairOrder[] @relation("AcceptedBy")
+  repairOrdersAssigned    RepairOrder[] @relation("AssignedTo")
+  repairOrdersClosed      RepairOrder[] @relation("ClosedBy")
+  statusLogs              StatusLog[]
+  appointmentsCreated     Appointment[] @relation("CreatedBy")
+  appointmentsEngineer    Appointment[] @relation("Engineer")
+  partRequestsRequested   PartRequest[] @relation("RequestedBy")
+  partRequestsApproved    PartRequest[] @relation("ApprovedBy")
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  address   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  repairOrders RepairOrder[]
+}
+
+model RepairOrder {
+  id             String   @id @default(cuid())
+  orderNo        String   @unique
+  customerId     String
+  applianceType  String
+  applianceBrand String
+  applianceModel String?
+  faultDescription String
+  status         String @default("PENDING")
+  priority       String   @default("NORMAL")
+  acceptedById   String?
+  assignedToId   String?
+  closedById     String?
+  closedNote     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer     Customer      @relation(fields: [customerId], references: [id])
+  acceptedBy   User?         @relation("AcceptedBy", fields: [acceptedById], references: [id])
+  assignedTo   User?         @relation("AssignedTo", fields: [assignedToId], references: [id])
+  closedBy     User?         @relation("ClosedBy", fields: [closedById], references: [id])
+  statusLogs   StatusLog[]
+  appointments Appointment[]
+  partRequests PartRequest[]
+}
+
+model StatusLog {
+  id            String   @id @default(cuid())
+  repairOrderId String
+  fromStatus    String?
+  toStatus      String
+  note          String?
+  operatorId    String
+  createdAt     DateTime @default(now())
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id])
+  operator    User        @relation(fields: [operatorId], references: [id])
+}
+
+model Appointment {
+  id             String   @id @default(cuid())
+  repairOrderId  String
+  scheduledDate  DateTime
+  timeSlot       String
+  status         String @default("SCHEDULED")
+  note           String?
+  engineerId     String?
+  createdById    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  completedAt    DateTime?
+  completionNote String?
+
+  repairOrder RepairOrder @relation(fields: [repairOrderId], references: [id])
+  engineer    User?       @relation("Engineer", fields: [engineerId], references: [id])
+  createdBy   User        @relation("CreatedBy", fields: [createdById], references: [id])
+}
+
+model Part {
+  id         String   @id @default(cuid())
+  partNo     String   @unique
+  name       String
+  category   String
+  stock      Int      @default(0)
+  unit       String   @default("个")
+  price      Float    @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  partRequests PartRequestItem[]
+}
+
+model PartRequest {
+  id             String   @id @default(cuid())
+  repairOrderId  String
+  status         String @default("PENDING")
+  requestedById  String
+  approvedById   String?
+  note           String?
+  approvalNote   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  deliveredAt    DateTime?
+
+  repairOrder RepairOrder      @relation(fields: [repairOrderId], references: [id])
+  requestedBy User             @relation("RequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?            @relation("ApprovedBy", fields: [approvedById], references: [id])
+  items       PartRequestItem[]
+}
+
+model PartRequestItem {
+  id            String      @id @default(cuid())
+  partRequestId String
+  partId        String
+  quantity      Int
+  deliveredQty  Int         @default(0)
+
+  partRequest PartRequest @relation(fields: [partRequestId], references: [id])
+  part        Part        @relation(fields: [partId], references: [id])
+}
