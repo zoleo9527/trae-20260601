@@ -2,24 +2,19 @@ import React, { useState } from 'react';
 import { Table, Tag, Card, Space, Button, Modal, Timeline, Descriptions, Badge, Tooltip, Input, Select, message, Tabs, Avatar, List, Empty, Statistic, Row, Col, Divider } from 'antd';
 import { 
   ClockCircleOutlined, 
-  UserOutlined, 
-  CheckCircleOutlined, 
-  CloseCircleOutlined,
   EyeOutlined,
   TeamOutlined,
-  SwapOutlined,
   HistoryOutlined,
   PhoneOutlined,
   StarOutlined,
-  AlertCircleOutlined,
   CalendarOutlined,
   FileTextOutlined,
-  ArrowRightOutlined
+  AlertOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import type { InstallationOrder, DispatchRecord, Master, StatusChange } from '../types';
-import { orders, masters } from '../data/mockData';
+import type { InstallationOrder } from '../types';
+import { useOrderContext } from '../context/OrderContext';
 
 const { Search } = Input;
 
@@ -40,7 +35,7 @@ const orderStatusConfig: Record<string, { color: string; text: string; bgColor: 
 };
 
 const MasterDispatch: React.FC = () => {
-  const [ordersList, setOrdersList] = useState<InstallationOrder[]>(orders);
+  const { orders, masters, dispatchOrder, batchDispatchOrders } = useOrderContext();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [detailVisible, setDetailVisible] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<InstallationOrder | null>(null);
@@ -51,7 +46,7 @@ const MasterDispatch: React.FC = () => {
   const [selectedOrderForAssign, setSelectedOrderForAssign] = useState<InstallationOrder | null>(null);
   const [selectedMaster, setSelectedMaster] = useState<string>();
 
-  const filteredOrders = ordersList.filter(order => {
+  const filteredOrders = orders.filter(order => {
     const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
     const matchesSearch = !searchText || 
       order.customerName.includes(searchText) || 
@@ -74,122 +69,23 @@ const MasterDispatch: React.FC = () => {
       message.warning('请选择师傅');
       return;
     }
-    const master = masters.find(m => m.id === selectedMaster);
-    if (!master) return;
-
-    const now = new Date().toISOString();
-    const newDispatchRecord: DispatchRecord = {
-      id: `DR-${Date.now()}`,
-      orderId: selectedOrderForAssign.id,
-      masterId: master.id,
-      masterName: master.name,
-      status: 'assigned',
-      dispatchTime: now,
-      statusHistory: [{
-        id: `DSC-${Date.now()}`,
-        fromStatus: '',
-        toStatus: 'assigned',
-        operator: '调度员小王',
-        operatorRole: '调度员',
-        timestamp: now,
-        remark: `分配给${master.name}，技能匹配: ${master.skills.join(', ')}`
-      }]
-    };
-
-    const newStatusChange: StatusChange = {
-      id: `SC-${Date.now()}`,
-      fromStatus: selectedOrderForAssign.status,
-      toStatus: 'assigned',
-      operator: '调度员小王',
-      operatorRole: '调度员',
-      timestamp: now,
-      remark: `已分配给${master.name}`
-    };
-
-    setOrdersList(prev => prev.map(o => {
-      if (o.id === selectedOrderForAssign.id) {
-        return {
-          ...o,
-          status: 'assigned',
-          dispatcher: '调度员小王',
-          assignedMaster: master.name,
-          assignedMasterId: master.id,
-          dispatchRecords: [...o.dispatchRecords, newDispatchRecord],
-          statusHistory: [...o.statusHistory, newStatusChange]
-        };
-      }
-      return o;
-    }));
-
+    dispatchOrder(selectedOrderForAssign.id, selectedMaster);
     setAssignModalVisible(false);
-    message.success(`已成功将订单分配给${master.name}`);
+    const master = masters.find(m => m.id === selectedMaster);
+    message.success(`已成功将订单分配给${master?.name}`);
   };
 
   const handleBatchAssign = () => {
-    const pendingOrders = selectedRowKeys.filter(key => 
-      ordersList.find(o => o.id === key && o.status === 'pending')
-    );
-    if (pendingOrders.length === 0) {
+    const pendingOrderIds = selectedRowKeys.filter(key => 
+      orders.find(o => o.id === key && o.status === 'pending')
+    ) as string[];
+    if (pendingOrderIds.length === 0) {
       message.warning('请选择待调度的订单');
       return;
     }
-    if (availableMasters.length === 0) {
-      message.warning('当前没有可用师傅');
-      return;
-    }
-    
-    const now = new Date().toISOString();
-    let assignedCount = 0;
-    
-    setOrdersList(prev => prev.map(o => {
-      if (pendingOrders.includes(o.id) && o.status === 'pending') {
-        const masterIndex = assignedCount % availableMasters.length;
-        const master = availableMasters[masterIndex];
-        
-        const newDispatchRecord: DispatchRecord = {
-          id: `DR-${Date.now()}-${o.id}`,
-          orderId: o.id,
-          masterId: master.id,
-          masterName: master.name,
-          status: 'assigned',
-          dispatchTime: now,
-          statusHistory: [{
-            id: `DSC-${Date.now()}-${o.id}`,
-            fromStatus: '',
-            toStatus: 'assigned',
-            operator: '调度员小王',
-            operatorRole: '调度员',
-            timestamp: now,
-            remark: `批量分配给${master.name}`
-          }]
-        };
-
-        const newStatusChange: StatusChange = {
-          id: `SC-${Date.now()}-${o.id}`,
-          fromStatus: 'pending',
-          toStatus: 'assigned',
-          operator: '调度员小王',
-          operatorRole: '调度员',
-          timestamp: now,
-          remark: `批量分配给${master.name}`
-        };
-
-        assignedCount++;
-        return {
-          ...o,
-          status: 'assigned',
-          dispatcher: '调度员小王',
-          assignedMaster: master.name,
-          assignedMasterId: master.id,
-          dispatchRecords: [...o.dispatchRecords, newDispatchRecord],
-          statusHistory: [...o.statusHistory, newStatusChange]
-        };
-      }
-      return o;
-    }));
-
+    batchDispatchOrders(pendingOrderIds);
     setSelectedRowKeys([]);
-    message.success(`已批量分配 ${assignedCount} 个订单`);
+    message.success(`已批量分配 ${pendingOrderIds.length} 个订单`);
   };
 
   const showDetail = (order: InstallationOrder) => {
@@ -232,7 +128,7 @@ const MasterDispatch: React.FC = () => {
         return (
           <Tooltip title={`配件待审批: ${pendingParts.map(p => p.partName).join(', ')}`}>
             <Space style={{ color: '#ff4d4f' }}>
-              <AlertCircleOutlined />
+              <AlertOutlined />
               <span>配件待审批 ({pendingParts.length})</span>
             </Space>
           </Tooltip>
@@ -243,7 +139,7 @@ const MasterDispatch: React.FC = () => {
       return (
         <Tooltip title="有配件申请待审批">
           <Space style={{ color: '#fa8c16' }}>
-            <AlertCircleOutlined />
+            <AlertOutlined />
             <span>配件待审批</span>
           </Space>
         </Tooltip>
@@ -257,6 +153,15 @@ const MasterDispatch: React.FC = () => {
     return order.statusHistory[order.statusHistory.length - 1];
   };
 
+  const stats = {
+    pendingOrders: orders.filter(o => o.status === 'pending').length,
+    assignedOrders: orders.filter(o => o.status === 'assigned').length,
+    inProgressOrders: orders.filter(o => o.status === 'in_progress').length,
+    delayedOrders: orders.filter(o => o.status === 'delayed').length,
+    availableMasters: availableMasters.length,
+    pendingParts: orders.reduce((acc, o) => acc + o.partRequests.filter(p => p.status === 'requested').length, 0)
+  };
+
   const columns: ColumnsType<InstallationOrder> = [
     {
       title: '订单号',
@@ -264,7 +169,7 @@ const MasterDispatch: React.FC = () => {
       key: 'id',
       width: 100,
       render: (id: string) => (
-        <a onClick={() => showDetail(ordersList.find(o => o.id === id)!)} style={{ fontWeight: 500 }}>
+        <a onClick={() => showDetail(orders.find(o => o.id === id)!)} style={{ fontWeight: 500 }}>
           {id}
         </a>
       )
@@ -273,7 +178,7 @@ const MasterDispatch: React.FC = () => {
       title: '客户信息',
       key: 'customer',
       width: 180,
-      render: (_, record) => (
+      render: (_: unknown, record) => (
         <Space direction="vertical" size={0}>
           <span style={{ fontWeight: 500 }}>{record.customerName}</span>
           <span style={{ color: '#666', fontSize: 12 }}>
@@ -287,7 +192,7 @@ const MasterDispatch: React.FC = () => {
       title: '产品',
       key: 'product',
       width: 160,
-      render: (_, record) => (
+      render: (_: unknown, record) => (
         <Space direction="vertical" size={0}>
           <span>{record.productType}</span>
           <span style={{ color: '#666', fontSize: 12 }}>{record.productModel}</span>
@@ -318,7 +223,7 @@ const MasterDispatch: React.FC = () => {
       title: '派工状态',
       key: 'dispatchStatus',
       width: 100,
-      render: (_, record) => {
+      render: (_: unknown, record) => {
         if (!record.assignedMaster) {
           return <span style={{ color: '#999' }}>未分配</span>;
         }
@@ -344,7 +249,7 @@ const MasterDispatch: React.FC = () => {
       title: '师傅',
       key: 'master',
       width: 120,
-      render: (_, record) => (
+      render: (_: unknown, record) => (
         record.assignedMaster ? (
           <Space>
             <Avatar size="small" style={{ backgroundColor: '#1890ff' }}>
@@ -363,16 +268,23 @@ const MasterDispatch: React.FC = () => {
       render: (dispatcher: string) => dispatcher || '-'
     },
     {
+      title: '售后处理人',
+      dataIndex: 'afterSaleHandler',
+      key: 'afterSaleHandler',
+      width: 120,
+      render: (handler: string) => handler || '-'
+    },
+    {
       title: '卡点说明',
       key: 'blockInfo',
       width: 160,
-      render: (_, record) => getBlockReason(record)
+      render: (_: unknown, record) => getBlockReason(record)
     },
     {
       title: '最后操作',
       key: 'lastAction',
       width: 180,
-      render: (_, record) => {
+      render: (_: unknown, record) => {
         const lastChange = getLastStatusChange(record);
         if (!lastChange) return '-';
         return (
@@ -393,7 +305,7 @@ const MasterDispatch: React.FC = () => {
       key: 'action',
       width: 200,
       fixed: 'right',
-      render: (_, record) => (
+      render: (_: unknown, record) => (
         <Space>
           <Button 
             type="link" 
@@ -437,7 +349,7 @@ const MasterDispatch: React.FC = () => {
         }
         extra={
           <Space>
-            <Badge count={ordersList.filter(o => o.status === 'pending').length} color="#faad14">
+            <Badge count={stats.pendingOrders} color="#faad14">
               <Button type="primary" onClick={handleBatchAssign}>
                 <TeamOutlined style={{ marginRight: 4 }} />
                 批量分配
@@ -451,7 +363,7 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="待调度" 
-                value={ordersList.filter(o => o.status === 'pending').length}
+                value={stats.pendingOrders}
                 valueStyle={{ color: '#faad14' }}
                 prefix={<ClockCircleOutlined />}
               />
@@ -461,7 +373,7 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="已分配" 
-                value={ordersList.filter(o => o.status === 'assigned').length}
+                value={stats.assignedOrders}
                 valueStyle={{ color: '#1890ff' }}
                 prefix={<TeamOutlined />}
               />
@@ -471,7 +383,7 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="进行中" 
-                value={ordersList.filter(o => o.status === 'in_progress').length}
+                value={stats.inProgressOrders}
                 valueStyle={{ color: '#52c41a' }}
                 prefix={<FileTextOutlined />}
               />
@@ -481,9 +393,9 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="已延期" 
-                value={ordersList.filter(o => o.status === 'delayed').length}
+                value={stats.delayedOrders}
                 valueStyle={{ color: '#ff4d4f' }}
-                prefix={<AlertCircleOutlined />}
+                prefix={<AlertOutlined />}
               />
             </Card>
           </Col>
@@ -491,9 +403,9 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="可用师傅" 
-                value={availableMasters.length}
+                value={stats.availableMasters}
                 suffix={`/ ${masters.length}`}
-                prefix={<UserOutlined />}
+                prefix={<EyeOutlined />}
               />
             </Card>
           </Col>
@@ -501,9 +413,9 @@ const MasterDispatch: React.FC = () => {
             <Card size="small" style={{ borderRadius: 8 }}>
               <Statistic 
                 title="配件待审批" 
-                value={ordersList.reduce((acc, o) => acc + o.partRequests.filter(p => p.status === 'requested').length, 0)}
+                value={stats.pendingParts}
                 valueStyle={{ color: '#fa8c16' }}
-                prefix={<AlertCircleOutlined />}
+                prefix={<AlertOutlined />}
               />
             </Card>
           </Col>
@@ -536,7 +448,7 @@ const MasterDispatch: React.FC = () => {
           rowKey="id"
           columns={columns}
           dataSource={filteredOrders}
-          scroll={{ x: 1500 }}
+          scroll={{ x: 1600 }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,
@@ -549,7 +461,7 @@ const MasterDispatch: React.FC = () => {
                 text: '全选待调度',
                 onSelect: (allKeys) => {
                   setSelectedRowKeys(allKeys.filter(key => 
-                    ordersList.find(o => o.id === key && o.status === 'pending')
+                    orders.find(o => o.id === key && o.status === 'pending')
                   ));
                 }
               }
@@ -605,7 +517,7 @@ const MasterDispatch: React.FC = () => {
                       <Descriptions.Item label="调度员">
                         {currentOrder.dispatcher ? (
                           <Space>
-                            <UserOutlined />
+                            <EyeOutlined />
                             <span>{currentOrder.dispatcher}</span>
                           </Space>
                         ) : '-'}
@@ -618,6 +530,16 @@ const MasterDispatch: React.FC = () => {
                             </Avatar>
                             <span>{currentOrder.assignedMaster}</span>
                           </Space>
+                        ) : '-'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="售后处理人">
+                        {currentOrder.afterSaleHandler || '-'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="售后状态">
+                        {currentOrder.afterSaleStatus ? (
+                          <Tag color={currentOrder.afterSaleStatus === 'processing' ? 'blue' : 'green'}>
+                            {currentOrder.afterSaleStatus === 'processing' ? '处理中' : '已解决'}
+                          </Tag>
                         ) : '-'}
                       </Descriptions.Item>
                       <Descriptions.Item label="创建时间">
@@ -651,7 +573,7 @@ const MasterDispatch: React.FC = () => {
                               dataIndex: 'status', 
                               key: 'status',
                               render: (status: string) => {
-                                const config = {
+                                const config: Record<string, { color: string; text: string }> = {
                                   requested: { color: 'orange', text: '待审批' },
                                   approved: { color: 'blue', text: '已批准' },
                                   picked: { color: 'cyan', text: '已领取' },
@@ -661,7 +583,8 @@ const MasterDispatch: React.FC = () => {
                               }
                             },
                             { title: '申请人', dataIndex: 'requester', key: 'requester' },
-                            { title: '当前处理', dataIndex: 'currentHandler', key: 'currentHandler' }
+                            { title: '当前处理', dataIndex: 'currentHandler', key: 'currentHandler' },
+                            { title: '备注', dataIndex: 'remark', key: 'remark' }
                           ]}
                           pagination={false}
                         />
@@ -669,6 +592,28 @@ const MasterDispatch: React.FC = () => {
                         <Empty description="暂无配件领用" />
                       )}
                     </Card>
+
+                    {currentOrder.status !== 'completed' && (
+                      <Card title="未完成原因分析" size="small" style={{ marginTop: 16, borderColor: '#faad14', borderStyle: 'solid' }}>
+                        <Tag color="orange">订单未完成</Tag>
+                        <div style={{ marginTop: 8 }}>
+                          {(() => {
+                            const block = getBlockReason(currentOrder);
+                            if (block) {
+                              return (
+                                <div>
+                                  <p><strong>当前卡点:</strong> {block}</p>
+                                  {currentOrder.partRequests.some(p => p.status === 'requested') && (
+                                    <p><strong>待审批配件:</strong> {currentOrder.partRequests.filter(p => p.status === 'requested').map(p => p.partName).join(', ')}</p>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return '订单正在处理中';
+                          })()}
+                        </div>
+                      </Card>
+                    )}
                   </div>
                 )
               },
@@ -751,7 +696,7 @@ const MasterDispatch: React.FC = () => {
                               </Space>
                             </div>
                             <div style={{ color: '#666', marginBottom: 4 }}>
-                              <UserOutlined style={{ marginRight: 4 }} />
+                              <EyeOutlined style={{ marginRight: 4 }} />
                               <span>{item.operator}</span>
                               <Tag style={{ marginLeft: 8, fontSize: 10 }}>{item.operatorRole}</Tag>
                             </div>
@@ -806,7 +751,7 @@ const MasterDispatch: React.FC = () => {
             <Card title="订单状态变迁" size="small" style={{ marginBottom: 16 }}>
               <Timeline
                 mode="left"
-                items={currentOrder.statusHistory.map((item, index) => ({
+                items={currentOrder.statusHistory.map((item) => ({
                   color: item.toStatus === 'completed' ? 'green' : item.toStatus === 'delayed' ? 'red' : 'blue',
                   label: (
                     <div style={{ textAlign: 'right' }}>
@@ -857,7 +802,7 @@ const MasterDispatch: React.FC = () => {
                     </div>
                     <Timeline
                       mode="left"
-                      items={dispatch.statusHistory.map((item, index) => ({
+                      items={dispatch.statusHistory.map((item) => ({
                         color: item.toStatus === 'completed' ? 'green' : item.toStatus === 'rejected' ? 'red' : 'blue',
                         label: (
                           <div style={{ textAlign: 'right' }}>
@@ -952,7 +897,7 @@ const MasterDispatch: React.FC = () => {
             </Select>
             {availableMasters.length === 0 && (
               <div style={{ color: '#ff4d4f', marginTop: 8, padding: 12, backgroundColor: '#fff2f0', borderRadius: 4 }}>
-                <AlertCircleOutlined style={{ marginRight: 8 }} />
+                <AlertOutlined style={{ marginRight: 8 }} />
                 当前没有可用师傅，请等待师傅完成当前任务
               </div>
             )}

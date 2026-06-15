@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Tag, Card, Space, Button, Modal, Timeline, Descriptions, Badge, Tooltip, Input, Select, message, Tabs, List, Avatar, Comment } from 'antd';
+import { Table, Tag, Card, Space, Button, Modal, Timeline, Descriptions, Badge, Input, Select, message, Tabs, List, Avatar, Comment } from 'antd';
 import { 
   CustomerServiceOutlined, 
   ClockCircleOutlined, 
@@ -7,13 +7,12 @@ import {
   CheckCircleOutlined,
   EyeOutlined,
   MessageOutlined,
-  PhoneOutlined,
-  SolutionOutlined
+  PhoneOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import type { InstallationOrder, StatusChange } from '../types';
-import { orders } from '../data/mockData';
+import type { InstallationOrder } from '../types';
+import { useOrderContext } from '../context/OrderContext';
 
 const { Search } = Input;
 const { TextArea } = Input;
@@ -25,6 +24,14 @@ const orderStatusConfig: Record<string, { color: string; text: string }> = {
   completed: { color: 'green', text: '已完成' },
   delayed: { color: 'red', text: '已延期' }
 };
+
+interface Communication {
+  id: string;
+  type: 'customer' | 'handler' | 'system';
+  content: string;
+  operator: string;
+  timestamp: string;
+}
 
 interface AfterSaleRecord {
   id: string;
@@ -38,14 +45,6 @@ interface AfterSaleRecord {
   createTime: string;
   updateTime: string;
   communications: Communication[];
-}
-
-interface Communication {
-  id: string;
-  type: 'customer' | 'handler' | 'system';
-  content: string;
-  operator: string;
-  timestamp: string;
 }
 
 const mockAfterSaleRecords: AfterSaleRecord[] = [
@@ -129,13 +128,13 @@ const mockAfterSaleRecords: AfterSaleRecord[] = [
 ];
 
 const AfterSaleService: React.FC = () => {
+  const { orders } = useOrderContext();
   const [records, setRecords] = useState<AfterSaleRecord[]>(mockAfterSaleRecords);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [detailVisible, setDetailVisible] = useState(false);
   const [currentRecord, setCurrentRecord] = useState<AfterSaleRecord | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
-  const [replyVisible, setReplyVisible] = useState(false);
   const [replyContent, setReplyContent] = useState('');
 
   const filteredRecords = records.filter(record => {
@@ -150,6 +149,7 @@ const AfterSaleService: React.FC = () => {
   const handleViewDetail = (record: AfterSaleRecord) => {
     setCurrentRecord(record);
     setDetailVisible(true);
+    setReplyContent('');
   };
 
   const handleReply = () => {
@@ -469,6 +469,35 @@ const AfterSaleService: React.FC = () => {
                                 </Tag>
                               ))}
                             </Space>
+                          </div>
+                        )}
+
+                        {relatedOrder.statusHistory.length > 0 && (
+                          <div style={{ marginTop: 12 }}>
+                            <div style={{ fontWeight: 500, marginBottom: 8 }}>最近状态变更:</div>
+                            <div style={{ padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
+                              {(() => {
+                                const lastChange = relatedOrder.statusHistory[relatedOrder.statusHistory.length - 1];
+                                return (
+                                  <div>
+                                    <div style={{ color: '#666' }}>
+                                      <UserOutlined style={{ marginRight: 4 }} />
+                                      <span>{lastChange.operator}</span>
+                                      <span style={{ marginLeft: 8 }}>({lastChange.operatorRole})</span>
+                                    </div>
+                                    <div style={{ color: '#999', fontSize: 12, marginTop: 4 }}>
+                                      <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                      {dayjs(lastChange.timestamp).format('MM-DD HH:mm')}
+                                    </div>
+                                    {lastChange.remark && (
+                                      <div style={{ color: '#666', fontSize: 12, marginTop: 4 }}>
+                                        {lastChange.remark}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
                         )}
                       </Card>

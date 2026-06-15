@@ -1,24 +1,20 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Statistic, Table, Tag, Space, Button, Modal, Timeline, Descriptions, Badge, List, Avatar, Tooltip, Progress, Alert } from 'antd';
+import { Card, Row, Col, Statistic, Table, Tag, Space, Button, Modal, Timeline, Descriptions, Badge, List, Avatar, Tooltip, Progress, Alert, Empty } from 'antd';
 import { 
   DashboardOutlined, 
   ClockCircleOutlined, 
-  UserOutlined, 
-  CheckCircleOutlined,
-  ExclamationCircleOutlined,
   TeamOutlined,
   ToolOutlined,
   CustomerServiceOutlined,
   AlertOutlined,
   ArrowRightOutlined,
   EyeOutlined,
-  PackageOutlined,
-  PhoneOutlined,
-  CalendarOutlined
+  PauseOutlined,
+  PhoneOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import type { InstallationOrder, DashboardStats, Master } from '../types';
-import { orders, masters, getDashboardStats } from '../data/mockData';
+import type { InstallationOrder } from '../types';
+import { useOrderContext } from '../context/OrderContext';
 
 const statusConfig: Record<string, { color: string; text: string; bgColor: string }> = {
   pending: { color: '#faad14', text: '待调度', bgColor: '#fff7e6' },
@@ -29,19 +25,28 @@ const statusConfig: Record<string, { color: string; text: string; bgColor: strin
 };
 
 const Dashboard: React.FC = () => {
-  const [stats] = useState<DashboardStats>(getDashboardStats());
-  const [ordersList] = useState<InstallationOrder[]>(orders);
-  const [mastersList] = useState<Master[]>(masters);
+  const { orders, masters } = useOrderContext();
   const [orderDetailVisible, setOrderDetailVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<InstallationOrder | null>(null);
 
-  const pendingOrders = ordersList.filter(o => o.status === 'pending');
-  const delayedOrders = ordersList.filter(o => o.status === 'delayed');
-  const inProgressOrders = ordersList.filter(o => o.status === 'in_progress');
-  const pendingPartsOrders = ordersList.filter(o => 
+  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const delayedOrders = orders.filter(o => o.status === 'delayed');
+  const inProgressOrders = orders.filter(o => o.status === 'in_progress');
+  const pendingPartsOrders = orders.filter(o => 
     o.partRequests.some(p => p.status === 'requested')
   );
-  const afterSaleOrders = ordersList.filter(o => o.afterSaleStatus === 'processing');
+  const afterSaleOrders = orders.filter(o => o.afterSaleStatus === 'processing');
+  const completedOrders = orders.filter(o => o.status === 'completed');
+
+  const stats = {
+    totalOrders: orders.length,
+    pendingOrders: pendingOrders.length,
+    inProgressOrders: inProgressOrders.length,
+    completedOrders: completedOrders.length,
+    delayedOrders: delayedOrders.length,
+    pendingParts: pendingPartsOrders.reduce((acc, o) => acc + o.partRequests.filter(p => p.status === 'requested').length, 0),
+    unassignedMasters: masters.filter(m => m.status === 'available').length
+  };
 
   const showOrderDetail = (order: InstallationOrder) => {
     setSelectedOrder(order);
@@ -70,7 +75,7 @@ const Dashboard: React.FC = () => {
     return null;
   };
 
-  const completedRate = Math.round((stats.completedOrders / stats.totalOrders) * 100);
+  const completedRate = orders.length > 0 ? Math.round((completedOrders.length / orders.length) * 100) : 0;
 
   const columns = [
     {
@@ -79,7 +84,7 @@ const Dashboard: React.FC = () => {
       key: 'id',
       width: 90,
       render: (id: string) => (
-        <a onClick={() => showOrderDetail(ordersList.find(o => o.id === id)!)} style={{ fontWeight: 500 }}>
+        <a onClick={() => showOrderDetail(orders.find(o => o.id === id)!)} style={{ fontWeight: 500 }}>
           {id}
         </a>
       )
@@ -88,7 +93,7 @@ const Dashboard: React.FC = () => {
       title: '客户',
       key: 'customer',
       width: 100,
-      render: (_, record: InstallationOrder) => (
+      render: (_: unknown, record: InstallationOrder) => (
         <Space direction="vertical" size={0}>
           <span style={{ fontWeight: 500 }}>{record.customerName}</span>
           <span style={{ color: '#666', fontSize: 11 }}>
@@ -128,13 +133,13 @@ const Dashboard: React.FC = () => {
       title: '师傅',
       key: 'master',
       width: 80,
-      render: (_, record: InstallationOrder) => record.assignedMaster || '-'
+      render: (_: unknown, record: InstallationOrder) => record.assignedMaster || '-'
     },
     {
       title: '卡点',
       key: 'block',
       width: 140,
-      render: (_, record: InstallationOrder) => {
+      render: (_: unknown, record: InstallationOrder) => {
         const block = getBlockInfo(record);
         if (!block) return '-';
         return (
@@ -155,7 +160,7 @@ const Dashboard: React.FC = () => {
       title: '操作',
       key: 'action',
       width: 80,
-      render: (_, record: InstallationOrder) => (
+      render: (_: unknown, record: InstallationOrder) => (
         <Button type="link" size="small" icon={<EyeOutlined />} onClick={() => showOrderDetail(record)}>
           查看
         </Button>
@@ -167,9 +172,9 @@ const Dashboard: React.FC = () => {
     { title: '总订单数', value: stats.totalOrders, icon: DashboardOutlined, color: '#1890ff' },
     { title: '待调度', value: stats.pendingOrders, icon: ClockCircleOutlined, color: '#faad14', badge: true },
     { title: '进行中', value: stats.inProgressOrders, icon: ToolOutlined, color: '#52c41a' },
-    { title: '已延期', value: stats.delayedOrders, icon: ExclamationCircleOutlined, color: '#ff4d4f', badge: true },
+    { title: '已延期', value: stats.delayedOrders, icon: AlertOutlined, color: '#ff4d4f', badge: true },
     { title: '配件待审批', value: stats.pendingParts, icon: AlertOutlined, color: '#fa8c16', badge: true },
-    { title: '可用师傅', value: `${stats.unassignedMasters} / ${mastersList.length}`, icon: TeamOutlined, color: '#722ed1' }
+    { title: '可用师傅', value: `${stats.unassignedMasters} / ${masters.length}`, icon: TeamOutlined, color: '#722ed1' }
   ];
 
   return (
@@ -254,7 +259,7 @@ const Dashboard: React.FC = () => {
                   size="small" 
                   title={
                     <Space>
-                      <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />
+                      <AlertOutlined style={{ color: '#ff4d4f' }} />
                       <span>已延期</span>
                       <Badge count={delayedOrders.length} color="#ff4d4f" />
                     </Space>
@@ -296,7 +301,7 @@ const Dashboard: React.FC = () => {
               size="small" 
               title={
                 <Space>
-                  <PackageOutlined style={{ color: '#fa8c16' }} />
+                  <PauseOutlined style={{ color: '#fa8c16' }} />
                   <span>配件待审批</span>
                   <Badge count={pendingPartsOrders.length} color="#fa8c16" />
                 </Space>
@@ -345,7 +350,7 @@ const Dashboard: React.FC = () => {
           >
             <List
               itemLayout="horizontal"
-              dataSource={mastersList}
+              dataSource={masters}
               renderItem={master => (
                 <List.Item>
                   <List.Item.Meta
@@ -447,7 +452,7 @@ const Dashboard: React.FC = () => {
                 }}
               />
               <div style={{ color: '#666', fontSize: 12 }}>
-                {stats.completedOrders} / {stats.totalOrders} 订单已完成
+                {completedOrders.length} / {orders.length} 订单已完成
               </div>
             </div>
           </Card>
@@ -459,14 +464,14 @@ const Dashboard: React.FC = () => {
               <Space>
                 <DashboardOutlined />
                 <span>订单列表</span>
-                <Badge count={stats.totalOrders} />
+                <Badge count={orders.length} />
               </Space>
             }
           >
             <Table
               rowKey="id"
               columns={columns}
-              dataSource={ordersList}
+              dataSource={orders}
               pagination={{ pageSize: 10 }}
               size="middle"
             />
@@ -507,10 +512,27 @@ const Dashboard: React.FC = () => {
               <Descriptions.Item label="产品">{selectedOrder.productType} - {selectedOrder.productModel}</Descriptions.Item>
               <Descriptions.Item label="师傅">{selectedOrder.assignedMaster || '-'}</Descriptions.Item>
               <Descriptions.Item label="调度员">{selectedOrder.dispatcher || '-'}</Descriptions.Item>
-              <Descriptions.Item label="售后处理">{selectedOrder.afterSaleHandler || '-'}</Descriptions.Item>
+              <Descriptions.Item label="售后处理人">{selectedOrder.afterSaleHandler || '-'}</Descriptions.Item>
+              <Descriptions.Item label="售后状态">
+                {selectedOrder.afterSaleStatus ? (
+                  <Tag color={selectedOrder.afterSaleStatus === 'processing' ? 'blue' : selectedOrder.afterSaleStatus === 'resolved' ? 'green' : 'orange'}>
+                    {selectedOrder.afterSaleStatus === 'processing' ? '处理中' : selectedOrder.afterSaleStatus === 'resolved' ? '已解决' : '待处理'}
+                  </Tag>
+                ) : '-'}
+              </Descriptions.Item>
               <Descriptions.Item label="创建时间">
                 {dayjs(selectedOrder.createTime).format('YYYY-MM-DD HH:mm:ss')}
               </Descriptions.Item>
+              {selectedOrder.scheduledTime && (
+                <Descriptions.Item label="预约时间">
+                  {dayjs(selectedOrder.scheduledTime).format('YYYY-MM-DD HH:mm:ss')}
+                </Descriptions.Item>
+              )}
+              {selectedOrder.completeTime && (
+                <Descriptions.Item label="完成时间">
+                  {dayjs(selectedOrder.completeTime).format('YYYY-MM-DD HH:mm:ss')}
+                </Descriptions.Item>
+              )}
               {selectedOrder.remark && (
                 <Descriptions.Item label="备注" span={2}>
                   <div style={{ padding: 8, backgroundColor: '#f5f5f5', borderRadius: 4 }}>
@@ -520,10 +542,43 @@ const Dashboard: React.FC = () => {
               )}
             </Descriptions>
 
+            {selectedOrder.partRequests.length > 0 && (
+              <Card title="配件领用状态" size="small" style={{ marginTop: 16 }}>
+                <Table
+                  size="small"
+                  dataSource={selectedOrder.partRequests}
+                  rowKey="id"
+                  columns={[
+                    { title: '配件名称', dataIndex: 'partName', key: 'partName' },
+                    { title: '配件编号', dataIndex: 'partCode', key: 'partCode' },
+                    { title: '数量', dataIndex: 'quantity', key: 'quantity' },
+                    { 
+                      title: '状态', 
+                      dataIndex: 'status', 
+                      key: 'status',
+                      render: (status: string) => {
+                        const config: Record<string, { color: string; text: string }> = {
+                          requested: { color: 'orange', text: '待审批' },
+                          approved: { color: 'blue', text: '已批准' },
+                          picked: { color: 'cyan', text: '已领取' },
+                          installed: { color: 'green', text: '已安装' }
+                        };
+                        return <Tag color={config[status].color}>{config[status].text}</Tag>;
+                      }
+                    },
+                    { title: '申请人', dataIndex: 'requester', key: 'requester' },
+                    { title: '当前处理', dataIndex: 'currentHandler', key: 'currentHandler' },
+                    { title: '备注', dataIndex: 'remark', key: 'remark' }
+                  ]}
+                  pagination={false}
+                />
+              </Card>
+            )}
+
             <Card title="状态变更历史" size="small" style={{ marginTop: 16 }}>
               <Timeline
                 mode="left"
-                items={selectedOrder.statusHistory.map((item, index) => ({
+                items={selectedOrder.statusHistory.map((item) => ({
                   color: item.toStatus === 'completed' ? 'green' : item.toStatus === 'delayed' ? 'red' : 'blue',
                   label: (
                     <div style={{ textAlign: 'right' }}>
@@ -558,34 +613,27 @@ const Dashboard: React.FC = () => {
               />
             </Card>
 
-            {selectedOrder.partRequests.length > 0 && (
-              <Card title="配件领用" size="small" style={{ marginTop: 16 }}>
-                <Table
-                  size="small"
-                  dataSource={selectedOrder.partRequests}
-                  rowKey="id"
-                  columns={[
-                    { title: '配件名称', dataIndex: 'partName', key: 'partName' },
-                    { title: '配件编号', dataIndex: 'partCode', key: 'partCode' },
-                    { title: '数量', dataIndex: 'quantity', key: 'quantity' },
-                    { 
-                      title: '状态', 
-                      dataIndex: 'status', 
-                      key: 'status',
-                      render: (status: string) => {
-                        const config = {
-                          requested: { color: 'orange', text: '待审批' },
-                          approved: { color: 'blue', text: '已批准' },
-                          picked: { color: 'cyan', text: '已领取' },
-                          installed: { color: 'green', text: '已安装' }
-                        };
-                        return <Tag color={config[status].color}>{config[status].text}</Tag>;
-                      }
-                    },
-                    { title: '申请人', dataIndex: 'requester', key: 'requester' },
-                    { title: '当前处理', dataIndex: 'currentHandler', key: 'currentHandler' }
-                  ]}
-                  pagination={false}
+            {selectedOrder.status !== 'completed' && selectedOrder.status !== 'pending' && (
+              <Card title="未完成原因分析" size="small" style={{ marginTop: 16, borderColor: '#faad14', borderStyle: 'solid' }}>
+                <Alert
+                  message="订单未完成"
+                  description={(() => {
+                    const block = getBlockInfo(selectedOrder);
+                    if (block) {
+                      return (
+                        <div>
+                          <p>当前卡点: <strong style={{ color: block.color }}>{block.text}</strong></p>
+                          <p>当前处理人: <strong>{block.handler}</strong></p>
+                          {selectedOrder.partRequests.some(p => p.status === 'requested') && (
+                            <p>待审批配件: {selectedOrder.partRequests.filter(p => p.status === 'requested').map(p => p.partName).join(', ')}</p>
+                          )}
+                        </div>
+                      );
+                    }
+                    return '订单正在处理中';
+                  })()}
+                  type="info"
+                  showIcon
                 />
               </Card>
             )}

@@ -1,22 +1,20 @@
 import React, { useState } from 'react';
-import { Table, Tag, Card, Space, Button, Modal, Timeline, Descriptions, Badge, Tooltip, Input, Select, message, Tabs, Avatar, List, Empty, Statistic, Row, Col } from 'antd';
+import { Table, Tag, Card, Space, Button, Modal, Timeline, Descriptions, Badge, Tooltip, Input, Select, message, Tabs, Avatar, Statistic, Row, Col } from 'antd';
 import { 
   ClockCircleOutlined, 
   UserOutlined, 
-  CheckCircleOutlined, 
-  ExclamationCircleOutlined,
+  CheckCircleOutlined,
   EyeOutlined,
   AuditOutlined,
   AlertCircleOutlined,
   PackageOutlined,
-  ArrowRightOutlined,
   TagOutlined,
   CalendarOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
-import type { PartRequest, InstallationOrder, StatusChange } from '../types';
-import { getAllPartRequests } from '../data/mockData';
+import type { PartRequest, InstallationOrder } from '../types';
+import { useOrderContext } from '../context/OrderContext';
 
 const { Search } = Input;
 
@@ -32,14 +30,18 @@ interface PartWithOrder extends PartRequest {
 }
 
 const PartManagement: React.FC = () => {
-  const [parts, setParts] = useState<PartWithOrder[]>(getAllPartRequests());
+  const { orders, approvePart, batchApproveParts } = useOrderContext();
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [detailVisible, setDetailVisible] = useState(false);
   const [currentPart, setCurrentPart] = useState<PartWithOrder | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchText, setSearchText] = useState('');
 
-  const filteredParts = parts.filter(part => {
+  const partsWithOrder: PartWithOrder[] = orders.flatMap(order => 
+    order.partRequests.map(pr => ({ ...pr, orderInfo: order }))
+  );
+
+  const filteredParts = partsWithOrder.filter(part => {
     const matchesStatus = statusFilter === 'all' || part.status === statusFilter;
     const matchesSearch = !searchText || 
       part.partName.includes(searchText) || 
@@ -51,31 +53,7 @@ const PartManagement: React.FC = () => {
   });
 
   const handleApprove = (partId: string) => {
-    const part = parts.find(p => p.id === partId);
-    if (!part) return;
-
-    const newStatusChange: StatusChange = {
-      id: `SC-${Date.now()}`,
-      fromStatus: part.status,
-      toStatus: 'approved',
-      operator: '仓库管理员小张',
-      operatorRole: '仓库管理',
-      timestamp: new Date().toISOString(),
-      remark: '审批通过，配件已准备好领取'
-    };
-
-    setParts(prev => prev.map(p => {
-      if (p.id === partId) {
-        return {
-          ...p,
-          status: 'approved',
-          statusHistory: [...p.statusHistory, newStatusChange],
-          currentHandler: p.requester,
-          currentHandlerRole: '安装师傅'
-        };
-      }
-      return p;
-    }));
+    approvePart(partId);
     message.success('配件已批准');
   };
 
@@ -85,34 +63,14 @@ const PartManagement: React.FC = () => {
       return;
     }
     const requestParts = selectedRowKeys.filter(key => 
-      parts.find(p => p.id === key && p.status === 'requested')
-    );
+      partsWithOrder.find(p => p.id === key && p.status === 'requested')
+    ) as string[];
     if (requestParts.length === 0) {
       message.warning('没有可审批的配件');
       return;
     }
     
-    setParts(prev => prev.map(p => {
-      if (selectedRowKeys.includes(p.id) && p.status === 'requested') {
-        const newStatusChange: StatusChange = {
-          id: `SC-${Date.now()}-${p.id}`,
-          fromStatus: 'requested',
-          toStatus: 'approved',
-          operator: '仓库管理员小张',
-          operatorRole: '仓库管理',
-          timestamp: new Date().toISOString(),
-          remark: '批量审批通过'
-        };
-        return {
-          ...p,
-          status: 'approved',
-          statusHistory: [...p.statusHistory, newStatusChange],
-          currentHandler: p.requester,
-          currentHandlerRole: '安装师傅'
-        };
-      }
-      return p;
-    }));
+    batchApproveParts(requestParts);
     setSelectedRowKeys([]);
     message.success(`已批量批准 ${requestParts.length} 个配件申请`);
   };
@@ -157,6 +115,14 @@ const PartManagement: React.FC = () => {
       return <span style={{ color: '#666' }}>{part.remark}</span>;
     }
     return '-';
+  };
+
+  const stats = {
+    total: partsWithOrder.length,
+    requested: partsWithOrder.filter(p => p.status === 'requested').length,
+    approved: partsWithOrder.filter(p => p.status === 'approved').length,
+    picked: partsWithOrder.filter(p => p.status === 'picked').length,
+    installed: partsWithOrder.filter(p => p.status === 'installed').length
   };
 
   const columns: ColumnsType<PartWithOrder> = [
@@ -291,14 +257,6 @@ const PartManagement: React.FC = () => {
     }
   ];
 
-  const stats = {
-    total: parts.length,
-    requested: parts.filter(p => p.status === 'requested').length,
-    approved: parts.filter(p => p.status === 'approved').length,
-    picked: parts.filter(p => p.status === 'picked').length,
-    installed: parts.filter(p => p.status === 'installed').length
-  };
-
   return (
     <div style={{ padding: 24 }}>
       <Card 
@@ -410,7 +368,7 @@ const PartManagement: React.FC = () => {
                 text: '全选待审批',
                 onSelect: (allKeys) => {
                   setSelectedRowKeys(allKeys.filter(key => 
-                    parts.find(p => p.id === key && p.status === 'requested')
+                    partsWithOrder.find(p => p.id === key && p.status === 'requested')
                   ));
                 }
               }
@@ -516,6 +474,9 @@ const PartManagement: React.FC = () => {
                             }
                           </Tag>
                         </Descriptions.Item>
+                        {currentPart.orderInfo.afterSaleHandler && (
+                          <Descriptions.Item label="售后处理人">{currentPart.orderInfo.afterSaleHandler}</Descriptions.Item>
+                        )}
                       </Descriptions>
                     </Card>
                   </div>
