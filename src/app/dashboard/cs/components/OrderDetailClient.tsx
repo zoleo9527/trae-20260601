@@ -51,16 +51,22 @@ export default function OrderDetailClient({ order, engineers }: Props) {
     e.preventDefault();
     setScheduleError('');
     setIsScheduling(true);
-    const formData = new FormData(e.currentTarget);
-    formData.append('orderId', order.id);
-    const result = await scheduleAppointment(formData);
-    setIsScheduling(false);
-    if (result?.error) {
-      setScheduleError(result.error);
-    } else {
-      setShowAppointmentModal(false);
-      setScheduleError('');
-      window.location.reload();
+    try {
+      const formData = new FormData(e.currentTarget);
+      formData.append('orderId', order.id);
+      const result = await scheduleAppointment(formData);
+      if (result?.error) {
+        setScheduleError(result.error);
+      } else {
+        setShowAppointmentModal(false);
+        setScheduleError('');
+        window.location.reload();
+      }
+    } catch (err: any) {
+      console.error('预约提交异常:', err);
+      setScheduleError(err?.message || '预约失败，请稍后重试');
+    } finally {
+      setIsScheduling(false);
     }
   };
 
