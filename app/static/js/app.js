@@ -6,6 +6,7 @@ let partsRequests = [];
 let currentServiceId = null;
 let currentPartsRequestId = null;
 let currentCustomerId = null;
+let expandedServiceId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initNav();
@@ -176,28 +177,93 @@ function searchEquipment() {
 
 function renderServiceCards(records) {
     const cards = document.getElementById('service-cards');
-    cards.innerHTML = records.map(record => `
-        <div class="service-card status-${getStatusClass(record.status)}">
-            <h4>${record.customer_name}</h4>
-            <p><strong>设备:</strong> ${record.equipment_model} (${record.equipment_serial})</p>
-            <p><strong>服务时间:</strong> ${record.service_date}</p>
-            <p><strong>技师:</strong> ${record.technician_name || '-'}</p>
-            <span class="status-badge ${getStatusClass(record.status)}">${record.status}</span>
-            
-            ${record.check_in_time ? `<p><strong>签到时间:</strong> ${record.check_in_time}</p>` : ''}
-            ${record.check_in_location ? `<p><strong>签到位置:</strong> ${record.check_in_location}</p>` : ''}
-            ${record.diagnosis ? `<p><strong>故障类型:</strong> ${record.fault_type}</p><p><strong>诊断:</strong> ${record.diagnosis}</p>` : ''}
-            ${record.need_stop ? '<p style="color: #e74c3c;"><strong>⚠ 需要停机维修</strong></p>' : ''}
-            
-            <div class="actions">
-                <button class="action-btn secondary" onclick="viewEquipmentFromService(${record.equipment_id})">设备档案</button>
-                ${record.status === '待签到' ? `<button class="action-btn" onclick="showCheckinModal(${record.id})">签到</button>` : ''}
-                ${record.status === '已签到' ? `<button class="action-btn" onclick="showDiagnosisModal(${record.id})">诊断</button>` : ''}
-                ${record.status === '诊断完成' ? `<button class="action-btn" onclick="showSignModal(${record.id})">签收</button>` : ''}
-                ${record.status === '诊断完成' ? `<button class="action-btn secondary" onclick="showPartsRequestModal(${record.id})">配件申请</button>` : ''}
+    cards.innerHTML = records.map(record => {
+        const partsForService = partsRequests.filter(p => p.service_record_id === record.id);
+        return `
+            <div class="service-card status-${getStatusClass(record.status)}">
+                <div class="card-header" onclick="toggleServiceDetail(${record.id})">
+                    <h4>${record.customer_name}</h4>
+                    <span class="expand-icon ${expandedServiceId === record.id ? 'expanded' : ''}">›</span>
+                </div>
+                
+                <div class="card-summary">
+                    <p><strong>设备:</strong> ${record.equipment_model} (${record.equipment_serial})</p>
+                    <p><strong>服务时间:</strong> ${record.service_date}</p>
+                    <p><strong>技师:</strong> ${record.technician_name || '-'}</p>
+                    <span class="status-badge ${getStatusClass(record.status)}">${record.status}</span>
+                </div>
+                
+                <div id="detail-${record.id}" class="card-detail" style="${expandedServiceId === record.id ? 'display: block;' : 'display: none;'}">
+                    <div class="detail-section">
+                        <h5>📍 签到信息</h5>
+                        <div class="detail-info">
+                            <p><strong>签到时间:</strong> ${record.check_in_time || '-'}</p>
+                            <p><strong>签到位置:</strong> ${record.check_in_location || '-'}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5>🔧 诊断结论</h5>
+                        <div class="detail-info">
+                            <p><strong>故障类型:</strong> ${record.fault_type || '-'}</p>
+                            <p><strong>诊断描述:</strong> ${record.diagnosis || '-'}</p>
+                            <p><strong>停机判断:</strong> ${record.need_stop ? '<span style="color: #e74c3c;">需要停机维修</span>' : '<span style="color: #27ae60;">无需停机</span>'}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5>✓ 客户签收</h5>
+                        <div class="detail-info">
+                            <p><strong>签收人:</strong> ${record.customer_signature || '-'}</p>
+                            <p><strong>签收时间:</strong> ${record.sign_time || '-'}</p>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-section">
+                        <h5>📦 配件申请</h5>
+                        ${partsForService.length > 0 ? `
+                            <div class="parts-summary">
+                                ${partsForService.map(p => `
+                                    <div class="parts-item">
+                                        <span>${p.parts_name} x ${p.quantity}</span>
+                                        <span class="badge ${p.status === '待审核' ? 'pending' : 'approved'}">${p.status}</span>
+                                        <span class="badge ${getWarehouseClass(p.warehouse_status)}">${p.warehouse_status}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        ` : '<p style="color: #999;">暂无配件申请</p>'}
+                    </div>
+                    
+                    <div class="detail-actions">
+                        <button class="action-btn secondary" onclick="viewEquipmentFromService(${record.equipment_id})">查看设备档案</button>
+                        ${partsForService.length > 0 ? `<button class="action-btn secondary" onclick="viewPartsForService(${record.id})">配件流转详情</button>` : ''}
+                    </div>
+                </div>
+                
+                <div class="card-actions">
+                    <button class="action-btn secondary" onclick="viewEquipmentFromService(${record.equipment_id})">设备档案</button>
+                    ${record.status === '待签到' ? `<button class="action-btn" onclick="showCheckinModal(${record.id})">签到</button>` : ''}
+                    ${record.status === '已签到' ? `<button class="action-btn" onclick="showDiagnosisModal(${record.id})">诊断</button>` : ''}
+                    ${record.status === '诊断完成' ? `<button class="action-btn" onclick="showSignModal(${record.id})">签收</button>` : ''}
+                    ${record.status === '诊断完成' ? `<button class="action-btn secondary" onclick="showPartsRequestModal(${record.id})">配件申请</button>` : ''}
+                </div>
             </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
+}
+
+function toggleServiceDetail(id) {
+    expandedServiceId = expandedServiceId === id ? null : id;
+    renderServiceCards(serviceRecords);
+}
+
+function viewPartsForService(serviceId) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="parts"]').classList.add('active');
+    document.getElementById('parts').classList.add('active');
+    document.getElementById('parts-status-filter').value = 'all';
+    document.getElementById('warehouse-status-filter').value = 'all';
 }
 
 function viewEquipmentFromService(equipmentId) {
@@ -500,19 +566,82 @@ async function processWarehouse() {
 
 function renderRecords() {
     const tbody = document.getElementById('records-body');
-    tbody.innerHTML = serviceRecords.map(record => `
-        <tr>
-            <td>${record.customer_name}</td>
-            <td>${record.equipment_model}</td>
-            <td>${record.equipment_serial}</td>
-            <td>${record.service_date}</td>
-            <td>${record.technician_name || '-'}</td>
-            <td>${record.fault_type || '-'}</td>
-            <td>${record.need_stop ? '是' : '否'}</td>
-            <td>${record.diagnosis || '-'}</td>
-            <td>${record.customer_signature || '-'}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = serviceRecords.map(record => {
+        const partsForService = partsRequests.filter(p => p.service_record_id === record.id);
+        const partsStatus = partsForService.length > 0 ? partsForService.map(p => p.status).join(', ') : '-';
+        const warehouseStatus = partsForService.length > 0 ? partsForService.map(p => p.warehouse_status).join(', ') : '-';
+        
+        return `
+            <tr class="expandable-row" onclick="toggleRecordDetail(${record.id})">
+                <td><span class="expand-icon">›</span>${record.customer_name}</td>
+                <td>${record.equipment_model}</td>
+                <td>${record.equipment_serial}</td>
+                <td>${record.service_date}</td>
+                <td>${record.technician_name || '-'}</td>
+                <td>${record.fault_type || '-'}</td>
+                <td>${record.need_stop ? '是' : '否'}</td>
+                <td>${record.diagnosis ? record.diagnosis.substring(0, 30) + '...' : '-'}</td>
+                <td>${record.customer_signature || '-'}</td>
+                <td>${record.sign_time || '-'}</td>
+                <td><span class="badge ${partsStatus === '待审核' ? 'pending' : partsStatus === '已审核' ? 'approved' : ''}">${partsStatus}</span></td>
+                <td><span class="badge ${getWarehouseClass(warehouseStatus)}">${warehouseStatus}</span></td>
+                <td class="expand-actions">
+                    <button class="action-btn secondary" onclick="event.stopPropagation(); viewEquipmentFromService(${record.equipment_id})">设备档案</button>
+                </td>
+            </tr>
+            <tr id="record-detail-${record.id}" style="display: none;">
+                <td colspan="13">
+                    <div class="expanded-content">
+                        <div class="detail-row">
+                            <div class="detail-box">
+                                <h5>📍 签到信息</h5>
+                                <p><strong>签到时间:</strong> ${record.check_in_time || '-'}</p>
+                                <p><strong>签到位置:</strong> ${record.check_in_location || '-'}</p>
+                            </div>
+                            <div class="detail-box">
+                                <h5>✓ 签收信息</h5>
+                                <p><strong>签收人:</strong> ${record.customer_signature || '-'}</p>
+                                <p><strong>签收时间:</strong> ${record.sign_time || '-'}</p>
+                            </div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-box">
+                                <h5>🔧 诊断结论</h5>
+                                <p>${record.diagnosis || '-'}</p>
+                            </div>
+                            <div class="detail-box">
+                                <h5>📦 配件申请</h5>
+                                ${partsForService.length > 0 ? `
+                                    <div class="parts-list">
+                                        ${partsForService.map(p => `
+                                            <div class="parts-item">
+                                                <span class="name">${p.parts_name} x ${p.quantity}</span>
+                                                <span class="status ${p.status === '待审核' ? 'pending' : 'approved'}">${p.status}</span>
+                                                <span class="status ${getWarehouseClass(p.warehouse_status)}">${p.warehouse_status}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p style="color: #999;">暂无配件申请</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function toggleRecordDetail(id) {
+    const detailRow = document.getElementById(`record-detail-${id}`);
+    const expandIcon = document.querySelector(`#records-body tr.expandable-row:nth-child(${Array.from(document.querySelectorAll('.expandable-row')).findIndex(r => r.innerHTML.includes(`record-detail-${id}`)) * 2 + 1} .expand-icon`);
+    
+    if (detailRow.style.display === 'none') {
+        detailRow.style.display = 'table-row';
+        if (expandIcon) expandIcon.classList.add('expanded');
+    } else {
+        detailRow.style.display = 'none';
+        if (expandIcon) expandIcon.classList.remove('expanded');
+    }
 }
 
 function filterByDate() {
@@ -530,19 +659,69 @@ function filterByDate() {
     }
     
     const tbody = document.getElementById('records-body');
-    tbody.innerHTML = filtered.map(record => `
-        <tr>
-            <td>${record.customer_name}</td>
-            <td>${record.equipment_model}</td>
-            <td>${record.equipment_serial}</td>
-            <td>${record.service_date}</td>
-            <td>${record.technician_name || '-'}</td>
-            <td>${record.fault_type || '-'}</td>
-            <td>${record.need_stop ? '是' : '否'}</td>
-            <td>${record.diagnosis || '-'}</td>
-            <td>${record.customer_signature || '-'}</td>
-        </tr>
-    `).join('');
+    tbody.innerHTML = filtered.map(record => {
+        const partsForService = partsRequests.filter(p => p.service_record_id === record.id);
+        const partsStatus = partsForService.length > 0 ? partsForService.map(p => p.status).join(', ') : '-';
+        const warehouseStatus = partsForService.length > 0 ? partsForService.map(p => p.warehouse_status).join(', ') : '-';
+        
+        return `
+            <tr class="expandable-row" onclick="toggleRecordDetail(${record.id})">
+                <td><span class="expand-icon">›</span>${record.customer_name}</td>
+                <td>${record.equipment_model}</td>
+                <td>${record.equipment_serial}</td>
+                <td>${record.service_date}</td>
+                <td>${record.technician_name || '-'}</td>
+                <td>${record.fault_type || '-'}</td>
+                <td>${record.need_stop ? '是' : '否'}</td>
+                <td>${record.diagnosis ? record.diagnosis.substring(0, 30) + '...' : '-'}</td>
+                <td>${record.customer_signature || '-'}</td>
+                <td>${record.sign_time || '-'}</td>
+                <td><span class="badge ${partsStatus === '待审核' ? 'pending' : partsStatus === '已审核' ? 'approved' : ''}">${partsStatus}</span></td>
+                <td><span class="badge ${getWarehouseClass(warehouseStatus)}">${warehouseStatus}</span></td>
+                <td class="expand-actions">
+                    <button class="action-btn secondary" onclick="event.stopPropagation(); viewEquipmentFromService(${record.equipment_id})">设备档案</button>
+                </td>
+            </tr>
+            <tr id="record-detail-${record.id}" style="display: none;">
+                <td colspan="13">
+                    <div class="expanded-content">
+                        <div class="detail-row">
+                            <div class="detail-box">
+                                <h5>📍 签到信息</h5>
+                                <p><strong>签到时间:</strong> ${record.check_in_time || '-'}</p>
+                                <p><strong>签到位置:</strong> ${record.check_in_location || '-'}</p>
+                            </div>
+                            <div class="detail-box">
+                                <h5>✓ 签收信息</h5>
+                                <p><strong>签收人:</strong> ${record.customer_signature || '-'}</p>
+                                <p><strong>签收时间:</strong> ${record.sign_time || '-'}</p>
+                            </div>
+                        </div>
+                        <div class="detail-row">
+                            <div class="detail-box">
+                                <h5>🔧 诊断结论</h5>
+                                <p>${record.diagnosis || '-'}</p>
+                            </div>
+                            <div class="detail-box">
+                                <h5>📦 配件申请</h5>
+                                ${partsForService.length > 0 ? `
+                                    <div class="parts-list">
+                                        ${partsForService.map(p => `
+                                            <div class="parts-item">
+                                                <span class="name">${p.parts_name} x ${p.quantity}</span>
+                                                <span class="status ${p.status === '待审核' ? 'pending' : 'approved'}">${p.status}</span>
+                                                <span class="status ${getWarehouseClass(p.warehouse_status)}">${p.warehouse_status}</span>
+                                            </div>
+                                        `).join('')}
+                                    </div>
+                                ` : '<p style="color: #999;">暂无配件申请</p>'}
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
 }
 
 function viewServiceDetail(id) {
