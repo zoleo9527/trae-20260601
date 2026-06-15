@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Card, Statistic, Row, Col, Table, Tag, Progress, Badge } from 'antd';
+import { Card, Statistic, Row, Col, Table, Tag, Progress, Badge, Select } from 'antd';
 import type { ColumnType } from 'antd/es/table';
-import { InboxOutlined, LockOutlined, WarningOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, UserOutlined, ArrowRightOutlined } from '@ant-design/icons';
+import { InboxOutlined, LockOutlined, WarningOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, UserOutlined, ArrowRightOutlined, AlertCircleOutlined } from '@ant-design/icons';
 import { api } from '@/api/mockApi';
 import { ORDER_STATUS_MAP, ORDER_STATUS_COLORS, LOCK_STATUS_MAP, LOCK_STATUS_COLORS, ROLE_MAP, OPERATION_TYPE_MAP } from '@/types';
 import type { Order, OperationLog } from '@/types';
@@ -16,15 +16,23 @@ const STATUS_COUNTS = [
   { key: 'completed', label: '已完成', color: 'gray', icon: CheckCircleOutlined },
 ];
 
+const ROLE_TASKS: Record<string, { label: string; statuses: string[]; color: string }> = {
+  warehouse_manager: { label: '仓库主管', statuses: ['pending', 'locked', 'allocated'], color: 'blue' },
+  driver: { label: '司机', statuses: ['picked', 'in_transit'], color: 'green' },
+  customer_service: { label: '客服', statuses: ['delivered', 'signed'], color: 'orange' },
+};
+
 export function Dashboard() {
   const [stats, setStats] = useState<Record<string, number>>({});
   const [recentOrders, setRecentOrders] = useState<Order[]>([]);
   const [recentLogs, setRecentLogs] = useState<OperationLog[]>([]);
   const [riskOrders, setRiskOrders] = useState<Order[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<Order[]>([]);
+  const [currentRole, setCurrentRole] = useState('warehouse_manager');
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [currentRole]);
 
   const loadData = async () => {
     try {
@@ -39,10 +47,14 @@ export function Dashboard() {
       });
       statusCounts['risk'] = orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').length;
 
+      const roleTasks = ROLE_TASKS[currentRole];
+      const filteredTasks = orders.filter(o => roleTasks.statuses.includes(o.status));
+
       setStats(statusCounts);
       setRecentOrders(orders.slice(0, 8));
       setRecentLogs(logs.slice(0, 8));
       setRiskOrders(orders.filter(o => o.riskLevel === 'high' || o.riskLevel === 'medium').slice(0, 5));
+      setPendingTasks(filteredTasks.slice(0, 6));
     } catch (error) {
       console.error('加载数据失败:', error);
     }
@@ -91,13 +103,52 @@ export function Dashboard() {
     { title: '时间', dataIndex: 'createdAt', key: 'createdAt', width: 150 },
   ];
 
+  const taskColumns: ColumnType<Order>[] = [
+    { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+    { title: '客户', dataIndex: 'customerName', key: 'customerName', width: 120 },
+    { title: '待办事项', key: 'task', width: 120, render: (_: unknown, record: Order) => {
+      const taskMap: Record<string, string> = {
+        pending: '待锁货',
+        locked: '待分配库位',
+        allocated: '待拣货',
+        picked: '待装车',
+        in_transit: '待送达',
+        delivered: '待签收',
+        signed: '待完成',
+      };
+      return <Tag color="orange">{taskMap[record.status] || '未知'}</Tag>;
+    }},
+    { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (s: string) => (
+      <Tag color={ORDER_STATUS_COLORS[s as keyof typeof ORDER_STATUS_COLORS]}>
+        {ORDER_STATUS_MAP[s as keyof typeof ORDER_STATUS_MAP]}
+      </Tag>
+    )},
+    { title: '风险', dataIndex: 'riskLevel', key: 'riskLevel', width: 60, render: (level: string) => {
+      if (!level) return null;
+      const colors: Record<string, string> = { high: 'red', medium: 'orange', low: 'yellow' };
+      const labels: Record<string, string> = { high: '高', medium: '中', low: '低' };
+      return <Badge color={colors[level]} text={labels[level]} />;
+    }},
+  ];
+
+  const roleInfo = ROLE_TASKS[currentRole];
+
   return (
     <div className="space-y-6">
       <Card>
         <div className="flex items-center justify-between mb-6">
-          <div>
+          <div className="flex items-center gap-4">
             <h2 className="text-xl font-bold">欢迎回来，张主管</h2>
-            <p className="text-gray-500">以下是今日工作概览</p>
+            <Select
+              value={currentRole}
+              onChange={setCurrentRole}
+              style={{ width: 160 }}
+              options={[
+                { value: 'warehouse_manager', label: '仓库主管' },
+                { value: 'driver', label: '司机' },
+                { value: 'customer_service', label: '客服' },
+              ]}
+            />
           </div>
           <div className="text-right">
             <div className="text-sm text-gray-500">订单完成率</div>
@@ -193,11 +244,11 @@ export function Dashboard() {
 
       <Row gutter={16}>
         <Col span={12}>
-          <Card title="最近订单" extra={<span className="text-sm text-gray-400">最近更新</span>}>
-            {recentOrders.length > 0 ? (
+          <Card title={`待办任务 - ${roleInfo.label}`} extra={<Tag color={roleInfo.color}>待处理: {pendingTasks.length} 单</Tag>}>
+            {pendingTasks.length > 0 ? (
               <Table
-                dataSource={recentOrders}
-                columns={orderColumns}
+                dataSource={pendingTasks}
+                columns={taskColumns}
                 rowKey="id"
                 pagination={false}
                 size="small"
@@ -205,7 +256,7 @@ export function Dashboard() {
             ) : (
               <div className="text-center py-8 text-gray-400">
                 <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
-                <p>暂无订单</p>
+                <p>暂无待办任务</p>
               </div>
             )}
           </Card>
@@ -230,36 +281,58 @@ export function Dashboard() {
         </Col>
       </Row>
 
-      <Card title="风险订单">
-        {riskOrders.length > 0 ? (
-          <Table
-            dataSource={riskOrders}
-            columns={[
-              { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
-              { title: '客户', dataIndex: 'customerName', key: 'customerName', width: 120 },
-              { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (s: string) => (
-                <Tag color={ORDER_STATUS_COLORS[s as keyof typeof ORDER_STATUS_COLORS]}>
-                  {ORDER_STATUS_MAP[s as keyof typeof ORDER_STATUS_MAP]}
-                </Tag>
-              )},
-              { title: '风险等级', dataIndex: 'riskLevel', key: 'riskLevel', width: 80, render: (level: string) => {
-                const colors: Record<string, string> = { high: 'red', medium: 'orange', low: 'yellow' };
-                const labels: Record<string, string> = { high: '高风险', medium: '中风险', low: '低风险' };
-                return <Tag color={colors[level]}>{labels[level]}</Tag>;
-              }},
-              { title: '风险原因', dataIndex: 'riskReason', key: 'riskReason' },
-            ]}
-            rowKey="id"
-            pagination={false}
-            size="small"
-          />
-        ) : (
-          <div className="text-center py-8 text-gray-400">
-            <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
-            <p>暂无风险订单</p>
-          </div>
-        )}
-      </Card>
+      <Row gutter={16}>
+        <Col span={12}>
+          <Card title="最近订单" extra={<span className="text-sm text-gray-400">最近更新</span>}>
+            {recentOrders.length > 0 ? (
+              <Table
+                dataSource={recentOrders}
+                columns={orderColumns}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
+                <p>暂无订单</p>
+              </div>
+            )}
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card title="风险订单" extra={<AlertCircleOutlined className="text-red-500" />}>
+            {riskOrders.length > 0 ? (
+              <Table
+                dataSource={riskOrders}
+                columns={[
+                  { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 140 },
+                  { title: '客户', dataIndex: 'customerName', key: 'customerName', width: 120 },
+                  { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (s: string) => (
+                    <Tag color={ORDER_STATUS_COLORS[s as keyof typeof ORDER_STATUS_COLORS]}>
+                      {ORDER_STATUS_MAP[s as keyof typeof ORDER_STATUS_MAP]}
+                    </Tag>
+                  )},
+                  { title: '风险等级', dataIndex: 'riskLevel', key: 'riskLevel', width: 80, render: (level: string) => {
+                    const colors: Record<string, string> = { high: 'red', medium: 'orange', low: 'yellow' };
+                    const labels: Record<string, string> = { high: '高风险', medium: '中风险', low: '低风险' };
+                    return <Tag color={colors[level]}>{labels[level]}</Tag>;
+                  }},
+                  { title: '风险原因', dataIndex: 'riskReason', key: 'riskReason' },
+                ]}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+            ) : (
+              <div className="text-center py-8 text-gray-400">
+                <CheckCircleOutlined className="text-4xl mb-2 text-green-500" />
+                <p>暂无风险订单</p>
+              </div>
+            )}
+          </Card>
+        </Col>
+      </Row>
     </div>
   );
 }

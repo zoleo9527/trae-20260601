@@ -27,7 +27,7 @@ export function DeliveryNotes() {
         api.orders.list(),
       ]);
       setNotes(notesData);
-      setOrders(ordersData.filter(o => o.status === 'allocated'));
+      setOrders(ordersData.filter(o => o.status === 'picked'));
     } finally {
       setLoading(false);
     }
@@ -35,7 +35,22 @@ export function DeliveryNotes() {
 
   const handleSubmit = async () => {
     const values = form.getFieldsValue();
-    const result = await api.deliveryNotes.create(values.orderId, values.driverId);
+    const order = orders.find(o => o.id === values.orderId);
+    const driver = mockUsers.find(u => u.id === values.driverId);
+    
+    if (!order || !driver) {
+      message.error('订单或司机信息无效');
+      return;
+    }
+
+    const result = await api.deliveryNotes.create({
+      orderId: order.id,
+      orderNo: order.orderNo,
+      driverId: driver.id,
+      driverName: driver.name,
+      licensePlate: values.licensePlate,
+    });
+    
     if (result) {
       message.success('送货回单创建成功');
       setShowModal(false);
@@ -44,47 +59,110 @@ export function DeliveryNotes() {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: string) => {
-    const result = await api.deliveryNotes.updateStatus(id, status);
-    if (result) {
-      message.success('状态更新成功');
-      loadData();
+  const handleLoad = async (id: string) => {
+    try {
+      const result = await api.deliveryNotes.load(id);
+      if (result.success) {
+        message.success('装车完成');
+        loadData();
+      }
+    } catch (error) {
+      message.error('装车失败');
+    }
+  };
+
+  const handleDeliver = async (id: string) => {
+    try {
+      const result = await api.deliveryNotes.deliver(id);
+      if (result.success) {
+        message.success('送达成功');
+        loadData();
+      }
+    } catch (error) {
+      message.error('送达失败');
+    }
+  };
+
+  const handleSign = async (id: string) => {
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+
+    const [signerName, signerPhone] = await new Promise((resolve) => {
+      Modal.confirm({
+        title: '确认签收',
+        content: (
+          <Form layout="vertical">
+            <Form.Item label="签收人姓名">
+              <Input placeholder="请输入签收人姓名" id="signerName" />
+            </Form.Item>
+            <Form.Item label="签收人电话">
+              <Input placeholder="请输入签收人电话" id="signerPhone" />
+            </Form.Item>
+          </Form>
+        ),
+        okText: '确认签收',
+        cancelText: '取消',
+        onOk: () => {
+          const name = (document.getElementById('signerName') as HTMLInputElement)?.value || '';
+          const phone = (document.getElementById('signerPhone') as HTMLInputElement)?.value || '';
+          resolve([name, phone]);
+        },
+        onCancel: () => resolve(['', '']),
+      });
+    });
+
+    if (!signerName) {
+      message.warning('请输入签收人姓名');
+      return;
+    }
+
+    try {
+      const result = await api.deliveryNotes.sign(id, signerName, signerPhone);
+      if (result.success) {
+        message.success('签收成功');
+        loadData();
+      }
+    } catch (error) {
+      message.error('签收失败');
     }
   };
 
   const filteredNotes = notes.filter(note => 
     note.orderNo.toLowerCase().includes(searchText.toLowerCase()) ||
-    note.driverName.toLowerCase().includes(searchText.toLowerCase()) ||
-    note.vehicleNo.toLowerCase().includes(searchText.toLowerCase())
+    (note.driverName || '').toLowerCase().includes(searchText.toLowerCase()) ||
+    (note.licensePlate || '').toLowerCase().includes(searchText.toLowerCase())
   );
 
   const columns: ColumnType<DeliveryNote>[] = [
-    { title: '回单号', dataIndex: 'id', key: 'id', width: 120 },
+    { title: '回单号', dataIndex: 'noteNo', key: 'noteNo', width: 150 },
     { title: '订单号', dataIndex: 'orderNo', key: 'orderNo', width: 150 },
     { title: '司机', dataIndex: 'driverName', key: 'driverName', width: 100 },
-    { title: '车牌号', dataIndex: 'vehicleNo', key: 'vehicleNo', width: 100 },
+    { title: '车牌号', dataIndex: 'licensePlate', key: 'licensePlate', width: 100 },
     { title: '状态', dataIndex: 'status', key: 'status', width: 100, render: (s: string) => (
       <Tag color={s === 'pending' ? 'orange' : s === 'loaded' ? 'blue' : s === 'in_transit' ? 'purple' : s === 'delivered' ? 'green' : 'success'}>
         {DELIVERY_STATUS_MAP[s as keyof typeof DELIVERY_STATUS_MAP]}
       </Tag>
     )},
     { title: '装车时间', dataIndex: 'loadedAt', key: 'loadedAt', width: 150, render: (t?: string) => t || '-' },
-    { title: '出发时间', dataIndex: 'departedAt', key: 'departedAt', width: 150, render: (t?: string) => t || '-' },
     { title: '送达时间', dataIndex: 'deliveredAt', key: 'deliveredAt', width: 150, render: (t?: string) => t || '-' },
+    { title: '签收时间', dataIndex: 'signedAt', key: 'signedAt', width: 150, render: (t?: string) => t || '-' },
+    { title: '签收人', key: 'signer', width: 150, render: (_, record: DeliveryNote) => {
+      if (record.signerName) {
+        return `${record.signerName} ${record.signerPhone || ''}`;
+      }
+      return '-';
+    }},
     { title: '创建时间', dataIndex: 'createdAt', key: 'createdAt', width: 150 },
     { title: '操作', key: 'action', width: 200, render: (_: unknown, record: DeliveryNote) => {
       const actions = [];
       if (record.status === 'pending') {
-        actions.push(<Button key="load" type="primary" size="small" onClick={() => handleUpdateStatus(record.id, 'loaded')}>装车完成</Button>);
+        actions.push(<Button key="load" type="primary" size="small" onClick={() => handleLoad(record.id)}>装车完成</Button>);
       }
       if (record.status === 'loaded') {
-        actions.push(<Button key="depart" type="primary" size="small" onClick={() => handleUpdateStatus(record.id, 'in_transit')}>确认出发</Button>);
-      }
-      if (record.status === 'in_transit') {
-        actions.push(<Button key="deliver" type="primary" size="small" onClick={() => handleUpdateStatus(record.id, 'delivered')}>确认送达</Button>);
+        actions.push(<Button key="deliver" type="primary" size="small" onClick={() => handleDeliver(record.id)}>确认送达</Button>);
       }
       if (record.status === 'delivered') {
-        actions.push(<Button key="sign" type="primary" size="small" onClick={() => handleUpdateStatus(record.id, 'signed')}>确认签收</Button>);
+        actions.push(<Button key="sign" type="primary" size="small" onClick={() => handleSign(record.id)}>确认签收</Button>);
       }
       return <Space>{actions}</Space>;
     }},
@@ -133,12 +211,12 @@ export function DeliveryNotes() {
         columns={columns}
         rowKey="id"
         pagination={{ pageSize: 15 }}
-        scroll={{ x: 1200 }}
+        scroll={{ x: 1400 }}
       />
 
       <Modal title="新增送货回单" open={showModal} onCancel={() => setShowModal(false)} footer={null}>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
-          <Form.Item label="选择订单" name="orderId" rules={[{ required: true }]}>
+          <Form.Item label="选择订单" name="orderId" rules={[{ required: true, message: '请选择订单' }]}>
             <Select>
               <Select.Option value="">请选择订单</Select.Option>
               {orders.map(order => (
@@ -148,7 +226,7 @@ export function DeliveryNotes() {
               ))}
             </Select>
           </Form.Item>
-          <Form.Item label="选择司机" name="driverId" rules={[{ required: true }]}>
+          <Form.Item label="选择司机" name="driverId" rules={[{ required: true, message: '请选择司机' }]}>
             <Select>
               <Select.Option value="">请选择司机</Select.Option>
               {drivers.map(driver => (
@@ -157,6 +235,9 @@ export function DeliveryNotes() {
                 </Select.Option>
               ))}
             </Select>
+          </Form.Item>
+          <Form.Item label="车牌号" name="licensePlate">
+            <Input placeholder="请输入车牌号" />
           </Form.Item>
           <Form.Item className="flex justify-end">
             <Space>

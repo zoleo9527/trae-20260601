@@ -198,7 +198,7 @@ export function OrderWorkflow() {
         return;
       }
 
-      await api.deliveryNotes.create({
+      const noteResult = await api.deliveryNotes.create({
         orderId: selectedOrder.id,
         orderNo: selectedOrder.orderNo,
         driverId: driver.id,
@@ -206,8 +206,13 @@ export function OrderWorkflow() {
         licensePlate,
       });
 
-      const result = await api.orders.load(selectedOrder.id, licensePlate);
-      if (result.success) {
+      const orderResult = await api.orders.load(selectedOrder.id, licensePlate);
+      if (orderResult.success && noteResult) {
+        const notes = await api.deliveryNotes.list();
+        const note = notes.find(n => n.orderId === selectedOrder.id);
+        if (note) {
+          await api.deliveryNotes.load(note.id);
+        }
         message.success('装车成功，送货回单已生成');
         setShowLoadModal(false);
         loadForm.resetFields();
@@ -215,7 +220,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '装车失败');
+        message.error(orderResult.message || '装车失败');
       }
     } catch (error) {
       message.error('装车失败');
@@ -227,6 +232,11 @@ export function OrderWorkflow() {
     try {
       const result = await api.orders.deliver(selectedOrder.id);
       if (result.success) {
+        const notes = await api.deliveryNotes.list();
+        const note = notes.find(n => n.orderId === selectedOrder.id);
+        if (note) {
+          await api.deliveryNotes.deliver(note.id);
+        }
         message.success('送达成功');
         setShowDeliverModal(false);
         loadOrders();
@@ -254,6 +264,11 @@ export function OrderWorkflow() {
     try {
       const result = await api.orders.sign(selectedOrder.id, signerName, signerPhone);
       if (result.success) {
+        const notes = await api.deliveryNotes.list();
+        const note = notes.find(n => n.orderId === selectedOrder.id);
+        if (note) {
+          await api.deliveryNotes.sign(note.id, signerName, signerPhone);
+        }
         message.success('签收成功');
         setShowSignModal(false);
         signForm.resetFields();
