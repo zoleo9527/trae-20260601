@@ -304,11 +304,11 @@
     </el-drawer>
     
     <el-drawer title="延长质保" :visible="extendDrawerVisible" direction="rtl" @close="extendDrawerVisible = false">
+      <div v-if="extendTargetWarranty.value" class="extend-info">
+        <p><span class="info-label">当前质保期限：</span>{{ extendTargetWarranty.value.warranty_period }}</p>
+        <p><span class="info-label">当前结束日期：</span>{{ extendTargetWarranty.value.end_date }}</p>
+      </div>
       <el-form ref="extendForm" :model="extendForm" label-width="120px">
-        <el-form-item label="延长时长" prop="extend_period">
-          <el-input v-model="extendForm.extend_period" placeholder="如：1年、3个月" />
-        </el-form-item>
-        
         <el-form-item label="新结束日期" prop="new_end_date">
           <el-date-picker v-model="extendForm.new_end_date" type="date" placeholder="选择新的结束日期" />
         </el-form-item>
@@ -595,27 +595,22 @@ const openExtendDrawer = (warranty) => {
   extendDrawerVisible.value = true
 }
 
-const calculateWarrantyPeriod = (startDate, endDate) => {
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  
-  const diffTime = end - start
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-  
-  const years = Math.floor(diffDays / 365)
-  const remainingDays = diffDays % 365
-  const months = Math.floor(remainingDays / 30)
-  
-  if (years > 0) {
-    if (months > 0) {
-      return `${years}年${months}个月`
+const formatDate = (date) => {
+  if (!date) return ''
+  if (date instanceof Date) {
+    return date.toISOString().split('T')[0]
+  }
+  if (typeof date === 'string') {
+    if (date.includes('T')) {
+      return date.split('T')[0]
     }
-    return `${years}年`
+    if (date.includes('/')) {
+      const parts = date.split('/')
+      return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`
+    }
+    return date
   }
-  if (months > 0) {
-    return `${months}个月`
-  }
-  return `${diffDays}天`
+  return ''
 }
 
 const submitExtend = async () => {
@@ -631,14 +626,10 @@ const submitExtend = async () => {
       return
     }
     
-    const startDate = warranty.start_date
-    const newEndDate = extendForm.new_end_date
-    
-    const newPeriod = calculateWarrantyPeriod(startDate, newEndDate)
+    const newEndDate = formatDate(extendForm.new_end_date)
     
     const updateData = {
       end_date: newEndDate,
-      warranty_period: newPeriod,
       remark: extendForm.reason
     }
     
@@ -1009,5 +1000,22 @@ onMounted(() => {
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid #eee;
+}
+
+.extend-info {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.extend-info p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.info-label {
+  color: #64748b;
+  font-weight: 500;
 }
 </style>

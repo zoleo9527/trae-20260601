@@ -544,10 +544,39 @@ def create_warranty_record(warranty: dict, db: sqlite3.Connection = Depends(get_
     result = {k: v for k, v in warranty.items() if v is not None}
     return {"id": warranty_id, **result, "created_at": now, "updated_at": now}
 
+def parse_date(date_str):
+    if not date_str:
+        return None
+    
+    formats = [
+        '%Y-%m-%d',
+        '%Y/%m/%d', 
+        '%Y-%m-%dT%H:%M:%S',
+        '%Y-%m-%dT%H:%M:%S.%f',
+        '%Y-%m-%d %H:%M:%S'
+    ]
+    
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str, fmt)
+        except ValueError:
+            continue
+    
+    return None
+
+def format_date(date_obj):
+    if isinstance(date_obj, datetime):
+        return date_obj.strftime('%Y-%m-%d')
+    return str(date_obj)
+
 def calculate_period(start_date_str, end_date_str):
     try:
-        start = datetime.strptime(start_date_str, '%Y-%m-%d')
-        end = datetime.strptime(end_date_str, '%Y-%m-%d')
+        start = parse_date(start_date_str)
+        end = parse_date(end_date_str)
+        
+        if not start or not end:
+            return "未知"
+        
         delta = end - start
         days = delta.days
         years = days // 365
@@ -584,24 +613,29 @@ def update_warranty_record(warranty_id: str, warranty: WarrantyRecordUpdate, db:
     if warranty.end_date is not None or warranty.start_date is not None:
         needs_period_update = True
     
+    normalized_end_date = format_date(parse_date(new_end_date))
+    normalized_start_date = format_date(parse_date(new_start_date))
+    
     if warranty.warranty_type is not None:
         updates.append("warranty_type = ?")
         params.append(warranty.warranty_type)
     
+    new_period = None
     if needs_period_update:
-        new_period = calculate_period(new_start_date, new_end_date)
+        new_period = calculate_period(normalized_start_date, normalized_end_date)
         updates.append("warranty_period = ?")
         params.append(new_period)
     elif warranty.warranty_period is not None:
+        new_period = warranty.warranty_period
         updates.append("warranty_period = ?")
         params.append(warranty.warranty_period)
     
     if warranty.start_date is not None:
         updates.append("start_date = ?")
-        params.append(warranty.start_date)
+        params.append(normalized_start_date)
     if warranty.end_date is not None:
         updates.append("end_date = ?")
-        params.append(warranty.end_date)
+        params.append(normalized_end_date)
     if warranty.status is not None:
         updates.append("status = ?")
         params.append(warranty.status)
@@ -621,10 +655,22 @@ def update_warranty_record(warranty_id: str, warranty: WarrantyRecordUpdate, db:
     db.commit()
     
     action = "更新"
-    detail = f"更新质保记录：{old_warranty['warranty_type']}"
-    if warranty.status is not None and warranty.status != old_warranty['status']:
-        action = f"状态变更: {old_warranty['status']} -> {warranty.status}"
-        detail = f"{action}: {old_warranty['warranty_type']}"
+    detail_parts = [f"质保类型：{old_warranty['warranty_type']}"]
+    
+    if needs_period_update:
+        action = "延长质保"
+        old_period = old_warranty['warranty_period']
+        old_end_date = old_warranty['end_date']
+        detail_parts.append(f"期限：{old_period} -> {new_period}")
+        detail_parts.append(f"结束日期：{old_end_date} -> {normalized_end_date}")
+    elif warranty.status is not None and warranty.status != old_warranty['status']:
+        action = f"状态变更"
+        detail_parts.append(f"{old_warranty['status']} -> {warranty.status}")
+    
+    if warranty.remark:
+        detail_parts.append(f"备注：{warranty.remark}")
+    
+    detail = "; ".join(detail_parts)
     
     cursor.execute('''
         INSERT INTO operation_logs (id, warranty_id, operator, action, detail, created_at)
