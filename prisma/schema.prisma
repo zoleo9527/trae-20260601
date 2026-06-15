@@ -1,0 +1,157 @@
+// Prisma schema for Phone Repair Shop System
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  role         String
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignedWorkOrders   WorkOrder[]       @relation("AssignedTechnician")
+  receivedWorkOrders   WorkOrder[]       @relation("ReceivedBy")
+  inspectionQuotes     InspectionQuote[]
+  customerConfirmations CustomerConfirmation[]
+  timelineEvents       TimelineEvent[]
+  alertsAssigned       Alert[]
+}
+
+model WorkOrder {
+  id               String   @id @default(cuid())
+  orderNo          String   @unique
+  customerName     String
+  customerPhone    String
+  deviceBrand      String
+  deviceModel      String
+  deviceImei       String?
+  deviceColor      String?
+  faultDescription String
+  appearanceNotes  String?
+  accessoryItems   String?
+  receivedAt       DateTime @default(now())
+  promisedDate     DateTime?
+  status           String
+
+  receivedById     String?
+  receivedBy       User?    @relation("ReceivedBy", fields: [receivedById], references: [id])
+
+  assignedTechnicianId String?
+  assignedTechnician   User?  @relation("AssignedTechnician", fields: [assignedTechnicianId], references: [id])
+  technicianAssignedAt DateTime?
+
+  inspectionQuote      InspectionQuote?
+  customerConfirmation CustomerConfirmation?
+  timelineEvents       TimelineEvent[]
+  alerts               Alert[]
+
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model InspectionQuote {
+  id                String   @id @default(cuid())
+  workOrderId       String   @unique
+  workOrder         WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  faultDiagnosis    String
+  keyJudgments      String
+  repairSolution    String
+  estimatedDuration String
+  riskWarning       String?
+
+  laborCost         Float    @default(0)
+  partsTotal        Float    @default(0)
+  totalAmount       Float    @default(0)
+
+  parts             QuotePart[]
+  photos            InspectionPhoto[]
+
+  createdById       String
+  createdBy         User     @relation(fields: [createdById], references: [id])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+model QuotePart {
+  id                String   @id @default(cuid())
+  inspectionQuoteId String
+  inspectionQuote   InspectionQuote @relation(fields: [inspectionQuoteId], references: [id])
+
+  partName          String
+  partNumber        String?
+  quantity          Int      @default(1)
+  unitPrice         Float    @default(0)
+  inStock           Boolean  @default(true)
+  stockLocation     String?
+  notes             String?
+}
+
+model InspectionPhoto {
+  id                String   @id @default(cuid())
+  inspectionQuoteId String
+  inspectionQuote   InspectionQuote @relation(fields: [inspectionQuoteId], references: [id])
+  photoUrl          String
+  description       String?
+  createdAt         DateTime @default(now())
+}
+
+model CustomerConfirmation {
+  id                 String   @id @default(cuid())
+  workOrderId        String   @unique
+  workOrder          WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  decision           String
+  customerSignature  String?
+  customerName       String
+  customerPhone      String
+  rejectReason       String?
+  reviseNotes        String?
+  confirmedAt        DateTime @default(now())
+
+  confirmedById      String
+  confirmedBy        User     @relation(fields: [confirmedById], references: [id])
+}
+
+model TimelineEvent {
+  id            String   @id @default(cuid())
+  workOrderId   String
+  workOrder     WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  fromStatus    String?
+  toStatus      String
+  eventType     String
+  description   String
+
+  responsibleId String
+  responsible   User     @relation(fields: [responsibleId], references: [id])
+
+  createdAt     DateTime @default(now())
+}
+
+model Alert {
+  id             String   @id @default(cuid())
+  workOrderId    String
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id])
+
+  alertType      String
+  title          String
+  message        String
+
+  status         String   @default("ACTIVE")
+  assignedToId   String?
+  assignedTo     User?    @relation(fields: [assignedToId], references: [id])
+
+  acknowledgedAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+}
