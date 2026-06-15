@@ -642,8 +642,10 @@
                         <span>队员: ${a.teamMembers?.join(', ')||'-'}</span>
                         <span>时间: ${formatTime(a.installTime)}</span>
                       </div>
+                      ${a.installAddress?`<div class="order-meta"><span>地址: ${a.installAddress}</span></div>`:''}
+                      ${a.assignmentNotes?`<div class="order-meta"><span>备注: ${a.assignmentNotes}</span></div>`:''}
                     </div>
-                    <span class="status-tag ${a.status}">${a.status}</span>
+                    <span class="status-tag ${a.isActive?'active':'inactive'}">${a.isActive?'📌 当前派工':'📜 历史派工'}</span>
                   </li>`).join('')}
                 </ul>`:'<div class="empty-state">暂无旧派工记录（建议使用一体化安装任务）</div>'}
             </div>
@@ -683,15 +685,68 @@
       document.querySelectorAll('.tab-content').forEach(e=>e.classList.remove('active'));
       document.getElementById('tab-'+tab).classList.add('active');
     }
+    const logActionLabels={
+      create:'创建订单',
+      update:'更新订单',
+      assign_designer:'分配设计师',
+      submit_design:'提交设计稿',
+      start_print:'开始喷绘',
+      complete_print:'喷绘完成',
+      assign_installation:'分配安装(旧派工)',
+      start_installation:'开始安装(旧派工)',
+      photo_return:'提交照片(旧)',
+      photo_review_approve:'照片验收通过(旧)',
+      photo_review_reject:'照片退回(旧)',
+      create_install_task:'🔧 创建一体化安装任务',
+      start_install_task:'🚀 开始安装(任务)',
+      submit_task_photo:'📷 提交照片回传(任务)',
+      approve_task_photo:'✅ 照片验收通过(任务)',
+      reject_task_photo:'❌ 照片退回(任务)',
+      task_supplement:'📝 补充备注(任务)',
+    };
+    const orderStatusLabels={
+      pending_design:'待设计',designing:'设计中',pending_print:'待喷绘',printing:'喷绘中',
+      pending_install:'待派工安装',install_assigned:'已派工待安装',installing:'安装中',
+      photo_returned:'照片待审核',photo_rejected:'照片退回重拍',completed:'已完成',cancelled:'已取消',
+    };
+    function formatLogDetail(i){
+      const md=i.metadata||{};
+      const action=md.action||i.action;
+      const parts=[];
+      // 状态变化
+      try{
+        const old=typeof i.oldValue==='string'?JSON.parse(i.oldValue):i.oldValue;
+        const nw=typeof i.newValue==='string'?JSON.parse(i.newValue):i.newValue;
+        if(old&&nw&&old.status!==nw.status){
+          parts.push(`状态: ${orderStatusLabels[old.status]||old.status} → ${orderStatusLabels[nw.status]||nw.status}`);
+        }
+      }catch(_){}
+      // 各动作的补充信息
+      switch(action){
+        case 'create': if(md.orderNo) parts.push(`订单号: ${md.orderNo}`); if(md.projectName) parts.push(`项目: ${md.projectName}`); break;
+        case 'assign_designer': if(md.designerName) parts.push(`→ ${md.designerName}`); break;
+        case 'create_install_task': if(md.installLeaderName) parts.push(`安装队长: ${md.installLeaderName}`); if(md.taskRound) parts.push(`第${md.taskRound}轮`); break;
+        case 'submit_task_photo': if(md.photoCount) parts.push(`${md.photoCount} 张照片`); break;
+        case 'reject_task_photo': if(md.rejectReason) parts.push(`原因: ${md.rejectReason}`); break;
+        case 'task_supplement': if(md.contentPreview) parts.push(`内容: ${md.contentPreview}${md.contentPreview.length>=50?'...':''}`); break;
+      }
+      if(md.changes&&md.changes.length) parts.push(`修改字段: ${md.changes.join(',')}`);
+      return parts.join(' | ');
+    }
     async function loadDetailLogs(orderId){
       try{
-        const d=await api('/print-orders/'+orderId+'/logs');
+        const d=await api('/print-orders/'+orderId+'/logs?page=1&pageSize=50');
         const c=document.getElementById('logsContainer');
         if(d.code===0){
-          const l=d.data||[];
-          c.innerHTML=l.length?'<ul class="timeline">'+l.map(i=>`<li class="timeline-item"><div class="time">${formatTime(i.createdAt)}</div><div class="content"><span class="user">${i.operator?.name||'系统'}</span> <span class="action">${i.action}</span>${i.detail?`: ${i.detail}`:''}</div></li>`).join('')+'</ul>':'<div class="empty-state">暂无日志</div>';
+          const l=(d.data&&d.data.items)||[];
+          const total=d.data&&d.data.total;
+          c.innerHTML=l.length?`<div style="margin-bottom:10px;font-size:13px;color:#6b7280;">共 ${total||l.length} 条历史记录</div><ul class="timeline">${l.map(i=>{
+            const label=logActionLabels[i.metadata?.action||i.action]||i.action;
+            const detail=formatLogDetail(i);
+            return `<li class="timeline-item"><div class="time">${formatTime(i.createdAt)}</div><div class="content"><span class="user">${i.operator?.name||'系统'}</span> <span class="action">${label}</span>${detail?`<div style="margin-top:4px;font-size:12px;color:#6b7280;line-height:1.6;">${detail}</div>`:''}</div></li>`;
+          }).join('')}</ul>`:'<div class="empty-state">暂无日志</div>';
         }
-      }catch(e){}
+      }catch(e){ console.error(e); }
     }
     function getAvailableActions(o){
       const r=currentUser.role;

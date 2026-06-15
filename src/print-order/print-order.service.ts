@@ -982,13 +982,13 @@ export class PrintOrderService {
     // }
 
     await this.logService.record(
-      'InstallationTask',
-      taskId,
+      'PrintOrder',
+      task.orderId,
       'update',
       operator,
       null,
       savedTask,
-      { contentPreview: dto.content.slice(0, 50) },
+      { action: 'task_supplement', taskId, contentPreview: dto.content.slice(0, 50) },
     );
 
     return savedTask;

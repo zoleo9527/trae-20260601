@@ -118,6 +118,21 @@ function req(path, opt = {}) {
     const at = approve.data?.task || {};
     console.log('验收通过 code:', approve.code, '最终状态:', at.status, '轮次仍为 #' + at.taskRound);
 
+    console.log('\n=== 11.5 订单日志接口验证 (关键：含补充备注、退回处理的完整历史) ===');
+    const logs = await req(`/print-orders/${orderId}/logs?page=1&pageSize=50`, { token });
+    console.log('日志接口 code:', logs.code, '返回结构含分页字段:', 'items' in (logs.data||{}), 'total=', logs.data?.total, 'items.length=', logs.data?.items?.length);
+    const actions = (logs.data?.items || []).map(i => ({ a: i.metadata?.action || i.action, op: i.operator?.name, meta: i.metadata }));
+    console.log('  包含动作清单:');
+    actions.forEach(a => console.log('    -', a.a, '|', a.op, a.meta?.taskRound?`(第${a.meta.taskRound}轮)`:''));
+    const hasSupplement = actions.some(a => a.a === 'task_supplement');
+    const hasReject = actions.some(a => a.a === 'reject_task_photo');
+    const hasPhoto = actions.some(a => a.a === 'submit_task_photo');
+    const hasApprove = actions.some(a => a.a === 'approve_task_photo');
+    console.log('  ✅ 补充备注入订单历史:', hasSupplement ? 'YES' : 'NO');
+    console.log('  ✅ 退回处理入订单历史:', hasReject ? 'YES' : 'NO');
+    console.log('  ✅ 照片回传入订单历史:', hasPhoto ? 'YES' : 'NO');
+    console.log('  ✅ 验收通过入订单历史:', hasApprove ? 'YES' : 'NO');
+
     console.log('\n=== 11. 卡住分析 Dashboard 测试 ===');
     await req(`/print-orders/tasks/refresh-stuck`, { method: 'POST', token });
     const stuck = await req('/dashboard/stuck', { token });
