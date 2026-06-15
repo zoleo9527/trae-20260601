@@ -38,7 +38,7 @@
       }
     ],
     "design_drawing": "cr_design.pdf",
-    "measurements": "测量报告.pdf",
+    "measurements": "measurements_cr.pdf",
     "customer_feedbacks": [
       {
         "id": "FB001",
@@ -97,7 +97,7 @@
       }
     ],
     "design_drawing": "kd_design.pdf",
-    "measurements": "测量报告.pdf",
+    "measurements": "measurements_kd.pdf",
     "customer_feedbacks": [
       {
         "id": "FB002",

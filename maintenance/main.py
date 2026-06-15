@@ -94,7 +94,7 @@ sample_projects = [
             InspectionPhoto(id="IMG002", filename="cr002.jpg", uploader="张伟", upload_time="2024-01-20 14:35", category="细节")
         ],
         design_drawing="cr_design.pdf",
-        measurements="测量报告.pdf",
+        measurements="measurements_cr.pdf",
         customer_feedbacks=[
             CustomerFeedback(id="FB001", content="字体版本不一致，与设计图不符", issue_type="字体问题", created_at="2024-01-21 09:00")
         ],
@@ -118,7 +118,7 @@ sample_projects = [
             InspectionPhoto(id="IMG004", filename="kd002.jpg", uploader="李强", upload_time="2024-01-25 16:10", category="安装细节")
         ],
         design_drawing="kd_design.pdf",
-        measurements="测量报告.pdf",
+        measurements="measurements_kd.pdf",
         customer_feedbacks=[
             CustomerFeedback(id="FB002", content="灯箱夜间亮度不足，部分灯珠不亮", issue_type="灯光问题", created_at="2024-01-26 10:30")
         ],
