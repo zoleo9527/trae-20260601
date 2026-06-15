@@ -26,6 +26,8 @@ export default function OrderDetailClient({ order, engineers }: Props) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showAppointmentModal, setShowAppointmentModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [isScheduling, setIsScheduling] = useState(false);
 
   const handleAccept = async () => {
     setIsAccepting(true);
@@ -47,11 +49,19 @@ export default function OrderDetailClient({ order, engineers }: Props) {
 
   const handleSchedule = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setScheduleError('');
+    setIsScheduling(true);
     const formData = new FormData(e.currentTarget);
     formData.append('orderId', order.id);
-    await scheduleAppointment(formData);
-    setShowAppointmentModal(false);
-    window.location.reload();
+    const result = await scheduleAppointment(formData);
+    setIsScheduling(false);
+    if (result?.error) {
+      setScheduleError(result.error);
+    } else {
+      setShowAppointmentModal(false);
+      setScheduleError('');
+      window.location.reload();
+    }
   };
 
   const handleConfirmCustomer = async () => {
@@ -103,7 +113,13 @@ export default function OrderDetailClient({ order, engineers }: Props) {
               </button>
             )}
             {canSchedule && (
-              <button onClick={() => setShowAppointmentModal(true)} className="btn-primary">
+              <button
+                onClick={() => {
+                  setScheduleError('');
+                  setShowAppointmentModal(true);
+                }}
+                className="btn-primary"
+              >
                 预约上门
               </button>
             )}
@@ -433,10 +449,15 @@ export default function OrderDetailClient({ order, engineers }: Props) {
               </div>
               <div>
                 <label className="label">上门工程师 *</label>
-                <select name="engineerId" className="select" required>
+                <select
+                  name="engineerId"
+                  className="select"
+                  required
+                  defaultValue={order.assignedToId || ''}
+                >
                   {!order.assignedToId && <option value="">请选择工程师</option>}
                   {engineers.map((eng) => (
-                    <option key={eng.id} value={eng.id} selected={eng.id === order.assignedToId}>
+                    <option key={eng.id} value={eng.id}>
                       {eng.name}
                     </option>
                   ))}
@@ -446,12 +467,24 @@ export default function OrderDetailClient({ order, engineers }: Props) {
                 <label className="label">备注</label>
                 <textarea name="note" className="input min-h-[80px]" placeholder="客户特殊要求等"></textarea>
               </div>
+              {scheduleError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                  {scheduleError}
+                </div>
+              )}
               <div className="flex justify-end gap-3 pt-2">
-                <button type="button" onClick={() => setShowAppointmentModal(false)} className="btn-secondary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAppointmentModal(false);
+                    setScheduleError('');
+                  }}
+                  className="btn-secondary"
+                >
                   取消
                 </button>
-                <button type="submit" className="btn-primary">
-                  确认预约
+                <button type="submit" disabled={isScheduling} className="btn-primary">
+                  {isScheduling ? '提交中...' : '确认预约'}
                 </button>
               </div>
             </form>

@@ -142,28 +142,22 @@ export async function scheduleAppointment(formData: FormData) {
   const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
   if (!order) return { error: '工单不存在' };
 
-  const effectiveEngineerId = engineerId || order.assignedToId;
-
-  if (!effectiveEngineerId) {
-    return { error: '请指定工程师或先分配工程师' };
+  if (!engineerId) {
+    return { error: '请选择上门工程师' };
   }
 
-  const engineer = await prisma.user.findUnique({ where: { id: effectiveEngineerId } });
+  const engineer = await prisma.user.findUnique({ where: { id: engineerId } });
   if (!engineer || engineer.role !== Role.ENGINEER) {
     return { error: '无效的工程师' };
   }
 
   const orderUpdateData: any = {
     status: RepairStatus.APPOINTMENT_SCHEDULED,
+    assignedToId: engineerId,
   };
 
-  if (!order.assignedToId) {
-    orderUpdateData.assignedToId = effectiveEngineerId;
-  }
-
-  const statusLogNote = order.assignedToId
-    ? `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`
-    : `预约上门并分配给工程师${engineer.name}：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`;
+  const isFirstAssignment = !order.assignedToId;
+  const isReassignment = order.assignedToId && order.assignedToId !== engineerId;
 
   const txItems: any[] = [
     prisma.appointment.create({
@@ -172,7 +166,7 @@ export async function scheduleAppointment(formData: FormData) {
         scheduledDate: new Date(scheduledDate),
         timeSlot,
         note,
-        engineerId: effectiveEngineerId,
+        engineerId: engineerId,
         createdById: user.id,
         status: AppointmentStatus.SCHEDULED,
       },
@@ -181,25 +175,58 @@ export async function scheduleAppointment(formData: FormData) {
       where: { id: orderId },
       data: orderUpdateData,
     }),
-    prisma.statusLog.create({
-      data: {
-        repairOrderId: orderId,
-        fromStatus: order.status,
-        toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
-        note: statusLogNote,
-        operatorId: user.id,
-      },
-    }),
   ];
 
-  if (!order.assignedToId) {
+  if (isFirstAssignment) {
     txItems.push(
       prisma.statusLog.create({
         data: {
           repairOrderId: orderId,
-          fromStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+          fromStatus: order.status,
           toStatus: RepairStatus.ASSIGNED,
-          note: `同时分配给工程师${engineer.name}`,
+          note: `分配给工程师${engineer.name}`,
+          operatorId: user.id,
+        },
+      }),
+      prisma.statusLog.create({
+        data: {
+          repairOrderId: orderId,
+          fromStatus: RepairStatus.ASSIGNED,
+          toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+          note: `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`,
+          operatorId: user.id,
+        },
+      })
+    );
+  } else if (isReassignment) {
+    txItems.push(
+      prisma.statusLog.create({
+        data: {
+          repairOrderId: orderId,
+          fromStatus: order.status,
+          toStatus: RepairStatus.ASSIGNED,
+          note: `改派给工程师${engineer.name}`,
+          operatorId: user.id,
+        },
+      }),
+      prisma.statusLog.create({
+        data: {
+          repairOrderId: orderId,
+          fromStatus: RepairStatus.ASSIGNED,
+          toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+          note: `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`,
+          operatorId: user.id,
+        },
+      })
+    );
+  } else {
+    txItems.push(
+      prisma.statusLog.create({
+        data: {
+          repairOrderId: orderId,
+          fromStatus: order.status,
+          toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+          note: `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`,
           operatorId: user.id,
         },
       })
