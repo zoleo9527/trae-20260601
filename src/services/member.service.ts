@@ -201,6 +201,97 @@ export class MemberService {
     return member;
   }
 
+  async resubmitMember(
+    memberId: string,
+    dto: UpdateMemberDto,
+    operatorId: string,
+    operatorName: string,
+    operatorRole: UserRole
+  ): Promise<Member> {
+    const member = this.members.get(memberId);
+    if (!member) {
+      throw new ApiException(ErrorCode.MEMBER_003);
+    }
+
+    if (member.status !== MemberStatus.REJECTED) {
+      throw new ApiException(ErrorCode.MEMBER_004, '只有被退回的档案才能重新提交', {
+        currentStatus: member.status,
+      });
+    }
+
+    const beforeData = { ...member };
+
+    Object.assign(member, dto);
+    member.status = MemberStatus.PENDING_APPROVAL;
+    member.rejectedReason = undefined;
+    member.updatedAt = new Date();
+
+    await this.operationLogService.log({
+      type: 'member_update' as any,
+      operatorId,
+      operatorName,
+      operatorRole,
+      targetId: memberId,
+      targetType: 'member',
+      beforeData: beforeData as any,
+      afterData: { status: member.status, resubmitted: true } as any,
+    });
+
+    return member;
+  }
+
+  async reapproveMember(
+    memberId: string,
+    operatorId: string,
+    operatorName: string,
+    operatorRole: UserRole
+  ): Promise<Member> {
+    const member = this.members.get(memberId);
+    if (!member) {
+      throw new ApiException(ErrorCode.MEMBER_003);
+    }
+
+    if (member.status !== MemberStatus.PENDING_APPROVAL) {
+      const canReapprove = member.status === MemberStatus.REJECTED && 
+        member.registeredBy === operatorId;
+      
+      if (!canReapprove) {
+        throw new ApiException(ErrorCode.MEMBER_004, undefined, {
+          currentStatus: member.status,
+          message: '只有待审核状态的档案才能审批，或退回档案需原建档店员重新提交',
+        });
+      }
+    }
+
+    const wasRejected = member.status === MemberStatus.REJECTED;
+    member.status = MemberStatus.APPROVED;
+    member.approvedBy = operatorId;
+    member.approvedAt = new Date();
+    member.updatedAt = new Date();
+
+    if (wasRejected) {
+      member.rejectedReason = undefined;
+    }
+
+    await this.operationLogService.log({
+      type: 'member_approve' as any,
+      operatorId,
+      operatorName,
+      operatorRole,
+      targetId: memberId,
+      targetType: 'member',
+      afterData: { status: member.status, wasResubmitted: wasRejected } as any,
+    });
+
+    if (member.babies.length > 0) {
+      for (const baby of member.babies) {
+        await this.reminderService.triggerInitialReminders(member, baby);
+      }
+    }
+
+    return member;
+  }
+
   async getMember(memberId: string): Promise<Member> {
     const member = this.members.get(memberId);
     if (!member) {

@@ -9,6 +9,8 @@ import {
   HandleReminderDto,
   ReminderQueryDto,
   ReminderHistoryDto,
+  AnomalyCategory,
+  AnomalyReportDto,
 } from '../models/reminder.model';
 import { Member, MemberStatus } from '../models/member.model';
 import { Baby, calculateMonthAge } from '../models/baby.model';
@@ -361,6 +363,153 @@ export class ReminderService {
       isAnomaly: true,
       anomalyReason: description,
     });
+  }
+
+  async reportAnomaly(
+    dto: AnomalyReportDto,
+    operatorId: string,
+    operatorName: string,
+    operatorRole: UserRole
+  ): Promise<{ reminder: Reminder; anomalyId: string }> {
+    let reminderType: ReminderType;
+    let title: string;
+    let content: string;
+    let suggestedAction: string;
+    let babyId = dto.babyId || '';
+
+    switch (dto.category) {
+      case AnomalyCategory.FORMULA_BATCH:
+        reminderType = ReminderType.FORMULA_BATCH_ISSUE;
+        const batchInfo = dto.relatedInfo?.formulaBatchNumber 
+          ? `，批号: ${dto.relatedInfo.formulaBatchNumber}` 
+          : '';
+        const brandInfo = dto.relatedInfo?.formulaBrand 
+          ? `，品牌: ${dto.relatedInfo.formulaBrand}` 
+          : '';
+        title = `【紧急】奶粉异常: ${dto.title}`;
+        content = `奶粉异常上报: ${dto.description}${batchInfo}${brandInfo}`;
+        suggestedAction = '请立即检查奶粉库存，必要时下架处理，并联系相关会员确认是否已购买问题批次产品';
+        break;
+
+      case AnomalyCategory.PROMOTION:
+        reminderType = ReminderType.PROMOTION_ISSUE;
+        const promoCode = dto.relatedInfo?.promotionCode 
+          ? `，券码: ${dto.relatedInfo.promotionCode}` 
+          : '';
+        const promoType = dto.relatedInfo?.promotionType 
+          ? `，类型: ${dto.relatedInfo.promotionType}` 
+          : '';
+        title = `【紧急】促销异常: ${dto.title}`;
+        content = `促销异常上报: ${dto.description}${promoCode}${promoType}`;
+        suggestedAction = '请立即暂停相关促销活动，核实优惠券发放情况，必要时补偿受影响会员';
+        break;
+
+      case AnomalyCategory.MEMBER_INFO:
+        reminderType = ReminderType.MILESTONE;
+        title = `【重要】会员信息异常: ${dto.title}`;
+        content = `会员信息异常上报: ${dto.description}`;
+        suggestedAction = '请核实会员信息，联系会员确认并更正';
+        break;
+
+      default:
+        reminderType = ReminderType.MILESTONE;
+        title = `异常提醒: ${dto.title}`;
+        content = `系统异常上报: ${dto.description}`;
+        suggestedAction = '请及时处理';
+    }
+
+    const reminder = await this.createReminder({
+      memberId: dto.memberId,
+      babyId,
+      type: reminderType,
+      priority: dto.priority || ReminderPriority.URGENT,
+      title,
+      content,
+      suggestedAction,
+      triggerMonthAge: 0,
+      isAnomaly: true,
+      anomalyReason: dto.description,
+    });
+
+    await this.operationLogService.log({
+      type: 'anomaly_report' as any,
+      operatorId,
+      operatorName,
+      operatorRole,
+      targetId: reminder.id,
+      targetType: 'reminder',
+      afterData: {
+        category: dto.category,
+        description: dto.description,
+        relatedInfo: dto.relatedInfo,
+      } as any,
+    });
+
+    const anomalyRecord = await this.operationLogService.reportAnomaly(
+      'rule_violation' as any,
+      dto.priority === ReminderPriority.URGENT ? 'high' as any : 'medium' as any,
+      `${dto.category}: ${dto.description}`,
+      {
+        memberId: dto.memberId,
+        babyId: dto.babyId,
+        reminderId: reminder.id,
+      },
+      true
+    );
+
+    return {
+      reminder,
+      anomalyId: anomalyRecord.id,
+    };
+  }
+
+  async getReminderHistoryWithAnomalies(
+    memberId: string,
+    memberService: any
+  ): Promise<ReminderHistoryDto[]> {
+    const reminderIds = this.memberReminderIndex.get(memberId) || new Set();
+    const member = await memberService.getMember(memberId);
+
+    const history: ReminderHistoryDto[] = [];
+
+    for (const reminderId of reminderIds) {
+      const reminder = this.reminders.get(reminderId);
+      if (reminder) {
+        const baby = member.babies.find((b: Baby) => b.id === reminder.babyId);
+
+        let anomalyCategory: AnomalyCategory | undefined;
+        if (reminder.isAnomaly) {
+          if (reminder.type === ReminderType.FORMULA_BATCH_ISSUE) {
+            anomalyCategory = AnomalyCategory.FORMULA_BATCH;
+          } else if (reminder.type === ReminderType.PROMOTION_ISSUE) {
+            anomalyCategory = AnomalyCategory.PROMOTION;
+          } else {
+            anomalyCategory = AnomalyCategory.MEMBER_INFO;
+          }
+        }
+
+        history.push({
+          reminderId: reminder.id,
+          memberId: reminder.memberId,
+          babyName: baby?.name || '未知',
+          babyMonthAge: baby?.currentMonthAge || 0,
+          type: reminder.type,
+          title: reminder.title,
+          content: reminder.content,
+          status: reminder.status,
+          handledBy: reminder.handledBy,
+          handledAt: reminder.handledAt,
+          handleResult: reminder.handleResult,
+          createdAt: reminder.createdAt,
+          isAnomaly: reminder.isAnomaly,
+          anomalyCategory,
+        });
+      }
+    }
+
+    return history.sort(
+      (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+    );
   }
 
   private async findReminderByBabyAndType(

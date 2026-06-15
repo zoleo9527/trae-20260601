@@ -72,6 +72,12 @@ export class PurchaserController {
     const anomalies = await this.reminderService.queryReminders({
       isAnomaly: true,
     });
+    const formulaBatchIssues = await this.reminderService.queryReminders({
+      type: 'formula_batch_issue' as any,
+    });
+    const promotionIssues = await this.reminderService.queryReminders({
+      type: 'promotion_issue' as any,
+    });
 
     return ApiResponse.success({
       total: allReminders.total,
@@ -79,17 +85,26 @@ export class PurchaserController {
       triggered: triggered.total,
       handled: handled.total,
       anomalies: anomalies.total,
+      formulaBatchIssues: formulaBatchIssues.total,
+      promotionIssues: promotionIssues.total,
     });
   }
 
   @Get('members/:id/reminders/history')
   @Permission('reminder:read')
   async getReminderHistory(@Param('id') memberId: string): Promise<ApiResponse> {
-    const history = await this.reminderService.getReminderHistory(
+    const history = await this.reminderService.getReminderHistoryWithAnomalies(
       memberId,
       this.memberService
     );
     return ApiResponse.success(history);
+  }
+
+  @Get('members/:id/anomalies')
+  @Permission('member:read')
+  async getMemberAnomalies(@Param('id') memberId: string): Promise<ApiResponse> {
+    const anomalies = await this.operationLogService.getAnomaliesByMember(memberId);
+    return ApiResponse.success(anomalies);
   }
 
   @Get('members/:id/logs')

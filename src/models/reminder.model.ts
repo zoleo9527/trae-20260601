@@ -4,6 +4,8 @@ export enum ReminderType {
   VACCINATION = 'vaccination',
   GROWTH_CHECK = 'growth_check',
   SUPPLEMENT = 'supplement',
+  FORMULA_BATCH_ISSUE = 'formula_batch_issue',
+  PROMOTION_ISSUE = 'promotion_issue',
 }
 
 export enum ReminderStatus {
@@ -79,6 +81,13 @@ export interface ReminderQueryDto {
   pageSize?: number;
 }
 
+export enum AnomalyCategory {
+  FORMULA_BATCH = 'formula_batch',
+  PROMOTION = 'promotion',
+  MEMBER_INFO = 'member_info',
+  SYSTEM = 'system',
+}
+
 export interface ReminderHistoryDto {
   reminderId: string;
   memberId: string;
@@ -92,4 +101,23 @@ export interface ReminderHistoryDto {
   handledAt?: Date;
   handleResult?: string;
   createdAt: Date;
+  isAnomaly?: boolean;
+  anomalyCategory?: AnomalyCategory;
+}
+
+export interface AnomalyReportDto {
+  memberId: string;
+  babyId?: string;
+  category: AnomalyCategory;
+  title: string;
+  description: string;
+  priority?: ReminderPriority;
+  
+  relatedInfo?: {
+    formulaBatchNumber?: string;
+    formulaBrand?: string;
+    promotionCode?: string;
+    promotionType?: string;
+    expiryDate?: string;
+  };
 }

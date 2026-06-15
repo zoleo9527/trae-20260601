@@ -24,7 +24,7 @@ import {
   MemberQueryDto,
 } from '../models/member.model';
 import { CreateBabyDto } from '../models/baby.model';
-import { HandleReminderDto, ReminderQueryDto } from '../models/reminder.model';
+import { HandleReminderDto, ReminderQueryDto, AnomalyReportDto } from '../models/reminder.model';
 
 @Controller('clerk')
 @UseGuards(RolesGuard, PermissionGuard)
@@ -94,6 +94,23 @@ export class ClerkController {
     return ApiResponse.success(member, '会员信息更新成功');
   }
 
+  @Put('members/:id/resubmit')
+  @Permission('member:update')
+  async resubmitMember(
+    @Param('id') id: string,
+    @Body() dto: UpdateMemberDto,
+    @CurrentUser() user: UserContext
+  ): Promise<ApiResponse> {
+    const member = await this.memberService.resubmitMember(
+      id,
+      dto,
+      user.id,
+      user.name,
+      user.role
+    );
+    return ApiResponse.success(member, '档案已重新提交，等待店长审核');
+  }
+
   @Post('members/:id/babies')
   @Permission('baby:create')
   async addBaby(
@@ -128,11 +145,33 @@ export class ClerkController {
   @Get('members/:id/reminders/history')
   @Permission('reminder:read')
   async getReminderHistory(@Param('id') memberId: string): Promise<ApiResponse> {
-    const history = await this.reminderService.getReminderHistory(
+    const history = await this.reminderService.getReminderHistoryWithAnomalies(
       memberId,
       this.memberService
     );
     return ApiResponse.success(history);
+  }
+
+  @Post('anomalies/report')
+  @Permission('member:create')
+  async reportAnomaly(
+    @Body() dto: AnomalyReportDto,
+    @CurrentUser() user: UserContext
+  ): Promise<ApiResponse> {
+    const result = await this.reminderService.reportAnomaly(
+      dto,
+      user.id,
+      user.name,
+      user.role
+    );
+    return ApiResponse.success(result, '异常已上报，已生成提醒和异常记录');
+  }
+
+  @Get('members/:id/anomalies')
+  @Permission('member:read')
+  async getMemberAnomalies(@Param('id') memberId: string): Promise<ApiResponse> {
+    const anomalies = await this.operationLogService.getAnomaliesByMember(memberId);
+    return ApiResponse.success(anomalies);
   }
 
   @Get('members/:id/logs')

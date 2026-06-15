@@ -56,7 +56,7 @@ export class ManagerController {
       user.role
     );
 
-    const reminders = await this.reminderService.getReminderHistory(
+    const reminders = await this.reminderService.getReminderHistoryWithAnomalies(
       id,
       this.memberService
     );
@@ -67,6 +67,34 @@ export class ManagerController {
         triggeredReminders: reminders.length,
       },
       '会员审核通过，已自动触发月龄提醒'
+    );
+  }
+
+  @Put('members/:id/reapprove')
+  @Permission('member:approve')
+  async reapproveMember(
+    @Param('id') id: string,
+    @CurrentUser() user: UserContext
+  ): Promise<ApiResponse> {
+    const member = await this.memberService.reapproveMember(
+      id,
+      user.id,
+      user.name,
+      user.role
+    );
+
+    const reminders = await this.reminderService.getReminderHistoryWithAnomalies(
+      id,
+      this.memberService
+    );
+
+    return ApiResponse.success(
+      {
+        member,
+        triggeredReminders: reminders.length,
+        wasResubmitted: true,
+      },
+      '重新审核通过，已自动触发月龄提醒'
     );
   }
 
@@ -161,11 +189,18 @@ export class ManagerController {
   @Get('members/:id/reminders/history')
   @Permission('reminder:read')
   async getReminderHistory(@Param('id') memberId: string): Promise<ApiResponse> {
-    const history = await this.reminderService.getReminderHistory(
+    const history = await this.reminderService.getReminderHistoryWithAnomalies(
       memberId,
       this.memberService
     );
     return ApiResponse.success(history);
+  }
+
+  @Get('members/:id/anomalies')
+  @Permission('member:read')
+  async getMemberAnomalies(@Param('id') memberId: string): Promise<ApiResponse> {
+    const anomalies = await this.operationLogService.getAnomaliesByMember(memberId);
+    return ApiResponse.success(anomalies);
   }
 
   @Get('members/:id/logs')
