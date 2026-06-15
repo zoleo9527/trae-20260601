@@ -1,5 +1,5 @@
 import { useAppStore } from '../store';
-import { Lock, AlertTriangle, Clock, CheckCircle, XCircle, ChevronRight, User, Phone, MapPin } from 'lucide-react';
+import { Lock, AlertTriangle, Clock, CheckCircle, XCircle, ChevronRight, User, Phone, MapPin, Truck } from 'lucide-react';
 
 interface ColorLockListProps {
   onSelect?: (id: string) => void;
@@ -10,6 +10,7 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
   pending: { label: '待处理', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Clock },
   locked: { label: '已锁定', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Lock },
   reserved: { label: '已预留', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: CheckCircle },
+  shipped: { label: '已发货', color: 'text-cyan-600', bgColor: 'bg-cyan-100', icon: Truck },
   completed: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle },
   cancelled: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100', icon: XCircle },
 };
@@ -23,8 +24,8 @@ export default function ColorLockList({ onSelect, showAll = false }: ColorLockLi
     : colorLocks.filter(l => l.status !== 'completed' && l.status !== 'cancelled');
 
   const sortedLocks = [...filteredLocks].sort((a, b) => {
-    const statusOrder = { pending: 0, locked: 1, reserved: 2, completed: 3, cancelled: 4 };
-    return statusOrder[a.status] - statusOrder[b.status];
+    const statusOrder = { pending: 0, locked: 1, reserved: 2, shipped: 3, completed: 4, cancelled: 5 };
+    return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
   });
 
   return (

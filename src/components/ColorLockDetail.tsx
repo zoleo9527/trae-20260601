@@ -4,7 +4,7 @@ import { ColorLock, UserRole } from '../types';
 import { 
   Lock, AlertTriangle, CheckCircle, XCircle, ChevronLeft, 
   User, Phone, MapPin, Calendar, FileText, Send, 
-  Warehouse, ArrowRight, Clock, ExternalLink
+  Warehouse, ArrowRight, Clock, ExternalLink, Truck
 } from 'lucide-react';
 
 interface ColorLockDetailProps {
@@ -17,6 +17,7 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
   pending: { label: '待处理', color: 'text-amber-600', bgColor: 'bg-amber-100', icon: Clock },
   locked: { label: '已锁定', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: Lock },
   reserved: { label: '已预留', color: 'text-purple-600', bgColor: 'bg-purple-100', icon: CheckCircle },
+  shipped: { label: '已发货', color: 'text-cyan-600', bgColor: 'bg-cyan-100', icon: Truck },
   completed: { label: '已完成', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle },
   cancelled: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100', icon: XCircle },
 };

@@ -11,7 +11,7 @@ export interface ColorLock {
   projectName: string;
   salesmanName: string;
   designerName?: string;
-  status: 'pending' | 'locked' | 'reserved' | 'completed' | 'cancelled';
+  status: 'pending' | 'locked' | 'reserved' | 'shipped' | 'completed' | 'cancelled';
   createdAt: string;
   updatedAt: string;
   remarks: Remark[];

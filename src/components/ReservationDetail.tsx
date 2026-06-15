@@ -53,69 +53,100 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
   };
 
   const handleReserve = () => {
-    updateReservation(reservationId, { status: 'reserved' });
     const reserveRemark = `${currentUser.name}已确认预留库存`;
-    addRemarkToReservation(reservationId, {
-      content: reserveRemark,
-      author: currentUser.name,
-      authorRole: currentUser.role,
+    updateReservation(reservationId, { 
+      status: 'reserved',
+      remarks: [...reservation.remarks, {
+        id: `R${Date.now()}`,
+        content: reserveRemark,
+        author: currentUser.name,
+        authorRole: currentUser.role,
+        createdAt: new Date().toLocaleString('zh-CN'),
+      }]
     });
     if (colorLock) {
-      updateColorLock(colorLock.id, { status: 'reserved' });
-      addRemarkToLock(colorLock.id, {
+      const lockRemark = {
+        id: `R${Date.now()}`,
         content: `[库存预留${reservationId}] ${reserveRemark}`,
         author: currentUser.name,
         authorRole: currentUser.role,
+        createdAt: new Date().toLocaleString('zh-CN'),
+      };
+      updateColorLock(colorLock.id, { 
+        status: 'reserved',
+        remarks: [...colorLock.remarks, lockRemark]
       });
     }
   };
 
   const handleShip = () => {
     const qty = parseInt(actualQuantity) || reservation.reservedQuantity;
+    const shipRemark = `已发货，数量：${qty}片`;
     updateReservation(reservationId, { 
       status: 'shipped',
-      actualQuantity: qty 
-    });
-    const shipRemark = `已发货，数量：${qty}片`;
-    addRemarkToReservation(reservationId, {
-      content: shipRemark,
-      author: currentUser.name,
-      authorRole: currentUser.role,
+      actualQuantity: qty,
+      remarks: [...reservation.remarks, {
+        id: `R${Date.now()}`,
+        content: shipRemark,
+        author: currentUser.name,
+        authorRole: currentUser.role,
+        createdAt: new Date().toLocaleString('zh-CN'),
+      }]
     });
     if (colorLock) {
-      addRemarkToLock(colorLock.id, {
+      const lockRemark = {
+        id: `R${Date.now()}`,
         content: `[库存预留${reservationId}] ${shipRemark}`,
         author: currentUser.name,
         authorRole: currentUser.role,
+        createdAt: new Date().toLocaleString('zh-CN'),
+      };
+      updateColorLock(colorLock.id, { 
+        status: 'shipped',
+        remarks: [...colorLock.remarks, lockRemark]
       });
     }
   };
 
   const handleComplete = () => {
-    updateReservation(reservationId, { status: 'completed' });
     const completeRemark = `${currentUser.name}已确认完成`;
-    addRemarkToReservation(reservationId, {
+    const newRemarks = [{
+      id: `R${Date.now()}`,
       content: completeRemark,
       author: currentUser.name,
       authorRole: currentUser.role,
+      createdAt: new Date().toLocaleString('zh-CN'),
+    }];
+    
+    updateReservation(reservationId, { 
+      status: 'completed',
+      remarks: [...reservation.remarks, ...newRemarks]
     });
+    
     if (colorLock) {
-      updateColorLock(colorLock.id, { 
-        status: 'completed',
-        responsibilityFlag: reservation.responsibilityFlag
-      });
-      addRemarkToLock(colorLock.id, {
+      const lockRemarks = [{
+        id: `R${Date.now()}`,
         content: `[库存预留${reservationId}] ${completeRemark}`,
         author: currentUser.name,
         authorRole: currentUser.role,
-      });
+        createdAt: new Date().toLocaleString('zh-CN'),
+      }];
+      
       if (reservation.responsibilityFlag) {
-        addRemarkToLock(colorLock.id, {
+        lockRemarks.push({
+          id: `R${Date.now()}`,
           content: `⚠️ [库存预留${reservationId}] 责任不清标记已同步`,
           author: currentUser.name,
           authorRole: currentUser.role,
+          createdAt: new Date().toLocaleString('zh-CN'),
         });
       }
+      
+      updateColorLock(colorLock.id, { 
+        status: 'completed',
+        responsibilityFlag: reservation.responsibilityFlag,
+        remarks: [...colorLock.remarks, ...lockRemarks]
+      });
     }
   };
 
