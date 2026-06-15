@@ -1,0 +1,500 @@
+import { create } from 'zustand';
+import dayjs from 'dayjs';
+import type {
+  User,
+  CustomerDraft,
+  PrintSchedule,
+  MaterialPickup,
+  InstallationRecord,
+  AuditLog,
+  ExceptionRecord,
+  UserRole,
+  PrintScheduleStatus,
+  CustomerDraftStatus,
+  MaterialPickupStatus,
+  InstallationStatus,
+  MaterialItem,
+} from '@/types';
+import {
+  seedUsers,
+  seedCustomerDrafts,
+  seedPrintSchedules,
+  seedMaterialPickups,
+  seedInstallationRecords,
+  seedAuditLogs,
+  seedExceptionRecords,
+} from '@/data/seedData';
+import {
+  validateScheduleStatusFlow,
+  validateDraftStatusFlow,
+  validateMaterialPickupFlow,
+  validateInstallationFlow,
+  actionDisplayMap,
+} from '@/utils/stateMachine';
+
+interface AppState {
+  currentUser: User;
+  users: User[];
+  drafts: CustomerDraft[];
+  schedules: PrintSchedule[];
+  materialPickups: MaterialPickup[];
+  installations: InstallationRecord[];
+  auditLogs: AuditLog[];
+  exceptions: ExceptionRecord[];
+  setCurrentUser: (user: User) => void;
+  switchUser: (userId: string) => void;
+  createAuditLog: (
+    entityType: 'draft' | 'schedule' | 'material' | 'installation',
+    entityId: string,
+    action: AuditLog['action'],
+    detail: string,
+    oldValues?: Record<string, unknown>,
+    newValues?: Record<string, unknown>
+  ) => void;
+  createDraft: (draft: Omit<CustomerDraft, 'id' | 'createdAt' | 'status'>) => void;
+  updateDraftStatus: (
+    draftId: string,
+    targetStatus: CustomerDraftStatus,
+    remark?: string
+  ) => boolean;
+  createSchedule: (
+    schedule: Omit<PrintSchedule, 'id' | 'scheduleNo' | 'submittedAt' | 'status'>
+  ) => void;
+  updateScheduleStatus: (
+    scheduleId: string,
+    targetStatus: PrintScheduleStatus,
+    remark?: string
+  ) => boolean;
+  createMaterialPickup: (
+    pickup: Omit<MaterialPickup, 'id' | 'pickupNo' | 'status' | 'pickedAt'> & {
+      items: MaterialItem[];
+    }
+  ) => void;
+  updateMaterialPickupStatus: (
+    pickupId: string,
+    targetStatus: MaterialPickupStatus
+  ) => boolean;
+  updateInstallationStatus: (
+    installationId: string,
+    targetStatus: InstallationStatus,
+    updates?: Partial<InstallationRecord>
+  ) => boolean;
+  createException: (
+    exception: Omit<ExceptionRecord, 'id' | 'reportedAt' | 'status'>
+  ) => void;
+  resolveException: (
+    exceptionId: string,
+    resolution: string
+  ) => void;
+  getAuditLogsByEntity: (
+    entityType: 'draft' | 'schedule' | 'material' | 'installation',
+    entityId: string
+  ) => AuditLog[];
+  generateId: (prefix: string) => string;
+  generateOrderNo: (prefix: string) => string;
+  resetDemoData: () => void;
+}
+
+export const useAppStore = create<AppState>((set, get) => ({
+  currentUser: seedUsers[0],
+  users: seedUsers,
+  drafts: seedCustomerDrafts,
+  schedules: seedPrintSchedules,
+  materialPickups: seedMaterialPickups,
+  installations: seedInstallationRecords,
+  auditLogs: seedAuditLogs,
+  exceptions: seedExceptionRecords,
+
+  setCurrentUser: (user) => set({ currentUser: user }),
+
+  switchUser: (userId) => {
+    const user = get().users.find((u) => u.id === userId);
+    if (user) {
+      set({ currentUser: user });
+    }
+  },
+
+  generateId: (prefix) => {
+    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  },
+
+  generateOrderNo: (prefix) => {
+    const date = dayjs().format('YYYYMMDD');
+    const count =
+      prefix === 'PH'
+        ? get().schedules.length + 1
+        : prefix === 'CK'
+        ? get().materialPickups.length + 1
+        : prefix === 'DD'
+        ? get().drafts.length + 1
+        : 1;
+    return `${prefix}${date}${String(count).padStart(3, '0')}`;
+  },
+
+  createAuditLog: (
+    entityType,
+    entityId,
+    action,
+    detail,
+    oldValues,
+    newValues
+  ) => {
+    const { currentUser } = get();
+    const log: AuditLog = {
+      id: get().generateId('log'),
+      entityType,
+      entityId,
+      action,
+      operatorId: currentUser.id,
+      operatorName: currentUser.name,
+      operatorRole: currentUser.role,
+      timestamp: dayjs().toISOString(),
+      detail,
+      oldValues,
+      newValues,
+    };
+    set((state) => ({
+      auditLogs: [log, ...state.auditLogs],
+    }));
+  },
+
+  createDraft: (draft) => {
+    const { currentUser, createAuditLog, generateId, generateOrderNo } = get();
+    const newDraft: CustomerDraft = {
+      ...draft,
+      id: generateId('draft'),
+      status: 'pending_review',
+      createdAt: dayjs().toISOString(),
+      createdBy: currentUser.id,
+    };
+    set((state) => ({
+      drafts: [newDraft, ...state.drafts],
+    }));
+    createAuditLog(
+      'draft',
+      newDraft.id,
+      'draft_create',
+      `${currentUser.name}创建客户稿件 ${newDraft.orderNo}`,
+      undefined,
+      {
+        customerName: draft.customerName,
+        content: draft.content,
+        width: draft.width,
+        height: draft.height,
+      }
+    );
+  },
+
+  updateDraftStatus: (draftId, targetStatus, remark) => {
+    const { currentUser, drafts, createAuditLog } = get();
+    const draft = drafts.find((d) => d.id === draftId);
+    if (!draft) return false;
+
+    if (!validateDraftStatusFlow(draft.status, targetStatus, currentUser.role)) {
+      return false;
+    }
+
+    const oldStatus = draft.status;
+    set((state) => ({
+      drafts: state.drafts.map((d) =>
+        d.id === draftId
+          ? {
+              ...d,
+              status: targetStatus,
+              remark: remark || d.remark,
+              reviewedBy:
+                targetStatus === 'approved' || targetStatus === 'rejected'
+                  ? currentUser.id
+                  : d.reviewedBy,
+              reviewedAt:
+                targetStatus === 'approved' || targetStatus === 'rejected'
+                  ? dayjs().toISOString()
+                  : d.reviewedAt,
+            }
+          : d
+      ),
+    }));
+
+    let action: AuditLog['action'] = 'draft_create';
+    if (targetStatus === 'approved') action = 'draft_review';
+    else if (targetStatus === 'rejected') action = 'draft_reject';
+    else if (targetStatus === 'size_issue') action = 'draft_size_issue';
+    else if (targetStatus === 'color_issue') action = 'draft_color_issue';
+
+    createAuditLog(
+      'draft',
+      draftId,
+      action,
+      `${currentUser.name}${actionDisplayMap[action]} ${draft.orderNo}${remark ? `，备注：${remark}` : ''}`,
+      { status: oldStatus },
+      { status: targetStatus }
+    );
+
+    return true;
+  },
+
+  createSchedule: (schedule) => {
+    const { currentUser, createAuditLog, generateId, generateOrderNo } = get();
+    const scheduleNo = generateOrderNo('PH');
+    const newSchedule: PrintSchedule = {
+      ...schedule,
+      id: generateId('schedule'),
+      scheduleNo,
+      status: 'draft',
+      submittedAt: dayjs().toISOString(),
+    };
+    set((state) => ({
+      schedules: [newSchedule, ...state.schedules],
+    }));
+    createAuditLog(
+      'schedule',
+      newSchedule.id,
+      'schedule_create',
+      `${currentUser.name}创建喷绘排产 ${scheduleNo}`,
+      undefined,
+      {
+        customerName: schedule.customerName,
+        content: schedule.content,
+        quantity: schedule.quantity,
+      }
+    );
+  },
+
+  updateScheduleStatus: (scheduleId, targetStatus, remark) => {
+    const { currentUser, schedules, createAuditLog } = get();
+    const schedule = schedules.find((s) => s.id === scheduleId);
+    if (!schedule) return false;
+
+    if (!validateScheduleStatusFlow(schedule.status, targetStatus, currentUser.role)) {
+      return false;
+    }
+
+    const oldStatus = schedule.status;
+    const now = dayjs().toISOString();
+
+    const updates: Partial<PrintSchedule> = {
+      status: targetStatus,
+      remark: remark || schedule.remark,
+    };
+
+    if (targetStatus === 'submitted') {
+      updates.submittedBy = currentUser.id;
+      updates.submittedAt = now;
+    } else if (targetStatus === 'material_confirmed') {
+      updates.materialConfirmedBy = currentUser.id;
+      updates.materialConfirmedAt = now;
+    } else if (targetStatus === 'printing') {
+      updates.printingStartedBy = currentUser.id;
+      updates.printingStartedAt = now;
+    } else if (targetStatus === 'printed') {
+      updates.printedBy = currentUser.id;
+      updates.printedAt = now;
+    } else if (targetStatus === 'completed') {
+      updates.completedBy = currentUser.id;
+      updates.completedAt = now;
+      updates.actualInstallDate = dayjs().format('YYYY-MM-DD');
+    }
+
+    set((state) => ({
+      schedules: state.schedules.map((s) =>
+        s.id === scheduleId ? { ...s, ...updates } : s
+      ),
+    }));
+
+    let action: AuditLog['action'] = 'schedule_submit';
+    if (targetStatus === 'submitted') action = 'schedule_submit';
+    else if (targetStatus === 'material_confirmed') action = 'schedule_material_confirm';
+    else if (targetStatus === 'printing') action = 'schedule_start_print';
+    else if (targetStatus === 'printed') action = 'schedule_complete_print';
+    else if (targetStatus === 'installing') action = 'schedule_start_install';
+    else if (targetStatus === 'completed') action = 'schedule_complete';
+    else if (targetStatus === 'cancelled') action = 'schedule_cancel';
+
+    createAuditLog(
+      'schedule',
+      scheduleId,
+      action,
+      `${currentUser.name}${actionDisplayMap[action]} ${schedule.scheduleNo}${remark ? `，备注：${remark}` : ''}`,
+      { status: oldStatus },
+      { status: targetStatus }
+    );
+
+    return true;
+  },
+
+  createMaterialPickup: (pickup) => {
+    const { currentUser, createAuditLog, generateId, generateOrderNo } = get();
+    const pickupNo = generateOrderNo('CK');
+    const totalAmount = pickup.items.reduce(
+      (sum, item) => sum + item.quantity * item.unitPrice,
+      0
+    );
+    const newPickup: MaterialPickup = {
+      ...pickup,
+      id: generateId('pickup'),
+      pickupNo,
+      status: 'pending',
+      pickedAt: dayjs().toISOString(),
+      totalAmount,
+    };
+    set((state) => ({
+      materialPickups: [newPickup, ...state.materialPickups],
+    }));
+    createAuditLog(
+      'material',
+      newPickup.id,
+      'material_pickup',
+      `${currentUser.name}登记材料领用 ${pickupNo}`,
+      undefined,
+      {
+        items: pickup.items.map((i) => `${i.materialType} ${i.quantity}${i.unit}`),
+        totalAmount,
+      }
+    );
+  },
+
+  updateMaterialPickupStatus: (pickupId, targetStatus) => {
+    const { currentUser, materialPickups, createAuditLog } = get();
+    const pickup = materialPickups.find((p) => p.id === pickupId);
+    if (!pickup) return false;
+
+    if (!validateMaterialPickupFlow(pickup.status, targetStatus, currentUser.role)) {
+      return false;
+    }
+
+    const oldStatus = pickup.status;
+    const now = dayjs().toISOString();
+
+    const updates: Partial<MaterialPickup> = {
+      status: targetStatus,
+    };
+
+    if (targetStatus === 'confirmed') {
+      updates.confirmedBy = currentUser.id;
+      updates.confirmedAt = now;
+    } else if (targetStatus === 'returned') {
+      updates.returnedBy = currentUser.id;
+      updates.returnedAt = now;
+    }
+
+    set((state) => ({
+      materialPickups: state.materialPickups.map((p) =>
+        p.id === pickupId ? { ...p, ...updates } : p
+      ),
+    }));
+
+    const action: AuditLog['action'] =
+      targetStatus === 'confirmed' ? 'material_confirm' : 'material_return';
+
+    createAuditLog(
+      'material',
+      pickupId,
+      action,
+      `${currentUser.name}${actionDisplayMap[action]} ${pickup.pickupNo}`,
+      { status: oldStatus },
+      { status: targetStatus }
+    );
+
+    return true;
+  },
+
+  updateInstallationStatus: (installationId, targetStatus, updates) => {
+    const { currentUser, installations, createAuditLog } = get();
+    const installation = installations.find((i) => i.id === installationId);
+    if (!installation) return false;
+
+    if (!validateInstallationFlow(installation.status, targetStatus, currentUser.role)) {
+      return false;
+    }
+
+    const oldStatus = installation.status;
+    const now = dayjs().toISOString();
+
+    const finalUpdates: Partial<InstallationRecord> = {
+      ...updates,
+      status: targetStatus,
+      updatedBy: currentUser.id,
+      updatedAt: now,
+    };
+
+    if (targetStatus === 'completed') {
+      finalUpdates.actualDate = dayjs().format('YYYY-MM-DD');
+    }
+
+    set((state) => ({
+      installations: state.installations.map((i) =>
+        i.id === installationId ? { ...i, ...finalUpdates } : i
+      ),
+    }));
+
+    let action: AuditLog['action'] = 'install_start';
+    if (targetStatus === 'time_changed') action = 'install_time_change';
+    else if (targetStatus === 'in_progress') action = 'install_start';
+    else if (targetStatus === 'completed') action = 'install_complete';
+    else if (targetStatus === 'failed') action = 'install_fail';
+
+    const detail = updates?.scheduledDate
+      ? `${currentUser.name}${actionDisplayMap[action]}，新安装时间：${updates.scheduledDate}`
+      : `${currentUser.name}${actionDisplayMap[action]}`;
+
+    createAuditLog(
+      'installation',
+      installationId,
+      action,
+      `${detail} ${installation.scheduleNo}`,
+      { status: oldStatus },
+      { status: targetStatus, ...updates }
+    );
+
+    return true;
+  },
+
+  createException: (exception) => {
+    const { currentUser, generateId } = get();
+    const newException: ExceptionRecord = {
+      ...exception,
+      id: generateId('exception'),
+      status: 'pending',
+      reportedAt: dayjs().toISOString(),
+    };
+    set((state) => ({
+      exceptions: [newException, ...state.exceptions],
+    }));
+  },
+
+  resolveException: (exceptionId, resolution) => {
+    const { currentUser } = get();
+    set((state) => ({
+      exceptions: state.exceptions.map((e) =>
+        e.id === exceptionId
+          ? {
+              ...e,
+              status: 'resolved',
+              handledBy: currentUser.id,
+              handledAt: dayjs().toISOString(),
+              resolution,
+            }
+          : e
+      ),
+    }));
+  },
+
+  getAuditLogsByEntity: (entityType, entityId) => {
+    return get()
+      .auditLogs.filter(
+        (log) => log.entityType === entityType && log.entityId === entityId
+      )
+      .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf());
+  },
+
+  resetDemoData: () => {
+    set({
+      drafts: [...seedCustomerDrafts],
+      schedules: [...seedPrintSchedules],
+      materialPickups: [...seedMaterialPickups],
+      installations: [...seedInstallationRecords],
+      auditLogs: [...seedAuditLogs],
+      exceptions: [...seedExceptionRecords],
+    });
+  },
+}));
