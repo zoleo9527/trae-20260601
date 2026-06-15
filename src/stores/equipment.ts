@@ -10,12 +10,15 @@ interface EquipmentStore {
   setSearchQuery: (query: string) => void;
 }
 
-export const useEquipmentStore = create<EquipmentStore>((set) => ({
+export const useEquipmentStore = create<EquipmentStore>((set, get) => ({
   equipment: [],
   searchQuery: '',
 
   fetchEquipment: () => {
-    set({ equipment: [...mockEquipment] });
+    const { equipment } = get();
+    if (equipment.length === 0) {
+      set({ equipment: [...mockEquipment] });
+    }
   },
 
   setSearchQuery: (query) => {

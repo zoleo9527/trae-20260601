@@ -22,6 +22,7 @@ export function WorkOrderDetail() {
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectRemark, setRejectRemark] = useState('');
   const [statusHistory, setStatusHistory] = useState<{ status: WorkOrderStatus; time: string }[]>([]);
+  const [isDataReady, setIsDataReady] = useState(false);
 
   const technicians = getTechnicians();
 
@@ -31,10 +32,13 @@ export function WorkOrderDetail() {
   }, [fetchWorkOrders, fetchParts]);
 
   useEffect(() => {
-    if (id) {
-      getWorkOrderById(id);
+    if (workorders.length > 0 && parts.length > 0) {
+      setIsDataReady(true);
+      if (id) {
+        getWorkOrderById(id);
+      }
     }
-  }, [id, getWorkOrderById, workorders]);
+  }, [workorders, parts, id, getWorkOrderById]);
 
   useEffect(() => {
     if (currentWorkOrder) {
@@ -109,9 +113,40 @@ export function WorkOrderDetail() {
   const isTechnician = currentUser?.role === 'technician';
   const isWarehouse = currentUser?.role === 'warehouse';
 
+  if (!isDataReady) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Link to="/" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+            <ArrowLeft size={20} className="text-slate-600" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">工单详情</h1>
+            <p className="text-sm text-slate-500">工单编号: {id}</p>
+          </div>
+        </div>
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-500">加载中...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!currentWorkOrder) {
     return (
       <div className="p-6">
+        <div className="flex items-center gap-4 mb-6">
+          <Link to="/" className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+            <ArrowLeft size={20} className="text-slate-600" />
+          </Link>
+          <div>
+            <h1 className="text-xl font-bold text-slate-800">工单详情</h1>
+            <p className="text-sm text-slate-500">工单编号: {id}</p>
+          </div>
+        </div>
         <div className="text-center py-12">
           <p className="text-slate-500">工单不存在</p>
         </div>

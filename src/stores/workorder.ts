@@ -8,6 +8,7 @@ interface WorkOrderStore {
   statusFilter: string;
   selectedIds: string[];
   parts: Part[];
+  isLoading: boolean;
   
   fetchWorkOrders: () => void;
   getWorkOrderById: (id: string) => void;
@@ -33,17 +34,25 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
   statusFilter: 'all',
   selectedIds: [],
   parts: [],
+  isLoading: false,
 
   fetchWorkOrders: () => {
-    set({ workorders: [...mockWorkOrders] });
+    const { workorders } = get();
+    if (workorders.length === 0) {
+      set({ workorders: [...mockWorkOrders] });
+    }
   },
 
   fetchParts: () => {
-    set({ parts: [...mockParts] });
+    const { parts } = get();
+    if (parts.length === 0) {
+      set({ parts: [...mockParts] });
+    }
   },
 
   getWorkOrderById: (id: string) => {
-    const workorder = get().workorders.find(w => w.id === id);
+    const { workorders } = get();
+    const workorder = workorders.find(w => w.id === id);
     set({ currentWorkOrder: workorder || null });
   },
 
@@ -80,8 +89,10 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
     const workorder = get().workorders.find(w => w.id === id);
     if (!workorder) return;
 
+    const { parts: allParts } = get();
+
     const newParts = parts.map((p, index) => {
-      const partInfo = mockParts.find(part => part.id === p.partId);
+      const partInfo = allParts.find(part => part.id === p.partId) || mockParts.find(part => part.id === p.partId);
       return {
         id: `wp${Date.now()}${index}`,
         partId: p.partId,
