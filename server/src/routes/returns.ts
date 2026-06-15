@@ -263,6 +263,41 @@ router.put('/:id/cancel', (req, res) => {
   res.json(updated);
 });
 
+router.put('/:id/complete', (req, res) => {
+  const { id } = req.params;
+  const { operator, operator_role, remark } = req.body;
+
+  const request = db.prepare('SELECT * FROM return_exchange_requests WHERE id = ?').get(id) as ReturnExchangeRequest;
+  if (!request) {
+    res.status(404).json({ error: '退换货申请不存在' });
+    return;
+  }
+  if (request.type !== 'return') {
+    res.status(400).json({ error: '只有退货类型申请可以直接完成' });
+    return;
+  }
+  if (request.status !== 'warehouse_confirmed') {
+    res.status(400).json({ error: '只有仓库已确认状态可以完成' });
+    return;
+  }
+
+  const transaction = db.transaction(() => {
+    db.prepare(`
+      UPDATE return_exchange_requests 
+      SET status = 'completed', completer = ?, complete_time = datetime('now', 'localtime'),
+          updated_at = datetime('now', 'localtime')
+      WHERE id = ?
+    `).run(operator, id);
+
+    addOperationLog(id, null, '完成退货', operator, operator_role, remark || '退货验收完成，申请结案', 'warehouse_confirmed', 'completed');
+  });
+
+  transaction();
+
+  const updated = db.prepare('SELECT * FROM return_exchange_requests WHERE id = ?').get(id);
+  res.json(updated);
+});
+
 router.post('/batch-warehouse-confirm', (req, res) => {
   const { ids, operator, operator_role, remark } = req.body;
 

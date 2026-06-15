@@ -354,9 +354,9 @@ function CreateReturnForm({ form, onSuccess }: {
   form: any; 
   onSuccess: () => void;
 }) {
-  const { createReturnRequest, currentUser, fetchOrderList, orderList } = useAppStore();
+  const { createReturnRequest, currentUser, fetchOrderList, orderList, fetchOrderDetail, orderDetail, loadingOrders } = useAppStore();
   const [orderOptions, setOrderOptions] = useState<any[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchOrderList({ status: 'delivered', pageSize: 100 });
@@ -372,16 +372,27 @@ function CreateReturnForm({ form, onSuccess }: {
     }
   }, [orderList]);
 
-  const handleOrderChange = (orderId: string) => {
-    const order = orderOptions.find(o => o.value === orderId);
-    setSelectedOrder(order || null);
-    form.setFieldsValue({
-      items: order?.items?.map((item: any) => ({
-        ...item,
-        quantity: 0,
-      })) || [],
-    });
+  const handleOrderChange = async (orderId: string) => {
+    setSelectedOrderId(orderId);
+    if (orderId) {
+      await fetchOrderDetail(orderId);
+    }
   };
+
+  useEffect(() => {
+    if (orderDetail?.id === selectedOrderId && orderDetail?.items) {
+      form.setFieldsValue({
+        items: orderDetail.items.map((item: any) => ({
+          product_name: item.product_name,
+          product_code: item.product_code,
+          quantity: 0,
+          unit: item.unit,
+          warehouse_location: item.warehouse_location,
+          original_quantity: item.quantity,
+        })),
+      });
+    }
+  }, [orderDetail, selectedOrderId, form]);
 
   const handleSubmit = async (values: any) => {
     try {
@@ -463,43 +474,74 @@ function CreateReturnForm({ form, onSuccess }: {
       </Form.Item>
 
       <Form.Item label="退换商品">
+        {loadingOrders && (
+          <div style={{ padding: '16px 0', textAlign: 'center', color: '#999' }}>
+            正在加载商品明细...
+          </div>
+        )}
         <Form.List name="items">
           {(fields, { add, remove }) => (
             <>
+              {fields.length > 0 && (
+                <Row gutter={8} style={{ marginBottom: 8, padding: '0 8px', fontWeight: 500, color: '#666' }}>
+                  <Col span={8}>商品名称</Col>
+                  <Col span={4}>原数量</Col>
+                  <Col span={4}>退换数量</Col>
+                  <Col span={3}>单位</Col>
+                  <Col span={4}>库位</Col>
+                </Row>
+              )}
               {fields.map(({ key, name, ...restField }) => (
-                <div key={key} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'end' }}>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'product_name']}
-                    style={{ flex: 2, marginBottom: 0 }}
-                  >
-                    <Input placeholder="商品名称" readOnly />
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'quantity']}
-                    rules={[{ required: true, message: '请输入数量' }]}
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <InputNumber min={0} placeholder="数量" style={{ width: '100%' }} />
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'unit']}
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <Input placeholder="单位" readOnly />
-                  </Form.Item>
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'warehouse_location']}
-                    style={{ flex: 1, marginBottom: 0 }}
-                  >
-                    <Input placeholder="库位" readOnly />
-                  </Form.Item>
-                </div>
+                <Row key={key} gutter={8} style={{ marginBottom: 8 }}>
+                  <Col span={8}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'product_name']}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input placeholder="商品名称" readOnly />
+                    </Form.Item>
+                  </Col>
+                  <Col span={4}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'original_quantity']}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input readOnly style={{ backgroundColor: '#f5f5f5' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={4}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'quantity']}
+                      rules={[{ required: true, message: '请输入数量' }]}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <InputNumber min={0} placeholder="数量" style={{ width: '100%' }} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={3}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'unit']}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input placeholder="单位" readOnly />
+                    </Form.Item>
+                  </Col>
+                  <Col span={4}>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'warehouse_location']}
+                      style={{ marginBottom: 0 }}
+                    >
+                      <Input placeholder="库位" readOnly />
+                    </Form.Item>
+                  </Col>
+                </Row>
               ))}
-              {!selectedOrder && (
+              {!selectedOrderId && (
                 <Button type="dashed" onClick={() => add()} icon={<PlusOutlined />}>
                   添加商品
                 </Button>

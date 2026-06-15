@@ -65,9 +65,11 @@ export default function ReturnDetail() {
     submitReturnRequest,
     warehouseConfirm,
     cancelReturnRequest,
+    completeReturnRequest,
     createReissue,
     currentUser,
     addAttachment,
+    deleteAttachment,
     fetchWarehouseLocations,
     warehouseLocations,
   } = useAppStore();
@@ -81,6 +83,8 @@ export default function ReturnDetail() {
   const [confirmForm] = Form.useForm();
   const [reissueForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
+  const [completeForm] = Form.useForm();
+  const [completeModalVisible, setCompleteModalVisible] = useState(false);
   const [attachForm] = Form.useForm();
 
   useEffect(() => {
@@ -97,16 +101,25 @@ export default function ReturnDetail() {
     return <div style={{ textAlign: 'center', padding: 50 }}>加载中...</div>;
   }
 
-  const statusSteps = [
-    { status: 'draft', title: '创建草稿' },
-    { status: 'pending_warehouse', title: '提交申请' },
-    { status: 'warehouse_confirmed', title: '仓库确认' },
-    { status: 'reissuing', title: '补发中' },
-    { status: 'completed', title: '完成' },
-  ];
+  const statusSteps = returnDetail.type === 'return' 
+    ? [
+        { title: '创建草稿', status: 'draft' },
+        { title: '待仓库确认', status: 'pending_warehouse' },
+        { title: '仓库已确认', status: 'warehouse_confirmed' },
+        { title: '已完成', status: 'completed' },
+      ]
+    : [
+        { title: '创建草稿', status: 'draft' },
+        { title: '待仓库确认', status: 'pending_warehouse' },
+        { title: '仓库已确认', status: 'warehouse_confirmed' },
+        { title: '补发中', status: 'reissuing' },
+        { title: '已完成', status: 'completed' },
+      ];
 
   const getCurrentStep = () => {
-    const statusOrder = ['draft', 'pending_warehouse', 'warehouse_confirmed', 'reissuing', 'completed'];
+    const statusOrder = returnDetail.type === 'return'
+      ? ['draft', 'pending_warehouse', 'warehouse_confirmed', 'completed']
+      : ['draft', 'pending_warehouse', 'warehouse_confirmed', 'reissuing', 'completed'];
     if (returnDetail.status === 'cancelled') return -1;
     return statusOrder.indexOf(returnDetail.status);
   };
@@ -120,6 +133,11 @@ export default function ReturnDetail() {
   const canCreateReissue = returnDetail.status === 'warehouse_confirmed' && 
     returnDetail.type === 'exchange' &&
     currentUser.role === 'warehouse_manager';
+
+  const canComplete = 
+    returnDetail.status === 'warehouse_confirmed' && 
+    returnDetail.type === 'return' &&
+    ['warehouse_manager', 'customer_service'].includes(currentUser.role);
 
   const canCancel = !['completed', 'cancelled'].includes(returnDetail.status) &&
     (currentUser.role === 'customer_service' || currentUser.role === 'warehouse_manager');
@@ -210,6 +228,21 @@ export default function ReturnDetail() {
     }
   };
 
+  const handleComplete = async (values: any) => {
+    if (!id) return;
+    try {
+      await completeReturnRequest(id, {
+        operator: currentUser.name,
+        operator_role: currentUser.role,
+        remark: values.remark,
+      });
+      message.success('退货完成');
+      setCompleteModalVisible(false);
+    } catch (error: any) {
+      message.error(error.error || '操作失败');
+    }
+  };
+
   const handleAddAttachment = async (values: any) => {
     if (!id) return;
     try {
@@ -287,6 +320,15 @@ export default function ReturnDetail() {
               创建补发
             </Button>
           )}
+          {canComplete && (
+            <Button 
+              type="primary" 
+              icon={<CheckCircleOutlined />}
+              onClick={() => setCompleteModalVisible(true)}
+            >
+              完成退货
+            </Button>
+          )}
           {canCancel && (
             <Popconfirm
               title="确认取消"
@@ -361,6 +403,14 @@ export default function ReturnDetail() {
                   <Descriptions.Item label="补发处理人">{returnDetail.reissue_handler}</Descriptions.Item>
                   <Descriptions.Item label="补发处理时间">
                     {returnDetail.reissue_handle_time ? dayjs(returnDetail.reissue_handle_time).format('YYYY-MM-DD HH:mm') : '-'}
+                  </Descriptions.Item>
+                </>
+              )}
+              {returnDetail.completer && (
+                <>
+                  <Descriptions.Item label="完成人">{returnDetail.completer}</Descriptions.Item>
+                  <Descriptions.Item label="完成时间">
+                    {returnDetail.complete_time ? dayjs(returnDetail.complete_time).format('YYYY-MM-DD HH:mm') : '-'}
                   </Descriptions.Item>
                 </>
               )}
@@ -450,8 +500,25 @@ export default function ReturnDetail() {
                       size="small" 
                       hoverable
                       actions={[
-                        <Button type="text" size="small">查看</Button>,
-                        <Button type="text" size="small" danger>删除</Button>,
+                        <Button type="text" size="small" key="view">查看</Button>,
+                        <Popconfirm
+                          key="delete"
+                          title="确认删除"
+                          description="确定要删除这个附件吗？"
+                          onConfirm={async () => {
+                            try {
+                              await deleteAttachment(item.id);
+                              message.success('删除成功');
+                              if (id) fetchReturnDetail(id);
+                            } catch (error: any) {
+                              message.error(error.error || '删除失败');
+                            }
+                          }}
+                          okText="确认"
+                          cancelText="取消"
+                        >
+                          <Button type="text" size="small" danger>删除</Button>
+                        </Popconfirm>,
                       ]}
                     >
                       <div style={{ textAlign: 'center' }}>
@@ -461,6 +528,11 @@ export default function ReturnDetail() {
                         </div>
                         {item.placeholder && (
                           <Tag color="default" style={{ marginTop: 4 }}>占位</Tag>
+                        )}
+                        {item.file_type && (
+                          <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
+                            {item.file_type}
+                          </div>
                         )}
                       </div>
                     </Card>
@@ -719,6 +791,34 @@ export default function ReturnDetail() {
       </Modal>
 
       <Modal
+        title="完成退货"
+        open={completeModalVisible}
+        onCancel={() => setCompleteModalVisible(false)}
+        footer={null}
+        destroyOnHidden
+      >
+        <Form form={completeForm} layout="vertical" onFinish={handleComplete}>
+          <div style={{ marginBottom: 16, padding: 12, background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 4 }}>
+            <p style={{ margin: 0, color: '#389e0d' }}>
+              <strong>确认完成退货？</strong>
+            </p>
+            <p style={{ margin: '8px 0 0 0', fontSize: 12, color: '#52c41a' }}>
+              完成后申请状态将变为"已完成"，不可再修改。
+            </p>
+          </div>
+          <Form.Item name="remark" label="备注">
+            <Input.TextArea rows={3} placeholder="请输入备注信息（可选）" />
+          </Form.Item>
+          <Form.Item style={{ textAlign: 'right', marginBottom: 0 }}>
+            <Space>
+              <Button onClick={() => setCompleteModalVisible(false)}>返回</Button>
+              <Button type="primary" htmlType="submit">确认完成</Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
         title="添加附件"
         open={attachModalVisible}
         onCancel={() => setAttachModalVisible(false)}
@@ -741,7 +841,7 @@ export default function ReturnDetail() {
           <Form.Item name="file_size" label="文件大小（字节）">
             <InputNumber style={{ width: '100%' }} placeholder="请输入文件大小" />
           </Form.Item>
-          <Form.Item name="placeholder" label="附件类型" valuePropName="checked">
+          <Form.Item name="placeholder" label="附件类型" initialValue={false}>
             <Select>
               <Option value={false}>真实附件</Option>
               <Option value={true}>占位附件</Option>

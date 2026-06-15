@@ -82,6 +82,14 @@ export const returnsApi = {
     return api.put(`/returns/${id}/cancel`, data);
   },
 
+  complete: (id: string, data: {
+    operator: string;
+    operator_role: string;
+    remark?: string;
+  }) => {
+    return api.put(`/returns/${id}/complete`, data);
+  },
+
   batchWarehouseConfirm: (data: {
     ids: string[];
     operator: string;

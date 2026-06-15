@@ -51,6 +51,7 @@ interface AppState {
   warehouseConfirm: (id: string, data: any) => Promise<void>;
   cancelReturnRequest: (id: string, data: any) => Promise<void>;
   batchWarehouseConfirm: (data: any) => Promise<void>;
+  completeReturnRequest: (id: string, data: any) => Promise<void>;
   batchCancel: (data: any) => Promise<void>;
 
   createReissue: (data: any) => Promise<ReissueTracking>;
@@ -190,6 +191,13 @@ const useAppStore = create<AppState>((set, get) => ({
     await returnsApi.cancel(id, data);
     const { fetchReturnDetail } = get();
     fetchReturnDetail(id);
+  },
+
+  completeReturnRequest: async (id, data) => {
+    await returnsApi.complete(id, data);
+    const { fetchReturnDetail, fetchReturnList } = get();
+    fetchReturnDetail(id);
+    fetchReturnList();
   },
 
   batchWarehouseConfirm: async (data) => {
