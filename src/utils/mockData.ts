@@ -139,6 +139,7 @@ type MockOrderTemplate = {
   hasSiteCheck?: boolean;
   siteCheckResult?: 'passed' | 'failed';
   hasChanges?: boolean;
+  pendingRecheck?: boolean;
   assigneeIndex?: number;
   priority?: 'normal' | 'urgent' | 'vip';
   delayReason?: string;
@@ -206,9 +207,10 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
   const siteChecks: SiteConditionRecord[] = [];
   const hasAppointmentChanges = template.hasChanges === true;
   const orderAppointmentVersion = hasAppointmentChanges ? 2 : 1;
+  const isPendingRecheck = template.pendingRecheck === true;
 
   if (template.hasSiteCheck) {
-    if (hasAppointmentChanges) {
+    if (hasAppointmentChanges && !isPendingRecheck) {
       const oldItems = generateSiteCheckItems();
       const oldPassed = oldItems.filter(i => i.passed).length;
       const oldResult = oldPassed >= 6 ? 'passed' : 'failed';
@@ -261,10 +263,14 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
         overallResult: actualResult,
         items,
         photos: [],
-        notes: actualResult === 'passed'
-          ? '现场条件符合安装要求，可以正常安装。'
-          : '部分条件不满足，需要客户整改后再次上门。',
-        orderVersion: 1,
+        notes: hasAppointmentChanges && isPendingRecheck
+          ? (actualResult === 'passed'
+            ? '现场条件符合安装要求，后因预约信息变更，等待师傅重新确认。'
+            : '部分条件不满足，后因预约信息变更，等待师傅重新确认。')
+          : (actualResult === 'passed'
+            ? '现场条件符合安装要求，可以正常安装。'
+            : '部分条件不满足，需要客户整改后再次上门。'),
+        orderVersion: hasAppointmentChanges ? 3 : 1,
         appointmentVersion: 1,
       });
     }
@@ -293,7 +299,7 @@ const createOrderFromTemplate = (template: MockOrderTemplate, index: number): In
     scheduledAt,
     completedAt: template.status === 'completed' ? generateDateTime(-Math.abs(template.daysFromNow), 17) : null,
     remarks: '',
-    internalNotes: template.status === 'pending_review' ? '请客服尽快复核安装质量。' : '',
+    internalNotes: template.status === 'pending_review' ? '请客服尽快复核安装质量。' : (hasAppointmentChanges && isPendingRecheck ? '预约信息已变更，等待师傅上门重新确认。' : ''),
     delayReason: template.delayReason || '',
     rejectionReason: template.rejectionReason || '',
     reviewNote: template.reviewNote || '',
@@ -323,6 +329,7 @@ export const generateMockData = (): { orders: InstallationOrder[]; users: User[]
     { status: 'site_check_pending', daysFromNow: 0, assigneeIndex: 0, priority: 'normal' },
     { status: 'site_check_pending', daysFromNow: 0, assigneeIndex: 1, priority: 'urgent', hasChanges: true },
     { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 2, priority: 'normal', hasSiteCheck: true, siteCheckResult: 'passed' },
+    { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 0, priority: 'urgent', hasSiteCheck: true, siteCheckResult: 'passed', hasChanges: true, pendingRecheck: true },
     { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 3, priority: 'vip', hasSiteCheck: true, siteCheckResult: 'passed' },
     { status: 'site_check_failed', daysFromNow: -2, assigneeIndex: 0, priority: 'normal', hasSiteCheck: true, siteCheckResult: 'failed' },
     { status: 'site_check_failed', daysFromNow: -1, assigneeIndex: 1, priority: 'urgent', hasSiteCheck: true, siteCheckResult: 'failed', hasChanges: true },
@@ -432,8 +439,6 @@ export const isOldAppointmentCheck = (
 ): boolean => {
   if (order.siteChecks.length === 0) return false;
   if (checkIndex < 0 || checkIndex >= order.siteChecks.length) return false;
-  if (checkIndex === order.siteChecks.length - 1) return false;
   const currentCheck = order.siteChecks[checkIndex];
-  const nextCheck = order.siteChecks[checkIndex + 1];
-  return currentCheck.appointmentVersion < nextCheck.appointmentVersion;
+  return currentCheck.appointmentVersion < order.appointmentVersion;
 };
