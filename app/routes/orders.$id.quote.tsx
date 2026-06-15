@@ -336,6 +336,9 @@ export default function QuotePage() {
                     placeholder="具体的维修操作方案..."
                     defaultValue={order.inspectionQuote?.repairSolution}
                   />
+                  {actionData?.errors?.repairSolution && (
+                    <p className="mt-1 text-xs text-red-600">{actionData?.errors.repairSolution[0]}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -347,6 +350,9 @@ export default function QuotePage() {
                       placeholder="约 30 分钟"
                       defaultValue={order.inspectionQuote?.estimatedDuration}
                     />
+                    {actionData?.errors?.estimatedDuration && (
+                      <p className="mt-1 text-xs text-red-600">{actionData?.errors.estimatedDuration[0]}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="riskWarning">风险提示</Label>

@@ -68,7 +68,29 @@ const ConfirmSchema = z.object({
   customerSignature: z.string().optional(),
   rejectReason: z.string().optional(),
   reviseNotes: z.string().optional(),
-});
+}).refine(
+  (data) => {
+    if (data.decision === "REJECTED") {
+      return !!data.rejectReason && data.rejectReason.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "请填写拒绝原因",
+    path: ["rejectReason"],
+  }
+).refine(
+  (data) => {
+    if (data.decision === "REVISE_NEEDED") {
+      return !!data.reviseNotes && data.reviseNotes.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: "请填写客户修改意见",
+    path: ["reviseNotes"],
+  }
+);
 
 export const action = async ({ request, params }: ActionFunctionArgs) => {
   const user = await requireRole(request, [Role.RECEPTIONIST, Role.MANAGER]);
@@ -422,8 +444,11 @@ export default function ConfirmPage() {
                     placeholder="请详细记录客户要求修改的内容..."
                     className="bg-white"
                   />
+                  {actionData?.errors?.reviseNotes && (
+                    <p className="mt-1 text-xs text-red-600">{actionData.errors.reviseNotes[0]}</p>
+                  )}
                   <p className="text-xs text-amber-700 mt-2">
-                    提交后工单将退回「检测中」状态，并自动提醒负责的维修师
+                    提交后工单将退回「需修改报价」状态，并自动提醒负责的维修师
                   </p>
                 </div>
               )}

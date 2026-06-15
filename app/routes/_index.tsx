@@ -67,12 +67,22 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }),
   ]);
 
-  const counts: Record<string, number> = { ALL: orders.length };
+  const totalAll = statusCounts.reduce((s, c) => s + c._count.status, 0);
+
+  const counts: Record<string, number> = { 
+    ALL: totalAll,
+    [WorkOrderStatus.PENDING_INSPECTION]: 0,
+    [WorkOrderStatus.INSPECTION_IN_PROGRESS]: 0,
+    [WorkOrderStatus.REVISE_REQUESTED]: 0,
+    [WorkOrderStatus.QUOTE_READY]: 0,
+    [WorkOrderStatus.CUSTOMER_CONFIRMED]: 0,
+    [WorkOrderStatus.CUSTOMER_REJECTED]: 0,
+    [WorkOrderStatus.REPAIR_IN_PROGRESS]: 0,
+    [WorkOrderStatus.COMPLETED]: 0,
+  };
   for (const c of statusCounts) {
     counts[c.status] = c._count.status;
   }
-  const totalAll = statusCounts.reduce((s, c) => s + c._count.status, 0);
-  counts.ALL = totalAll;
 
   return json({ orders, technicians, counts, user, filters: { status, keyword, assignee } });
 };
@@ -142,6 +152,7 @@ export default function OrdersIndex() {
       { key: "ALL", label: "全部" },
       { key: WorkOrderStatus.PENDING_INSPECTION, label: "待分配" },
       { key: WorkOrderStatus.INSPECTION_IN_PROGRESS, label: "检测中" },
+      { key: WorkOrderStatus.REVISE_REQUESTED, label: "需修改报价" },
       { key: WorkOrderStatus.QUOTE_READY, label: "待确认" },
       { key: WorkOrderStatus.CUSTOMER_CONFIRMED, label: "已确认" },
       { key: WorkOrderStatus.CUSTOMER_REJECTED, label: "已拒绝" },
@@ -202,7 +213,7 @@ export default function OrdersIndex() {
         )}
       </div>
 
-      <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
+      <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
         {statusTabs.map((tab) => {
           const isActive = (filters.status || "ALL") === tab.key;
           return (
