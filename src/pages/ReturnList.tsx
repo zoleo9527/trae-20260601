@@ -120,10 +120,10 @@ const ReturnList: React.FC = () => {
           { title: '客户名称', dataIndex: 'customerName', width: 180 },
           { title: '租赁设备', dataIndex: 'equipmentName', width: 160 },
           {
-            title: '实际回场日期',
-            dataIndex: 'actualReturnDate',
-            width: 130,
-            render: (v) => dayjs(v).format('YYYY-MM-DD'),
+            title: '回场时间',
+            dataIndex: 'returnTime',
+            width: 160,
+            render: (v) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-',
           },
           {
             title: '租期(天)',

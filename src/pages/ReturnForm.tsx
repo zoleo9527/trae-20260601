@@ -161,8 +161,8 @@ const ReturnForm: React.FC = () => {
     }
   };
 
-  const recalculate = () => {
-    if (!selectedContract) return;
+  const recalculate = (): CalcState => {
+    if (!selectedContract) return calc;
     const vals = form.getFieldsValue(true);
     const start = dayjs(selectedContract.rentStartDate);
     const end = vals.actualReturnDate ? dayjs(vals.actualReturnDate) : dayjs();
@@ -202,12 +202,14 @@ const ReturnForm: React.FC = () => {
     const depositRefund = Math.max(0, deposit - netPayable);
     const additionalPayment = Math.max(0, netPayable - deposit);
 
-    setCalc({
+    const result: CalcState = {
       rentDays, totalRent, extraDays, extraDaysCost,
       fuelDifference, fuelCompensation, workingHoursUsed,
       workingHoursOverLimit, overHoursCost, cleaningCost,
       totalDamageDeductible, totalDeductions, depositRefund, additionalPayment,
-    });
+    };
+    setCalc(result);
+    return result;
   };
 
   const handleAddDamage = () => {
@@ -235,7 +237,7 @@ const ReturnForm: React.FC = () => {
         }
         setDamageItems(newItems);
       } else {
-        const tempId = Date.now();
+        const tempId = -Date.now();
         setDamageItems([...damageItems, { ...values, id: tempId, returnRecordId: 0 } as DamageItem]);
       }
       setDamageModalOpen(false);
@@ -256,7 +258,7 @@ const ReturnForm: React.FC = () => {
         msg.error('请先选择合同');
         return;
       }
-      recalculate();
+      const latest = recalculate();
       const returnTime = vals.actualReturnDate.toDate().toISOString();
       const actualReturnDate = vals.actualReturnDate.format('YYYY-MM-DD');
 
@@ -268,25 +270,25 @@ const ReturnForm: React.FC = () => {
         dispatcher: vals.dispatcher,
         contractManager: vals.contractManager,
         endFuelLevel: vals.endFuelLevel || 0,
-        fuelDifference: calc.fuelDifference,
+        fuelDifference: latest.fuelDifference,
         fuelCostPerUnit: vals.fuelCostPerUnit || 7.5,
-        fuelCompensation: calc.fuelCompensation,
+        fuelCompensation: latest.fuelCompensation,
         endWorkingHours: vals.endWorkingHours || 0,
-        workingHoursUsed: calc.workingHoursUsed,
-        workingHoursOverLimit: calc.workingHoursOverLimit,
+        workingHoursUsed: latest.workingHoursUsed,
+        workingHoursOverLimit: latest.workingHoursOverLimit,
         overHoursRate: vals.overHoursRate || 0,
-        overHoursCost: calc.overHoursCost,
+        overHoursCost: latest.overHoursCost,
         cleaningStatus: vals.cleaningStatus || 'clean',
-        cleaningCost: calc.cleaningCost,
-        rentDays: calc.rentDays,
-        totalRent: calc.totalRent,
-        extraDays: calc.extraDays,
-        extraDaysCost: calc.extraDaysCost,
-        totalDamageDeductible: calc.totalDamageDeductible,
-        totalDeductions: calc.totalDeductions,
+        cleaningCost: latest.cleaningCost,
+        rentDays: latest.rentDays,
+        totalRent: latest.totalRent,
+        extraDays: latest.extraDays,
+        extraDaysCost: latest.extraDaysCost,
+        totalDamageDeductible: latest.totalDamageDeductible,
+        totalDeductions: latest.totalDeductions,
         deposit: selectedContract.deposit,
-        depositRefund: calc.depositRefund,
-        additionalPayment: calc.additionalPayment,
+        depositRefund: latest.depositRefund,
+        additionalPayment: latest.additionalPayment,
         status: asDraft ? 'pending' : vals.status || 'pending',
         dispatchPhotoIds,
         returnPhotoIds,
@@ -305,8 +307,9 @@ const ReturnForm: React.FC = () => {
       }
 
       for (const d of damageItems) {
-        if (d.id <= 0 || !isEdit) {
-          await api.createDamageItem({ ...d, returnRecordId: recordId });
+        if (d.id < 0) {
+          const { id: _oldId, ...rest } = d;
+          await api.createDamageItem({ ...rest, returnRecordId: recordId });
         }
       }
 

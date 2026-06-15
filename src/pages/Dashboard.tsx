@@ -109,9 +109,9 @@ const Dashboard: React.FC = () => {
                   { title: '设备', dataIndex: 'equipmentName', width: 140 },
                   {
                     title: '回场时间',
-                    dataIndex: 'actualReturnDate',
-                    width: 120,
-                    render: (v) => dayjs(v).format('YYYY-MM-DD'),
+                    dataIndex: 'returnTime',
+                    width: 150,
+                    render: (v) => v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-',
                   },
                   {
                     title: '应收金额',

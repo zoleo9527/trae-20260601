@@ -211,7 +211,7 @@ const ReturnDetail: React.FC = () => {
                 <Descriptions.Item label="计划归还">{dayjs(contract?.plannedReturnDate).format('YYYY-MM-DD')}</Descriptions.Item>
                 <Descriptions.Item label="实际归还" span={2}>
                   <b style={{ color: record.extraDays > 0 ? '#d4380d' : '#52c41a' }}>
-                    {dayjs(record.actualReturnDate).format('YYYY-MM-DD HH:mm')}
+                    {dayjs(record.returnTime).format('YYYY-MM-DD HH:mm')}
                     {record.extraDays > 0 && ` （超期 ${record.extraDays} 天）`}
                   </b>
                 </Descriptions.Item>
