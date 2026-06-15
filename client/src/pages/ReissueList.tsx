@@ -11,6 +11,7 @@ import {
   Col, 
   Statistic,
   message,
+  Alert,
 } from 'antd';
 import { 
   SearchOutlined, 
@@ -36,6 +37,7 @@ export default function ReissueList() {
   const { 
     reissueList, 
     loadingReissues, 
+    error,
     fetchReissueList,
   } = useAppStore();
 
@@ -198,11 +200,29 @@ export default function ReissueList() {
           </Space>
         </div>
 
+        {error && (
+          <Alert
+            type="error"
+            message="服务暂时不可用"
+            description={error}
+            showIcon
+            style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" type="primary" onClick={() => fetchReissueList({ status, keyword, page, pageSize })}>
+                重新加载
+              </Button>
+            }
+          />
+        )}
+
         <Table
           rowKey="id"
           columns={columns}
           dataSource={reissueList?.list || []}
           loading={loadingReissues}
+          locale={{ 
+            emptyText: error ? '加载失败，请点击重新加载' : '暂无数据' 
+          }}
           pagination={{
             current: page,
             pageSize,

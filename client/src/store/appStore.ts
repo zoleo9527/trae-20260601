@@ -33,6 +33,9 @@ interface AppState {
   warehouseLocations: WarehouseLocation[];
   loadingLocations: boolean;
 
+  error: string | null;
+  setError: (error: string | null) => void;
+
   fetchReturnList: (params?: any) => Promise<void>;
   fetchReturnDetail: (id: string) => Promise<void>;
   clearReturnDetail: () => void;
@@ -89,24 +92,27 @@ const useAppStore = create<AppState>((set, get) => ({
   warehouseLocations: [],
   loadingLocations: false,
 
+  error: null,
+  setError: (error) => set({ error }),
+
   fetchReturnList: async (params) => {
-    set({ loadingReturns: true });
+    set({ loadingReturns: true, error: null });
     try {
       const data = await returnsApi.getList(params);
       set({ returnList: data, loadingReturns: false });
-    } catch (error) {
-      set({ loadingReturns: false });
+    } catch (error: any) {
+      set({ loadingReturns: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchReturnDetail: async (id) => {
-    set({ loadingReturns: true });
+    set({ loadingReturns: true, error: null });
     try {
       const data = await returnsApi.getDetail(id);
       set({ returnDetail: data, loadingReturns: false });
-    } catch (error) {
-      set({ loadingReturns: false });
+    } catch (error: any) {
+      set({ loadingReturns: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
@@ -114,23 +120,23 @@ const useAppStore = create<AppState>((set, get) => ({
   clearReturnDetail: () => set({ returnDetail: null }),
 
   fetchReissueList: async (params) => {
-    set({ loadingReissues: true });
+    set({ loadingReissues: true, error: null });
     try {
       const data = await reissueApi.getList(params);
       set({ reissueList: data, loadingReissues: false });
-    } catch (error) {
-      set({ loadingReissues: false });
+    } catch (error: any) {
+      set({ loadingReissues: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchReissueDetail: async (id) => {
-    set({ loadingReissues: true });
+    set({ loadingReissues: true, error: null });
     try {
       const data = await reissueApi.getDetail(id);
       set({ reissueDetail: data, loadingReissues: false });
-    } catch (error) {
-      set({ loadingReissues: false });
+    } catch (error: any) {
+      set({ loadingReissues: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
@@ -138,34 +144,34 @@ const useAppStore = create<AppState>((set, get) => ({
   clearReissueDetail: () => set({ reissueDetail: null }),
 
   fetchOrderList: async (params) => {
-    set({ loadingOrders: true });
+    set({ loadingOrders: true, error: null });
     try {
       const data = await ordersApi.getList(params);
       set({ orderList: data, loadingOrders: false });
-    } catch (error) {
-      set({ loadingOrders: false });
+    } catch (error: any) {
+      set({ loadingOrders: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchOrderDetail: async (id) => {
-    set({ loadingOrders: true });
+    set({ loadingOrders: true, error: null });
     try {
       const data = await ordersApi.getDetail(id);
       set({ orderDetail: data, loadingOrders: false });
-    } catch (error) {
-      set({ loadingOrders: false });
+    } catch (error: any) {
+      set({ loadingOrders: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchWarehouseLocations: async () => {
-    set({ loadingLocations: true });
+    set({ loadingLocations: true, error: null });
     try {
       const data = await warehouseApi.getLocations();
       set({ warehouseLocations: data, loadingLocations: false });
-    } catch (error) {
-      set({ loadingLocations: false });
+    } catch (error: any) {
+      set({ loadingLocations: false, error: error.error || error.message || '加载失败' });
       throw error;
     }
   },

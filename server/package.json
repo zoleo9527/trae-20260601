@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --ignore 'data/**' src/index.ts",
+    "dev": "tsx watch --ignore 'data/**' --ignore 'uploads/**' --ignore '*.db*' src/index.ts",
+    "start": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "serve": "node dist/index.js",
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {

@@ -16,6 +16,8 @@ import {
   Row,
   Col,
   Popconfirm,
+  Spin,
+  Alert,
 } from 'antd';
 import { 
   ArrowLeftOutlined, 
@@ -50,7 +52,8 @@ export default function ReissueDetail() {
   const navigate = useNavigate();
   const { 
     reissueDetail, 
-    loadingReissues, 
+    loadingReissues,
+    error,
     fetchReissueDetail,
     startPicking,
     shipReissue,
@@ -77,8 +80,38 @@ export default function ReissueDetail() {
     }
   }, [id]);
 
+  if (loadingReissues && !reissueDetail) {
+    return (
+      <div style={{ textAlign: 'center', padding: 50 }}>
+        <Spin size="large" tip="加载中..." />
+      </div>
+    );
+  }
+
+  if (error && !reissueDetail) {
+    return (
+      <div style={{ textAlign: 'center', padding: 50 }}>
+        <Alert
+          type="error"
+          message="服务暂时不可用"
+          description={error}
+          showIcon
+          style={{ marginBottom: 16, maxWidth: 400, display: 'inline-block', textAlign: 'left' }}
+        />
+        <br />
+        <Button type="primary" onClick={() => id && fetchReissueDetail(id)}>
+          重新加载
+        </Button>
+      </div>
+    );
+  }
+
   if (!reissueDetail) {
-    return <div style={{ textAlign: 'center', padding: 50 }}>加载中...</div>;
+    return (
+      <div style={{ textAlign: 'center', padding: 50, color: '#999' }}>
+        暂无数据
+      </div>
+    );
   }
 
   const statusSteps = [
@@ -198,6 +231,16 @@ export default function ReissueDetail() {
 
   return (
     <div>
+      {error && reissueDetail && (
+        <Alert
+          type="warning"
+          message={error}
+          showIcon
+          closable
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
       <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Space>
           <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/reissues')}>

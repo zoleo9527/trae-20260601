@@ -17,6 +17,7 @@ import {
   message,
   Popconfirm,
   Dropdown,
+  Alert,
 } from 'antd';
 import { 
   PlusOutlined, 
@@ -48,6 +49,7 @@ export default function ReturnList() {
   const { 
     returnList, 
     loadingReturns, 
+    error,
     fetchReturnList,
     batchWarehouseConfirm,
     batchCancel,
@@ -301,11 +303,29 @@ export default function ReturnList() {
           </Space>
         </div>
 
+        {error && (
+          <Alert
+            type="error"
+            message="服务暂时不可用"
+            description={error}
+            showIcon
+            style={{ marginBottom: 16 }}
+            action={
+              <Button size="small" type="primary" onClick={() => fetchReturnList({ status, type, keyword, page, pageSize })}>
+                重新加载
+              </Button>
+            }
+          />
+        )}
+
         <Table
           rowKey="id"
           columns={columns}
           dataSource={returnList?.list || []}
           loading={loadingReturns}
+          locale={{ 
+            emptyText: error ? '加载失败，请点击重新加载' : '暂无数据' 
+          }}
           rowSelection={{
             selectedRowKeys,
             onChange: setSelectedRowKeys,
