@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/app.js",
     "dev": "node src/app.js",
-    "test:api": "node tests/run-api-tests.js"
+    "test:api": "node tests/run-api-tests.js",
+    "test:sort": "node tests/run-sort-tests.js",
+    "test:all": "node tests/run-api-tests.js && node tests/run-sort-tests.js"
   },
   "dependencies": {
     "express": "^4.18.2",

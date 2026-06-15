@@ -97,6 +97,17 @@ class ProjectService {
       toStatus: PROJECT_STATUS.DRAFT
     });
 
+    if (params.initialRemark) {
+      RecordService.createRecord({
+        projectId: project.id,
+        type: 'REMARK_ADD',
+        operator: operatorId,
+        detail: `添加备注：${params.initialRemark}`,
+        fromStatus: PROJECT_STATUS.DRAFT,
+        toStatus: PROJECT_STATUS.DRAFT
+      });
+    }
+
     return project;
   }
 

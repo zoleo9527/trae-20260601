@@ -68,22 +68,6 @@ class DrawingService {
     project.designFile = params.fileName;
     project.updatedAt = now;
 
-    if (project.status === PROJECT_STATUS.DRAFT) {
-      project.status = PROJECT_STATUS.DRAWING_PENDING;
-      project.statusLabel = PROJECT_STATUS_LABELS.DRAWING_PENDING;
-      project.currentHandler = project.productionMasterId;
-      project.currentHandlerName = project.productionMasterName;
-
-      RecordService.createRecord({
-        projectId,
-        type: 'STATUS_CHANGE',
-        operator: operatorId,
-        detail: `项目状态从「${PROJECT_STATUS_LABELS.DRAFT}」变更为「${PROJECT_STATUS_LABELS.DRAWING_PENDING}」，当前处理人：${project.productionMasterName}(${PROJECT_STATUS_LABELS.DRAWING_PENDING === project.statusLabel ? '制作师傅' : '制作师傅'})`,
-        fromStatus: PROJECT_STATUS.DRAFT,
-        toStatus: PROJECT_STATUS.DRAWING_PENDING
-      });
-    }
-
     const changesText = drawing.changes && drawing.changes.length > 0
       ? `，主要变更：${drawing.changes.join('、')}`
       : '';
@@ -97,6 +81,22 @@ class DrawingService {
       toStatus: project.status,
       refId: drawing.id
     });
+
+    if (project.status === PROJECT_STATUS.DRAFT) {
+      project.status = PROJECT_STATUS.DRAWING_PENDING;
+      project.statusLabel = PROJECT_STATUS_LABELS.DRAWING_PENDING;
+      project.currentHandler = project.productionMasterId;
+      project.currentHandlerName = project.productionMasterName;
+
+      RecordService.createRecord({
+        projectId,
+        type: 'STATUS_CHANGE',
+        operator: operatorId,
+        detail: `项目状态从「${PROJECT_STATUS_LABELS.DRAFT}」变更为「${PROJECT_STATUS_LABELS.DRAWING_PENDING}」，当前处理人：${project.productionMasterName}(制作师傅)`,
+        fromStatus: PROJECT_STATUS.DRAFT,
+        toStatus: PROJECT_STATUS.DRAWING_PENDING
+      });
+    }
 
     return drawing;
   }
@@ -151,22 +151,20 @@ class DrawingService {
       toStatus: PROJECT_STATUS.DRAWING_CONFIRMED
     });
 
-    setTimeout(() => {
-      project.status = PROJECT_STATUS.PRODUCTION_PENDING;
-      project.statusLabel = PROJECT_STATUS_LABELS.PRODUCTION_PENDING;
-      project.currentHandler = project.productionMasterId;
-      project.currentHandlerName = project.productionMasterName;
-      project.updatedAt = new Date().toISOString();
+    project.status = PROJECT_STATUS.PRODUCTION_PENDING;
+    project.statusLabel = PROJECT_STATUS_LABELS.PRODUCTION_PENDING;
+    project.currentHandler = project.productionMasterId;
+    project.currentHandlerName = project.productionMasterName;
+    project.updatedAt = new Date().toISOString();
 
-      RecordService.createRecord({
-        projectId: drawing.projectId,
-        type: 'STATUS_CHANGE',
-        operator: 'SYSTEM',
-        detail: `项目状态从「${PROJECT_STATUS_LABELS.DRAWING_CONFIRMED}」自动变更为「${PROJECT_STATUS_LABELS.PRODUCTION_PENDING}」，当前处理人：${project.productionMasterName}(制作师傅)`,
-        fromStatus: PROJECT_STATUS.DRAWING_CONFIRMED,
-        toStatus: PROJECT_STATUS.PRODUCTION_PENDING
-      });
-    }, 100);
+    RecordService.createRecord({
+      projectId: drawing.projectId,
+      type: 'STATUS_CHANGE',
+      operator: 'SYSTEM',
+      detail: `项目状态从「${PROJECT_STATUS_LABELS.DRAWING_CONFIRMED}」自动变更为「${PROJECT_STATUS_LABELS.PRODUCTION_PENDING}」，当前处理人：${project.productionMasterName}(制作师傅)`,
+      fromStatus: PROJECT_STATUS.DRAWING_CONFIRMED,
+      toStatus: PROJECT_STATUS.PRODUCTION_PENDING
+    });
 
     return drawing;
   }

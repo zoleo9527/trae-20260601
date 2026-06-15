@@ -1,10 +1,21 @@
-const { store, generateId } = require('../data/store');
+const { store, generateId, nextSequence } = require('../data/store');
 const {
   RECORD_TYPES,
   RECORD_TYPE_LABELS,
   ROLE_LABELS
 } = require('../data/init');
 const AuthService = require('./authService');
+
+const RECORD_TYPE_ORDER_WEIGHT = {
+  PROJECT_CREATE: 10,
+  REMARK_ADD: 20,
+  DRAWING_SUBMIT: 30,
+  DRAWING_REJECT: 40,
+  DRAWING_CONFIRM: 50,
+  SCHEDULE_SUBMIT: 60,
+  SCHEDULE_CONFIRM: 70,
+  STATUS_CHANGE: 100
+};
 
 class RecordService {
   static createRecord(params) {
@@ -15,7 +26,8 @@ class RecordService {
       detail,
       fromStatus = null,
       toStatus = null,
-      refId = null
+      refId = null,
+      actionTime = null
     } = params;
 
     const user = AuthService.getUser(operator);
@@ -30,7 +42,10 @@ class RecordService {
       operator,
       operatorName,
       operatorRole,
-      actionTime: new Date().toISOString(),
+      actionTime: actionTime || new Date().toISOString(),
+      actionTimestamp: Date.now(),
+      sequence: nextSequence(),
+      typeOrderWeight: RECORD_TYPE_ORDER_WEIGHT[type] || 50,
       detail,
       fromStatus,
       toStatus,
@@ -41,10 +56,24 @@ class RecordService {
     return record;
   }
 
+  static _sortRecords(records, descending = false) {
+    return [...records].sort((a, b) => {
+      const timeDiff = new Date(a.actionTime) - new Date(b.actionTime);
+      if (timeDiff !== 0) {
+        return descending ? -timeDiff : timeDiff;
+      }
+      const seqDiff = a.sequence - b.sequence;
+      if (seqDiff !== 0) {
+        return descending ? -seqDiff : seqDiff;
+      }
+      const typeDiff = a.typeOrderWeight - b.typeOrderWeight;
+      return descending ? -typeDiff : typeDiff;
+    });
+  }
+
   static listByProject(projectId) {
-    return store.records
-      .filter(r => r.projectId === projectId)
-      .sort((a, b) => new Date(a.actionTime) - new Date(b.actionTime));
+    const records = store.records.filter(r => r.projectId === projectId);
+    return this._sortRecords(records, false);
   }
 
   static listAll(filters = {}) {
@@ -64,7 +93,7 @@ class RecordService {
     if (filters.endTime) {
       result = result.filter(r => new Date(r.actionTime) <= new Date(filters.endTime));
     }
-    return result.sort((a, b) => new Date(b.actionTime) - new Date(a.actionTime));
+    return this._sortRecords(result, true);
   }
 
   static getTimeline(projectId) {

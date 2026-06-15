@@ -1,6 +1,6 @@
 #!/bin/bash
 
-BASE_URL="http://localhost:3000/api"
+BASE_URL="http://localhost:3005/api"
 
 echo "========================================"
 echo "标识制作厂工作流系统 - API 请求示例"

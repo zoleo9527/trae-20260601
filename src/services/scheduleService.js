@@ -214,7 +214,7 @@ class ScheduleService {
       .filter(r => r.type === 'SCHEDULE_SUBMIT' || r.type === 'SCHEDULE_CONFIRM' || r.refId === scheduleId);
     return {
       ...schedule,
-      auditTrail: timeline
+      auditTrail: RecordService._sortRecords(timeline, false)
     };
   }
 

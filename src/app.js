@@ -10,7 +10,7 @@ const usersRouter = require('./routes/users');
 const { initializeData } = require('./data/init');
 
 const app = express();
-const PORT = 3000;
+const PORT = 3005;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));

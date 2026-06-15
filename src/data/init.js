@@ -1,4 +1,49 @@
-const { store, generateId } = require('./store');
+const { store, generateId, resetSequence, nextSequence } = require('./store');
+
+const RECORD_TYPE_ORDER_WEIGHT = {
+  PROJECT_CREATE: 10,
+  REMARK_ADD: 20,
+  DRAWING_SUBMIT: 30,
+  DRAWING_REJECT: 40,
+  DRAWING_CONFIRM: 50,
+  SCHEDULE_SUBMIT: 60,
+  SCHEDULE_CONFIRM: 70,
+  STATUS_CHANGE: 100
+};
+
+function createInitRecord(params) {
+  const {
+    projectId,
+    type,
+    operator,
+    detail,
+    fromStatus = null,
+    toStatus = null,
+    refId = null,
+    actionTime
+  } = params;
+
+  const operatorName = operator === 'USER_001' ? '王明' : (operator === 'USER_002' ? '李刚' : (operator === 'USER_003' ? '张伟' : '系统'));
+  const operatorRole = operator === 'USER_001' ? '项目专员' : (operator === 'USER_002' ? '制作师傅' : (operator === 'USER_003' ? '安装负责人' : '系统'));
+
+  return {
+    id: 'REC_' + generateId(),
+    projectId,
+    type,
+    typeLabel: RECORD_TYPE_LABELS[type] || type,
+    operator,
+    operatorName,
+    operatorRole,
+    actionTime,
+    actionTimestamp: new Date(actionTime).getTime(),
+    sequence: nextSequence(),
+    typeOrderWeight: RECORD_TYPE_ORDER_WEIGHT[type] || 50,
+    detail,
+    fromStatus,
+    toStatus,
+    refId
+  };
+}
 
 const ROLES = {
   PROJECT_MANAGER: 'PROJECT_MANAGER',
@@ -77,6 +122,8 @@ const RECORD_TYPE_LABELS = {
 };
 
 function initializeData() {
+  resetSequence();
+
   store.users = [
     {
       id: 'USER_001',
@@ -366,221 +413,193 @@ function initializeData() {
   ];
 
   store.records = [
-    {
-      id: 'REC_' + generateId(),
+    createInitRecord({
       projectId: 'PRJ_202606001',
       type: RECORD_TYPES.PROJECT_CREATE,
-      typeLabel: RECORD_TYPE_LABELS.PROJECT_CREATE,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-08T10:30:00.000Z',
       detail: '创建项目「万达广场A区标识系统」，项目编号 WDGY-A-2026',
       fromStatus: null,
       toStatus: PROJECT_STATUS.DRAFT
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606001',
       type: RECORD_TYPES.REMARK_ADD,
-      typeLabel: RECORD_TYPE_LABELS.REMARK_ADD,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-08T11:15:00.000Z',
       detail: '添加备注：现场勘测已完成，墙面平整度符合要求，需注意主入口标识安装高度与消防喷淋的位置关系',
       fromStatus: PROJECT_STATUS.DRAFT,
       toStatus: PROJECT_STATUS.DRAFT
-    },
-    {
-      id: 'REC_' + generateId(),
-      projectId: 'PRJ_202606001',
-      type: RECORD_TYPES.STATUS_CHANGE,
-      typeLabel: RECORD_TYPE_LABELS.STATUS_CHANGE,
-      operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
-      actionTime: '2026-06-10T14:15:00.000Z',
-      detail: '项目状态从「草稿」变更为「待图纸确认」，当前处理人：李刚(制作师傅)',
-      fromStatus: PROJECT_STATUS.DRAFT,
-      toStatus: PROJECT_STATUS.DRAWING_PENDING
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606001',
       type: RECORD_TYPES.DRAWING_SUBMIT,
-      typeLabel: RECORD_TYPE_LABELS.DRAWING_SUBMIT,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-10T14:15:00.000Z',
       detail: '提交图纸确认：WDGY-A区设计图_v3.pdf，版本v3，主要变更：B1层停车场指引标识增加夜光材质、主入口Logo标识尺寸从1200mm调整为1500mm',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_PENDING,
       refId: store.drawings[0].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606001',
+      type: RECORD_TYPES.STATUS_CHANGE,
+      operator: 'USER_001',
+      actionTime: '2026-06-10T14:15:00.000Z',
+      detail: '项目状态从「草稿」变更为「待图纸确认」，当前处理人：李刚(制作师傅)',
+      fromStatus: PROJECT_STATUS.DRAFT,
+      toStatus: PROJECT_STATUS.DRAWING_PENDING
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606001',
       type: RECORD_TYPES.REMARK_ADD,
-      typeLabel: RECORD_TYPE_LABELS.REMARK_ADD,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-10T14:20:00.000Z',
       detail: '添加备注：客户反馈B1层停车场指引标识需增加夜光材质，设计图已更新至v3版本，请核对',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_PENDING
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.PROJECT_CREATE,
-      typeLabel: RECORD_TYPE_LABELS.PROJECT_CREATE,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-03T09:00:00.000Z',
       detail: '创建项目「阳光住宅小区标识标牌」，项目编号 YGZX-2026',
       fromStatus: null,
       toStatus: PROJECT_STATUS.DRAFT
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606002',
+      type: RECORD_TYPES.REMARK_ADD,
+      operator: 'USER_001',
+      actionTime: '2026-06-03T10:30:00.000Z',
+      detail: '添加备注：小区东门入口处有地埋电缆，安装立柱标识时需避让，详见现场勘测表附图',
+      fromStatus: PROJECT_STATUS.DRAFT,
+      toStatus: PROJECT_STATUS.DRAFT
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.DRAWING_SUBMIT,
-      typeLabel: RECORD_TYPE_LABELS.DRAWING_SUBMIT,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-04T16:00:00.000Z',
       detail: '提交图纸确认：YGZX_小区标识设计_v1.dwg，版本v1',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_PENDING,
       refId: store.drawings[2].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.DRAWING_REJECT,
-      typeLabel: RECORD_TYPE_LABELS.DRAWING_REJECT,
       operator: 'USER_002',
-      operatorName: '李刚',
-      operatorRole: ROLE_LABELS.PRODUCTION_MASTER,
       actionTime: '2026-06-05T09:30:00.000Z',
       detail: '驳回图纸v1：楼栋牌使用的黑体字客户不认可，需更换为方正兰亭黑；地下车库标识缺少反光条设计，请设计方补充',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_PENDING,
       refId: store.drawings[2].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.DRAWING_SUBMIT,
-      typeLabel: RECORD_TYPE_LABELS.DRAWING_SUBMIT,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-05T10:00:00.000Z',
       detail: '提交图纸确认：YGZX_小区标识设计_最终版.dwg，版本v2，主要变更：楼栋牌字体调整为方正兰亭黑、地下车库标识增加反光条',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_PENDING,
       refId: store.drawings[1].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.DRAWING_CONFIRM,
-      typeLabel: RECORD_TYPE_LABELS.DRAWING_CONFIRM,
       operator: 'USER_002',
-      operatorName: '李刚',
-      operatorRole: ROLE_LABELS.PRODUCTION_MASTER,
       actionTime: '2026-06-06T13:20:00.000Z',
       detail: '确认图纸v2：楼栋牌字体从黑体调整为方正兰亭黑，其余设计内容无问题，可进入生产环节',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_CONFIRMED,
       refId: store.drawings[1].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.STATUS_CHANGE,
-      typeLabel: RECORD_TYPE_LABELS.STATUS_CHANGE,
       operator: 'USER_002',
-      operatorName: '李刚',
-      operatorRole: ROLE_LABELS.PRODUCTION_MASTER,
       actionTime: '2026-06-06T13:20:00.000Z',
       detail: '项目状态从「待图纸确认」变更为「图纸已确认」',
       fromStatus: PROJECT_STATUS.DRAWING_PENDING,
       toStatus: PROJECT_STATUS.DRAWING_CONFIRMED
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.STATUS_CHANGE,
-      typeLabel: RECORD_TYPE_LABELS.STATUS_CHANGE,
       operator: 'SYSTEM',
-      operatorName: '系统',
-      operatorRole: '系统',
-      actionTime: '2026-06-06T13:20:01.000Z',
-      detail: '项目状态从「图纸已确认」变更为「待生产排单」，当前处理人：李刚(制作师傅)',
+      actionTime: '2026-06-06T13:20:00.000Z',
+      detail: '项目状态从「图纸已确认」自动变更为「待生产排单」，当前处理人：李刚(制作师傅)',
       fromStatus: PROJECT_STATUS.DRAWING_CONFIRMED,
       toStatus: PROJECT_STATUS.PRODUCTION_PENDING
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606002',
+      type: RECORD_TYPES.REMARK_ADD,
+      operator: 'USER_002',
+      actionTime: '2026-06-06T13:20:00.000Z',
+      detail: '添加备注：图纸已确认，设计文件中楼栋牌字体从黑体调整为客户指定的方正兰亭黑',
+      fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
+      toStatus: PROJECT_STATUS.PRODUCTION_PENDING
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.SCHEDULE_SUBMIT,
-      typeLabel: RECORD_TYPE_LABELS.SCHEDULE_SUBMIT,
       operator: 'USER_002',
-      operatorName: '李刚',
-      operatorRole: ROLE_LABELS.PRODUCTION_MASTER,
       actionTime: '2026-06-11T11:00:00.000Z',
       detail: '提交生产排单：生产周期6月15日-6月17日，安装周期6月18日-6月20日，共4类物料、4项生产任务、3个安装区域',
       fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
       toStatus: PROJECT_STATUS.PRODUCTION_PENDING,
       refId: store.schedules[0].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.SCHEDULE_CONFIRM,
-      typeLabel: RECORD_TYPE_LABELS.SCHEDULE_CONFIRM,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-12T16:45:00.000Z',
       detail: '确认生产排单：排单合理，请安装队提前与物业沟通进场时间，注意避开高考期间(6月7-9日)的噪音管控',
       fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
       toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED,
       refId: store.schedules[0].id
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606002',
       type: RECORD_TYPES.STATUS_CHANGE,
-      typeLabel: RECORD_TYPE_LABELS.STATUS_CHANGE,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-12T16:45:00.000Z',
       detail: '项目状态从「待生产排单」变更为「生产排单已确认」，当前处理人：张伟(安装负责人)',
       fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
       toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED
-    },
-    {
-      id: 'REC_' + generateId(),
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606002',
+      type: RECORD_TYPES.REMARK_ADD,
+      operator: 'USER_002',
+      actionTime: '2026-06-12T16:45:00.000Z',
+      detail: '添加备注：生产排单已确认，不锈钢板材已下周三入库，预计6月18日开始安装，请安装队提前安排人手',
+      fromStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED,
+      toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED
+    }),
+    createInitRecord({
       projectId: 'PRJ_202606003',
       type: RECORD_TYPES.PROJECT_CREATE,
-      typeLabel: RECORD_TYPE_LABELS.PROJECT_CREATE,
       operator: 'USER_001',
-      operatorName: '王明',
-      operatorRole: ROLE_LABELS.PROJECT_MANAGER,
       actionTime: '2026-06-12T15:00:00.000Z',
       detail: '创建项目「科技园B栋导视系统」，项目编号 KJY-B-2026',
       fromStatus: null,
       toStatus: PROJECT_STATUS.DRAFT
-    }
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606003',
+      type: RECORD_TYPES.REMARK_ADD,
+      operator: 'USER_001',
+      actionTime: '2026-06-12T15:00:00.000Z',
+      detail: '添加备注：客户尚未提供最终设计稿，等设计方交付后再推进',
+      fromStatus: PROJECT_STATUS.DRAFT,
+      toStatus: PROJECT_STATUS.DRAFT
+    })
   ];
 
   store.idempotency = {};
