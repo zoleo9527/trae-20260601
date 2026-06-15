@@ -10,10 +10,24 @@ import StaffManagement from './components/StaffManagement'
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [orderListFilters, setOrderListFilters] = useState(null)
 
   const handleOrderClick = (order) => {
-    setSelectedOrder(order)
-    setActiveTab('order-detail')
+    if (order?.id) {
+      setSelectedOrder(order)
+      setActiveTab('order-detail')
+    } else if (order?.status || order?.search) {
+      setOrderListFilters(order)
+      setActiveTab('orders')
+    } else {
+      setOrderListFilters(null)
+      setActiveTab('orders')
+    }
+  }
+
+  const handleViewOrders = (filters) => {
+    setOrderListFilters(filters)
+    setActiveTab('orders')
   }
 
   const handleBackToList = () => {
@@ -24,9 +38,9 @@ function App() {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onOrderClick={handleOrderClick} />
+        return <Dashboard onViewOrders={handleViewOrders} />
       case 'orders':
-        return <OrderList onOrderClick={handleOrderClick} />
+        return <OrderList onOrderClick={handleOrderClick} initialFilters={orderListFilters} />
       case 'order-detail':
         return <OrderDetail order={selectedOrder} onBack={handleBackToList} />
       case 'fabric-stock':
@@ -36,7 +50,7 @@ function App() {
       case 'staff':
         return <StaffManagement />
       default:
-        return <Dashboard onOrderClick={handleOrderClick} />
+        return <Dashboard onViewOrders={handleViewOrders} />
     }
   }
 

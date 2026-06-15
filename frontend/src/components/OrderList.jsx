@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, ChevronRight, Plus, RefreshCw } from 'lucide-react';
+import { Search, Filter, ChevronRight, Plus, RefreshCw, AlertCircle, Clock, Package, CheckCircle } from 'lucide-react';
 import axios from 'axios';
 const statusLabels = {
  pending: '待量尺',
@@ -32,7 +32,14 @@ const statusColors = {
  needs_revision: 'bg-amber-100 text-amber-800'
 };
 const handlerOptions = ['导购', '量尺师', '裁剪工', '缝纫工', '熨烫工', '安装师傅', '采购'];
-function OrderList({ onOrderClick }) {
+const quickFilters = [
+ { label: '待处理', statuses: ['pending', 'measuring', 'measured', 'needs_revision'], color: 'bg-yellow-500' },
+ { label: '面料相关', statuses: ['fabric_ordered', 'fabric_received'], color: 'bg-orange-500' },
+ { label: '加工中', statuses: ['cutting', 'sewing', 'ironing'], color: 'bg-cyan-500' },
+ { label: '安装中', statuses: ['installing'], color: 'bg-green-500' },
+ { label: '问题订单', statuses: ['rejected', 'needs_revision'], color: 'bg-red-500' }
+];
+function OrderList({ onOrderClick, initialFilters }) {
  const [orders, setOrders] = useState([]);
  const [loading, setLoading] = useState(true);
  const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +48,16 @@ function OrderList({ onOrderClick }) {
  const [showFilters, setShowFilters] = useState(false);
  const [currentPage, setCurrentPage] = useState(1);
  const [total, setTotal] = useState(0);
+ useEffect(() => {
+ if (initialFilters) {
+ if (initialFilters.status) {
+ setStatusFilter(initialFilters.status);
+ }
+ if (initialFilters.search) {
+ setSearchTerm(initialFilters.search);
+ }
+ }
+ }, []);
  useEffect(() => {
  fetchOrders();
  }, [searchTerm, statusFilter, handlerFilter, currentPage]);
@@ -75,6 +92,10 @@ function OrderList({ onOrderClick }) {
  minute: '2-digit'
  });
  };
+ const handleQuickFilter = (statuses) => {
+ setStatusFilter('');
+ setCurrentPage(1);
+ };
  const totalPages = Math.ceil(total / 10);
  return (<div className="p-6">
  <div className="flex items-center justify-between mb-6">
@@ -86,6 +107,17 @@ function OrderList({ onOrderClick }) {
  <Plus size={18}/>
  <span>新建订单</span>
  </button>
+ </div>
+
+ <div className="flex flex-wrap gap-2 mb-6">
+ {quickFilters.map((filter, index) => (<button key={index} onClick={() => handleQuickFilter(filter.statuses)} className={`flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-colors ${filter.color} text-white hover:opacity-90`}>
+ {index === 0 && <Clock size={14}/>}
+ {index === 1 && <Package size={14}/>}
+ {index === 2 && <AlertCircle size={14}/>}
+ {index === 3 && <CheckCircle size={14}/>}
+ {index === 4 && <AlertCircle size={14}/>}
+ <span>{filter.label}</span>
+ </button>))}
  </div>
 
  <div className="bg-white rounded-xl shadow-sm">
@@ -114,7 +146,7 @@ function OrderList({ onOrderClick }) {
  </div>
 
  {showFilters && (<div className="mt-4 pt-4 border-t border-slate-100">
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
  <div>
  <label className="block text-sm font-medium text-slate-600 mb-2">状态</label>
  <select value={statusFilter} onChange={(e) => {
@@ -133,6 +165,27 @@ function OrderList({ onOrderClick }) {
  }} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
  <option value="">全部人员</option>
  {handlerOptions.map((handler) => (<option key={handler} value={handler}>{handler}</option>))}
+ </select>
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-slate-600 mb-2">快速筛选</label>
+ <select onChange={(e) => {
+ const value = e.target.value;
+ if (value) {
+ setStatusFilter(value);
+ } else {
+ setStatusFilter('');
+ }
+ setCurrentPage(1);
+ }} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500">
+ <option value="">选择筛选条件</option>
+ <option value="pending">待量尺</option>
+ <option value="measuring">量尺中</option>
+ <option value="measured">待复核</option>
+ <option value="confirmed">待面料下单</option>
+ <option value="fabric_ordered">面料已下单待到货</option>
+ <option value="fabric_received">待加工</option>
+ <option value="installing">安装中</option>
  </select>
  </div>
  </div>
