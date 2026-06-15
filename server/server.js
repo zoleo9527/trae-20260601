@@ -84,12 +84,59 @@ const getBlockReason = (order) => {
   return getAutoBlockReason(order);
 };
 
+const getOrderHandlers = (order) => {
+  const schedule = scheduling.find(s => s.orderId === order.id);
+  const assignedStaff = schedule ? staff.find(st => st.id === schedule.staffId) : null;
+  const customerServiceStaff = staff.find(st => st.role === '客服');
+  const qcStaff = staff.find(st => st.role === '质检主管');
+  
+  let currentHandler = null;
+  let nextAction = '';
+  
+  switch (order.status) {
+    case '待排班':
+      currentHandler = customerServiceStaff ? { name: customerServiceStaff.name, role: '客服', status: customerServiceStaff.status } : null;
+      nextAction = '需要分配家政员';
+      break;
+    case '已排班':
+      currentHandler = assignedStaff ? { name: assignedStaff.name, role: '家政员', status: assignedStaff.status } : null;
+      nextAction = assignedStaff?.status === '离线' ? '等待家政员上线确认到岗' : '等待家政员确认到岗';
+      break;
+    case '待确认':
+      currentHandler = assignedStaff ? { name: assignedStaff.name, role: '家政员', status: assignedStaff.status } : null;
+      nextAction = '需要确认到岗状态';
+      break;
+    case '已到岗':
+      currentHandler = qcStaff ? { name: qcStaff.name, role: '质检主管', status: qcStaff.status } : null;
+      nextAction = '等待服务开始';
+      break;
+    case '服务中':
+      currentHandler = qcStaff ? { name: qcStaff.name, role: '质检主管', status: qcStaff.status } : null;
+      nextAction = '监督服务质量';
+      break;
+    case '已完成':
+      currentHandler = null;
+      nextAction = '订单已完成';
+      break;
+    default:
+      currentHandler = null;
+      nextAction = '';
+  }
+  
+  return { currentHandler, nextAction };
+};
+
 app.get('/api/orders', (req, res) => {
   const { status } = req.query;
-  let result = orders.map(o => ({
-    ...o,
-    blockReason: getBlockReason(o),
-  }));
+  let result = orders.map(o => {
+    const { currentHandler, nextAction } = getOrderHandlers(o);
+    return {
+      ...o,
+      blockReason: getBlockReason(o),
+      currentHandler,
+      nextAction,
+    };
+  });
   if (status) {
     result = result.filter(o => o.status === status);
   }

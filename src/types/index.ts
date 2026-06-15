@@ -11,6 +11,12 @@ export interface Order {
   createdAt: string;
   blockReason?: string;
   assignedStaffId?: number;
+  currentHandler?: {
+    name: string;
+    role: string;
+    status: string;
+  } | null;
+  nextAction?: string;
 }
 
 export interface Staff {
