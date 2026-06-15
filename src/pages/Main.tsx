@@ -49,6 +49,11 @@ export default function Main() {
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
   const [showResponsibilityWarning, setShowResponsibilityWarning] = useState(true);
 
+  const handleViewReservation = (reservationId: string) => {
+    setSelectedReservationId(reservationId);
+    setSelectedLockId(null);
+  };
+
   if (!currentUser) return null;
 
   const tabs = roleTabs[currentUser.role];
@@ -62,7 +67,11 @@ export default function Main() {
 
   const renderContent = () => {
     if (selectedLockId) {
-      return <ColorLockDetail lockId={selectedLockId} onBack={() => setSelectedLockId(null)} />;
+      return <ColorLockDetail 
+        lockId={selectedLockId} 
+        onBack={() => setSelectedLockId(null)} 
+        onViewReservation={handleViewReservation}
+      />;
     }
     if (selectedReservationId) {
       return <ReservationDetail reservationId={selectedReservationId} onBack={() => setSelectedReservationId(null)} />;

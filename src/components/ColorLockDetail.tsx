@@ -4,12 +4,13 @@ import { ColorLock, UserRole } from '../types';
 import { 
   Lock, AlertTriangle, CheckCircle, XCircle, ChevronLeft, 
   User, Phone, MapPin, Calendar, FileText, Send, 
-  Warehouse, ArrowRight, Clock
+  Warehouse, ArrowRight, Clock, ExternalLink
 } from 'lucide-react';
 
 interface ColorLockDetailProps {
   lockId: string;
   onBack: () => void;
+  onViewReservation?: (reservationId: string) => void;
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: typeof Clock }> = {
@@ -26,7 +27,7 @@ const roleLabel: Record<UserRole, string> = {
   warehouse: '仓库员',
 };
 
-export default function ColorLockDetail({ lockId, onBack }: ColorLockDetailProps) {
+export default function ColorLockDetail({ lockId, onBack, onViewReservation }: ColorLockDetailProps) {
   const colorLock = useAppStore((state) => state.colorLocks.find(l => l.id === lockId));
   const currentUser = useAppStore((state) => state.currentUser);
   const updateColorLock = useAppStore((state) => state.updateColorLock);
@@ -83,7 +84,7 @@ export default function ColorLockDetail({ lockId, onBack }: ColorLockDetailProps
         reservedQuantity: colorLock.quantity,
         warehouseName: 'A区仓库',
         status: 'pending',
-        responsibilityFlag: false,
+        responsibilityFlag: colorLock.responsibilityFlag,
         remarks: [
           ...colorLock.remarks.map(r => ({ ...r })),
           { id: `R${Date.now()}`, content: `接色号锁定${lockId}，需预留${colorLock.quantity}片`, author: '系统', authorRole: 'warehouse', createdAt: new Date().toLocaleString('zh-CN') }
@@ -91,7 +92,6 @@ export default function ColorLockDetail({ lockId, onBack }: ColorLockDetailProps
       });
       
       updateColorLock(lockId, { 
-        status: 'reserved',
         linkedReservationId: newReservation.id 
       });
       
@@ -100,6 +100,12 @@ export default function ColorLockDetail({ lockId, onBack }: ColorLockDetailProps
         author: currentUser.name,
         authorRole: currentUser.role,
       });
+    }
+  };
+
+  const handleViewReservation = () => {
+    if (colorLock.linkedReservationId && onViewReservation) {
+      onViewReservation(colorLock.linkedReservationId);
     }
   };
 
@@ -219,6 +225,15 @@ export default function ColorLockDetail({ lockId, onBack }: ColorLockDetailProps
                 <Warehouse className="w-5 h-5" />
                 创建库存预留
                 <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+            {colorLock.linkedReservationId && (
+              <button
+                onClick={handleViewReservation}
+                className="flex items-center gap-2 px-6 py-3 bg-indigo-500 text-white rounded-xl hover:bg-indigo-600 transition-colors font-medium"
+              >
+                <ExternalLink className="w-5 h-5" />
+                查看库存预留单 {colorLock.linkedReservationId}
               </button>
             )}
             <button
