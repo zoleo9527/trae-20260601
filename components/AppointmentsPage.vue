@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import type { Appointment } from '~/data/types'
 
@@ -21,26 +21,35 @@ const {
   getAppointmentById
 } = useAppointments()
 
-onMounted(() => {
-  fetchAppointments()
-})
-
-watch(() => props.highlightId, (newId) => {
-  if (newId) {
-    const appointment = getAppointmentById(newId)
-    if (appointment) {
-      activeTab.value = 'all'
-      selectedAppointment.value = appointment
-      showDetail.value = true
-    }
-  }
-})
-
 const activeTab = ref('all')
 const showDetail = ref(false)
 const selectedAppointment = ref<Appointment | null>(null)
 const showCancelModal = ref(false)
 const cancelReason = ref('')
+
+onMounted(async () => {
+  await fetchAppointments()
+  await nextTick()
+  if (props.highlightId) {
+    openAppointmentDetail(props.highlightId)
+  }
+})
+
+watch(() => props.highlightId, async (newId) => {
+  if (newId && !loading.value) {
+    await nextTick()
+    openAppointmentDetail(newId)
+  }
+})
+
+const openAppointmentDetail = (id: string) => {
+  const appointment = getAppointmentById(id)
+  if (appointment) {
+    activeTab.value = 'all'
+    selectedAppointment.value = appointment
+    showDetail.value = true
+  }
+}
 
 const statusLabels: Record<string, string> = {
   pending: '待确认',
@@ -141,7 +150,6 @@ const formatAddress = (addr: any) => {
             <tr 
               v-for="appointment in filteredAppointments" 
               :key="appointment.id"
-              :class="{ 'highlight-row': appointment.id === highlightId }"
               :style="{ backgroundColor: appointment.id === highlightId ? '#e6f7ff' : '' }"
             >
               <td><a href="#" @click.prevent="viewDetail(appointment)" style="color: #4080ff;">{{ appointment.orderNo }}</a></td>

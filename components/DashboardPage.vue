@@ -6,7 +6,7 @@ import { getTodosByRole } from '~/data/mockData'
 import type { TodoItem } from '~/data/types'
 
 const emit = defineEmits<{
-  navigate: [page: string, appointmentId?: string]
+  navigate: [page: string, targetId?: string]
 }>()
 
 const { currentRole, roleName } = useAuth()
@@ -46,6 +46,8 @@ const typeIcons: Record<string, string> = {
 const handleTodoClick = (todo: TodoItem) => {
   if (todo.type === 'appointment' && todo.appointmentId) {
     emit('navigate', 'appointments', todo.appointmentId)
+  } else if (todo.type === 'exception' && todo.exceptionId) {
+    emit('navigate', 'exceptions', todo.exceptionId)
   } else if (todo.type === 'exception' && todo.appointmentId) {
     emit('navigate', 'exceptions', todo.appointmentId)
   } else if (todo.type === 'task') {

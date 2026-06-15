@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import { useAuth } from '~/composables/useAuth'
-import type { ExceptionRecord, ExceptionType, Appointment } from '~/data/types'
+import type { ExceptionRecord, ExceptionType } from '~/data/types'
 
 const props = defineProps<{
   highlightId?: string
@@ -20,20 +20,6 @@ const {
 } = useAppointments()
 
 const { currentUser } = useAuth()
-
-onMounted(() => {
-  fetchAppointments()
-})
-
-watch(() => props.highlightId, (newId) => {
-  if (newId) {
-    const exception = allExceptions.value.find(e => e.id === newId || e.appointmentId === newId)
-    if (exception) {
-      selectedException.value = exception
-      showResolveModal.value = true
-    }
-  }
-})
 
 const activeTab = ref<'all' | 'price_increase' | 'damage' | 'delay'>('all')
 const showAddException = ref(false)
@@ -56,6 +42,30 @@ const filteredExceptions = computed(() => {
   if (activeTab.value === 'all') return allExceptions.value
   return allExceptions.value.filter(e => e.type === activeTab.value)
 })
+
+onMounted(async () => {
+  await fetchAppointments()
+  await nextTick()
+  if (props.highlightId) {
+    openExceptionDetail(props.highlightId)
+  }
+})
+
+watch(() => props.highlightId, async (newId) => {
+  if (newId && !loading.value) {
+    await nextTick()
+    openExceptionDetail(newId)
+  }
+})
+
+const openExceptionDetail = (id: string) => {
+  const exception = allExceptions.value.find(e => e.id === id || e.appointmentId === id)
+  if (exception) {
+    selectedException.value = exception
+    resolution.value = exception.resolution || ''
+    showResolveModal.value = true
+  }
+}
 
 const stats = computed(() => ({
   total: allExceptions.value.length,
@@ -177,7 +187,7 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
           :key="exception.id"
           class="card"
           :style="{ 
-            borderLeft: exception.status === 'processing' ? '4px solid #faad14' : '4px solid #f5222d',
+            borderLeft: exception.status === 'processing' ? '4px solid #faad14' : exception.status === 'resolved' ? '4px solid #52c41a' : '4px solid #f5222d',
             marginBottom: 0,
             backgroundColor: exception.id === highlightId || exception.appointmentId === highlightId ? '#e6f7ff' : ''
           }"
@@ -187,7 +197,7 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
               <span style="font-size: 20px;">{{ typeIcons[exception.type] }}</span>
               <span class="badge badge-price-change">{{ typeLabels[exception.type] }}</span>
             </div>
-            <span :class="['badge', exception.status === 'processing' ? 'badge-warning' : exception.status === 'resolved' ? 'badge-completed' : 'badge-pending']">
+            <span :class="['badge', exception.status === 'resolved' ? 'badge-completed' : exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
               {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
             </span>
           </div>
@@ -220,7 +230,7 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
             <button 
               class="btn btn-success"
               style="flex: 1;"
-              @click="selectedException = exception; showResolveModal = true"
+              @click="selectedException = exception; resolution = exception.resolution || ''; showResolveModal = true"
             >
               {{ exception.status === 'resolved' ? '查看处理结果' : '完成处理' }}
             </button>
@@ -289,7 +299,7 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
     <div v-if="showResolveModal && selectedException" class="drawer-mask" @click.self="showResolveModal = false">
       <div class="drawer-content">
         <div class="drawer-header">
-          <div class="drawer-title">完成异常处理</div>
+          <div class="drawer-title">{{ selectedException.status === 'resolved' ? '查看处理结果' : '完成异常处理' }}</div>
           <div class="drawer-close" @click="showResolveModal = false">✕</div>
         </div>
         <div class="drawer-body">
@@ -301,12 +311,28 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
           
           <div class="form-group">
             <label>处理结果</label>
-            <textarea v-model="resolution" placeholder="请输入处理结果..."></textarea>
+            <textarea 
+              v-model="resolution" 
+              placeholder="请输入处理结果..."
+              :disabled="selectedException.status === 'resolved'"
+            ></textarea>
+          </div>
+          
+          <div v-if="selectedException.handledBy" style="background-color: #f6ffed; padding: 12px; border-radius: 8px;">
+            <div style="font-size: 12px; color: #999; margin-bottom: 4px;">已处理信息</div>
+            <div style="color: #52c41a;">处理人: {{ selectedException.handledBy }}</div>
+            <div style="color: #52c41a;">处理时间: {{ selectedException.handledAt }}</div>
           </div>
         </div>
         <div class="drawer-footer">
-          <button class="btn btn-secondary" @click="showResolveModal = false">取消</button>
-          <button class="btn btn-success" @click="handleResolve">确认处理</button>
+          <button class="btn btn-secondary" @click="showResolveModal = false">关闭</button>
+          <button 
+            v-if="selectedException.status !== 'resolved'"
+            class="btn btn-success" 
+            @click="handleResolve"
+          >
+            确认处理
+          </button>
         </div>
       </div>
     </div>
