@@ -1,13 +1,25 @@
 <script>
-  import { installationFeedbacks, orders, deliverySchedules, updateInstallationStatus } from '$lib/store';
+  import { installationFeedbacks, orders, deliverySchedules, updateInstallationStatus, handleAlert } from '$lib/store';
   
   let feedbackList = [];
   let orderList = [];
   let scheduleList = [];
+  let selectedFeedbackId = null;
   
-  installationFeedbacks.subscribe(f => feedbackList = f);
+  installationFeedbacks.subscribe(f => {
+    feedbackList = f;
+    if (selectedFeedbackId) {
+      const updated = feedbackList.find(feed => feed.id === selectedFeedbackId);
+      if (updated) {
+        selectedFeedback = updated;
+      }
+    }
+  });
   orders.subscribe(o => orderList = o);
   deliverySchedules.subscribe(s => scheduleList = s);
+  
+  let selectedFeedback = null;
+  let newRemark = '';
   
   const statusLabels = {
     pending: '待开始',
@@ -41,26 +53,36 @@
     return scheduleList.find(s => s.id === scheduleId);
   };
   
-  let selectedFeedback = null;
-  let newRemark = '';
+  const getPendingAlerts = (feedback) => {
+    return (feedback.alerts || []).filter(alert => !alert.handled);
+  };
   
   const handleSelectFeedback = (feedback) => {
     selectedFeedback = feedback;
+    selectedFeedbackId = feedback.id;
   };
   
   const handleAddRemark = () => {
     if (selectedFeedback && newRemark.trim()) {
-      const feedbackIndex = feedbackList.findIndex(f => f.id === selectedFeedback.id);
-      if (feedbackIndex !== -1) {
-        feedbackList[feedbackIndex].timeline.push({
-          time: new Date().toISOString().replace('T', ' ').substr(0, 19),
-          action: '进度更新',
-          operator: '系统',
-          remark: newRemark
-        });
-        installationFeedbacks.set([...feedbackList]);
-        newRemark = '';
-      }
+      installationFeedbacks.update(items =>
+        items.map(item =>
+          item.id === selectedFeedback.id
+            ? {
+                ...item,
+                timeline: [
+                  ...item.timeline,
+                  {
+                    time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+                    action: '进度更新',
+                    operator: '系统',
+                    remark: newRemark
+                  }
+                ]
+              }
+            : item
+        )
+      );
+      newRemark = '';
     }
   };
   
@@ -74,6 +96,10 @@
   
   const handleResume = (feedbackId) => {
     updateInstallationStatus(feedbackId, 'installing', '继续铺贴');
+  };
+  
+  const handleAlertClick = (feedbackId, alertId) => {
+    handleAlert(feedbackId, alertId);
   };
 </script>
 
@@ -144,6 +170,13 @@
               <span>{feedback.issues.length} 个问题待处理</span>
             </div>
           {/if}
+          
+          {#if getPendingAlerts(feedback).length > 0}
+            <div class="alerts-warning">
+              <span class="alert-icon">🔔</span>
+              <span>{getPendingAlerts(feedback).length} 条预警待处理</span>
+            </div>
+          {/if}
         </div>
       {/each}
     </div>
@@ -197,6 +230,35 @@
                   </span>
                   <span class="issue-desc">{issue.description}</span>
                   <span class="issue-date">{issue.createdAt}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
+          
+          {#if selectedFeedback.alerts && selectedFeedback.alerts.length > 0}
+            <div class="info-section alert-section">
+              <h4>责任预警</h4>
+              {#each selectedFeedback.alerts as alert}
+                <div class="alert-item" class={alert.handled ? 'handled' : ''}>
+                  <div class="alert-header">
+                    <span class="alert-icon">🔔</span>
+                    <span class="alert-title">{alert.title}</span>
+                    {#if alert.handled}
+                      <span class="alert-status handled-tag">已处理</span>
+                    {:else}
+                      <span class="alert-status pending-tag">待处理</span>
+                    {/if}
+                  </div>
+                  <p class="alert-desc">{alert.description}</p>
+                  <div class="alert-meta">
+                    <span class="alert-responsibility">责任人: {alert.responsibility}</span>
+                    <span class="alert-date">{alert.createdAt}</span>
+                  </div>
+                  {#if !alert.handled}
+                    <button class="btn btn-sm btn-primary" on:click={() => handleAlertClick(selectedFeedback.id, alert.id)}>
+                      标记为已处理
+                    </button>
+                  {/if}
                 </div>
               {/each}
             </div>
@@ -592,5 +654,95 @@
   .empty-icon {
     font-size: 4rem;
     margin-bottom: 1rem;
+  }
+  
+  .alerts-warning {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem;
+    background-color: #fff3e0;
+    border-radius: 6px;
+    color: #f57c00;
+    font-size: 0.85rem;
+  }
+  
+  .alert-icon {
+    font-size: 1rem;
+  }
+  
+  .info-section.alert-section {
+    background-color: #fff3e0;
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 4px solid #FF9800;
+  }
+  
+  .alert-item {
+    background-color: white;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    border: 1px solid #ffe0b2;
+  }
+  
+  .alert-item.handled {
+    opacity: 0.6;
+    border-color: #e0e0e0;
+  }
+  
+  .alert-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .alert-header .alert-icon {
+    font-size: 1.1rem;
+  }
+  
+  .alert-title {
+    font-weight: 600;
+    color: #e65100;
+  }
+  
+  .alert-status {
+    margin-left: auto;
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.65rem;
+    font-weight: 500;
+  }
+  
+  .pending-tag {
+    background-color: #fff8e1;
+    color: #ff9800;
+  }
+  
+  .handled-tag {
+    background-color: #e8f5e9;
+    color: #4caf50;
+  }
+  
+  .alert-desc {
+    font-size: 0.85rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+  
+  .alert-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: #999;
+    margin-bottom: 0.5rem;
+  }
+  
+  .btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.75rem;
   }
 </style>

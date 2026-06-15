@@ -178,6 +178,7 @@ const sampleInstallationFeedbacks = [
       { time: '2026-06-20 14:00', action: '铺贴完成', operator: '张师傅', remark: '全部完工，客户验收合格' }
     ],
     issues: [],
+    alerts: [],
     customerSignature: true,
     photos: ['img1.jpg', 'img2.jpg']
   },
@@ -199,8 +200,37 @@ const sampleInstallationFeedbacks = [
     issues: [
       { type: 'material', description: '勾缝剂不足，需要补货', severity: 'medium', createdAt: '2026-06-14' }
     ],
+    alerts: [],
     customerSignature: false,
     photos: ['img3.jpg']
+  },
+  {
+    id: 'IF003',
+    orderId: 'ORD002',
+    deliveryScheduleId: 'DS002',
+    status: 'pending',
+    installer: '王师傅',
+    startDate: null,
+    endDate: null,
+    feedbackDate: null,
+    qualityRating: null,
+    timeline: [
+      { time: '2026-06-13 11:00', action: '待排期', operator: '系统', remark: '等待送货排期确认后开始铺贴' }
+    ],
+    issues: [],
+    alerts: [
+      {
+        id: 'ALT001',
+        type: 'schedule_change',
+        title: '送货排期变更',
+        description: '原排期6月17日因仓库盘点调整至6月18日',
+        responsibility: '施工师傅',
+        createdAt: '2026-06-14 09:00',
+        handled: false
+      }
+    ],
+    customerSignature: false,
+    photos: []
   }
 ];
 
@@ -239,7 +269,7 @@ export const currentUser = writable({
 
 export const selectedOrderId = writable(null);
 
-export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false, feedbackList = null) => {
+export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false, feedbackList = null, changeReason = '') => {
   let prevSchedule = null;
   
   deliverySchedules.subscribe(schedules => {
@@ -253,22 +283,54 @@ export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false,
     const relatedFeedback = currentFeedbacks.find(fb => fb.deliveryScheduleId === scheduleId);
     
     if (relatedFeedback) {
+      const now = new Date();
+      const timeStr = now.toISOString().replace('T', ' ').substr(0, 19);
+      
       const newTimelineEntry = {
-        time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+        time: timeStr,
         action: '送货排期变更',
         operator: '系统',
-        remark: `送货日期从${prevSchedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}`
+        remark: `送货日期从${prevSchedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}${changeReason ? '，原因：' + changeReason : ''}`
+      };
+      
+      const newAlert = {
+        id: 'ALT' + Date.now().toString(36).toUpperCase(),
+        type: 'schedule_change',
+        title: '送货排期变更',
+        description: `原排期${prevSchedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}${changeReason ? '，原因：' + changeReason : ''}`,
+        responsibility: '施工师傅',
+        createdAt: timeStr,
+        handled: false
       };
       
       installationFeedbacks.update(items => 
         items.map(item => 
           item.id === relatedFeedback.id 
-            ? { ...item, timeline: [...item.timeline, newTimelineEntry] }
+            ? { 
+                ...item, 
+                timeline: [...item.timeline, newTimelineEntry],
+                alerts: [...(item.alerts || []), newAlert]
+              }
             : item
         )
       );
     }
   }
+};
+
+export const handleAlert = (feedbackId, alertId) => {
+  installationFeedbacks.update(items => 
+    items.map(item => 
+      item.id === feedbackId
+        ? {
+            ...item,
+            alerts: (item.alerts || []).map(alert => 
+              alert.id === alertId ? { ...alert, handled: true } : alert
+            )
+          }
+        : item
+    )
+  );
 };
 
 export const updateInstallationStatus = (feedbackId, status, remark = '') => {

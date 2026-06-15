@@ -35,7 +35,8 @@
     warehouseStaff: '',
     driver: '',
     vehicle: '',
-    remarks: ''
+    remarks: '',
+    changeReason: ''
   };
   
   let originalScheduledDate = '';
@@ -49,13 +50,15 @@
       warehouseStaff: schedule.warehouseStaff,
       driver: schedule.driver,
       vehicle: schedule.vehicle,
-      remarks: schedule.remarks
+      remarks: schedule.remarks,
+      changeReason: ''
     };
   };
   
   const handleSave = () => {
     const dateChanged = editForm.scheduledDate !== originalScheduledDate;
-    updateDeliverySchedule(editingSchedule, editForm, dateChanged, feedbackList);
+    const changeReason = dateChanged ? editForm.changeReason : '';
+    updateDeliverySchedule(editingSchedule, editForm, dateChanged, feedbackList, changeReason);
     editingSchedule = null;
   };
   
@@ -122,6 +125,12 @@
               <label>排期时间</label>
               <input type="time" bind:value={editForm.scheduledTime} />
             </div>
+            {#if editForm.scheduledDate !== originalScheduledDate}
+              <div class="form-row warning-row">
+                <label>改期原因</label>
+                <textarea bind:value={editForm.changeReason} rows="2" placeholder="请说明改期原因，将通知施工师傅"></textarea>
+              </div>
+            {/if}
             <div class="form-row">
               <label>仓库员</label>
               <input type="text" bind:value={editForm.warehouseStaff} />
@@ -416,5 +425,16 @@
   
   .form-actions .btn {
     flex: 1;
+  }
+  
+  .warning-row {
+    background-color: #fff8f0;
+    padding: 0.5rem;
+    border-radius: 6px;
+    border-left: 4px solid #FF9800;
+  }
+  
+  .warning-row textarea {
+    background-color: white;
   }
 </style>
