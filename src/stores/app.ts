@@ -117,7 +117,7 @@ export function useAppStore() {
   const acceptOrder = async (orderId: string) => {
     appState.loading = true;
     try {
-      const response = await fetch(`${API_BASE}/orders/${orderId}/assign?installer_id=${appState.currentUser?.id}`, {
+      const response = await fetch(`${API_BASE}/orders/${orderId}/accept?installer_id=${appState.currentUser?.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' }
       });

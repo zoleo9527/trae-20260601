@@ -129,15 +129,15 @@ onMounted(() => {
               </div>
               <div>
                 <div class="text-sm text-gray-500">预约时间</div>
-                <div class="font-medium text-gray-800">{{ new Date(order.scheduled_date).toLocaleString('zh-CN') }}</div>
+                <div class="font-medium text-gray-800">{{ new Date(order.scheduled_time).toLocaleString('zh-CN') }}</div>
               </div>
               <div>
                 <div class="text-sm text-gray-500">调度员</div>
-                <div class="font-medium text-gray-800">{{ getUserName(order.dispatcher_id) }}</div>
+                <div class="font-medium text-gray-800">{{ order.dispatcher_name || getUserName(order.dispatcher_id) }}</div>
               </div>
               <div>
                 <div class="text-sm text-gray-500">安装师傅</div>
-                <div class="font-medium text-gray-800">{{ getUserName(order.technician_id) }}</div>
+                <div class="font-medium text-gray-800">{{ order.installer_name || getUserName(order.installer_id) }}</div>
               </div>
               <div>
                 <div class="text-sm text-gray-500">创建时间</div>

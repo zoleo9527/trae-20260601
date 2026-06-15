@@ -22,6 +22,7 @@ class UserRole(PyEnum):
 class OrderStatus(PyEnum):
     PENDING = "待分配"
     ASSIGNED = "已分配"
+    ACCEPTED = "已接单"
     IN_PROGRESS = "安装中"
     COMPLETED = "已完成"
     REWORK_REQUESTED = "待返工"
@@ -493,6 +494,7 @@ def get_orders(status: Optional[OrderStatus] = None, installer_id: Optional[int]
     status_map = {
         OrderStatus.PENDING: "pending",
         OrderStatus.ASSIGNED: "assigned",
+        OrderStatus.ACCEPTED: "accepted",
         OrderStatus.IN_PROGRESS: "in_progress",
         OrderStatus.COMPLETED: "completed",
         OrderStatus.REWORK_REQUESTED: "rework_requested",
@@ -688,12 +690,23 @@ def assign_order(order_id: int, installer_id: int, db: Session = Depends(get_db)
     db.commit()
     return {"message": "分配成功"}
 
+@api_router.put("/orders/{order_id}/accept")
+def accept_order(order_id: int, installer_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    if order.status != OrderStatus.ASSIGNED:
+        raise HTTPException(status_code=400, detail="订单状态不允许接单")
+    order.status = OrderStatus.ACCEPTED
+    db.commit()
+    return {"message": "接单成功"}
+
 @api_router.put("/orders/{order_id}/start")
 def start_installation(order_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    if order.status != OrderStatus.ASSIGNED:
+    if order.status not in [OrderStatus.ASSIGNED, OrderStatus.ACCEPTED]:
         raise HTTPException(status_code=400, detail="订单状态不允许开始安装")
     order.status = OrderStatus.IN_PROGRESS
     db.commit()
@@ -771,14 +784,15 @@ def create_rework(order_id: int, rework: ReworkCreate, user_id: int, db: Session
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    if order.status != OrderStatus.COMPLETED:
+    if order.status not in [OrderStatus.COMPLETED, OrderStatus.LIABILITY_DONE]:
         raise HTTPException(status_code=400, detail="只有已完成的订单才能发起返工")
     
-    photos = db.query(Photo).filter(Photo.order_id == order_id, Photo.type == PhotoType.LEAKAGE).all()
-    if not photos:
-        raise HTTPException(status_code=400, detail="缺少漏水现场照片，无法发起返工")
-    
-    db_rework = Rework(**rework.dict(), order_id=order_id, reported_by=user_id)
+    db_rework = Rework(
+        order_id=order_id,
+        reason=rework.reason,
+        description=rework.description,
+        reported_by=user_id
+    )
     db.add(db_rework)
     order.status = OrderStatus.REWORK_REQUESTED
     db.commit()
@@ -813,22 +827,19 @@ def complete_rework(rework_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="返工状态不允许完成")
     
     order = db.query(Order).filter(Order.id == rework.order_id).first()
-    photos = db.query(Photo).filter(Photo.order_id == order.id, Photo.type == PhotoType.AFTER).all()
-    if not photos:
-        raise HTTPException(status_code=400, detail="缺少返工后照片")
     
-    order.status = OrderStatus.REWORK_COMPLETED
+    order.status = OrderStatus.LIABILITY_PENDING
     rework.status = OrderStatus.REWORK_COMPLETED
     db.commit()
-    return {"message": "返工完成"}
+    return {"message": "返工完成，已进入责任判定"}
 
 @api_router.put("/orders/{order_id}/liability")
 def create_liability(order_id: int, liability: LiabilityCreate, handler_id: int, db: Session = Depends(get_db)):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
-    if order.status != OrderStatus.REWORK_COMPLETED:
-        raise HTTPException(status_code=400, detail="只有返工完成的订单才能进行责任判定")
+    if order.status not in [OrderStatus.REWORK_COMPLETED, OrderStatus.LIABILITY_PENDING]:
+        raise HTTPException(status_code=400, detail="只有返工完成或待责任判定的订单才能进行责任判定")
     
     db_liability = Liability(
         order_id=order_id,
@@ -873,7 +884,7 @@ def reject_liability(liability_id: int, rejection: RejectionCreate, rejected_by:
     db.add(db_rejection)
     
     order = db.query(Order).filter(Order.id == liability.order_id).first()
-    order.status = OrderStatus.REWORK_COMPLETED
+    order.status = OrderStatus.LIABILITY_PENDING
     
     alert = Alert(
         order_id=order.id,
@@ -962,142 +973,188 @@ def answer_question(question_id: int, answer: QuestionAnswer, answered_by: int, 
 
 @api_router.post("/init-sample-data/")
 def init_sample_data(db: Session = Depends(get_db)):
-    if db.query(User).filter(User.phone == "13800138001").first():
-        return {"message": "样例数据已存在，无需重复初始化"}
+    created = []
     
-    dispatcher = User(name="张调度", phone="13800138001", role=UserRole.DISPATCHER)
-    installer1 = User(name="李师傅", phone="13800138002", role=UserRole.INSTALLER)
-    installer2 = User(name="王师傅", phone="13800138003", role=UserRole.INSTALLER)
-    service = User(name="赵客服", phone="13800138004", role=UserRole.SERVICE)
+    dispatcher = db.query(User).filter(User.phone == "13800138001").first()
+    if not dispatcher:
+        dispatcher = User(name="张调度", phone="13800138001", role=UserRole.DISPATCHER)
+        db.add(dispatcher)
+        db.commit()
+        created.append("调度员")
     
-    db.add_all([dispatcher, installer1, installer2, service])
-    db.commit()
+    installer1 = db.query(User).filter(User.phone == "13800138002").first()
+    if not installer1:
+        installer1 = User(name="李师傅", phone="13800138002", role=UserRole.INSTALLER)
+        db.add(installer1)
+        db.commit()
+        created.append("师傅1")
     
-    order1 = Order(
-        customer_name="张先生",
-        customer_phone="13900139001",
-        address="北京市朝阳区建国路88号",
-        product_type="淋浴房",
-        product_model="SF-2024-A",
-        scheduled_time=datetime.now(),
-        status=OrderStatus.PENDING,
-        dispatcher_id=dispatcher.id
-    )
+    installer2 = db.query(User).filter(User.phone == "13800138003").first()
+    if not installer2:
+        installer2 = User(name="王师傅", phone="13800138003", role=UserRole.INSTALLER)
+        db.add(installer2)
+        db.commit()
+        created.append("师傅2")
     
-    order2 = Order(
-        customer_name="李女士",
-        customer_phone="13900139002",
-        address="北京市海淀区中关村大街66号",
-        product_type="马桶",
-        product_model="MT-2024-B",
-        scheduled_time=datetime.now(),
-        status=OrderStatus.COMPLETED,
-        installer_id=installer1.id,
-        dispatcher_id=dispatcher.id
-    )
+    service = db.query(User).filter(User.phone == "13800138004").first()
+    if not service:
+        service = User(name="赵客服", phone="13800138004", role=UserRole.SERVICE)
+        db.add(service)
+        db.commit()
+        created.append("客服")
     
-    order3 = Order(
-        customer_name="王先生",
-        customer_phone="13900139003",
-        address="北京市西城区金融街10号",
-        product_type="洗手盆",
-        product_model="XB-2024-C",
-        scheduled_time=datetime.now(),
-        status=OrderStatus.REWORK_REQUESTED,
-        installer_id=installer2.id,
-        dispatcher_id=dispatcher.id
-    )
+    if not db.query(Order).filter(Order.customer_phone == "13900139001").first():
+        order1 = Order(
+            customer_name="张先生",
+            customer_phone="13900139001",
+            address="北京市朝阳区建国路88号",
+            product_type="淋浴房",
+            product_model="SF-2024-A",
+            scheduled_time=datetime.now(),
+            status=OrderStatus.PENDING,
+            dispatcher_id=dispatcher.id
+        )
+        db.add(order1)
+        db.commit()
+        created.append("订单1")
     
-    order4 = Order(
-        customer_name="赵女士",
-        customer_phone="13900139004",
-        address="北京市东城区王府井大街1号",
-        product_type="浴缸",
-        product_model="YG-2024-D",
-        scheduled_time=datetime.now(),
-        status=OrderStatus.LIABILITY_PENDING,
-        installer_id=installer1.id,
-        dispatcher_id=dispatcher.id
-    )
+    if not db.query(Order).filter(Order.customer_phone == "13900139002").first():
+        order2 = Order(
+            customer_name="李女士",
+            customer_phone="13900139002",
+            address="北京市海淀区中关村大街66号",
+            product_type="马桶",
+            product_model="MT-2024-B",
+            scheduled_time=datetime.now(),
+            status=OrderStatus.COMPLETED,
+            installer_id=installer1.id,
+            dispatcher_id=dispatcher.id
+        )
+        db.add(order2)
+        db.commit()
+        created.append("订单2")
+        
+        accessory1 = Accessory(order_id=order2.id, name="淋浴房支架", quantity=2, installed=True)
+        accessory2 = Accessory(order_id=order2.id, name="玻璃胶", quantity=1, installed=True)
+        db.add_all([accessory1, accessory2])
+        db.commit()
     
-    db.add_all([order1, order2, order3, order4])
-    db.commit()
+    order3 = db.query(Order).filter(Order.customer_phone == "13900139003").first()
+    if not order3:
+        order3 = Order(
+            customer_name="王先生",
+            customer_phone="13900139003",
+            address="北京市西城区金融街10号",
+            product_type="洗手盆",
+            product_model="XB-2024-C",
+            scheduled_time=datetime.now(),
+            status=OrderStatus.REWORK_REQUESTED,
+            installer_id=installer2.id,
+            dispatcher_id=dispatcher.id
+        )
+        db.add(order3)
+        db.commit()
+        created.append("订单3")
+        
+        rework1 = Rework(
+            order_id=order3.id,
+            reason="洗手盆漏水",
+            description="洗手盆下水管连接处漏水，需要重新安装",
+            reported_by=service.id
+        )
+        db.add(rework1)
+        db.commit()
+        
+        accessory3 = Accessory(order_id=order3.id, name="洗手盆支架", quantity=1, installed=True)
+        accessory4 = Accessory(order_id=order3.id, name="下水管", quantity=1, installed=False)
+        db.add_all([accessory3, accessory4])
+        db.commit()
+    elif not db.query(Rework).filter(Rework.order_id == order3.id).first():
+        rework1 = Rework(
+            order_id=order3.id,
+            reason="洗手盆漏水",
+            description="洗手盆下水管连接处漏水，需要重新安装",
+            reported_by=service.id
+        )
+        db.add(rework1)
+        db.commit()
+        created.append("返工记录1")
     
-    accessory1 = Accessory(order_id=order2.id, name="淋浴房支架", quantity=2, installed=True)
-    accessory2 = Accessory(order_id=order2.id, name="玻璃胶", quantity=1, installed=True)
-    accessory3 = Accessory(order_id=order3.id, name="洗手盆支架", quantity=1, installed=True)
-    accessory4 = Accessory(order_id=order3.id, name="下水管", quantity=1, installed=False)
+    order4 = db.query(Order).filter(Order.customer_phone == "13900139004").first()
+    if not order4:
+        order4 = Order(
+            customer_name="赵女士",
+            customer_phone="13900139004",
+            address="北京市东城区王府井大街1号",
+            product_type="浴缸",
+            product_model="YG-2024-D",
+            scheduled_time=datetime.now(),
+            status=OrderStatus.LIABILITY_PENDING,
+            installer_id=installer1.id,
+            dispatcher_id=dispatcher.id
+        )
+        db.add(order4)
+        db.commit()
+        created.append("订单4")
+        
+        rework2 = Rework(
+            order_id=order4.id,
+            reason="浴缸漏水",
+            description="浴缸排水口密封不严导致漏水",
+            reported_by=service.id,
+            status=OrderStatus.REWORK_COMPLETED
+        )
+        db.add(rework2)
+        db.commit()
+        
+        liability1 = Liability(
+            order_id=order4.id,
+            result=LiabilityResult.INSTALLER,
+            evidence="浴缸排水口密封圈安装不到位",
+            handler_id=service.id,
+            compensation_amount=200.0,
+            notes="师傅需重新安装密封圈"
+        )
+        db.add(liability1)
+        db.commit()
+        
+        rejection1 = Rejection(
+            liability_id=liability1.id,
+            order_id=order4.id,
+            reason="证据不足，需要补充漏水现场照片",
+            rejected_by=dispatcher.id,
+            additional_evidence_required="漏水现场照片、安装过程照片",
+            status="PENDING"
+        )
+        db.add(rejection1)
+        db.commit()
+        
+        alert1 = Alert(order_id=order4.id, type=AlertType.REJECTION, message="责任判定被驳回，需要补充证据", severity=AlertSeverity.HIGH)
+        db.add(alert1)
+        db.commit()
+    elif not db.query(Liability).filter(Liability.order_id == order4.id).first():
+        liability1 = Liability(
+            order_id=order4.id,
+            result=LiabilityResult.INSTALLER,
+            evidence="浴缸排水口密封圈安装不到位",
+            handler_id=service.id,
+            compensation_amount=200.0,
+            notes="师傅需重新安装密封圈"
+        )
+        db.add(liability1)
+        db.commit()
+        created.append("责任判定")
     
-    db.add_all([accessory1, accessory2, accessory3, accessory4])
-    db.commit()
+    if not db.query(Alert).filter(Alert.type == AlertType.LEAKAGE).first():
+        if order3:
+            alert2 = Alert(order_id=order3.id, type=AlertType.LEAKAGE, message="洗手盆漏水返工待处理", severity=AlertSeverity.HIGH)
+            db.add(alert2)
+            db.commit()
+            created.append("漏水提醒")
     
-    rework1 = Rework(
-        order_id=order3.id,
-        reason="洗手盆漏水",
-        description="洗手盆下水管连接处漏水，需要重新安装",
-        reported_by=service.id
-    )
-    
-    rework2 = Rework(
-        order_id=order4.id,
-        reason="浴缸漏水",
-        description="浴缸排水口密封不严导致漏水",
-        reported_by=service.id,
-        status=OrderStatus.REWORK_COMPLETED
-    )
-    
-    db.add_all([rework1, rework2])
-    db.commit()
-    
-    liability1 = Liability(
-        order_id=order4.id,
-        result=LiabilityResult.INSTALLER,
-        evidence="浴缸排水口密封圈安装不到位",
-        handler_id=service.id,
-        compensation_amount=200.0,
-        notes="师傅需重新安装密封圈"
-    )
-    
-    db.add(liability1)
-    db.commit()
-    
-    rejection1 = Rejection(
-        liability_id=liability1.id,
-        order_id=order4.id,
-        reason="证据不足，需要补充漏水现场照片",
-        rejected_by=dispatcher.id,
-        additional_evidence_required="漏水现场照片、安装过程照片",
-        status="PENDING"
-    )
-    
-    db.add(rejection1)
-    db.commit()
-    
-    alert1 = Alert(
-        order_id=order3.id,
-        type=AlertType.LEAKAGE,
-        message="洗手盆漏水返工待处理",
-        severity=AlertSeverity.HIGH
-    )
-    
-    alert2 = Alert(
-        order_id=order4.id,
-        type=AlertType.PENDING_LIABILITY,
-        message="浴缸漏水责任判定待处理",
-        severity=AlertSeverity.MEDIUM
-    )
-    
-    alert3 = Alert(
-        order_id=order4.id,
-        type=AlertType.REJECTION,
-        message="责任判定被驳回，需要补充证据",
-        severity=AlertSeverity.HIGH
-    )
-    
-    db.add_all([alert1, alert2, alert3])
-    db.commit()
-    
-    return {"message": "样例数据已初始化"}
+    if created:
+        return {"message": f"已创建: {', '.join(created)}"}
+    return {"message": "样例数据已存在，无需重复初始化"}
 
 app.include_router(api_router)
 

@@ -82,8 +82,6 @@ const init = async () => {
   await store.loadOrders()
   orders.value = store.state.orders
   technicians.value = await store.getUsers('technician')
-  statuses.value = await store.getOrderStatuses()
-  productTypes.value = await store.getProductTypes()
   await store.loadAlerts()
 }
 
@@ -360,8 +358,13 @@ onMounted(() => {
           <ElInput v-model="newOrder.address" />
         </ElFormItem>
         <ElFormItem label="产品类型" required>
-          <ElSelect v-model="newOrder.product_type">
-            <ElOption v-for="type in productTypes" :key="type" :label="type" :value="type" />
+          <ElSelect v-model="newOrder.product_type" placeholder="请选择产品类型">
+            <ElOption label="淋浴房" value="淋浴房" />
+            <ElOption label="马桶" value="马桶" />
+            <ElOption label="洗手盆" value="洗手盆" />
+            <ElOption label="浴缸" value="浴缸" />
+            <ElOption label="花洒" value="花洒" />
+            <ElOption label="龙头" value="龙头" />
           </ElSelect>
         </ElFormItem>
         <ElFormItem label="产品型号">

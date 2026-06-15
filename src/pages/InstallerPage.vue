@@ -114,7 +114,16 @@ const handleMarkAccessory = async (orderId: string | number, accessoryId: string
 const handleCompleteOrder = async () => {
   if (!selectedOrder.value) return
   
-  const success = await store.completeOrder(selectedOrder.value.id)
+  let success = false
+  if (selectedOrder.value.status === 'rework_in_progress') {
+    const reworkRecord = selectedOrder.value.after_sales_records.find(r => r.status === 'pending' || r.status === 'processing')
+    if (reworkRecord) {
+      success = await store.completeRework(reworkRecord.id)
+    }
+  } else {
+    success = await store.completeOrder(String(selectedOrder.value.id))
+  }
+  
   if (success) {
     ElMessage.success(selectedOrder.value.status === 'rework_in_progress' ? '返工完成' : '安装完成')
     showCompleteModal.value = false
