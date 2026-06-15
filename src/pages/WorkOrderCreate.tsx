@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Truck } from 'lucide-react';
 import { useWorkOrderStore } from '@/stores/workorder';
@@ -12,6 +12,10 @@ export function WorkOrderCreate() {
   const { createWorkOrder } = useWorkOrderStore();
   const { equipment, fetchEquipment } = useEquipmentStore();
   const { getTechnicians } = useAuthStore();
+  
+  useEffect(() => {
+    fetchEquipment();
+  }, [fetchEquipment]);
   
   const [formData, setFormData] = useState({
     equipmentId: '',

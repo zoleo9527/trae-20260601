@@ -1,17 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, User, Clock, Package, FileText, CheckCircle, XCircle, Plus, Upload, ChevronRight } from 'lucide-react';
-import { useWorkOrderStore } from '@/stores/workorder';
 import { useAuthStore } from '@/stores/auth';
-import { usePartsStore } from '@/stores/parts';
-import type { WorkOrderStatus, PartRequest, SignOffData } from '@/types';
-import { STATUS_MAP, STATUS_COLORS, PRIORITY_COLORS, PRIORITY_MAP, SIGN_OFF_STATUS_MAP } from '@/types';
+import { useWorkOrderStore } from '@/stores/workorder';
+import type { PartRequest, SignOffData, WorkOrderStatus } from '@/types';
+import { PRIORITY_COLORS, PRIORITY_MAP, SIGN_OFF_STATUS_MAP, STATUS_COLORS, STATUS_MAP } from '@/types';
+import { ArrowLeft, CheckCircle, Clock, FileText, Package, Upload, User, XCircle } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useParams } from 'react-router-dom';
 
 export function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>();
-  const { workorders, getWorkOrderById, currentWorkOrder, assignTechnician, applyParts, issueParts, submitSignOff, approveSignOff, rejectSignOff, updateWorkOrder } = useWorkOrderStore();
+  const { workorders, getWorkOrderById, currentWorkOrder, assignTechnician, applyParts, issueParts, submitSignOff, approveSignOff, rejectSignOff, updateWorkOrder, fetchWorkOrders, fetchParts, parts } = useWorkOrderStore();
   const { getTechnicians, currentUser } = useAuthStore();
-  const { parts, fetchParts } = usePartsStore();
   
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedTechnician, setSelectedTechnician] = useState('');
@@ -28,9 +26,15 @@ export function WorkOrderDetail() {
   const technicians = getTechnicians();
 
   useEffect(() => {
-    getWorkOrderById(id || '');
+    fetchWorkOrders();
     fetchParts();
-  }, [id, getWorkOrderById, fetchParts]);
+  }, [fetchWorkOrders, fetchParts]);
+
+  useEffect(() => {
+    if (id) {
+      getWorkOrderById(id);
+    }
+  }, [id, getWorkOrderById, workorders]);
 
   useEffect(() => {
     if (currentWorkOrder) {

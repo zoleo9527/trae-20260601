@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Search, AlertTriangle, Package, Plus, Edit2, Trash2 } from 'lucide-react';
-import { usePartsStore } from '@/stores/parts';
+import { useWorkOrderStore } from '@/stores/workorder';
 import type { Part } from '@/types';
 
 export function PartsManagement() {
-  const { parts, fetchParts, searchQuery, setSearchQuery } = usePartsStore();
+  const { parts, fetchParts } = useWorkOrderStore();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [newPart, setNewPart] = useState<Omit<Part, 'id'>>({
     partNo: '',
     name: '',

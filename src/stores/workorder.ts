@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { WorkOrder, WorkOrderStatus, PartRequest, SignOffData } from '@/types';
+import type { WorkOrder, WorkOrderStatus, PartRequest, SignOffData, Part } from '@/types';
 import { mockWorkOrders, mockParts } from '@/data/mockData';
 
 interface WorkOrderStore {
@@ -7,6 +7,7 @@ interface WorkOrderStore {
   currentWorkOrder: WorkOrder | null;
   statusFilter: string;
   selectedIds: string[];
+  parts: Part[];
   
   fetchWorkOrders: () => void;
   getWorkOrderById: (id: string) => void;
@@ -23,6 +24,7 @@ interface WorkOrderStore {
   selectAll: () => void;
   clearSelection: () => void;
   batchAssign: (ids: string[], technicianId: string, technicianName: string) => void;
+  fetchParts: () => void;
 }
 
 export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
@@ -30,9 +32,14 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
   currentWorkOrder: null,
   statusFilter: 'all',
   selectedIds: [],
+  parts: [],
 
   fetchWorkOrders: () => {
     set({ workorders: [...mockWorkOrders] });
+  },
+
+  fetchParts: () => {
+    set({ parts: [...mockParts] });
   },
 
   getWorkOrderById: (id: string) => {
@@ -99,6 +106,15 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
     const updatedParts = workorder.parts.map(p => 
       p.partId === partId ? { ...p, status: 'issued' as const } : p
     );
+
+    const partToIssue = workorder.parts.find(p => p.partId === partId);
+    if (partToIssue) {
+      set(state => ({
+        parts: state.parts.map(part => 
+          part.id === partId ? { ...part, stock: Math.max(0, part.stock - partToIssue.quantity) } : part
+        ),
+      }));
+    }
 
     const allIssued = updatedParts.every(p => p.status === 'issued');
     
