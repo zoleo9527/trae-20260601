@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>搬家公司管理系统 API 文档</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; background: #f5f7fa; color: #333; line-height: 1.6; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 20px; border-radius: 12px; margin-bottom: 30px; }
+        header h1 { font-size: 32px; margin-bottom: 10px; }
+        header p { opacity: 0.9; font-size: 16px; }
+        .info-bar { display: flex; gap: 20px; margin-top: 20px; flex-wrap: wrap; }
+        .info-tag { background: rgba(255,255,255,0.2); padding: 6px 14px; border-radius: 20px; font-size: 14px; }
+        .section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .section h2 { font-size: 22px; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid #f0f0f0; color: #2c3e50; display: flex; align-items: center; gap: 10px; }
+        .section h2::before { content: ''; width: 4px; height: 24px; background: #667eea; border-radius: 2px; }
+        .endpoint { border: 1px solid #e8e8e8; border-radius: 8px; margin-bottom: 16px; overflow: hidden; transition: all 0.2s; }
+        .endpoint:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        .endpoint-header { padding: 14px 18px; display: flex; align-items: center; gap: 14px; cursor: pointer; background: #fafbfc; }
+        .method { padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 700; color: white; min-width: 70px; text-align: center; letter-spacing: 0.5px; }
+        .method.get { background: #61affe; }
+        .method.post { background: #49cc90; }
+        .method.patch { background: #fca130; }
+        .method.delete { background: #f93e3e; }
+        .path { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 15px; color: #2c3e50; font-weight: 600; flex: 1; }
+        .desc { color: #666; font-size: 14px; }
+        .endpoint-body { padding: 18px; border-top: 1px solid #e8e8e8; background: white; }
+        .endpoint-body h4 { font-size: 14px; color: #555; margin-bottom: 10px; margin-top: 16px; }
+        .endpoint-body h4:first-child { margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        th { background: #fafbfc; color: #555; font-weight: 600; }
+        td code, th code { background: #f5f5f5; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+        .required { color: #f93e3e; font-weight: 600; }
+        .optional { color: #888; }
+        pre { background: #282c34; color: #abb2bf; padding: 16px; border-radius: 6px; overflow-x: auto; font-size: 13px; line-height: 1.5; }
+        pre code { font-family: 'SFMono-Regular', Consolas, monospace; }
+        .json-key { color: #e06c75; }
+        .json-string { color: #98c379; }
+        .json-number { color: #d19a66; }
+        .json-boolean { color: #56b6c2; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+        .badge-highlight { background: #fff3cd; color: #856404; }
+        .badge-key { background: #ffe5e5; color: #c0392b; }
+        .seed-info { background: #e8f5e9; border-left: 4px solid #4caf50; padding: 16px; border-radius: 6px; margin-bottom: 24px; }
+        .seed-info h3 { color: #2e7d32; margin-bottom: 10px; }
+        .seed-info ul { list-style: none; padding-left: 0; }
+        .seed-info li { padding: 4px 0; color: #33691e; }
+        .seed-info code { background: #c8e6c9; padding: 2px 8px; border-radius: 3px; }
+        .nav { position: sticky; top: 0; background: white; padding: 12px 20px; border-radius: 12px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); display: flex; gap: 12px; flex-wrap: wrap; z-index: 10; }
+        .nav a { text-decoration: none; color: #667eea; padding: 6px 14px; border-radius: 6px; font-size: 14px; font-weight: 500; transition: all 0.2s; }
+        .nav a:hover { background: #667eea; color: white; }
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            header { padding: 24px 16px; }
+            header h1 { font-size: 24px; }
+            .endpoint-header { flex-wrap: wrap; gap: 8px; }
+            th, td { padding: 8px 6px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚚 搬家公司管理系统 API</h1>
+            <p>完整的搬家公司业务管理接口，涵盖预约、排班派工、异常处理、通知等功能</p>
+            <div class="info-bar">
+                <span class="info-tag">Base URL: http://localhost:3001</span>
+                <span class="info-tag">版本: v1.0</span>
+                <span class="info-tag">数据库: SQLite</span>
+                <span class="info-tag">框架: Fiber v2 + GORM</span>
+            </div>
+        </header>
+
+        <div class="seed-info">
+            <h3>🌱 测试账号与种子数据</h3>
+            <ul>
+                <li><strong>3个测试用户</strong>（密码均为 <code>123456</code>）: <code>dispatcher</code>（调度）| <code>leader</code>（组长）| <code>customer</code>（客服）</li>
+                <li><strong>3台车辆</strong>: 京A12345 (4.2米厢货) | 京A67890 (6.8米平板) | 京B11111 (9.6米厢货·维护中)</li>
+                <li><strong>4名搬运人员</strong>: 王师傅(组长) | 赵师傅 | 钱师傅 | 孙师傅(司机·休息中)</li>
+                <li><strong>3个预约单</strong>: 待调度 · 已派工(明天下午) · 进行中(今日上午正在装车)</li>
+            </ul>
+        </div>
+
+        <div class="nav">
+            <a href="#auth">🔐 认证接口</a>
+            <a href="#bookings">📋 预约单</a>
+            <a href="#vehicles">🚗 车辆管理</a>
+            <a href="#schedules">📅 排班派工</a>
+            <a href="#assignments">👥 派工管理</a>
+            <a href="#exceptions">⚠️ 异常处理</a>
+            <a href="#notifications">🔔 通知中心</a>
+            <a href="#crew">🧑‍🔧 搬运人员</a>
+            <a href="#damage">📸 物损照片</a>
+        </div>
+
+        <div class="section" id="auth">
+            <h2>🔐 认证接口</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/auth/login</span>
+                    <span class="desc">用户登录获取Token</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体 (JSON)</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>username</code></td><td>string</td><td class="required">是</td><td>用户名 (dispatcher/leader/customer)</td></tr>
+                        <tr><td><code>password</code></td><td>string</td><td class="required">是</td><td>密码 (123456)</td></tr>
+                    </table>
+                    <h4>返回示例</h4>
+<pre><code>{
+  <span class="json-key">"code"</span>: <span class="json-number">200</span>,
+  <span class="json-key">"token"</span>: <span class="json-string">"eyJhbGciOiJIUzI1NiIs..."</span>,
+  <span class="json-key">"user"</span>: {
+    <span class="json-key">"id"</span>: <span class="json-string">"uuid..."</span>,
+    <span class="json-key">"username"</span>: <span class="json-string">"dispatcher"</span>,
+    <span class="json-key">"name"</span>: <span class="json-string">"张调度"</span>,
+    <span class="json-key">"role"</span>: <span class="json-string">"dispatcher"</span>
+  }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="bookings">
+            <h2>📋 预约单管理</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/bookings</span>
+                    <span class="desc">获取预约单列表（分页/筛选）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>page</code></td><td>int</td><td class="optional">否</td><td>页码，默认1</td></tr>
+                        <tr><td><code>page_size</code></td><td>int</td><td class="optional">否</td><td>每页数量，默认10</td></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="optional">否</td><td>状态筛选: pending/assigned/in_progress/completed</td></tr>
+                        <tr><td><code>keyword</code></td><td>string</td><td class="optional">否</td><td>客户姓名/电话模糊搜索</td></tr>
+                    </table>
+                    <h4>返回示例</h4>
+<pre><code>{
+  <span class="json-key">"items"</span>: [{
+    <span class="json-key">"id"</span>: <span class="json-string">"uuid"</span>,
+    <span class="json-key">"customer_name"</span>: <span class="json-string">"刘先生"</span>,
+    <span class="json-key">"customer_phone"</span>: <span class="json-string">"13600000001"</span>,
+    <span class="json-key">"from_address"</span>: <span class="json-string">"北京市朝阳区..."</span>,
+    <span class="json-key">"to_address"</span>: <span class="json-string">"北京市海淀区..."</span>,
+    <span class="json-key">"move_date"</span>: <span class="json-string">"2026-06-18T09:00:00Z"</span>,
+    <span class="json-key">"status"</span>: <span class="json-string">"pending"</span>,
+    <span class="json-key">"total_price"</span>: <span class="json-number">1200</span>
+  }],
+  <span class="json-key">"total"</span>: <span class="json-number">3</span>,
+  <span class="json-key">"page"</span>: <span class="json-number">1</span>
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/bookings/:id</span>
+                    <span class="desc">获取预约单详情</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>路径参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>id</code></td><td>uuid</td><td>预约单ID</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/bookings</span>
+                    <span class="desc">创建预约单</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>customer_name</code></td><td>string</td><td class="required">是</td><td>客户姓名</td></tr>
+                        <tr><td><code>customer_phone</code></td><td>string</td><td class="required">是</td><td>联系电话</td></tr>
+                        <tr><td><code>from_address</code></td><td>string</td><td class="required">是</td><td>搬出地址</td></tr>
+                        <tr><td><code>to_address</code></td><td>string</td><td class="required">是</td><td>搬入地址</td></tr>
+                        <tr><td><code>move_date</code></td><td>string</td><td class="required">是</td><td>搬家日期 (ISO 8601)</td></tr>
+                        <tr><td><code>move_time</code></td><td>string</td><td class="optional">否</td><td>时间段，如 09:00-12:00</td></tr>
+                        <tr><td><code>base_price</code></td><td>number</td><td class="optional">否</td><td>基础费用</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/bookings/:id</span>
+                    <span class="desc">更新预约单（含状态更新）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>可更新字段</h4>
+                    <table>
+                        <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>status</code></td><td>string</td><td>pending → assigned → in_progress → completed</td></tr>
+                        <tr><td><code>vehicle_id</code></td><td>uuid</td><td>指派车辆</td></tr>
+                        <tr><td><code>extra_price</code></td><td>number</td><td>附加费用</td></tr>
+                        <tr><td><code>remarks</code></td><td>string</td><td>备注</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="vehicles">
+            <h2>🚗 车辆管理</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/vehicles</span>
+                    <span class="desc">获取车辆列表（含状态筛选）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="optional">否</td><td>idle / assigned / in_transit / maintenance</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/vehicles</span>
+                    <span class="desc">新增车辆</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>plate_number</code></td><td>string</td><td class="required">是</td><td>车牌号，唯一</td></tr>
+                        <tr><td><code>vehicle_type</code></td><td>string</td><td class="required">是</td><td>车型（厢式货车/平板货车等）</td></tr>
+                        <tr><td><code>capacity</code></td><td>string</td><td class="optional">否</td><td>载重/容积</td></tr>
+                        <tr><td><code>driver_name</code></td><td>string</td><td class="optional">否</td><td>司机姓名</td></tr>
+                        <tr><td><code>driver_phone</code></td><td>string</td><td class="optional">否</td><td>司机电话</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/vehicles/:id</span>
+                    <span class="desc">更新车辆信息/状态</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="schedules">
+            <h2>📅 排班派工管理 <span class="badge badge-key">核心模块</span></h2>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/schedules</span>
+                    <span class="desc">创建排班 + 派工一步完成 <span class="badge badge-highlight">关键接口</span></span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体 (JSON)</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>vehicle_id</code></td><td>uuid</td><td class="required">是</td><td>车辆ID</td></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td class="required">是</td><td>预约单ID</td></tr>
+                        <tr><td><code>planned_start</code></td><td>datetime</td><td class="required">是</td><td>计划开始时间</td></tr>
+                        <tr><td><code>planned_end</code></td><td>datetime</td><td class="required">是</td><td>计划结束时间</td></tr>
+                        <tr><td><code>assignments</code></td><td>array</td><td class="required">是</td><td>派工人员列表</td></tr>
+                        <tr><td><code>assignments[].crew_id</code></td><td>uuid</td><td class="required">是</td><td>搬运人员ID</td></tr>
+                        <tr><td><code>assignments[].role</code></td><td>string</td><td class="optional">否</td><td>角色（组长/搬运工/司机）</td></tr>
+                    </table>
+                    <h4>请求示例</h4>
+<pre><code>{
+  <span class="json-key">"vehicle_id"</span>: <span class="json-string">"v1-uuid"</span>,
+  <span class="json-key">"booking_id"</span>: <span class="json-string">"b1-uuid"</span>,
+  <span class="json-key">"planned_start"</span>: <span class="json-string">"2026-06-17T09:00:00Z"</span>,
+  <span class="json-key">"planned_end"</span>: <span class="json-string">"2026-06-17T12:00:00Z"</span>,
+  <span class="json-key">"assignments"</span>: [
+    { <span class="json-key">"crew_id"</span>: <span class="json-string">"c1-uuid"</span>, <span class="json-key">"role"</span>: <span class="json-string">"组长"</span> },
+    { <span class="json-key">"crew_id"</span>: <span class="json-string">"c2-uuid"</span>, <span class="json-key">"role"</span>: <span class="json-string">"搬运工"</span> }
+  ]
+}</code></pre>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/schedules</span>
+                    <span class="desc">排班列表（多条件筛选）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>vehicle_id</code></td><td>uuid</td><td class="optional">否</td><td>按车辆筛选</td></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="optional">否</td><td>状态: created/assigned/departed/arrived/loading/moving/unloading/done</td></tr>
+                        <tr><td><code>date</code></td><td>string</td><td class="optional">否</td><td>按日期筛选 (YYYY-MM-DD)</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/schedules/:id</span>
+                    <span class="desc">排班详情（关联预约单+派工列表）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>返回包含</h4>
+                    <table>
+                        <tr><th>关联数据</th><th>说明</th></tr>
+                        <tr><td><code>booking</code></td><td>关联预约单完整信息（客户/地址/价格等）</td></tr>
+                        <tr><td><code>vehicle</code></td><td>车辆信息</td></tr>
+                        <tr><td><code>assignments</code></td><td>派工人员列表（含人员姓名/角色/状态）</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/schedules/:id/status</span>
+                    <span class="desc">更新排班状态（状态流转）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="required">是</td><td>目标状态（按顺序流转）</td></tr>
+                        <tr><td><code>remarks</code></td><td>string</td><td class="optional">否</td><td>状态变更备注</td></tr>
+                    </table>
+                    <h4>状态流转</h4>
+                    <p><code>created</code> → <code>assigned</code> → <code>departed</code> → <code>arrived</code> → <code>loading</code> → <code>moving</code> → <code>unloading</code> → <code>done</code></p>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/schedules/timeline/:date</span>
+                    <span class="desc">日程看板（按日期） <span class="badge badge-highlight">关键接口</span></span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>路径参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>date</code></td><td>string</td><td>日期，格式 YYYY-MM-DD 或 "today"</td></tr>
+                    </table>
+                    <h4>返回格式（按车辆分组的时间轴）</h4>
+<pre><code>{
+  <span class="json-key">"date"</span>: <span class="json-string">"2026-06-15"</span>,
+  <span class="json-key">"timeline"</span>: [
+    {
+      <span class="json-key">"vehicle_id"</span>: <span class="json-string">"v1-uuid"</span>,
+      <span class="json-key">"plate_number"</span>: <span class="json-string">"京A12345"</span>,
+      <span class="json-key">"schedules"</span>: [
+        {
+          <span class="json-key">"id"</span>: <span class="json-string">"sched-uuid"</span>,
+          <span class="json-key">"booking_id"</span>: <span class="json-string">"b-uuid"</span>,
+          <span class="json-key">"customer_name"</span>: <span class="json-string">"陈女士"</span>,
+          <span class="json-key">"time_range"</span>: <span class="json-string">"14:00 - 18:00"</span>,
+          <span class="json-key">"status"</span>: <span class="json-string">"assigned"</span>
+        }
+      ]
+    }
+  ]
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="assignments">
+            <h2>👥 派工管理 <span class="badge badge-key">核心模块</span></h2>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/assignments/batch</span>
+                    <span class="desc">批量派工（一次性分配多人）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>schedule_id</code></td><td>uuid</td><td class="required">是</td><td>排班ID</td></tr>
+                        <tr><td><code>assignments</code></td><td>array</td><td class="required">是</td><td>派工列表</td></tr>
+                        <tr><td><code>assignments[].crew_id</code></td><td>uuid</td><td class="required">是</td><td>人员ID</td></tr>
+                        <tr><td><code>assignments[].role</code></td><td>string</td><td class="optional">否</td><td>角色</td></tr>
+                        <tr><td><code>notify</code></td><td>boolean</td><td class="optional">否</td><td>是否发送通知，默认true</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/assignments</span>
+                    <span class="desc">派工回看（多条件筛选）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>member_id</code></td><td>uuid</td><td class="optional">否</td><td>按搬运人员筛选</td></tr>
+                        <tr><td><code>start_date</code></td><td>string</td><td class="optional">否</td><td>起始日期 YYYY-MM-DD</td></tr>
+                        <tr><td><code>end_date</code></td><td>string</td><td class="optional">否</td><td>结束日期 YYYY-MM-DD</td></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="optional">否</td><td>派工状态</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/assignments/:id</span>
+                    <span class="desc">派工详情</span>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/assignments/:id</span>
+                    <span class="desc">更新派工状态（接单/到达/完成/拒收）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="required">是</td><td>pending → accepted → arrived → working → completed</td></tr>
+                        <tr><td><code>reject_reason</code></td><td>string</td><td class="optional">否</td><td>拒收原因（status=rejected时必填）</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/assignments/review/:member_id</span>
+                    <span class="desc">人员派工回看（带统计数据） <span class="badge badge-highlight">关键接口</span></span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>路径参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>member_id</code></td><td>uuid</td><td>搬运人员ID</td></tr>
+                    </table>
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>month</code></td><td>string</td><td>统计月份，如 2026-06，默认当月</td></tr>
+                    </table>
+                    <h4>返回示例（统计信息）</h4>
+<pre><code>{
+  <span class="json-key">"member"</span>: { <span class="json-key">"name"</span>: <span class="json-string">"王师傅"</span>, <span class="json-key">"position"</span>: <span class="json-string">"组长"</span> },
+  <span class="json-key">"statistics"</span>: {
+    <span class="json-key">"total_assignments"</span>: <span class="json-number">28</span>,
+    <span class="json-key">"completed_count"</span>: <span class="json-number">25</span>,
+    <span class="json-key">"reject_count"</span>: <span class="json-number">2</span>,
+    <span class="json-key">"total_hours"</span>: <span class="json-number">168.5</span>,
+    <span class="json-key">"avg_rating"</span>: <span class="json-number">4.8</span>
+  },
+  <span class="json-key">"assignments"</span>: [ ... ]
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="exceptions">
+            <h2>⚠️ 异常处理 <span class="badge badge-key">核心模块</span></h2>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/exceptions</span>
+                    <span class="desc">创建异常（支持物损照片上传）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体 (multipart/form-data 或 JSON)</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td class="required">是</td><td>关联预约单</td></tr>
+                        <tr><td><code>schedule_id</code></td><td>uuid</td><td class="optional">否</td><td>关联排班</td></tr>
+                        <tr><td><code>type</code></td><td>string</td><td class="required">是</td><td>delay(延误) / surcharge(加收) / damage(物损) / other</td></tr>
+                        <tr><td><code>title</code></td><td>string</td><td class="required">是</td><td>异常标题</td></tr>
+                        <tr><td><code>description</code></td><td>string</td><td class="required">是</td><td>详细描述</td></tr>
+                        <tr><td><code>severity</code></td><td>string</td><td class="optional">否</td><td>low / medium / high</td></tr>
+                        <tr><td><code>refund_amount</code></td><td>number</td><td class="optional">否</td><td>建议退款金额</td></tr>
+                        <tr><td><code>surcharge_amount</code></td><td>number</td><td class="optional">否</td><td>加收金额</td></tr>
+                        <tr><td><code>photos</code></td><td>files</td><td class="optional">否</td><td>物损照片（多文件，type=damage时推荐）</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/exceptions</span>
+                    <span class="desc">异常列表（筛选）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td class="optional">否</td><td>按预约单筛选</td></tr>
+                        <tr><td><code>status</code></td><td>string</td><td class="optional">否</td><td>pending / rejected / confirmed / refunded / resolved</td></tr>
+                        <tr><td><code>type</code></td><td>string</td><td class="optional">否</td><td>delay / surcharge / damage</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/exceptions/:id/handle</span>
+                    <span class="desc">处理异常（四种操作）</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>action</code></td><td>string</td><td class="required">是</td><td>noticed(已知晓) / refunded(已退款) / closed(已关闭) / rejected(已驳回)</td></tr>
+                        <tr><td><code>refund_amount</code></td><td>number</td><td class="optional">否</td><td>实际退款金额（action=refunded时建议）</td></tr>
+                        <tr><td><code>handle_remark</code></td><td>string</td><td class="required">是</td><td>处理意见（必填）</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/exceptions/trigger/:booking_id</span>
+                    <span class="desc">异常测试触发接口 <span class="badge badge-highlight">测试专用</span></span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>路径及查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td class="required">是</td><td>目标预约单ID</td></tr>
+                        <tr><td><code>scenario</code></td><td>string</td><td class="required">是</td><td>delay / surcharge / damage</td></tr>
+                    </table>
+                    <h4>三种模拟场景说明</h4>
+                    <table>
+                        <tr><th>场景</th><th>触发效果</th></tr>
+                        <tr><td><code>delay</code></td><td>生成"延误2小时"异常，状态pending，自动通知调度</td></tr>
+                        <tr><td><code>surcharge</code></td><td>生成"加收楼层费300元"异常，建议附加费300元</td></tr>
+                        <tr><td><code>damage</code></td><td>生成"贵重物品损坏"异常，附3张示例物损照片URL，建议退款800元</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="notifications">
+            <h2>🔔 通知中心</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/notifications</span>
+                    <span class="desc">获取当前用户通知列表</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>read</code></td><td>boolean</td><td>可选，true=只看已读，false=只看未读</td></tr>
+                        <tr><td><code>type</code></td><td>string</td><td>exception / schedule / assignment / system</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method patch">PATCH</span>
+                    <span class="path">/api/notifications/:id/read</span>
+                    <span class="desc">标记通知为已读</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="crew">
+            <h2>🧑‍🔧 搬运人员管理</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/crew</span>
+                    <span class="desc">获取搬运人员列表</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>status</code></td><td>string</td><td>active / rest / assigned / leave</td></tr>
+                        <tr><td><code>position</code></td><td>string</td><td>按职位筛选（组长/搬运工/司机）</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/crew</span>
+                    <span class="desc">新增搬运人员</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>name</code></td><td>string</td><td class="required">是</td><td>姓名</td></tr>
+                        <tr><td><code>phone</code></td><td>string</td><td class="required">是</td><td>手机号</td></tr>
+                        <tr><td><code>id_card</code></td><td>string</td><td class="optional">否</td><td>身份证号</td></tr>
+                        <tr><td><code>position</code></td><td>string</td><td class="optional">否</td><td>职位</td></tr>
+                        <tr><td><code>skill</code></td><td>string</td><td class="optional">否</td><td>技能标签，逗号分隔</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="damage">
+            <h2>📸 物损照片</h2>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method get">GET</span>
+                    <span class="path">/api/damage-photos</span>
+                    <span class="desc">获取物损照片列表</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>查询参数</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>说明</th></tr>
+                        <tr><td><code>exception_id</code></td><td>uuid</td><td>按异常单筛选</td></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td>按预约单筛选</td></tr>
+                    </table>
+                </div>
+            </div>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method post">POST</span>
+                    <span class="path">/api/damage-photos</span>
+                    <span class="desc">上传物损照片</span>
+                </div>
+                <div class="endpoint-body">
+                    <h4>请求体 (multipart/form-data)</h4>
+                    <table>
+                        <tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+                        <tr><td><code>exception_id</code></td><td>uuid</td><td class="required">是</td><td>关联异常单ID</td></tr>
+                        <tr><td><code>booking_id</code></td><td>uuid</td><td class="optional">否</td><td>关联预约单ID</td></tr>
+                        <tr><td><code>file</code></td><td>file</td><td class="required">是</td><td>照片文件</td></tr>
+                        <tr><td><code>description</code></td><td>string</td><td class="optional">否</td><td>照片说明</td></tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📌 通用状态枚举参考</h2>
+            <h4 style="margin-top:0; margin-bottom:12px;">预约单状态 (BookingStatus)</h4>
+            <table>
+                <tr><th>值</th><th>说明</th><th>流转方向</th></tr>
+                <tr><td><code>pending</code></td><td>待调度</td><td>→ assigned</td></tr>
+                <tr><td><code>assigned</code></td><td>已派工</td><td>→ in_progress</td></tr>
+                <tr><td><code>in_progress</code></td><td>进行中</td><td>→ delayed / surcharged / completed</td></tr>
+                <tr><td><code>delayed</code></td><td>延误中</td><td>→ in_progress</td></tr>
+                <tr><td><code>surcharged</code></td><td>有加收</td><td>→ completed</td></tr>
+                <tr><td><code>completed</code></td><td>已完成</td><td>终态</td></tr>
+                <tr><td><code>cancelled</code></td><td>已取消</td><td>终态</td></tr>
+            </table>
+            <h4 style="margin-top:20px; margin-bottom:12px;">排班状态 (ScheduleStatus)</h4>
+            <table>
+                <tr><th>值</th><th>说明</th></tr>
+                <tr><td><code>created</code> → <code>assigned</code> → <code>departed</code> → <code>arrived</code> → <code>loading</code> → <code>moving</code> → <code>unloading</code> → <code>done</code></td><td>正常流程</td></tr>
+                <tr><td><code>exception</code></td><td>发生异常（可回退到上一步）</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        document.querySelectorAll('.endpoint-header').forEach(h => {
+            h.addEventListener('click', () => {
+                const body = h.nextElementSibling;
+                if (body) {
+                    body.style.display = body.style.display === 'none' ? 'block' : 'none';
+                }
+            });
+        });
+        document.querySelectorAll('.nav a').forEach(a => {
+            a.addEventListener('click', (e) => {
+                e.preventDefault();
+                const id = a.getAttribute('href').slice(1);
+                const el = document.getElementById(id);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            });
+        });
+    </script>
+</body>
+</html>
