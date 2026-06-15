@@ -276,10 +276,13 @@ export const ReturnService = {
   ): Promise<ExportResult> {
     const { list } = await this.list({ ...query, page: 1, pageSize: 9999 })
     await new Promise(r => setTimeout(r, 200))
+    const fileName = `退货复核清单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    const url = `#download/returns/${Date.now()}`
     return {
       taskId: 'EXP' + Date.now(),
-      fileName: `退货复核清单_${new Date().toISOString().slice(0, 10)}.xlsx`,
-      downloadUrl: `#download/returns/${Date.now()}`,
+      fileName,
+      downloadUrl: url,
+      url,
       fileSize: list.length * 256 + 1024,
       status: 'success',
       generatedAt: new Date().toISOString(),
@@ -291,10 +294,13 @@ export const ReturnService = {
     const r = await this.detail(id)
     if (!r) throw new Error('NOT_FOUND')
     await new Promise(r => setTimeout(r, 150))
+    const fileName = `退货复核_${r.id}.xlsx`
+    const url = `#download/return/${r.id}`
     return {
       taskId: 'EXP' + Date.now(),
-      fileName: `退货复核_${r.id}.xlsx`,
-      downloadUrl: `#download/return/${r.id}`,
+      fileName,
+      downloadUrl: url,
+      url,
       fileSize: 2048 + r.tiles.length * 256,
       status: 'success',
       generatedAt: new Date().toISOString(),

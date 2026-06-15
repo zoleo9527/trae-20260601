@@ -468,7 +468,7 @@ export default function ReturnDetail() {
         onOk={doAction}
         okText="确认"
         okButtonProps={actionType === 'reject' ? { danger: true } : { type: 'primary' }}
-        destroyOnClose
+        destroyOnHidden
         width={actionType === 'supplement' ? 780 : 520}
       >
         <Form form={form} layout="vertical">

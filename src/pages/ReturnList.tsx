@@ -500,7 +500,7 @@ export default function ReturnList() {
         onOk={handleCreate}
         okText="创建"
         width={720}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={createForm} layout="vertical">
           <Form.Item name="orderNo" label="关联销售单号" rules={[{ required: true }]}>
@@ -575,7 +575,7 @@ export default function ReturnList() {
         onCancel={() => { setInspectId(null); inspectForm.resetFields() }}
         onOk={handleInspect}
         okText="确认验货"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={inspectForm} layout="vertical">
           <Form.Item name="remark" label="验货备注">
@@ -590,7 +590,7 @@ export default function ReturnList() {
         onCancel={() => { setPassId(null); passForm.resetFields() }}
         onOk={handlePass}
         okText="确认通过"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={passForm} layout="vertical">
           <Form.Item name="inspectionResult" label="验货结果" rules={[{ required: true }]}>
@@ -609,7 +609,7 @@ export default function ReturnList() {
         onOk={handleReject}
         okText="确认驳回"
         okButtonProps={{ danger: true }}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={rejectForm} layout="vertical">
           <Form.Item name="reason" label="驳回原因" rules={[{ required: true, message: '请填写驳回原因' }]}>
@@ -624,7 +624,7 @@ export default function ReturnList() {
         onCancel={() => { setRescheduleId(null); rescheduleForm.resetFields() }}
         onOk={handleReschedule}
         okText="确认改期"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={rescheduleForm} layout="vertical">
           <Form.Item name="newDate" label="新的取货日期" rules={[{ required: true }]}>
@@ -642,7 +642,7 @@ export default function ReturnList() {
         onCancel={() => { setRefundId(null); refundForm.resetFields() }}
         onOk={handleRefund}
         okText="确认退款"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={refundForm} layout="vertical">
           <Form.Item

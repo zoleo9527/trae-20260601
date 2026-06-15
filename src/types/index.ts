@@ -207,8 +207,9 @@ export interface ExportResult {
   taskId: string
   fileName: string
   downloadUrl: string
+  url: string
   fileSize: number
-  status: 'success'
+  status: 'success' | 'error'
   generatedAt: string
   recordCount: number
 }

@@ -472,7 +472,7 @@ export default function SupplementDetail() {
         onOk={doAction}
         okText="确认"
         okButtonProps={actionType === 'reject' ? { danger: true } : { type: 'primary' }}
-        destroyOnClose
+        destroyOnHidden
         width={actionType === 'supplement' ? 720 : 520}
       >
         <Form form={form} layout="vertical">

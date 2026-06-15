@@ -553,7 +553,7 @@ export default function SupplementList() {
         onOk={handleCreate}
         okText="创建"
         width={720}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={createForm} layout="vertical">
           <Form.Item name="orderNo" label="关联销售单号" rules={[{ required: true }]}>
@@ -641,7 +641,7 @@ export default function SupplementList() {
         onCancel={() => { setConfirmId(null); confirmForm.resetFields() }}
         onOk={handleConfirmDesign}
         okText="确认无误"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={confirmForm} layout="vertical">
           <Form.Item name="remark" label="复核备注">
@@ -657,7 +657,7 @@ export default function SupplementList() {
         onOk={handleReject}
         okText="确认驳回"
         okButtonProps={{ danger: true }}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={rejectForm} layout="vertical">
           <Form.Item name="reason" label="驳回原因" rules={[{ required: true, message: '请填写驳回原因' }]}>
@@ -672,7 +672,7 @@ export default function SupplementList() {
         onCancel={() => { setRescheduleId(null); rescheduleForm.resetFields() }}
         onOk={handleReschedule}
         okText="确认改期"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={rescheduleForm} layout="vertical">
           <Form.Item name="newDate" label="新的送达日期" rules={[{ required: true }]}>
@@ -690,7 +690,7 @@ export default function SupplementList() {
         onCancel={() => { setShipId(null); shipForm.resetFields() }}
         onOk={handleShip}
         okText="确认发货"
-        destroyOnClose
+        destroyOnHidden
       >
         <Form form={shipForm} layout="vertical">
           <Form.Item name="expressNo" label="物流单号" rules={[{ required: true }]}>

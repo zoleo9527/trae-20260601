@@ -11,11 +11,13 @@ export interface RequestConfig extends RequestInit {
 class RequestError extends Error {
   code: number
   data?: any
+  errorFields?: any[]
   constructor(message: string, code: number, data?: any) {
     super(message)
     this.name = 'RequestError'
     this.code = code
     this.data = data
+    this.errorFields = data?.errorFields
   }
 }
 
@@ -55,20 +57,25 @@ async function request<T = any>(url: string, config: RequestConfig = {}): Promis
   }
 
   try {
-    // 真实环境这里会走 fetch：
-    // const resp = await fetch(fullUrl, finalConfig)
-    // const json: ApiResponse<T> = await resp.json()
+    const resp = await fetch(fullUrl, finalConfig)
+    const json: ApiResponse<T> = await resp.json()
 
-    // Mock 模式：由于没有真实后端，这里返回假的 success response
-    // 实际调用走 service 层（保持原有内存数据），API 层仅做协议封装
-    const mockResponse: ApiResponse<T> = {
-      code: 0,
-      message: 'ok',
-      data: {} as T,
+    if (json.code === 0) {
+      return json.data
     }
-    return mockResponse.data
+
+    throw new RequestError(json.message || '请求失败', json.code, json.data)
   } catch (e: any) {
-    if (e instanceof RequestError) throw e
+    if (e instanceof RequestError) {
+      console.error(`[API Error] ${fullUrl}:`, e.message, e.code)
+      throw e
+    }
+    if (e.name === 'SyntaxError') {
+      throw new RequestError('服务器响应格式错误', -2)
+    }
+    if (e.message === 'Failed to fetch') {
+      throw new RequestError('网络连接失败，请检查网络', -3)
+    }
     throw new RequestError(e.message || '网络错误', -1)
   }
 }
@@ -84,8 +91,8 @@ export const http = {
     request<T>(url, { ...config, method: 'PATCH', body: data ? JSON.stringify(data) : undefined }),
   delete: <T = any>(url: string, config?: RequestConfig) =>
     request<T>(url, { ...config, method: 'DELETE' }),
-  download: (url: string, params?: Record<string, any>) =>
-    request(url, { method: 'GET', params }),
+  download: <T = any>(url: string, params?: Record<string, any>) =>
+    request<T>(url, { method: 'GET', params }),
 }
 
 export { RequestError }

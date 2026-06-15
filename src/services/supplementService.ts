@@ -312,10 +312,13 @@ export const SupplementService = {
   ): Promise<ExportResult> {
     const { list } = await this.list({ ...query, page: 1, pageSize: 9999 })
     await new Promise(r => setTimeout(r, 200))
+    const fileName = `补砖申请清单_${new Date().toISOString().slice(0, 10)}.xlsx`
+    const url = `#download/supplements/${Date.now()}`
     return {
       taskId: 'EXP' + Date.now(),
-      fileName: `补砖申请清单_${new Date().toISOString().slice(0, 10)}.xlsx`,
-      downloadUrl: `#download/supplements/${Date.now()}`,
+      fileName,
+      downloadUrl: url,
+      url,
       fileSize: list.length * 256 + 1024,
       status: 'success',
       generatedAt: new Date().toISOString(),
@@ -327,10 +330,13 @@ export const SupplementService = {
     const s = await this.detail(id)
     if (!s) throw new Error('NOT_FOUND')
     await new Promise(r => setTimeout(r, 150))
+    const fileName = `补砖申请_${s.id}.xlsx`
+    const url = `#download/supplement/${s.id}`
     return {
       taskId: 'EXP' + Date.now(),
-      fileName: `补砖申请_${s.id}.xlsx`,
-      downloadUrl: `#download/supplement/${s.id}`,
+      fileName,
+      downloadUrl: url,
+      url,
       fileSize: 2048 + s.tiles.length * 256,
       status: 'success',
       generatedAt: new Date().toISOString(),
