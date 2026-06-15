@@ -129,7 +129,7 @@ const ReturnForm: React.FC = () => {
 
     form.setFieldsValue({
       contractId: record.contractId,
-      actualReturnDate: dayjs(record.actualReturnDate),
+      actualReturnDate: dayjs(record.returnTime),
       dispatcher: record.dispatcher,
       contractManager: record.contractManager,
       endFuelLevel: record.endFuelLevel,
