@@ -1,11 +1,35 @@
 import type { Machine, ExportTask, DashboardStats, TestItem, ExceptionRecord, OperationRecord } from '@/types';
 import { seedMachines, seedExportTasks } from '@/data/seedData';
-import { getStoredData, setStoredData, STORAGE_KEYS } from '@/utils/storage';
+import { getStoredData, setStoredData, STORAGE_KEYS, needsMigration, setDataVersion, CURRENT_VERSION } from '@/utils/storage';
 
-function loadMachines(): Machine[] {
-  return getStoredData<Machine[]>(STORAGE_KEYS.MACHINES, seedMachines);
+const NEW_STATE_MACHINES = seedMachines.filter(m => m.status === 're_recording' || m.status === 'pending_review');
+
+function migrateData(): Machine[] {
+  const existingMachines = getStoredData<Machine[]>(STORAGE_KEYS.MACHINES, []);
+  const existingIds = new Set(existingMachines.map(m => m.id));
+  
+  const machinesToAdd = NEW_STATE_MACHINES.filter(m => !existingIds.has(m.id));
+  
+  const migratedMachines = [...existingMachines, ...machinesToAdd];
+  
+  setStoredData(STORAGE_KEYS.MACHINES, migratedMachines);
+  setDataVersion(CURRENT_VERSION);
+  
+  return migratedMachines;
 }
 
+function loadMachines(): Machine[] {
+  if (needsMigration()) {
+    return migrateData();
+  }
+  const stored = getStoredData<Machine[]>(STORAGE_KEYS.MACHINES, []);
+  if (stored.length === 0) {
+    setStoredData(STORAGE_KEYS.MACHINES, seedMachines);
+    setDataVersion(CURRENT_VERSION);
+    return seedMachines;
+  }
+  return stored;
+}
 
 
 function loadExportTasks(): ExportTask[] {

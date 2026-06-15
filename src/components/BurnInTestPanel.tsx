@@ -157,7 +157,7 @@ export function BurnInTestPanel({ machine, onStartTest, onUpdateTestItem, onRetu
                 </>
               )}
 
-              {!isHistory && machine.status === 'testing' && item.status === 'pending' && (
+              {!isHistory && machine.status === 'testing' && item.status !== 'running' && (
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={() => handleTestItemAction(item.id, 'pass')}
@@ -181,19 +181,6 @@ export function BurnInTestPanel({ machine, onStartTest, onUpdateTestItem, onRetu
                     跳过
                   </button>
                 </div>
-              )}
-
-              {!isHistory && machine.status === 'testing' && item.status !== 'pending' && (
-                <button
-                  onClick={() => {
-                    setEditingItem(item.id);
-                    setEditResult(item.result || '');
-                    setEditRemarks(item.remarks || '');
-                  }}
-                  className="btn btn-sm btn-secondary mt-2"
-                >
-                  编辑
-                </button>
               )}
             </div>
           ))}

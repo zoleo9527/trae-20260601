@@ -1,7 +1,10 @@
 const STORAGE_KEYS = {
   MACHINES: 'pc_assembly_machines',
   EXPORT_TASKS: 'pc_assembly_export_tasks',
+  DATA_VERSION: 'pc_assembly_data_version',
 };
+
+const CURRENT_VERSION = '2.0';
 
 export function getStoredData<T>(key: string, defaultValue: T): T {
   try {
@@ -28,4 +31,25 @@ export function clearStoredData(key: string): void {
   }
 }
 
-export { STORAGE_KEYS };
+export function getDataVersion(): string {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.DATA_VERSION) || '1.0';
+  } catch {
+    return '1.0';
+  }
+}
+
+export function setDataVersion(version: string): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.DATA_VERSION, version);
+  } catch (error) {
+    console.error('Failed to set data version:', error);
+  }
+}
+
+export function needsMigration(): boolean {
+  const current = getDataVersion();
+  return current < CURRENT_VERSION;
+}
+
+export { STORAGE_KEYS, CURRENT_VERSION };
