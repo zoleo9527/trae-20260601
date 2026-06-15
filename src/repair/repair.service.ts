@@ -2,16 +2,14 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IntakeOrder } from '../intake/entities/intake-order.entity';
-import {
-  SubmitDiagnosisDto,
-  SubmitQualityCheckDto,
-} from './dto/repair.dto';
+import { SubmitDiagnosisDto } from './dto/repair.dto';
 import { User } from '../auth/entities/user.entity';
 import { BusinessException } from '../common/exceptions/business.exception';
 import { ErrorCode } from '../common/enums/error-code.enum';
 import { IntakeStatus } from '../common/enums/intake-status.enum';
 import { OperationLogService } from '../common/services/operation-log.service';
 import { UserRole } from '../common/enums/user-role.enum';
+import { EvidenceService } from './evidence.service';
 
 @Injectable()
 export class RepairService {
@@ -19,6 +17,7 @@ export class RepairService {
     @InjectRepository(IntakeOrder)
     private readonly intakeRepo: Repository<IntakeOrder>,
     private readonly logService: OperationLogService,
+    private readonly evidenceService: EvidenceService,
   ) {}
 
   async claimOrder(orderId: string, technician: User) {
@@ -60,7 +59,11 @@ export class RepairService {
     return saved;
   }
 
-  async submitDiagnosis(orderId: string, dto: SubmitDiagnosisDto, technician: User) {
+  async submitDiagnosis(
+    orderId: string,
+    dto: SubmitDiagnosisDto,
+    technician: User,
+  ) {
     const order = await this.intakeRepo.findOne({
       where: { id: orderId },
       relations: ['technician'],
@@ -68,11 +71,20 @@ export class RepairService {
     if (!order) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
-    if (technician.role === UserRole.TECHNICIAN && order.technician?.id !== technician.id) {
-      throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, '只能处理自己的工单');
+    if (
+      technician.role === UserRole.TECHNICIAN &&
+      order.technician?.id !== technician.id
+    ) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        '只能处理自己的工单',
+      );
     }
     if (order.status !== IntakeStatus.DIAGNOSING) {
-      throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, '只有诊断中状态可提交诊断结果');
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '只有诊断中状态可提交诊断结果',
+      );
     }
 
     const oldValue = { ...order };
@@ -104,32 +116,33 @@ export class RepairService {
     if (!order) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
-    if (technician.role === UserRole.TECHNICIAN && order.technician?.id !== technician.id) {
-      throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, '只能处理自己的工单');
+    if (
+      technician.role === UserRole.TECHNICIAN &&
+      order.technician?.id !== technician.id
+    ) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        '只能处理自己的工单',
+      );
     }
     if (
       order.status !== IntakeStatus.DIAGNOSING &&
-      order.status !== IntakeStatus.REPAIRING
+      order.status !== IntakeStatus.REPAIRING &&
+      order.status !== IntakeStatus.WAITING_PARTS
     ) {
       throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID);
     }
 
-    const oldValue = { ...order };
-    order.status = IntakeStatus.WAITING_PARTS;
-    order.repairNotes = (order.repairNotes || '') + `\n[申请备件] ${notes}`;
-    const saved = await this.intakeRepo.save(order);
-
-    await this.logService.record(
-      'IntakeOrder',
+    return this.evidenceService.createPartRequest(
       orderId,
-      'update',
+      {
+        partName: notes || '待补充',
+        reason: notes || '通过旧接口申请，原因待补充',
+        quantity: 1,
+        estimatedCost: 0,
+      },
       technician,
-      oldValue,
-      saved,
-      { action: 'request_parts', notes },
     );
-
-    return saved;
   }
 
   async partsArrived(orderId: string, operator: User) {
@@ -138,27 +151,40 @@ export class RepairService {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
     if (order.status !== IntakeStatus.WAITING_PARTS) {
-      throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, '当前不是待备件状态');
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '当前不是待备件状态',
+      );
     }
 
-    const oldValue = { ...order };
-    order.status = IntakeStatus.REPAIRING;
-    const saved = await this.intakeRepo.save(order);
-
-    await this.logService.record(
-      'IntakeOrder',
-      orderId,
-      'update',
-      operator,
-      oldValue,
-      saved,
-      { action: 'parts_arrived' },
+    const pendingParts = await this.evidenceService.listPartRequests(orderId);
+    const pending = pendingParts.find(
+      (p) => p.status === 'pending' || p.status === 'ordered',
     );
 
-    return saved;
+    if (!pending) {
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '没有待到货的备件申请记录，请先通过 /repair/:orderId/part-request 创建备件申请',
+      );
+    }
+
+    if (pending.status === 'pending') {
+      await this.evidenceService.orderPart(pending.id, operator);
+    }
+
+    return this.evidenceService.confirmPartArrival(
+      pending.id,
+      { arrivalNotes: '通过旧到货接口确认' },
+      operator,
+    );
   }
 
-  async submitForQuality(orderId: string, repairNotes: string, technician: User) {
+  async submitForQuality(
+    orderId: string,
+    repairNotes: string,
+    technician: User,
+  ) {
     const order = await this.intakeRepo.findOne({
       where: { id: orderId },
       relations: ['technician'],
@@ -166,11 +192,20 @@ export class RepairService {
     if (!order) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
-    if (technician.role === UserRole.TECHNICIAN && order.technician?.id !== technician.id) {
-      throw new BusinessException(ErrorCode.AUTH_FORBIDDEN, '只能处理自己的工单');
+    if (
+      technician.role === UserRole.TECHNICIAN &&
+      order.technician?.id !== technician.id
+    ) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        '只能处理自己的工单',
+      );
     }
     if (order.status !== IntakeStatus.REPAIRING) {
-      throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, '只有维修中状态可提交质检');
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '只有维修中状态可提交质检',
+      );
     }
 
     const oldValue = { ...order };
@@ -195,7 +230,7 @@ export class RepairService {
 
   async submitQualityCheck(
     orderId: string,
-    dto: SubmitQualityCheckDto,
+    dto: { qualityCheck: { passed: boolean; notes: string } },
     inspector: User,
   ) {
     const order = await this.intakeRepo.findOne({ where: { id: orderId } });
@@ -203,32 +238,35 @@ export class RepairService {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
     if (order.status !== IntakeStatus.QUALITY_CHECK) {
-      throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, '当前不是质检中状态');
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '只有质检中状态可提交质检记录',
+      );
     }
 
-    const oldValue = { ...order };
-    order.qualityCheck = {
-      passed: dto.qualityCheck.passed,
-      inspector: inspector.name,
-      notes: dto.qualityCheck.notes,
-      checkedAt: new Date().toISOString(),
-    };
-    order.status = dto.qualityCheck.passed
-      ? IntakeStatus.READY
-      : IntakeStatus.REPAIRING;
-    const saved = await this.intakeRepo.save(order);
-
-    await this.logService.record(
-      'IntakeOrder',
+    return this.evidenceService.createQualityCheck(
       orderId,
-      'update',
+      {
+        checkItems: {
+          screenWorks: true,
+          touchWorks: true,
+          cameraWorks: true,
+          speakerWorks: true,
+          micWorks: true,
+          chargeWorks: true,
+          buttonWorks: true,
+          wifiWorks: true,
+          fingerprintWorks: true,
+          faceIdWorks: true,
+        },
+        passed: dto.qualityCheck.passed,
+        notes: dto.qualityCheck.notes,
+        failedItems: dto.qualityCheck.passed
+          ? undefined
+          : '通过旧质检接口提交，具体不合格项待补充',
+      },
       inspector,
-      oldValue,
-      saved,
-      { action: 'quality_check', passed: dto.qualityCheck.passed },
     );
-
-    return saved;
   }
 
   async completeOrder(orderId: string, operator: User) {
@@ -237,7 +275,10 @@ export class RepairService {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
     if (order.status !== IntakeStatus.READY) {
-      throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, '只有待取机状态可完成');
+      throw new BusinessException(
+        ErrorCode.INTAKE_STATUS_INVALID,
+        '只有待取机状态可完成',
+      );
     }
 
     const oldValue = { ...order };

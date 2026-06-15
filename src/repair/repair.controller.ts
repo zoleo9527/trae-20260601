@@ -57,7 +57,10 @@ export class RepairController {
   @Patch(':id/request-parts')
   @Roles(UserRole.TECHNICIAN, UserRole.MANAGER)
   @ApiParam({ name: 'id', description: '工单ID' })
-  @ApiOperation({ summary: '申请备件', description: '诊断或维修中发现缺件，工单流转为待备件' })
+  @ApiOperation({
+    summary: '申请备件（已复用结构化记录）',
+    description: '自动创建结构化备件申请记录(PartRequest)，推荐直接用 POST /repair/:orderId/part-request 提供更详细信息',
+  })
   async requestParts(
     @Param('id') id: string,
     @Body('notes') notes: string,
@@ -69,7 +72,10 @@ export class RepairController {
   @Patch(':id/parts-arrived')
   @Roles(UserRole.RECEPTIONIST, UserRole.MANAGER)
   @ApiParam({ name: 'id', description: '工单ID' })
-  @ApiOperation({ summary: '备件到货（前台/店长）', description: '备件到店，工单流转回维修中' })
+  @ApiOperation({
+    summary: '备件到货（已复用结构化记录）',
+    description: '自动走下单→确认到货的结构化流程，推荐分步使用 PATCH /repair/part-request/:id/order 和 /arrive',
+  })
   async partsArrived(@Param('id') id: string, @CurrentUser() user: User) {
     return this.repairService.partsArrived(id, user);
   }
@@ -90,8 +96,8 @@ export class RepairController {
   @Roles(UserRole.RECEPTIONIST, UserRole.MANAGER)
   @ApiParam({ name: 'id', description: '工单ID' })
   @ApiOperation({
-    summary: '质检（前台/店长）',
-    description: '通过则变为待取机；不通过则退回维修中',
+    summary: '质检（已复用结构化记录）',
+    description: '自动创建结构化质检记录(QualityCheckRecord)，推荐直接用 POST /repair/:orderId/quality-check 提供逐项检查',
   })
   async qualityCheck(
     @Param('id') id: string,

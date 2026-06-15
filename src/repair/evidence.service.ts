@@ -191,6 +191,7 @@ export class EvidenceService {
   }
 
   async listPartRequests(orderId: string) {
+    await this.findOrderOrFail(orderId);
     return this.partReqRepo.find({
       where: { orderId },
       order: { createdAt: 'DESC' },
@@ -248,6 +249,7 @@ export class EvidenceService {
   }
 
   async listQualityChecks(orderId: string) {
+    await this.findOrderOrFail(orderId);
     return this.qcRepo.find({
       where: { orderId },
       order: { checkedAt: 'DESC' },
@@ -282,6 +284,7 @@ export class EvidenceService {
   }
 
   async listAttachments(orderId: string, type?: string) {
+    await this.findOrderOrFail(orderId);
     const where: any = { orderId };
     if (type) {
       where.type = type;
@@ -324,6 +327,8 @@ export class EvidenceService {
   }
 
   async getOrderEvidence(orderId: string) {
+    await this.findOrderOrFail(orderId);
+
     const [partRequests, qualityChecks, attachments] = await Promise.all([
       this.listPartRequests(orderId),
       this.listQualityChecks(orderId),
