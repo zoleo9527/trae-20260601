@@ -126,6 +126,75 @@ class VerificationRecordSchema(ModelSchema):
         return obj.operator.username
 
 
+def get_current_owner(obj):
+    if obj.status in ['verified', 'rejected', 'cancelled']:
+        last_verification = obj.verification_records.last()
+        if last_verification:
+            return last_verification.operator.username
+        return None
+    if obj.status == 'shipped':
+        return obj.assignee.username if obj.assignee else None
+    if obj.status == 'warehouse_pending':
+        return obj.warehouse_operator.username if obj.warehouse_operator else None
+    if obj.status == 'assigned':
+        return obj.assignee.username if obj.assignee else None
+    if obj.status == 'approved':
+        return obj.approver.username if obj.approver else None
+    if obj.status == 'pending':
+        return obj.requester.username if obj.requester else None
+    return None
+
+
+def get_current_todo_role(obj):
+    if obj.status == 'pending':
+        return 'manager'
+    if obj.status == 'approved':
+        return 'manager'
+    if obj.status == 'assigned':
+        return 'warehouse'
+    if obj.status == 'warehouse_pending':
+        return 'warehouse'
+    if obj.status == 'shipped':
+        return 'technician'
+    return None
+
+
+def get_current_todo_role_display(obj):
+    role = get_current_todo_role(obj)
+    return {
+        'manager': '维保主管',
+        'technician': '现场技师',
+        'warehouse': '仓管'
+    }.get(role, None)
+
+
+def get_previous_stage_summary(obj):
+    last_note = obj.notes.order_by('-created_at').first()
+    if not last_note:
+        return None
+    return last_note.content[:100] if len(last_note.content) > 100 else last_note.content
+
+
+def get_next_action(obj):
+    if obj.status == 'pending':
+        return '审核通过或拒绝申请'
+    if obj.status == 'approved':
+        return '分派给仓管或现场技师'
+    if obj.status == 'assigned':
+        return '仓库确认配件库存'
+    if obj.status == 'warehouse_pending':
+        return '执行出库操作'
+    if obj.status == 'shipped':
+        return '完成核销确认'
+    if obj.status == 'verified':
+        return '已完成'
+    if obj.status == 'rejected':
+        return '已拒绝'
+    if obj.status == 'cancelled':
+        return '已取消'
+    return None
+
+
 class PartsRequestSchema(ModelSchema):
     equipment_code: str
     customer_name: str
@@ -140,6 +209,12 @@ class PartsRequestSchema(ModelSchema):
     outbound_records: List[OutboundRecordSchema] = []
     verification_records: List[VerificationRecordSchema] = []
     last_note_content: Optional[str] = None
+    
+    current_owner: Optional[str] = None
+    current_todo_role: Optional[str] = None
+    current_todo_role_display: Optional[str] = None
+    previous_stage_summary: Optional[str] = None
+    next_action: Optional[str] = None
     
     class Meta:
         model = PartsRequest
@@ -182,6 +257,26 @@ class PartsRequestSchema(ModelSchema):
     def resolve_last_note_content(obj):
         last_note = obj.notes.order_by('-created_at').first()
         return last_note.content if last_note else None
+    
+    @staticmethod
+    def resolve_current_owner(obj):
+        return get_current_owner(obj)
+    
+    @staticmethod
+    def resolve_current_todo_role(obj):
+        return get_current_todo_role(obj)
+    
+    @staticmethod
+    def resolve_current_todo_role_display(obj):
+        return get_current_todo_role_display(obj)
+    
+    @staticmethod
+    def resolve_previous_stage_summary(obj):
+        return get_previous_stage_summary(obj)
+    
+    @staticmethod
+    def resolve_next_action(obj):
+        return get_next_action(obj)
 
 
 class CreateRequestItem(Schema):
@@ -306,6 +401,28 @@ def list_requests(request, status: Optional[str] = None):
     
     if status:
         queryset = queryset.filter(status=status)
+    
+    return queryset
+
+
+@api.get('/requests/my/', response=List[PartsRequestSchema])
+def list_my_requests(request):
+    current_user = request.auth
+    queryset = PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    )
+    
+    if current_user.role == 'manager':
+        queryset = queryset.filter(status__in=['pending', 'approved'])
+    elif current_user.role == 'warehouse':
+        queryset = queryset.filter(status__in=['assigned', 'warehouse_pending'])
+    elif current_user.role == 'technician':
+        queryset = queryset.filter(status='shipped')
+    elif current_user.role == 'admin':
+        pass
+    else:
+        queryset = queryset.none()
     
     return queryset
 
