@@ -1,5 +1,5 @@
+import { Calendar, ChevronRight, Filter, MessageSquare, Search, Star, User } from 'lucide-react';
 import { useState } from 'react';
-import { Search, Filter, Star, MessageSquare, Calendar, User, ChevronRight } from 'lucide-react';
 
 interface Review {
   id: number;

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Order, Staff, Scheduling, Checkin, OperationLog } from '../types';
+import { Order, Staff, Scheduling, Checkin, OperationLog, OrderDetail } from '../types';
 
 const BASE_URL = 'http://localhost:3000/api';
 
@@ -16,6 +16,11 @@ export const getOrders = async (status?: string): Promise<Order[]> => {
 
 export const getOrderById = async (id: number): Promise<Order> => {
   const response = await api.get<Order>(`/orders/${id}`);
+  return response.data;
+};
+
+export const getOrderDetail = async (id: number): Promise<OrderDetail> => {
+  const response = await api.get<OrderDetail>(`/orders/${id}/detail`);
   return response.data;
 };
 
@@ -64,6 +69,7 @@ export const createScheduling = async (data: {
   staffId: number;
   scheduleDate: string;
   scheduleTime: string;
+  remark?: string;
 }): Promise<{ id: number }> => {
   const response = await api.post<{ id: number }>('/scheduling', data);
   return response.data;
@@ -75,6 +81,7 @@ export const createCheckin = async (data: {
   checkinTime: string;
   status: string;
   remark: string;
+  notArrivedReason?: string;
 }): Promise<{ id: number }> => {
   const response = await api.post<{ id: number }>('/checkin', data);
   return response.data;
@@ -82,8 +89,16 @@ export const createCheckin = async (data: {
 
 export const updateCheckin = async (
   id: number,
-  data: { status: string; remark: string }
+  data: { status: string; remark: string; notArrivedReason?: string }
 ): Promise<{ changes: number }> => {
   const response = await api.put<{ changes: number }>(`/checkin/${id}`, data);
+  return response.data;
+};
+
+export const updateBlockReason = async (
+  orderId: number,
+  blockReason: string
+): Promise<{ changes: number }> => {
+  const response = await api.put<{ changes: number }>(`/orders/${orderId}/block-reason`, { blockReason });
   return response.data;
 };

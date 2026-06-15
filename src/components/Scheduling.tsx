@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Calendar, Clock, User, MapPin, CheckCircle, AlertCircle, Edit2, Trash2, Plus } from 'lucide-react';
+import { Calendar, Clock, User, MapPin, Plus, Eye, AlertCircle } from 'lucide-react';
 import { getOrders, getStaff, getScheduling, createScheduling } from '../api';
 import { Order, Staff, Scheduling as SchedulingType, STATUS_COLORS } from '../types';
+import OrderProgressCard from './OrderProgressCard';
 
 export default function Scheduling() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -10,6 +11,7 @@ export default function Scheduling() {
   const [showModal, setShowModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<number | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -69,6 +71,12 @@ export default function Scheduling() {
                       <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_COLORS[item.status]}`}>
                         {item.status}
                       </span>
+                      {item.staffStatus === '离线' && (
+                        <span className="flex items-center text-yellow-600 text-xs">
+                          <AlertCircle className="w-3 h-3 mr-1" />
+                          家政员离线
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
                       <div className="flex items-center space-x-1">
@@ -89,14 +97,13 @@ export default function Scheduling() {
                       <span className="truncate max-w-md">{item.serviceAddress}</span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <button className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setSelectedOrderId(item.orderId)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="查看详情"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             ))}
@@ -122,6 +129,9 @@ export default function Scheduling() {
                       </div>
                       <p className="text-sm text-gray-500 mt-1">{order.serviceType}</p>
                       <p className="text-xs text-gray-400 mt-1">{order.serviceDate} {order.serviceTime}</p>
+                      {order.blockReason && (
+                        <p className="text-xs text-yellow-600 mt-1">{order.blockReason}</p>
+                      )}
                     </div>
                     <button
                       onClick={() => {
@@ -205,6 +215,13 @@ export default function Scheduling() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedOrderId && (
+        <OrderProgressCard
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+        />
       )}
     </div>
   );

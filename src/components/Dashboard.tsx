@@ -1,15 +1,14 @@
 import { useState, useEffect } from 'react';
 import { 
-  CalendarCheck, 
   Clock, 
   CheckCircle, 
   AlertTriangle,
   TrendingUp,
   ArrowUpRight,
-  ArrowDownRight
+  CalendarCheck
 } from 'lucide-react';
 import { getOrders, getScheduling, getCheckin, getLogs } from '../api';
-import { Order, Scheduling, Checkin, OperationLog } from '../types';
+import { Order, Scheduling, Checkin, OperationLog, STATUS_COLORS } from '../types';
 
 export default function Dashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -110,12 +109,18 @@ export default function Dashboard() {
                   <div>
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-gray-800">{order.orderNo}</span>
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${order.status === '待排班' ? 'bg-gray-100 text-gray-600' : 'bg-yellow-100 text-yellow-600'}`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_COLORS[order.status]}`}>
                         {order.status}
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 mt-1">{order.customerName} - {order.serviceType}</p>
                     <p className="text-sm text-gray-400 mt-1">{order.serviceAddress}</p>
+                    {order.blockReason && (
+                      <p className="text-sm text-yellow-600 mt-1">
+                        <AlertTriangle className="w-4 h-4 inline mr-1" />
+                        {order.blockReason}
+                      </p>
+                    )}
                   </div>
                   <ArrowUpRight className="w-5 h-5 text-gray-400" />
                 </div>

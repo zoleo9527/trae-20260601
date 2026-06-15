@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, MoreVertical, Phone, MapPin, Calendar, Clock } from 'lucide-react';
+import { Search, Filter, Phone, MapPin, Calendar, Clock, Eye, AlertCircle } from 'lucide-react';
 import { getOrders } from '../api';
 import { Order, STATUS_COLORS } from '../types';
+import OrderProgressCard from './OrderProgressCard';
 
 export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -81,6 +83,7 @@ export default function Orders() {
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">服务地址</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">服务时间</th>
                 <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">状态</th>
+                <th className="text-left px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">阻塞原因</th>
                 <th className="text-right px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -120,9 +123,23 @@ export default function Orders() {
                       {order.status}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    {order.blockReason ? (
+                      <div className="flex items-center space-x-1 text-yellow-600 max-w-xs">
+                        <AlertCircle className="w-4 h-4" />
+                        <span className="truncate text-sm">{order.blockReason}</span>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-sm">-</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                      <MoreVertical className="w-5 h-5 text-gray-500" />
+                    <button
+                      onClick={() => setSelectedOrderId(order.id)}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      title="查看详情"
+                    >
+                      <Eye className="w-5 h-5" />
                     </button>
                   </td>
                 </tr>
@@ -131,6 +148,13 @@ export default function Orders() {
           </table>
         </div>
       </div>
+
+      {selectedOrderId && (
+        <OrderProgressCard
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Filter, User, Phone, Mail, MapPin, Edit2, Trash2, Plus } from 'lucide-react';
+import { Search, Filter, User, Phone, Edit2, Trash2, Plus } from 'lucide-react';
 import { getStaff } from '../api';
-import { Staff as StaffType } from '../types';
+import { Staff as StaffType, ROLE_COLORS } from '../types';
 
 export default function Staff() {
   const [staff, setStaff] = useState<StaffType[]>([]);
@@ -25,12 +25,6 @@ export default function Staff() {
     const matchesRole = !roleFilter || s.role === roleFilter;
     return matchesSearch && matchesRole;
   });
-
-  const roleColors: Record<string, string> = {
-    '客服': 'bg-blue-100 text-blue-600',
-    '家政员': 'bg-green-100 text-green-600',
-    '质检主管': 'bg-purple-100 text-purple-600',
-  };
 
   const statusColors: Record<string, string> = {
     '在线': 'bg-green-500',
@@ -91,7 +85,7 @@ export default function Staff() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-2">
                     <span className="font-medium text-gray-800">{s.name}</span>
-                    <span className={`px-2 py-0.5 text-xs rounded-full ${roleColors[s.role]}`}>
+                    <span className={`px-2 py-0.5 text-xs rounded-full ${ROLE_COLORS[s.role]}`}>
                       {s.role}
                     </span>
                   </div>

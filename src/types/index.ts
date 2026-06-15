@@ -9,6 +9,8 @@ export interface Order {
   serviceTime: string;
   status: string;
   createdAt: string;
+  blockReason?: string;
+  assignedStaffId?: number;
 }
 
 export interface Staff {
@@ -28,11 +30,13 @@ export interface Scheduling {
   scheduleTime: string;
   status: string;
   createdAt: string;
+  remark?: string;
   orderNo?: string;
   customerName?: string;
   serviceAddress?: string;
   staffName?: string;
   staffRole?: string;
+  staffStatus?: string;
 }
 
 export interface Checkin {
@@ -42,11 +46,13 @@ export interface Checkin {
   checkinTime: string;
   status: string;
   remark: string;
+  notArrivedReason?: string;
   orderId?: number;
   scheduleDate?: string;
   scheduleTime?: string;
   staffName?: string;
   staffRole?: string;
+  staffStatus?: string;
 }
 
 export interface OperationLog {
@@ -54,9 +60,30 @@ export interface OperationLog {
   orderId: number;
   operatorId: number;
   operatorName: string;
+  operatorRole?: string;
   action: string;
   detail: string;
   createdAt: string;
+}
+
+export interface Handler {
+  id: number;
+  name: string;
+  role: string;
+  status: string;
+  currentAction: string;
+}
+
+export interface OrderDetail {
+  order: Order;
+  schedule: Scheduling | null;
+  checkin: Checkin | null;
+  logs: OperationLog[];
+  handlers: {
+    customerService: Handler | null;
+    housekeeper: Handler | null;
+    qcSupervisor: Handler | null;
+  };
 }
 
 export type StatusType = '待排班' | '已排班' | '待确认' | '已到岗' | '服务中' | '已完成';
@@ -77,4 +104,10 @@ export const STATUS_BADGE_COLORS: Record<string, string> = {
   '已到岗': 'bg-green-500',
   '服务中': 'bg-purple-500',
   '已完成': 'bg-gray-400',
+};
+
+export const ROLE_COLORS: Record<string, string> = {
+  '客服': 'bg-blue-100 text-blue-600',
+  '家政员': 'bg-green-100 text-green-600',
+  '质检主管': 'bg-purple-100 text-purple-600',
 };

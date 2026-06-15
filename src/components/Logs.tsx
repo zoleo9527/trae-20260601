@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Search, Filter, Clock, User, FileText, ChevronRight } from 'lucide-react';
+import { ChevronRight, Clock, FileText, Filter, Search, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { getLogs, getOrders } from '../api';
-import { OperationLog, Order } from '../types';
+import { OperationLog, Order, ROLE_COLORS } from '../types';
 
 export default function Logs() {
   const [logs, setLogs] = useState<OperationLog[]>([]);
@@ -96,6 +96,11 @@ export default function Logs() {
                     <span className="font-medium text-gray-800">{log.action}</span>
                     <span className="text-xs text-gray-400">|</span>
                     <span className="text-sm text-gray-600">{getOrderNo(log.orderId)}</span>
+                    {log.operatorRole && (
+                      <span className={`px-2 py-0.5 text-xs rounded ${ROLE_COLORS[log.operatorRole]}`}>
+                        {log.operatorRole}
+                      </span>
+                    )}
                   </div>
                   <p className="text-sm text-gray-600 mt-1">{log.detail}</p>
                   <div className="flex items-center space-x-4 mt-2 text-sm text-gray-400">

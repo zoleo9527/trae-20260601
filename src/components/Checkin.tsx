@@ -6,12 +6,14 @@ import {
   User, 
   MapPin, 
   Calendar,
-  ChevronRight,
   RefreshCw,
-  CheckSquare
+  CheckSquare,
+  Eye,
+  AlertCircle
 } from 'lucide-react';
 import { getCheckin, getScheduling, getOrders, createCheckin } from '../api';
 import { Checkin as CheckinType, Scheduling, Order, STATUS_COLORS } from '../types';
+import OrderProgressCard from './OrderProgressCard';
 
 export default function Checkin() {
   const [checkins, setCheckins] = useState<CheckinType[]>([]);
@@ -19,6 +21,9 @@ export default function Checkin() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState<Scheduling | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [remark, setRemark] = useState('准时到达');
+  const [notArrivedReason, setNotArrivedReason] = useState('');
 
   useEffect(() => {
     fetchData();
@@ -42,12 +47,15 @@ export default function Checkin() {
       schedulingId: selectedSchedule.id,
       staffId: selectedSchedule.staffId,
       checkinTime: new Date().toISOString().replace('T', ' ').substring(0, 19),
-      status: '已到岗',
-      remark: '准时到达',
+      status: remark.includes('未到岗') || notArrivedReason ? '未到岗' : '已到岗',
+      remark: remark,
+      notArrivedReason: notArrivedReason,
     });
     
     setShowModal(false);
     setSelectedSchedule(null);
+    setRemark('准时到达');
+    setNotArrivedReason('');
     await fetchData();
   };
 
@@ -115,6 +123,12 @@ export default function Checkin() {
                           <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_COLORS[checkin.status]}`}>
                             {checkin.status}
                           </span>
+                          {checkin.staffStatus === '离线' && (
+                            <span className="flex items-center text-yellow-600 text-xs">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              离线
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                           <div className="flex items-center space-x-1">
@@ -130,12 +144,25 @@ export default function Checkin() {
                           <MapPin className="w-4 h-4" />
                           <span className="truncate max-w-md">{order?.serviceAddress}</span>
                         </div>
+                        {checkin.notArrivedReason && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            <AlertTriangle className="w-3 h-3 inline mr-1" />
+                            未到岗原因: {checkin.notArrivedReason}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">
                       <p className="text-sm text-gray-600">到岗时间</p>
                       <p className="font-medium text-gray-800">{checkin.checkinTime || '-'}</p>
                       <p className="text-xs text-gray-500 mt-1">{checkin.remark}</p>
+                      <button
+                        onClick={() => setSelectedOrderId(schedule?.orderId || 0)}
+                        className="mt-2 p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        title="查看详情"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -162,9 +189,18 @@ export default function Checkin() {
                           <span className={`px-2 py-0.5 text-xs rounded-full ${STATUS_COLORS[schedule.status]}`}>
                             {schedule.status}
                           </span>
+                          {schedule.staffStatus === '离线' && (
+                            <span className="flex items-center text-yellow-600 text-xs">
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              离线
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 mt-1">{schedule.staffName} - {order?.serviceType}</p>
                         <p className="text-xs text-gray-400 mt-1">{schedule.scheduleDate} {schedule.scheduleTime}</p>
+                        {order?.blockReason && (
+                          <p className="text-xs text-yellow-600 mt-1">{order.blockReason}</p>
+                        )}
                       </div>
                       <button
                         onClick={() => {
@@ -215,17 +251,35 @@ export default function Checkin() {
                     <p className="font-medium text-gray-800">{getOrderInfo(selectedSchedule.orderId)?.orderNo}</p>
                     <p className="text-sm text-gray-600">{getOrderInfo(selectedSchedule.orderId)?.serviceType}</p>
                     <p className="text-sm text-gray-500 mt-1">{selectedSchedule.scheduleDate} {selectedSchedule.scheduleTime}</p>
+                    {getOrderInfo(selectedSchedule.orderId)?.blockReason && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        <AlertCircle className="w-3 h-3 inline mr-1" />
+                        {getOrderInfo(selectedSchedule.orderId)?.blockReason}
+                      </p>
+                    )}
                   </div>
                   <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-gray-500">服务人员</p>
                     <p className="font-medium text-gray-800">{selectedSchedule.staffName}</p>
+                    <p className="text-xs text-gray-400">状态: {selectedSchedule.staffStatus}</p>
                   </div>
                   <div className="mb-4">
                     <label className="block text-sm font-medium text-gray-700 mb-2">到岗备注</label>
                     <textarea
                       className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      rows={3}
-                      defaultValue="准时到达"
+                      rows={2}
+                      value={remark}
+                      onChange={(e) => setRemark(e.target.value)}
+                    ></textarea>
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">未到岗原因（可选）</label>
+                    <textarea
+                      className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows={2}
+                      value={notArrivedReason}
+                      onChange={(e) => setNotArrivedReason(e.target.value)}
+                      placeholder="如家政员未到岗，请填写原因"
                     ></textarea>
                   </div>
                 </>
@@ -247,6 +301,13 @@ export default function Checkin() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectedOrderId && (
+        <OrderProgressCard
+          orderId={selectedOrderId}
+          onClose={() => setSelectedOrderId(null)}
+        />
       )}
     </div>
   );
