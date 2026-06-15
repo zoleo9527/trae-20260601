@@ -92,9 +92,11 @@ public class MeasurementService {
         }
 
         SysUser currentUser = userService.getCurrentUser();
-        if (!record.getSalesmanId().equals(currentUser.getId()) 
-            && !"ADMIN".equals(currentUser.getRole())
-            && !record.getDesignerId().equals(currentUser.getId())) {
+        boolean hasAccess = record.getSalesmanId().equals(currentUser.getId()) 
+            || "ADMIN".equals(currentUser.getRole())
+            || (record.getDesignerId() != null && record.getDesignerId().equals(currentUser.getId()));
+        
+        if (!hasAccess) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
 
@@ -151,6 +153,10 @@ public class MeasurementService {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
 
+        if (record.getDesignerId() == null) {
+            throw new BusinessException(ErrorCode.MEASUREMENT_STATUS_ERROR, "未分配设计师，无法完成量房");
+        }
+
         SysUser currentUser = userService.getCurrentUser();
         if (!record.getDesignerId().equals(currentUser.getId()) && !"ADMIN".equals(currentUser.getRole())) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
@@ -180,13 +186,7 @@ public class MeasurementService {
         } else if ("WAREHOUSE".equals(role)) {
             records = measurementRecordMapper.selectList(null);
         } else if ("ADMIN".equals(role)) {
-            if (status != null && !status.isEmpty()) {
-                records = measurementRecordMapper.findByStatus(status);
-            } else if (customerId != null) {
-                records = measurementRecordMapper.selectList(null);
-            } else {
-                records = measurementRecordMapper.selectList(null);
-            }
+            records = measurementRecordMapper.selectList(null);
         } else {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
@@ -235,8 +235,13 @@ public class MeasurementService {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
         
-        if ("DESIGNER".equals(role) && !record.getDesignerId().equals(currentUser.getId())) {
-            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        if ("DESIGNER".equals(role)) {
+            if (record.getDesignerId() == null) {
+                throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+            }
+            if (!record.getDesignerId().equals(currentUser.getId())) {
+                throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+            }
         }
     }
 

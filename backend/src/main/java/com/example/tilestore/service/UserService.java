@@ -2,6 +2,7 @@ package com.example.tilestore.service;
 
 import com.example.tilestore.common.BusinessException;
 import com.example.tilestore.common.ErrorCode;
+import com.example.tilestore.common.JwtUtil;
 import com.example.tilestore.common.UserContext;
 import com.example.tilestore.dto.request.LoginRequest;
 import com.example.tilestore.dto.response.LoginResponse;
@@ -31,12 +32,16 @@ public class UserService {
             throw new BusinessException(ErrorCode.USER_DISABLED);
         }
         UserContext.setCurrentUser(user);
+        
+        String token = JwtUtil.generateToken(user.getId(), user.getUsername(), user.getRole());
+        
         LoginResponse response = new LoginResponse();
         response.setUserId(user.getId());
         response.setUsername(user.getUsername());
         response.setRealName(user.getRealName());
         response.setRole(user.getRole());
         response.setPhone(user.getPhone());
+        response.setToken(token);
         return response;
     }
 

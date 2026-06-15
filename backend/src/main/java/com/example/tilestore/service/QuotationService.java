@@ -51,6 +51,9 @@ public class QuotationService {
         }
 
         Customer customer = customerMapper.selectById(measurement.getCustomerId());
+        if (customer == null) {
+            throw new BusinessException(ErrorCode.CUSTOMER_NOT_FOUND);
+        }
 
         Quotation quotation = new Quotation();
         quotation.setMeasurementId(request.getMeasurementId());
@@ -258,6 +261,8 @@ public class QuotationService {
             throw new BusinessException(ErrorCode.QUOTATION_STATUS_ERROR, "只能签署已审核通过的报价单");
         }
 
+        validateAccess(quotation);
+
         String beforeData = toJson(quotation);
 
         quotation.setStatus("SIGNED");
@@ -278,7 +283,13 @@ public class QuotationService {
         if ("DESIGNER".equals(role)) {
             quotations = quotationMapper.findByDesignerId(currentUser.getId());
         } else if ("SALESMAN".equals(role)) {
-            quotations = quotationMapper.selectList(null);
+            List<MeasurementRecord> measurements = measurementRecordMapper.findBySalesmanId(currentUser.getId());
+            List<Long> measurementIds = measurements.stream()
+                    .map(MeasurementRecord::getId)
+                    .collect(Collectors.toList());
+            quotations = quotationMapper.selectList(null).stream()
+                    .filter(q -> measurementIds.contains(q.getMeasurementId()))
+                    .collect(Collectors.toList());
         } else if ("WAREHOUSE".equals(role)) {
             quotations = quotationMapper.selectList(null);
         } else if ("ADMIN".equals(role)) {
@@ -339,7 +350,10 @@ public class QuotationService {
         
         if ("SALESMAN".equals(role)) {
             MeasurementRecord measurement = measurementRecordMapper.selectById(quotation.getMeasurementId());
-            if (measurement != null && !measurement.getSalesmanId().equals(currentUser.getId())) {
+            if (measurement == null) {
+                throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
+            }
+            if (!measurement.getSalesmanId().equals(currentUser.getId())) {
                 throw new BusinessException(ErrorCode.PERMISSION_DENIED);
             }
         }

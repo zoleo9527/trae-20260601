@@ -14,4 +14,6 @@ public class LoginResponse {
     private String role;
 
     private String phone;
+
+    private String token;
 }
