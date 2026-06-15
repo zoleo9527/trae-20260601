@@ -70,12 +70,12 @@ const menus = [
   { path: '/dashboard', label: '今日待办', icon: '📋', role: null, 
     badge: computed(() => appStore.todayTodoCount), 
     badgeClass: computed(() => appStore.dangerAnomalies.length > 0 ? '' : 'badge-blue') },
-  { path: '/arrivals', label: '配件到货', icon: '📦', role: ['manager', 'warehouse', 'tech', 'service'],
+  { path: '/arrivals', label: '配件到货', icon: '📦', role: ['manager', 'warehouse'],
     badge: computed(() => {
       const n = appStore.pendingArrivals.length + appStore.partialArrivals.length
       return n > 0 ? n : null
     }) },
-  { path: '/schedules', label: '装机排程', icon: '🛠️', role: ['manager', 'sales', 'tech', 'service'],
+  { path: '/schedules', label: '装机排程', icon: '🛠️', role: ['manager', 'sales', 'tech'],
     badge: computed(() => {
       const n = appStore.todaySchedules.length
       return n > 0 ? n : null

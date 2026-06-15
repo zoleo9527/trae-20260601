@@ -13,7 +13,9 @@
           <option value="in_progress">装机中</option>
           <option value="completed">已完成</option>
         </select>
-        <button class="btn btn-primary btn-sm">+ 新建装机单</button>
+        <button class="btn btn-secondary btn-sm" disabled title="后端集成点：对接CRM/销售系统创建订单">
+          + 新建装机单
+        </button>
       </div>
     </div>
 

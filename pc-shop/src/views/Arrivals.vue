@@ -12,7 +12,9 @@
           <option value="partial">验收中</option>
           <option value="completed">已完成</option>
         </select>
-        <button class="btn btn-primary btn-sm">+ 新增到货单</button>
+        <button class="btn btn-secondary btn-sm" disabled title="后端集成点：对接采购ERP生成到货单">
+          + 新增到货单
+        </button>
       </div>
     </div>
 

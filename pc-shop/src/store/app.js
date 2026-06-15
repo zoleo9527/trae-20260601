@@ -93,22 +93,55 @@ export const useAppStore = defineStore('app', {
         })
       }
     },
-    confirmPriceChange(scheduleId, confirmed, operator) {
+    confirmPriceChange(scheduleId, confirmed, operator, confirmMethod = 'cash') {
       const sch = this.schedules.find(s => s.id === scheduleId)
       if (sch && sch.anomaly && sch.anomaly.type === 'price_change') {
+        const originalTotal = sch.config.reduce((s, c) => s + c.originalPrice * c.qty, 0)
+        const currentTotal = sch.config.reduce((s, c) => s + c.currentPrice * c.qty, 0)
+        const diff = currentTotal - originalTotal
+
         if (confirmed) {
-          sch.totalAmount += sch.priceChangeDiff === 0 ? 3200 : sch.priceChangeDiff
+          sch.totalAmount = currentTotal
+          sch.remainingAmount = Math.max(0, sch.totalAmount - sch.paidAmount)
           sch.priceChangeDiff = 0
           sch.priceChanged = false
           sch.anomaly = null
+          sch.config.forEach(c => { c.originalPrice = c.currentPrice })
+
+          const methodText = {
+            cash: '客户现场补交',
+            internal: '内部记账销售跟进',
+            waive: '店长审批免差价'
+          }[confirmMethod] || '已确认'
+
           sch.history.push({
             time: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
             operator: operator,
-            action: '确认配置变更价格',
-            detail: `更新总价至 ¥${sch.totalAmount.toLocaleString()}`
+            action: '确认配置变更差价',
+            detail: `¥${diff.toLocaleString()} 差价(${methodText})，订单总价更新为 ¥${sch.totalAmount.toLocaleString()}，欠款 ¥${sch.remainingAmount.toLocaleString()}`
           })
-          const an = this.anomalies.find(a => a.id === 'AN-001')
-          if (an) an.status = 'resolved'
+
+          const an = this.anomalies.find(a => a.relatedId === scheduleId && a.type === 'price_change')
+          if (an) {
+            an.status = 'resolved'
+            an.resolvedAt = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')
+            an.resolvedBy = operator
+            an.resolution = methodText
+          }
+        } else {
+          sch.anomaly.status = 'disputed'
+          sch.history.push({
+            time: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
+            operator: operator,
+            action: '标记差价为争议',
+            detail: `差价 ¥${diff.toLocaleString()} 存在争议，待进一步核实`
+          })
+
+          const an = this.anomalies.find(a => a.relatedId === scheduleId && a.type === 'price_change')
+          if (an) {
+            an.status = 'processing'
+            an.note = '标记为争议，待核实'
+          }
         }
       }
     },

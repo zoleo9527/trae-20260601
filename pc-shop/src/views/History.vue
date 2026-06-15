@@ -5,15 +5,27 @@
         <h1 class="page-title">📜 历史记录</h1>
         <p class="page-subtitle">所有到货、装机、异常操作的完整审计追踪</p>
       </div>
-      <div class="flex gap-8">
+      <div class="flex gap-8 flex-wrap">
         <select v-model="filterType" class="form-select-sm">
           <option value="all">全部类型</option>
           <option value="schedule">装机单操作</option>
           <option value="arrival">到货单操作</option>
           <option value="anomaly">异常处理</option>
         </select>
-        <input v-model="filterKeyword" type="text" class="form-input-sm" placeholder="搜索订单号/操作人/备注" />
+        <input v-model="filterId" type="text" class="form-input-sm" placeholder="筛选单据号（如 SO-xxx / ARR-xxx）" style="width:200px" />
+        <input v-model="filterKeyword" type="text" class="form-input-sm" placeholder="搜索操作人/备注" />
+        <button v-if="filterId || filterKeyword || filterType !== 'all'" 
+                class="btn btn-secondary btn-sm" @click="clearFilter">清除筛选</button>
       </div>
+    </div>
+    
+    <div v-if="filterId" class="filter-info card mb-12" style="padding:10px 16px">
+      <span class="text-sm">
+        📌 当前筛选: <b>{{ filterType === 'all' ? '全部类型' : typeLabel(filterType) }}</b> 
+        <span v-if="filterId">· 单据: <b>{{ filterId }}</b></span>
+        <span v-if="filterKeyword">· 搜索: <b>{{ filterKeyword }}</b></span>
+        <span class="text-muted">（共 {{ filteredEntries.length }} 条记录）</span>
+      </span>
     </div>
 
     <div class="card">
@@ -49,15 +61,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/store/app'
 
 const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
 
 const filterType = ref('all')
 const filterKeyword = ref('')
+const filterId = ref('')
+
+onMounted(() => {
+  if (route.query.target) filterType.value = route.query.target
+  if (route.query.id) filterId.value = route.query.id
+})
+
+watch(() => [route.query.target, route.query.id], ([t, id]) => {
+  if (t) filterType.value = t
+  if (id) filterId.value = id
+})
 
 const allEntries = computed(() => {
   const list = []
@@ -71,16 +95,42 @@ const allEntries = computed(() => {
       list.push({ ...h, targetType: 'arrival', targetId: arr.id })
     }
   }
+  for (const an of appStore.anomalies) {
+    if (an.resolvedAt) {
+      list.push({
+        time: an.resolvedAt,
+        operator: an.resolvedBy || '系统',
+        action: `异常处理: ${an.title}`,
+        detail: `状态: ${an.status} | 处理方式: ${an.resolution || '已解决'}`,
+        targetType: 'anomaly',
+        targetId: an.relatedId,
+        anomalyId: an.id
+      })
+    }
+    if (an.note) {
+      list.push({
+        time: an.createdAt,
+        operator: an.responsible,
+        action: `异常${an.status === 'pending' ? '待处理' : '处理中'}: ${an.title}`,
+        detail: an.note || an.description,
+        targetType: 'anomaly',
+        targetId: an.relatedId,
+        anomalyId: an.id
+      })
+    }
+  }
   return list.sort((a, b) => b.time.localeCompare(a.time))
 })
 
 const filteredEntries = computed(() => {
   let list = allEntries.value
   if (filterType.value !== 'all') list = list.filter(e => e.targetType === filterType.value)
+  if (filterId.value.trim()) list = list.filter(e => e.targetId === filterId.value.trim())
   if (filterKeyword.value.trim()) {
     const kw = filterKeyword.value.toLowerCase()
     list = list.filter(e => 
       (e.targetId || '').toLowerCase().includes(kw) ||
+      (e.anomalyId || '').toLowerCase().includes(kw) ||
       e.operator.toLowerCase().includes(kw) ||
       e.action.toLowerCase().includes(kw) ||
       (e.detail || '').toLowerCase().includes(kw)
@@ -100,6 +150,13 @@ function goTarget(entry) {
   if (!entry.targetId) return
   if (entry.targetType === 'schedule') router.push('/schedules/' + entry.targetId)
   else if (entry.targetType === 'arrival') router.push('/arrivals/' + entry.targetId)
+  else if (entry.targetType === 'anomaly') router.push('/anomalies')
+}
+
+function clearFilter() {
+  filterId.value = ''
+  filterType.value = 'all'
+  filterKeyword.value = ''
 }
 </script>
 

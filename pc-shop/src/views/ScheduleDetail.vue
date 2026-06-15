@@ -11,7 +11,7 @@
         <p class="page-subtitle">{{ schedule.customerName }} · {{ schedule.usageType }} · {{ schedule.customerPhone }}</p>
       </div>
       <div class="flex gap-8">
-        <button v-if="schedule.status === 'in_progress'" class="btn btn-outline btn-sm" @click="showHistoryModal = true">
+        <button v-if="schedule.anomaly" class="btn btn-outline btn-sm" @click="showHistoryModal = true">
           📜 责任时效
         </button>
         <button v-if="schedule.priceChanged" class="btn btn-warning btn-sm" @click="showPriceModal = true">
@@ -88,7 +88,7 @@
               </div>
               <div class="price-row highlight" v-if="schedule.priceChanged">
                 <span class="price-label">差价 (需补收)</span>
-                <span class="text-danger font-bold">+ ¥{{ priceDiff.toLocaleString() }}</span>
+                <span class="text-danger font-bold">+ ¥{{ schedule.priceChangeDiff.toLocaleString() }}</span>
               </div>
               <div class="price-row final">
                 <span class="price-label">当前应收</span>
@@ -98,9 +98,20 @@
                 <span class="price-label">当前账面总价</span>
                 <span>¥{{ schedule.totalAmount.toLocaleString() }}</span>
               </div>
-              <div class="price-row" v-if="priceDiff > 0 && schedule.priceChanged">
+              <div class="price-row" v-if="schedule.priceChanged">
                 <span class="price-label text-danger">⚠️ 账面漏记</span>
-                <span class="text-danger font-bold">¥{{ priceDiff.toLocaleString() }}</span>
+                <span class="text-danger font-bold">¥{{ schedule.priceChangeDiff.toLocaleString() }}</span>
+              </div>
+              <div class="divider" style="margin:8px 0"></div>
+              <div class="price-row">
+                <span class="price-label">已收款</span>
+                <span class="text-success">¥{{ schedule.paidAmount.toLocaleString() }}</span>
+              </div>
+              <div class="price-row final">
+                <span class="price-label">当前欠款</span>
+                <span :class="schedule.remainingAmount > 0 ? 'text-warning font-bold' : 'text-success font-bold'">
+                  ¥{{ schedule.remainingAmount.toLocaleString() }}
+                </span>
               </div>
             </div>
           </div>
@@ -311,6 +322,158 @@
         </div>
       </div>
     </div>
+
+    <!-- 责任时效弹窗 -->
+    <div v-if="showHistoryModal" class="modal-mask" @click.self="showHistoryModal = false">
+      <div class="modal-content" style="max-width:640px">
+        <div class="modal-header">
+          <h3 class="font-semibold">📜 责任时效追踪 - {{ schedule.id }}</h3>
+          <button class="close-btn" @click="showHistoryModal = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-if="schedule.anomaly" class="mb-16">
+            <div class="anomaly-summary" :class="schedule.anomaly.level === 'danger' ? 'danger' : 'warning'">
+              <div class="flex-between mb-8">
+                <span class="font-semibold">
+                  {{ schedule.anomaly.type === 'price_change' ? '💰 价格异常' : 
+                     schedule.anomaly.type === 'bsod_risk' ? '🔵 蓝屏返修风险' : '⚠️ 异常' }}
+                  : {{ schedule.anomaly.title }}
+                </span>
+                <span class="tag" :class="schedule.anomaly.level === 'danger' ? 'tag-red' : 'tag-yellow'">
+                  {{ schedule.anomaly.level === 'danger' ? '紧急' : '一般' }}
+                </span>
+              </div>
+              <p class="text-sm text-muted">{{ schedule.anomaly.description }}</p>
+              <div v-if="schedule.anomaly.deadline" class="mt-8">
+                <div class="flex-between text-xs text-muted mb-4">
+                  <span>触发: {{ schedule.anomaly.operator }} | {{ schedule.anomaly.reportedAt }}</span>
+                  <span :class="isOverdue(schedule.anomaly.deadline) ? 'text-danger font-semibold' : 'text-warning'">
+                    ⏱️ 处理截止: {{ schedule.anomaly.deadline }}
+                    {{ isOverdue(schedule.anomaly.deadline) ? '（已超时）' : '' }}
+                  </span>
+                </div>
+                <div style="height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;border-radius:3px"
+                       :class="isOverdue(schedule.anomaly.deadline) ? 'bg-danger' : 'bg-warning'"
+                       :style="{width: slaProgress(schedule.anomaly.reportedAt, schedule.anomaly.deadline) + '%'}"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="relatedRepairsAll.length > 0" class="mb-16">
+            <h4 class="font-semibold mb-8">🔗 关联返修记录（{{ relatedRepairsAll.length }} 条）</h4>
+            <div v-for="r in relatedRepairsAll" :key="r.id" class="repair-card-mini">
+              <div class="flex-between mb-4">
+                <div>
+                  <span class="font-semibold text-danger">{{ r.id }}</span>
+                  <span class="tag" :class="r.status === 'resolved' ? 'tag-green' : 'tag-yellow'" style="margin-left:8px">
+                    {{ r.status === 'resolved' ? '已解决' : '处理中' }}
+                  </span>
+                  <span class="tag tag-cyan" style="margin-left:6px">{{ r.batchCode }}</span>
+                </div>
+                <span class="text-xs text-muted">{{ r.reportedAt }}</span>
+              </div>
+              <div class="text-sm mb-4"><b>问题:</b> {{ r.issue }}</div>
+              <div class="flex-between">
+                <div class="text-xs text-muted">
+                  客户: {{ r.customerName }} | 处理人: {{ r.technician }}
+                </div>
+                <span v-if="r.status === 'resolved'" class="text-xs text-success">
+                  解决: {{ r.resolvedAt }}
+                </span>
+              </div>
+              <div v-if="r.responsible" class="responsible-box mt-8">
+                <b>责任认定:</b> {{ r.responsible.person }} - {{ r.responsible.detail }}
+                <span class="tag tag-yellow" style="margin-left:6px">{{ r.responsible.costBorne }}</span>
+              </div>
+              <div class="sla-mini mt-8">
+                <div class="flex-between text-xs text-muted mb-2">
+                  <span>SLA: {{ r.slaHours }}小时 | 实际: {{ r.actualHours }}小时</span>
+                  <span v-if="r.deadline" :class="isOverdue(r.deadline) ? 'text-danger' : 'text-warning'">
+                    ⏱️ {{ isOverdue(r.deadline) ? '已超时' : '截止: ' + r.deadline }}
+                  </span>
+                </div>
+                <div style="height:4px;background:var(--gray-100);border-radius:2px;overflow:hidden">
+                  <div style="height:100%;border-radius:2px"
+                       :class="r.actualHours > r.slaHours ? 'bg-danger' : r.actualHours > r.slaHours * 0.8 ? 'bg-warning' : 'bg-success'"
+                       :style="{width: Math.min(100, (r.actualHours/r.slaHours)*100) + '%'}"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="empty">该订单暂无关联返修记录</div>
+
+          <div class="divider"></div>
+
+          <h4 class="font-semibold mb-8">⏱️ 处理时效统计</h4>
+          <div class="grid-3">
+            <div class="stat-card">
+              <div class="stat-label">平均修复时长</div>
+              <div class="stat-value text-primary">{{ avgRepairHours }}h</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">SLA达标率</div>
+              <div class="stat-value" :class="slaPassRate >= 80 ? 'text-success' : 'text-danger'">{{ slaPassRate }}%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">成本承担</div>
+              <div class="stat-value text-warning">{{ costBorneSummary }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showHistoryModal = false">关闭</button>
+          <button class="btn btn-primary" @click="router.push('/history?target=schedule&id='+schedule.id)">查看完整历史 →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 批次查询弹窗 -->
+    <div v-if="showBatchLookup" class="modal-mask" @click.self="showBatchLookup = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="font-semibold">🔍 批次信息查询</h3>
+          <button class="close-btn" @click="showBatchLookup = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-12">
+            <input v-model="lookupCode" type="text" class="w-full" placeholder="输入批次号查询返修记录" />
+          </div>
+          <div v-if="batchLookupResult.length > 0">
+            <h4 class="font-semibold mb-8">查询到 {{ batchLookupResult.length }} 条返修记录关联该批次</h4>
+            <div v-for="r in batchLookupResult" :key="r.id" class="repair-item">
+              <div class="flex-between mb-4">
+                <span class="font-semibold text-danger">{{ r.id }}</span>
+                <span class="tag" :class="r.status === 'resolved' ? 'tag-green' : 'tag-yellow'">
+                  {{ r.status === 'resolved' ? '已解决' : '处理中' }}
+                </span>
+              </div>
+              <div class="text-sm"><b>问题:</b> {{ r.issue }}</div>
+              <div class="text-sm text-muted mt-4">
+                客户: {{ r.customerName }} | 处理人: {{ r.technician }} | 上报: {{ r.reportedAt }}
+              </div>
+              <div v-if="r.responsible" class="text-sm mt-4">
+                <b>责任认定:</b> {{ r.responsible.person }} - {{ r.responsible.detail }}
+                <span class="text-warning">（{{ r.responsible.costBorne }}）</span>
+              </div>
+              <div v-if="r.deadline" class="text-sm mt-4">
+                <span :class="isOverdue(r.deadline) ? 'text-danger' : 'text-warning'">
+                  ⏱️ {{ isOverdue(r.deadline) ? '已超时' : '处理截止: ' + r.deadline }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div v-else-if="lookupCode" class="empty">
+            <p class="text-success">✅ 批次 {{ lookupCode }} 暂无返修记录</p>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showBatchLookup = false">关闭</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -329,6 +492,8 @@ const schedule = computed(() => appStore.getScheduleById(route.params.id))
 const showPriceModal = ref(false)
 const showRelatedRepairs = ref(false)
 const showHistoryModal = ref(false)
+const showBatchLookup = ref(false)
+const lookupCode = ref('')
 const confirmMethod = ref('cash')
 
 const changedItems = computed(() => schedule.value?.config.filter(c => c.originalPrice !== c.currentPrice) || [])
@@ -340,6 +505,26 @@ const totalPieces = computed(() => schedule.value?.config.reduce((s, c) => s + c
 const relatedRepairsDetail = computed(() => {
   if (!schedule.value?.anomaly?.relatedRepairs) return []
   return appStore.repairs.filter(r => schedule.value.anomaly.relatedRepairs.includes(r.id))
+})
+
+const batchLookupResult = computed(() => {
+  if (!lookupCode.value.trim()) return []
+  return appStore.repairs.filter(r => r.batchCode.toLowerCase().includes(lookupCode.value.toLowerCase()))
+})
+
+const relatedRepairsAll = computed(() => {
+  const codes = new Set()
+  for (const c of schedule.value?.config || []) {
+    for (const aid of schedule.value?.arrivalsRef || []) {
+      const arr = appStore.getArrivalById(aid)
+      if (!arr) continue
+      for (const it of arr.items) {
+        if (it.partId === c.partId && it.batchCode) codes.add(it.batchCode)
+      }
+    }
+  }
+  if (codes.size === 0) return []
+  return appStore.repairs.filter(r => [...codes].some(c => r.batchCode === c))
 })
 
 function statusLabel(s) {
@@ -373,11 +558,12 @@ function extractRole(name) {
 }
 
 function lookupBatch(code) {
-  alert('批次查询: ' + code + '\n（集成点：可跳转至批次返修详情页）')
+  lookupCode.value = code
+  showBatchLookup.value = true
 }
 
 function handleConfirm(confirmed) {
-  appStore.confirmPriceChange(schedule.value.id, confirmed, auth.userName || '张店长')
+  appStore.confirmPriceChange(schedule.value.id, confirmed, auth.userName || '张店长', confirmMethod.value)
   showPriceModal.value = false
 }
 
@@ -386,6 +572,40 @@ function markCompleted() {
     appStore.updateScheduleStatus(schedule.value.id, 'completed', auth.userName || '陈工')
   }
 }
+
+function isOverdue(deadline) {
+  if (!deadline) return false
+  return new Date(deadline.replace(/-/g, '/')).getTime() < Date.now()
+}
+
+function slaProgress(start, end) {
+  if (!start || !end) return 50
+  const s = new Date(start.replace(/-/g, '/')).getTime()
+  const e = new Date(end.replace(/-/g, '/')).getTime()
+  const now = Date.now()
+  return Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100)))
+}
+
+const avgRepairHours = computed(() => {
+  if (relatedRepairsAll.value.length === 0) return 0
+  const sum = relatedRepairsAll.value.reduce((s, r) => s + r.actualHours, 0)
+  return Math.round(sum / relatedRepairsAll.value.length)
+})
+
+const slaPassRate = computed(() => {
+  if (relatedRepairsAll.value.length === 0) return 100
+  const passed = relatedRepairsAll.value.filter(r => r.actualHours <= r.slaHours).length
+  return Math.round((passed / relatedRepairsAll.value.length) * 100)
+})
+
+const costBorneSummary = computed(() => {
+  if (relatedRepairsAll.value.length === 0) return '-'
+  const supplier = relatedRepairsAll.value.filter(r => r.responsible?.person === '供应商').length
+  const internal = relatedRepairsAll.value.filter(r => r.responsible?.person !== '供应商' && r.responsible).length
+  if (supplier > internal) return `供应商 ${supplier} 次`
+  if (internal > supplier) return `店内 ${internal} 次`
+  return `各 ${supplier} 次`
+})
 </script>
 
 <style scoped>
@@ -516,4 +736,66 @@ function markCompleted() {
 .gap-12 { gap: 12px; }
 .flex-wrap { flex-wrap: wrap; }
 .responsibility-tag :deep(span) { font-size: 11px; padding: 1px 6px; }
+
+.anomaly-summary {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.anomaly-summary.danger {
+  background: var(--danger-light);
+  border-left: 3px solid var(--danger);
+}
+.anomaly-summary.warning {
+  background: var(--warning-light);
+  border-left: 3px solid var(--warning);
+}
+
+.bg-danger { background: var(--danger) !important; }
+.bg-warning { background: var(--warning) !important; }
+.bg-success { background: var(--success) !important; }
+
+.repair-card-mini {
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: white;
+}
+
+.responsible-box {
+  font-size: 12px;
+  padding: 8px 12px;
+  background: var(--warning-light);
+  border-radius: 6px;
+}
+
+.sla-mini {
+  padding-top: 8px;
+  border-top: 1px dashed var(--gray-200);
+}
+
+.w-full { width: 100%; }
+.mb-12 { margin-bottom: 12px; }
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.repair-item {
+  padding: 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+
+.stat-value {
+  font-size: 20px;
+}
+.stat-label {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-bottom: 4px;
+}
 </style>

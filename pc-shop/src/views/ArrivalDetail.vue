@@ -31,7 +31,10 @@
             <p class="text-sm text-muted mb-12">{{ arrival.anomaly.description }}</p>
             <div class="flex-between text-xs text-muted">
               <span>上报人: {{ arrival.anomaly.reportedBy }} | {{ arrival.anomaly.reportedAt }}</span>
-              <button class="btn-link btn text-sm">查看关联返修 ({{ relatedRepairs.length }})</button>
+              <button v-if="relatedRepairs.length > 0" class="btn-link btn text-sm" @click="showRelatedRepairs = true">
+                查看关联返修 ({{ relatedRepairs.length }})
+              </button>
+              <span v-else class="text-muted">关联返修: 0</span>
             </div>
           </div>
         </div>
@@ -171,6 +174,50 @@
         <button class="btn btn-secondary" @click="showBatchLookup = false">关闭</button>
       </div>
     </div>
+
+    <!-- 关联返修弹窗 -->
+    <div v-if="showRelatedRepairs" class="modal-mask" @click.self="showRelatedRepairs = false">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="font-semibold">🔗 关联返修记录 - 批次风险预警</h3>
+          <button class="close-btn" @click="showRelatedRepairs = false">×</button>
+        </div>
+        <div class="modal-body">
+          <div v-for="r in relatedRepairs" :key="r.id" class="repair-item">
+            <div class="flex-between mb-4">
+              <div>
+                <span class="font-semibold text-danger">{{ r.id }}</span>
+                <span class="tag tag-cyan" style="margin-left:8px">{{ r.batchCode }}</span>
+                <span class="tag" :class="r.status === 'resolved' ? 'tag-green' : 'tag-yellow'" style="margin-left:6px">
+                  {{ r.status === 'resolved' ? '已解决' : '处理中' }}
+                </span>
+              </div>
+              <span class="text-xs text-muted">{{ r.reportedAt }}</span>
+            </div>
+            <div class="text-sm mb-4"><b>问题:</b> {{ r.issue }}</div>
+            <div class="text-sm text-muted">
+              客户: {{ r.customerName }} | 处理人: {{ r.technician }}
+            </div>
+            <div v-if="r.responsible" class="responsible-box mt-8">
+              <b>责任认定:</b> {{ r.responsible.person }} - {{ r.responsible.detail }}
+              <span class="tag tag-yellow" style="margin-left:6px">{{ r.responsible.costBorne }}</span>
+            </div>
+            <div v-if="r.deadline" class="text-sm mt-8">
+              <span :class="isOverdue(r.deadline) ? 'text-danger font-semibold' : 'text-warning'">
+                ⏱️ {{ isOverdue(r.deadline) ? '已超时' : '处理截止: ' + r.deadline }}
+              </span>
+            </div>
+          </div>
+          <div class="warning-tip mt-16">
+            ⚠️ <b>注意:</b> 该批次配件后续出库时，系统将自动提醒装机师做额外压力测试
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" @click="showRelatedRepairs = false">关闭</button>
+          <button class="btn btn-primary" @click="goToAnomalies">查看所有异常 →</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -189,6 +236,7 @@ const arrival = computed(() => appStore.getArrivalById(route.params.id))
 const isChecking = ref(false)
 
 const showBatchLookup = ref(false)
+const showRelatedRepairs = ref(false)
 const lookupCode = ref('')
 
 const relatedRepairs = computed(() => {
@@ -219,6 +267,16 @@ function getBatchRisk(code) {
 function lookupBatch(code) {
   lookupCode.value = code
   showBatchLookup.value = true
+}
+
+function isOverdue(deadline) {
+  if (!deadline) return false
+  return new Date(deadline.replace(/-/g, '/')).getTime() < Date.now()
+}
+
+function goToAnomalies() {
+  showRelatedRepairs.value = false
+  router.push('/anomalies')
 }
 
 function toggleChecking() {
@@ -279,5 +337,31 @@ function saveItem(idx) {
 .mb-12 { margin-bottom: 12px; }
 .mb-8 { margin-bottom: 8px; }
 .mt-4 { margin-top: 4px; }
+.mt-8 { margin-top: 8px; }
+.mt-16 { margin-top: 16px; }
+.mb-4 { margin-bottom: 4px; }
+
+.responsible-box {
+  font-size: 12px;
+  padding: 8px 12px;
+  background: var(--warning-light);
+  border-radius: 6px;
+}
+
+.warning-tip {
+  font-size: 12px;
+  padding: 10px 14px;
+  background: var(--warning-light);
+  border-radius: 6px;
+  color: #92400e;
+}
+
+.text-danger { color: var(--danger) !important; }
+.text-warning { color: var(--warning) !important; }
+.font-semibold { font-weight: 600; }
+.text-sm { font-size: 13px; }
+.text-xs { font-size: 11px; }
+.text-muted { color: var(--gray-500); }
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
 .gap-12 { gap: 12px; }
 </style>
