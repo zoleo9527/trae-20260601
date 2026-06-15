@@ -106,6 +106,94 @@ def init_db():
             VALUES (?, ?, ?, ?, ?, ?)
         ''', (str(uuid.uuid4()), 'service', 'service123', 'service', '客服小张', datetime.now().isoformat()))
     
+    cursor.execute("SELECT COUNT(*) FROM repair_records")
+    if cursor.fetchone()[0] == 0:
+        sample_data = [
+            {
+                'customer_name': '张三',
+                'phone': '13800138001',
+                'product_name': '联想拯救者Y9000P',
+                'product_serial': 'SN2024001',
+                'issue_description': '开机蓝屏，无法正常进入系统',
+                'status': 'pending',
+                'remark': '客户反映电脑在玩游戏时突然蓝屏，已尝试重启多次仍无法解决'
+            },
+            {
+                'customer_name': '李四',
+                'phone': '13800138002',
+                'product_name': '华硕ROG幻16',
+                'product_serial': 'SN2024002',
+                'issue_description': '屏幕出现亮斑，影响使用体验',
+                'status': 'processing',
+                'remark': '已安排装机师检测，初步判断为屏幕背光问题'
+            },
+            {
+                'customer_name': '王五',
+                'phone': '13800138003',
+                'product_name': '戴尔XPS 15',
+                'product_serial': 'SN2024003',
+                'issue_description': '电池续航明显下降',
+                'status': 'rejected',
+                'remark': '经检测，电池损耗正常（85%健康度），非质量问题，已向客户说明'
+            },
+            {
+                'customer_name': '赵六',
+                'phone': '13800138004',
+                'product_name': '惠普暗影精灵9',
+                'product_serial': 'SN2024004',
+                'issue_description': '风扇噪音过大',
+                'status': 'closed',
+                'remark': '已更换风扇，问题解决，客户满意'
+            },
+            {
+                'customer_name': '钱七',
+                'phone': '13800138005',
+                'product_name': 'MacBook Pro 14',
+                'product_serial': 'SN2024005',
+                'issue_description': '键盘部分按键失灵',
+                'status': 'review',
+                'remark': '客户反馈问题仍存在，需要重新检测和维修'
+            },
+            {
+                'customer_name': '孙八',
+                'phone': '13800138006',
+                'product_name': '华为MateBook X Pro',
+                'product_serial': 'SN2024006',
+                'issue_description': '充电器接触不良',
+                'status': 'pending',
+                'remark': '需要更换充电器'
+            },
+            {
+                'customer_name': '周九',
+                'phone': '13800138007',
+                'product_name': '小米RedmiBook Pro',
+                'product_serial': 'SN2024007',
+                'issue_description': '外放无声音',
+                'status': 'processing',
+                'remark': '音频驱动问题，正在修复中'
+            },
+            {
+                'customer_name': '吴十',
+                'phone': '13800138008',
+                'product_name': '机械革命蛟龙16',
+                'product_serial': 'SN2024008',
+                'issue_description': '系统频繁卡顿',
+                'status': 'closed',
+                'remark': '已优化系统，问题解决'
+            }
+        ]
+        
+        now = datetime.now().isoformat()
+        for data in sample_data:
+            record_id = str(uuid.uuid4())
+            cursor.execute('''
+                INSERT INTO repair_records 
+                (id, customer_name, phone, product_name, product_serial, issue_description, status, assignee, created_at, updated_at, remark)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (record_id, data['customer_name'], data['phone'], data['product_name'], 
+                  data['product_serial'], data['issue_description'], data['status'], 
+                  None, now, now, data['remark']))
+    
     conn.commit()
     conn.close()
 
@@ -123,30 +211,23 @@ class UserLogin(BaseModel):
     username: str
     password: str
 
-class RepairRecord(BaseModel):
-    id: Optional[str] = None
-    customer_name: str
-    phone: str
-    product_name: str
-    product_serial: str
-    issue_description: str
-    status: str = "pending"
+class RepairRecordUpdate(BaseModel):
+    customer_name: Optional[str] = None
+    phone: Optional[str] = None
+    product_name: Optional[str] = None
+    product_serial: Optional[str] = None
+    issue_description: Optional[str] = None
+    status: Optional[str] = None
     assignee: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
     remark: Optional[str] = None
 
-class WarrantyRecord(BaseModel):
-    id: Optional[str] = None
-    repair_id: str
-    warranty_type: str
-    warranty_period: str
-    start_date: str
-    end_date: str
-    status: str = "active"
+class WarrantyRecordUpdate(BaseModel):
+    warranty_type: Optional[str] = None
+    warranty_period: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    status: Optional[str] = None
     remark: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
 
 class OperationLog(BaseModel):
     id: Optional[str] = None
@@ -205,7 +286,7 @@ def get_repair_record(record_id: str, db: sqlite3.Connection = Depends(get_db)):
     raise HTTPException(status_code=404, detail="记录不存在")
 
 @app.post("/api/repair_records")
-def create_repair_record(record: RepairRecord, db: sqlite3.Connection = Depends(get_db)):
+def create_repair_record(record: dict, db: sqlite3.Connection = Depends(get_db)):
     record_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
     cursor = db.cursor()
@@ -213,20 +294,22 @@ def create_repair_record(record: RepairRecord, db: sqlite3.Connection = Depends(
         INSERT INTO repair_records 
         (id, customer_name, phone, product_name, product_serial, issue_description, status, assignee, created_at, updated_at, remark)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (record_id, record.customer_name, record.phone, record.product_name, record.product_serial, 
-          record.issue_description, record.status, record.assignee, now, now, record.remark))
+    ''', (record_id, record.get('customer_name'), record.get('phone'), record.get('product_name'), 
+          record.get('product_serial'), record.get('issue_description'), 
+          record.get('status', 'pending'), record.get('assignee'), now, now, record.get('remark')))
     db.commit()
     
     cursor.execute('''
         INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (str(uuid.uuid4()), record_id, 'system', '创建', f'创建返修记录：{record.customer_name}', now))
+    ''', (str(uuid.uuid4()), record_id, 'system', '创建', f'创建返修记录：{record.get("customer_name")}', now))
     db.commit()
     
-    return {"id": record_id, **record.dict(), "created_at": now, "updated_at": now}
+    result = {k: v for k, v in record.items() if v is not None}
+    return {"id": record_id, **result, "created_at": now, "updated_at": now}
 
 @app.put("/api/repair_records/{record_id}")
-def update_repair_record(record_id: str, record: RepairRecord, db: sqlite3.Connection = Depends(get_db)):
+def update_repair_record(record_id: str, record: RepairRecordUpdate, db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
     cursor.execute("SELECT * FROM repair_records WHERE id = ?", (record_id,))
     old_record = cursor.fetchone()
@@ -237,30 +320,33 @@ def update_repair_record(record_id: str, record: RepairRecord, db: sqlite3.Conne
     updates = []
     params = []
     
-    if record.customer_name:
+    if record.customer_name is not None:
         updates.append("customer_name = ?")
         params.append(record.customer_name)
-    if record.phone:
+    if record.phone is not None:
         updates.append("phone = ?")
         params.append(record.phone)
-    if record.product_name:
+    if record.product_name is not None:
         updates.append("product_name = ?")
         params.append(record.product_name)
-    if record.product_serial:
+    if record.product_serial is not None:
         updates.append("product_serial = ?")
         params.append(record.product_serial)
-    if record.issue_description:
+    if record.issue_description is not None:
         updates.append("issue_description = ?")
         params.append(record.issue_description)
-    if record.status:
+    if record.status is not None:
         updates.append("status = ?")
         params.append(record.status)
-    if record.assignee:
+    if record.assignee is not None:
         updates.append("assignee = ?")
         params.append(record.assignee)
-    if record.remark:
+    if record.remark is not None:
         updates.append("remark = ?")
         params.append(record.remark)
+    
+    if not updates:
+        return {"message": "没有需要更新的字段"}
     
     updates.append("updated_at = ?")
     params.append(now)
@@ -270,11 +356,16 @@ def update_repair_record(record_id: str, record: RepairRecord, db: sqlite3.Conne
     cursor.execute(query, params)
     db.commit()
     
-    action = f"状态变更: {old_record['status']} -> {record.status}" if record.status and record.status != old_record['status'] else "更新"
+    action = "更新"
+    detail = f"更新返修记录：{old_record['customer_name']}"
+    if record.status is not None and record.status != old_record['status']:
+        action = f"状态变更: {old_record['status']} -> {record.status}"
+        detail = f"{action}: {old_record['customer_name']}"
+    
     cursor.execute('''
         INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (str(uuid.uuid4()), record_id, 'system', action, f'更新返修记录：{record.customer_name}', now))
+    ''', (str(uuid.uuid4()), record_id, 'system', action, detail, now))
     db.commit()
     
     return {"message": "更新成功"}
@@ -320,7 +411,7 @@ def get_warranty_record(warranty_id: str, db: sqlite3.Connection = Depends(get_d
     raise HTTPException(status_code=404, detail="质保记录不存在")
 
 @app.post("/api/warranty_records")
-def create_warranty_record(warranty: WarrantyRecord, db: sqlite3.Connection = Depends(get_db)):
+def create_warranty_record(warranty: dict, db: sqlite3.Connection = Depends(get_db)):
     warranty_id = str(uuid.uuid4())
     now = datetime.now().isoformat()
     cursor = db.cursor()
@@ -328,20 +419,22 @@ def create_warranty_record(warranty: WarrantyRecord, db: sqlite3.Connection = De
         INSERT INTO warranty_records 
         (id, repair_id, warranty_type, warranty_period, start_date, end_date, status, remark, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (warranty_id, warranty.repair_id, warranty.warranty_type, warranty.warranty_period, 
-          warranty.start_date, warranty.end_date, warranty.status, warranty.remark, now, now))
+    ''', (warranty_id, warranty.get('repair_id'), warranty.get('warranty_type'), 
+          warranty.get('warranty_period'), warranty.get('start_date'), warranty.get('end_date'),
+          warranty.get('status', 'active'), warranty.get('remark'), now, now))
     db.commit()
     
     cursor.execute('''
         INSERT INTO operation_logs (id, warranty_id, operator, action, detail, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (str(uuid.uuid4()), warranty_id, 'system', '创建', f'创建质保记录：{warranty.warranty_type}', now))
+    ''', (str(uuid.uuid4()), warranty_id, 'system', '创建', f'创建质保记录：{warranty.get("warranty_type")}', now))
     db.commit()
     
-    return {"id": warranty_id, **warranty.dict(), "created_at": now, "updated_at": now}
+    result = {k: v for k, v in warranty.items() if v is not None}
+    return {"id": warranty_id, **result, "created_at": now, "updated_at": now}
 
 @app.put("/api/warranty_records/{warranty_id}")
-def update_warranty_record(warranty_id: str, warranty: WarrantyRecord, db: sqlite3.Connection = Depends(get_db)):
+def update_warranty_record(warranty_id: str, warranty: WarrantyRecordUpdate, db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
     cursor.execute("SELECT * FROM warranty_records WHERE id = ?", (warranty_id,))
     old_warranty = cursor.fetchone()
@@ -352,24 +445,27 @@ def update_warranty_record(warranty_id: str, warranty: WarrantyRecord, db: sqlit
     updates = []
     params = []
     
-    if warranty.warranty_type:
+    if warranty.warranty_type is not None:
         updates.append("warranty_type = ?")
         params.append(warranty.warranty_type)
-    if warranty.warranty_period:
+    if warranty.warranty_period is not None:
         updates.append("warranty_period = ?")
         params.append(warranty.warranty_period)
-    if warranty.start_date:
+    if warranty.start_date is not None:
         updates.append("start_date = ?")
         params.append(warranty.start_date)
-    if warranty.end_date:
+    if warranty.end_date is not None:
         updates.append("end_date = ?")
         params.append(warranty.end_date)
-    if warranty.status:
+    if warranty.status is not None:
         updates.append("status = ?")
         params.append(warranty.status)
-    if warranty.remark:
+    if warranty.remark is not None:
         updates.append("remark = ?")
         params.append(warranty.remark)
+    
+    if not updates:
+        return {"message": "没有需要更新的字段"}
     
     updates.append("updated_at = ?")
     params.append(now)
@@ -379,11 +475,16 @@ def update_warranty_record(warranty_id: str, warranty: WarrantyRecord, db: sqlit
     cursor.execute(query, params)
     db.commit()
     
-    action = f"状态变更: {old_warranty['status']} -> {warranty.status}" if warranty.status and warranty.status != old_warranty['status'] else "更新"
+    action = "更新"
+    detail = f"更新质保记录：{old_warranty['warranty_type']}"
+    if warranty.status is not None and warranty.status != old_warranty['status']:
+        action = f"状态变更: {old_warranty['status']} -> {warranty.status}"
+        detail = f"{action}: {old_warranty['warranty_type']}"
+    
     cursor.execute('''
         INSERT INTO operation_logs (id, warranty_id, operator, action, detail, created_at)
         VALUES (?, ?, ?, ?, ?, ?)
-    ''', (str(uuid.uuid4()), warranty_id, 'system', action, f'更新质保记录：{warranty.warranty_type}', now))
+    ''', (str(uuid.uuid4()), warranty_id, 'system', action, detail, now))
     db.commit()
     
     return {"message": "更新成功"}

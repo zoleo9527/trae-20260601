@@ -220,6 +220,10 @@
               <span>问题描述：{{ selectedWarranty.repair_record.issue_description }}</span>
               <span class="repair-status">状态：{{ statusText(selectedWarranty.repair_record.status) }}</span>
             </div>
+            <div v-if="selectedWarranty.repair_record.remark" class="repair-remark">
+              <span class="remark-label">返修备注：</span>
+              <span>{{ selectedWarranty.repair_record.remark }}</span>
+            </div>
           </div>
           <div v-else>
             <p class="no-link">暂无关联返修记录</p>
@@ -227,8 +231,14 @@
         </div>
         
         <div class="detail-section">
-          <h3>备注信息</h3>
-          <p class="remark-content">{{ selectedWarranty.remark || '暂无备注' }}</p>
+          <h3>质保备注</h3>
+          <p class="remark-content">{{ selectedWarranty.remark || '暂无质保备注' }}</p>
+          <div v-if="selectedWarranty.repair_record?.remark" class="transfer-remark">
+            <el-button type="text" @click="transferRemark" class="transfer-btn">
+              <el-icon><component :is="icons.ArrowRight" /></el-icon>
+              将返修备注转移到质保备注
+            </el-button>
+          </div>
         </div>
         
         <div class="detail-section">
@@ -320,7 +330,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Home, FileText, Shield, Logout, Plus, Search, AlertTriangle } from '@element-plus/icons-vue'
+import { Home, FileText, Shield, Logout, Plus, Search, AlertTriangle, ArrowRight } from '@element-plus/icons-vue'
 import axios from '@/utils/axios'
 
 const router = useRouter()
@@ -341,7 +351,7 @@ const selectedWarranty = ref(null)
 const extendTargetId = ref(null)
 
 const icons = {
-  Home, FileText, Shield, Logout, Plus, Search, AlertTriangle
+  Home, FileText, Shield, Logout, Plus, Search, AlertTriangle, ArrowRight
 }
 
 const createForm = reactive({
@@ -607,7 +617,30 @@ const handleTerminate = async (warranty) => {
 
 const goToRepairRecord = (repairId) => {
   detailDrawerVisible.value = false
+  localStorage.setItem('selectedRepairId', repairId)
   router.push('/repair-records')
+}
+
+const transferRemark = async () => {
+  if (!selectedWarranty.value || !selectedWarranty.value.repair_record?.remark) {
+    return
+  }
+  
+  try {
+    const repairRemark = selectedWarranty.value.repair_record.remark
+    const existingRemark = selectedWarranty.value.remark
+    
+    let newRemark = repairRemark
+    if (existingRemark && existingRemark !== repairRemark) {
+      newRemark = `${existingRemark}\n---\n${repairRemark}`
+    }
+    
+    await axios.put(`/warranty_records/${selectedWarranty.value.id}`, { remark: newRemark })
+    ElMessage.success('返修备注已转移到质保备注')
+    selectedWarranty.value.remark = newRemark
+  } catch (error) {
+    ElMessage.error('转移失败')
+  }
 }
 
 onMounted(() => {

@@ -536,8 +536,17 @@ const handleReview = async (record) => {
   }
 }
 
-onMounted(() => {
-  loadRecords()
+onMounted(async () => {
+  await loadRecords()
+  
+  const selectedRepairId = localStorage.getItem('selectedRepairId')
+  if (selectedRepairId) {
+    const record = records.value.find(r => r.id === selectedRepairId)
+    if (record) {
+      await openDetailDrawer(record)
+    }
+    localStorage.removeItem('selectedRepairId')
+  }
 })
 </script>
 
