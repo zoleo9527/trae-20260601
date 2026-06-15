@@ -213,10 +213,21 @@ export default function EngineerPage({ role, onUpdated }: Props) {
           开始诊断
         </Button>
       );
-    if (r.status === 'diagnosing' || r.status === 'parts_rejected')
+    if (r.status === 'parts_rejected')
+      return (
+        <Space>
+          <Button type="primary" size="small" icon={<SettingOutlined />} onClick={() => openPartsApply(r)}>
+            重提配件申请
+          </Button>
+          <Button size="small" icon={<SolutionOutlined />} onClick={() => openDiagnosis(r)}>
+            修改诊断
+          </Button>
+        </Space>
+      );
+    if (r.status === 'diagnosing')
       return (
         <Button type="primary" size="small" icon={<SolutionOutlined />} onClick={() => openDiagnosis(r)}>
-          {r.status === 'parts_rejected' ? '重提诊断' : '提交诊断'}
+          提交诊断
         </Button>
       );
     if (r.status === 'diagnosed_need_parts')
@@ -225,8 +236,27 @@ export default function EngineerPage({ role, onUpdated }: Props) {
           提交配件申请
         </Button>
       );
-    if (r.status === 'parts_applying')
-      return <Tag color="warning">配件申请中</Tag>;
+    if (r.status === 'parts_applying') {
+      const latest = r.partsApplications[r.partsApplications.length - 1];
+      return (
+        <Space>
+          <Tag color="warning">配件申请中</Tag>
+          <Button
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => {
+              if (latest) {
+                msgApi.info(
+                  `已提交 ${latest.items.length} 项配件，申请备注：${latest.diagnosisRemarkCarried || '(无)'}`
+                );
+              }
+            }}
+          >
+            查看申请
+          </Button>
+        </Space>
+      );
+    }
     if (r.status === 'parts_approved' || r.status === 'diagnosed_no_parts')
       return (
         <Button type="primary" size="small" icon={<ToolOutlined />} onClick={() => openRepair(r)}>

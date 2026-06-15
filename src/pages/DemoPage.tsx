@@ -36,6 +36,11 @@ import type { TestStepResult } from '../services/demoFlows';
 
 const { Title, Paragraph, Text } = Typography;
 
+if (typeof window !== 'undefined') {
+  (window as any).TicketService = TicketService;
+  (window as any).__applianceAfterSales = { TicketService };
+}
+
 interface Props {
   onUpdated: () => void;
 }
@@ -90,16 +95,17 @@ export default function DemoPage({ onUpdated }: Props) {
       okText: '清空',
       okButtonProps: { danger: true },
       onOk: () => {
-        localStorage.removeItem('appliance_after_sales_tickets_v1');
-        localStorage.removeItem('appliance_after_sales_exports_v1');
-        localStorage.removeItem('after_sales_current_user');
-        setFullFlow(null);
-        setRejectFlow(null);
-        setExportResult(null);
-        msgApi.success('已清空');
-        onUpdated();
-        rerender();
-      },
+          localStorage.removeItem('appliance_after_sales_tickets_v1');
+          localStorage.removeItem('appliance_after_sales_exports_v1');
+          localStorage.removeItem('appliance_after_sales_create_idempotency_map_v1');
+          localStorage.removeItem('after_sales_current_user');
+          setFullFlow(null);
+          setRejectFlow(null);
+          setExportResult(null);
+          msgApi.success('已清空');
+          onUpdated();
+          rerender();
+        },
     });
   };
 
@@ -166,60 +172,84 @@ export default function DemoPage({ onUpdated }: Props) {
     },
   ];
 
-  const sampleCode = `// ====== 服务层调用示例（可在浏览器控制台直接复制运行） ======
-const { TicketService } = window.__app || {}; 
+  const sampleCode = `// ====== 项目真实服务层调用示例 ======
+// 方式A：在浏览器控制台直接使用（已挂载到 window.TicketService）
+// 方式B：在项目代码中 ES module 方式引入：
+//   import { TicketService } from './src/services/TicketService';
+
 // 1. 创建工单（幂等，同一idempotencyKey多次调用仅创建1次）
-TicketService.createTicket({
+const r1 = await TicketService.createTicket({
   source: '400热线',
-  customer: { name: '陈先生', phone: '13800001111', address: '北京' },
+  customer: { name: '陈先生', phone: '13800001111', address: '北京市朝阳区XX小区' },
   appliance: { type: '空调', brand: '格力', model: 'KFR-35GW', purchaseDate: '2022-06-15', warranty: true },
   complaintDescription: '制冷不足，有异常噪音',
   operator: '张客服',
-  idempotencyKey: 'create-' + Date.now()
+  idempotencyKey: 'create-demo-' + Date.now()
+});
+const ticketId = r1.ticket!.id;
+
+// 2. 客服派单给工程师
+await TicketService.assignEngineer({
+  ticketId,
+  engineer: '李工程师',
+  operator: '张客服',
+  idempotencyKey: 'assign-demo-1',
+  remark: '客户要求上午上门'
 });
 
-// 2. 派单给工程师
-TicketService.assignEngineer({ ticketId, engineer: '李工程师', operator: '张客服', idempotencyKey: 'a-1' });
+// 3. 工程师进入诊断
+await TicketService.startDiagnosis(ticketId, '李工程师', 'startDiag-demo-1');
 
-// 3. 提交故障诊断（需配件→自动流转到配件申请）
-TicketService.submitDiagnosis({
+// 4. 提交故障诊断（需配件→后续会自动携带诊断备注）
+await TicketService.submitDiagnosis({
   ticketId,
   diagnosis: {
     symptoms: ['制冷不足', '异常噪音'],
     faultCode: 'E3',
-    faultDescription: '压缩机启动电容容量衰减',
+    faultDescription: '压缩机启动电容容量衰减（20uF→4uF）',
     solution: '更换电容',
     needParts: true,
     laborFee: 180,
     remark: '电容规格20uF/450V，紧急'  // ← 此备注会自动带入配件申请
   },
   operator: '李工程师',
-  idempotencyKey: 'd-1'
+  idempotencyKey: 'diag-demo-1'
 });
 
-// 4. 提交配件申请（自动携带诊断备注 diagnosisRemarkCarried）
-TicketService.submitPartsApplication({
+// 5. 提交配件申请（自动携带诊断备注 diagnosisRemarkCarried）
+const r5 = await TicketService.submitPartsApplication({
   ticketId,
-  items: [{ id: 'x', name: '压缩机启动电容', sku: 'CAP-20UF', quantity: 1, unit: '个', reason: '容量衰减' }],
+  items: [{ id: 'x1', name: '压缩机启动电容', sku: 'CAP-20UF', quantity: 1, unit: '个', reason: '容量衰减' }],
   operator: '李工程师',
-  idempotencyKey: 'p-1',
-  remark: '请同城急送'  // ← 与诊断备注一起保存
+  idempotencyKey: 'parts-demo-1',
+  remark: '请同城急送'  // ← 与诊断备注合并保存
 });
+const applicationId = r5.application!.id;
 
-// 5. 审核（批准/驳回）
-TicketService.reviewPartsApplication({
+// 6. 配件管理员审核（批准/驳回）
+await TicketService.reviewPartsApplication({
   applicationId,
   approved: true,
-  reviewRemark: '已安排发货',
+  reviewRemark: '已核对库存，安排发货',
   operator: '王管理员',
-  idempotencyKey: 'r-1'
+  idempotencyKey: 'review-demo-1'
 });
 
-// 6. 回看配件申请（含诊断备注责任链）
-TicketService.getPartsApplicationsByTicket(ticketId);
+// 7. 工程师开始维修并完工
+await TicketService.startRepair(ticketId, '李工程师', 'startRepair-demo-1');
+await TicketService.completeRepair({
+  ticketId,
+  finalReport: '已更换电容，制冷恢复正常，客户签字确认',
+  operator: '李工程师',
+  idempotencyKey: 'complete-demo-1'
+});
 
-// 7. 导出任务
-TicketService.exportTickets({ startDate, endDate, status });
+// 8. 回看配件申请（含诊断备注责任链）
+TicketService.getPartsApplicationsByTicket(ticketId)
+  .forEach(app => console.log(app.diagnosisRemarkCarried, app.items, app.reviewRemark));
+
+// 9. 导出任务
+TicketService.exportTickets({ status: 'completed' });
 `;
 
   return (

@@ -85,11 +85,32 @@ function checkIdempotency(ticketId: string, key: string, data: ServiceTicket[]):
   return { dup: false, idx };
 }
 
+const CREATE_IDEMPOTENCY_MAP_KEY = 'appliance_after_sales_create_idempotency_map_v1';
+
+function getCreateIdempotencyMap(): Record<string, string> {
+  try {
+    return JSON.parse(localStorage.getItem(CREATE_IDEMPOTENCY_MAP_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function setCreateIdempotencyMap(map: Record<string, string>) {
+  localStorage.setItem(CREATE_IDEMPOTENCY_MAP_KEY, JSON.stringify(map));
+}
+
 export const TicketService = {
   listTickets(role?: Role): ServiceTicket[] {
     const all = read();
     if (!role) return all;
-    return all.filter((t) => t.currentHandler === role || t.status === 'completed' || t.status === 'cancelled');
+    return all.filter((t) => {
+      if (t.status === 'completed' || t.status === 'cancelled') return true;
+      if (t.currentHandler === role) return true;
+      if (role === 'engineer' && t.handlers.engineer) return true;
+      if (role === 'customer_service' && t.handlers.customer_service) return true;
+      if (role === 'parts_admin' && (t.handlers.parts_admin || t.partsApplications.length > 0)) return true;
+      return false;
+    });
   },
 
   getTicket(id: string): ServiceTicket | undefined {
@@ -102,10 +123,13 @@ export const TicketService = {
 
   createTicket(req: CreateTicketRequest): { success: boolean; duplicated: boolean; ticket?: ServiceTicket; message?: string } {
     const all = read();
-    const globalKey = `create:${req.idempotencyKey}`;
-    if (localStorage.getItem(globalKey) === '1') {
-      const existed = all[all.length - 1];
-      return { success: true, duplicated: true, ticket: existed, message: '幂等命中，返回上一次创建的工单' };
+    const map = getCreateIdempotencyMap();
+    const existingTicketId = map[req.idempotencyKey];
+    if (existingTicketId) {
+      const existed = all.find((t) => t.id === existingTicketId);
+      if (existed) {
+        return { success: true, duplicated: true, ticket: existed, message: '幂等命中，返回上一次创建的工单' };
+      }
     }
 
     const id = uuidv4();
@@ -142,7 +166,8 @@ export const TicketService = {
     };
     all.push(ticket);
     write(all);
-    localStorage.setItem(globalKey, '1');
+    map[req.idempotencyKey] = ticket.id;
+    setCreateIdempotencyMap(map);
     return { success: true, duplicated: false, ticket, message: '工单创建成功' };
   },
 
@@ -308,7 +333,6 @@ export const TicketService = {
     t.partsApplications.push(app);
     t.status = 'parts_applying';
     t.currentHandler = 'parts_admin';
-    if (!t.handlers.parts_admin) t.handlers.parts_admin = req.operator;
     t.timeline.push(
       makeTimeline({
         status: t.status,
@@ -361,6 +385,7 @@ export const TicketService = {
     app.reviewBy = req.operator;
     app.reviewAt = now();
     app.reviewRemark = req.reviewRemark;
+    t.handlers.parts_admin = req.operator;
     const fromStatus = t.status;
     if (req.approved) {
       t.status = 'parts_approved';
