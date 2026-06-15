@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Timeline } from '@/components/ui/Timeline';
 import { useInspectionStore } from '@/store/useInspectionStore';
+import { useUserStore } from '@/store/useUserStore';
 import { statusMap } from '@/utils/status';
 import { formatDateTime, formatDate, formatMoney } from '@/utils/date';
 import { cn } from '@/lib/utils';
@@ -32,27 +33,31 @@ export default function SignReview() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { getInspectionById, getEquipmentById, getContractById } = useInspectionStore();
+  const { currentRole } = useUserStore();
 
   const inspection = getInspectionById(id || '');
   const equipment = inspection ? getEquipmentById(inspection.equipmentId) : undefined;
   const contract = inspection ? getContractById(inspection.contractId) : undefined;
 
-  const [blocked, setBlocked] = useState(false);
-  const [blockReason, setBlockReason] = useState('');
-
-  useEffect(() => {
-    if (!inspection) return;
+  const guard = useMemo(() => {
+    if (!inspection) return { blocked: false, reason: '', canGoSign: false, canGoReview: false };
     if (inspection.status !== 'completed' || !inspection.signature) {
-      setBlocked(true);
+      let reason = '';
       if (inspection.status === 'pending_sign') {
-        setBlockReason('该验机单尚待司机签收，签收完成后可查看回看');
+        reason = '该验机单尚待司机签收，签收完成后可查看回看';
       } else if (inspection.status === 'completed' && !inspection.signature) {
-        setBlockReason('该验机单缺少签收记录，无法查看回看');
+        reason = '该验机单缺少签收记录，无法查看回看';
       } else {
-        setBlockReason(`该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，签收回看仅对已完成的单据开放`);
+        reason = `该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，签收回看仅对已完成的单据开放`;
       }
+      const canGoSign = inspection.status === 'pending_sign' && currentRole === 'driver';
+      const canGoReview = inspection.status === 'completed' && !!inspection.signature;
+      return { blocked: true, reason, canGoSign, canGoReview };
     }
-  }, [inspection]);
+    return { blocked: false, reason: '', canGoSign: false, canGoReview: true };
+  }, [inspection, currentRole]);
+
+  const { blocked, reason: blockReason, canGoSign } = guard;
 
   if (!inspection) {
     return (
@@ -77,7 +82,7 @@ export default function SignReview() {
         <h3 className="text-lg font-semibold text-slate-800 mb-2">无法查看签收回看</h3>
         <p className="text-sm text-slate-500 mb-6">{blockReason}</p>
         <div className="flex items-center justify-center gap-3">
-          {inspection.status === 'pending_sign' && (
+          {canGoSign && (
             <Button
               variant="outline"
               onClick={() => navigate(`/inspections/${inspection.id}/sign`)}

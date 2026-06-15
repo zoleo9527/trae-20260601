@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -48,25 +48,27 @@ export default function DriverSign() {
   const equipment = inspection ? getEquipmentById(inspection.equipmentId) : undefined;
   const contract = inspection ? getContractById(inspection.contractId) : undefined;
 
-  const [blocked, setBlocked] = useState(false);
-  const [blockReason, setBlockReason] = useState('');
-
-  useEffect(() => {
-    if (!inspection) return;
+  const guard = useMemo(() => {
+    if (!inspection) return { blocked: false, reason: '', canGoReview: false };
     if (inspection.status !== 'pending_sign') {
-      setBlocked(true);
+      let reason = '';
       if (inspection.status === 'completed') {
-        setBlockReason('该验机单已完成签收，无需重复签收');
+        reason = '该验机单已完成签收，无需重复签收';
       } else if (inspection.status === 'disputed') {
-        setBlockReason('该验机单存在争议，暂无法签收');
+        reason = '该验机单存在争议，暂无法签收';
       } else {
-        setBlockReason(`该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，尚不可签收`);
+        reason = `该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，尚不可签收`;
       }
-    } else if (currentRole !== 'driver') {
-      setBlocked(true);
-      setBlockReason('仅司机角色可执行签收操作');
+      const canGoReview = inspection.status === 'completed' && !!inspection.signature;
+      return { blocked: true, reason, canGoReview };
     }
+    if (currentRole !== 'driver') {
+      return { blocked: true, reason: '仅司机角色可执行签收操作', canGoReview: false };
+    }
+    return { blocked: false, reason: '', canGoReview: false };
   }, [inspection, currentRole]);
+
+  const { blocked, reason: blockReason, canGoReview } = guard;
 
   if (!inspection) {
     return (
@@ -91,7 +93,7 @@ export default function DriverSign() {
         <h3 className="text-lg font-semibold text-slate-800 mb-2">无法进入签收</h3>
         <p className="text-sm text-slate-500 mb-6">{blockReason}</p>
         <div className="flex items-center justify-center gap-3">
-          {inspection.status === 'completed' && inspection.signature && (
+          {canGoReview && (
             <Button
               variant="outline"
               onClick={() => navigate(`/inspections/${inspection.id}/review`)}
