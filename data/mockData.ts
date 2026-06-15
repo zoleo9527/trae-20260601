@@ -226,8 +226,8 @@ export const mockComplaints: ComplaintRecord[] = [
     currentAssignee: '维修工程师',
     customerService: {
       handler: '王芳',
-      handleTime: '2026-06-09 10:15',
-      remark: '用户反馈抽油烟机问题，预约上门检测'
+      handleTime: '2026-06-11 14:00',
+      remark: '配件已到货，重新派工'
     },
     engineer: {
       handler: '李强',
@@ -243,7 +243,9 @@ export const mockComplaints: ComplaintRecord[] = [
     history: [
       { id: 'h24', time: '2026-06-09 10:00', operator: '系统', action: '创建工单', detail: '用户提交返修投诉' },
       { id: 'h25', time: '2026-06-09 10:15', operator: '王芳', action: '客服受理', detail: '用户反馈抽油烟机问题，预约上门检测' },
-      { id: 'h26', time: '2026-06-09 15:00', operator: '李强', action: '维修退回', detail: '配件缺失：配件库存不足，需要采购' }
+      { id: 'h26', time: '2026-06-09 15:00', operator: '李强', action: '维修退回', detail: '配件缺失：配件库存不足，需要采购' },
+      { id: 'h27', time: '2026-06-10 11:00', operator: '王芳', action: '客服受理', detail: '登记配件采购，等待到货' },
+      { id: 'h28', time: '2026-06-11 14:00', operator: '王芳', action: '客服受理', detail: '配件已到货，重新派工' }
     ]
   }
 ];
