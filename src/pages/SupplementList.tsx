@@ -255,7 +255,7 @@ export default function SupplementList() {
       setTimeout(() => navigate(`/supplements/${created.id}`), 300)
     } catch (e: any) {
       if (e?.errorFields) return
-      message.error('创建失败')
+      message.error(e?.message || '创建失败')
     }
   }
 
