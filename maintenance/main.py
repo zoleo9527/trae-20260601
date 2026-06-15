@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
@@ -179,7 +179,7 @@ async def upload_photo(project_id: str, file: UploadFile = File(...), category: 
     return {"message": "照片上传成功", "photo": photo}
 
 @app.post("/api/projects/{project_id}/feedbacks")
-async def add_feedback(project_id: str, content: str, issue_type: str):
+async def add_feedback(project_id: str, content: str = Form(...), issue_type: str = Form(...)):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -197,7 +197,7 @@ async def add_feedback(project_id: str, content: str, issue_type: str):
     return {"message": "反馈记录成功", "feedback": feedback}
 
 @app.post("/api/projects/{project_id}/inspection")
-async def submit_inspection(project_id: str, conclusion: str):
+async def submit_inspection(project_id: str, conclusion: str = Form(...)):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -210,7 +210,7 @@ async def submit_inspection(project_id: str, conclusion: str):
     return {"message": "验收结论已提交"}
 
 @app.post("/api/projects/{project_id}/rectifications")
-async def add_rectification(project_id: str, description: str, deadline: str, responsible: str):
+async def add_rectification(project_id: str, description: str = Form(...), deadline: str = Form(...), responsible: str = Form(...)):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -277,7 +277,7 @@ async def upload_rectification_photo(project_id: str, rect_id: str, file: Upload
     return {"message": "照片上传成功", "filename": filename}
 
 @app.put("/api/projects/{project_id}/rectifications/{rect_id}")
-async def update_rectification(project_id: str, rect_id: str, status: str):
+async def update_rectification(project_id: str, rect_id: str, status: str = Form(...)):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
@@ -297,7 +297,7 @@ async def update_rectification(project_id: str, rect_id: str, status: str):
     return {"message": "整改状态已更新"}
 
 @app.post("/api/projects/{project_id}/visits")
-async def add_visit(project_id: str, result: str, remarks: str = "", signature: Optional[str] = None):
+async def add_visit(project_id: str, result: str = Form(...), remarks: str = Form(""), signature: Optional[str] = Form(None)):
     projects = load_projects()
     project = next((p for p in projects if p.id == project_id), None)
     if not project:
