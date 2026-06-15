@@ -64,10 +64,11 @@
       .info-row { display: flex; flex-direction: column; }
       .info-row .label { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
       .info-row .value { font-weight: 500; }
-      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
       .empty-text { text-align: center; color: var(--text-secondary); padding: 20px; }
       .log-list { margin-top: 16px; }
       .log-item { padding: 12px; border-bottom: 1px solid var(--border-color); }
+      .log-item:last-child { border-bottom: none; }
       .log-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
       .log-action { font-weight: 600; color: var(--primary-color); }
       .log-time { font-size: 12px; color: var(--text-secondary); }
@@ -79,10 +80,14 @@
       .summary-value { font-size: 20px; font-weight: 600; }
       .summary-value.success { color: var(--success-color); }
       .summary-value.danger { color: var(--danger-color); }
+      .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+      .tag { padding: 4px 10px; background: #e2e8f0; border-radius: 4px; font-size: 12px; }
+      .tags-success .tag { background: #dcfce7; color: #16a34a; }
+      .tags-danger .tag { background: #fee2e2; color: #dc2626; }
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

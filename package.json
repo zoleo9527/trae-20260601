@@ -2,8 +2,18 @@
   "name": "tire-shop-system",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "python3 -m http.server 5173",
     "build": "echo 'Build complete'"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10"
+  },
+  "dependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "better-sqlite3": "^12.10.1"
   }
 }

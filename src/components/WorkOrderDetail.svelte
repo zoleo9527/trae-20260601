@@ -25,7 +25,6 @@
   const logs = reactive<OperationLog[]>([]);
   const showBalanceForm = reactive({ value: false, editRecord: null as BalanceRecord | null });
   const showInspectionForm = reactive({ value: false });
-  const hasBalanceChanged = reactive({ value: false });
 
   const wheelPositions = ['左前轮', '右前轮', '左后轮', '右后轮', '备胎'];
 
@@ -46,7 +45,6 @@
       details: `添加动平衡记录: ${data.wheelPosition}，平衡值: ${data.balanceValue}g`
     });
     showBalanceForm.value = false;
-    hasBalanceChanged.value = true;
     await refreshOrder();
   }
 
@@ -62,7 +60,6 @@
       details: `修改动平衡记录: ${record.wheelPosition}，平衡值从 ${oldValue}g 改为 ${data.balanceValue}g`
     });
     showBalanceForm.value = false;
-    hasBalanceChanged.value = true;
     await refreshOrder();
   }
 
@@ -78,7 +75,6 @@
         operatorRole: user.role,
         details: `完成动平衡: ${record.wheelPosition}`
       });
-      hasBalanceChanged.value = true;
       await refreshOrder();
     }
   }
@@ -263,19 +259,21 @@
   <div class="card">
     <div class="section-header">
       <h2>动平衡记录</h2>
-      {#if hasBalanceChanged.value && order.inspectionRecord}
-        <div class="alert alert-warning">
-          ⚠️ 动平衡记录已修改，请重新进行质检确认
-        </div>
-      {/if}
-      {#if canAddBalance()}
-        <button class="btn btn-primary btn-sm" on:click={() => {
-          showBalanceForm.value = true;
-          showBalanceForm.editRecord = null;
-        }}>
-          + 添加记录
-        </button>
-      {/if}
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+        {#if order.balanceUpdatedAfterInspection && order.inspectionRecord}
+          <div class="alert alert-warning" style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 6px; background: #fef3c7; color: #f59e0b; font-size: 13px;">
+            ⚠️ 动平衡记录已修改，质检状态已重置为"待重新质检"
+          </div>
+        {/if}
+        {#if canAddBalance()}
+          <button class="btn btn-primary btn-sm" on:click={() => {
+            showBalanceForm.value = true;
+            showBalanceForm.editRecord = null;
+          }}>
+            + 添加记录
+          </button>
+        {/if}
+      </div>
     </div>
     
     {#if order.balanceRecords.length === 0}
@@ -359,6 +357,7 @@
             order.inspectionRecord.status === '待质检' ? 'badge-info' :
             order.inspectionRecord.status === '质检中' ? 'badge-warning' :
             order.inspectionRecord.status === '质检不通过' ? 'badge-danger' :
+            order.inspectionRecord.status === '待重新质检' ? 'badge-warning' :
             'badge-success'
           }">
             {order.inspectionRecord.status}
@@ -502,6 +501,8 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
   }
 
   .section-header h2 {

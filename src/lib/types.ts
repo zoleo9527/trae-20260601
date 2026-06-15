@@ -2,9 +2,9 @@ export type UserRole = '前台' | '技师' | '店长';
 
 export type BalanceStatus = '待处理' | '处理中' | '已完成' | '需复检';
 
-export type InspectionStatus = '待质检' | '质检中' | '质检通过' | '质检不通过';
+export type InspectionStatus = '待质检' | '质检中' | '质检通过' | '质检不通过' | '待重新质检';
 
-export type LogAction = '创建工单' | '更新动平衡' | '完成动平衡' | '开始质检' | '质检通过' | '质检不通过' | '交车完成' | '修改记录' | '查看详情';
+export type LogAction = '创建工单' | '更新动平衡' | '完成动平衡' | '开始质检' | '质检通过' | '质检不通过' | '交车完成' | '修改记录' | '标记需复检';
 
 export interface User {
   id: string;
@@ -53,6 +53,8 @@ export interface WorkOrder {
   updatedAt: string;
   createdBy: string;
   status: '进行中' | '已完成';
+  needsReinspection: boolean;
+  balanceUpdatedAfterInspection: boolean;
 }
 
 export interface OperationLog {

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, reactive } from 'svelte';
-  import { initDB, getUserByUsername } from './lib/db';
+  import { getUserByUsername } from './lib/db';
   import type { User, WorkOrder } from './lib/types';
   import Login from './components/Login.svelte';
   import WorkOrderList from './components/WorkOrderList.svelte';
@@ -9,8 +9,7 @@
   const state = reactive({
     currentUser: null as User | null,
     currentView: 'login' as 'login' | 'list' | 'detail',
-    selectedOrder: null as WorkOrder | null,
-    orders: [] as WorkOrder[]
+    selectedOrder: null as WorkOrder | null
   });
 
   async function handleLogin(username: string, password: string) {
@@ -39,13 +38,7 @@
     state.currentView = 'list';
   }
 
-  async function refreshOrders() {
-    state.orders = await window['loadOrders']();
-  }
-
-  onMount(async () => {
-    await initDB();
-    window['refreshOrders'] = refreshOrders;
+  onMount(() => {
     window['handleBackToList'] = handleBackToList;
   });
 </script>

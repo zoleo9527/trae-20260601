@@ -35,7 +35,7 @@
     return loadedOrders;
   }
 
-  async function handleCreateOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>) {
+  async function handleCreateOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>) {
     const orderId = await createWorkOrder(data);
     await createOperationLog({
       workOrderId: orderId,
@@ -173,6 +173,7 @@
                 getInspectionStatus(order) === '待质检' ? 'badge-info' :
                 getInspectionStatus(order) === '质检中' ? 'badge-warning' :
                 getInspectionStatus(order) === '质检不通过' ? 'badge-danger' :
+                getInspectionStatus(order) === '待重新质检' ? 'badge-warning' :
                 'badge-success'
               }">
                 {getInspectionStatus(order)}

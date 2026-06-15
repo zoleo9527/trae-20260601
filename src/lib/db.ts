@@ -1,35 +1,53 @@
 import type { User, WorkOrder, BalanceRecord, InspectionRecord, OperationLog } from './types';
 
-let users: User[] = [
+let db: IDBDatabase | null = null;
+
+const users: User[] = [
   { id: '1', name: '王前台', role: '前台', username: 'front', password: '123456' },
   { id: '2', name: '李技师', role: '技师', username: 'tech', password: '123456' },
   { id: '3', name: '张店长', role: '店长', username: 'manager', password: '123456' }
 ];
 
-let workOrders: WorkOrder[] = [];
-let operationLogs: OperationLog[] = [];
-
-function loadFromStorage() {
-  try {
-    const storedOrders = localStorage.getItem('tire_shop_orders');
-    const storedLogs = localStorage.getItem('tire_shop_logs');
-    if (storedOrders) workOrders = JSON.parse(storedOrders);
-    if (storedLogs) operationLogs = JSON.parse(storedLogs);
-  } catch (e) {
-    console.error('Failed to load from storage:', e);
-  }
+function initDB(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('TireShopDB', 1);
+    
+    request.onerror = () => reject(request.error);
+    
+    request.onsuccess = () => {
+      db = request.result;
+      resolve();
+    };
+    
+    request.onupgradeneeded = (event) => {
+      const database = (event.target as IDBOpenDBRequest).result;
+      
+      if (!database.objectStoreNames.contains('workOrders')) {
+        const workOrderStore = database.createObjectStore('workOrders', { keyPath: 'id' });
+        workOrderStore.createIndex('plateNumber', 'plateNumber', { unique: false });
+        workOrderStore.createIndex('customerName', 'customerName', { unique: false });
+        workOrderStore.createIndex('status', 'status', { unique: false });
+        workOrderStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+      
+      if (!database.objectStoreNames.contains('balanceRecords')) {
+        const balanceStore = database.createObjectStore('balanceRecords', { keyPath: 'id' });
+        balanceStore.createIndex('workOrderId', 'workOrderId', { unique: false });
+      }
+      
+      if (!database.objectStoreNames.contains('inspectionRecords')) {
+        const inspectionStore = database.createObjectStore('inspectionRecords', { keyPath: 'id' });
+        inspectionStore.createIndex('workOrderId', 'workOrderId', { unique: true });
+      }
+      
+      if (!database.objectStoreNames.contains('operationLogs')) {
+        const logStore = database.createObjectStore('operationLogs', { keyPath: 'id' });
+        logStore.createIndex('workOrderId', 'workOrderId', { unique: false });
+        logStore.createIndex('timestamp', 'timestamp', { unique: false });
+      }
+    };
+  });
 }
-
-function saveToStorage() {
-  try {
-    localStorage.setItem('tire_shop_orders', JSON.stringify(workOrders));
-    localStorage.setItem('tire_shop_logs', JSON.stringify(operationLogs));
-  } catch (e) {
-    console.error('Failed to save to storage:', e);
-  }
-}
-
-loadFromStorage();
 
 function uuidv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -38,76 +56,137 @@ function uuidv4(): string {
   });
 }
 
-export function getUserByUsername(username: string): Promise<User | null> {
+export async function getUserByUsername(username: string): Promise<User | null> {
+  await initDB();
   return Promise.resolve(users.find(u => u.username === username) || null);
 }
 
-export function createWorkOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createWorkOrder(data: Omit<WorkOrder, 'id' | 'balanceRecords' | 'inspectionRecord' | 'createdAt' | 'updatedAt' | 'needsReinspection' | 'balanceUpdatedAfterInspection'>): Promise<string> {
+  await initDB();
   const id = uuidv4();
   const now = new Date().toISOString();
   
-  workOrders.push({
+  const order: WorkOrder = {
     id,
     ...data,
     balanceRecords: [],
     inspectionRecord: null,
     createdAt: now,
-    updatedAt: now
-  });
+    updatedAt: now,
+    needsReinspection: false,
+    balanceUpdatedAfterInspection: false
+  };
   
-  saveToStorage();
-  return Promise.resolve(id);
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['workOrders'], 'readwrite');
+    const store = transaction.objectStore('workOrders');
+    const request = store.add(order);
+    
+    request.onsuccess = () => resolve(id);
+    request.onerror = () => reject(request.error);
+  });
 }
 
-export function getWorkOrders(filter?: {
+export async function getWorkOrders(filter?: {
   plateNumber?: string;
   customerName?: string;
   status?: string;
   startDate?: string;
   endDate?: string;
 }): Promise<WorkOrder[]> {
-  let result = [...workOrders];
+  await initDB();
   
-  if (filter?.plateNumber) {
-    result = result.filter(o => o.plateNumber.includes(filter.plateNumber));
-  }
-  if (filter?.customerName) {
-    result = result.filter(o => o.customerName.includes(filter.customerName));
-  }
-  if (filter?.status) {
-    result = result.filter(o => o.status === filter.status);
-  }
-  if (filter?.startDate) {
-    result = result.filter(o => o.createdAt >= filter.startDate);
-  }
-  if (filter?.endDate) {
-    result = result.filter(o => o.createdAt <= filter.endDate + 'T23:59:59.999Z');
-  }
-  
-  result.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  return Promise.resolve(result);
-}
-
-export function getWorkOrderById(id: string): Promise<WorkOrder | null> {
-  return Promise.resolve(workOrders.find(o => o.id === id) || null);
-}
-
-export function updateWorkOrder(id: string, data: Partial<WorkOrder>): Promise<void> {
-  const index = workOrders.findIndex(o => o.id === id);
-  if (index !== -1) {
-    workOrders[index] = {
-      ...workOrders[index],
-      ...data,
-      updatedAt: new Date().toISOString()
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['workOrders'], 'readonly');
+    const store = transaction.objectStore('workOrders');
+    const request = store.getAll();
+    
+    request.onsuccess = async () => {
+      let results: WorkOrder[] = request.result;
+      
+      if (filter?.plateNumber) {
+        results = results.filter(o => o.plateNumber.includes(filter.plateNumber));
+      }
+      if (filter?.customerName) {
+        results = results.filter(o => o.customerName.includes(filter.customerName));
+      }
+      if (filter?.status) {
+        results = results.filter(o => o.status === filter.status);
+      }
+      if (filter?.startDate) {
+        results = results.filter(o => o.createdAt >= filter.startDate);
+      }
+      if (filter?.endDate) {
+        results = results.filter(o => o.createdAt <= filter.endDate + 'T23:59:59.999Z');
+      }
+      
+      for (const order of results) {
+        order.balanceRecords = await getBalanceRecords(order.id);
+        order.inspectionRecord = await getInspectionRecord(order.id);
+      }
+      
+      results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      resolve(results);
     };
-    saveToStorage();
-  }
-  return Promise.resolve();
+    
+    request.onerror = () => reject(request.error);
+  });
 }
 
-export function createBalanceRecord(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function getWorkOrderById(id: string): Promise<WorkOrder | null> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['workOrders'], 'readonly');
+    const store = transaction.objectStore('workOrders');
+    const request = store.get(id);
+    
+    request.onsuccess = async () => {
+      if (!request.result) {
+        resolve(null);
+        return;
+      }
+      
+      const order = request.result as WorkOrder;
+      order.balanceRecords = await getBalanceRecords(id);
+      order.inspectionRecord = await getInspectionRecord(id);
+      resolve(order);
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function updateWorkOrder(id: string, data: Partial<WorkOrder>): Promise<void> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['workOrders'], 'readwrite');
+    const store = transaction.objectStore('workOrders');
+    const getRequest = store.get(id);
+    
+    getRequest.onsuccess = () => {
+      const order = getRequest.result as WorkOrder;
+      const updatedOrder = {
+        ...order,
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const putRequest = store.put(updatedOrder);
+      putRequest.onsuccess = () => resolve();
+      putRequest.onerror = () => reject(putRequest.error);
+    };
+    
+    getRequest.onerror = () => reject(getRequest.error);
+  });
+}
+
+export async function createBalanceRecord(data: Omit<BalanceRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  await initDB();
   const id = uuidv4();
   const now = new Date().toISOString();
+  
   const record: BalanceRecord = {
     id,
     ...data,
@@ -115,41 +194,115 @@ export function createBalanceRecord(data: Omit<BalanceRecord, 'id' | 'createdAt'
     updatedAt: now
   };
   
-  const order = workOrders.find(o => o.id === data.workOrderId);
-  if (order) {
-    order.balanceRecords.push(record);
-    order.updatedAt = now;
-    saveToStorage();
-  }
-  
-  return Promise.resolve(id);
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['balanceRecords', 'workOrders', 'inspectionRecords'], 'readwrite');
+    const balanceStore = transaction.objectStore('balanceRecords');
+    
+    balanceStore.add(record).onsuccess = async () => {
+      const order = await getWorkOrderById(data.workOrderId);
+      if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
+        const workOrderStore = transaction.objectStore('workOrders');
+        const inspectionStore = transaction.objectStore('inspectionRecords');
+        
+        workOrderStore.get(data.workOrderId).onsuccess = (event) => {
+          const wo = (event.target as IDBRequest).result;
+          wo.needsReinspection = true;
+          wo.balanceUpdatedAfterInspection = true;
+          wo.updatedAt = now;
+          workOrderStore.put(wo);
+        };
+        
+        inspectionStore.index('workOrderId').get(data.workOrderId).onsuccess = (event) => {
+          const ir = (event.target as IDBRequest).result;
+          if (ir) {
+            ir.status = '待重新质检';
+            ir.updatedAt = now;
+            inspectionStore.put(ir);
+          }
+        };
+      }
+      resolve(id);
+    };
+    
+    balanceStore.onerror = () => reject(balanceStore.error);
+  });
 }
 
-export function updateBalanceRecord(id: string, data: Partial<BalanceRecord>): Promise<void> {
-  for (const order of workOrders) {
-    const recordIndex = order.balanceRecords.findIndex(r => r.id === id);
-    if (recordIndex !== -1) {
-      order.balanceRecords[recordIndex] = {
-        ...order.balanceRecords[recordIndex],
+export async function updateBalanceRecord(id: string, data: Partial<BalanceRecord>): Promise<void> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['balanceRecords', 'workOrders', 'inspectionRecords'], 'readwrite');
+    const balanceStore = transaction.objectStore('balanceRecords');
+    
+    balanceStore.get(id).onsuccess = (event) => {
+      const record = (event.target as IDBRequest).result as BalanceRecord;
+      const workOrderId = record.workOrderId;
+      
+      const updatedRecord = {
+        ...record,
         ...data,
         updatedAt: new Date().toISOString()
       };
-      order.updatedAt = new Date().toISOString();
-      saveToStorage();
-      break;
-    }
-  }
-  return Promise.resolve();
+      
+      balanceStore.put(updatedRecord).onsuccess = async () => {
+        const order = await getWorkOrderById(workOrderId);
+        if (order && order.inspectionRecord && order.inspectionRecord.status === '质检通过') {
+          const workOrderStore = transaction.objectStore('workOrders');
+          const inspectionStore = transaction.objectStore('inspectionRecords');
+          const now = new Date().toISOString();
+          
+          workOrderStore.get(workOrderId).onsuccess = (e) => {
+            const wo = (e.target as IDBRequest).result;
+            wo.needsReinspection = true;
+            wo.balanceUpdatedAfterInspection = true;
+            wo.updatedAt = now;
+            workOrderStore.put(wo);
+          };
+          
+          inspectionStore.index('workOrderId').get(workOrderId).onsuccess = (e) => {
+            const ir = (e.target as IDBRequest).result;
+            if (ir) {
+              ir.status = '待重新质检';
+              ir.updatedAt = now;
+              inspectionStore.put(ir);
+            }
+          };
+        }
+        resolve();
+      };
+      
+      balanceStore.onerror = () => reject(balanceStore.error);
+    };
+    
+    balanceStore.onerror = () => reject(balanceStore.error);
+  });
 }
 
-export function getBalanceRecords(workOrderId: string): Promise<BalanceRecord[]> {
-  const order = workOrders.find(o => o.id === workOrderId);
-  return Promise.resolve(order ? [...order.balanceRecords] : []);
+export async function getBalanceRecords(workOrderId: string): Promise<BalanceRecord[]> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['balanceRecords'], 'readonly');
+    const store = transaction.objectStore('balanceRecords');
+    const index = store.index('workOrderId');
+    const request = index.getAll(workOrderId);
+    
+    request.onsuccess = () => {
+      const results = request.result as BalanceRecord[];
+      results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      resolve(results);
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
 }
 
-export function createInspectionRecord(data: Omit<InspectionRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+export async function createInspectionRecord(data: Omit<InspectionRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  await initDB();
   const id = uuidv4();
   const now = new Date().toISOString();
+  
   const record: InspectionRecord = {
     id,
     ...data,
@@ -157,58 +310,124 @@ export function createInspectionRecord(data: Omit<InspectionRecord, 'id' | 'crea
     updatedAt: now
   };
   
-  const order = workOrders.find(o => o.id === data.workOrderId);
-  if (order) {
-    order.inspectionRecord = record;
-    order.updatedAt = now;
-    saveToStorage();
-  }
-  
-  return Promise.resolve(id);
-}
-
-export function updateInspectionRecord(id: string, data: Partial<InspectionRecord>): Promise<void> {
-  for (const order of workOrders) {
-    if (order.inspectionRecord?.id === id) {
-      order.inspectionRecord = {
-        ...order.inspectionRecord,
-        ...data,
-        updatedAt: new Date().toISOString()
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['inspectionRecords', 'workOrders'], 'readwrite');
+    const inspectionStore = transaction.objectStore('inspectionRecords');
+    
+    inspectionStore.add(record).onsuccess = () => {
+      const workOrderStore = transaction.objectStore('workOrders');
+      workOrderStore.get(data.workOrderId).onsuccess = (event) => {
+        const wo = (event.target as IDBRequest).result;
+        wo.needsReinspection = false;
+        wo.balanceUpdatedAfterInspection = false;
+        wo.updatedAt = now;
+        workOrderStore.put(wo);
       };
-      order.updatedAt = new Date().toISOString();
-      saveToStorage();
-      break;
-    }
-  }
-  return Promise.resolve();
+      resolve(id);
+    };
+    
+    inspectionStore.onerror = () => reject(inspectionStore.error);
+  });
 }
 
-export function getInspectionRecord(workOrderId: string): Promise<InspectionRecord | null> {
-  const order = workOrders.find(o => o.id === workOrderId);
-  return Promise.resolve(order?.inspectionRecord || null);
+export async function updateInspectionRecord(id: string, data: Partial<InspectionRecord>): Promise<void> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['inspectionRecords', 'workOrders'], 'readwrite');
+    const inspectionStore = transaction.objectStore('inspectionRecords');
+    
+    inspectionStore.get(id).onsuccess = (event) => {
+      const record = (event.target as IDBRequest).result as InspectionRecord;
+      const workOrderId = record.workOrderId;
+      const now = new Date().toISOString();
+      
+      const updatedRecord = {
+        ...record,
+        ...data,
+        updatedAt: now
+      };
+      
+      inspectionStore.put(updatedRecord).onsuccess = () => {
+        if (data.status === '质检通过') {
+          const workOrderStore = transaction.objectStore('workOrders');
+          workOrderStore.get(workOrderId).onsuccess = (e) => {
+            const wo = (e.target as IDBRequest).result;
+            wo.needsReinspection = false;
+            wo.balanceUpdatedAfterInspection = false;
+            wo.updatedAt = now;
+            workOrderStore.put(wo);
+          };
+        }
+        resolve();
+      };
+      
+      inspectionStore.onerror = () => reject(inspectionStore.error);
+    };
+    
+    inspectionStore.onerror = () => reject(inspectionStore.error);
+  });
 }
 
-export function createOperationLog(data: Omit<OperationLog, 'id' | 'timestamp'>): Promise<void> {
+export async function getInspectionRecord(workOrderId: string): Promise<InspectionRecord | null> {
+  await initDB();
+  
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['inspectionRecords'], 'readonly');
+    const store = transaction.objectStore('inspectionRecords');
+    const index = store.index('workOrderId');
+    const request = index.get(workOrderId);
+    
+    request.onsuccess = () => {
+      resolve(request.result as InspectionRecord | null);
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createOperationLog(data: Omit<OperationLog, 'id' | 'timestamp'>): Promise<void> {
+  await initDB();
   const id = uuidv4();
   const now = new Date().toISOString();
   
-  operationLogs.push({
+  const log: OperationLog = {
     id,
     ...data,
     timestamp: now
-  });
+  };
   
-  saveToStorage();
-  return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['operationLogs'], 'readwrite');
+    const store = transaction.objectStore('operationLogs');
+    const request = store.add(log);
+    
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
 }
 
-export function getOperationLogs(workOrderId?: string): Promise<OperationLog[]> {
-  let result = [...operationLogs];
+export async function getOperationLogs(workOrderId?: string): Promise<OperationLog[]> {
+  await initDB();
   
-  if (workOrderId) {
-    result = result.filter(log => log.workOrderId === workOrderId);
-  }
-  
-  result.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  return Promise.resolve(result);
+  return new Promise((resolve, reject) => {
+    const transaction = db!.transaction(['operationLogs'], 'readonly');
+    const store = transaction.objectStore('operationLogs');
+    
+    let request: IDBRequest;
+    if (workOrderId) {
+      const index = store.index('workOrderId');
+      request = index.getAll(workOrderId);
+    } else {
+      request = store.getAll();
+    }
+    
+    request.onsuccess = () => {
+      const results = request.result as OperationLog[];
+      results.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      resolve(results);
+    };
+    
+    request.onerror = () => reject(request.error);
+  });
 }
