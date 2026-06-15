@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { Wallet, AlertCircle, CheckCircle2, Shield, DollarSign, X, Edit2, Check, AlertTriangle, CreditCard, UserCheck } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Wallet, AlertCircle, CheckCircle2, Shield, DollarSign, X, Edit2, Check, AlertTriangle, CreditCard, UserCheck, ExternalLink } from 'lucide-react'
 import { useDeviceStore } from '@/store/deviceStore'
 import StatusBadge from '@/components/StatusBadge'
 import GradeBadge from '@/components/GradeBadge'
@@ -20,6 +20,7 @@ function getDeviceRisks(deviceId: string, riskFlags: { deviceId: string; type: s
 }
 
 export default function Finance() {
+  const navigate = useNavigate()
   const { devices, riskFlags, selectedDeviceIds, toggleDeviceSelection, setSelectedDeviceIds, clearSelection, executePayment, updatePaymentAccount, verifyPayment, flagRisk, currentDeviceId, setCurrentDevice } = useDeviceStore()
   const [activeTab, setActiveTab] = useState<TabKey>('pending')
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -98,6 +99,9 @@ export default function Finance() {
   function confirmVerify(id: string) {
     verifyPayment(id)
     setVerifyDialog(null)
+    if (id === currentDeviceId) {
+      setTimeout(() => navigate(`/device/${id}`), 600)
+    }
   }
 
   function handleOpenEdit(device: Device) {
@@ -109,24 +113,79 @@ export default function Finance() {
     if (!editingId || !editAccount.account.trim() || !editAccount.bank.trim()) return
     updatePaymentAccount(editingId, editAccount.account.trim(), editAccount.bank.trim())
     setEditingId(null)
+    if (editingId === currentDeviceId) {
+      setTimeout(() => navigate(`/device/${editingId}`), 600)
+    }
   }
 
   function handleConfirmPayment(id: string) {
     executePayment([id])
+    if (id === currentDeviceId) {
+      setTimeout(() => navigate(`/device/${id}`), 600)
+    }
   }
 
   function handleBatchPayment() {
     if (payableSelected.length === 0) return
+    const hadCurrent = currentDeviceId && payableSelected.includes(currentDeviceId)
     executePayment(payableSelected)
     clearSelection()
+    if (hadCurrent) {
+      setTimeout(() => navigate(`/device/${currentDeviceId}`), 600)
+    }
   }
 
   function handleMarkAbnormal(id: string, reason: string) {
     flagRisk(id, 'payment_error', reason, 'high')
   }
 
+  const currentDevice = useMemo(() => {
+    if (!currentDeviceId) return null
+    const d = devices.find(x => x.id === currentDeviceId)
+    if (!d) return null
+    if (d.status === 'confirmed' || d.status === 'paying' || d.status === 'completed') return d
+    return null
+  }, [currentDeviceId, devices])
+
   return (
     <div className="p-6 space-y-6">
+      {currentDevice && (
+        <div className="bg-gradient-to-r from-cyan-500/15 via-cyan-500/8 to-transparent border-2 border-cyan-500/30 rounded-xl p-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          <div className="relative flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <div className="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center shrink-0">
+                <CreditCard className="w-5 h-5 text-cyan-300" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-cyan-500/20 text-cyan-300 rounded text-[10px] font-bold tracking-wide">
+                    · 当前处理设备 ·
+                  </span>
+                  <StatusBadge status={currentDevice.status} size="sm" />
+                  {currentDevice.grade && <GradeBadge grade={currentDevice.grade} size="sm" />}
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="text-sm font-bold text-gray-100 truncate">{currentDevice.brand} {currentDevice.model}</span>
+                  <span className="text-xs text-gray-500 font-mono">{currentDevice.id}</span>
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-xs text-gray-400">
+                  <span>客户: <span className="text-gray-200">{currentDevice.customerName}</span></span>
+                  <span>金额: <span className="text-green-300 font-mono font-bold">¥{(currentDevice.finalPrice ?? 0).toLocaleString()}</span></span>
+                </div>
+              </div>
+            </div>
+            <Link
+              to={`/device/${currentDevice.id}`}
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              返回详情
+            </Link>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-100">财务工作台</h1>

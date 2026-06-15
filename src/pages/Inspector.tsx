@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useDeviceStore } from '@/store/deviceStore'
 import StatusBadge from '@/components/StatusBadge'
 import GradeBadge from '@/components/GradeBadge'
@@ -42,6 +42,7 @@ function calcSuggestPrice(estimated: number, grade: Grade, items: InspectionItem
 type TabKey = 'queue' | 'history'
 
 export default function Inspector() {
+  const navigate = useNavigate()
   const { devices, inspectionReports, riskFlags, startInspection, submitInspection, currentDeviceId, setCurrentDevice } = useDeviceStore()
   const [tab, setTab] = useState<TabKey>('queue')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -161,11 +162,9 @@ export default function Inspector() {
     submitInspection(selectedId, report, grade)
     setSubmitted(true)
     setTimeout(() => {
-      setSelectedId(null)
-      setSubmitted(false)
-      setTab('history')
-    }, 1800)
-  }, [selectedId, grade, items, hiddenDefects, gradeReason, submitInspection])
+      navigate(`/device/${selectedId}`)
+    }, 1200)
+  }, [selectedId, grade, items, hiddenDefects, gradeReason, submitInspection, navigate])
 
   useEffect(() => {
     if (selectedDevice && !selectedRisks.some((r) => r.type === 'payment_error' as RiskType)) {
@@ -291,32 +290,44 @@ export default function Inspector() {
           <div className="h-full flex flex-col items-center justify-center text-green-400">
             <Check className="w-16 h-16 mb-4" />
             <p className="text-base font-medium">检测报告已提交</p>
-            <p className="text-sm text-gray-500 mt-2">已自动跳转至已完成列表</p>
+            <p className="text-sm text-gray-500 mt-2">即将返回设备详情页...</p>
           </div>
         ) : (
           <div className="space-y-4 pb-6">
-            <div className="bg-brand-surface border border-brand-border rounded-xl p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex-1">
+            <div className="bg-gradient-to-r from-brand-accent/15 via-brand-accent/8 to-transparent border-2 border-brand-accent/30 rounded-xl p-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-brand-accent/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+              <div className="relative flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-brand-accent/20 text-brand-accent rounded text-[10px] font-bold tracking-wide">
+                      · 当前检测设备 ·
+                    </span>
+                    <StatusBadge status={selectedDevice.status} size="sm" />
+                  </div>
                   <div className="flex items-center gap-3">
-                    <h2 className="text-lg font-bold text-gray-100">{selectedDevice.brand} {selectedDevice.model}</h2>
+                    <h2 className="text-lg font-bold text-gray-100 truncate">{selectedDevice.brand} {selectedDevice.model}</h2>
                     {selectedDevice.grade && <GradeBadge grade={selectedDevice.grade} size="lg" />}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1 font-mono">IMEI: {selectedDevice.imei} · {selectedDevice.id}</p>
+                  <p className="text-xs text-gray-400 mt-0.5 font-mono">IMEI: {selectedDevice.imei} · {selectedDevice.id}</p>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-gray-400">
                     <span>存储: <span className="text-gray-200">{selectedDevice.storage || '—'}</span></span>
                     <span>颜色: <span className="text-gray-200">{selectedDevice.color || '—'}</span></span>
                     <span>外观: <span className="text-gray-200 font-medium">{selectedDevice.appearanceScore}/10</span></span>
                     <span>预估价: <span className="text-brand-accent font-mono font-semibold">¥{selectedDevice.estimatedPrice.toLocaleString()}</span></span>
                     <span>客户: <span className="text-gray-200">{selectedDevice.customerName}</span></span>
-                    <span className="text-gray-500">{selectedDevice.customerPhone}</span>
                   </div>
                 </div>
-                <StatusBadge status={selectedDevice.status} />
+                <Link
+                  to={`/device/${selectedDevice.id}`}
+                  className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 rounded-lg text-xs text-gray-200 font-medium transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  返回详情
+                </Link>
               </div>
 
               {selectedRisks.length > 0 && (
-                <div className="mt-4 p-3 bg-red-500/5 border border-red-500/20 rounded-lg">
+                <div className="relative mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
                   <div className="flex items-center gap-1.5 mb-2 text-xs text-red-300 font-medium">
                     <AlertTriangle className="w-3.5 h-3.5" />
                     风险预警（处理时需重点关注）
