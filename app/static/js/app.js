@@ -7,6 +7,7 @@ let currentServiceId = null;
 let currentPartsRequestId = null;
 let currentCustomerId = null;
 let expandedServiceId = null;
+let filterServiceRecordId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     initNav();
@@ -258,12 +259,23 @@ function toggleServiceDetail(id) {
 }
 
 function viewPartsForService(serviceId) {
+    filterServiceRecordId = serviceId;
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-tab="parts"]').classList.add('active');
     document.getElementById('parts').classList.add('active');
     document.getElementById('parts-status-filter').value = 'all';
     document.getElementById('warehouse-status-filter').value = 'all';
+    document.getElementById('service-filter-bar').style.display = 'flex';
+    filterPartsRequests();
+}
+
+function clearServiceFilter() {
+    filterServiceRecordId = null;
+    document.getElementById('service-filter-bar').style.display = 'none';
+    document.getElementById('parts-status-filter').value = 'all';
+    document.getElementById('warehouse-status-filter').value = 'all';
+    filterPartsRequests();
 }
 
 function viewEquipmentFromService(equipmentId) {
@@ -476,6 +488,10 @@ function filterPartsRequests() {
     
     let filtered = partsRequests;
     
+    if (filterServiceRecordId !== null) {
+        filtered = filtered.filter(p => p.service_record_id === filterServiceRecordId);
+    }
+    
     if (status !== 'all') {
         filtered = filtered.filter(p => p.status === status);
     }
@@ -610,7 +626,10 @@ function renderRecords() {
                                 <p>${record.diagnosis || '-'}</p>
                             </div>
                             <div class="detail-box">
-                                <h5>📦 配件申请</h5>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <h5>📦 配件申请</h5>
+                                    ${partsForService.length > 0 ? `<button class="action-btn secondary" onclick="event.stopPropagation(); viewPartsForService(${record.id})" style="font-size: 11px; padding: 4px 8px;">查看流转详情</button>` : ''}
+                                </div>
                                 ${partsForService.length > 0 ? `
                                     <div class="parts-list">
                                         ${partsForService.map(p => `
@@ -703,7 +722,10 @@ function filterByDate() {
                                 <p>${record.diagnosis || '-'}</p>
                             </div>
                             <div class="detail-box">
-                                <h5>📦 配件申请</h5>
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                    <h5>📦 配件申请</h5>
+                                    ${partsForService.length > 0 ? `<button class="action-btn secondary" onclick="event.stopPropagation(); viewPartsForService(${record.id})" style="font-size: 11px; padding: 4px 8px;">查看流转详情</button>` : ''}
+                                </div>
                                 ${partsForService.length > 0 ? `
                                     <div class="parts-list">
                                         ${partsForService.map(p => `

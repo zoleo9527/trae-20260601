@@ -173,6 +173,10 @@
         <section id="parts" class="tab-content">
             <div class="section-header">
                 <h2>配件申请管理</h2>
+                <div id="service-filter-bar" style="display: none;">
+                    <span style="color: #3498db; margin-right: 10px;">📋 当前服务记录筛选中</span>
+                    <button class="action-btn secondary" onclick="clearServiceFilter()">清除筛选</button>
+                </div>
             </div>
             <div class="parts-filters">
                 <select id="parts-status-filter" onchange="filterPartsRequests()">
