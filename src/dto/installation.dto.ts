@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsDate, IsNumber, IsEnum, IsUUID, IsDefined } from 'class-validator';
+import { Type } from 'class-transformer';
 import { InstallationStatus, PaymentStatus } from '../entities/installation.entity';
 
 export class CreateInstallationDto {
@@ -148,18 +149,22 @@ export class InstallationQueryDto {
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   startDate?: Date;
 
   @IsOptional()
   @IsDate()
+  @Type(() => Date)
   endDate?: Date;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   page?: number = 1;
 
   @IsOptional()
   @IsNumber()
+  @Type(() => Number)
   limit?: number = 10;
 
   @IsOptional()

@@ -35,6 +35,9 @@ export class InstallationController {
   @Patch(':id')
   @UseGuards(AuthGuard)
   update(@Param('id') id: string, @Body() updateDto: UpdateInstallationDto, @CurrentUser() user: User) {
+    if (![UserRole.DISPATCHER, UserRole.ADMIN].includes(user.role)) {
+      throw new UnauthorizedException('只有调度员或管理员可以修改工单');
+    }
     return this.installationService.update(id, updateDto, user);
   }
 
