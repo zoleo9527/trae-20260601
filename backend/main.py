@@ -220,7 +220,21 @@ class UserResponse(BaseModel):
     id: int
     name: str
     phone: str
-    role: UserRole
+    role: str
+
+    @classmethod
+    def from_orm(cls, obj):
+        role_map = {
+            UserRole.DISPATCHER: "dispatcher",
+            UserRole.INSTALLER: "technician",
+            UserRole.SERVICE: "customer_service"
+        }
+        return cls(
+            id=obj.id,
+            name=obj.name,
+            phone=obj.phone,
+            role=role_map.get(obj.role, "dispatcher")
+        )
 
 class LoginRequest(BaseModel):
     phone: str
@@ -245,11 +259,62 @@ class OrderResponse(BaseModel):
     product_type: str
     product_model: str
     scheduled_time: datetime
-    status: OrderStatus
+    status: str
     installer_id: Optional[int]
     dispatcher_id: Optional[int]
     created_at: datetime
     updated_at: datetime
+
+    @classmethod
+    def from_orm(cls, obj):
+        status_map = {
+            OrderStatus.PENDING: "pending",
+            OrderStatus.ASSIGNED: "assigned",
+            OrderStatus.IN_PROGRESS: "in_progress",
+            OrderStatus.COMPLETED: "completed",
+            OrderStatus.REWORK_REQUESTED: "rework_requested",
+            OrderStatus.REWORK_IN_PROGRESS: "rework_in_progress",
+            OrderStatus.REWORK_COMPLETED: "rework_completed",
+            OrderStatus.LIABILITY_PENDING: "liability_pending",
+            OrderStatus.LIABILITY_DONE: "liability_done"
+        }
+        return cls(
+            id=obj.id,
+            customer_name=obj.customer_name,
+            customer_phone=obj.customer_phone,
+            address=obj.address,
+            product_type=obj.product_type,
+            product_model=obj.product_model,
+            scheduled_time=obj.scheduled_time,
+            status=status_map.get(obj.status, "pending"),
+            installer_id=obj.installer_id,
+            dispatcher_id=obj.dispatcher_id,
+            created_at=obj.created_at,
+            updated_at=obj.updated_at
+        )
+
+class OrderDetailResponse(BaseModel):
+    id: int
+    customer_name: str
+    customer_phone: str
+    address: str
+    product_type: str
+    product_model: str
+    scheduled_time: datetime
+    status: str
+    installer_id: Optional[int]
+    installer_name: Optional[str]
+    dispatcher_id: Optional[int]
+    dispatcher_name: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    accessories: list = []
+    photos: list = []
+    reworks: list = []
+    liability: Optional[dict] = None
+    rejections: list = []
+    progress: list = []
+    questions: list = []
 
 class AccessoryCreate(BaseModel):
     name: str
@@ -359,12 +424,28 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
-@api_router.get("/users/", response_model=list[UserResponse])
+@api_router.get("/users/")
 def get_users(role: Optional[UserRole] = None, db: Session = Depends(get_db)):
     query = db.query(User)
     if role:
         query = query.filter(User.role == role)
-    return query.all()
+    
+    role_map = {
+        UserRole.DISPATCHER: "dispatcher",
+        UserRole.INSTALLER: "technician",
+        UserRole.SERVICE: "customer_service"
+    }
+    
+    users = query.all()
+    result = []
+    for user in users:
+        result.append({
+            "id": user.id,
+            "name": user.name,
+            "phone": user.phone,
+            "role": role_map.get(user.role, "dispatcher")
+        })
+    return result
 
 @api_router.get("/users/{user_id}", response_model=UserResponse)
 def get_user(user_id: int, db: Session = Depends(get_db)):
@@ -373,11 +454,24 @@ def get_user(user_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="用户不存在")
     return user
 
-@api_router.post("/login", response_model=LoginResponse)
+@api_router.post("/login")
 def login(request: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.phone == request.phone).first()
     if user:
-        return {"success": True, "user": user}
+        role_map = {
+            UserRole.DISPATCHER: "dispatcher",
+            UserRole.INSTALLER: "technician",
+            UserRole.SERVICE: "customer_service"
+        }
+        return {
+            "success": True,
+            "user": {
+                "id": user.id,
+                "name": user.name,
+                "phone": user.phone,
+                "role": role_map.get(user.role, "dispatcher")
+            }
+        }
     return {"success": False, "user": None}
 
 @api_router.post("/orders/", response_model=OrderResponse)
@@ -388,14 +482,44 @@ def create_order(order: OrderCreate, dispatcher_id: int, db: Session = Depends(g
     db.refresh(db_order)
     return db_order
 
-@api_router.get("/orders/", response_model=list[OrderResponse])
+@api_router.get("/orders/")
 def get_orders(status: Optional[OrderStatus] = None, installer_id: Optional[int] = None, db: Session = Depends(get_db)):
     query = db.query(Order)
     if status:
         query = query.filter(Order.status == status)
     if installer_id:
         query = query.filter(Order.installer_id == installer_id)
-    return query.order_by(Order.scheduled_time).all()
+    
+    status_map = {
+        OrderStatus.PENDING: "pending",
+        OrderStatus.ASSIGNED: "assigned",
+        OrderStatus.IN_PROGRESS: "in_progress",
+        OrderStatus.COMPLETED: "completed",
+        OrderStatus.REWORK_REQUESTED: "rework_requested",
+        OrderStatus.REWORK_IN_PROGRESS: "rework_in_progress",
+        OrderStatus.REWORK_COMPLETED: "rework_completed",
+        OrderStatus.LIABILITY_PENDING: "liability_pending",
+        OrderStatus.LIABILITY_DONE: "liability_done"
+    }
+    
+    orders = query.order_by(Order.scheduled_time).all()
+    result = []
+    for order in orders:
+        result.append({
+            "id": order.id,
+            "customer_name": order.customer_name,
+            "customer_phone": order.customer_phone,
+            "address": order.address,
+            "product_type": order.product_type,
+            "product_model": order.product_model,
+            "scheduled_time": order.scheduled_time,
+            "status": status_map.get(order.status, "pending"),
+            "installer_id": order.installer_id,
+            "dispatcher_id": order.dispatcher_id,
+            "created_at": order.created_at,
+            "updated_at": order.updated_at
+        })
+    return result
 
 @api_router.get("/orders/{order_id}", response_model=OrderResponse)
 def get_order(order_id: int, db: Session = Depends(get_db)):
@@ -403,6 +527,154 @@ def get_order(order_id: int, db: Session = Depends(get_db)):
     if not order:
         raise HTTPException(status_code=404, detail="订单不存在")
     return order
+
+@api_router.get("/orders/{order_id}/detail")
+def get_order_detail(order_id: int, db: Session = Depends(get_db)):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="订单不存在")
+    
+    status_map = {
+        OrderStatus.PENDING: "pending",
+        OrderStatus.ASSIGNED: "assigned",
+        OrderStatus.IN_PROGRESS: "in_progress",
+        OrderStatus.COMPLETED: "completed",
+        OrderStatus.REWORK_REQUESTED: "rework_requested",
+        OrderStatus.REWORK_IN_PROGRESS: "rework_in_progress",
+        OrderStatus.REWORK_COMPLETED: "rework_completed",
+        OrderStatus.LIABILITY_PENDING: "liability_pending",
+        OrderStatus.LIABILITY_DONE: "liability_done"
+    }
+    
+    installer_name = None
+    if order.installer_id:
+        installer = db.query(User).filter(User.id == order.installer_id).first()
+        installer_name = installer.name if installer else None
+    
+    dispatcher_name = None
+    if order.dispatcher_id:
+        dispatcher = db.query(User).filter(User.id == order.dispatcher_id).first()
+        dispatcher_name = dispatcher.name if dispatcher else None
+    
+    accessories = db.query(Accessory).filter(Accessory.order_id == order_id).all()
+    accessories_list = [{
+        "id": a.id,
+        "name": a.name,
+        "quantity": a.quantity,
+        "used": a.used,
+        "installed": a.installed,
+        "remark": ""
+    } for a in accessories]
+    
+    photos = db.query(Photo).filter(Photo.order_id == order_id).all()
+    photo_type_map = {PhotoType.BEFORE: "before", PhotoType.DURING: "during", PhotoType.AFTER: "after", PhotoType.LEAKAGE: "leakage"}
+    photos_list = [{
+        "id": p.id,
+        "order_id": p.order_id,
+        "photo_url": p.file_path,
+        "description": "",
+        "photo_type": photo_type_map.get(p.type, "after"),
+        "uploaded_at": p.uploaded_at,
+        "uploaded_by": p.uploaded_by
+    } for p in photos]
+    
+    reworks = db.query(Rework).filter(Rework.order_id == order_id).all()
+    rework_status_map = {
+        OrderStatus.REWORK_REQUESTED: "pending",
+        OrderStatus.REWORK_IN_PROGRESS: "processing",
+        OrderStatus.REWORK_COMPLETED: "resolved"
+    }
+    reworks_list = [{
+        "id": r.id,
+        "order_id": r.order_id,
+        "type": "leakage",
+        "description": r.description,
+        "photos": [],
+        "reported_at": r.reported_at,
+        "reported_by": r.reported_by,
+        "status": rework_status_map.get(r.status, "pending"),
+        "rejected_reason": ""
+    } for r in reworks]
+    
+    liability = db.query(Liability).filter(Liability.order_id == order_id).first()
+    liability_dict = None
+    if liability:
+        liability_result_map = {
+            LiabilityResult.INSTALLER: "technician",
+            LiabilityResult.MATERIAL: "supplier",
+            LiabilityResult.USER: "customer",
+            LiabilityResult.UNKNOWN: "company"
+        }
+        liability_dict = {
+            "id": liability.id,
+            "order_id": liability.order_id,
+            "responsible_party": liability_result_map.get(liability.result, "company"),
+            "reason": liability.evidence,
+            "evidence": [liability.evidence],
+            "created_at": liability.handled_at,
+            "created_by": liability.handler_id,
+            "status": "confirmed",
+            "compensation_amount": liability.compensation_amount
+        }
+    
+    rejections = db.query(Rejection).filter(Rejection.order_id == order_id).all()
+    rejections_list = [{
+        "id": r.id,
+        "liability_id": r.liability_id,
+        "order_id": r.order_id,
+        "reason": r.reason,
+        "rejected_by": r.rejected_by,
+        "rejected_at": r.rejected_at,
+        "additional_evidence_required": [r.additional_evidence_required],
+        "status": r.status.lower()
+    } for r in rejections]
+    
+    progress = db.query(ProgressTracking).filter(ProgressTracking.order_id == order_id).order_by(ProgressTracking.operated_at).all()
+    progress_list = [{
+        "id": p.id,
+        "order_id": p.order_id,
+        "stage": p.stage,
+        "status": p.status,
+        "operator_id": p.operator_id,
+        "operated_at": p.operated_at,
+        "notes": p.notes
+    } for p in progress]
+    
+    questions = db.query(Question).filter(Question.order_id == order_id).order_by(Question.asked_at).all()
+    questions_list = [{
+        "id": q.id,
+        "order_id": q.order_id,
+        "question": q.question,
+        "asked_by": q.asked_by,
+        "asked_at": q.asked_at,
+        "answer": q.answer,
+        "answered_by": q.answered_by,
+        "answered_at": q.answered_at
+    } for q in questions]
+    
+    return {
+        "id": order.id,
+        "customer_name": order.customer_name,
+        "customer_phone": order.customer_phone,
+        "address": order.address,
+        "product_type": order.product_type,
+        "product_model": order.product_model,
+        "scheduled_time": order.scheduled_time,
+        "status": status_map.get(order.status, "pending"),
+        "installer_id": order.installer_id,
+        "installer_name": installer_name,
+        "dispatcher_id": order.dispatcher_id,
+        "dispatcher_name": dispatcher_name,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        "accessories": accessories_list,
+        "photos": photos_list,
+        "after_sales_records": reworks_list,
+        "responsibility_result": liability_dict,
+        "rejection_records": rejections_list,
+        "progress_trackings": progress_list,
+        "questions": questions_list
+    }
 
 @api_router.put("/orders/{order_id}/assign")
 def assign_order(order_id: int, installer_id: int, db: Session = Depends(get_db)):
