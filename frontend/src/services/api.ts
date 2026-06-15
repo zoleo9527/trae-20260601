@@ -253,8 +253,8 @@ class FileWorkflowAPI {
       timestamp: Date;
     };
     results: Array<{ fileId: string; success: boolean; error?: string }>;
-    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
-    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+    reminders: Array<{ id: string; type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string; createdAt: Date }>;
+    logs: Array<{ id: string; action: string; fileId: string; operatorId: string; operatorName: string; operatorRole: string; timestamp: Date }>;
   }> {
     return this.request('/batch/expired-files', {
       method: 'POST',
@@ -269,8 +269,8 @@ class FileWorkflowAPI {
       timestamp: Date;
     };
     results: Array<{ fileId: string; success: boolean; error?: string }>;
-    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
-    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+    reminders: Array<{ id: string; type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string; createdAt: Date }>;
+    logs: Array<{ id: string; action: string; fileId: string; operatorId: string; operatorName: string; operatorRole: string; timestamp: Date }>;
   }> {
     return this.request('/batch/send-reminders', {
       method: 'POST',
@@ -290,8 +290,8 @@ class FileWorkflowAPI {
       timestamp: Date;
     };
     results: Array<{ fileId: string; success: boolean; error?: string }>;
-    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
-    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+    reminders: Array<{ id: string; type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string; createdAt: Date }>;
+    logs: Array<{ id: string; action: string; fileId: string; operatorId: string; operatorName: string; operatorRole: string; timestamp: Date }>;
   }> {
     return this.request('/batch/transfer-responsibility', {
       method: 'POST',
@@ -311,8 +311,8 @@ class FileWorkflowAPI {
       timestamp: Date;
     };
     results: Array<{ fileId: string; success: boolean; error?: string }>;
-    reminders: Array<{ type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string }>;
-    logs: Array<{ action: string; fileId: string; operatorId: string; operatorName: string; timestamp: Date }>;
+    reminders: Array<{ id: string; type: string; message: string; recipientRole: string; recipientId: string; recipientName?: string; createdAt: Date }>;
+    logs: Array<{ id: string; action: string; fileId: string; operatorId: string; operatorName: string; operatorRole: string; timestamp: Date }>;
   }> {
     return this.request('/batch/complete-archive', {
       method: 'POST',

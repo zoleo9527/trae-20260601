@@ -404,7 +404,8 @@ export class FileWorkflowService {
     assignedTo: { role: OperatorRole; operatorId: string; operatorName: string },
     transferReason: string,
     operatorId: string,
-    operatorName: string
+    operatorName: string,
+    operatorRole: OperatorRole
   ): { file: FileRecord; handoverRecord: HandoverRecord } {
     const now = new Date();
 
@@ -431,7 +432,7 @@ export class FileWorkflowService {
     const log: OperationLog = {
       id: uuidv4(),
       fileId: file.id,
-      operatorRole: OperatorRole.WINDOW_STAFF,
+      operatorRole,
       operatorId,
       operatorName,
       action: ActionType.TRANSFER_TO_COLLECTION,
@@ -502,6 +503,7 @@ export class FileWorkflowService {
     fileId: string,
     operatorId: string,
     operatorName: string,
+    operatorRole: OperatorRole,
     targetRole: OperatorRole = OperatorRole.ARCHIVE_KEEPER
   ): { file: FileRecord; handoverRecord: HandoverRecord } | null {
     const file = this.getFileById(fileId);
@@ -523,7 +525,8 @@ export class FileWorkflowService {
       },
       '归档完成，自动转移至档案室等待领取',
       operatorId,
-      operatorName
+      operatorName,
+      operatorRole
     );
   }
 

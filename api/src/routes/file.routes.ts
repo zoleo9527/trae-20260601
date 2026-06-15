@@ -145,6 +145,7 @@ router.post(
         fileId,
         req.user!.id,
         req.user!.name,
+        req.user!.role,
         OperatorRole.ARCHIVE_KEEPER
       );
 

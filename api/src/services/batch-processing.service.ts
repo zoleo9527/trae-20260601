@@ -1,4 +1,4 @@
-import { FileRecord, FileStatus, OperatorRole, ActionType, Reminder } from '../models/file-lifecycle.model';
+import { FileStatus, OperatorRole, ActionType, Reminder } from '../models/file-lifecycle.model';
 import { workflowService } from './file-workflow.service';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -12,17 +12,21 @@ export interface BatchOperationResult {
     error?: string;
   }>;
   reminders: Array<{
+    id: string;
     type: string;
     message: string;
     recipientRole: string;
     recipientId: string;
     recipientName?: string;
+    createdAt: Date;
   }>;
   logs: Array<{
+    id: string;
     action: string;
     fileId: string;
     operatorId: string;
     operatorName: string;
+    operatorRole: string;
     timestamp: Date;
   }>;
 }
@@ -39,10 +43,17 @@ export class BatchProcessingService {
     const reminders: BatchOperationResult['reminders'] = [];
     const logs: BatchOperationResult['logs'] = [];
 
-    expiredFiles.forEach(file => {
+    for (const file of expiredFiles) {
       try {
-        workflowService.getFileById(file.id)!.currentStatus = FileStatus.EXPIRED_NOT_COLLECTED;
-        workflowService.getFileById(file.id)!.updatedAt = new Date();
+        const now = new Date();
+        const targetFile = workflowService.getFileById(file.id);
+        if (!targetFile) {
+          results.push({ fileId: file.id, success: false, error: '卷宗不存在' });
+          continue;
+        }
+
+        targetFile.currentStatus = FileStatus.EXPIRED_NOT_COLLECTED;
+        targetFile.updatedAt = now;
 
         const reminder: Reminder = {
           id: uuidv4(),
@@ -52,7 +63,7 @@ export class BatchProcessingService {
           recipientId: file.responsiblePerson?.operatorId || 'USER-A001',
           recipientName: file.responsiblePerson?.operatorName || '李档案',
           message: `卷宗 ${file.appointmentNumber} 领取期限已过，需要档案员跟进联系申请人`,
-          createdAt: new Date(),
+          createdAt: now,
           triggeredBy: 'SYSTEM',
           triggeredByName: '系统自动',
           acknowledged: false,
@@ -65,32 +76,37 @@ export class BatchProcessingService {
         const log = {
           id: uuidv4(),
           fileId: file.id,
-          operatorRole: OperatorRole.WINDOW_STAFF,
+          operatorRole: OperatorRole.ARCHIVE_KEEPER,
           operatorId: 'SYSTEM',
           operatorName: '系统自动',
           action: ActionType.EXPIRE_WARNING,
           fromStatus: FileStatus.PENDING_COLLECTION,
           toStatus: FileStatus.EXPIRED_NOT_COLLECTED,
           reason: '领取期限已过，自动标记为过期',
-          timestamp: new Date()
+          timestamp: now,
+          responsibilityChainSnapshot: [...targetFile.responsibilityChain]
         };
 
         workflowService['logs'].push(log);
 
         results.push({ fileId: file.id, success: true });
         reminders.push({
-          type: 'EXPIRATION_WARNING',
+          id: reminder.id,
+          type: reminder.type,
           message: reminder.message,
-          recipientRole: OperatorRole.ARCHIVE_KEEPER,
+          recipientRole: reminder.recipientRole,
           recipientId: reminder.recipientId,
-          recipientName: reminder.recipientName
+          recipientName: reminder.recipientName,
+          createdAt: reminder.createdAt
         });
         logs.push({
-          action: 'EXPIRE_WARNING',
+          id: log.id,
+          action: ActionType.EXPIRE_WARNING,
           fileId: file.id,
-          operatorId: 'SYSTEM',
-          operatorName: '系统自动',
-          timestamp: new Date()
+          operatorId: log.operatorId,
+          operatorName: log.operatorName,
+          operatorRole: log.operatorRole,
+          timestamp: log.timestamp
         });
       } catch (error) {
         results.push({ 
@@ -99,7 +115,7 @@ export class BatchProcessingService {
           error: error instanceof Error ? error.message : '未知错误' 
         });
       }
-    });
+    }
 
     return {
       success: results.every(r => r.success),
@@ -122,7 +138,7 @@ export class BatchProcessingService {
     const reminders: BatchOperationResult['reminders'] = [];
     const logs: BatchOperationResult['logs'] = [];
 
-    pendingFiles.forEach(file => {
+    for (const file of pendingFiles) {
       try {
         const now = new Date();
         const fileAge = now.getTime() - new Date(file.updatedAt).getTime();
@@ -137,7 +153,7 @@ export class BatchProcessingService {
             recipientId: file.responsiblePerson?.operatorId || 'USER-W001',
             recipientName: file.responsiblePerson?.operatorName || '陈窗口',
             message: `卷宗 ${file.appointmentNumber} 等待处理已超过24小时，请及时跟进`,
-            createdAt: new Date(),
+            createdAt: now,
             triggeredBy: 'SYSTEM',
             triggeredByName: '系统自动',
             acknowledged: false,
@@ -147,20 +163,40 @@ export class BatchProcessingService {
 
           workflowService['reminders'].push(reminder);
 
+          const log = {
+            id: uuidv4(),
+            fileId: file.id,
+            operatorRole: file.responsiblePerson?.role || OperatorRole.WINDOW_STAFF,
+            operatorId: 'SYSTEM',
+            operatorName: '系统自动',
+            action: ActionType.EXPIRE_WARNING,
+            fromStatus: file.currentStatus,
+            toStatus: file.currentStatus,
+            reason: '处理超时提醒',
+            timestamp: now,
+            responsibilityChainSnapshot: [...file.responsibilityChain]
+          };
+
+          workflowService['logs'].push(log);
+
           results.push({ fileId: file.id, success: true });
           reminders.push({
-            type: 'COLLECTION_DEADLINE',
+            id: reminder.id,
+            type: reminder.type,
             message: reminder.message,
             recipientRole: reminder.recipientRole,
             recipientId: reminder.recipientId,
-            recipientName: reminder.recipientName
+            recipientName: reminder.recipientName,
+            createdAt: reminder.createdAt
           });
           logs.push({
-            action: 'REMINDER_SENT',
+            id: log.id,
+            action: ActionType.EXPIRE_WARNING,
             fileId: file.id,
-            operatorId: 'SYSTEM',
-            operatorName: '系统自动',
-            timestamp: new Date()
+            operatorId: log.operatorId,
+            operatorName: log.operatorName,
+            operatorRole: log.operatorRole,
+            timestamp: log.timestamp
           });
         } else {
           results.push({ fileId: file.id, success: true });
@@ -172,12 +208,12 @@ export class BatchProcessingService {
           error: error instanceof Error ? error.message : '未知错误' 
         });
       }
-    });
+    }
 
     return {
       success: results.every(r => r.success),
       processedCount: results.length,
-      failedCount: 0,
+      failedCount: results.filter(r => !r.success).length,
       results,
       reminders,
       logs
@@ -206,30 +242,37 @@ export class BatchProcessingService {
       [OperatorRole.ARCHIVE_KEEPER]: { operatorId: 'USER-A001', operatorName: '李档案' }
     };
 
-    targetFiles.forEach(file => {
+    for (const file of targetFiles) {
       try {
-        const previousResponsible = { ...file.responsiblePerson! };
+        const now = new Date();
+        const targetFile = workflowService.getFileById(file.id);
+        if (!targetFile) {
+          results.push({ fileId: file.id, success: false, error: '卷宗不存在' });
+          continue;
+        }
+
+        const previousResponsible = { ...targetFile.responsiblePerson! };
         const targetOperator = defaultOperators[toRole];
 
-        workflowService.getFileById(file.id)!.responsiblePerson = {
+        targetFile.responsiblePerson = {
           role: toRole,
           operatorId: targetOperator.operatorId,
           operatorName: targetOperator.operatorName,
-          assignedAt: new Date(),
+          assignedAt: now,
           handoverReason: reason,
           handoverFrom: previousResponsible.operatorName
         };
 
-        workflowService.getFileById(file.id)!.responsibilityChain.push({
+        targetFile.responsibilityChain.push({
           role: toRole,
           operatorId: targetOperator.operatorId,
           operatorName: targetOperator.operatorName,
-          assignedAt: new Date(),
+          assignedAt: now,
           handoverReason: reason,
           handoverFrom: previousResponsible.operatorName
         });
 
-        workflowService.getFileById(file.id)!.updatedAt = new Date();
+        targetFile.updatedAt = now;
 
         const reminder: Reminder = {
           id: uuidv4(),
@@ -239,7 +282,7 @@ export class BatchProcessingService {
           recipientId: targetOperator.operatorId,
           recipientName: targetOperator.operatorName,
           message: `卷宗 ${file.appointmentNumber} 责任已从 ${previousResponsible.operatorName} 转移至 ${targetOperator.operatorName}，请查收`,
-          createdAt: new Date(),
+          createdAt: now,
           triggeredBy: 'SYSTEM',
           triggeredByName: '系统自动',
           acknowledged: false,
@@ -252,32 +295,37 @@ export class BatchProcessingService {
         const log = {
           id: uuidv4(),
           fileId: file.id,
-          operatorRole: OperatorRole.WINDOW_STAFF,
+          operatorRole: previousResponsible.role,
           operatorId: 'SYSTEM',
           operatorName: '系统自动',
           action: ActionType.TAKE_OVER,
           fromStatus: file.currentStatus,
           toStatus: file.currentStatus,
           reason: `批量责任转移: ${reason}`,
-          timestamp: new Date()
+          timestamp: now,
+          responsibilityChainSnapshot: [...targetFile.responsibilityChain]
         };
 
         workflowService['logs'].push(log);
 
         results.push({ fileId: file.id, success: true });
         reminders.push({
-          type: 'RESPONSIBILITY_TRANSFER',
+          id: reminder.id,
+          type: reminder.type,
           message: reminder.message,
-          recipientRole: toRole,
-          recipientId: targetOperator.operatorId,
-          recipientName: targetOperator.operatorName
+          recipientRole: reminder.recipientRole,
+          recipientId: reminder.recipientId,
+          recipientName: reminder.recipientName,
+          createdAt: reminder.createdAt
         });
         logs.push({
-          action: 'TAKE_OVER',
+          id: log.id,
+          action: ActionType.TAKE_OVER,
           fileId: file.id,
-          operatorId: 'SYSTEM',
-          operatorName: '系统自动',
-          timestamp: new Date()
+          operatorId: log.operatorId,
+          operatorName: log.operatorName,
+          operatorRole: log.operatorRole,
+          timestamp: log.timestamp
         });
       } catch (error) {
         results.push({ 
@@ -286,7 +334,7 @@ export class BatchProcessingService {
           error: error instanceof Error ? error.message : '未知错误' 
         });
       }
-    });
+    }
 
     return {
       success: results.filter(r => r.success).length > 0,
@@ -310,11 +358,11 @@ export class BatchProcessingService {
     const reminders: BatchOperationResult['reminders'] = [];
     const logs: BatchOperationResult['logs'] = [];
 
-    fileIds.forEach(fileId => {
+    for (const fileId of fileIds) {
       const file = workflowService.getFileById(fileId);
       if (!file) {
         results.push({ fileId, success: false, error: '卷宗不存在' });
-        return;
+        continue;
       }
 
       try {
@@ -328,21 +376,44 @@ export class BatchProcessingService {
           operatorRole
         );
 
-        workflowService.autoTransferToCollection(
+        const archiveResult = workflowService.autoTransferToCollection(
           fileId,
           operatorId,
           operatorName,
+          operatorRole,
           OperatorRole.ARCHIVE_KEEPER
         );
 
-        results.push({ fileId, success: true });
-        logs.push({
-          action: 'COMPLETE_ARCHIVE',
-          fileId,
-          operatorId,
-          operatorName,
-          timestamp: new Date()
-        });
+        if (archiveResult) {
+          const log = {
+            id: uuidv4(),
+            fileId,
+            operatorRole,
+            operatorId,
+            operatorName,
+            action: ActionType.COMPLETE_ARCHIVE,
+            fromStatus: file.currentStatus,
+            toStatus: FileStatus.PENDING_COLLECTION,
+            reason: `${archiveReason} (批量处理，自动转移)`,
+            timestamp: new Date(),
+            responsibilityChainSnapshot: [...file.responsibilityChain]
+          };
+
+          workflowService['logs'].push(log);
+
+          results.push({ fileId, success: true });
+          logs.push({
+            id: log.id,
+            action: ActionType.COMPLETE_ARCHIVE,
+            fileId,
+            operatorId,
+            operatorName,
+            operatorRole,
+            timestamp: log.timestamp
+          });
+        } else {
+          results.push({ fileId, success: false, error: '自动转移失败' });
+        }
       } catch (error) {
         results.push({ 
           fileId, 
@@ -350,7 +421,7 @@ export class BatchProcessingService {
           error: error instanceof Error ? error.message : '未知错误' 
         });
       }
-    });
+    }
 
     return {
       success: results.every(r => r.success),
