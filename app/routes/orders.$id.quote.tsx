@@ -140,6 +140,21 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
   }
 
   const fromStatus = order.status;
+  const isReviseSubmission = fromStatus === WorkOrderStatus.REVISE_REQUESTED;
+
+  if (isReviseSubmission) {
+    await prisma.alert.updateMany({
+      where: {
+        workOrderId: order.id,
+        alertType: AlertType.REVISE_REQUESTED,
+        status: AlertStatus.ACTIVE,
+      },
+      data: {
+        status: AlertStatus.RESOLVED,
+        resolvedAt: new Date(),
+      },
+    });
+  }
 
   await prisma.workOrder.update({
     where: { id: order.id },
