@@ -120,7 +120,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '锁货失败');
+        message.error('操作失败' || '锁货失败');
       }
     } catch (error) {
       message.error('锁货失败');
@@ -155,7 +155,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '库位分配失败');
+        message.error('操作失败' || '库位分配失败');
       }
     } catch (error) {
       message.error('库位分配失败');
@@ -173,7 +173,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '拣货失败');
+        message.error('操作失败' || '拣货失败');
       }
     } catch (error) {
       message.error('拣货失败');
@@ -243,7 +243,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '送达失败');
+        message.error('操作失败' || '送达失败');
       }
     } catch (error) {
       message.error('送达失败');
@@ -276,7 +276,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '签收失败');
+        message.error('操作失败' || '签收失败');
       }
     } catch (error) {
       message.error('签收失败');
@@ -294,7 +294,7 @@ export function OrderWorkflow() {
         const updatedOrder = await api.orders.get(selectedOrder.id);
         setSelectedOrder(updatedOrder);
       } else {
-        message.error(result.message || '订单完成失败');
+        message.error('操作失败' || '订单完成失败');
       }
     } catch (error) {
       message.error('订单完成失败');

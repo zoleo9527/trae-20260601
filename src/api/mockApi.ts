@@ -1,4 +1,4 @@
-import type { Order, Location, DeliveryNote, OperationLog, LockRequest, AllocationRequest, PickRequest, LoadRequest, DeliverRequest, SignRequest, CompleteRequest } from '@/types';
+import type { Order, Location, DeliveryNote, OperationLog } from '@/types';
 
 const BASE_URL = 'http://localhost:3002/api';
 

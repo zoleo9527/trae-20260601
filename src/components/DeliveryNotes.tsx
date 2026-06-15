@@ -87,44 +87,35 @@ export function DeliveryNotes() {
     const note = notes.find(n => n.id === id);
     if (!note) return;
 
-    const [signerName, signerPhone] = await new Promise((resolve) => {
-      Modal.confirm({
-        title: '确认签收',
-        content: (
-          <Form layout="vertical">
-            <Form.Item label="签收人姓名">
-              <Input placeholder="请输入签收人姓名" id="signerName" />
-            </Form.Item>
-            <Form.Item label="签收人电话">
-              <Input placeholder="请输入签收人电话" id="signerPhone" />
-            </Form.Item>
-          </Form>
-        ),
-        okText: '确认签收',
-        cancelText: '取消',
-        onOk: () => {
-          const name = (document.getElementById('signerName') as HTMLInputElement)?.value || '';
-          const phone = (document.getElementById('signerPhone') as HTMLInputElement)?.value || '';
-          resolve([name, phone]);
-        },
-        onCancel: () => resolve(['', '']),
-      });
+    const signForm = Form.useForm()[0];
+    
+    Modal.info({
+      title: '确认签收',
+      content: (
+        <Form form={signForm} layout="vertical">
+          <Form.Item name="signerName" label="签收人姓名" rules={[{ required: true, message: '请输入签收人姓名' }]}>
+            <Input placeholder="请输入签收人姓名" />
+          </Form.Item>
+          <Form.Item name="signerPhone" label="签收人电话">
+            <Input placeholder="请输入签收人电话" />
+          </Form.Item>
+        </Form>
+      ),
+      okText: '确认签收',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const values = await signForm.validateFields();
+          const result = await api.deliveryNotes.sign(id, values.signerName, values.signerPhone);
+          if (result.success) {
+            message.success('签收成功');
+            loadData();
+          }
+        } catch (error) {
+          message.error('签收失败');
+        }
+      },
     });
-
-    if (!signerName) {
-      message.warning('请输入签收人姓名');
-      return;
-    }
-
-    try {
-      const result = await api.deliveryNotes.sign(id, signerName, signerPhone);
-      if (result.success) {
-        message.success('签收成功');
-        loadData();
-      }
-    } catch (error) {
-      message.error('签收失败');
-    }
   };
 
   const filteredNotes = notes.filter(note => 

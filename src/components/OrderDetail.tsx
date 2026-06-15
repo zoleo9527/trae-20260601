@@ -1,6 +1,6 @@
 import { api } from '@/api/mockApi';
 import { mockUsers } from '@/data/seedData';
-import type { AllocationRequest, Location, LockRequest, Order } from '@/types';
+import type { Location, OperationLog, Order } from '@/types';
 import { LOCATION_STATUS_MAP, LOCK_STATUS_MAP, ORDER_STATUS_MAP } from '@/types';
 import { CheckCircleOutlined, HistoryOutlined, InboxOutlined, LockOutlined, TruckOutlined, UserOutlined, WarningOutlined } from '@ant-design/icons';
 import { Button, Col, Descriptions, Form, Input, InputNumber, message, Modal, Row, Select, Space, Table, Tag } from 'antd';
@@ -14,18 +14,11 @@ interface OrderDetailProps {
 
 export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
   const [locations, setLocations] = useState<Location[]>([]);
+  const [availableLocations, setAvailableLocations] = useState<Location[]>([]);
   const [showLockModal, setShowLockModal] = useState(false);
   const [showAllocateModal, setShowAllocateModal] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
-  const [logs, setLogs] = useState<{
-    orderId: string;
-    orderNo: string;
-    operationType: string;
-    operatorName: string;
-    operatorRole: string;
-    description: string;
-    createdAt: string;
-  }[]>([]);
+  const [logs, setLogs] = useState<OperationLog[]>([]);
   const [lockForm] = Form.useForm();
   const [allocateForm] = Form.useForm();
 
@@ -36,76 +29,82 @@ export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
     }
   }, [order]);
 
+  useEffect(() => {
+    if (showAllocateModal && order) {
+      loadAvailableLocations();
+    }
+  }, [showAllocateModal, order]);
+
   const loadLocations = async () => {
-    const data = await api.locations.list(undefined, order?.id);
-    setLocations(data);
+    if (!order) return;
+    const allLocations = await api.locations.list();
+    const orderLocations = allLocations.filter(loc => loc.orderId === order.id);
+    setLocations(orderLocations);
+  };
+
+  const loadAvailableLocations = async () => {
+    const data = await api.locations.available();
+    setAvailableLocations(data);
   };
 
   const loadLogs = async () => {
     if (!order) return;
-    const data = await api.operationLogs.list(order.id);
+    const data = await api.logs.list(order.id);
     setLogs(data);
   };
 
   const handleLock = async () => {
     if (!order) return;
     const values = lockForm.getFieldsValue();
-    const items: { itemId: string; quantity: number }[] = order.items.map(item => ({
-      itemId: item.id,
-      quantity: (values[`lock_qty_${item.id}`] as number) || item.quantity,
+    const items = order.items.map(item => ({
+      id: item.id,
+      lockedQuantity: (values[`lock_qty_${item.id}`] as number) || item.quantity,
     }));
 
-    const request: LockRequest = {
-      orderId: order.id,
-      items,
-      operatorId: 'u1',
-    };
-    const idempotencyKey = `lock_${order.id}_${Date.now()}`;
-    const result = await api.orders.lock(request, idempotencyKey);
+    const result = await api.orders.lock(order.id, items);
 
     if (result.success) {
-      message.success(result.message);
+      message.success('锁货成功');
       setShowLockModal(false);
       lockForm.resetFields();
       onRefresh();
     } else {
-      message.error(result.message);
+      message.error('锁货失败');
     }
   };
 
   const handleAllocate = async () => {
     if (!order) return;
     const values = allocateForm.getFieldsValue();
-    const items: { itemId: string; locationId: string; quantity: number }[] = [];
+    const allocations: Array<{ itemId: string; locationId: string; quantity: number }> = [];
 
     order.items.forEach(orderItem => {
       const locId = values[`loc_${orderItem.id}`] as string;
       const qty = values[`alloc_qty_${orderItem.id}`] as number;
       if (locId && qty) {
-        items.push({ itemId: orderItem.id, locationId: locId, quantity: qty });
+        allocations.push({ itemId: orderItem.id, locationId: locId, quantity: qty });
       }
     });
 
-    const request: AllocationRequest = {
-      orderId: order.id,
-      items,
-      operatorId: 'u1',
-    };
-    const idempotencyKey = `alloc_${order.id}_${Date.now()}`;
-    const result = await api.orders.allocate(request, idempotencyKey);
+    if (allocations.length === 0) {
+      message.warning('请至少选择一个库位进行分配');
+      return;
+    }
+
+    const result = await api.orders.allocate(order.id, allocations);
 
     if (result.success) {
-      message.success(result.message);
+      message.success('库位分配成功');
       setShowAllocateModal(false);
       allocateForm.resetFields();
       onRefresh();
     } else {
-      message.error(result.message);
+      message.error('库位分配失败');
     }
   };
 
   const canLock = order && order.status === 'pending';
-  const canAllocate = order && (order.status === 'locked' || order.status === 'allocated');
+  const canAllocate = order && (order.lockStatus === 'locked' || order.lockStatus === 'partial');
 
   if (!order) {
     return (
@@ -141,7 +140,7 @@ export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
     return colors[status] || 'default';
   };
 
-  const itemColumns: ColumnType<typeof order.items[0]>[] = [
+  const itemColumns: ColumnType<Order['items'][0]>[] = [
     { title: '商品名称', dataIndex: 'productName', key: 'productName' },
     { title: '规格', dataIndex: 'spec', key: 'spec' },
     { title: '单位', dataIndex: 'unit', key: 'unit' },
@@ -164,7 +163,7 @@ export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
     { title: '更新时间', dataIndex: 'updatedAt', key: 'updatedAt' },
   ];
 
-  const logColumns: ColumnType<typeof logs[0]>[] = [
+  const logColumns: ColumnType<OperationLog>[] = [
     { title: '操作类型', dataIndex: 'operationType', key: 'operationType', render: (type: string) => {
       const types: Record<string, string> = {
         lock: '锁货',
@@ -175,10 +174,12 @@ export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
         load: '装车',
         deliver: '送达',
         sign: '签收',
+        complete: '完成',
+        create: '创建',
       };
       return types[type] || type;
     }},
-    { title: '操作人', dataIndex: 'operatorName', key: 'operatorName', render: (name: string, record: typeof logs[0]) => (
+    { title: '操作人', dataIndex: 'operatorName', key: 'operatorName', render: (name: string, record: OperationLog) => (
       <span className="flex items-center gap-1">
         <UserOutlined size={14} />
         {name}
@@ -324,7 +325,7 @@ export function OrderDetail({ order, onRefresh }: OrderDetailProps) {
               <Form.Item label="选择库位" name={`loc_${item.id}`}>
                 <Select>
                   <Select.Option value="">请选择库位</Select.Option>
-                  {locations.filter(l => l.status === 'empty' || l.status === 'reserved').map(loc => (
+                  {availableLocations.map(loc => (
                     <Select.Option key={loc.id} value={loc.id}>
                       {loc.code} ({loc.capacity - loc.currentQty}{item.unit}可用)
                     </Select.Option>

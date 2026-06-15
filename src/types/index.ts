@@ -91,20 +91,22 @@ export interface AllocationRecord {
 
 export interface DeliveryNote {
   id: string;
+  noteNo: string;
   orderId: string;
   orderNo: string;
   driverId: string;
   driverName: string;
-  vehicleNo: string;
+  licensePlate: string;
   status: DeliveryStatus;
   loadedAt?: string;
   departedAt?: string;
   deliveredAt?: string;
-  signedBy?: string;
   signedAt?: string;
+  signerName?: string;
+  signerPhone?: string;
   createdAt: string;
   updatedAt: string;
-  signatureImage?: string;
+  notes?: string;
 }
 
 export interface OperationLog {

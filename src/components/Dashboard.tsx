@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Statistic, Row, Col, Table, Tag, Progress, Badge, Select } from 'antd';
 import type { ColumnType } from 'antd/es/table';
-import { InboxOutlined, LockOutlined, WarningOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, UserOutlined, ArrowRightOutlined, AlertCircleOutlined } from '@ant-design/icons';
+import { InboxOutlined, LockOutlined, WarningOutlined, ClockCircleOutlined, TruckOutlined, CheckCircleOutlined, UserOutlined, ArrowRightOutlined } from '@ant-design/icons';
 import { api } from '@/api/mockApi';
 import { ORDER_STATUS_MAP, ORDER_STATUS_COLORS, LOCK_STATUS_MAP, LOCK_STATUS_COLORS, ROLE_MAP, OPERATION_TYPE_MAP } from '@/types';
 import type { Order, OperationLog } from '@/types';
@@ -301,7 +301,7 @@ export function Dashboard() {
           </Card>
         </Col>
         <Col span={12}>
-          <Card title="风险订单" extra={<AlertCircleOutlined className="text-red-500" />}>
+          <Card title="风险订单">
             {riskOrders.length > 0 ? (
               <Table
                 dataSource={riskOrders}
