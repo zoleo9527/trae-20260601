@@ -6,7 +6,7 @@ interface ComplaintDetailProps {
   complaint: ComplaintRecord;
   currentRole: UserRole;
   onClose: () => void;
-  onHandle: (action: 'accept' | 'reject' | 'repair' | 'parts' | 'revisit', data: Record<string, string>) => void;
+  onHandle: (action: 'accept' | 'reject' | 'repair' | 'return_repair' | 'parts' | 'return_parts' | 'revisit' | 'return_revisit', data: Record<string, string>) => void;
 }
 
 export default function ComplaintDetail({ complaint, currentRole, onClose, onHandle }: ComplaintDetailProps) {
@@ -66,34 +66,58 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
     
     if (complaint.status === '待维修工程师处理') {
       return (
-        <button
-          onClick={() => onHandle('repair', { content: '', parts: '', remark: '' })}
-          className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          完成维修
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => onHandle('repair', { content: '', parts: '', remark: '' })}
+            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            完成维修
+          </button>
+          <button
+            onClick={() => onHandle('return_repair', { reason: '', remark: '' })}
+            className="flex-1 px-4 py-2 bg-warning-600 text-white rounded-lg hover:bg-warning-700 transition-colors"
+          >
+            退回补录
+          </button>
+        </div>
       );
     }
     
     if (complaint.status === '待配件管理员处理') {
       return (
-        <button
-          onClick={() => onHandle('parts', { parts: '', remark: '' })}
-          className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          配件已准备
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => onHandle('parts', { parts: '', remark: '' })}
+            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            配件已准备
+          </button>
+          <button
+            onClick={() => onHandle('return_parts', { reason: '', remark: '' })}
+            className="flex-1 px-4 py-2 bg-warning-600 text-white rounded-lg hover:bg-warning-700 transition-colors"
+          >
+            退回补录
+          </button>
+        </div>
       );
     }
     
     if (complaint.status === '待回访') {
       return (
-        <button
-          onClick={() => onHandle('revisit', { satisfaction: '', content: '' })}
-          className="w-full px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-        >
-          完成回访
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => onHandle('revisit', { satisfaction: '', content: '' })}
+            className="flex-1 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+          >
+            完成回访
+          </button>
+          <button
+            onClick={() => onHandle('return_revisit', { reason: '', remark: '' })}
+            className="flex-1 px-4 py-2 bg-warning-600 text-white rounded-lg hover:bg-warning-700 transition-colors"
+          >
+            退回补录
+          </button>
+        </div>
       );
     }
     
@@ -181,6 +205,14 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
                 {complaint.engineer.remark && (
                   <p><span className="text-gray-500">备注:</span> {complaint.engineer.remark}</p>
                 )}
+                {complaint.engineer.returnReason && (
+                  <div className="mt-3 pt-3 border-t border-blue-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.engineer.returnReason}</p>
+                    {complaint.engineer.returnRemark && (
+                      <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.engineer.returnRemark}</p>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -199,6 +231,14 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
                 )}
                 {complaint.partsManager.remark && (
                   <p><span className="text-gray-500">备注:</span> {complaint.partsManager.remark}</p>
+                )}
+                {complaint.partsManager.returnReason && (
+                  <div className="mt-3 pt-3 border-t border-green-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.partsManager.returnReason}</p>
+                    {complaint.partsManager.returnRemark && (
+                      <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.partsManager.returnRemark}</p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -225,6 +265,14 @@ export default function ComplaintDetail({ complaint, currentRole, onClose, onHan
                 </p>
                 {complaint.revisit.revisitContent && (
                   <p><span className="text-gray-500">回访内容:</span> {complaint.revisit.revisitContent}</p>
+                )}
+                {complaint.revisit.returnReason && (
+                  <div className="mt-3 pt-3 border-t border-purple-200">
+                    <p className="text-sm text-warning-600"><span className="text-gray-500">退回原因:</span> {complaint.revisit.returnReason}</p>
+                    {complaint.revisit.returnRemark && (
+                      <p className="text-sm text-warning-600"><span className="text-gray-500">退回备注:</span> {complaint.revisit.returnRemark}</p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

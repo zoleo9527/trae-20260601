@@ -14,11 +14,15 @@ export default function Home() {
   const [currentRole, setCurrentRole] = useState<UserRole>('客服');
   const [complaints, setComplaints] = useState<ComplaintRecord[]>(mockComplaints);
   const [selectedComplaint, setSelectedComplaint] = useState<ComplaintRecord | null>(null);
-  const [handleAction, setHandleAction] = useState<'accept' | 'reject' | 'repair' | 'parts' | 'revisit' | null>(null);
+  const [handleAction, setHandleAction] = useState<'accept' | 'reject' | 'repair' | 'return_repair' | 'parts' | 'return_parts' | 'revisit' | 'return_revisit' | null>(null);
   
   const [statusFilter, setStatusFilter] = useState<ComplaintStatus | 'all'>('all');
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('客服');
+
+  const handleRoleChange = (role: UserRole) => {
+    setCurrentRole(role);
+    setRoleFilter(role);
+  };
 
   const filteredComplaints = useMemo(() => {
     return complaints.filter((complaint) => {
@@ -62,7 +66,7 @@ export default function Home() {
     setHandleAction(null);
   };
 
-  const handleOpenHandleModal = (action: 'accept' | 'reject' | 'repair' | 'parts' | 'revisit') => {
+  const handleOpenHandleModal = (action: 'accept' | 'reject' | 'repair' | 'return_repair' | 'parts' | 'return_parts' | 'revisit' | 'return_revisit') => {
     setHandleAction(action);
   };
 
@@ -182,6 +186,57 @@ export default function Home() {
             detail: `满意度: ${data.satisfaction}${data.content ? `, ${data.content}` : ''}`,
           });
           break;
+
+        case 'return_repair':
+          newStatus = '待客服受理';
+          newAssignee = '客服';
+          updates.engineer = {
+            ...c.engineer,
+            returnReason: data.reason as any,
+            returnRemark: data.remark,
+          };
+          newHistory.push({
+            id: `h${Date.now()}`,
+            time: now,
+            operator: handler,
+            action: '维修退回',
+            detail: `${data.reason}: ${data.remark}`,
+          });
+          break;
+
+        case 'return_parts':
+          newStatus = '待维修工程师处理';
+          newAssignee = '维修工程师';
+          updates.partsManager = {
+            ...c.partsManager,
+            returnReason: data.reason as any,
+            returnRemark: data.remark,
+          };
+          newHistory.push({
+            id: `h${Date.now()}`,
+            time: now,
+            operator: handler,
+            action: '配件退回',
+            detail: `${data.reason}: ${data.remark}`,
+          });
+          break;
+
+        case 'return_revisit':
+          newStatus = '待配件管理员处理';
+          newAssignee = '配件管理员';
+          updates.revisit = {
+            ...c.revisit,
+            returnReason: data.reason as any,
+            returnRemark: data.remark,
+          };
+          newHistory.push({
+            id: `h${Date.now()}`,
+            time: now,
+            operator: handler,
+            action: '回访退回',
+            detail: `${data.reason}: ${data.remark}`,
+          });
+          break;
       }
 
       return {
@@ -202,7 +257,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar currentRole={currentRole} onRoleChange={setCurrentRole} />
+      <Sidebar currentRole={currentRole} onRoleChange={handleRoleChange} />
       
       <main className="flex-1 p-6 overflow-auto">
         <div className="mb-6">

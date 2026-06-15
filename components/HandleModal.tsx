@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 import { ComplaintRecord, RejectReason } from '@/data/types';
-import { rejectReasonOptions, satisfactionOptions } from '@/data/mockData';
+import { rejectReasonOptions, satisfactionOptions, returnReasonOptions } from '@/data/mockData';
 
 interface HandleModalProps {
   complaint: ComplaintRecord;
-  action: 'accept' | 'reject' | 'repair' | 'parts' | 'revisit';
+  action: 'accept' | 'reject' | 'repair' | 'return_repair' | 'parts' | 'return_parts' | 'revisit' | 'return_revisit';
   onClose: () => void;
   onSubmit: (data: Record<string, string>) => void;
 }
@@ -23,14 +23,17 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
   };
 
   const getTitle = () => {
-    const titles = {
+    const titles: Record<string, string> = {
       accept: '客服受理',
       reject: '驳回工单',
       repair: '完成维修',
+      return_repair: '退回补录',
       parts: '配件准备',
+      return_parts: '退回补录',
       revisit: '完成回访',
+      return_revisit: '退回补录',
     };
-    return titles[action];
+    return titles[action] || '处理工单';
   };
 
   const getFields = () => {
@@ -176,6 +179,39 @@ export default function HandleModal({ complaint, action, onClose, onSubmit }: Ha
                 placeholder="请输入回访内容..."
                 value={formData.content || ''}
                 onChange={(e) => handleChange('content', e.target.value)}
+              />
+            </div>
+          </div>
+        );
+      
+      case 'return_repair':
+      case 'return_parts':
+      case 'return_revisit':
+        return (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">退回原因 *</label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                value={formData.reason || ''}
+                onChange={(e) => handleChange('reason', e.target.value)}
+              >
+                <option value="">请选择退回原因</option>
+                {returnReasonOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">补充备注 *</label>
+              <textarea
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                rows={3}
+                placeholder="请输入退回说明..."
+                value={formData.remark || ''}
+                onChange={(e) => handleChange('remark', e.target.value)}
               />
             </div>
           </div>

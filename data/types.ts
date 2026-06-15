@@ -8,6 +8,13 @@ export type ComplaintStatus =
   | '已完成' 
   | '已驳回';
 
+export type ReturnReason = 
+  | '信息不全' 
+  | '配件缺失' 
+  | '需客户补充' 
+  | '技术问题' 
+  | '其他';
+
 export type RejectReason = 
   | '信息不全' 
   | '非质量问题' 
@@ -38,6 +45,8 @@ export interface ComplaintRecord {
     repairContent?: string;
     partsUsed?: string[];
     remark?: string;
+    returnReason?: ReturnReason;
+    returnRemark?: string;
   };
   
   partsManager?: {
@@ -45,6 +54,8 @@ export interface ComplaintRecord {
     handleTime?: string;
     partsPrepared?: string[];
     remark?: string;
+    returnReason?: ReturnReason;
+    returnRemark?: string;
   };
   
   revisit?: {
@@ -52,6 +63,8 @@ export interface ComplaintRecord {
     revisitTime?: string;
     customerSatisfaction: '满意' | '一般' | '不满意';
     revisitContent?: string;
+    returnReason?: ReturnReason;
+    returnRemark?: string;
   };
   
   rejectReason?: RejectReason;

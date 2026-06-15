@@ -246,3 +246,11 @@ export const satisfactionOptions = [
   { value: '一般', label: '一般', color: 'warning' },
   { value: '不满意', label: '不满意', color: 'danger' },
 ];
+
+export const returnReasonOptions = [
+  { value: '信息不全', label: '信息不全' },
+  { value: '配件缺失', label: '配件缺失' },
+  { value: '需客户补充', label: '需客户补充' },
+  { value: '技术问题', label: '技术问题' },
+  { value: '其他', label: '其他' },
+];
