@@ -59,6 +59,7 @@ def _recalculate_equipment_status(equipment, changed_by="", reason=""):
             today = timezone.now().date()
             has_active_contract = RentalContract.objects.filter(
                 equipment=equipment,
+                start_date__lte=today,
                 end_date__gte=today,
                 is_overdue=False,
             ).exists()
@@ -77,9 +78,10 @@ def _recalculate_equipment_status(equipment, changed_by="", reason=""):
         NotificationType.EQUIPMENT_STATUS_CHANGED,
         Role.DISPATCHER,
         f"设备状态变更: {equipment.code}",
-        f"{equipment.code}({equipment.name}) 状态从 {old_status} 变更为 {target_status}。原因: {reason}",
+        f"{equipment.code}({equipment.name}) 状态从 {EquipmentStatus(old_status).label} 变更为 {EquipmentStatus(target_status).label}。原因: {reason}",
         equipment=equipment,
     )
+    return target_status
 
 
 def build_maintenance_snapshot(equipment):
@@ -336,13 +338,15 @@ def settle_suspension(suspension: RentalSuspension, changed_by: str = "", reason
 
     _log_status_change("suspension", suspension.id, old_status, new_status, changed_by, reason)
 
+    equipment_status_before = suspension.equipment.status
     _recalculate_equipment_status(suspension.equipment, changed_by, "停租结算完成，重新计算设备状态")
+    equipment_status_after = suspension.equipment.status
 
     _create_notification(
         NotificationType.SUSPENSION_STATUS_CHANGED,
         Role.RENTAL_MANAGER,
         f"停租结算完成: {suspension.contract.contract_no}",
-        f"停租单 #{suspension.id} 已结算，设备 {suspension.equipment.code} 已释放为空闲状态。",
+        f"停租单 #{suspension.id} 已结算，设备 {suspension.equipment.code} 状态为 {EquipmentStatus(equipment_status_after).label}。",
         suspension=suspension,
         equipment=suspension.equipment,
     )
