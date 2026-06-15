@@ -722,6 +722,51 @@ main {
     gap: 5px;
 }
 
+.service-context {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 15px 20px;
+    border-radius: 10px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.service-context .context-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.service-context .context-header h4 {
+    color: #2c3e50;
+    margin: 0;
+}
+
+.service-context .context-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.service-context .context-item {
+    background: white;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+.service-context .context-label {
+    display: block;
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.service-context .context-value {
+    font-weight: 600;
+    color: #2c3e50;
+    font-size: 13px;
+}
+
 @media (max-width: 768px) {
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);

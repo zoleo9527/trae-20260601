@@ -267,15 +267,39 @@ function viewPartsForService(serviceId) {
     document.getElementById('parts-status-filter').value = 'all';
     document.getElementById('warehouse-status-filter').value = 'all';
     document.getElementById('service-filter-bar').style.display = 'flex';
+    
+    const serviceRecord = serviceRecords.find(s => s.id === serviceId);
+    if (serviceRecord) {
+        document.getElementById('context-equipment').textContent = serviceRecord.equipment_model || '-';
+        document.getElementById('context-fault').textContent = serviceRecord.fault_type || '-';
+        document.getElementById('context-stop').textContent = serviceRecord.need_stop ? '需要停机' : '无需停机';
+        document.getElementById('context-sign').textContent = serviceRecord.customer_signature ? `${serviceRecord.customer_signature} (${serviceRecord.sign_time || ''})` : '未签收';
+        document.getElementById('service-context-bar').style.display = 'block';
+    }
+    
     filterPartsRequests();
 }
 
 function clearServiceFilter() {
     filterServiceRecordId = null;
     document.getElementById('service-filter-bar').style.display = 'none';
+    document.getElementById('service-context-bar').style.display = 'none';
     document.getElementById('parts-status-filter').value = 'all';
     document.getElementById('warehouse-status-filter').value = 'all';
     filterPartsRequests();
+}
+
+function goBackToServiceRecord() {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="service"]').classList.add('active');
+    document.getElementById('service').classList.add('active');
+    document.getElementById('status-filter').value = 'all';
+    expandedServiceId = filterServiceRecordId;
+    filterServiceRecordId = null;
+    document.getElementById('service-filter-bar').style.display = 'none';
+    document.getElementById('service-context-bar').style.display = 'none';
+    renderServiceCards(serviceRecords);
 }
 
 function viewEquipmentFromService(equipmentId) {
@@ -450,27 +474,53 @@ document.getElementById('parts-request-form').addEventListener('submit', async (
 
 function renderPartsRequests(requests) {
     const list = document.getElementById('parts-list');
-    list.innerHTML = requests.map(req => `
-        <div class="parts-card">
-            <h4>${req.parts_name}</h4>
-            <div class="info-row">
-                <span><strong>数量:</strong> ${req.quantity}</span>
-                <span class="badge ${req.status === '待审核' ? 'pending' : 'approved'}">${req.status}</span>
+    const messageDiv = document.getElementById('no-parts-message');
+    const emptyIcon = document.getElementById('empty-icon');
+    const emptyMessage = document.getElementById('empty-message');
+    
+    if (requests.length === 0) {
+        list.style.display = 'none';
+        messageDiv.style.display = 'block';
+        
+        if (filterServiceRecordId !== null) {
+            const hasAnyParts = partsRequests.some(p => p.service_record_id === filterServiceRecordId);
+            if (hasAnyParts) {
+                emptyIcon.textContent = '🔍';
+                emptyMessage.textContent = '筛选后无匹配的配件申请，请调整筛选条件';
+            } else {
+                emptyIcon.textContent = '📭';
+                emptyMessage.textContent = '该服务记录暂无关联的配件申请';
+            }
+        } else {
+            emptyIcon.textContent = '📦';
+            emptyMessage.textContent = '暂无配件申请记录';
+        }
+    } else {
+        list.style.display = 'grid';
+        messageDiv.style.display = 'none';
+        
+        list.innerHTML = requests.map(req => `
+            <div class="parts-card">
+                <h4>${req.parts_name}</h4>
+                <div class="info-row">
+                    <span><strong>数量:</strong> ${req.quantity}</span>
+                    <span class="badge ${req.status === '待审核' ? 'pending' : 'approved'}">${req.status}</span>
+                </div>
+                <div class="info-row">
+                    <span><strong>仓库状态:</strong></span>
+                    <span class="badge ${getWarehouseClass(req.warehouse_status)}">${req.warehouse_status}</span>
+                </div>
+                <p><strong>客户:</strong> ${req.service_info.customer_name}</p>
+                <p><strong>设备:</strong> ${req.service_info.equipment_model}</p>
+                <p><strong>故障类型:</strong> ${req.service_info.fault_type}</p>
+                
+                <div class="actions" style="margin-top: 15px;">
+                    ${req.status === '待审核' ? `<button class="action-btn" onclick="showApproveModal(${req.id})">审核通过</button>` : ''}
+                    ${req.status === '已审核' ? `<button class="action-btn secondary" onclick="showWarehouseModal(${req.id})">仓库处理</button>` : ''}
+                </div>
             </div>
-            <div class="info-row">
-                <span><strong>仓库状态:</strong></span>
-                <span class="badge ${getWarehouseClass(req.warehouse_status)}">${req.warehouse_status}</span>
-            </div>
-            <p><strong>客户:</strong> ${req.service_info.customer_name}</p>
-            <p><strong>设备:</strong> ${req.service_info.equipment_model}</p>
-            <p><strong>故障类型:</strong> ${req.service_info.fault_type}</p>
-            
-            <div class="actions" style="margin-top: 15px;">
-                ${req.status === '待审核' ? `<button class="action-btn" onclick="showApproveModal(${req.id})">审核通过</button>` : ''}
-                ${req.status === '已审核' ? `<button class="action-btn secondary" onclick="showWarehouseModal(${req.id})">仓库处理</button>` : ''}
-            </div>
-        </div>
-    `).join('');
+        `).join('');
+    }
 }
 
 function getWarehouseClass(status) {
