@@ -58,7 +58,6 @@ export default function OrderDetail() {
     if (!noteContent.trim() || !id) return
     const noteData: CreateNoteRequest = {
       user_id: currentUser.id,
-      user_name: currentUser.name,
       content: noteContent
     }
     noteApi.create(id, noteData).then(() => {
@@ -105,8 +104,7 @@ export default function OrderDetail() {
     sparePartApi.use(id, {
       spare_part_id: selectedSparePart,
       quantity,
-      used_by: currentUser.id,
-      used_by_name: currentUser.name
+      used_by: currentUser.id
     }).then(() => {
       setShowSparePartModal(false)
       setSelectedSparePart('')

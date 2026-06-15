@@ -78,7 +78,7 @@ export const sparePartApi = {
     return api.delete(`/spare-parts/${id}`).then(res => res.data)
   },
 
-  use: (orderId: string, data: { spare_part_id: string; quantity: number; used_by: string; used_by_name: string }): Promise<void> => {
+  use: (orderId: string, data: { spare_part_id: string; quantity: number; used_by: string }): Promise<void> => {
     return api.post(`/orders/${orderId}/spare-parts`, data).then(res => res.data)
   }
 }

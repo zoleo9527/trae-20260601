@@ -95,7 +95,6 @@ export interface CreateOrderRequest {
 
 export interface CreateInspectionRequest {
   technician_id: string
-  technician_name: string
   appearance_condition: string
   screen_condition: string
   battery_condition: string
@@ -105,7 +104,6 @@ export interface CreateInspectionRequest {
 
 export interface CreateWarrantyRequest {
   manager_id: string
-  manager_name: string
   warranty_type: string
   warranty_period: number
   responsibility: string
@@ -113,6 +111,5 @@ export interface CreateWarrantyRequest {
 
 export interface CreateNoteRequest {
   user_id: string
-  user_name: string
   content: string
 }

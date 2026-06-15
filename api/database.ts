@@ -451,10 +451,10 @@ export const insertSampleData = (): Promise<void> => {
     ]
 
     inspectionPhotos = [
-      { id: 'PH-001', order_id: 'ORD-001', file_path: '/uploads/ORD-001-1.jpg', description: '屏幕竖线问题', created_at: '2026-01-10 10:20:00' },
-      { id: 'PH-002', order_id: 'ORD-001', file_path: '/uploads/ORD-001-2.jpg', description: '设备外观', created_at: '2026-01-10 10:22:00' },
-      { id: 'PH-003', order_id: 'ORD-002', file_path: '/uploads/ORD-002-1.jpg', description: '电池鼓包', created_at: '2026-01-12 13:50:00' },
-      { id: 'PH-004', order_id: 'ORD-004', file_path: '/uploads/ORD-004-1.jpg', description: '充电接口', created_at: '2026-01-14 12:50:00' }
+      { id: 'PH-001', order_id: 'ORD-001', file_path: '/uploads/ORD-001-1.svg', description: '屏幕竖线问题', created_at: '2026-01-10 10:20:00' },
+      { id: 'PH-002', order_id: 'ORD-001', file_path: '/uploads/ORD-001-2.svg', description: '设备外观', created_at: '2026-01-10 10:22:00' },
+      { id: 'PH-003', order_id: 'ORD-002', file_path: '/uploads/ORD-002-1.svg', description: '电池鼓包', created_at: '2026-01-12 13:50:00' },
+      { id: 'PH-004', order_id: 'ORD-004', file_path: '/uploads/ORD-004-1.svg', description: '充电接口', created_at: '2026-01-14 12:50:00' }
     ]
 
     spareParts = [

@@ -18,26 +18,39 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true })
 }
 
+const USER_MAP: Record<string, string> = {
+  'tech-001': '维修师-刘强',
+  'tech-002': '维修师-陈刚',
+  'mgr-001': '店长-张伟',
+  'front-001': '前台-王芳',
+  'front-002': '前台-李明'
+}
+
+const getUserName = (userId: string): string => {
+  return USER_MAP[userId] || `用户-${userId}`
+}
+
 const generateSampleImages = () => {
   const sampleImages = [
-    { filename: 'ORD-001-1.jpg', text: 'iPhone 15 Pro 屏幕竖线问题', color: '87CEEB' },
-    { filename: 'ORD-001-2.jpg', text: '设备外观良好', color: '98FB98' },
-    { filename: 'ORD-002-1.jpg', text: '华为电池鼓包检测', color: 'FFB6C1' },
-    { filename: 'ORD-004-1.jpg', text: 'OPPO充电接口氧化', color: 'DDA0DD' }
+    { filename: 'ORD-001-1.svg', text: 'iPhone 15 Pro 屏幕竖线问题', color: '87CEEB' },
+    { filename: 'ORD-001-2.svg', text: '设备外观良好', color: '98FB98' },
+    { filename: 'ORD-002-1.svg', text: '华为电池鼓包检测', color: 'FFB6C1' },
+    { filename: 'ORD-004-1.svg', text: 'OPPO充电接口氧化', color: 'DDA0DD' }
   ]
   
   sampleImages.forEach(img => {
     const filePath = join(uploadsDir, img.filename)
     if (!fs.existsSync(filePath)) {
-      const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
-        <rect width="400" height="400" fill="#${img.color}"/>
-        <rect x="20" y="20" width="360" height="300" fill="white" rx="10"/>
-        <text x="200" y="170" text-anchor="middle" font-size="24" fill="#333">质检照片</text>
-        <text x="200" y="210" text-anchor="middle" font-size="16" fill="#666">${img.text}</text>
-        <rect x="20" y="340" width="360" height="40" fill="#333" rx="0 0 10 10"/>
-        <text x="200" y="367" text-anchor="middle" font-size="14" fill="white">Sample Image</text>
-      </svg>`
-      const buffer = Buffer.from(svgContent)
+      const svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400">
+  <rect width="400" height="400" fill="#${img.color}"/>
+  <rect x="20" y="20" width="360" height="300" fill="white" rx="10"/>
+  <text x="200" y="170" text-anchor="middle" font-size="24" fill="#333" font-family="Arial">质检照片</text>
+  <text x="200" y="210" text-anchor="middle" font-size="16" fill="#666" font-family="Arial">${img.text}</text>
+  <rect x="20" y="340" width="360" height="40" fill="#333" rx="0 0 10 10"/>
+  <text x="200" y="367" text-anchor="middle" font-size="14" fill="white" font-family="Arial">Sample Image</text>
+</svg>`
+      const buffer = Buffer.from(svgContent, 'utf-8')
       fs.writeFileSync(filePath, buffer)
     }
   })
@@ -191,9 +204,15 @@ app.get('/api/orders/:id/inspection', (req, res) => {
 
 app.post('/api/orders/:id/inspection', (req, res) => {
   const { id } = req.params
-  const { technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description, photos } = req.body
+  const { technician_id, appearance_condition, screen_condition, battery_condition, accessories, description, photos } = req.body
   const inspectId = `INS-${String(Date.now()).slice(-3)}`
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  if (!technician_id) {
+    return res.status(400).json({ error: '缺少维修师ID' })
+  }
+
+  const technician_name = getUserName(technician_id)
 
   try {
     const order = getOrderById(id)
@@ -250,9 +269,15 @@ app.get('/api/orders/:id/warranty', (req, res) => {
 
 app.post('/api/orders/:id/warranty', (req, res) => {
   const { id } = req.params
-  const { manager_id, manager_name, warranty_type, warranty_period, responsibility } = req.body
+  const { manager_id, warranty_type, warranty_period, responsibility } = req.body
   const warrantyId = `WAR-${String(Date.now()).slice(-3)}`
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  if (!manager_id) {
+    return res.status(400).json({ error: '缺少店长ID' })
+  }
+
+  const manager_name = getUserName(manager_id)
 
   try {
     const order = getOrderById(id)
@@ -290,9 +315,15 @@ app.post('/api/orders/:id/warranty', (req, res) => {
 
 app.post('/api/orders/:id/notes', (req, res) => {
   const { id } = req.params
-  const { user_id, user_name, content } = req.body
+  const { user_id, content } = req.body
   const noteId = `NT-${String(Date.now()).slice(-3)}`
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  if (!user_id) {
+    return res.status(400).json({ error: '缺少用户ID' })
+  }
+
+  const user_name = getUserName(user_id)
 
   try {
     db.prepare(
@@ -307,9 +338,15 @@ app.post('/api/orders/:id/notes', (req, res) => {
 
 app.post('/api/orders/:id/spare-parts', (req, res) => {
   const { id } = req.params
-  const { spare_part_id, quantity, used_by, used_by_name } = req.body
+  const { spare_part_id, quantity, used_by } = req.body
   const usageId = `SU-${String(Date.now()).slice(-3)}`
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  if (!used_by) {
+    return res.status(400).json({ error: '缺少用户ID' })
+  }
+
+  const used_by_name = getUserName(used_by)
 
   try {
     const order = getOrderById(id)

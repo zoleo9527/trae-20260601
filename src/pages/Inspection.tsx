@@ -34,7 +34,6 @@ export default function Inspection() {
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<CreateInspectionRequest>({
     technician_id: '',
-    technician_name: '',
     appearance_condition: '正常',
     screen_condition: '正常',
     battery_condition: '正常',
@@ -57,8 +56,7 @@ export default function Inspection() {
     if (currentUser.role === 'technician') {
       setFormData(prev => ({
         ...prev,
-        technician_id: currentUser.id,
-        technician_name: currentUser.name
+        technician_id: currentUser.id
       }))
     }
   }, [id, currentUser])
@@ -208,11 +206,9 @@ export default function Inspection() {
               <label className="block text-sm font-medium text-gray-700 mb-1">质检人</label>
               <input
                 type="text"
-                value={formData.technician_name}
-                onChange={(e) => setFormData({ ...formData, technician_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="请输入质检人姓名"
-                disabled={!isStatusValid}
+                value={currentUser.name}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50"
+                disabled
               />
             </div>
           </div>
@@ -345,7 +341,7 @@ export default function Inspection() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || !formData.technician_name || !formData.description || !isStatusValid || !isTechnician}
+              disabled={submitting || !formData.description || !isStatusValid || !isTechnician}
               className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-5 h-5" />

@@ -29,7 +29,6 @@ export default function Warranty() {
   const [loading, setLoading] = useState(true)
   const [formData, setFormData] = useState<CreateWarrantyRequest>({
     manager_id: '',
-    manager_name: '',
     warranty_type: '厂家保修',
     warranty_period: 90,
     responsibility: '厂家负责'
@@ -49,8 +48,7 @@ export default function Warranty() {
     if (currentUser.role === 'manager') {
       setFormData(prev => ({
         ...prev,
-        manager_id: currentUser.id,
-        manager_name: currentUser.name
+        manager_id: currentUser.id
       }))
     }
   }, [id, currentUser])
@@ -204,11 +202,9 @@ export default function Warranty() {
               <label className="block text-sm font-medium text-gray-700 mb-1">确认人</label>
               <input
                 type="text"
-                value={formData.manager_name}
-                onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="请输入确认人姓名"
-                disabled={!isStatusValid}
+                value={currentUser.name}
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50"
+                disabled
               />
             </div>
           </div>
@@ -291,7 +287,7 @@ export default function Warranty() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || !formData.manager_name || !formData.warranty_period || !isStatusValid || !isManager}
+              disabled={submitting || !formData.warranty_period || !isStatusValid || !isManager}
               className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-5 h-5" />
