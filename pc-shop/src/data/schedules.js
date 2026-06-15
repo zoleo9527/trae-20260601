@@ -12,9 +12,9 @@ export const schedules = [
     customerName: '刘先生',
     customerPhone: '138****5678',
     usageType: '游戏主机',
-    totalAmount: 15592,
+    totalAmount: 14492,
     paidAmount: 9000,
-    remainingAmount: 6592,
+    remainingAmount: 5492,
     status: 'parts_missing',
     technician: null,
     salesPerson: '小李',
@@ -47,7 +47,7 @@ export const schedules = [
     ],
     arrivalsRef: ['ARR-20260615-001', 'ARR-20260614-001'],
     history: [
-      { time: yesterday.format('YYYY-MM-DD HH:mm'), operator: '小李(销售)', action: '创建订单', detail: '初始配置总价 ¥15,592，付定金 ¥9,000，欠款 ¥6,592' },
+      { time: yesterday.format('YYYY-MM-DD HH:mm'), operator: '小李(销售)', action: '创建订单', detail: '初始配置总价 ¥14,492，付定金 ¥9,000，欠款 ¥5,492' },
       { time: yesterday.add(3, 'hour').format('YYYY-MM-DD HH:mm'), operator: '小李(销售)', action: '修改配置', detail: '显卡由 RTX 4060 Ti 升级为 RTX 4070 Ti（差价 ¥3,200）' },
       { time: today.subtract(1, 'hour').format('YYYY-MM-DD HH:mm'), operator: '系统', action: '价格异常检测', detail: '配置已变更但报价未更新，漏记差价 ¥3,200' },
       { time: today.format('YYYY-MM-DD HH:mm'), operator: '王仓管', action: '配件出库', detail: 'CPU/主板/内存/SSD 4件已出库，显卡等下午到货' }

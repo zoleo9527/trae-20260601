@@ -174,48 +174,51 @@
         <button class="btn btn-secondary" @click="showBatchLookup = false">关闭</button>
       </div>
     </div>
+  </div>
 
-    <!-- 关联返修弹窗 -->
-    <div v-if="showRelatedRepairs" class="modal-mask" @click.self="showRelatedRepairs = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 class="font-semibold">🔗 关联返修记录 - 批次风险预警</h3>
-          <button class="close-btn" @click="showRelatedRepairs = false">×</button>
-        </div>
-        <div class="modal-body">
-          <div v-for="r in relatedRepairs" :key="r.id" class="repair-item">
-            <div class="flex-between mb-4">
-              <div>
-                <span class="font-semibold text-danger">{{ r.id }}</span>
-                <span class="tag tag-cyan" style="margin-left:8px">{{ r.batchCode }}</span>
-                <span class="tag" :class="r.status === 'resolved' ? 'tag-green' : 'tag-yellow'" style="margin-left:6px">
-                  {{ r.status === 'resolved' ? '已解决' : '处理中' }}
-                </span>
-              </div>
-              <span class="text-xs text-muted">{{ r.reportedAt }}</span>
-            </div>
-            <div class="text-sm mb-4"><b>问题:</b> {{ r.issue }}</div>
-            <div class="text-sm text-muted">
-              客户: {{ r.customerName }} | 处理人: {{ r.technician }}
-            </div>
-            <div v-if="r.responsible" class="responsible-box mt-8">
-              <b>责任认定:</b> {{ r.responsible.person }} - {{ r.responsible.detail }}
-              <span class="tag tag-yellow" style="margin-left:6px">{{ r.responsible.costBorne }}</span>
-            </div>
-            <div v-if="r.deadline" class="text-sm mt-8">
-              <span :class="isOverdue(r.deadline) ? 'text-danger font-semibold' : 'text-warning'">
-                ⏱️ {{ isOverdue(r.deadline) ? '已超时' : '处理截止: ' + r.deadline }}
+  <!-- 关联返修弹窗 -->
+  <div v-if="showRelatedRepairs" class="modal-mask" @click.self="showRelatedRepairs = false">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="font-semibold">🔗 关联返修记录 - 批次风险预警</h3>
+        <button class="close-btn" @click="showRelatedRepairs = false">×</button>
+      </div>
+      <div class="modal-body">
+        <div v-for="r in relatedRepairs" :key="r.id" class="repair-item">
+          <div class="flex-between mb-4">
+            <div>
+              <span class="font-semibold text-danger">{{ r.id }}</span>
+              <span class="tag tag-cyan" style="margin-left:8px">{{ r.batchCode }}</span>
+              <span class="tag" :class="r.status === 'resolved' ? 'tag-green' : 'tag-yellow'" style="margin-left:6px">
+                {{ r.status === 'resolved' ? '已解决' : '处理中' }}
               </span>
             </div>
+            <span class="text-xs text-muted">{{ r.reportedAt }}</span>
           </div>
-          <div class="warning-tip mt-16">
-            ⚠️ <b>注意:</b> 该批次配件后续出库时，系统将自动提醒装机师做额外压力测试
+          <div class="text-sm mb-4"><b>问题:</b> {{ r.issue }}</div>
+          <div class="text-sm text-muted">
+            客户: {{ r.customerName }} | 处理人: {{ r.technician }}
+          </div>
+          <div v-if="r.responsible" class="responsible-box mt-8">
+            <b>责任认定:</b> {{ r.responsible.person }} - {{ r.responsible.detail }}
+            <span class="tag tag-yellow" style="margin-left:6px">{{ r.responsible.costBorne }}</span>
+          </div>
+          <div v-if="r.deadline" class="text-sm mt-8">
+            <span :class="isOverdue(r.deadline) ? 'text-danger font-semibold' : 'text-warning'">
+              ⏱️ {{ isOverdue(r.deadline) ? '已超时' : '处理截止: ' + r.deadline }}
+            </span>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" @click="showRelatedRepairs = false">关闭</button>
-          <button class="btn btn-primary" @click="goToAnomalies">查看所有异常 →</button>
+        <div v-if="relatedRepairs.length === 0" class="empty">
+          <p class="text-muted">该到货单关联配件暂无返修记录</p>
         </div>
+        <div v-else class="warning-tip mt-16">
+          ⚠️ <b>注意:</b> 该批次配件后续出库时，系统将自动提醒装机师做额外压力测试
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" @click="showRelatedRepairs = false">关闭</button>
+        <button class="btn btn-primary" @click="goToAnomalies">查看所有异常 →</button>
       </div>
     </div>
   </div>

@@ -102,6 +102,9 @@ export const useAppStore = defineStore('app', {
 
         if (confirmed) {
           sch.totalAmount = currentTotal
+          if (confirmMethod === 'cash' || confirmMethod === 'waive') {
+            sch.paidAmount += diff
+          }
           sch.remainingAmount = Math.max(0, sch.totalAmount - sch.paidAmount)
           sch.priceChangeDiff = 0
           sch.priceChanged = false
@@ -118,7 +121,7 @@ export const useAppStore = defineStore('app', {
             time: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
             operator: operator,
             action: '确认配置变更差价',
-            detail: `¥${diff.toLocaleString()} 差价(${methodText})，订单总价更新为 ¥${sch.totalAmount.toLocaleString()}，欠款 ¥${sch.remainingAmount.toLocaleString()}`
+            detail: `¥${diff.toLocaleString()} 差价(${methodText})，订单总价 ¥${sch.totalAmount.toLocaleString()}，已收 ¥${sch.paidAmount.toLocaleString()}，欠款 ¥${sch.remainingAmount.toLocaleString()}`
           })
 
           const an = this.anomalies.find(a => a.relatedId === scheduleId && a.type === 'price_change')

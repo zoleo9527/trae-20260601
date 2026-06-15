@@ -41,7 +41,8 @@
               <div class="flex gap-8 items-center flex-wrap">
                 <span class="tag" :class="typeTagClass(entry.targetType)">{{ typeLabel(entry.targetType) }}</span>
                 <a v-if="entry.targetId" @click="goTarget(entry)" class="font-semibold text-primary">
-                  {{ entry.targetId }}
+                  {{ entry.targetType === 'anomaly' && entry.relatedType !== 'schedule' && entry.relatedType !== 'arrival'
+                     ? (entry.anomalyId || entry.targetId) : entry.targetId }}
                 </a>
                 <span class="text-muted">·</span>
                 <span class="font-semibold">{{ entry.action }}</span>
@@ -104,10 +105,11 @@ const allEntries = computed(() => {
         detail: `状态: ${an.status} | 处理方式: ${an.resolution || '已解决'}`,
         targetType: 'anomaly',
         targetId: an.relatedId,
-        anomalyId: an.id
+        anomalyId: an.id,
+        relatedType: an.relatedType
       })
     }
-    if (an.note) {
+    if (an.note || an.status === 'pending' || an.status === 'processing') {
       list.push({
         time: an.createdAt,
         operator: an.responsible,
@@ -115,7 +117,8 @@ const allEntries = computed(() => {
         detail: an.note || an.description,
         targetType: 'anomaly',
         targetId: an.relatedId,
-        anomalyId: an.id
+        anomalyId: an.id,
+        relatedType: an.relatedType
       })
     }
   }
@@ -148,9 +151,19 @@ function typeTagClass(t) {
 
 function goTarget(entry) {
   if (!entry.targetId) return
-  if (entry.targetType === 'schedule') router.push('/schedules/' + entry.targetId)
-  else if (entry.targetType === 'arrival') router.push('/arrivals/' + entry.targetId)
-  else if (entry.targetType === 'anomaly') router.push('/anomalies')
+  if (entry.targetType === 'schedule') {
+    router.push('/schedules/' + entry.targetId)
+  } else if (entry.targetType === 'arrival') {
+    router.push('/arrivals/' + entry.targetId)
+  } else if (entry.targetType === 'anomaly') {
+    if (entry.relatedType === 'schedule') {
+      router.push('/schedules/' + entry.targetId)
+    } else if (entry.relatedType === 'arrival') {
+      router.push('/arrivals/' + entry.targetId)
+    } else {
+      router.push('/anomalies')
+    }
+  }
 }
 
 function clearFilter() {

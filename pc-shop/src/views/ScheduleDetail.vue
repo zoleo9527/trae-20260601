@@ -513,6 +513,10 @@ const batchLookupResult = computed(() => {
 })
 
 const relatedRepairsAll = computed(() => {
+  const ids = new Set()
+  if (schedule.value?.anomaly?.relatedRepairs) {
+    schedule.value.anomaly.relatedRepairs.forEach(id => ids.add(id))
+  }
   const codes = new Set()
   for (const c of schedule.value?.config || []) {
     for (const aid of schedule.value?.arrivalsRef || []) {
@@ -523,8 +527,11 @@ const relatedRepairsAll = computed(() => {
       }
     }
   }
-  if (codes.size === 0) return []
-  return appStore.repairs.filter(r => [...codes].some(c => r.batchCode === c))
+  if (codes.size > 0) {
+    appStore.repairs.filter(r => [...codes].some(c => r.batchCode === c)).forEach(r => ids.add(r.id))
+  }
+  if (ids.size === 0) return []
+  return appStore.repairs.filter(r => ids.has(r.id))
 })
 
 function statusLabel(s) {
