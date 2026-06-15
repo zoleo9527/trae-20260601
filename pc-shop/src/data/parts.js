@@ -1,0 +1,20 @@
+export const partsCatalog = [
+  { id: 'CPU-001', name: 'Intel i7-14700K', category: 'CPU', brand: 'Intel', basePrice: 3299 },
+  { id: 'CPU-002', name: 'AMD Ryzen 7 7800X3D', category: 'CPU', brand: 'AMD', basePrice: 3199 },
+  { id: 'CPU-003', name: 'Intel i5-14600K', category: 'CPU', brand: 'Intel', basePrice: 2299 },
+  { id: 'GPU-001', name: 'NVIDIA RTX 4070 Ti 12G', category: 'GPU', brand: 'NVIDIA', basePrice: 6499 },
+  { id: 'GPU-002', name: 'NVIDIA RTX 4060 Ti 8G', category: 'GPU', brand: 'NVIDIA', basePrice: 3299 },
+  { id: 'GPU-003', name: 'AMD RX 7900 XTX', category: 'GPU', brand: 'AMD', basePrice: 7999 },
+  { id: 'RAM-001', name: '芝奇 Trident Z5 32GB DDR5 6400', category: '内存', brand: 'G.Skill', basePrice: 899 },
+  { id: 'RAM-002', name: '金士顿 FURY Beast 32GB DDR5 6000', category: '内存', brand: 'Kingston', basePrice: 699 },
+  { id: 'SSD-001', name: '三星 990 Pro 2TB NVMe', category: 'SSD', brand: 'Samsung', basePrice: 1499 },
+  { id: 'SSD-002', name: '西数 SN850X 1TB NVMe', category: 'SSD', brand: 'WD', basePrice: 749 },
+  { id: 'MB-001', name: '华硕 ROG STRIX Z790-A', category: '主板', brand: 'ASUS', basePrice: 2799 },
+  { id: 'MB-002', name: '微星 MAG B650 TOMOHAWK', category: '主板', brand: 'MSI', basePrice: 1899 },
+  { id: 'PSU-001', name: '海韵 FOCUS GX-850W 金牌全模', category: '电源', brand: 'Seasonic', basePrice: 999 },
+  { id: 'PSU-002', name: '海盗船 RM850x 金牌全模', category: '电源', brand: 'Corsair', basePrice: 1099 },
+  { id: 'CASE-001', name: '联力 O11 Dynamic EVO', category: '机箱', brand: 'Lian Li', basePrice: 1299 },
+  { id: 'CASE-002', name: '追风者 P500A', category: '机箱', brand: 'Phanteks', basePrice: 699 },
+  { id: 'COOL-001', name: '利民 Frozen MAGIC 360 ARGB', category: '散热', brand: 'Thermalright', basePrice: 399 },
+  { id: 'COOL-002', name: '恩杰 Kraken X73 RGB 360', category: '散热', brand: 'NZXT', basePrice: 1099 }
+]
