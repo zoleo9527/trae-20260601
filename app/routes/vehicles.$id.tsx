@@ -60,6 +60,24 @@ export async function loader({ params }: LoaderFunctionArgs) {
 
   const availableTransitions = await getNextAvailableTransitions(vehicle.status);
 
+  let annotators: Record<string, any> = {};
+  let verifiers: Record<string, any> = {};
+
+  if (report) {
+    report.items?.forEach(item => {
+      if (item.accidentAnnotations) {
+        item.accidentAnnotations.forEach(annotation => {
+          if (!annotators[annotation.annotatedBy]) {
+            annotators[annotation.annotatedBy] = { id: annotation.annotatedBy, name: annotation.annotator?.name || '未知' };
+          }
+          if (annotation.verifiedBy && !verifiers[annotation.verifiedBy]) {
+            verifiers[annotation.verifiedBy] = { id: annotation.verifiedBy, name: annotation.verifier?.name || '未知' };
+          }
+        });
+      }
+    });
+  }
+
   return json({
     vehicle,
     report,
@@ -73,7 +91,9 @@ export async function loader({ params }: LoaderFunctionArgs) {
     assessor,
     financeStaff,
     currentAssignee,
-    availableTransitions
+    availableTransitions,
+    annotators,
+    verifiers
   });
 }
 
@@ -210,7 +230,9 @@ export default function VehicleDetail() {
     assessor,
     financeStaff,
     currentAssignee,
-    availableTransitions
+    availableTransitions,
+    annotators,
+    verifiers
   } = data;
 
   const taskProgress = getTaskStatusProgress(tasks);
@@ -462,7 +484,7 @@ export default function VehicleDetail() {
           {activeTab === 'inspection' && (
             <div>
               {report ? (
-                <InspectionReport report={report} inspector={assessor} />
+                <InspectionReport report={report} inspector={assessor} annotators={annotators} verifiers={verifiers} />
               ) : (
                 <div className="text-center py-12">
                   <div className="text-6xl mb-4">🔍</div>

@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import type { InspectionReport, User, AccidentAnnotation } from '~/types';
 import { formatDate, getStatusLabel, getStatusColor, getAccidentSeverityLabel, getAccidentSeverityColor } from '~/utils/formatters';
-import { getUserById } from '~/utils/data';
 
 interface InspectionReportProps {
   report: InspectionReport;
   inspector?: User;
+  annotators?: Record<string, User>;
+  verifiers?: Record<string, User>;
 }
 
-export default function InspectionReport({ report, inspector }: InspectionReportProps) {
+export default function InspectionReport({ report, inspector, annotators = {}, verifiers = {} }: InspectionReportProps) {
   const [showAccidentDetails, setShowAccidentDetails] = useState(false);
   
   const failedItems = report.items.filter(item => item.status === 'fail');
@@ -21,6 +22,15 @@ export default function InspectionReport({ report, inspector }: InspectionReport
       allAccidentAnnotations.push(...item.accidentAnnotations);
     }
   });
+
+  const getAnnotatorName = (annotatorId: string) => {
+    return annotators[annotatorId]?.name || '未知';
+  };
+
+  const getVerifierName = (verifierId: string | null | undefined) => {
+    if (!verifierId) return null;
+    return verifiers[verifierId]?.name || '未知';
+  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
@@ -103,12 +113,12 @@ export default function InspectionReport({ report, inspector }: InspectionReport
                               </div>
                               <p className="text-gray-700 mb-1">{annotation.description}</p>
                               <div className="flex items-center space-x-3 text-xs text-gray-500">
-                                <span>标注人: {getUserById(annotation.annotatedBy)?.name || '未知'}</span>
+                                <span>标注人: {getAnnotatorName(annotation.annotatedBy)}</span>
                                 <span>标注时间: {formatDate(new Date(annotation.annotatedAt))}</span>
                               </div>
                               {annotation.verifiedBy && (
                                 <div className="mt-1 text-xs text-green-600">
-                                  ✓ 已核实: {getUserById(annotation.verifiedBy)?.name || '未知'} ({formatDate(new Date(annotation.verifiedAt!))})
+                                  ✓ 已核实: {getVerifierName(annotation.verifiedBy)} ({formatDate(new Date(annotation.verifiedAt!))})
                                 </div>
                               )}
                               {annotation.note && (
