@@ -93,3 +93,44 @@ export function formatTimeAgo(iso: string): string {
 export function formatPrice(price: number): string {
   return `¥${price.toLocaleString('zh-CN')}`;
 }
+
+export interface CountdownResult {
+  expired: boolean;
+  urgent: boolean;
+  text: string;
+  seconds: number;
+}
+
+export function getCountdown(expiredAt?: string): CountdownResult {
+  if (!expiredAt) {
+    return { expired: false, urgent: false, text: '无过期时间', seconds: 0 };
+  }
+  const now = Date.now();
+  const expire = new Date(expiredAt).getTime();
+  const diff = expire - now;
+
+  if (diff <= 0) {
+    return { expired: true, urgent: true, text: '已过期', seconds: 0 };
+  }
+
+  const totalSeconds = Math.floor(diff / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  let text = '';
+  if (hours > 0) {
+    text = `${hours}时${minutes}分${seconds}秒`;
+  } else if (minutes > 0) {
+    text = `${minutes}分${seconds}秒`;
+  } else {
+    text = `${seconds}秒`;
+  }
+
+  return {
+    expired: false,
+    urgent: totalSeconds < 10 * 60,
+    text: `${text}后过期`,
+    seconds: totalSeconds,
+  };
+}

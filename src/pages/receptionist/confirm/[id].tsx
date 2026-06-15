@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import type { NextPage } from 'next';
 import Layout from '@/components/Layout';
@@ -7,6 +7,8 @@ import {
   generateIdempotencyKey,
   formatDateTime,
   formatPrice,
+  getCountdown,
+  type CountdownResult,
 } from '@/utils/api';
 import {
   STATUS_COLORS,
@@ -29,6 +31,9 @@ const ConfirmationDetail: NextPage = () => {
   const [objectionContent, setObjectionContent] = useState('');
   const [confirmationMethod, setConfirmationMethod] = useState<'ONLINE' | 'ON_SITE' | 'PHONE'>('ON_SITE');
   const [selectedConfirmationId, setSelectedConfirmationId] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<CountdownResult | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [newMethod, setNewMethod] = useState<'ONLINE' | 'ON_SITE' | 'PHONE'>('ON_SITE');
 
   const loadOrder = async () => {
     if (!id) return;
@@ -50,14 +55,39 @@ const ConfirmationDetail: NextPage = () => {
     loadOrder();
   }, [id]);
 
-  const handleInitiateConfirmation = async () => {
+  useEffect(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+    }
+
+    if (order && selectedConfirmationId) {
+      const confirm = order.confirmations.find((c) => c.id === selectedConfirmationId);
+      if (confirm && confirm.status === 'PENDING' && confirm.expiredAt) {
+        const updateCountdown = () => {
+          setCountdown(getCountdown(confirm.expiredAt));
+        };
+        updateCountdown();
+        timerRef.current = setInterval(updateCountdown, 1000);
+      } else {
+        setCountdown(null);
+      }
+    }
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [order, selectedConfirmationId]);
+
+  const handleInitiateConfirmation = async (method?: 'ONLINE' | 'ON_SITE' | 'PHONE') => {
     if (!order) return;
 
     const res = await apiRequest(`/api/orders/${order.id}/confirmation`, {
       method: 'POST',
       body: {
         action: 'initiate',
-        confirmationMethod,
+        confirmationMethod: method || confirmationMethod,
       },
       idempotencyKey: generateIdempotencyKey(),
     });
@@ -192,7 +222,11 @@ const ConfirmationDetail: NextPage = () => {
   const allVisibleSeen = visibleRemarks.length > 0 && visibleRemarks.every((r) => seenRemarkIds.has(r.id));
   const unseenCount = visibleRemarks.filter((r) => !seenRemarkIds.has(r.id)).length;
 
-  const canInitiate = order.status === 'VALUATED' || order.status === 'RE_VALUATED';
+  const isExpired = selectedConfirmation?.status === 'EXPIRED';
+  const hasPending = order.confirmations.some((c) => c.status === 'PENDING');
+
+  const canInitiate = (order.status === 'VALUATED' || order.status === 'RE_VALUATED') && !hasPending;
+  const canReInitiate = (order.status === 'PENDING_CONFIRMATION' || order.status === 'VALUATED' || order.status === 'RE_VALUATED') && isExpired && !hasPending;
   const canConfirm = order.status === 'PENDING_CONFIRMATION' && selectedConfirmation?.status === 'PENDING';
   const canObject = order.status === 'PENDING_CONFIRMATION' && selectedConfirmation?.status === 'PENDING';
   const canComplete = order.status === 'CONFIRMED';
@@ -224,7 +258,21 @@ const ConfirmationDetail: NextPage = () => {
           </div>
         </div>
 
-        {order.status === 'PENDING_CONFIRMATION' && (
+        {isExpired && selectedConfirmation && (
+          <div style={styles.expiredBox}>
+            <div style={styles.expiredIcon}>⏰</div>
+            <div>
+              <div style={styles.expiredTitle}>确认记录已过期</div>
+              <div style={styles.expiredText}>
+                该确认记录到期时间：{formatDateTime(selectedConfirmation.expiredAt!)}
+                <br />
+                请点击右侧"重新发起客户确认"按钮发起新的确认。旧记录已保留，可在历史中回看。
+              </div>
+            </div>
+          </div>
+        )}
+
+        {order.status === 'PENDING_CONFIRMATION' && !isExpired && (
           <div style={styles.noticeBox}>
             <div style={styles.noticeIcon}>📢</div>
             <div>
@@ -233,6 +281,14 @@ const ConfirmationDetail: NextPage = () => {
                 请确保客户已查看所有可见备注，并点击"客户已查看备注"按钮确认。
                 <br />
                 每一步操作都会记录审计日志，成为后续责任判定依据。
+                {countdown && (
+                  <span style={{
+                    ...styles.noticeCountdown,
+                    color: countdown.urgent ? '#dc2626' : '#f97316',
+                  }}>
+                    ⏱️ 有效期：{countdown.text}
+                  </span>
+                )}
                 {unseenCount > 0 && (
                   <span style={styles.noticeWarn}> ⚠️ 当前有 {unseenCount} 条备注客户尚未查看</span>
                 )}
@@ -425,6 +481,7 @@ const ConfirmationDetail: NextPage = () => {
                                   color:
                                     c.status === 'CONFIRMED' ? '#059669'
                                     : c.status === 'OBJECTED' ? '#dc2626'
+                                    : c.status === 'EXPIRED' ? '#6b7280'
                                     : '#f59e0b',
                                 }}
                               >
@@ -441,12 +498,30 @@ const ConfirmationDetail: NextPage = () => {
                               {cValuation && (
                                 <span style={styles.historyVersion}>v{cValuation.version}</span>
                               )}
+                              {c.status === 'EXPIRED' && c.expiredAt && (
+                                <span style={styles.historyExpired}>
+                                  ⏰ 过期
+                                </span>
+                              )}
                             </div>
                             <div style={styles.historyRight}>
                               {c.confirmedPrice && (
                                 <span style={styles.historyPrice}>{formatPrice(c.confirmedPrice)}</span>
                               )}
                               <span style={styles.historyTime}>{formatDateTime(c.createdAt)}</span>
+                              {c.status === 'PENDING' && c.expiredAt && countdown && (
+                                <span style={{
+                                  ...styles.historyCountdown,
+                                  color: countdown.urgent ? '#dc2626' : '#f97316',
+                                }}>
+                                  ⏱️ {countdown.text}
+                                </span>
+                              )}
+                              {c.status === 'EXPIRED' && c.expiredAt && (
+                                <span style={styles.historyExpiredTime}>
+                                  到期：{formatDateTime(c.expiredAt)}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div style={styles.historyDetail}>
@@ -492,7 +567,36 @@ const ConfirmationDetail: NextPage = () => {
                 <h3 style={styles.cardTitle}>常用动作</h3>
               </div>
               <div style={styles.actionList}>
-                {canInitiate && (
+                {canReInitiate && (
+                  <>
+                    <div style={styles.expiredNotice}>
+                      当前确认记录已过期，需发起新确认
+                    </div>
+                    <div style={styles.methodSelect}>
+                      <label style={styles.label}>新确认方式</label>
+                      <select
+                        style={styles.select}
+                        value={newMethod}
+                        onChange={(e) => setNewMethod(e.target.value as any)}
+                      >
+                        <option value="ON_SITE">现场确认</option>
+                        <option value="ONLINE">线上确认</option>
+                        <option value="PHONE">电话确认</option>
+                      </select>
+                    </div>
+                    <button
+                      style={{ ...styles.actionBtn, ...styles.actionBtnPrimary }}
+                      onClick={() => handleInitiateConfirmation(newMethod)}
+                    >
+                      🔄 重新发起客户确认
+                    </button>
+                    <div style={styles.actionTip}>
+                      新确认记录将从"已过期"记录的版本延续，历史可连续回看
+                    </div>
+                  </>
+                )}
+
+                {canInitiate && !canReInitiate && (
                   <>
                     <div style={styles.methodSelect}>
                       <label style={styles.label}>确认方式</label>
@@ -568,7 +672,7 @@ const ConfirmationDetail: NextPage = () => {
                   </button>
                 )}
 
-                {!canInitiate && !canConfirm && !canObject && !canComplete && (
+                {!canInitiate && !canReInitiate && !canConfirm && !canObject && !canComplete && (
                   <div style={styles.noAction}>当前状态无可用操作</div>
                 )}
               </div>
@@ -636,6 +740,12 @@ const styles: Record<string, React.CSSProperties> = {
   noticeTitle: { fontWeight: 'bold', color: '#1e40af', fontSize: '14px', marginBottom: '4px' },
   noticeText: { color: '#1e3a8a', fontSize: '13px', lineHeight: '1.7' },
   noticeWarn: { color: '#dc2626', fontWeight: 'bold' },
+  noticeCountdown: { fontWeight: 'bold', marginLeft: '12px', fontSize: '14px' },
+  expiredBox: { display: 'flex', gap: '12px', background: '#f3f4f6', border: '1px solid #9ca3af', borderRadius: '10px', padding: '16px', marginBottom: '20px' },
+  expiredIcon: { fontSize: '24px', flexShrink: 0 },
+  expiredTitle: { fontWeight: 'bold', color: '#374151', fontSize: '14px', marginBottom: '4px' },
+  expiredText: { color: '#4b5563', fontSize: '13px', lineHeight: '1.6' },
+  expiredNotice: { padding: '10px 12px', background: '#f3f4f6', borderRadius: '8px', fontSize: '13px', color: '#374151', textAlign: 'center' },
   alertBox: { display: 'flex', gap: '12px', background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '16px', marginBottom: '20px' },
   alertIcon: { fontSize: '24px', flexShrink: 0 },
   alertTitle: { fontWeight: 'bold', color: '#991b1b', fontSize: '14px', marginBottom: '4px' },
@@ -687,6 +797,9 @@ const styles: Record<string, React.CSSProperties> = {
   historyRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' },
   historyPrice: { fontSize: '14px', fontWeight: 'bold', color: '#059669' },
   historyTime: { fontSize: '11px', color: '#9ca3af' },
+  historyCountdown: { fontSize: '11px', fontWeight: 'bold' },
+  historyExpired: { padding: '2px 8px', background: '#e5e7eb', color: '#6b7280', borderRadius: '6px', fontSize: '10px', fontWeight: '500' },
+  historyExpiredTime: { fontSize: '11px', color: '#9ca3af' },
   historyDetail: { display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap' },
   historyRemarkStatus: { fontSize: '11px', color: '#6b7280' },
   historyObjection: { fontSize: '11px', color: '#dc2626' },

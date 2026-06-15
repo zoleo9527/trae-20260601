@@ -444,12 +444,21 @@ const ManagerOrderDetail: NextPage = () => {
                                   {cValuation && (
                                     <span style={styles.confirmVersion}>v{cValuation.version}</span>
                                   )}
+                                  {c.status === 'EXPIRED' && c.expiredAt && (
+                                    <span style={styles.confirmExpired}>⏰ 已过期</span>
+                                  )}
                                 </div>
                                 <div style={styles.confirmRight}>
                                   {c.confirmedPrice && (
                                     <span style={styles.confirmPrice}>{formatPrice(c.confirmedPrice)}</span>
                                   )}
                                   <span style={styles.confirmTime}>{formatDateTime(c.createdAt)}</span>
+                                  {c.status === 'EXPIRED' && c.expiredAt && (
+                                    <span style={styles.confirmExpiredTime}>到期：{formatDateTime(c.expiredAt)}</span>
+                                  )}
+                                  {c.status === 'PENDING' && c.expiredAt && (
+                                    <span style={styles.confirmExpireAt}>有效期至：{formatDateTime(c.expiredAt)}</span>
+                                  )}
                                 </div>
                               </div>
                             );
@@ -485,6 +494,20 @@ const ManagerOrderDetail: NextPage = () => {
                             <span style={styles.detailLabel}>创建时间</span>
                             <span style={styles.detailValue}>{formatDateTime(selectedConfirmation.createdAt)}</span>
                           </div>
+                          {selectedConfirmation.expiredAt && (
+                            <div style={styles.detailItem}>
+                              <span style={styles.detailLabel}>
+                                {selectedConfirmation.status === 'EXPIRED' ? '到期时间' : '有效期至'}
+                              </span>
+                              <span style={{
+                                ...styles.detailValue,
+                                color: selectedConfirmation.status === 'EXPIRED' ? '#dc2626' : '#f59e0b',
+                                fontWeight: '500',
+                              }}>
+                                {formatDateTime(selectedConfirmation.expiredAt)}
+                              </span>
+                            </div>
+                          )}
                           {selectedConfirmation.confirmedPrice && (
                             <div style={styles.detailItem}>
                               <span style={styles.detailLabel}>确认价格</span>
@@ -822,9 +845,12 @@ const styles: Record<string, React.CSSProperties> = {
   confirmStatus: { fontSize: '13px', fontWeight: 'bold' },
   confirmMethod: { padding: '2px 8px', background: '#e5e7eb', color: '#4b5563', borderRadius: '6px', fontSize: '11px' },
   confirmVersion: { padding: '2px 8px', background: '#dbeafe', color: '#2563eb', borderRadius: '6px', fontSize: '11px' },
+  confirmExpired: { padding: '2px 8px', background: '#e5e7eb', color: '#6b7280', borderRadius: '6px', fontSize: '10px', fontWeight: '500' },
   confirmRight: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' },
   confirmPrice: { fontSize: '14px', fontWeight: 'bold', color: '#059669' },
   confirmTime: { fontSize: '11px', color: '#9ca3af' },
+  confirmExpiredTime: { fontSize: '11px', color: '#9ca3af' },
+  confirmExpireAt: { fontSize: '11px', color: '#f59e0b' },
   detailGrid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' },
   detailItem: { display: 'flex', flexDirection: 'column', gap: '4px' },
   detailLabel: { fontSize: '12px', color: '#6b7280' },

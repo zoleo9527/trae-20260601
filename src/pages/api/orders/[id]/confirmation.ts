@@ -26,6 +26,32 @@ export default function handler(
   }
 
   if (req.method === 'GET') {
+    const now = new Date();
+    let hasExpired = false;
+
+    order.confirmations.forEach((c) => {
+      if (c.status === 'PENDING' && c.expiredAt && new Date(c.expiredAt) <= now) {
+        c.status = 'EXPIRED';
+        hasExpired = true;
+        db.addAuditLog({
+          orderId: order.id,
+          actorRole: 'MANAGER',
+          actorId: 'system',
+          actorName: '系统',
+          action: '确认记录自动过期',
+          oldValue: { status: 'PENDING', expiredAt: c.expiredAt },
+          newValue: { status: 'EXPIRED' },
+          field: 'confirmation.status',
+          timestamp: now.toISOString(),
+          idempotencyKey: `expire-${c.id}-${now.getTime()}`,
+        });
+      }
+    });
+
+    if (hasExpired) {
+      db.updateOrder(order.id, { confirmations: [...order.confirmations] });
+    }
+
     const visibleRemarks = new Set<string>();
     order.confirmations.forEach((c) => {
       c.seenValuationRemarks.forEach((rid) => visibleRemarks.add(rid));
@@ -89,6 +115,7 @@ export default function handler(
         });
       }
 
+      const defaultExpiredAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
       const confirmation: CustomerConfirmation = {
         id: db.generateId(),
         orderId: order.id,
@@ -99,7 +126,7 @@ export default function handler(
         customerIdCard: order.customerIdCard,
         createdAt: now,
         confirmationMethod: payload.confirmationMethod || 'ON_SITE',
-        expiredAt: payload.expiredAt,
+        expiredAt: payload.expiredAt || defaultExpiredAt,
         seenValuationRemarks: [],
       };
 
@@ -169,6 +196,13 @@ export default function handler(
         return res.status(404).json({
           success: false,
           error: '确认记录不存在',
+        });
+      }
+
+      if (confirmation.status === 'EXPIRED') {
+        return res.status(400).json({
+          success: false,
+          error: '确认记录已过期，请重新发起客户确认',
         });
       }
 
@@ -263,6 +297,13 @@ export default function handler(
         return res.status(404).json({
           success: false,
           error: '确认记录不存在',
+        });
+      }
+
+      if (confirmation.status === 'EXPIRED') {
+        return res.status(400).json({
+          success: false,
+          error: '确认记录已过期，无法标记查看',
         });
       }
 

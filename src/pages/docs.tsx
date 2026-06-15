@@ -155,6 +155,12 @@ const Docs: NextPage = () => {
                     <span style={styles.statusLabel}>操作角色：</span>
                     <span style={styles.statusValue}>{item.role}</span>
                   </div>
+                  {item.note && (
+                    <div>
+                      <span style={styles.statusLabel}>说明：</span>
+                      <span style={styles.statusValue}>{item.note}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -202,6 +208,12 @@ const Docs: NextPage = () => {
                     <span style={styles.statusLabel}>操作角色：</span>
                     <span style={styles.statusValue}>{item.role}</span>
                   </div>
+                  {item.note && (
+                    <div>
+                      <span style={styles.statusLabel}>说明：</span>
+                      <span style={styles.statusValue}>{item.note}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -215,6 +227,7 @@ const Docs: NextPage = () => {
                 color: '#f59e0b',
                 next: 'CONFIRMED / OBJECTED / EXPIRED',
                 role: 'RECEPTIONIST / MANAGER',
+                note: '含expiredAt，GET时惰性检查过期',
               },
               {
                 status: 'CONFIRMED (已确认)',
@@ -231,8 +244,9 @@ const Docs: NextPage = () => {
               {
                 status: 'EXPIRED (已过期)',
                 color: '#9ca3af',
-                next: '（终态）',
+                next: '（终态，禁止confirm/object/mark_seen）',
                 role: '-',
+                note: '需发起新的客户确认，历史可连续回看',
               },
             ].map((item, i) => (
               <div key={i} style={styles.statusCard}>
@@ -249,6 +263,12 @@ const Docs: NextPage = () => {
                     <span style={styles.statusLabel}>操作角色：</span>
                     <span style={styles.statusValue}>{item.role}</span>
                   </div>
+                  {item.note && (
+                    <div>
+                      <span style={styles.statusLabel}>说明：</span>
+                      <span style={styles.statusValue}>{item.note}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -332,6 +352,18 @@ const Docs: NextPage = () => {
                 <div style={styles.checkItem}>
                   <span style={styles.checkMark}>✓</span>
                   <span>确认历史按时间倒序展示，每条显示关联估价版本、备注查看比例、异议摘要</span>
+                </div>
+                <div style={styles.checkItem}>
+                  <span style={styles.checkMark}>✓</span>
+                  <span><code>expiredAt</code> 字段管理确认时效：默认24小时有效期，GET时惰性检查自动流转为 EXPIRED</span>
+                </div>
+                <div style={styles.checkItem}>
+                  <span style={styles.checkMark}>✓</span>
+                  <span>EXPIRED 状态的确认记录禁止执行 confirm/object/mark_seen 操作，需重新发起</span>
+                </div>
+                <div style={styles.checkItem}>
+                  <span style={styles.checkMark}>✓</span>
+                  <span>过期记录与新记录同时保留在历史列表，可连续切换回看</span>
                 </div>
                 <div style={styles.checkItem}>
                   <span style={styles.checkMark}>✓</span>
@@ -490,7 +522,7 @@ const Docs: NextPage = () => {
                   status: 'PENDING_CONFIRMATION',
                   urgency: 'NORMAL',
                   price: '¥9,500',
-                  desc: '估价9500元已审批通过。已有1条线上方式的待确认记录（PENDING，created 10分钟前），seenValuationRemarks 初始为空（客户尚未查看备注）。1条客户可见备注："客户说因为换新款所以出，机器爱护得很好，底部磕碰是放包里钥匙蹭的，功能全好。" 另有2条内部备注（处理人员利润分析、店长提醒数据备份）',
+                  desc: '估价9500元已审批通过。共2条确认记录：① EXPIRED（线上，created 2天前，expired 昨天，客户未查看备注）；② PENDING（现场，created 10分钟前，expired 5分钟后 ⏱️ 倒计时演示）。1条客户可见备注："客户说因为换新款所以出，机器爱护得很好，底部磕碰是放包里钥匙蹭的，功能全好。" 另有2条内部备注（处理人员利润分析、店长提醒数据备份）',
                 },
                 {
                   no: '订单3',
@@ -741,6 +773,25 @@ const Docs: NextPage = () => {
               </ol>
               <p style={styles.testNote}>
                 💡 此路径验证确认记录与估价的关联回看，<code>valuationId</code> 是回看的关键字段
+              </p>
+            </div>
+
+            <h4 style={styles.subTitle}>路径6：过期-重发确认测试（订单2 - MacBook Pro 14寸 M2 ⭐ 推荐）</h4>
+            <div style={styles.testSteps}>
+              <ol>
+                <li>以 <strong>前台</strong> 登录 → 进入订单2客户确认详情</li>
+                <li>页面顶部倒计时显示："⏱️ 有效期：X分Y秒后过期"（当前5分钟后过期，紧急状态红色）</li>
+                <li>确认历史列表中有两条记录：① 已过期（灰色，显示"到期：昨天XX:XX"）；② 待确认（橙色，倒计时）</li>
+                <li>点击已过期记录 → 页面顶部显示灰色过期告警："确认记录已过期，请点击右侧重新发起"；估价和备注区域关联到v1（9500元），但操作按钮全部消失</li>
+                <li>确认历史列表中可来回切换两条记录，实现过期记录与活跃记录的 <strong>连续回看</strong></li>
+                <li>切换回PENDING记录 → 点击"👁️ 客户已查看全部备注"（验证未过期时可以操作）</li>
+                <li>等待5分钟（或修改测试数据将expiredAt设为过去时间） → 刷新页面 → PENDING记录自动变为EXPIRED（惰性检查）</li>
+                <li>此时所有操作按钮消失，右侧出现"🔄 重新发起客户确认"按钮，可选择确认方式后发起新确认</li>
+                <li>新确认创建后 → 确认历史变为3条（2条EXPIRED + 1条PENDING），可连续切换回看</li>
+              </ol>
+              <p style={styles.testNote}>
+                💡 此路径验证：<strong>expiredAt倒计时</strong>、<strong>惰性过期检查</strong>、<strong>EXPIRED状态禁止操作</strong>、
+                <strong>连续回看（过期+新记录共存）</strong>、<strong>重新发起确认入口</strong> 五个核心时效管理特性
               </p>
             </div>
           </div>
