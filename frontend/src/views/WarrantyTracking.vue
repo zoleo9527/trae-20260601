@@ -584,28 +584,68 @@ const submitUpdate = async () => {
   }
 }
 
+const extendTargetWarranty = ref(null)
+
 const openExtendDrawer = (warranty) => {
   extendTargetId.value = warranty.id
+  extendTargetWarranty.value = warranty
   extendForm.extend_period = ''
   extendForm.new_end_date = ''
   extendForm.reason = ''
   extendDrawerVisible.value = true
 }
 
+const calculateWarrantyPeriod = (startDate, endDate) => {
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  
+  const diffTime = end - start
+  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+  
+  const years = Math.floor(diffDays / 365)
+  const remainingDays = diffDays % 365
+  const months = Math.floor(remainingDays / 30)
+  
+  if (years > 0) {
+    if (months > 0) {
+      return `${years}年${months}个月`
+    }
+    return `${years}年`
+  }
+  if (months > 0) {
+    return `${months}个月`
+  }
+  return `${diffDays}天`
+}
+
 const submitExtend = async () => {
+  if (!extendForm.new_end_date) {
+    ElMessage.error('请选择新的结束日期')
+    return
+  }
+  
   try {
-    const updateData = {
-      end_date: extendForm.new_end_date,
-      remark: extendForm.reason
+    const warranty = extendTargetWarranty.value
+    if (!warranty) {
+      ElMessage.error('无法获取质保信息')
+      return
     }
     
-    if (extendForm.extend_period) {
-      updateData.warranty_period = extendForm.extend_period
+    const startDate = warranty.start_date
+    const newEndDate = extendForm.new_end_date
+    
+    const newPeriod = calculateWarrantyPeriod(startDate, newEndDate)
+    
+    const updateData = {
+      end_date: newEndDate,
+      warranty_period: newPeriod,
+      remark: extendForm.reason
     }
     
     await axios.put(`/warranty_records/${extendTargetId.value}`, updateData)
     ElMessage.success('质保已延长')
     extendDrawerVisible.value = false
+    extendTargetWarranty.value = null
     loadWarranties()
   } catch (error) {
     ElMessage.error('操作失败')

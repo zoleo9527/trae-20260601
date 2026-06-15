@@ -544,6 +544,26 @@ def create_warranty_record(warranty: dict, db: sqlite3.Connection = Depends(get_
     result = {k: v for k, v in warranty.items() if v is not None}
     return {"id": warranty_id, **result, "created_at": now, "updated_at": now}
 
+def calculate_period(start_date_str, end_date_str):
+    try:
+        start = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end = datetime.strptime(end_date_str, '%Y-%m-%d')
+        delta = end - start
+        days = delta.days
+        years = days // 365
+        remaining_days = days % 365
+        months = remaining_days // 30
+        
+        if years > 0:
+            if months > 0:
+                return f"{years}年{months}个月"
+            return f"{years}年"
+        if months > 0:
+            return f"{months}个月"
+        return f"{days}天"
+    except:
+        return "未知"
+
 @app.put("/api/warranty_records/{warranty_id}")
 def update_warranty_record(warranty_id: str, warranty: WarrantyRecordUpdate, db: sqlite3.Connection = Depends(get_db)):
     cursor = db.cursor()
@@ -556,12 +576,26 @@ def update_warranty_record(warranty_id: str, warranty: WarrantyRecordUpdate, db:
     updates = []
     params = []
     
+    current_start_date = old_warranty['start_date']
+    new_end_date = warranty.end_date if warranty.end_date is not None else old_warranty['end_date']
+    new_start_date = warranty.start_date if warranty.start_date is not None else old_warranty['start_date']
+    
+    needs_period_update = False
+    if warranty.end_date is not None or warranty.start_date is not None:
+        needs_period_update = True
+    
     if warranty.warranty_type is not None:
         updates.append("warranty_type = ?")
         params.append(warranty.warranty_type)
-    if warranty.warranty_period is not None:
+    
+    if needs_period_update:
+        new_period = calculate_period(new_start_date, new_end_date)
+        updates.append("warranty_period = ?")
+        params.append(new_period)
+    elif warranty.warranty_period is not None:
         updates.append("warranty_period = ?")
         params.append(warranty.warranty_period)
+    
     if warranty.start_date is not None:
         updates.append("start_date = ?")
         params.append(warranty.start_date)
