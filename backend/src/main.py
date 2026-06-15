@@ -184,8 +184,11 @@ def init_db():
         ]
         
         now = datetime.now().isoformat()
+        record_ids = {}
+        
         for data in sample_data:
             record_id = str(uuid.uuid4())
+            record_ids[data['product_serial']] = record_id
             cursor.execute('''
                 INSERT INTO repair_records 
                 (id, customer_name, phone, product_name, product_serial, issue_description, status, assignee, created_at, updated_at, remark)
@@ -193,6 +196,114 @@ def init_db():
             ''', (record_id, data['customer_name'], data['phone'], data['product_name'], 
                   data['product_serial'], data['issue_description'], data['status'], 
                   None, now, now, data['remark']))
+            
+            cursor.execute('''
+                INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (str(uuid.uuid4()), record_id, '销售小王', '创建', f'创建返修记录：{data["customer_name"]} - {data["product_name"]}', now))
+        
+        warranty_data = [
+            {
+                'repair_serial': 'SN2024001',
+                'warranty_type': 'full',
+                'warranty_period': '2年',
+                'start_date': '2024-01-15',
+                'end_date': '2026-01-15',
+                'status': 'active',
+                'remark': '整机质保，含意外损坏保障'
+            },
+            {
+                'repair_serial': 'SN2024002',
+                'warranty_type': 'full',
+                'warranty_period': '2年',
+                'start_date': '2024-02-20',
+                'end_date': '2026-02-20',
+                'status': 'active',
+                'remark': '整机质保，屏幕有额外延保'
+            },
+            {
+                'repair_serial': 'SN2024003',
+                'warranty_type': 'parts',
+                'warranty_period': '1年',
+                'start_date': '2024-03-10',
+                'end_date': '2025-03-10',
+                'status': 'expired',
+                'remark': '仅配件质保，电池不在质保范围内'
+            },
+            {
+                'repair_serial': 'SN2024004',
+                'warranty_type': 'full',
+                'warranty_period': '3年',
+                'start_date': '2023-11-05',
+                'end_date': '2026-11-05',
+                'status': 'active',
+                'remark': '整机质保，已更换风扇'
+            },
+            {
+                'repair_serial': 'SN2024005',
+                'warranty_type': 'extended',
+                'warranty_period': '3年',
+                'start_date': '2024-04-01',
+                'end_date': '2027-04-01',
+                'status': 'active',
+                'remark': '延保服务，包含上门服务'
+            },
+            {
+                'repair_serial': 'SN2024006',
+                'warranty_type': 'parts',
+                'warranty_period': '1年',
+                'start_date': '2024-05-15',
+                'end_date': '2025-05-15',
+                'status': 'active',
+                'remark': '充电器质保'
+            }
+        ]
+        
+        for wdata in warranty_data:
+            repair_id = record_ids.get(wdata['repair_serial'])
+            if repair_id:
+                warranty_id = str(uuid.uuid4())
+                cursor.execute('''
+                    INSERT INTO warranty_records 
+                    (id, repair_id, warranty_type, warranty_period, start_date, end_date, status, remark, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (warranty_id, repair_id, wdata['warranty_type'], wdata['warranty_period'],
+                      wdata['start_date'], wdata['end_date'], wdata['status'], wdata['remark'], now, now))
+                
+                cursor.execute('''
+                    INSERT INTO operation_logs (id, warranty_id, operator, action, detail, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (str(uuid.uuid4()), warranty_id, '客服小张', '创建', f'创建质保记录：{wdata["warranty_type"]}', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024002'], '装机师小李', '状态变更', '待办 -> 处理中：已安排检测', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024003'], '装机师小李', '状态变更', '待办 -> 被退回：电池损耗正常', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024004'], '客服小张', '状态变更', '处理中 -> 已关闭：问题已解决', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024005'], '销售小王', '状态变更', '已关闭 -> 需要回查：客户反馈问题仍存在', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024007'], '装机师小李', '状态变更', '待办 -> 处理中：音频驱动修复中', now))
+        
+        cursor.execute('''
+            INSERT INTO operation_logs (id, repair_id, operator, action, detail, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (str(uuid.uuid4()), record_ids['SN2024008'], '客服小张', '状态变更', '处理中 -> 已关闭：系统优化完成', now))
     
     conn.commit()
     conn.close()

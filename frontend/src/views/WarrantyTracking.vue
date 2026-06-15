@@ -495,7 +495,8 @@ const searchWarranties = async () => {
         customer_name: repairRecord?.customer_name || '未知',
         phone: repairRecord?.phone || '',
         product_name: repairRecord?.product_name || '未知',
-        product_serial: repairRecord?.product_serial || ''
+        product_serial: repairRecord?.product_serial || '',
+        repair_record: repairRecord
       }
     }))
     
@@ -593,10 +594,16 @@ const openExtendDrawer = (warranty) => {
 
 const submitExtend = async () => {
   try {
-    await axios.put(`/warranty_records/${extendTargetId.value}`, {
+    const updateData = {
       end_date: extendForm.new_end_date,
       remark: extendForm.reason
-    })
+    }
+    
+    if (extendForm.extend_period) {
+      updateData.warranty_period = extendForm.extend_period
+    }
+    
+    await axios.put(`/warranty_records/${extendTargetId.value}`, updateData)
     ElMessage.success('质保已延长')
     extendDrawerVisible.value = false
     loadWarranties()
