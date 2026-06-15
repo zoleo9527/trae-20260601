@@ -38,6 +38,13 @@ import {
   type PersistedData,
 } from '@/services/storage';
 
+const exceptionTypeMap: Record<string, string> = {
+  size_error: '尺寸错误',
+  color_complaint: '色差投诉',
+  install_time_change: '安装时间变更',
+  other: '其他问题',
+};
+
 function getInitialState() {
   const persisted = loadPersistedData();
   if (persisted) {
@@ -96,7 +103,7 @@ interface AppState {
     schedule: Omit<
       PrintSchedule,
       'id' | 'scheduleNo' | 'submittedAt' | 'status' | 'submittedBy' | 'submittedAt'
-    > & { submittedBy: string }
+    >
   ) => PrintSchedule | null;
   updateScheduleStatus: (
     scheduleId: string,
@@ -104,7 +111,7 @@ interface AppState {
     remark?: string
   ) => boolean;
   createMaterialPickup: (
-    pickup: Omit<MaterialPickup, 'id' | 'pickupNo' | 'status' | 'pickedAt'> & {
+    pickup: Omit<MaterialPickup, 'id' | 'pickupNo' | 'status' | 'pickedAt' | 'pickedBy'> & {
       items: MaterialItem[];
       totalAmount: number;
     }
@@ -127,7 +134,7 @@ interface AppState {
     updates?: Partial<InstallationRecord>
   ) => boolean;
   createException: (
-    exception: Omit<ExceptionRecord, 'id' | 'reportedAt' | 'status'>
+    exception: Omit<ExceptionRecord, 'id' | 'reportedAt' | 'status' | 'reportedBy'>
   ) => void;
   resolveException: (exceptionId: string, resolution: string) => void;
   getAuditLogsByEntity: (
@@ -305,6 +312,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: generateId('schedule'),
       scheduleNo,
       status: 'submitted',
+      submittedBy: currentUser.id,
       submittedAt: now,
     };
 
@@ -355,12 +363,23 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateScheduleStatus: (scheduleId, targetStatus, remark) => {
-    const { currentUser, schedules, createAuditLog } = get();
+    const { currentUser, schedules, createAuditLog, materialPickups } = get();
     const schedule = schedules.find((s) => s.id === scheduleId);
     if (!schedule) return false;
 
     if (!validateScheduleStatusFlow(schedule.status, targetStatus, currentUser.role)) {
       return false;
+    }
+
+    if (targetStatus === 'material_confirmed') {
+      const pickups = materialPickups.filter((p) => p.scheduleId === scheduleId);
+      const hasConfirmed = pickups.some((p) => p.status === 'confirmed');
+      if (!hasConfirmed) {
+        if (typeof window !== 'undefined') {
+          console.warn('无法推进到材料已确认：请先登记并确认材料领用');
+        }
+        return false;
+      }
     }
 
     const oldStatus = schedule.status;
@@ -428,6 +447,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       id: generateId('pickup'),
       pickupNo,
       status: 'pending',
+      pickedBy: currentUser.id,
       pickedAt: dayjs().toISOString(),
     };
     set((state) => ({
@@ -563,34 +583,68 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createException: (exception) => {
-    const { currentUser, generateId } = get();
+    const { currentUser, generateId, createAuditLog } = get();
     const newException: ExceptionRecord = {
       ...exception,
       id: generateId('exception'),
       status: 'pending',
+      reportedBy: currentUser.id,
       reportedAt: dayjs().toISOString(),
     };
     set((state) => ({
       exceptions: [newException, ...state.exceptions],
     }));
+
+    createAuditLog(
+      'schedule',
+      newException.scheduleId,
+      'exception_create',
+      `${currentUser.name}上报异常：${
+        exceptionTypeMap[newException.type] || newException.type
+      } - ${newException.description}`,
+      undefined,
+      {
+        exceptionId: newException.id,
+        type: newException.type,
+        description: newException.description,
+      }
+    );
+
     get().persist();
   },
 
   resolveException: (exceptionId, resolution) => {
-    const { currentUser } = get();
+    const { currentUser, createAuditLog } = get();
+    let exception: ExceptionRecord | undefined;
     set((state) => ({
-      exceptions: state.exceptions.map((e) =>
-        e.id === exceptionId
-          ? {
-              ...e,
-              status: 'resolved',
-              handledBy: currentUser.id,
-              handledAt: dayjs().toISOString(),
-              resolution,
-            }
-          : e
-      ),
+      exceptions: state.exceptions.map((e) => {
+        if (e.id === exceptionId) {
+          exception = e;
+          return {
+            ...e,
+            status: 'resolved',
+            handledBy: currentUser.id,
+            handledAt: dayjs().toISOString(),
+            resolution,
+          };
+        }
+        return e;
+      }),
     }));
+
+    if (exception) {
+      createAuditLog(
+        'schedule',
+        exception.scheduleId,
+        'exception_resolve',
+        `${currentUser.name}处理异常：${
+          exceptionTypeMap[(exception as ExceptionRecord).type] ||
+          (exception as ExceptionRecord).type
+        }，解决方案：${resolution}`,
+        { status: 'pending' },
+        { status: 'resolved', resolution }
+      );
+    }
     get().persist();
   },
 

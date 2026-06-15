@@ -287,6 +287,8 @@ export const actionDisplayMap: Record<AuditAction, string> = {
   install_start: '开始安装',
   install_complete: '完成安装',
   install_fail: '安装失败',
+  exception_create: '上报异常',
+  exception_resolve: '处理异常',
   archive: '归档',
 };
 

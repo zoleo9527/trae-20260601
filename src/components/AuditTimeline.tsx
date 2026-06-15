@@ -19,8 +19,11 @@ export default function AuditTimeline({ logs }: AuditTimelineProps) {
     if (action.includes('fail') || action.includes('reject') || action.includes('cancel')) {
       return 'red';
     }
-    if (action.includes('issue') || action.includes('change')) {
+    if (action.includes('issue') || action.includes('change') || action === 'exception_create') {
       return 'orange';
+    }
+    if (action === 'exception_resolve') {
+      return 'purple';
     }
     return 'blue';
   };

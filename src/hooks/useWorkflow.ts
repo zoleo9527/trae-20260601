@@ -64,6 +64,14 @@ export function useWorkflow() {
     targetStatus: PrintScheduleStatus,
     remark?: string
   ): boolean => {
+    if (targetStatus === 'material_confirmed') {
+      const pickups = api.getMaterialPickupsByScheduleId(scheduleId);
+      const hasConfirmed = pickups.some((p) => p.status === 'confirmed');
+      if (!hasConfirmed) {
+        message.warning('请先登记材料领用并确认，再推进到「材料已确认」');
+        return false;
+      }
+    }
     const success = api.updateScheduleStatus(scheduleId, targetStatus, remark);
     if (success) {
       message.success('操作成功');
@@ -156,7 +164,6 @@ export function useWorkflow() {
       installationAddress: draft.installationAddress,
       scheduledInstallDate: draft.scheduledInstallDate,
       priority,
-      submittedBy: currentUser.id,
       remark: draft.remark,
     });
 
@@ -196,7 +203,6 @@ export function useWorkflow() {
     api.createMaterialPickup({
       scheduleId,
       scheduleNo: schedule.scheduleNo,
-      pickedBy: currentUser.id,
       items: items.map((item) => ({
         ...item,
         id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -214,12 +220,13 @@ export function useWorkflow() {
 
     const success = transitionDraft(draftId, 'size_issue', description);
     if (success) {
+      const existing = api.getSchedulesByDraftId(draftId);
+      const related = existing[0];
       api.createException({
-        scheduleId: '',
-        scheduleNo: '',
+        scheduleId: related?.id || '',
+        scheduleNo: related?.scheduleNo || draft.orderNo,
         type: 'size_error',
         description,
-        reportedBy: currentUser.id,
       });
     }
     return success;
@@ -231,12 +238,13 @@ export function useWorkflow() {
 
     const success = transitionDraft(draftId, 'color_issue', description);
     if (success) {
+      const existing = api.getSchedulesByDraftId(draftId);
+      const related = existing[0];
       api.createException({
-        scheduleId: '',
-        scheduleNo: '',
+        scheduleId: related?.id || '',
+        scheduleNo: related?.scheduleNo || draft.orderNo,
         type: 'color_complaint',
         description,
-        reportedBy: currentUser.id,
       });
     }
     return success;
@@ -254,7 +262,6 @@ export function useWorkflow() {
       scheduleNo: schedule.scheduleNo,
       type: 'color_complaint',
       description,
-      reportedBy: currentUser.id,
     });
 
     message.success('色差投诉已记录');
@@ -280,7 +287,6 @@ export function useWorkflow() {
         scheduleNo: installation.scheduleNo,
         type: 'install_time_change',
         description: `安装时间变更为 ${newDate}，原因：${reason}`,
-        reportedBy: currentUser.id,
       });
     }
 

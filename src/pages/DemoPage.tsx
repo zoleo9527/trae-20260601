@@ -31,7 +31,7 @@ import {
 import AuditTimeline from '@/components/AuditTimeline';
 import dayjs from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
-import type { MaterialItem, ExceptionRecord, AuditLog } from '@/types';
+import type { MaterialItem, ExceptionRecord } from '@/types';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -68,14 +68,6 @@ export default function DemoPage() {
   const problemSchedule = problemDraft
     ? api.getSchedulesByDraftId(problemDraft.id)[0]
     : null;
-  const problemException = problemSchedule
-    ? api.getExceptionsByScheduleId(problemSchedule.id)
-    : problemDraft
-    ? api
-        .getExceptions()
-        .filter((e) => e.type === 'size_error')
-        .slice(0, 1)
-    : [];
 
   const archiveSchedule = api.getScheduleById(ARCHIVE_SCHEDULE_ID);
   const archivePickups = archiveSchedule
@@ -96,17 +88,15 @@ export default function DemoPage() {
       message.error('找不到顺利流的排产记录，请先重置演示数据');
       return;
     }
-    const currentUser = api.getCurrentUser();
 
     switch (smoothStep) {
       case 0: {
-        if (currentUser.id !== 'user-002') {
+        if (api.getCurrentUser().id !== 'user-002') {
           api.switchUser('user-002');
           message.info('已切换到处理人员：李明');
         }
         const items = [
           {
-            id: api.generateId('item'),
             materialType: '灯箱片',
             specification: '1.52m宽',
             unit: '平方米',
@@ -115,35 +105,48 @@ export default function DemoPage() {
           },
         ];
         workflow.createMaterialPickupForSchedule(smoothSchedule.id, items);
-        const pickup = api.getMaterialPickupsByScheduleId(smoothSchedule.id)[0];
-        if (pickup) {
-          workflow.transitionMaterialPickup(pickup.id, 'confirmed');
-        }
-        workflow.transitionSchedule(smoothSchedule.id, 'material_confirmed');
+        message.info('✅ 步骤完成：登记材料领用（状态：待确认）');
         setSmoothStep(1);
         break;
       }
       case 1: {
-        if (currentUser.id !== 'user-002') api.switchUser('user-002');
-        workflow.transitionSchedule(smoothSchedule.id, 'printing');
+        const pickup = api.getMaterialPickupsByScheduleId(smoothSchedule.id)[0];
+        if (!pickup) {
+          message.warning('请先完成上一步：登记材料领用');
+          return;
+        }
+        const ok = workflow.transitionMaterialPickup(pickup.id, 'confirmed');
+        if (ok) message.info('✅ 步骤完成：确认材料领用（状态：已确认）');
         setSmoothStep(2);
         break;
       }
       case 2: {
-        workflow.transitionSchedule(smoothSchedule.id, 'printed');
+        const ok = workflow.transitionSchedule(smoothSchedule.id, 'material_confirmed');
+        if (ok) message.info('✅ 步骤完成：排产推进到「材料已确认」');
         setSmoothStep(3);
         break;
       }
       case 3: {
-        workflow.transitionSchedule(smoothSchedule.id, 'installing');
-        const install = api.getInstallationByScheduleId(smoothSchedule.id);
-        if (install) {
-          workflow.transitionInstallation(install.id, 'in_progress');
-        }
+        const ok = workflow.transitionSchedule(smoothSchedule.id, 'printing');
+        if (ok) message.info('✅ 步骤完成：开始喷绘');
         setSmoothStep(4);
         break;
       }
       case 4: {
+        const ok = workflow.transitionSchedule(smoothSchedule.id, 'printed');
+        if (ok) message.info('✅ 步骤完成：喷绘完成');
+        setSmoothStep(5);
+        break;
+      }
+      case 5: {
+        workflow.transitionSchedule(smoothSchedule.id, 'installing');
+        const install = api.getInstallationByScheduleId(smoothSchedule.id);
+        if (install) workflow.transitionInstallation(install.id, 'in_progress');
+        message.info('✅ 步骤完成：开始安装');
+        setSmoothStep(6);
+        break;
+      }
+      case 6: {
         const install = api.getInstallationByScheduleId(smoothSchedule.id);
         if (install) {
           workflow.transitionInstallation(install.id, 'completed', {
@@ -156,8 +159,8 @@ export default function DemoPage() {
           });
         }
         workflow.transitionSchedule(smoothSchedule.id, 'completed');
-        setSmoothStep(5);
-        message.success('顺利流完成！所有状态已推进，审计日志已留痕');
+        setSmoothStep(7);
+        message.success('🎉 顺利流全部完成！所有状态已推进，审计日志已留痕');
         break;
       }
       default:
@@ -170,11 +173,10 @@ export default function DemoPage() {
       message.error('找不到问题流的稿件记录，请先重置演示数据');
       return;
     }
-    const currentUser = api.getCurrentUser();
 
     switch (problemStep) {
       case 0: {
-        if (currentUser.id !== 'user-001') {
+        if (api.getCurrentUser().id !== 'user-001') {
           api.switchUser('user-001');
           message.info('已切换到前台：张小红');
         }
@@ -183,6 +185,7 @@ export default function DemoPage() {
           'pending_review',
           '客户确认正确尺寸应为120×180cm'
         );
+        message.info('✅ 步骤完成：前台修正尺寸后重新提交审核');
         setProblemStep(1);
         break;
       }
@@ -190,6 +193,7 @@ export default function DemoPage() {
         api.switchUser('user-003');
         message.info('已切换到店长：王店长');
         workflow.transitionDraft(problemDraft.id, 'approved');
+        message.info('✅ 步骤完成：店长审核通过稿件');
         setProblemStep(2);
         break;
       }
@@ -197,6 +201,7 @@ export default function DemoPage() {
         api.switchUser('user-001');
         message.info('已切换到前台：张小红');
         workflow.submitScheduleFromDraft(problemDraft.id, 10, 'normal');
+        message.info('✅ 步骤完成：前台提交喷绘排产（已自动创建安装记录）');
         setProblemStep(3);
         break;
       }
@@ -204,28 +209,38 @@ export default function DemoPage() {
         api.switchUser('user-002');
         message.info('已切换到处理人员：李明');
         const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
-        if (schedule) {
-          const items = [
-            {
-              id: api.generateId('item'),
-              materialType: '相纸',
-              specification: '1.27m宽',
-              unit: '平方米',
-              quantity: 21.6,
-              unitPrice: 38,
-            },
-          ];
-          workflow.createMaterialPickupForSchedule(schedule.id, items);
-          const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
-          if (pickup) workflow.transitionMaterialPickup(pickup.id, 'confirmed');
-          workflow.transitionSchedule(schedule.id, 'material_confirmed');
-          workflow.transitionSchedule(schedule.id, 'printing');
-          workflow.transitionSchedule(schedule.id, 'printed');
+        if (!schedule) {
+          message.warning('请先完成上一步：提交喷绘排产');
+          return;
         }
+        const items = [
+          {
+            materialType: '相纸',
+            specification: '1.27m宽',
+            unit: '平方米',
+            quantity: 21.6,
+            unitPrice: 38,
+          },
+        ];
+        workflow.createMaterialPickupForSchedule(schedule.id, items);
+        message.info('✅ 步骤完成：登记材料领用（待确认）');
         setProblemStep(4);
         break;
       }
       case 4: {
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (!schedule) return;
+        const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
+        if (!pickup) return;
+        workflow.transitionMaterialPickup(pickup.id, 'confirmed');
+        workflow.transitionSchedule(schedule.id, 'material_confirmed');
+        workflow.transitionSchedule(schedule.id, 'printing');
+        workflow.transitionSchedule(schedule.id, 'printed');
+        message.info('✅ 步骤完成：确认材料 → 开始喷绘 → 喷绘完成');
+        setProblemStep(5);
+        break;
+      }
+      case 5: {
         const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
         if (schedule) {
           workflow.reportColorComplaint(
@@ -233,10 +248,11 @@ export default function DemoPage() {
             '客户反馈喷绘成品颜色比设计稿偏暗，蓝色部分不够鲜艳'
           );
         }
-        setProblemStep(5);
+        message.info('✅ 步骤完成：上报色差投诉（已创建异常记录 + 审计日志）');
+        setProblemStep(6);
         break;
       }
-      case 5: {
+      case 6: {
         api.switchUser('user-003');
         message.info('已切换到店长：王店长');
         const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
@@ -252,12 +268,13 @@ export default function DemoPage() {
               ex.id,
               '向客户解释喷绘色彩原理：屏幕显示为RGB光色，喷绘为CMYK油墨，存在天然差异。已提供色彩校准样册供客户参考，并承诺下次订单先打样确认。客户表示理解并接受现有成品。'
             );
+            message.info('✅ 步骤完成：店长介入处理并解决色差异常（已写入审计日志）');
           }
         }
-        setProblemStep(6);
+        setProblemStep(7);
         break;
       }
-      case 6: {
+      case 7: {
         api.switchUser('user-001');
         message.info('已切换到前台：张小红');
         const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
@@ -271,10 +288,11 @@ export default function DemoPage() {
             );
           }
         }
-        setProblemStep(7);
+        message.info('✅ 步骤完成：登记安装时间变更（已创建异常记录 + 审计日志）');
+        setProblemStep(8);
         break;
       }
-      case 7: {
+      case 8: {
         api.switchUser('user-002');
         message.info('已切换到处理人员：李明');
         const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
@@ -292,8 +310,10 @@ export default function DemoPage() {
           workflow.transitionSchedule(schedule.id, 'installing');
           workflow.transitionSchedule(schedule.id, 'completed');
         }
-        setProblemStep(8);
-        message.success('问题流完成！尺寸错误→色差投诉→时间变更均已记录并处理');
+        setProblemStep(9);
+        message.success(
+          '🎉 问题流全部完成！尺寸错误 → 色差投诉 → 安装时间变更 三条异常均完整记录并处理'
+        );
         break;
       }
       default:
@@ -302,7 +322,9 @@ export default function DemoPage() {
   };
 
   const smoothSteps = [
-    '处理人员登记并确认材料领用',
+    '处理人员登记材料领用',
+    '处理人员确认材料领用',
+    '推进排产到「材料已确认」',
     '处理人员开始喷绘',
     '处理人员喷绘完成',
     '处理人员开始安装',
@@ -310,10 +332,11 @@ export default function DemoPage() {
   ];
 
   const problemSteps = [
-    '前台修正尺寸后重提审核',
+    '前台修正尺寸后重新提交审核',
     '店长审核通过稿件',
     '前台提交喷绘排产（自动创建安装记录）',
-    '处理人员确认材料并完成喷绘',
+    '处理人员登记材料领用',
+    '确认材料 → 喷绘中 → 喷绘完成',
     '客户看样反馈色差，上报色差投诉',
     '店长介入处理并解决异常',
     '客户变更安装时间，前台登记变更',
@@ -369,6 +392,13 @@ export default function DemoPage() {
     },
     { title: '描述', dataIndex: 'description', key: 'description' },
     {
+      title: '上报人',
+      dataIndex: 'reportedBy',
+      key: 'reportedBy',
+      width: 100,
+      render: (id) => api.getAllUsers().find((u) => u.id === id)?.name || id,
+    },
+    {
       title: '处理人',
       dataIndex: 'handledBy',
       key: 'handledBy',
@@ -382,9 +412,14 @@ export default function DemoPage() {
     <div>
       <Title level={2}>真实业务链路演示</Title>
       <Paragraph type="secondary">
-        基于同一批真实持久化记录推进状态，所有操作均写入审计日志。
-        <Text strong> 前台提交排产时直接落为"已提交"状态，并自动创建对应安装记录。</Text>
-        刷新页面后数据仍然保留。
+        <Space wrap>
+          <Tag color="blue">留痕校验</Tag>
+          <Text>所有操作者按当前登录用户写入（不接受调用参数）</Text>
+          <Tag color="orange">状态断点</Tag>
+          <Text>材料登记≠确认，只有「已确认」后才能推进排产到材料已确认</Text>
+          <Tag color="green">异常审计</Tag>
+          <Text>创建和处理异常均写入审计日志，在留痕时间线中可串联回看</Text>
+        </Space>
       </Paragraph>
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -395,12 +430,12 @@ export default function DemoPage() {
         <Alert
           type="info"
           showIcon
-          message="当前登录：演示过程中会自动切换角色"
+          message="当前登录：演示过程中会自动切换角色，所有留痕以当前用户为准"
           description={
             <>
               <Tag color="geekblue">{roleDisplayMap[api.getCurrentUser().role]}</Tag>
               <Text strong> {api.getCurrentUser().name}</Text>
-              <Text type="secondary"> ({api.getCurrentUser().phone})</Text>
+              <Text type="secondary"> ID: {api.getCurrentUser().id}</Text>
             </>
           }
         />
@@ -418,11 +453,6 @@ export default function DemoPage() {
           }}
           onClick={() => setActiveDemo('smooth')}
         >
-          <Paragraph>
-            稿件已审核通过，排产已提交为 <Tag color="blue">已提交</Tag>{' '}
-            状态，安装记录已自动创建。点击右侧按钮推进下一步：
-          </Paragraph>
-
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 300 }}>
               <Steps
@@ -438,6 +468,11 @@ export default function DemoPage() {
                 <Descriptions column={1} size="small" bordered>
                   <Descriptions.Item label="排产单号">
                     {smoothSchedule.scheduleNo}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="提交人">
+                    <UserOutlined />{' '}
+                    {api.getAllUsers().find((u) => u.id === smoothSchedule.submittedBy)
+                      ?.name || smoothSchedule.submittedBy}
                   </Descriptions.Item>
                   <Descriptions.Item label="状态">
                     <Tag color={statusDisplayMap[smoothSchedule.status]?.color}>
@@ -459,6 +494,21 @@ export default function DemoPage() {
                       <>
                         <Tag color="green">已登记</Tag> {smoothPickups[0].pickupNo}
                         <br />
+                        <div>
+                          登记人：
+                          {api
+                            .getAllUsers()
+                            .find((u) => u.id === smoothPickups[0].pickedBy)?.name ||
+                            '-'}
+                        </div>
+                        <div>
+                          确认人：
+                          {smoothPickups[0].confirmedBy
+                            ? api.getAllUsers().find(
+                                (u) => u.id === smoothPickups[0].confirmedBy
+                              )?.name
+                            : '-'}
+                        </div>
                         合计 ¥{smoothPickups[0].totalAmount.toFixed(2)}
                       </>
                     ) : (
@@ -487,19 +537,19 @@ export default function DemoPage() {
                 type="primary"
                 icon={<RightOutlined />}
                 onClick={runSmoothStep}
-                disabled={smoothStep >= 5}
+                disabled={smoothStep >= 7}
                 style={{ marginTop: 16 }}
                 block
               >
-                {smoothStep >= 5 ? '已完成' : `推进第 ${smoothStep + 1} 步`}
+                {smoothStep >= 7 ? '已完成' : `推进第 ${smoothStep + 1} 步`}
               </Button>
             </div>
           </div>
 
-          {smoothStep >= 5 && smoothSchedule && (
+          {smoothStep >= 7 && smoothSchedule && (
             <>
               <Divider />
-              <Title level={4}>操作留痕（审计日志）</Title>
+              <Title level={4}>操作留痕（已串入异常的上报/处理记录）</Title>
               <AuditTimeline
                 logs={api.getAuditLogsByEntity('schedule', smoothSchedule.id)}
               />
@@ -522,11 +572,6 @@ export default function DemoPage() {
           }}
           onClick={() => setActiveDemo('problem')}
         >
-          <Paragraph>
-            稿件当前状态为 <Tag color="orange">尺寸问题</Tag>{' '}
-            ，需依次处理：尺寸纠错 → 排产 → 色差投诉 → 安装时间变更。
-          </Paragraph>
-
           <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: 300 }}>
               <Steps
@@ -543,7 +588,7 @@ export default function DemoPage() {
                   <Descriptions.Item label="稿件单号">
                     {problemDraft.orderNo}
                   </Descriptions.Item>
-                  <Descriptions.Item label="状态">
+                  <Descriptions.Item label="稿件状态">
                     <Tag color={statusDisplayMap[problemDraft.status]?.color}>
                       {statusDisplayMap[problemDraft.status]?.text}
                     </Tag>
@@ -552,36 +597,58 @@ export default function DemoPage() {
                     {problemDraft.width} × {problemDraft.height}{' '}
                     {problemDraft.unit}
                   </Descriptions.Item>
-                  <Descriptions.Item label="材料">
-                    {problemDraft.materialType}
-                  </Descriptions.Item>
                   <Descriptions.Item label="排产状态">
                     {problemSchedule ? (
-                      <Tag
-                        color={statusDisplayMap[problemSchedule.status]?.color}
-                      >
-                        {statusDisplayMap[problemSchedule.status]?.text}
-                      </Tag>
+                      <>
+                        <Tag
+                          color={statusDisplayMap[problemSchedule.status]?.color}
+                        >
+                          {statusDisplayMap[problemSchedule.status]?.text}
+                        </Tag>
+                        <div>
+                          提交人：
+                          {api
+                            .getAllUsers()
+                            .find((u) => u.id === problemSchedule.submittedBy)
+                            ?.name || '-'}
+                        </div>
+                      </>
                     ) : (
                       <Tag>未排产</Tag>
                     )}
                   </Descriptions.Item>
                   <Descriptions.Item label="异常记录">
-                    {problemException.length > 0 ? (
-                      problemException.map((e) => (
-                        <div key={e.id}>
-                          <Tag color="orange">
-                            {exceptionTypeDisplayMap[e.type]}
-                          </Tag>
-                          <Tag
-                            color={e.status === 'resolved' ? 'green' : 'gold'}
-                          >
-                            {e.status === 'resolved' ? '已解决' : '待处理'}
-                          </Tag>
-                        </div>
-                      ))
+                    {problemSchedule &&
+                    api.getExceptionsByScheduleId(problemSchedule.id).length >
+                      0 ? (
+                      api
+                        .getExceptionsByScheduleId(problemSchedule.id)
+                        .map((e) => (
+                          <div key={e.id}>
+                            <Tag color="orange">
+                              {exceptionTypeDisplayMap[e.type]}
+                            </Tag>
+                            <Tag
+                              color={e.status === 'resolved' ? 'green' : 'gold'}
+                            >
+                              {e.status === 'resolved' ? '已解决' : '待处理'}
+                            </Tag>
+                            <div style={{ fontSize: 12, color: '#999' }}>
+                              上报：
+                              {api.getAllUsers().find((u) => u.id === e.reportedBy)
+                                ?.name || '-'}
+                              {e.handledBy
+                                ? ` / 处理：${
+                                    api.getAllUsers().find(
+                                      (u) => u.id === e.handledBy
+                                    )?.name
+                                  }`
+                                : ''}
+                            </div>
+                          </div>
+                        ))
                     ) : (
-                      '无'
+                      '暂无'
                     )}
                   </Descriptions.Item>
                 </Descriptions>
@@ -593,19 +660,19 @@ export default function DemoPage() {
                 type="primary"
                 icon={<RightOutlined />}
                 onClick={runProblemStep}
-                disabled={problemStep >= 8}
+                disabled={problemStep >= 9}
                 style={{ marginTop: 16 }}
                 block
               >
-                {problemStep >= 8 ? '已完成' : `推进第 ${problemStep + 1} 步`}
+                {problemStep >= 9 ? '已完成' : `推进第 ${problemStep + 1} 步`}
               </Button>
             </div>
           </div>
 
-          {problemStep >= 8 && problemSchedule && (
+          {problemStep >= 9 && problemSchedule && (
             <>
               <Divider />
-              <Title level={4}>异常记录处理结果</Title>
+              <Title level={4}>异常记录处理结果（含上报人/处理人留痕）</Title>
               <Table
                 columns={exceptionColumns}
                 dataSource={api.getExceptionsByScheduleId(problemSchedule.id)}
@@ -614,7 +681,9 @@ export default function DemoPage() {
                 size="small"
               />
               <Divider />
-              <Title level={4}>操作留痕（审计日志）</Title>
+              <Title level={4}>
+                操作留痕（异常上报/处理已自动串联进排产审计时间线）
+              </Title>
               <AuditTimeline
                 logs={api.getAuditLogsByEntity('schedule', problemSchedule.id)}
               />
@@ -627,7 +696,9 @@ export default function DemoPage() {
           title={
             <Space>
               <InboxOutlined style={{ color: '#1890ff', fontSize: 20 }} />
-              <span>归档流：蓝天幼儿园 - 六一儿童节活动背景板（PH20260615003）</span>
+              <span>
+                归档流回看：蓝天幼儿园 - 六一儿童节活动背景板（PH20260615003）
+              </span>
             </Space>
           }
           style={{
@@ -635,13 +706,14 @@ export default function DemoPage() {
           }}
           onClick={() => setActiveDemo('archive')}
         >
-          <Paragraph>
-            已完成订单的完整资料回看，展示系统的可追溯性。所有信息均可追溯到操作人与操作时间。
-          </Paragraph>
-
           {archiveSchedule ? (
             <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <Descriptions column={2} size="small" bordered title="📄 订单基本信息">
+              <Descriptions
+                column={2}
+                size="small"
+                bordered
+                title="📄 订单基本信息（含提交/材料确认/完成操作者）"
+              >
                 <Descriptions.Item label="排产单号">
                   {archiveSchedule.scheduleNo}
                 </Descriptions.Item>
@@ -661,11 +733,60 @@ export default function DemoPage() {
                 <Descriptions.Item label="材料">
                   {archiveSchedule.materialType}
                 </Descriptions.Item>
-                <Descriptions.Item label="颜色要求">
-                  {archiveSchedule.colorRequirement}
+                <Descriptions.Item label="提交人/时间">
+                  <UserOutlined />{' '}
+                  {api
+                    .getAllUsers()
+                    .find((u) => u.id === archiveSchedule.submittedBy)?.name ||
+                    '-'}{' '}
+                  <Text type="secondary">
+                    {archiveSchedule.submittedAt
+                      ? dayjs(archiveSchedule.submittedAt).format(
+                          'MM-DD HH:mm'
+                        )
+                      : ''}
+                  </Text>
                 </Descriptions.Item>
-                <Descriptions.Item label="安装地址">
-                  {archiveSchedule.installationAddress}
+                <Descriptions.Item label="材料确认人/时间">
+                  <UserOutlined />{' '}
+                  {archiveSchedule.materialConfirmedBy
+                    ? api.getAllUsers().find(
+                        (u) => u.id === archiveSchedule.materialConfirmedBy
+                      )?.name
+                    : '-'}{' '}
+                  <Text type="secondary">
+                    {archiveSchedule.materialConfirmedAt
+                      ? dayjs(archiveSchedule.materialConfirmedAt).format(
+                          'MM-DD HH:mm'
+                        )
+                      : ''}
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="喷绘完成人/时间">
+                  <UserOutlined />{' '}
+                  {archiveSchedule.printedBy
+                    ? api.getAllUsers().find(
+                        (u) => u.id === archiveSchedule.printedBy
+                      )?.name
+                    : '-'}{' '}
+                  <Text type="secondary">
+                    {archiveSchedule.printedAt
+                      ? dayjs(archiveSchedule.printedAt).format('MM-DD HH:mm')
+                      : ''}
+                  </Text>
+                </Descriptions.Item>
+                <Descriptions.Item label="完成人/时间">
+                  <UserOutlined />{' '}
+                  {archiveSchedule.completedBy
+                    ? api.getAllUsers().find(
+                        (u) => u.id === archiveSchedule.completedBy
+                      )?.name
+                    : '-'}{' '}
+                  <Text type="secondary">
+                    {archiveSchedule.completedAt
+                      ? dayjs(archiveSchedule.completedAt).format('MM-DD HH:mm')
+                      : ''}
+                  </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="状态">
                   <Tag
@@ -674,24 +795,18 @@ export default function DemoPage() {
                     {statusDisplayMap[archiveSchedule.status]?.text}
                   </Tag>
                 </Descriptions.Item>
-                <Descriptions.Item label="完成时间">
-                  {archiveSchedule.completedAt
-                    ? dayjs(archiveSchedule.completedAt).format(
-                        'YYYY-MM-DD HH:mm'
-                      )
-                    : '-'}
+                <Descriptions.Item label="安装地址">
+                  {archiveSchedule.installationAddress}
                 </Descriptions.Item>
               </Descriptions>
 
               {archivePickups.length > 0 && (
                 <Card
                   size="small"
-                  title="📦 材料领用回看"
+                  title="📦 材料领用回看（登记人/确认人均留痕）"
                   extra={
                     <Space>
-                      <Tag color="green">
-                        {archivePickups[0].pickupNo}
-                      </Tag>
+                      <Tag color="green">{archivePickups[0].pickupNo}</Tag>
                       <Text strong>
                         合计 ¥{archivePickups[0].totalAmount.toFixed(2)}
                       </Text>
@@ -710,23 +825,38 @@ export default function DemoPage() {
                     size="small"
                     style={{ marginTop: 8 }}
                   >
-                    <Descriptions.Item label="登记人">
+                    <Descriptions.Item label="登记人/时间">
                       <UserOutlined />{' '}
                       {api
                         .getAllUsers()
-                        .find(
-                          (u) => u.id === archivePickups[0].pickedBy
-                        )?.name || archivePickups[0].pickedBy}
+                        .find((u) => u.id === archivePickups[0].pickedBy)
+                        ?.name || archivePickups[0].pickedBy}
+                      <Text type="secondary">
+                        {' '}
+                        (
+                        {dayjs(archivePickups[0].pickedAt).format(
+                          'MM-DD HH:mm'
+                        )}
+                        )
+                      </Text>
                     </Descriptions.Item>
-                    <Descriptions.Item label="确认人">
+                    <Descriptions.Item label="确认人/时间">
                       <UserOutlined />{' '}
                       {archivePickups[0].confirmedBy
-                        ? api
-                            .getAllUsers()
-                            .find(
-                              (u) => u.id === archivePickups[0].confirmedBy
-                            )?.name
+                        ? api.getAllUsers().find(
+                            (u) => u.id === archivePickups[0].confirmedBy
+                          )?.name
                         : '-'}
+                      {archivePickups[0].confirmedAt && (
+                        <Text type="secondary">
+                          {' '}
+                          (
+                          {dayjs(archivePickups[0].confirmedAt).format(
+                            'MM-DD HH:mm'
+                          )}
+                          )
+                        </Text>
+                      )}
                     </Descriptions.Item>
                   </Descriptions>
                 </Card>
@@ -735,10 +865,8 @@ export default function DemoPage() {
               {archiveInstallation && (
                 <Card size="small" title="📷 安装记录回看">
                   <Descriptions column={2} size="small" bordered>
-                    <Descriptions.Item label="计划日期">
-                      {archiveInstallation.scheduledDate}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="实际日期">
+                    <Descriptions.Item label="计划/实际日期">
+                      {archiveInstallation.scheduledDate} /{' '}
                       {archiveInstallation.actualDate || '-'}
                     </Descriptions.Item>
                     <Descriptions.Item label="安装人员">
@@ -762,15 +890,15 @@ export default function DemoPage() {
                         <Tag>未签字</Tag>
                       )}
                     </Descriptions.Item>
-                    <Descriptions.Item label="照片数量">
-                      {archiveInstallation.photos.length} 张
-                    </Descriptions.Item>
                   </Descriptions>
                 </Card>
               )}
 
               {archiveExceptions.length > 0 && (
-                <Card size="small" title="⚠️ 异常记录回看">
+                <Card
+                  size="small"
+                  title="⚠️ 异常记录回看（上报与处理均自动写入审计日志）"
+                >
                   <Table
                     columns={exceptionColumns}
                     dataSource={archiveExceptions}
@@ -781,15 +909,18 @@ export default function DemoPage() {
                 </Card>
               )}
 
-              <Card size="small" title="📝 操作留痕（审计日志）">
+              <Card
+                size="small"
+                title="📝 操作留痕（异常记录的创建/处理已串联进时间线）"
+              >
                 <AuditTimeline logs={archiveLogs} />
               </Card>
 
               <Alert
                 type="success"
                 showIcon
-                message="订单归档完成"
-                description="以上所有资料均已持久化存储，包括客户稿件、喷绘排产全流程、材料领用明细、安装照片与签字、异常处理过程、所有人员操作留痕，可随时追溯。"
+                message="订单归档完成（所有记录持久化，刷新页面不丢失）"
+                description="以上所有资料均已持久化存储，包括客户稿件、喷绘排产全流程各节点操作人、材料领用明细、安装照片与签字、异常处理过程、所有人员操作留痕，可随时追溯。"
               />
             </Space>
           ) : (

@@ -153,6 +153,8 @@ export type AuditAction =
   | 'install_start'
   | 'install_complete'
   | 'install_fail'
+  | 'exception_create'
+  | 'exception_resolve'
   | 'archive';
 
 export interface AuditLog {

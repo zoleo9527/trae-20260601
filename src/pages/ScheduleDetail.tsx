@@ -58,6 +58,8 @@ export default function ScheduleDetail() {
   const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
   const [installTimeDialogOpen, setInstallTimeDialogOpen] = useState(false);
   const [colorComplaintDialog, setColorComplaintDialog] = useState(false);
+  const [resolveExceptionDialog, setResolveExceptionDialog] = useState(false);
+  const [selectedExceptionId, setSelectedExceptionId] = useState<string | null>(null);
   const [form] = Form.useForm();
 
   const schedule = api.getScheduleById(id || '');
@@ -189,11 +191,55 @@ export default function ScheduleDetail() {
       },
     },
     {
+      title: '处理人',
+      key: 'handler',
+      render: (_, record) => {
+        if (!record.handledBy) return '-';
+        const user = api.getAllUsers().find((u) => u.id === record.handledBy);
+        return user?.name || record.handledBy;
+      },
+    },
+    {
       title: '解决方案',
       dataIndex: 'resolution',
       key: 'resolution',
     },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_, record) => {
+        if (
+          record.status !== 'pending' ||
+          api.getCurrentUser().role !== 'manager'
+        )
+          return null;
+        return (
+          <Button
+            type="link"
+            onClick={() => {
+              setSelectedExceptionId(record.id);
+              setResolveExceptionDialog(true);
+            }}
+          >
+            处理
+          </Button>
+        );
+      },
+    },
   ];
+
+  const handleResolveException = () => {
+    form.validateFields().then((values) => {
+      if (selectedExceptionId) {
+        api.resolveException(selectedExceptionId, values.resolution);
+        message.success('异常已处理，并已写入审计日志');
+        setResolveExceptionDialog(false);
+        setSelectedExceptionId(null);
+        form.resetFields();
+      }
+    });
+  };
 
   const handleInstallTimeChange = () => {
     form.validateFields().then((values) => {
@@ -459,6 +505,25 @@ export default function ScheduleDetail() {
         <Form form={form} layout="vertical">
           <Form.Item name="description" label="问题描述" rules={[{ required: true }]}>
             <Input.TextArea rows={4} placeholder="请详细描述色差问题" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="处理异常（店长）"
+        open={resolveExceptionDialog}
+        onOk={handleResolveException}
+        onCancel={() => {
+          setResolveExceptionDialog(false);
+          setSelectedExceptionId(null);
+          form.resetFields();
+        }}
+        okText="提交处理方案"
+        cancelText="取消"
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="resolution" label="解决方案" rules={[{ required: true }]}>
+            <Input.TextArea rows={5} placeholder="请填写详细的解决方案，与客户沟通的过程也建议记录" />
           </Form.Item>
         </Form>
       </Modal>
