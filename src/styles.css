@@ -1,0 +1,255 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  background: #f0f2f5;
+}
+
+.app-layout {
+  min-height: 100vh;
+}
+
+.app-header {
+  background: linear-gradient(135deg, #1f4e79 0%, #2e75b6 100%);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 64px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.app-header h1 {
+  color: white;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.app-header .header-icon {
+  font-size: 28px;
+}
+
+.app-header .user-info {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.app-sider {
+  background: #fff !important;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+}
+
+.app-content {
+  padding: 20px;
+  overflow: auto;
+}
+
+.page-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.page-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: #1f4e79;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stats-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+}
+
+.stats-card .stats-icon {
+  font-size: 36px;
+  margin-bottom: 10px;
+}
+
+.stats-card .stats-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1f4e79;
+}
+
+.stats-card .stats-label {
+  font-size: 14px;
+  color: #666;
+  margin-top: 6px;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.photo-item {
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fafafa;
+  position: relative;
+}
+
+.photo-item img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-item .photo-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.photo-item:hover .photo-actions {
+  opacity: 1;
+}
+
+.photo-upload-btn {
+  border: 2px dashed #d9d9d9;
+  border-radius: 6px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #999;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fafafa;
+}
+
+.photo-upload-btn:hover {
+  border-color: #2e75b6;
+  color: #2e75b6;
+  background: #f0f7ff;
+}
+
+.settlement-section {
+  margin-bottom: 24px;
+}
+
+.settlement-section h3 {
+  color: #2e75b6;
+  font-size: 16px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #d6e4f0;
+}
+
+.settlement-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px dashed #f0f0f0;
+}
+
+.settlement-row:last-child {
+  border-bottom: none;
+}
+
+.settlement-total {
+  background: #f0f7ff;
+  padding: 16px;
+  border-radius: 8px;
+  margin-top: 16px;
+}
+
+.settlement-total .total-line {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 15px;
+}
+
+.settlement-total .grand-total {
+  font-size: 20px;
+  font-weight: 700;
+  color: #d4380d;
+  padding-top: 12px;
+  border-top: 2px solid #2e75b6;
+  margin-top: 8px;
+}
+
+.damage-card {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 12px;
+  background: #fafafa;
+}
+
+.damage-card.damage-severe {
+  border-left: 4px solid #ff4d4f;
+}
+
+.damage-card.damage-moderate {
+  border-left: 4px solid #faad14;
+}
+
+.damage-card.damage-minor {
+  border-left: 4px solid #52c41a;
+}
+
+.status-badge {
+  padding: 2px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.photo-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.photo-compare-section {
+  border: 1px solid #e8e8e8;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.photo-compare-section h4 {
+  margin-bottom: 12px;
+  color: #555;
+}
+
+.fuel-progress {
+  margin: 8px 0;
+}

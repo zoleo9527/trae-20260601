@@ -1,0 +1,33 @@
+"use strict";
+const electron = require("electron");
+electron.contextBridge.exposeInMainWorld("api", {
+  getEquipment: () => electron.ipcRenderer.invoke("equipment:list"),
+  getEquipmentById: (id) => electron.ipcRenderer.invoke("equipment:get", id),
+  createEquipment: (data) => electron.ipcRenderer.invoke("equipment:create", data),
+  updateEquipment: (id, data) => electron.ipcRenderer.invoke("equipment:update", id, data),
+  deleteEquipment: (id) => electron.ipcRenderer.invoke("equipment:delete", id),
+  getContracts: (filters) => electron.ipcRenderer.invoke("contract:list", filters),
+  getContractById: (id) => electron.ipcRenderer.invoke("contract:get", id),
+  createContract: (data) => electron.ipcRenderer.invoke("contract:create", data),
+  updateContract: (id, data) => electron.ipcRenderer.invoke("contract:update", id, data),
+  deleteContract: (id) => electron.ipcRenderer.invoke("contract:delete", id),
+  getDispatchRecords: (contractId) => electron.ipcRenderer.invoke("dispatch:list", contractId),
+  createDispatchRecord: (data) => electron.ipcRenderer.invoke("dispatch:create", data),
+  getReturnRecords: (filters) => electron.ipcRenderer.invoke("return:list", filters),
+  getReturnRecordById: (id) => electron.ipcRenderer.invoke("return:get", id),
+  createReturnRecord: (data) => electron.ipcRenderer.invoke("return:create", data),
+  updateReturnRecord: (id, data) => electron.ipcRenderer.invoke("return:update", id, data),
+  deleteReturnRecord: (id) => electron.ipcRenderer.invoke("return:delete", id),
+  getDamageItems: (returnRecordId) => electron.ipcRenderer.invoke("damage:list", returnRecordId),
+  createDamageItem: (data) => electron.ipcRenderer.invoke("damage:create", data),
+  updateDamageItem: (id, data) => electron.ipcRenderer.invoke("damage:update", id, data),
+  deleteDamageItem: (id) => electron.ipcRenderer.invoke("damage:delete", id),
+  uploadPhoto: (filePath, type, relatedId, remark) => electron.ipcRenderer.invoke("photo:upload", filePath, type, relatedId, remark),
+  getPhotos: (type, relatedId) => electron.ipcRenderer.invoke("photo:list", type, relatedId),
+  getPhotoPath: (id) => electron.ipcRenderer.invoke("photo:getPath", id),
+  deletePhoto: (id) => electron.ipcRenderer.invoke("photo:delete", id),
+  selectFile: (options) => electron.ipcRenderer.invoke("dialog:selectFile", options),
+  selectDirectory: () => electron.ipcRenderer.invoke("dialog:selectDirectory"),
+  exportSettlement: (returnRecordId, outputPath) => electron.ipcRenderer.invoke("export:settlement", returnRecordId, outputPath),
+  getStats: () => electron.ipcRenderer.invoke("stats:get")
+});
