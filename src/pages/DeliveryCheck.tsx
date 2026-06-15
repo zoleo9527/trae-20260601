@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Package, CheckCircle, Clock, AlertTriangle, Calendar, User, FileText, Plus, Layers } from 'lucide-react';
+import { Package, CheckCircle, Clock, AlertTriangle, Calendar, User, FileText, Plus, Layers, RefreshCw } from 'lucide-react';
 import { useStore } from '../store';
 import { DeliveryRecord as DeliveryRecordType } from '../types';
 
@@ -257,30 +257,146 @@ export default function DeliveryCheck() {
         </div>
       </div>
 
-      {hasRepair && order.installed_parts.length > 0 && (
+      {hasRepair && (
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-red-500">
           <div className="p-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-800 flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-600" />
-              返修配件追溯
+              返修配件追溯 - 同屏对照
             </h3>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-3 gap-4">
-              {order.installed_parts.map((part) => (
-                <div key={part.id} className="p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs px-2 py-1 bg-gray-200 rounded">{getPartCategory(part.part_name)}</span>
-                  </div>
-                  <p className="font-medium text-gray-900">{part.part_name}</p>
-                  <p className="text-sm text-gray-500 mt-1">批次: {part.batch_no}</p>
-                  <p className="text-xs text-gray-400">质保至: {part.expire_date}</p>
-                  {part.remarks && (
-                    <p className="text-xs text-orange-600 mt-2">{part.remarks}</p>
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-blue-600" />
+                  原单配置
+                </h4>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {order.config_items.map((item) => (
+                    <div key={item.id} className="p-2 bg-white rounded-lg text-sm">
+                      <span className="text-xs px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded mr-2">
+                        {getPartCategory(item.part_name)}
+                      </span>
+                      <span className="font-medium">{item.part_name}</span>
+                      <p className="text-xs text-gray-500 mt-1">¥{item.unit_price}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-green-600" />
+                  改配记录
+                </h4>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {order.modify_records.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">
+                      暂无改配记录
+                    </div>
+                  ) : (
+                    order.modify_records.map((record) => (
+                      <div key={record.id} className="p-2 bg-white rounded-lg text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-xs px-1.5 py-0.5 rounded ${
+                            record.change_type === 'upgrade' ? 'bg-green-100 text-green-700' :
+                            record.change_type === 'downgrade' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {record.change_type === 'upgrade' ? '升级' : 
+                             record.change_type === 'downgrade' ? '降级' : '替换'}
+                          </span>
+                          <span className="font-medium">{record.part_name}</span>
+                        </div>
+                        <p className={`text-xs mt-1 ${record.price_diff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          {record.price_diff >= 0 ? '+' : ''}¥{record.price_diff}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1 truncate" title={record.reason}>
+                          {record.reason}
+                        </p>
+                      </div>
+                    ))
                   )}
                 </div>
-              ))}
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-cyan-600" />
+                  实装配件
+                </h4>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {order.installed_parts.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">
+                      暂无实装记录
+                    </div>
+                  ) : (
+                    order.installed_parts.map((part) => (
+                      <div key={part.id} className="p-2 bg-white rounded-lg text-sm">
+                        <span className="text-xs px-1.5 py-0.5 bg-cyan-100 text-cyan-700 rounded mr-2">
+                          {getPartCategory(part.part_name)}
+                        </span>
+                        <span className="font-medium">{part.part_name}</span>
+                        {part.remarks && (
+                          <p className="text-xs text-orange-600 mt-1">{part.remarks}</p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-xl p-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-600" />
+                  批次信息
+                </h4>
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {order.installed_parts.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400 text-sm">
+                      暂无批次信息
+                    </div>
+                  ) : (
+                    order.installed_parts.map((part) => (
+                      <div key={part.id} className="p-2 bg-white rounded-lg text-sm">
+                        <p className="font-mono text-xs text-gray-800">{part.batch_no}</p>
+                        <p className="text-xs text-gray-500 mt-1">质保至: {part.expire_date}</p>
+                        <p className="text-xs text-gray-400">安装人: {part.installed_by}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
+
+            {order.installed_parts.length > 0 && order.config_items.length > 0 && (
+              <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                <h4 className="text-sm font-semibold text-orange-800 mb-2">配置差异汇总</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">原单总价:</span>
+                    <span className="ml-2 font-medium">¥{order.config_items.reduce((s, i) => s + i.total_price, 0).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">实装总价:</span>
+                    <span className="ml-2 font-medium">¥{order.installed_parts.reduce((s, i) => s + i.total_price, 0).toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">差额:</span>
+                    <span className={`ml-2 font-medium ${
+                      (order.installed_parts.reduce((s, i) => s + i.total_price, 0) - 
+                       order.config_items.reduce((s, i) => s + i.total_price, 0)) >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {(order.installed_parts.reduce((s, i) => s + i.total_price, 0) - 
+                        order.config_items.reduce((s, i) => s + i.total_price, 0)) >= 0 ? '+' : ''}
+                      ¥{(order.installed_parts.reduce((s, i) => s + i.total_price, 0) - 
+                         order.config_items.reduce((s, i) => s + i.total_price, 0)).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

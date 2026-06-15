@@ -106,12 +106,14 @@ export const useStore = create<Store>()(
           installed_at: new Date().toLocaleString('zh-CN'),
         };
 
-        const updatedOrders = orders.map((order) => {
+        const updatedOrders: Order[] = orders.map((order) => {
           if (order.id === orderId) {
+            const newInstallStatus: Order['install_status'] = 
+              order.installed_parts.length + 1 >= order.config_items.length ? 'completed' : 'in_progress';
             return {
               ...order,
               installed_parts: [...order.installed_parts, newPart],
-              install_status: order.installed_parts.length + 1 >= order.config_items.length ? 'completed' : 'in_progress',
+              install_status: newInstallStatus,
             };
           }
           return order;
@@ -138,13 +140,15 @@ export const useStore = create<Store>()(
 
       removeInstalledPart: (orderId, partId) => {
         const { orders } = get();
-        const updatedOrders = orders.map((order) => {
+        const updatedOrders: Order[] = orders.map((order) => {
           if (order.id === orderId) {
             const updatedParts = order.installed_parts.filter((part) => part.id !== partId);
+            const newInstallStatus: Order['install_status'] = 
+              updatedParts.length === 0 ? 'not_started' : 'in_progress';
             return {
               ...order,
               installed_parts: updatedParts,
-              install_status: updatedParts.length === 0 ? 'not_started' : 'in_progress',
+              install_status: newInstallStatus,
             };
           }
           return order;

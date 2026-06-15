@@ -27,10 +27,10 @@ export default function PricingReview() {
   const configTotal = order.config_items.reduce((sum, item) => sum + item.total_price, 0);
   const modifyTotal = order.modify_records.reduce((sum, record) => sum + record.price_diff, 0);
   const installedTotal = order.installed_parts.reduce((sum, part) => sum + part.total_price, 0);
-  const finalTotal = configTotal + modifyTotal;
-  const remainingAmount = finalTotal - order.paid_amount;
-  const hasPendingDiff = remainingAmount > 0;
   const installedDiff = installedTotal - configTotal;
+  const finalTotal = configTotal + modifyTotal + installedDiff;
+  const remainingAmount = finalTotal - order.paid_amount;
+  const hasPendingDiff = remainingAmount > 0 || installedDiff !== 0;
 
   const handleConfirmPayment = () => {
     if (confirmAmount > 0) {

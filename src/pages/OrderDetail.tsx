@@ -47,23 +47,25 @@ export default function OrderDetail() {
   };
 
   const getDifference = () => {
-    const configMap = new Map(order.config_items.map(item => [item.part_name, item]));
-    const installedMap = new Map(order.installed_parts.map(part => [part.part_name, part]));
+    const configMap = new Map(order.config_items.map(item => [item.part_id, item]));
+    const installedMap = new Map(order.installed_parts.map(part => [part.part_id, part]));
     const differences: { type: 'added' | 'removed' | 'changed'; config?: typeof order.config_items[0]; installed?: typeof order.installed_parts[0] }[] = [];
 
     order.config_items.forEach(item => {
-      const installed = installedMap.get(item.part_name);
+      const installed = [...order.installed_parts].find(part => part.part_id === item.part_id || 
+        (part.part_name === item.part_name && !installedMap.has(item.part_id)));
       if (!installed) {
         differences.push({ type: 'removed', config: item });
       } else if (installed.part_id !== item.part_id || installed.unit_price !== item.unit_price) {
         differences.push({ type: 'changed', config: item, installed });
+        installedMap.delete(installed.part_id);
+      } else {
+        installedMap.delete(item.part_id);
       }
     });
 
-    order.installed_parts.forEach(part => {
-      if (!configMap.has(part.part_name)) {
-        differences.push({ type: 'added', installed: part });
-      }
+    installedMap.forEach(part => {
+      differences.push({ type: 'added', installed: part });
     });
 
     return differences;
