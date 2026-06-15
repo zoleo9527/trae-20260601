@@ -61,6 +61,45 @@ export default function PartsAdminPage({ role, onUpdated }: Props) {
   const pending = allTickets.filter((t) => t.status === 'parts_applying');
   const isAdmin = role === 'parts_admin';
 
+  const findBaseApplication = (
+    app: PartsApplication,
+    ticket: ServiceTicket
+  ): PartsApplication | undefined =>
+    app.basedOnApplicationId
+      ? ticket.partsApplications.find((a) => a.id === app.basedOnApplicationId)
+      : undefined;
+
+  const renderChangeSummary = (app: PartsApplication, ticket: ServiceTicket) => {
+    if (!app.changeSummary) return null;
+    const cs = app.changeSummary;
+    const total = cs.added.length + cs.modified.length + cs.removed.length + cs.unchanged.length;
+    return (
+      <div style={{ fontSize: 12 }}>
+        <Space wrap style={{ marginBottom: 4 }}>
+          {cs.added.length > 0 && (
+            <Tag color="green">
+              新增 {cs.added.length} 项：{cs.added.map((i) => i.name).join('、')}
+            </Tag>
+          )}
+          {cs.modified.length > 0 && (
+            <Tag color="blue">
+              修改 {cs.modified.length} 项：
+              {cs.modified.map((m) => m.after.name).join('、')}
+            </Tag>
+          )}
+          {cs.removed.length > 0 && (
+            <Tag color="red">
+              删除 {cs.removed.length} 项：{cs.removed.map((i) => i.name).join('、')}
+            </Tag>
+          )}
+          {cs.unchanged.length > 0 && (
+            <Tag color="default">未变 {cs.unchanged.length} 项</Tag>
+          )}
+        </Space>
+      </div>
+    );
+  };
+
   const pendingApplications: Array<{ app: PartsApplication; ticket: ServiceTicket }> = [];
   const allApplications: Array<{ app: PartsApplication; ticket: ServiceTicket }> = [];
   allTickets.forEach((t) => {
@@ -122,6 +161,9 @@ export default function PartsAdminPage({ role, onUpdated }: Props) {
           <div style={{ marginTop: 4 }}>
             <Tag>工单：{r.ticket.ticketNo}</Tag>
             <Tag color="blue">{r.app.items.length}项配件</Tag>
+            {r.app.basedOnApplicationId && (
+              <Tag color="red">重提·基于#{r.app.basedOnApplicationId.slice(0, 8)}</Tag>
+            )}
           </div>
         </div>
       ),
@@ -144,14 +186,43 @@ export default function PartsAdminPage({ role, onUpdated }: Props) {
       ),
     },
     {
-      title: '携带的诊断备注',
+      title: '上次驳回 / 携带备注',
       key: 'carried',
-      width: 260,
-      render: (_: unknown, r: { app: PartsApplication; ticket: ServiceTicket }) => (
-        <Text type="warning" style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>
-          {r.app.diagnosisRemarkCarried || '(无)'}
-        </Text>
-      ),
+      width: 280,
+      render: (_: unknown, r: { app: PartsApplication; ticket: ServiceTicket }) => {
+        const base = findBaseApplication(r.app, r.ticket);
+        return (
+          <div style={{ fontSize: 12 }}>
+            {base?.reviewRemark && (
+              <div style={{ marginBottom: 4 }}>
+                <Text type="danger">
+                  <Text strong>上次驳回：</Text>
+                  {base.reviewRemark.length > 28
+                    ? base.reviewRemark.slice(0, 28) + '…'
+                    : base.reviewRemark}
+                </Text>
+              </div>
+            )}
+            <Text type="warning" style={{ whiteSpace: 'pre-wrap' }}>
+              携带备注：{r.app.diagnosisRemarkCarried || '(无)'}
+            </Text>
+            {r.app.changeSummary && (
+              <div style={{ marginTop: 4 }}>
+                <Tag color="green" style={{ marginRight: 4 }}>
+                  +{r.app.changeSummary.added.length}
+                </Tag>
+                <Tag color="blue" style={{ marginRight: 4 }}>
+                  ~{r.app.changeSummary.modified.length}
+                </Tag>
+                <Tag color="red" style={{ marginRight: 4 }}>
+                  -{r.app.changeSummary.removed.length}
+                </Tag>
+                <Text type="secondary">项差异</Text>
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       title: '状态',
@@ -249,74 +320,165 @@ export default function PartsAdminPage({ role, onUpdated }: Props) {
                     emptyText: '暂无待审核的配件申请，请在工程师工作台提交申请',
                   }}
                   expandable={{
-                    expandedRowRender: (r) => (
-                      <div style={{ padding: '0 24px 12px' }}>
-                        <Row gutter={16}>
-                          <Col span={12}>
-                            <Card size="small" type="inner" title="申请配件明细">
-                              <List
+                    expandedRowRender: (r) => {
+                      const baseApp = findBaseApplication(r.app, r.ticket);
+                      const cs = r.app.changeSummary;
+                      const matchKey = (it: any) => it.sku?.trim() || it.name.trim();
+                      const getItemTag = (it: any) => {
+                        if (!cs) return null;
+                        if (cs.added.find((a) => matchKey(a) === matchKey(it)))
+                          return { tag: '新增', color: 'green' };
+                        const mod = cs.modified.find(
+                          (m) => matchKey(m.after) === matchKey(it)
+                        );
+                        if (mod)
+                          return { tag: `修改(${mod.diffFields.join('/')})`, color: 'blue' };
+                        if (cs.unchanged.find((u) => matchKey(u) === matchKey(it)))
+                          return { tag: '未变', color: 'default' };
+                        return null;
+                      };
+                      return (
+                        <div style={{ padding: '0 24px 12px' }}>
+                          <Row gutter={16}>
+                            <Col span={12}>
+                              <Card
                                 size="small"
-                                bordered
-                                dataSource={r.app.items}
-                                renderItem={(it) => (
-                                  <List.Item key={it.id}>
-                                    <div style={{ width: '100%' }}>
-                                      <Space>
-                                        <Text strong>{it.name}</Text>
-                                        {it.sku && <Tag>SKU: {it.sku}</Tag>}
-                                        <Tag color="blue">
-                                          ×{it.quantity}
-                                          {it.unit}
-                                        </Tag>
-                                      </Space>
-                                      <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                                        原因：{it.reason}
-                                      </div>
-                                    </div>
-                                  </List.Item>
+                                type="inner"
+                                title={
+                                  <Space>
+                                    申请配件明细
+                                    {cs && (
+                                      <Badge
+                                        count={`变更 ${cs.added.length + cs.modified.length + cs.removed.length} 项`}
+                                        style={{ backgroundColor: '#faad14' }}
+                                      />
+                                    )}
+                                  </Space>
+                                }
+                              >
+                                {cs && (
+                                  <div style={{ marginBottom: 8 }}>
+                                    {renderChangeSummary(r.app, r.ticket)}
+                                  </div>
                                 )}
-                              />
-                            </Card>
-                          </Col>
-                          <Col span={12}>
-                            <Card
-                              size="small"
-                              type="inner"
-                              title={
-                                <Space>
-                                  诊断结果与备注
-                                  <Tag color="orange">自动携带</Tag>
-                                </Space>
-                              }
-                            >
-                              {r.ticket.diagnosis ? (
-                                <>
-                                  <Paragraph style={{ marginBottom: 4 }}>
-                                    <Text strong>故障：</Text>
-                                    {r.ticket.diagnosis.faultDescription}
-                                  </Paragraph>
-                                  <Paragraph style={{ marginBottom: 4 }}>
-                                    <Text strong>方案：</Text>
-                                    {r.ticket.diagnosis.solution}
-                                  </Paragraph>
-                                  <Paragraph type="warning" style={{ marginBottom: 0 }}>
-                                    <Text strong>诊断备注：</Text>
-                                    {r.ticket.diagnosis.remark || '（无）'}
-                                  </Paragraph>
-                                  <Divider style={{ margin: '8px 0' }} />
-                                  <Paragraph type="warning" style={{ marginBottom: 0 }}>
-                                    <Text strong>传递到此申请的备注：</Text>
-                                    {r.app.diagnosisRemarkCarried || '（无）'}
-                                  </Paragraph>
-                                </>
-                              ) : (
-                                <Text type="secondary">无诊断结果</Text>
+                                <List
+                                  size="small"
+                                  bordered
+                                  dataSource={r.app.items}
+                                  renderItem={(it) => {
+                                    const info = getItemTag(it);
+                                    return (
+                                      <List.Item key={it.id}>
+                                        <div style={{ width: '100%' }}>
+                                          <Space>
+                                            <Text strong>{it.name}</Text>
+                                            {it.sku && <Tag>SKU: {it.sku}</Tag>}
+                                            <Tag color="blue">
+                                              ×{it.quantity}
+                                              {it.unit}
+                                            </Tag>
+                                            {info && (
+                                              <Tag color={info.color}>{info.tag}</Tag>
+                                            )}
+                                          </Space>
+                                          <div
+                                            style={{
+                                              fontSize: 12,
+                                              color: '#666',
+                                              marginTop: 4,
+                                            }}
+                                          >
+                                            原因：{it.reason}
+                                          </div>
+                                        </div>
+                                      </List.Item>
+                                    );
+                                  }}
+                                />
+                                {cs && cs.removed.length > 0 && (
+                                  <div
+                                    style={{
+                                      marginTop: 8,
+                                      padding: '6px 10px',
+                                      background: '#fff1f0',
+                                      border: '1px dashed #ffa39e',
+                                      borderRadius: 4,
+                                      fontSize: 12,
+                                    }}
+                                  >
+                                    <Text type="danger" strong>
+                                      本次相对上次删除 {cs.removed.length} 项：
+                                    </Text>
+                                    <span
+                                      style={{
+                                        color: '#8c8c8c',
+                                        textDecoration: 'line-through',
+                                      }}
+                                    >
+                                      {' '}
+                                      {cs.removed
+                                        .map((i) => `${i.name}×${i.quantity}${i.unit}`)
+                                        .join('、')}
+                                    </span>
+                                  </div>
+                                )}
+                              </Card>
+                            </Col>
+                            <Col span={12}>
+                              {baseApp?.reviewRemark && (
+                                <Alert
+                                  type="error"
+                                  showIcon
+                                  style={{ marginBottom: 12 }}
+                                  message={
+                                    <Space direction="vertical" size={2}>
+                                      <Text strong>
+                                        上次驳回意见（来自 {baseApp.reviewBy || '管理员'}）
+                                      </Text>
+                                      <Text>{baseApp.reviewRemark}</Text>
+                                    </Space>
+                                  }
+                                />
                               )}
-                            </Card>
-                          </Col>
-                        </Row>
-                      </div>
-                    ),
+                              <Card
+                                size="small"
+                                type="inner"
+                                title={
+                                  <Space>
+                                    诊断结果与备注
+                                    <Tag color="orange">自动携带</Tag>
+                                  </Space>
+                                }
+                              >
+                                {r.ticket.diagnosis ? (
+                                  <>
+                                    <Paragraph style={{ marginBottom: 4 }}>
+                                      <Text strong>故障：</Text>
+                                      {r.ticket.diagnosis.faultDescription}
+                                    </Paragraph>
+                                    <Paragraph style={{ marginBottom: 4 }}>
+                                      <Text strong>方案：</Text>
+                                      {r.ticket.diagnosis.solution}
+                                    </Paragraph>
+                                    <Paragraph type="warning" style={{ marginBottom: 0 }}>
+                                      <Text strong>诊断备注：</Text>
+                                      {r.ticket.diagnosis.remark || '（无）'}
+                                    </Paragraph>
+                                    <Divider style={{ margin: '8px 0' }} />
+                                    <Paragraph type="warning" style={{ marginBottom: 0 }}>
+                                      <Text strong>传递到此申请的备注：</Text>
+                                      {r.app.diagnosisRemarkCarried || '（无）'}
+                                    </Paragraph>
+                                  </>
+                                ) : (
+                                  <Text type="secondary">无诊断结果</Text>
+                                )}
+                              </Card>
+                            </Col>
+                          </Row>
+                        </div>
+                      );
+                    },
                   }}
                 />
               ),
@@ -404,18 +566,123 @@ export default function PartsAdminPage({ role, onUpdated }: Props) {
                   : '驳回后：工单流转回工程师，可调整诊断备注或配件清单后重新提交'
               }
             />
-            <Card size="small" type="inner" title="申请配件">
+            {reviewApp.app.basedOnApplicationId &&
+              (() => {
+                const baseApp = findBaseApplication(reviewApp.app, reviewApp.ticket);
+                return (
+                  <Alert
+                    type="error"
+                    showIcon
+                    message={
+                      <Space direction="vertical" size={4}>
+                        <Text strong>
+                          本次为驳回重提 · 基于申请 #
+                          {reviewApp.app.basedOnApplicationId.slice(0, 8)}
+                        </Text>
+                        <Text>
+                          <Text strong>上次驳回人：</Text>
+                          {baseApp?.reviewBy || '（未知）'}
+                          <Text strong style={{ marginLeft: 12 }}>
+                            驳回时间：
+                          </Text>
+                          {baseApp?.reviewAt || '（未知）'}
+                        </Text>
+                        <Text type="danger">
+                          <Text strong>上次驳回意见：</Text>
+                          {baseApp?.reviewRemark || '（无）'}
+                        </Text>
+                        {reviewApp.app.changeSummary && (
+                          <div style={{ marginTop: 4 }}>
+                            <Text strong>本次变更摘要：</Text>
+                            {renderChangeSummary(reviewApp.app, reviewApp.ticket)}
+                          </div>
+                        )}
+                      </Space>
+                    }
+                  />
+                );
+              })()}
+            <Card
+              size="small"
+              type="inner"
+              title={
+                <Space>
+                  申请配件
+                  {reviewApp.app.changeSummary && (
+                    <Tag color="orange">
+                      变更 {reviewApp.app.changeSummary.added.length +
+                        reviewApp.app.changeSummary.modified.length +
+                        reviewApp.app.changeSummary.removed.length}{' '}
+                      项
+                    </Tag>
+                  )}
+                </Space>
+              }
+            >
               <List
                 size="small"
                 dataSource={reviewApp.app.items}
-                renderItem={(it) => (
-                  <List.Item key={it.id}>
-                    <Text strong>{it.name}</Text> ×{it.quantity}
-                    {it.unit} {it.sku ? `（SKU: ${it.sku}）` : ''}
-                    <span style={{ color: '#666', marginLeft: 'auto' }}>{it.reason}</span>
-                  </List.Item>
-                )}
+                renderItem={(it) => {
+                  const cs = reviewApp.app.changeSummary;
+                  let tagInfo: { tag: string; color: string } | null = null;
+                  if (cs) {
+                    const matchKey = (i: any) => i.sku?.trim() || i.name.trim();
+                    if (cs.added.find((a) => matchKey(a) === matchKey(it)))
+                      tagInfo = { tag: '新增', color: 'green' };
+                    const mod = cs.modified.find(
+                      (m) => matchKey(m.after) === matchKey(it)
+                    );
+                    if (mod)
+                      tagInfo = {
+                        tag: `修改(${mod.diffFields.join('/')})`,
+                        color: 'blue',
+                      };
+                    if (cs.unchanged.find((u) => matchKey(u) === matchKey(it)))
+                      tagInfo = { tag: '未变', color: 'default' };
+                  }
+                  return (
+                    <List.Item key={it.id}>
+                      <Space>
+                        <Text strong>{it.name}</Text> ×{it.quantity}
+                        {it.unit} {it.sku ? `（SKU: ${it.sku}）` : ''}
+                        {tagInfo && <Tag color={tagInfo.color}>{tagInfo.tag}</Tag>}
+                      </Space>
+                      <span style={{ color: '#666', marginLeft: 'auto' }}>
+                        {it.reason}
+                      </span>
+                    </List.Item>
+                  );
+                }}
               />
+              {reviewApp.app.changeSummary?.removed &&
+                reviewApp.app.changeSummary.removed.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      padding: '6px 10px',
+                      background: '#fff1f0',
+                      border: '1px dashed #ffa39e',
+                      borderRadius: 4,
+                      fontSize: 12,
+                    }}
+                  >
+                    <Text type="danger" strong>
+                      本次相对上次删除{' '}
+                      {reviewApp.app.changeSummary.removed.length} 项：
+                    </Text>
+                    <span
+                      style={{
+                        color: '#8c8c8c',
+                        textDecoration: 'line-through',
+                        marginLeft: 4,
+                      }}
+                    >
+                      {reviewApp.app.changeSummary.removed
+                        .map((i) => `${i.name}×${i.quantity}${i.unit}`)
+                        .join('、')}
+                    </span>
+                  </div>
+                )}
             </Card>
             <Card size="small" type="inner" title="诊断备注（自动携带入申请，责任清晰）">
               <Text type="warning" style={{ whiteSpace: 'pre-wrap' }}>
