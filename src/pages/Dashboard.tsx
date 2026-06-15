@@ -7,7 +7,7 @@ import { FilterTabs } from '@/components/common/FilterTabs';
 import { AnomalyCard } from '@/components/common/AnomalyCard';
 import { AnomalyType, Role, ROLE_LABELS } from '@/types';
 import { countAnomaliesByType, countPendingAnomalies } from '@/utils/filterUtils';
-import { formatDate, calculateDaysBetween } from '@/utils/dateUtils';
+import { formatDate, calculateDaysBetween, calculateOverdueInfo, getToday } from '@/utils/dateUtils';
 
 const Dashboard: React.FC = () => {
   const anomalies = useAppStore((state) => state.anomalies);
@@ -34,24 +34,30 @@ const Dashboard: React.FC = () => {
   const repairingEquipments = equipments.filter((e) => e.status === 'repairing').length;
 
   const upcomingExpiries = useMemo(() => {
-    const today = new Date('2026-06-15');
     return contracts
       .filter((c) => c.status === 'active' || c.status === 'overdue')
       .map((c) => {
         const reservation = getReservationById(c.reservationId);
         if (!reservation) return null;
-        const endDate = new Date(reservation.expectedEndDate);
-        const daysLeft = Math.ceil((endDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
         const equipment = getEquipmentById(reservation.equipmentId);
         const customer = getCustomerById(reservation.customerId);
+        
+        const overdueInfo = calculateOverdueInfo(
+          c.status,
+          reservation.expectedEndDate,
+          equipment?.dailyRate || 0,
+          c.overdueDays
+        );
+        
         return {
           contractId: c.id,
           contractNo: c.contractNo,
           equipmentName: equipment ? `${equipment.name} ${equipment.model}` : '',
           customerName: customer?.name || '',
           expectedEndDate: reservation.expectedEndDate,
-          daysLeft,
-          isOverdue: daysLeft < 0,
+          daysLeft: overdueInfo.daysLeft,
+          isOverdue: overdueInfo.isOverdue,
+          overdueDays: overdueInfo.overdueDays,
         };
       })
       .filter(Boolean)

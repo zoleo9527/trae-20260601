@@ -55,3 +55,57 @@ export function getToday(): string {
 export function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
+
+export function getTodayDate(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+export function parseDate(dateStr: string): Date {
+  const date = new Date(dateStr);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+export function calculateOverdueInfo(
+  contractStatus: string,
+  expectedEndDate: string,
+  dailyRate: number,
+  contractOverdueDays?: number
+): {
+  isOverdue: boolean;
+  overdueDays: number;
+  daysLeft: number;
+  overdueFee: number;
+} {
+  const today = getTodayDate();
+  const endDate = parseDate(expectedEndDate);
+  
+  const diffTime = today.getTime() - endDate.getTime();
+  const calculatedDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  const isOverdueByDate = calculatedDays > 0;
+  const isOverdueByStatus = contractStatus === 'overdue';
+  
+  const isOverdue = isOverdueByDate || isOverdueByStatus;
+  
+  let overdueDays = 0;
+  if (isOverdue) {
+    if (contractOverdueDays && contractOverdueDays > calculatedDays) {
+      overdueDays = contractOverdueDays;
+    } else {
+      overdueDays = Math.max(0, calculatedDays);
+    }
+  }
+  
+  const daysLeft = isOverdue ? -overdueDays : Math.max(0, -calculatedDays);
+  const overdueFee = overdueDays * dailyRate * 1.5;
+  
+  return {
+    isOverdue,
+    overdueDays,
+    daysLeft,
+    overdueFee,
+  };
+}

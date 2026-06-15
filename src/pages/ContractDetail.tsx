@@ -17,7 +17,7 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 import { Timeline } from '@/components/common/Timeline';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { formatDate, calculateDaysBetween } from '@/utils/dateUtils';
+import { formatDate, calculateDaysBetween, calculateOverdueInfo, getTodayDate, parseDate } from '@/utils/dateUtils';
 import { ROLE_LABELS, ANOMALY_STATUS_LABELS } from '@/types';
 
 const ContractDetail: React.FC = () => {
@@ -64,10 +64,7 @@ const ContractDetail: React.FC = () => {
 
   const relatedRepairs = repairs.filter((r) => r.contractId === id);
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const expectedEndDate = reservation ? new Date(reservation.expectedEndDate) : new Date();
-  expectedEndDate.setHours(0, 0, 0, 0);
+  const today = getTodayDate();
 
   const rentalDays = contract
     ? contract.actualEndDate
@@ -75,12 +72,17 @@ const ContractDetail: React.FC = () => {
       : Math.max(1, calculateDaysBetween(contract.actualStartDate, today.toISOString().split('T')[0]))
     : 0;
 
-  const overdueDays = contract && contract.status === 'overdue'
-    ? contract.overdueDays
-    : Math.max(0, Math.floor((today.getTime() - expectedEndDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const overdueInfo = contract && reservation && equipment
+    ? calculateOverdueInfo(
+        contract.status,
+        reservation.expectedEndDate,
+        equipment.dailyRate,
+        contract.overdueDays
+      )
+    : { isOverdue: false, overdueDays: 0, daysLeft: 0, overdueFee: 0 };
 
+  const { isOverdue, overdueDays, overdueFee } = overdueInfo;
   const baseAmount = equipment ? rentalDays * equipment.dailyRate : 0;
-  const overdueFee = equipment ? overdueDays * equipment.dailyRate * 1.5 : 0;
   const totalAmount = baseAmount + overdueFee;
 
   const fuelConsumed = contract?.initialFuel && contract?.returnFuel

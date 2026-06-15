@@ -21,7 +21,7 @@ export const mockReservations: Reservation[] = [
     customerId: 'cus-002',
     reservationNo: 'RES-2026-002',
     startDate: '2026-06-05',
-    expectedEndDate: '2026-06-15',
+    expectedEndDate: '2026-06-10',
     purpose: '虹桥商务区建筑工地土石方转运',
     status: 'material_verified',
     materials: ['营业执照', '身份证复印件', '项目委托书'],

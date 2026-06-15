@@ -109,6 +109,15 @@ export interface FilterOptions {
   search?: string;
 }
 
+export interface OverdueInfo {
+  isOverdue: boolean;
+  overdueDays: number;
+  daysLeft: number;
+  overdueFee: number;
+  expectedEndDate: string;
+  today: string;
+}
+
 export const ANOMALY_TYPE_LABELS: Record<AnomalyType, string> = {
   material_missing: '缺材料',
   overdue: '超时未还',

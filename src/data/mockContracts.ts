@@ -14,7 +14,7 @@ export const mockContracts: Contract[] = [
     fuelDispute: false,
     fuelDisputeReason: '',
     overdueDays: 5,
-    overdueFee: 6000,
+    overdueFee: 9000,
   },
   {
     id: 'con-002',
@@ -43,8 +43,8 @@ export const mockContracts: Contract[] = [
     status: 'overdue',
     fuelDispute: false,
     fuelDisputeReason: '',
-    overdueDays: 0,
-    overdueFee: 0,
+    overdueDays: 5,
+    overdueFee: 6000,
   },
   {
     id: 'con-004',
