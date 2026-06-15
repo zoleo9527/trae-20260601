@@ -577,6 +577,19 @@ async function resetPickingAudit(orderId) {
   }
 }
 
+async function goToLoadingCard(orderId) {
+  if (currentView !== 'loading') {
+    switchView('loading', { scrollToOrder: orderId });
+  } else {
+    const el = document.getElementById(`loading-card-${orderId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.classList.add('highlight-change');
+      setTimeout(() => el.classList.remove('highlight-change'), 3000);
+    }
+  }
+}
+
 async function openLoadingView(orderId) {
   if (currentView !== 'loading') {
     switchView('loading', { scrollToOrder: orderId });
@@ -595,28 +608,58 @@ async function loadLoadingView() {
   const list = all.filter(o =>
     o.status === '待装车安排' || o.status === '装车中' || o.status === '配送中'
   );
+  const summaryList = await api('/orders-change-summary');
+  const summaryMap = {};
+  summaryList.forEach(s => summaryMap[s.orderId] = s);
 
   document.getElementById('view-loading').innerHTML = `
-    <div class="section-title">🚚 装车安排看板</div>
+    <div class="section-title">🚚 装车安排看板 <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:8px">跨角色变更追踪</span></div>
+    <div class="filter-bar" style="margin-bottom:16px">
+      <label>快速筛选：</label>
+      <div class="role-buttons" style="background:#f3f4f6;padding:3px;border-radius:6px">
+        <button class="role-btn active" data-loading-filter="all">全部 (${list.length})</button>
+        <button class="role-btn" data-loading-filter="diff">🔔 有复核变更 (${list.filter(o => summaryMap[o.id]?.hasAuditDiff).length})</button>
+        <button class="role-btn" data-loading-filter="exception">⚠️ 异常待处理 (${list.filter(o => summaryMap[o.id]?.hasOpenException).length})</button>
+      </div>
+      <span style="margin-left:auto;font-size:12px;color:#6b7280">
+        💡 黄色卡片表示复核数据有更新，红色标记表示有未处理异常
+      </span>
+    </div>
     <div id="loadingOrderList">
-      ${list.length ? list.map(o => renderLoadingCard(o)).join('') :
+      ${list.length ? list.map(o => renderLoadingCard(o, summaryMap[o.id])).join('') :
         '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">暂无待装车订单</div></div>'}
     </div>
   `;
+
+  document.querySelectorAll('[data-loading-filter]').forEach(btn => {
+    btn.onclick = async () => {
+      document.querySelectorAll('[data-loading-filter]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filter = btn.dataset.loadingFilter;
+      let filtered = list;
+      if (filter === 'diff') filtered = list.filter(o => summaryMap[o.id]?.hasAuditDiff);
+      if (filter === 'exception') filtered = list.filter(o => summaryMap[o.id]?.hasOpenException);
+      document.getElementById('loadingOrderList').innerHTML = filtered.length ?
+        filtered.map(o => renderLoadingCard(o, summaryMap[o.id])).join('') :
+        '<div class="empty-state"><div class="empty-state-icon">📭</div><div class="empty-state-text">该筛选条件下无订单</div></div>';
+    };
+  });
 }
 
-function renderLoadingCard(order) {
+function renderLoadingCard(order, summary) {
   const changed = hasOrderChanged(order);
   const la = order.loadingArrange || {};
   const audit = order.pickingAudit;
+  const hasException = summary?.hasOpenException || false;
 
   return `
-    <div class="order-card ${changed ? 'changed' : ''}" id="loading-card-${order.id}">
-      <div class="order-card-header ${changed ? 'changed' : ''}">
+    <div class="order-card ${changed ? 'changed' : ''} ${hasException ? 'exception-card' : ''}" id="loading-card-${order.id}" data-order-id="${order.id}">
+      <div class="order-card-header ${changed ? 'changed' : ''} ${hasException ? 'changed' : ''}">
         <div>
           <span class="order-id">${order.id}</span>
           <span class="order-customer">${order.customer}</span>
           ${changed ? '<span class="change-badge">🔔 复核数据已更新</span>' : ''}
+          ${hasException ? '<span class="change-badge" style="background:#dc2626">⚠️ 有未处理异常</span>' : ''}
         </div>
         <div>
           ${statusTag(order.status)}
@@ -624,6 +667,16 @@ function renderLoadingCard(order) {
         </div>
       </div>
       <div class="order-card-body">
+        ${summary?.hasAuditDiff || summary?.exceptionCount ? `
+          <div style="margin-bottom:12px;padding:10px;border-radius:6px;background:${summary?.hasOpenException ? '#fef2f2' : '#fffbeb'};border:1px solid ${summary?.hasOpenException ? '#fecaca' : '#fde68a'}">
+            <div style="font-size:12px;font-weight:600;color:${summary?.hasOpenException ? '#991b1b' : '#92400e'};margin-bottom:4px">
+              ${summary?.hasOpenException ? '⚠️ 变更追踪 - 有未处理异常' : '🔔 变更追踪 - 复核数据有更新'}
+            </div>
+            ${summary?.diffSummary ? `<div style="font-size:12px;color:#374151">📦 复核差异：${summary.diffSummary}</div>` : ''}
+            ${summary?.exceptionSummary ? `<div style="font-size:12px;color:#374151;margin-top:2px">⚠️ 异常：${summary.exceptionSummary}</div>` : ''}
+            ${summary?.hasUnreadNotice ? `<div style="font-size:12px;color:#dc2626;margin-top:2px">🔔 有 ${summary.roleUnreadNoticeCount} 条未读通知</div>` : ''}
+          </div>
+        ` : ''}
         <div class="detail-grid">
           <div>
             <div class="detail-label">送货地址</div>
@@ -680,6 +733,7 @@ function renderLoadingCard(order) {
       <div class="order-card-footer">
         <div style="font-size:12px;color:#6b7280">
           ${la.arrangeTime ? `调度时间：${la.arrangeTime}` : '未安排'}
+          ${summary?.lastAuditTime ? ` · 最后复核：${summary.lastAuditTime}` : ''}
         </div>
         <div class="btn-group">
           ${order.status === '待装车安排' && currentRole === 'warehouse_supervisor' ?
@@ -692,6 +746,8 @@ function renderLoadingCard(order) {
             `<button class="btn btn-success btn-sm" onclick="confirmDelivered('${order.id}')">确认送达签收</button>` : ''}
           ${currentRole === 'warehouse_supervisor' && order.status !== '配送中' ?
             `<button class="btn btn-secondary btn-sm" onclick="openArrangeModal('${order.id}')">修改安排</button>` : ''}
+          ${summary?.hasOpenException || summary?.hasAuditDiff ?
+            `<button class="btn btn-warning btn-sm" onclick="openExceptionDrawer('${order.id}')">异常处理</button>` : ''}
         </div>
       </div>
     </div>
@@ -817,9 +873,12 @@ async function submitDelivered(orderId) {
 
 async function loadExceptionsView() {
   const exceptions = await api('/exceptions');
+  const orders = await api('/orders');
+  const orderMap = {};
+  orders.forEach(o => orderMap[o.id] = o);
 
   document.getElementById('view-exceptions').innerHTML = `
-    <div class="section-title">⚠️ 异常处理中心</div>
+    <div class="section-title">⚠️ 异常处理中心 <span style="font-size:12px;font-weight:400;color:#6b7280;margin-left:8px">跨角色变更追踪</span></div>
     <div class="filter-bar">
       <label>状态：</label>
       <select id="exceptionFilter">
@@ -828,25 +887,43 @@ async function loadExceptionsView() {
         <option value="已处理">已处理</option>
         <option value="已升级">已升级</option>
       </select>
+      <label style="margin-left:12px">关联订单：</label>
+      <select id="exceptionOrderFilter">
+        <option value="">全部</option>
+        <option value="loading">仅装车阶段订单</option>
+        <option value="hasDiff">有复核差异订单</option>
+      </select>
       <button class="btn btn-danger btn-sm" onclick="triggerDemoException()">🎯 触发异常演示</button>
     </div>
     <div id="exceptionListContent">
-      ${renderExceptionList(exceptions)}
+      ${renderExceptionList(exceptions, orderMap)}
     </div>
   `;
 
   document.getElementById('exceptionFilter').onchange = async (e) => {
     const status = e.target.value;
-    const list = status ? exceptions.filter(ex => ex.status === status) : exceptions;
-    document.getElementById('exceptionListContent').innerHTML = renderExceptionList(list);
+    const orderFilter = document.getElementById('exceptionOrderFilter').value;
+    let list = exceptions;
+    if (status) list = list.filter(ex => ex.status === status);
+    if (orderFilter === 'loading') list = list.filter(ex => orderMap[ex.orderId] && ['待装车安排', '装车中', '配送中'].includes(orderMap[ex.orderId].status));
+    if (orderFilter === 'hasDiff') list = list.filter(ex => orderMap[ex.orderId]?.pickingAudit?.actualItems?.some(i => i.diff !== 0));
+    document.getElementById('exceptionListContent').innerHTML = renderExceptionList(list, orderMap);
+  };
+
+  document.getElementById('exceptionOrderFilter').onchange = async (e) => {
+    document.getElementById('exceptionFilter').onchange();
   };
 }
 
-function renderExceptionList(list) {
+function renderExceptionList(list, orderMap) {
   if (!list.length) {
     return '<div class="empty-state"><div class="empty-state-icon">✅</div><div class="empty-state-text">暂无异常记录</div></div>';
   }
-  return list.map(e => `
+  return list.map(e => {
+    const order = orderMap ? orderMap[e.orderId] : null;
+    const isInLoading = order && ['待装车安排', '装车中', '配送中'].includes(order.status);
+    const hasDiff = order?.pickingAudit?.actualItems?.some(i => i.diff !== 0);
+    return `
     <div class="exception-item ${e.status === '已处理' ? 'handled' : ''}">
       <div class="exception-header">
         <span class="exception-type">
@@ -855,21 +932,26 @@ function renderExceptionList(list) {
         <span class="exception-status ${e.status === '待处理' ? 'pending' : 'handled'}">${e.status}</span>
       </div>
       <div class="exception-meta">
-        订单 <strong>${e.orderId}</strong> |
+        订单 <strong>${e.orderId}</strong> ${order ? `(${order.customer})` : ''} |
         计划 ${e.plannedQty} | 实际 ${e.actualQty} |
         差异 <strong class="diff-negative">${e.diff > 0 ? '+' : ''}${e.diff}</strong> |
         上报人：${e.reporter} | ${e.reportTime}
+        ${hasDiff ? '<span style="margin-left:8px;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:10px;font-size:11px">有复核差异</span>' : ''}
+        ${isInLoading ? '<span style="margin-left:8px;padding:2px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px">装车阶段</span>' : ''}
       </div>
       ${e.handleRemark ? `<div class="exception-remark">处理结果：${e.handleRemark} (${e.handler} @ ${e.handleTime})</div>` : ''}
-      <div style="display:flex;gap:8px;margin-top:10px">
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
         <button class="btn btn-secondary btn-sm" onclick="openOrderDetail('${e.orderId}')">查看订单</button>
+        ${isInLoading ? `
+          <button class="btn btn-primary btn-sm" onclick="goToLoadingCard('${e.orderId}')">🚚 跳转装车卡片</button>
+        ` : ''}
         ${e.status === '待处理' ? `
           <button class="btn btn-warning btn-sm" onclick="escalateException('${e.id}')">升级处理</button>
           <button class="btn btn-primary btn-sm" onclick="handleException('${e.id}')">处理异常</button>
         ` : ''}
       </div>
     </div>
-  `).join('');
+  `}).join('');
 }
 
 async function escalateException(id) {
@@ -1045,10 +1127,53 @@ async function loadLocations() {
 async function openOrderDetail(orderId) {
   const order = await api(`/orders/${orderId}`);
   const exceptions = await api(`/exceptions?orderId=${orderId}`);
+  const summaryList = await api('/orders-change-summary');
+  const summary = summaryList.find(s => s.orderId === orderId);
 
   document.getElementById('orderDetailTitle').textContent = `订单详情 - ${order.id}`;
 
-  document.getElementById('orderDetailBody').innerHTML = `
+  let summaryHtml = '';
+  if (summary && (summary.hasAuditDiff || summary.exceptionCount > 0)) {
+    const bgColor = summary.hasOpenException ? '#fef2f2' : '#fffbeb';
+    const borderColor = summary.hasOpenException ? '#fecaca' : '#fde68a';
+    const titleColor = summary.hasOpenException ? '#991b1b' : '#92400e';
+    summaryHtml = `
+      <div style="margin-bottom:18px;padding:14px;border-radius:8px;background:${bgColor};border:1px solid ${borderColor}">
+        <div style="font-size:14px;font-weight:600;color:${titleColor};margin-bottom:8px">
+          ⚡ 跨角色变更追踪汇总
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+          <div>
+            <span style="color:#6b7280">最近复核差异：</span>
+            ${summary.diffSummary ? `<strong style="color:#1f2937">${summary.diffSummary}</strong>` : '<span style="color:#9ca3af">无差异</span>'}
+          </div>
+          <div>
+            <span style="color:#6b7280">复核时间：</span>
+            ${summary.lastAuditTime ? `<strong style="color:#1f2937">${summary.lastAuditTime}</strong>` : '<span style="color:#9ca3af">未复核</span>'}
+          </div>
+          <div>
+            <span style="color:#6b7280">异常处理结论：</span>
+            ${summary.exceptionSummary ? `<strong style="color:#1f2937">${summary.exceptionSummary}</strong>` : '<span style="color:#9ca3af">无异常</span>'}
+          </div>
+          <div>
+            <span style="color:#6b7280">通知状态：</span>
+            ${summary.roleUnreadNoticeCount > 0 ?
+              `<strong style="color:#dc2626">🔔 ${summary.roleUnreadNoticeCount} 条未读通知</strong>` :
+              '<span style="color:#059669">✅ 全部已读</span>'}
+          </div>
+        </div>
+        ${summary.hasOpenException || summary.hasAuditDiff ? `
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${borderColor};display:flex;gap:8px">
+            <button class="btn btn-warning btn-sm" onclick="closeAllDrawers(); openExceptionDrawer('${orderId}')">查看异常</button>
+            ${['待装车安排', '装车中', '配送中'].includes(order.status) ?
+              `<button class="btn btn-primary btn-sm" onclick="closeAllDrawers(); goToLoadingCard('${orderId}')">跳转到装车卡片</button>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  document.getElementById('orderDetailBody').innerHTML = summaryHtml + `
     <div class="detail-grid">
       <div>
         <div class="detail-label">客户</div>

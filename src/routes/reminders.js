@@ -380,4 +380,53 @@ router.get('/dashboard', (req, res) => {
   });
 });
 
+router.get('/orders-change-summary', (req, res) => {
+  const result = state.orders.map(order => {
+    const audit = order.pickingAudit;
+    const hasAuditDiff = audit && audit.actualItems && audit.actualItems.some(i => i.diff !== 0);
+    const auditDiffItems = audit && audit.actualItems ? audit.actualItems.filter(i => i.diff !== 0) : [];
+    const orderExceptions = state.exceptions.filter(e => e.orderId === order.id);
+    const openExceptions = orderExceptions.filter(e => e.status === '待处理');
+    const latestException = orderExceptions.length ? orderExceptions[orderExceptions.length - 1] : null;
+    const unreadNotices = state.notices.filter(n => n.orderId === order.id && !n.read);
+    const roleUnreadNotices = unreadNotices.filter(n => n.role === state.currentRole);
+
+    let diffSummary = null;
+    if (auditDiffItems.length) {
+      diffSummary = auditDiffItems.map(i =>
+        `${i.material} ${i.plannedQty}${i.unit} → ${i.actualQty}${i.unit} (${i.diff > 0 ? '+' : ''}${i.diff})`
+      ).join('；');
+    }
+
+    let exceptionSummary = null;
+    if (latestException) {
+      exceptionSummary = `${latestException.type}：${latestException.material} 差异${latestException.diff > 0 ? '+' : ''}${latestException.diff}${latestException.material.includes('管') || latestException.material.includes('钢筋') ? '米/根' : latestException.material.includes('砖') ? '块' : '袋'}（${latestException.status}）`;
+      if (latestException.handleRemark) {
+        exceptionSummary += ` - 处理：${latestException.handleRemark}`;
+      }
+    }
+
+    return {
+      orderId: order.id,
+      status: order.status,
+      customer: order.customer,
+      hasAuditDiff,
+      diffSummary,
+      auditDiffCount: auditDiffItems.length,
+      exceptionCount: orderExceptions.length,
+      openExceptionCount: openExceptions.length,
+      latestException,
+      exceptionSummary,
+      hasOpenException: openExceptions.length > 0,
+      unreadNoticeCount: unreadNotices.length,
+      roleUnreadNoticeCount: roleUnreadNotices.length,
+      hasUnreadNotice: roleUnreadNotices.length > 0,
+      lastAuditTime: audit?.auditTime || null,
+      lastExceptionTime: latestException?.reportTime || null
+    };
+  });
+
+  res.json(result);
+});
+
 module.exports = router;
