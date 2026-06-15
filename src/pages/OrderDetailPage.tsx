@@ -98,43 +98,31 @@ export default function OrderDetailPage() {
   };
 
   const getStatusActions = () => {
-    const actions: { label: string; status: OrderStatus; color: string }[] = [];
-    
-    switch (currentOrder.status) {
-      case 'reserved':
-        actions.push({ label: '派车', status: 'transporting', color: 'bg-blue-600' });
-        break;
-      case 'transporting':
-        actions.push({ label: '到达现场', status: 'serving', color: 'bg-green-600' });
-        break;
-      case 'serving':
-        actions.push({ label: '提交加项', status: 'pending', color: 'bg-orange-600' });
-        actions.push({ label: '完成服务', status: 'settling', color: 'bg-purple-600' });
-        break;
-      case 'pending':
-        actions.push({ label: '审核通过', status: 'settling', color: 'bg-green-600' });
-        actions.push({ label: '退回修改', status: 'serving', color: 'bg-red-600' });
-        break;
-      case 'settling':
-        actions.push({ label: '客户确认', status: 'completed', color: 'bg-blue-600' });
-        actions.push({ label: '客户拒付', status: 'dispute', color: 'bg-red-600' });
-        break;
-      default:
-        break;
-    }
-    
-    return actions;
+    return [];
   };
 
   const canAssignVehicle = user?.role === 'dispatcher' && currentOrder.status === 'reserved';
-  const canAddAddon = user?.role === 'teamLead' && ['serving', 'pending'].includes(currentOrder.status);
+  const canArriveSite = user?.role === 'teamLead' && currentOrder.status === 'transporting';
+  const canAddAddon = user?.role === 'teamLead' && currentOrder.status === 'serving';
+  const canCompleteService = user?.role === 'teamLead' && currentOrder.status === 'serving';
   const canAddDamage = user?.role === 'teamLead' && ['serving', 'pending', 'settling'].includes(currentOrder.status);
   const canConfirmExpense = user?.role === 'customerService' && currentOrder.status === 'pending';
+  const canCustomerConfirm = user?.role === 'customerService' && currentOrder.status === 'settling';
+
+  const handleArriveSite = async () => {
+    await updateOrderStatus(id!, 'serving');
+  };
+
+  const handleCompleteService = async () => {
+    await addLog(id!, '完成服务', user?.name || '系统', '服务已完成，等待费用结算');
+    await updateOrderStatus(id!, 'settling');
+  };
 
   const handleAddonSubmit = async () => {
     if (!addonForm.type) return;
     const price = addonForm.type === '其他' ? addonForm.unitPrice : addonTypes.find(a => a.type === addonForm.type)?.price || 0;
     await addAddon(id!, { type: addonForm.type, quantity: addonForm.quantity, unitPrice: price, description: addonForm.description, operatorId: user?.id || '' });
+    await updateOrderStatus(id!, 'pending');
     setShowAddonModal(false);
     setAddonForm({ type: '', quantity: 1, unitPrice: 0, description: '' });
   };
@@ -196,15 +184,24 @@ export default function OrderDetailPage() {
       </div>
 
       <div className="flex items-center gap-4 mb-6">
-        {getStatusActions().map((action) => (
+        {canArriveSite && (
           <button
-            key={action.status}
-            onClick={() => updateOrderStatus(id!, action.status)}
-            className={`${action.color} hover:opacity-90 text-white px-4 py-2 rounded-lg font-medium transition-colors`}
+            onClick={handleArriveSite}
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
           >
-            {action.label}
+            <CheckCircle className="w-4 h-4" />
+            <span>到达现场</span>
           </button>
-        ))}
+        )}
+        {canCompleteService && (
+          <button
+            onClick={handleCompleteService}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+          >
+            <CheckCircle className="w-4 h-4" />
+            <span>完成服务</span>
+          </button>
+        )}
         {canAssignVehicle && (
           <button
             onClick={() => setShowAssignModal(true)}
@@ -232,6 +229,24 @@ export default function OrderDetailPage() {
             <span>申报物损</span>
           </button>
         )}
+        {canCustomerConfirm && (
+          <>
+            <button
+              onClick={() => confirmExpenses(id!)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ThumbsUp className="w-4 h-4" />
+              <span>客户确认</span>
+            </button>
+            <button
+              onClick={() => setShowRejectModal(true)}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ThumbsDown className="w-4 h-4" />
+              <span>客户拒付</span>
+            </button>
+          </>
+        )}
         {canConfirmExpense && (
           <>
             <button
@@ -239,14 +254,14 @@ export default function OrderDetailPage() {
               className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               <ThumbsUp className="w-4 h-4" />
-              <span>费用确认</span>
+              <span>审核通过</span>
             </button>
             <button
               onClick={() => setShowRejectModal(true)}
               className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
             >
               <ThumbsDown className="w-4 h-4" />
-              <span>退回费用</span>
+              <span>退回修改</span>
             </button>
           </>
         )}

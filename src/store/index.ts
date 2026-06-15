@@ -4,7 +4,7 @@ import localforage from 'localforage';
 
 interface PendingAction {
   id: string;
-  type: 'create_order' | 'update_status' | 'assign_vehicle' | 'add_addon' | 'add_damage' | 'update_expenses' | 'confirm_expenses' | 'report_exception' | 'resolve_exception';
+  type: 'create_order' | 'update_status' | 'assign_vehicle' | 'add_addon' | 'add_damage' | 'update_expenses' | 'confirm_expenses' | 'reject_expenses' | 'report_exception' | 'resolve_exception';
   data: unknown;
   timestamp: string;
   orderId?: string;
@@ -278,19 +278,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (response.ok) {
         const savedAddon = await response.json();
         set((state) => ({ addons: [savedAddon, ...state.addons.map((a) => (a.id === addon.id ? savedAddon : a))] }));
-        get().addLog(orderId, '添加加项', get().user?.name || '系统', `加项: ${savedAddon.type}`);
-        get().recalculateExpenses(orderId);
+        await get().addLog(orderId, '现场加项', get().user?.name || '系统', `加项: ${savedAddon.type} x${savedAddon.quantity}，单价: ¥${savedAddon.unitPrice.toFixed(2)}，小计: ¥${(savedAddon.unitPrice * savedAddon.quantity).toFixed(2)}`);
+        await get().recalculateExpenses(orderId);
       }
     } catch {
       set((state) => ({ addons: [addon, ...state.addons] }));
       await localforage.setItem(`addons_${orderId}`, get().addons);
+      await get().addLog(orderId, '现场加项', get().user?.name || '系统', `加项: ${addon.type} x${addon.quantity}，单价: ¥${addon.unitPrice.toFixed(2)}，小计: ¥${(addon.unitPrice * addon.quantity).toFixed(2)}（待同步）`);
+      await get().recalculateExpenses(orderId);
       get().addPendingAction({
         type: 'add_addon',
         data: addon,
         orderId,
       });
       get().addNotification('加项已保存，将在联网后同步');
-      get().recalculateExpenses(orderId);
     }
   },
 
@@ -311,20 +312,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (response.ok) {
         const savedDamage = await response.json();
         set((state) => ({ damages: [savedDamage, ...state.damages.map((d) => (d.id === damage.id ? savedDamage : d))] }));
-        get().addLog(orderId, '申报物损', get().user?.name || '系统', `物损: ${savedDamage.description}`);
-        get().reportException({ orderId, type: 'damage', message: savedDamage.description, severity: 'error' });
-        get().recalculateExpenses(orderId);
+        await get().addLog(orderId, '申报物损', get().user?.name || '系统', `物品: ${savedDamage.description}，价值: ¥${savedDamage.value.toFixed(2)}，责任认定: ${savedDamage.responsibility}`);
+        await get().reportException({ orderId, type: 'damage', message: `物品破损: ${savedDamage.description}，金额: ¥${savedDamage.value.toFixed(2)}`, severity: 'error' });
+        await get().recalculateExpenses(orderId);
       }
     } catch {
       set((state) => ({ damages: [damage, ...state.damages] }));
       await localforage.setItem(`damages_${orderId}`, get().damages);
+      await get().addLog(orderId, '申报物损', get().user?.name || '系统', `物品: ${damage.description}，价值: ¥${damage.value.toFixed(2)}，责任认定: ${damage.responsibility}（待同步）`);
+      await get().reportException({ orderId, type: 'damage', message: `物品破损: ${damage.description}，金额: ¥${damage.value.toFixed(2)}`, severity: 'error' });
+      await get().recalculateExpenses(orderId);
       get().addPendingAction({
         type: 'add_damage',
         data: damage,
         orderId,
       });
       get().addNotification('物损已保存，将在联网后同步');
-      get().recalculateExpenses(orderId);
     }
   },
 
@@ -370,58 +373,72 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async confirmExpenses(orderId) {
+    const expenseData = {
+      status: 'confirmed' as const,
+      confirmedAt: new Date().toISOString(),
+    };
+    
     try {
       await fetch(`${API_BASE}/orders/${orderId}/expenses/confirm`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
       });
-      set((state) => ({
-        expenses: state.expenses ? { ...state.expenses, status: 'confirmed', confirmedAt: new Date().toISOString() } : null,
-      }));
-      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      const { expenses } = get();
+      const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
       await get().updateOrderStatus(orderId, 'completed');
-      get().addLog(orderId, '费用确认', get().user?.name || '系统', '费用已确认');
-      get().addNotification('费用已确认');
+      await get().addLog(orderId, '费用审核通过', get().user?.name || '系统', `审核结果：通过，最终金额 ¥${newExpenses?.totalFee?.toFixed(2)}`);
+      get().addNotification('费用审核通过');
     } catch {
-      set((state) => ({
-        expenses: state.expenses ? { ...state.expenses, status: 'confirmed', confirmedAt: new Date().toISOString() } : null,
-      }));
-      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      const { expenses } = get();
+      const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
+      await localforage.setItem(`pending_expense_confirm_${orderId}`, { orderId, ...expenseData });
+      await get().addLog(orderId, '费用审核通过', get().user?.name || '系统', `审核结果：通过，最终金额 ¥${newExpenses?.totalFee?.toFixed(2)}（待同步）`);
       get().addPendingAction({
         type: 'confirm_expenses',
-        data: { orderId },
+        data: { orderId, expenseData },
         orderId,
       });
-      get().addLog(orderId, '费用确认', get().user?.name || '系统', '费用已确认（待同步）');
-      get().addNotification('费用已确认，将在联网后同步');
+      get().addNotification('费用审核通过，将在联网后同步');
     }
   },
 
   async rejectExpenses(orderId, reason) {
+    const expenseData = {
+      status: 'rejected' as const,
+      rejectReason: reason,
+    };
+    
     try {
       await fetch(`${API_BASE}/orders/${orderId}/expenses/reject`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason }),
       });
-      set((state) => ({
-        expenses: state.expenses ? { ...state.expenses, status: 'rejected' } : null,
-      }));
-      await localforage.setItem(`expenses_${orderId}`, get().expenses);
-      get().addLog(orderId, '费用退回', get().user?.name || '系统', `原因: ${reason}`);
-      get().reportException({ orderId, type: 'fee_dispute', message: `费用审核未通过: ${reason}`, severity: 'warning' });
+      const { expenses } = get();
+      const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
+      await get().updateOrderStatus(orderId, 'serving');
+      await get().addLog(orderId, '费用审核退回', get().user?.name || '系统', `退回原因: ${reason}`);
+      await get().reportException({ orderId, type: 'fee_dispute', message: `费用审核未通过: ${reason}`, severity: 'warning' });
       get().addNotification('费用已退回');
     } catch {
-      set((state) => ({
-        expenses: state.expenses ? { ...state.expenses, status: 'rejected' } : null,
-      }));
-      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      const { expenses } = get();
+      const newExpenses = expenses ? { ...expenses, ...expenseData } : null;
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
+      await localforage.setItem(`pending_expense_reject_${orderId}`, { orderId, reason, ...expenseData });
+      await get().addLog(orderId, '费用审核退回', get().user?.name || '系统', `退回原因: ${reason}（待同步）`);
+      await get().reportException({ orderId, type: 'fee_dispute', message: `费用审核未通过: ${reason}`, severity: 'warning' });
       get().addPendingAction({
-        type: 'update_expenses',
-        data: { orderId, expenseData: { status: 'rejected' } },
+        type: 'reject_expenses',
+        data: { orderId, reason, expenseData },
         orderId,
       });
-      get().addLog(orderId, '费用退回', get().user?.name || '系统', `原因: ${reason}（待同步）`);
       get().addNotification('费用已退回，将在联网后同步');
     }
   },
@@ -465,6 +482,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       resolved: false,
     };
     
+    const exceptionTypeLabels: Record<string, string> = {
+      late: '车辆迟到',
+      damage: '物品破损',
+      dispute: '费用争议',
+      unconfirmed: '费用未确认',
+      fee_dispute: '费用退回',
+    };
+    
+    const severityLabels: Record<string, string> = {
+      warning: '警告',
+      error: '错误',
+      critical: '紧急',
+    };
+    
     try {
       await fetch(`${API_BASE}/exceptions`, {
         method: 'POST',
@@ -472,10 +503,12 @@ export const useAppStore = create<AppState>((set, get) => ({
         body: JSON.stringify(exceptionData),
       });
       set((state) => ({ exceptions: [exception, ...state.exceptions] }));
+      await get().addLog(exceptionData.orderId, '异常上报', get().user?.name || '系统', `类型: ${exceptionTypeLabels[exceptionData.type] || exceptionData.type}，严重程度: ${severityLabels[exceptionData.severity] || exceptionData.severity}，描述: ${exceptionData.message}`);
       get().addNotification(`异常已上报: ${exception.message}`);
     } catch {
       set((state) => ({ exceptions: [exception, ...state.exceptions] }));
       await localforage.setItem('exceptions', get().exceptions);
+      await get().addLog(exceptionData.orderId, '异常上报', get().user?.name || '系统', `类型: ${exceptionTypeLabels[exceptionData.type] || exceptionData.type}，严重程度: ${severityLabels[exceptionData.severity] || exceptionData.severity}，描述: ${exceptionData.message}（待同步）`);
       get().addPendingAction({
         type: 'report_exception',
         data: exceptionData,
@@ -606,10 +639,20 @@ export const useAppStore = create<AppState>((set, get) => ({
             break;
           }
           case 'confirm_expenses': {
-            const { orderId } = action.data as { orderId: string };
+            const { orderId, expenseData } = action.data as { orderId: string; expenseData?: { status: string; confirmedAt: string } };
             await fetch(`${API_BASE}/orders/${orderId}/expenses/confirm`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(expenseData || {}),
+            });
+            break;
+          }
+          case 'reject_expenses': {
+            const { orderId, reason } = action.data as { orderId: string; reason: string };
+            await fetch(`${API_BASE}/orders/${orderId}/expenses/reject`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ reason }),
             });
             break;
           }
