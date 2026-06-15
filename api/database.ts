@@ -65,12 +65,44 @@ interface SparePartData {
   updated_at: string
 }
 
+interface SparePartUsageData {
+  id: string
+  order_id: string
+  spare_part_id: string
+  spare_part_name: string
+  spare_part_sku: string
+  quantity: number
+  used_by: string
+  used_by_name: string
+  used_at: string
+}
+
 let orders: OrderData[] = []
 let inspections: InspectionData[] = []
 let warranties: WarrantyData[] = []
 let notes: NoteData[] = []
 let inspectionPhotos: InspectionPhotoData[] = []
 let spareParts: SparePartData[] = []
+let sparePartUsages: SparePartUsageData[] = []
+
+const STATUS_FLOW = {
+  pending: ['inspection_pending'],
+  inspection_pending: ['warranty_pending'],
+  warranty_pending: ['repairing'],
+  repairing: ['completed'],
+  completed: []
+}
+
+export const validateStatusTransition = (currentStatus: string, newStatus: string): { valid: boolean; message?: string } => {
+  const allowed = STATUS_FLOW[currentStatus as keyof typeof STATUS_FLOW]
+  if (!allowed) {
+    return { valid: false, message: '无效的当前状态' }
+  }
+  if (!allowed.includes(newStatus)) {
+    return { valid: false, message: `状态流转错误：${currentStatus} 不能直接转换为 ${newStatus}，允许的流转：${allowed.join(', ')}` }
+  }
+  return { valid: true }
+}
 
 export const db = {
   prepare: (query: string) => ({
@@ -139,6 +171,13 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
     return returnAll ? result : result[0]
   }
   
+  if (query.startsWith('SELECT * FROM spare_part_usages')) {
+    const orderId = params[0]
+    let result = sparePartUsages.filter(u => u.order_id === orderId)
+    result.sort((a, b) => new Date(b.used_at).getTime() - new Date(a.used_at).getTime())
+    return returnAll ? result : result[0]
+  }
+  
   if (query.startsWith('INSERT INTO orders')) {
     orders.push({
       id: params[0],
@@ -154,10 +193,16 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
     })
   }
   
-  if (query.startsWith('UPDATE orders')) {
-    const index = orders.findIndex(o => o.id === params[2])
-    if (index !== -1) {
-      orders[index] = { ...orders[index], status: params[0], updated_at: params[1] }
+  if (query.startsWith('UPDATE orders SET status')) {
+    const order = orders.find(o => o.id === params[2])
+    if (order) {
+      const validation = validateStatusTransition(order.status, params[0])
+      if (!validation.valid) {
+        throw new Error(validation.message)
+      }
+      orders = orders.map(o => 
+        o.id === params[2] ? { ...o, status: params[0], updated_at: params[1] } : o
+      )
     }
   }
   
@@ -168,6 +213,7 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
     inspections = inspections.filter(i => i.order_id !== orderId)
     warranties = warranties.filter(w => w.order_id !== orderId)
     inspectionPhotos = inspectionPhotos.filter(p => p.order_id !== orderId)
+    sparePartUsages = sparePartUsages.filter(u => u.order_id !== orderId)
   }
   
   if (query.startsWith('INSERT INTO inspections')) {
@@ -251,15 +297,7 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
   }
   
   if (query.startsWith('INSERT INTO notes')) {
-    notes.push({
-      id: params[0],
-      order_id: params[1],
-      user_id: params[2],
-      user_name: params[3],
-      content: params[4],
-      created_at: params[5]
-    })
-    return {
+    const newNote = {
       id: params[0],
       order_id: params[1],
       user_id: params[2],
@@ -267,19 +305,12 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
       content: params[4],
       created_at: params[5]
     }
+    notes.push(newNote)
+    return newNote
   }
   
   if (query.startsWith('INSERT INTO spare_parts')) {
-    spareParts.push({
-      id: params[0],
-      name: params[1],
-      sku: params[2],
-      quantity: params[3],
-      location: params[4] || null,
-      created_at: params[5],
-      updated_at: params[6]
-    })
-    return {
+    const newPart = {
       id: params[0],
       name: params[1],
       sku: params[2],
@@ -288,6 +319,8 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
       created_at: params[5],
       updated_at: params[6]
     }
+    spareParts.push(newPart)
+    return newPart
   }
   
   if (query.startsWith('UPDATE spare_parts')) {
@@ -306,9 +339,62 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
   
   if (query.startsWith('DELETE FROM spare_parts')) {
     spareParts = spareParts.filter(s => s.id !== params[0])
+    sparePartUsages = sparePartUsages.filter(u => u.spare_part_id !== params[0])
+  }
+  
+  if (query.startsWith('INSERT INTO spare_part_usages')) {
+    const part = spareParts.find(p => p.id === params[2])
+    if (!part) {
+      throw new Error('备件不存在')
+    }
+    if (part.quantity < params[4]) {
+      throw new Error(`库存不足：${part.name} 当前库存 ${part.quantity}，需要 ${params[4]}`)
+    }
+    
+    spareParts = spareParts.map(p => 
+      p.id === params[2] ? { ...p, quantity: p.quantity - params[4] } : p
+    )
+    
+    const usage = {
+      id: params[0],
+      order_id: params[1],
+      spare_part_id: params[2],
+      spare_part_name: part.name,
+      spare_part_sku: part.sku,
+      quantity: params[4],
+      used_by: params[5],
+      used_by_name: params[6],
+      used_at: params[7]
+    }
+    sparePartUsages.push(usage)
+    return usage
+  }
+  
+  if (query.startsWith('INSERT INTO inspection_photos')) {
+    const photo = {
+      id: params[0],
+      order_id: params[1],
+      file_path: params[2],
+      description: params[3] || null,
+      created_at: params[4]
+    }
+    inspectionPhotos.push(photo)
+    return photo
+  }
+  
+  if (query.startsWith('DELETE FROM inspection_photos')) {
+    inspectionPhotos = inspectionPhotos.filter(p => p.order_id === params[0])
   }
   
   return null
+}
+
+export const getOrderById = (id: string): OrderData | undefined => {
+  return orders.find(o => o.id === id)
+}
+
+export const getSparePartById = (id: string): SparePartData | undefined => {
+  return spareParts.find(p => p.id === id)
 }
 
 export const initDatabase = () => {
@@ -323,6 +409,7 @@ export const insertSampleData = (): Promise<void> => {
     notes = []
     inspectionPhotos = []
     spareParts = []
+    sparePartUsages = []
 
     orders = [
       { id: 'ORD-001', customer_name: '张三', phone: '13800138001', device_model: 'iPhone 15 Pro', serial_number: 'F19P2X3Q4R5S', issue_description: '屏幕出现竖线，触控不灵敏', status: 'completed', created_by: '前台-王芳', created_at: '2026-01-10 09:30:00', updated_at: '2026-01-12 16:00:00' },
@@ -339,20 +426,28 @@ export const insertSampleData = (): Promise<void> => {
     ]
 
     warranties = [
-      { id: 'WAR-001', order_id: 'ORD-001', manager_id: 'mgr-001', manager_name: '店长-张伟', warranty_type: '厂家保修', warranty_period: 90, responsibility: '厂家负责', approved: 1, approved_at: '2026-01-10 11:00:00', created_at: '2026-01-10 10:45:00' }
+      { id: 'WAR-001', order_id: 'ORD-001', manager_id: 'mgr-001', manager_name: '店长-张伟', warranty_type: '厂家保修', warranty_period: 90, responsibility: '厂家负责', approved: 1, approved_at: '2026-01-10 11:00:00', created_at: '2026-01-10 10:45:00' },
+      { id: 'WAR-002', order_id: 'ORD-004', manager_id: 'mgr-001', manager_name: '店长-张伟', warranty_type: '店铺保修', warranty_period: 30, responsibility: '店铺负责', approved: 1, approved_at: '2026-01-14 13:30:00', created_at: '2026-01-14 13:20:00' }
     ]
 
     notes = [
       { id: 'NT-001', order_id: 'ORD-001', user_id: 'front-001', user_name: '前台-王芳', content: '客户描述屏幕在使用中突然出现竖线', created_at: '2026-01-10 09:35:00' },
-      { id: 'NT-002', order_id: 'ORD-001', user_id: 'tech-001', user_name: '维修师-刘强', content: '初步检测为触控IC问题，已提交质检报告', created_at: '2026-01-10 10:30:00' },
-      { id: 'NT-003', order_id: 'ORD-001', user_id: 'mgr-001', user_name: '店长-张伟', content: '已确认厂家保修，安排更换屏幕', created_at: '2026-01-10 11:00:00' },
-      { id: 'NT-004', order_id: 'ORD-001', user_id: 'tech-001', user_name: '维修师-刘强', content: '屏幕更换完成，测试正常', created_at: '2026-01-12 15:30:00' },
-      { id: 'NT-005', order_id: 'ORD-001', user_id: 'front-001', user_name: '前台-王芳', content: '已通知客户取机', created_at: '2026-01-12 16:00:00' },
-      { id: 'NT-006', order_id: 'ORD-002', user_id: 'front-001', user_name: '前台-王芳', content: '客户反映电池使用不到半天就没电', created_at: '2026-01-12 10:20:00' },
-      { id: 'NT-007', order_id: 'ORD-002', user_id: 'tech-002', user_name: '维修师-陈刚', content: '电池鼓包明显，建议立即更换', created_at: '2026-01-12 14:00:00' },
-      { id: 'NT-008', order_id: 'ORD-003', user_id: 'front-002', user_name: '前台-李明', content: '客户刚买的新机，摄像头有问题', created_at: '2026-01-13 08:50:00' },
-      { id: 'NT-009', order_id: 'ORD-004', user_id: 'tech-001', user_name: '维修师-刘强', content: '正在更换充电接口，预计半小时完成', created_at: '2026-01-14 14:00:00' },
-      { id: 'NT-010', order_id: 'ORD-005', user_id: 'front-001', user_name: '前台-王芳', content: '等待维修师接单', created_at: '2026-01-15 09:05:00' }
+      { id: 'NT-002', order_id: 'ORD-001', user_id: 'front-001', user_name: '前台-王芳', content: '维修师刘强已接单', created_at: '2026-01-10 09:40:00' },
+      { id: 'NT-003', order_id: 'ORD-001', user_id: 'tech-001', user_name: '维修师-刘强', content: '【系统自动】提交质检报告：外观良好，屏幕有竖线，电池正常', created_at: '2026-01-10 10:30:00' },
+      { id: 'NT-004', order_id: 'ORD-001', user_id: 'mgr-001', user_name: '店长-张伟', content: '【系统自动】确认售后保修：厂家保修，90天，厂家负责', created_at: '2026-01-10 11:00:00' },
+      { id: 'NT-005', order_id: 'ORD-001', user_id: 'tech-001', user_name: '维修师-刘强', content: '领用备件：iPhone 15 Pro 屏幕总成 x1', created_at: '2026-01-11 10:00:00' },
+      { id: 'NT-006', order_id: 'ORD-001', user_id: 'tech-001', user_name: '维修师-刘强', content: '屏幕更换完成，测试正常', created_at: '2026-01-12 15:30:00' },
+      { id: 'NT-007', order_id: 'ORD-001', user_id: 'front-001', user_name: '前台-王芳', content: '已通知客户取机', created_at: '2026-01-12 16:00:00' },
+      { id: 'NT-008', order_id: 'ORD-002', user_id: 'front-001', user_name: '前台-王芳', content: '客户反映电池使用不到半天就没电', created_at: '2026-01-12 10:20:00' },
+      { id: 'NT-009', order_id: 'ORD-002', user_id: 'front-001', user_name: '前台-王芳', content: '维修师陈刚已接单', created_at: '2026-01-12 10:30:00' },
+      { id: 'NT-010', order_id: 'ORD-002', user_id: 'tech-002', user_name: '维修师-陈刚', content: '【系统自动】提交质检报告：外观轻微划痕，屏幕正常，电池鼓包严重', created_at: '2026-01-12 14:00:00' },
+      { id: 'NT-011', order_id: 'ORD-003', user_id: 'front-002', user_name: '前台-李明', content: '客户刚买的新机，摄像头有问题', created_at: '2026-01-13 08:50:00' },
+      { id: 'NT-012', order_id: 'ORD-003', user_id: 'front-002', user_name: '前台-李明', content: '维修师刘强已接单', created_at: '2026-01-13 09:00:00' },
+      { id: 'NT-013', order_id: 'ORD-004', user_id: 'tech-001', user_name: '维修师-刘强', content: '【系统自动】提交质检报告：外观良好，屏幕正常，电池正常', created_at: '2026-01-14 13:00:00' },
+      { id: 'NT-014', order_id: 'ORD-004', user_id: 'mgr-001', user_name: '店长-张伟', content: '【系统自动】确认售后保修：店铺保修，30天，店铺负责', created_at: '2026-01-14 13:30:00' },
+      { id: 'NT-015', order_id: 'ORD-004', user_id: 'tech-001', user_name: '维修师-刘强', content: '领用备件：充电接口-通用 x1', created_at: '2026-01-14 14:00:00' },
+      { id: 'NT-016', order_id: 'ORD-004', user_id: 'tech-001', user_name: '维修师-刘强', content: '正在更换充电接口，预计半小时完成', created_at: '2026-01-14 14:15:00' },
+      { id: 'NT-017', order_id: 'ORD-005', user_id: 'front-001', user_name: '前台-王芳', content: '等待维修师接单', created_at: '2026-01-15 09:05:00' }
     ]
 
     inspectionPhotos = [
@@ -363,11 +458,16 @@ export const insertSampleData = (): Promise<void> => {
     ]
 
     spareParts = [
-      { id: 'SP-001', name: 'iPhone 15 Pro 屏幕总成', sku: 'IP15-PRO-SCREEN', quantity: 10, location: 'A区-01', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-10 15:00:00' },
+      { id: 'SP-001', name: 'iPhone 15 Pro 屏幕总成', sku: 'IP15-PRO-SCREEN', quantity: 9, location: 'A区-01', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-11 10:00:00' },
       { id: 'SP-002', name: '华为 Mate60 Pro 电池', sku: 'HW-MATE60-BATT', quantity: 8, location: 'A区-02', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-12 16:00:00' },
-      { id: 'SP-003', name: '充电接口-通用', sku: 'USB-C-PORT', quantity: 50, location: 'B区-01', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-14 14:00:00' },
+      { id: 'SP-003', name: '充电接口-通用', sku: 'USB-C-PORT', quantity: 49, location: 'B区-01', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-14 14:00:00' },
       { id: 'SP-004', name: '小米14 Ultra 摄像头模组', sku: 'MI14-ULTRA-CAM', quantity: 5, location: 'A区-03', created_at: '2026-01-05 00:00:00', updated_at: '2026-01-05 00:00:00' },
       { id: 'SP-005', name: 'vivo X100 Pro 扬声器', sku: 'VIVOX100-SPK', quantity: 12, location: 'B区-02', created_at: '2026-01-01 00:00:00', updated_at: '2026-01-01 00:00:00' }
+    ]
+
+    sparePartUsages = [
+      { id: 'SU-001', order_id: 'ORD-001', spare_part_id: 'SP-001', spare_part_name: 'iPhone 15 Pro 屏幕总成', spare_part_sku: 'IP15-PRO-SCREEN', quantity: 1, used_by: 'tech-001', used_by_name: '维修师-刘强', used_at: '2026-01-11 10:00:00' },
+      { id: 'SU-002', order_id: 'ORD-004', spare_part_id: 'SP-003', spare_part_name: '充电接口-通用', spare_part_sku: 'USB-C-PORT', quantity: 1, used_by: 'tech-001', used_by_name: '维修师-刘强', used_at: '2026-01-14 14:00:00' }
     ]
 
     console.log('Sample data inserted')

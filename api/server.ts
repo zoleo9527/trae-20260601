@@ -1,16 +1,44 @@
 import express from 'express'
 import cors from 'cors'
-import { initDatabase, insertSampleData, db } from './database.js'
+import { initDatabase, insertSampleData, db, validateStatusTransition, getOrderById, getSparePartById } from './database.js'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import fs from 'fs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const app = express()
 const PORT = 3001
 
 app.use(cors())
-app.use(express.json())
+app.use(express.json({ limit: '10mb' }))
 app.use('/uploads', express.static(join(__dirname, '../uploads')))
+
+const uploadsDir = join(__dirname, '../uploads')
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true })
+}
+
+const saveBase64Image = (base64Data: string, orderId: string, index: number): string => {
+  const matches = base64Data.match(/^data:image\/(\w+);base64,(.+)$/)
+  if (!matches) {
+    throw new Error('Invalid base64 image')
+  }
+  
+  const ext = matches[1]
+  const imageData = matches[2]
+  const filename = `${orderId}-${Date.now()}-${index}.${ext}`
+  const filePath = join(uploadsDir, filename)
+  
+  fs.writeFileSync(filePath, imageData, { encoding: 'base64' })
+  return `/uploads/${filename}`
+}
+
+const addNote = (orderId: string, userId: string, userName: string, content: string) => {
+  const noteId = `NT-${String(Date.now()).slice(-3)}`
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+  db.prepare('INSERT INTO notes (id, order_id, user_id, user_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(noteId, orderId, userId, userName, content, now)
+}
 
 app.get('/api/orders', (req, res) => {
   const { status, search } = req.query
@@ -45,12 +73,14 @@ app.get('/api/orders/:id', (req, res) => {
     const inspection = db.prepare('SELECT * FROM inspections WHERE order_id = ?').get(id)
     const warranty = db.prepare('SELECT * FROM warranties WHERE order_id = ?').get(id)
     const photos = db.prepare('SELECT * FROM inspection_photos WHERE order_id = ?').all(id)
+    const usages = db.prepare('SELECT * FROM spare_part_usages WHERE order_id = ?').all(id)
     res.json({
       ...order,
       notes,
       inspection,
       warranty,
-      photos
+      photos,
+      usages
     })
   } catch (err: any) {
     res.status(500).json({ error: err.message })
@@ -80,9 +110,28 @@ app.put('/api/orders/:id', (req, res) => {
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
 
   try {
+    const order = getOrderById(id)
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+    
+    const validation = validateStatusTransition(order.status, status)
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message })
+    }
+
     db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run(status, now, id)
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id)
-    res.json(order)
+    
+    const statusLabels: Record<string, string> = {
+      inspection_pending: '接单',
+      warranty_pending: '提交质检报告',
+      repairing: '确认售后保修',
+      completed: '完成维修'
+    }
+    addNote(id, 'system', '系统', `【系统自动】工单状态变更：${statusLabels[status] || status}`)
+    
+    const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(id)
+    res.json(updatedOrder)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -116,27 +165,48 @@ app.get('/api/orders/:id/inspection', (req, res) => {
 
 app.post('/api/orders/:id/inspection', (req, res) => {
   const { id } = req.params
-  const { technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description } = req.body
+  const { technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description, photos } = req.body
   const inspectId = `INS-${String(Date.now()).slice(-3)}`
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
 
   try {
+    const order = getOrderById(id)
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    const validation = validateStatusTransition(order.status, 'warranty_pending')
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message })
+    }
+
     const existing = db.prepare('SELECT * FROM inspections WHERE order_id = ?').get(id)
     if (existing) {
       db.prepare(
         'UPDATE inspections SET technician_id = ?, technician_name = ?, appearance_condition = ?, screen_condition = ?, battery_condition = ?, accessories = ?, description = ?, status = ?, created_at = ? WHERE order_id = ?'
       ).run(technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description, 'approved', now, id)
-      db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('warranty_pending', now, id)
-      const inspection = db.prepare('SELECT * FROM inspections WHERE order_id = ?').get(id)
-      res.json(inspection)
     } else {
       db.prepare(
         'INSERT INTO inspections (id, order_id, technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(inspectId, id, technician_id, technician_name, appearance_condition, screen_condition, battery_condition, accessories, description, 'approved', now)
-      db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('warranty_pending', now, id)
-      const inspection = db.prepare('SELECT * FROM inspections WHERE id = ?').get(inspectId)
-      res.status(201).json(inspection)
     }
+    
+    if (photos && Array.isArray(photos)) {
+      photos.forEach((photo: { base64: string; description: string }, index: number) => {
+        const filePath = saveBase64Image(photo.base64, id, index)
+        const photoId = `PH-${String(Date.now()).slice(-3)}-${index}`
+        db.prepare('INSERT INTO inspection_photos (id, order_id, file_path, description, created_at) VALUES (?, ?, ?, ?, ?)')
+          .run(photoId, id, filePath, photo.description, now)
+      })
+    }
+    
+    db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('warranty_pending', now, id)
+    
+    const autoNoteContent = `【系统自动】提交质检报告：外观${appearance_condition}，屏幕${screen_condition}，电池${battery_condition}`
+    addNote(id, technician_id, technician_name, autoNoteContent)
+    
+    const inspection = db.prepare('SELECT * FROM inspections WHERE order_id = ?').get(id)
+    res.json(inspection)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -159,22 +229,34 @@ app.post('/api/orders/:id/warranty', (req, res) => {
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
 
   try {
+    const order = getOrderById(id)
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    const validation = validateStatusTransition(order.status, 'repairing')
+    if (!validation.valid) {
+      return res.status(400).json({ error: validation.message })
+    }
+
     const existing = db.prepare('SELECT * FROM warranties WHERE order_id = ?').get(id)
     if (existing) {
       db.prepare(
         'UPDATE warranties SET manager_id = ?, manager_name = ?, warranty_type = ?, warranty_period = ?, responsibility = ?, approved = ?, approved_at = ? WHERE order_id = ?'
       ).run(manager_id, manager_name, warranty_type, warranty_period, responsibility, 1, now, id)
-      db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('repairing', now, id)
-      const warranty = db.prepare('SELECT * FROM warranties WHERE order_id = ?').get(id)
-      res.json(warranty)
     } else {
       db.prepare(
         'INSERT INTO warranties (id, order_id, manager_id, manager_name, warranty_type, warranty_period, responsibility, approved, approved_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
       ).run(warrantyId, id, manager_id, manager_name, warranty_type, warranty_period, responsibility, 1, now, now)
-      db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('repairing', now, id)
-      const warranty = db.prepare('SELECT * FROM warranties WHERE id = ?').get(warrantyId)
-      res.status(201).json(warranty)
     }
+    
+    db.prepare('UPDATE orders SET status = ?, updated_at = ? WHERE id = ?').run('repairing', now, id)
+    
+    const autoNoteContent = `【系统自动】确认售后保修：${warranty_type}，${warranty_period}天，${responsibility}`
+    addNote(id, manager_id, manager_name, autoNoteContent)
+    
+    const warranty = db.prepare('SELECT * FROM warranties WHERE order_id = ?').get(id)
+    res.json(warranty)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }
@@ -192,6 +274,44 @@ app.post('/api/orders/:id/notes', (req, res) => {
     ).run(noteId, id, user_id, user_name, content, now)
     const note = db.prepare('SELECT * FROM notes WHERE id = ?').get(noteId)
     res.status(201).json(note)
+  } catch (err: any) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.post('/api/orders/:id/spare-parts', (req, res) => {
+  const { id } = req.params
+  const { spare_part_id, quantity, used_by, used_by_name } = req.body
+  const usageId = `SU-${String(Date.now()).slice(-3)}`
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19)
+
+  try {
+    const order = getOrderById(id)
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
+    if (order.status !== 'repairing') {
+      return res.status(400).json({ error: '只有维修中的工单才能领用备件' })
+    }
+
+    const part = getSparePartById(spare_part_id)
+    if (!part) {
+      return res.status(404).json({ error: '备件不存在' })
+    }
+
+    if (part.quantity < quantity) {
+      return res.status(400).json({ error: `库存不足：${part.name} 当前库存 ${part.quantity}，需要 ${quantity}` })
+    }
+
+    const result = db.prepare(
+      'INSERT INTO spare_part_usages (id, order_id, spare_part_id, quantity, used_by, used_by_name, used_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(usageId, id, spare_part_id, quantity, used_by, used_by_name, now)
+    
+    const noteContent = `领用备件：${part.name} x${quantity}`
+    addNote(id, used_by, used_by_name, noteContent)
+    
+    res.json(result)
   } catch (err: any) {
     res.status(500).json({ error: err.message })
   }

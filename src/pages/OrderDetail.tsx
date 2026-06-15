@@ -1,21 +1,23 @@
 import {
-    AlertCircle,
-    ArrowLeft,
-    Calendar,
-    Camera,
-    CheckCircle,
-    Clock,
-    FileCheck,
-    MessageSquare,
-    Phone,
-    User,
-    Wrench
+  AlertCircle,
+  ArrowLeft,
+  Calendar,
+  Camera,
+  CheckCircle,
+  Clock,
+  FileCheck,
+  MessageSquare,
+  Package,
+  Phone,
+  Plus,
+  User,
+  Wrench
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { noteApi, orderApi } from '../api'
+import { noteApi, orderApi, sparePartApi } from '../api'
 import { useAppStore } from '../store'
-import type { CreateNoteRequest, Order } from '../types'
+import type { CreateNoteRequest, Order, SparePart } from '../types'
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string }> = {
   pending: { label: '待接单', color: 'text-gray-600', bgColor: 'bg-gray-100' },
@@ -31,6 +33,11 @@ export default function OrderDetail() {
   const [loading, setLoading] = useState(true)
   const [noteContent, setNoteContent] = useState('')
   const [activeTab, setActiveTab] = useState('info')
+  const [showSparePartModal, setShowSparePartModal] = useState(false)
+  const [spareParts, setSpareParts] = useState<SparePart[]>([])
+  const [selectedSparePart, setSelectedSparePart] = useState<string>('')
+  const [quantity, setQuantity] = useState(1)
+  const [error, setError] = useState('')
   const currentUser = useAppStore(state => state.currentUser)
   const navigate = useNavigate()
 
@@ -42,6 +49,10 @@ export default function OrderDetail() {
       })
     }
   }, [id])
+
+  useEffect(() => {
+    sparePartApi.getAll().then(data => setSpareParts(data))
+  }, [])
 
   const handleAddNote = () => {
     if (!noteContent.trim() || !id) return
@@ -63,6 +74,26 @@ export default function OrderDetail() {
     })
   }
 
+  const handleUseSparePart = () => {
+    if (!selectedSparePart || quantity <= 0 || !id) return
+    
+    setError('')
+    sparePartApi.use(id, {
+      spare_part_id: selectedSparePart,
+      quantity,
+      used_by: currentUser.id,
+      used_by_name: currentUser.name
+    }).then(() => {
+      setShowSparePartModal(false)
+      setSelectedSparePart('')
+      setQuantity(1)
+      orderApi.getById(id).then(data => setOrder(data))
+      sparePartApi.getAll().then(data => setSpareParts(data))
+    }).catch((err: any) => {
+      setError(err.response?.data?.error || '领用失败')
+    })
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center h-64">加载中...</div>
   }
@@ -75,6 +106,7 @@ export default function OrderDetail() {
     { id: 'info', label: '工单信息', icon: FileCheck },
     { id: 'inspection', label: '取机质检', icon: Camera },
     { id: 'warranty', label: '售后保修', icon: CheckCircle },
+    { id: 'usages', label: '备件领用', icon: Package },
     { id: 'notes', label: '历史备注', icon: MessageSquare }
   ]
 
@@ -243,14 +275,14 @@ export default function OrderDetail() {
                         {order.photos && order.photos.length > 0 ? (
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {order.photos.map(photo => (
-                              <div key={photo.id} className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative">
+                              <div key={photo.id} className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group">
                                 <img 
-                                  src="https://neeko-copilot.bytedance.net/api/text_to_image?prompt=smartphone%20repair%20inspection%20photo%20showing%20device%20condition&image_size=square" 
+                                  src={`http://localhost:3001${photo.file_path}`} 
                                   alt={photo.description}
                                   className="w-full h-full object-cover"
                                 />
                                 <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2">
-                                  {photo.description}
+                                  {photo.description || '照片'}
                                 </div>
                               </div>
                             ))}
@@ -336,12 +368,62 @@ export default function OrderDetail() {
                 </div>
               )}
 
+              {activeTab === 'usages' && (
+                <div className="space-y-6">
+                  {order.usages && order.usages.length > 0 ? (
+                    <div className="space-y-4">
+                      {order.usages.map(usage => (
+                        <div key={usage.id} className="border border-gray-100 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-medium text-gray-800">{usage.spare_part_name}</span>
+                            <span className="text-gray-400 text-sm">x{usage.quantity}</span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-gray-500">SKU</p>
+                              <p className="text-gray-700">{usage.spare_part_sku}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">领用人</p>
+                              <p className="text-gray-700">{usage.used_by_name}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500">领用时间</p>
+                              <p className="text-gray-700">{usage.used_at}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-400">暂无备件领用记录</p>
+                    </div>
+                  )}
+
+                  {order.status === 'repairing' && currentUser.role === 'technician' && (
+                    <div className="pt-4">
+                      <button
+                        onClick={() => setShowSparePartModal(true)}
+                        className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      >
+                        <Plus className="w-5 h-5" />
+                        领用备件
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {activeTab === 'notes' && (
                 <div className="space-y-4">
                   {order.notes && order.notes.length > 0 ? (
                     <div className="space-y-4">
                       {order.notes.map(note => (
-                        <div key={note.id} className="border border-gray-100 rounded-lg p-4">
+                        <div key={note.id} className={`border rounded-lg p-4 ${
+                          note.content.includes('【系统自动】') ? 'border-blue-100 bg-blue-50' : 'border-gray-100'
+                        }`}>
                           <div className="flex items-center justify-between mb-2">
                             <span className="font-medium text-gray-800">{note.user_name}</span>
                             <span className="text-gray-400 text-sm flex items-center gap-1">
@@ -349,7 +431,11 @@ export default function OrderDetail() {
                               {note.created_at}
                             </span>
                           </div>
-                          <p className="text-gray-600">{note.content}</p>
+                          <p className={`text-gray-600 ${
+                            note.content.includes('【系统自动】') ? 'text-blue-700' : ''
+                          }`}>
+                            {note.content}
+                          </p>
                         </div>
                       ))}
                     </div>
@@ -487,6 +573,67 @@ export default function OrderDetail() {
           </div>
         </div>
       </div>
+
+      {showSparePartModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-md mx-4">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-semibold text-gray-800">领用备件</h3>
+            </div>
+            <div className="p-6 space-y-4">
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-sm">
+                  {error}
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">选择备件</label>
+                <select
+                  value={selectedSparePart}
+                  onChange={(e) => setSelectedSparePart(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">请选择备件</option>
+                  {spareParts.map(part => (
+                    <option key={part.id} value={part.id}>{part.name} (库存: {part.quantity})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">领用数量</label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  min="1"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div className="flex items-center justify-end gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSparePartModal(false)
+                    setSelectedSparePart('')
+                    setQuantity(1)
+                    setError('')
+                  }}
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleUseSparePart}
+                  disabled={!selectedSparePart || quantity <= 0}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                >
+                  <Package className="w-4 h-4" />
+                  确认领用
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -13,6 +13,7 @@ export interface Order {
   inspection?: Inspection
   warranty?: Warranty
   photos?: InspectionPhoto[]
+  usages?: SparePartUsage[]
 }
 
 export type OrderStatus = 'pending' | 'inspection_pending' | 'warranty_pending' | 'repairing' | 'completed'
@@ -69,6 +70,18 @@ export interface SparePart {
   location: string
   created_at: string
   updated_at: string
+}
+
+export interface SparePartUsage {
+  id: string
+  order_id: string
+  spare_part_id: string
+  spare_part_name: string
+  spare_part_sku: string
+  quantity: number
+  used_by: string
+  used_by_name: string
+  used_at: string
 }
 
 export interface CreateOrderRequest {

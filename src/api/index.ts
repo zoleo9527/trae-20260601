@@ -40,7 +40,7 @@ export const inspectionApi = {
     return api.get(`/orders/${orderId}/inspection`).then(res => res.data)
   },
 
-  create: (orderId: string, data: CreateInspectionRequest): Promise<Order['inspection']> => {
+  create: (orderId: string, data: CreateInspectionRequest & { photos?: { base64: string; description: string }[] }): Promise<Order['inspection']> => {
     return api.post(`/orders/${orderId}/inspection`, data).then(res => res.data)
   }
 }
@@ -76,6 +76,10 @@ export const sparePartApi = {
 
   delete: (id: string): Promise<void> => {
     return api.delete(`/spare-parts/${id}`).then(res => res.data)
+  },
+
+  use: (orderId: string, data: { spare_part_id: string; quantity: number; used_by: string; used_by_name: string }): Promise<void> => {
+    return api.post(`/orders/${orderId}/spare-parts`, data).then(res => res.data)
   }
 }
 

@@ -4,13 +4,20 @@ import {
   ArrowLeft, 
   Camera, 
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Trash2
 } from 'lucide-react'
 import { orderApi, inspectionApi } from '../api'
 import { useAppStore } from '../store'
 import type { Order, CreateInspectionRequest } from '../types'
 
 const conditionOptions = ['正常', '轻微磨损', '有划痕', '破损', '严重损坏']
+
+interface PhotoData {
+  preview: string
+  base64: string
+  description: string
+}
 
 export default function Inspection() {
   const { id } = useParams<{ id: string }>()
@@ -25,8 +32,8 @@ export default function Inspection() {
     accessories: '',
     description: ''
   })
+  const [photos, setPhotos] = useState<PhotoData[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [previewImages, setPreviewImages] = useState<string[]>([])
   const currentUser = useAppStore(state => state.currentUser)
   const navigate = useNavigate()
 
@@ -46,26 +53,48 @@ export default function Inspection() {
     }
   }, [id, currentUser])
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      Array.from(files).forEach(file => {
+        const reader = new FileReader()
+        reader.onload = (event) => {
+          const result = event.target?.result as string
+          setPhotos(prev => [...prev, {
+            preview: result,
+            base64: result,
+            description: ''
+          }])
+        }
+        reader.readAsDataURL(file)
+      })
+    }
+  }
+
+  const removePhoto = (index: number) => {
+    setPhotos(photos.filter((_, i) => i !== index))
+  }
+
+  const updatePhotoDescription = (index: number, description: string) => {
+    setPhotos(photos.map((photo, i) => 
+      i === index ? { ...photo, description } : photo
+    ))
+  }
+
   const handleSubmit = () => {
     if (!id) return
     setSubmitting(true)
-    inspectionApi.create(id, formData).then(() => {
+    
+    const photosData = photos.map(photo => ({
+      base64: photo.base64,
+      description: photo.description
+    }))
+    
+    inspectionApi.create(id, { ...formData, photos: photosData }).then(() => {
       navigate(`/orders/${id}`)
     }).finally(() => {
       setSubmitting(false)
     })
-  }
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (files) {
-      const newImages = Array.from(files).map(file => URL.createObjectURL(file))
-      setPreviewImages([...previewImages, ...newImages])
-    }
-  }
-
-  const removeImage = (index: number) => {
-    setPreviewImages(previewImages.filter((_, i) => i !== index))
   }
 
   if (loading) {
@@ -114,15 +143,24 @@ export default function Inspection() {
               质检照片上传
             </h4>
             <div className="grid grid-cols-3 gap-4">
-              {previewImages.map((img, index) => (
-                <div key={index} className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group">
-                  <img src={img} alt={`质检照片 ${index + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeImage(index)}
-                    className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                  >
-                    x
-                  </button>
+              {photos.map((photo, index) => (
+                <div key={index} className="space-y-2">
+                  <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden relative group">
+                    <img src={photo.preview} alt={`质检照片 ${index + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removePhoto(index)}
+                      className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={photo.description}
+                    onChange={(e) => updatePhotoDescription(index, e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    placeholder="照片说明"
+                  />
                 </div>
               ))}
               <label className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-blue-400 transition-colors">
@@ -131,7 +169,7 @@ export default function Inspection() {
                 <input type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" />
               </label>
             </div>
-            <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，可多选</p>
+            <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，可多选，每张图片不超过 5MB</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
