@@ -1,0 +1,70 @@
+
+<!-- ============ 弹窗：尾款催收 ============ -->
+<div class="modal-mask" id="collectModal">
+  <div class="modal" style="max-width:600px">
+    <div class="modal-header">
+      <h2 id="collectTitle">尾款催收登记</h2>
+      <div class="modal-close" onclick="closeModal('collectModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="collectOrderInfo" style="background:var(--gray-50);padding:12px;border-radius:8px;margin-bottom:16px;font-size:12px"></div>
+      <div class="form-group"><label><span class="req">*</span>催收方式</label><select id="collectType"><option>电话催收</option><option>微信催收</option><option>上门催收</option><option>短信提醒</option><option>第三方联系</option></select></div>
+      <div class="form-group"><label><span class="req">*</span>催收结果</label><select id="collectResult" onchange="onCollectResultChange()"><option value="      <div class="form-group"><label><span class="req">*</="      <div class??款（填金额）</option><option value="paid">已全额回款</option><option value="delay">表示拖延</option><option value="noanswer">无人接听/联系不上</option><option value="dispute">存在争议（关联售后）</option></select></div>
+      <div class="form-row">
+        <div class="form-group" id="promiseDateWrap"><label><span class="req">*</span>承诺付款日期</label><input type="date" id="collectPromiseDate"></div>
+        <div class="form-group" id="partialAmountWrap" style="display:none"><label><span class="req">*</span>本次回款金额</label><input type="number" id="collectPartialAmount"></div>
+      </div>
+      <div class="form-group"><label>下次联系时间</label><input type="date" id="collectNextDate"></div>
+      <div class="form-group"><label><span class="req">*</span>沟通记录详情</label><textarea id="collectRemark" placeholder="记录要点、客户原话、争议点等"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal('collectModal')">取消</button>
+      <button class="btn btn-warning" onclick="submitCollect()">登记催收</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 弹窗：批量催收 ============ -->
+<div class="modal-mask" id="batchCollectModal">
+  <div class="modal" style="max-width:540px">
+    <div class="modal-header">
+      <h2>批量发起催收</h2>
+      <div class="modal-close" onclick="closeModal('batchCollectModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div style="background:var(--warning-light);color:#92400e;padding:12px;border-radius:8px;margin-bottom:16px;font-size:12px"><b>⚠️ 批量催收确认</b><br>将对 <b id="batchCollectCount">0</b> 条选中订单生成催收任务。</div>
+      <div class="form-group"><label>催收方式</label><select id="batchCollectType"><option>短信统一提醒</option><option>微信统一留言</option><option>分配给各自主管导购电话催收</option></select></div>
+      <div class="form-group"><label>催收任务截止日期</label><input type="date" id="batchCollectDue"></div>
+      <div class="form-group"><label>附加说明</label><textarea id="batchCollectRemark" placeholder="例：月底集中催收"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal('batchCollectModal')">取消</button>
+      <button class="btn btn-warning" onclick="submitBatchCollect()">确认批量催收</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 弹窗：新增售后登记 ============ -->
+<div class="modal-mask" id="addAfterModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>新增售后登记</h2>
+      <div class="modal-close" onclick="closeModal('addAfterModal')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label><span class="req">*</span>关联订单</label><select id="addAfterOrder"><option value="">请选择订单...</option></select></div>
+      <div class="form-group"><label><span class="req">*</span>售后类型</label><select id="addAfterType"><option>尺寸问题</option><option>安装问题</option><option>面料问题</option><option>轨道/配件问题</option><option>交付延期</option><option>效果不符</option><option>客户原因修改</option><option>其他</option></select></div>
+      <div class="form-row">
+        <div class="form-group"><label>问题来源</label><select id="addAfterSource"><option>客户反馈</option><option>安装师傅发现</option><option>量尺师发现</option><option>导购跟进时发现</option><option>质检发现</option></select></div>
+        <div class="form-group"><label>紧急程度</label><select id="addAfterLevel"><option value="normal">普通</option><option value="urgent">紧急</option><option value="critical">特急</option></select></div>
+      </div>
+      <div class="form-group"><label><span class="req">*</span>问题描述</label><textarea id="addAfterDesc" placeholder="详细描述问题现象、涉及产品、客户诉求等"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-default" onclick="closeModal('addAfterModal')">取消</button>
+      <button class="btn btn-primary" onclick="submitAddAfter()">提交（进入待复核）</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>

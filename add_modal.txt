@@ -1,0 +1,12 @@
+
+<!-- ============ 弹窗：订单详情 ============ -->
+<div class="modal-mask" id="detailModal">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-header">
+      <h2 id="detailTitle">订单详情</h2>
+      <div class="modal-close" onclick="closeModal('detailModal')">✕</div>
+    </div>
+    <div class="modal-body" id="detailBody"></div>
+    <div class="modal-footer"><button class="btn btn-default" onclick="closeModal('detailModal')">关闭</button></div>
+  </div>
+</div>

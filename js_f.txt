@@ -1,0 +1,40 @@
+function openDetail(id){const o=findO(id);if(!o)return;curOid=id;
+  Q('#detailTitle').innerHTML='订单详情 · <span style="font-family:monospace;color:var(--primary);font-size:14px">'+o.id+'</span>';
+  let h='';
+  h+='<div class="detail-section"><div class="sec-title">📊 状态流转总览</div>';
+  h+='<div class="flow-chart">';
+  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=MAIN_FLOW.indexOf(o.mainStatus);const mt=o.mainTimeline.find(function(t){return t.stage===i;});
+    let cls='flow-node',icon='·';
+    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDays>7?' danger':' active');icon=String(i+1);}
+    h+='<div class="'+cls+'"><div class="fn-icon">'+icon+'</div><div class="fn-info"><div class="fn-title">'+MAIN_FLOW[i]+(i===idx?' <span style="color:var(--primary)">(当前)</span>':'')+'</div>'+(mt?'<div class="fn-sub">'+mt.op+'</div>':'')+'</div><div class="fn-time">'+(mt?fmtDate(mt.time):'—'    h+='<div class="'+cls+'"><div class="fn-icon">'+icon+'s=function openDetail(id)la  Q('#detailTitle').innerHTML='订单详情 · <span style="fontri  let h='';
+  h+='<div class="detail-section"><div class="sec-title">📊 状态流转总览</div>';
+  h+='<div class="flow-chart">';
+ iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icon='·';
+    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDaAm    if(i<idx){cls+=' done';icon='??   h+='<div class="'+cls+'"><div class="fn-icon">'+icon+'</div><div class="fn-info"><div class="fn-title">'+MAIN_FL)+  h+='<div class="detail-section"><div class="sec-title">📊 状态流转总览</div>';
+  h+='<div class="flow-chart">';
+ iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icon='·';
+    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDaAm    if(i<idx){cls+=' done';icon='??   h+='<div classtl  h+='<div class="flow-chart">';
+ iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(St iz  h+='<divo.  h+='<div classta  for(let i=0;i<MAIN_FLOW.length;i++){
+    con??   const idx=M:v  for(let i=0;i<MAINat    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDaAm    if(i<idx){cls+=' done';icon='??   h+='<divcl  h+='<div class="flow-chart">';
+ iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icon='·';
+    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueco iz  h+='<divo.  h+='<div classcl  for(let i=0;i<MAIN_FLOW.length;i++){
+    con/d    const idx=M:v  for(let i=0;i<MAINeC    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDaAm    if(i<idx){cls+=' done';icon='??   h+='<diviv iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(St iz  h+='<divo.  h+='<div classta  for(let i=0;i<MAIN_FLOW.length;i++){
+    con??   const idx=M:v  for(l">  for(St iz  h+='<divo.  h+='<div classta  for(t    con??   const idx=M:v  for(let i=0;i<MAINat    if(i<idx){cls+=' done';icosu iz  h+='<divo.  h+='<div class="flow-chart">';
+  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan class="op    const idx=M:v  for(let i=0;i<MAINon    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueco iz  h+='<divo.  h+='<div classcl  for(let i=0;i<co    con/d    const idx=M:v  for(let i=0;i<MAINeC    if(i<idx){cls+=' done';icon='✓';}else if(i===idx){cls+=(o.overdueDaAm    if(i<idx){cls+='+(  for(St iz  h+='<divo.  h+='<div classta  for(let i=0;i<MAIN_FLOW.length;i++){
+    con??   const idx=M:v  for(l">  for(St iz  h+='<divo.  h+='<div classta  for(t    con??   const idx=M:v  for(let i=0;i<MAINat    if(ba    con??   const idx=M:v  for(l">  for(St iz border-radius:6px;margin-bottom:1  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan classice().reve    const idx=M:v  for(let i=0;i<MAINt=    con??   const idx=M:v  for(l">  for(St iz  h+='<divo.  h+='<div classta  for(t    con??   const idx=M:v  for(let i=0;i<MAINat    if(ba    con??   const idx=M:v  for(l">  for(St iz border-radius:6px;margin-bottom:1  for(let i=0;i<MAIN_FLOW.length;i++){
+    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan classice().reve    const idx=M:v  for(let i=0;i<MAINt=    con??   const idx=M:v  for(l">  for(St iz  h+='<divo.  h+='<div classta"cc-time    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan classice().reve    const idx=M:v  for(let i=0;i<MAINt=    con??   const idx=M:v  for(l">  for(St iz.j    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan classice().reve    const idx=M:v  for(let i=0;i<MAINt=    con??   const idx=M:v  for(l">  for(St iz  h+='<divo.  h+='<div classta"cc-time    const idx=M:v  for(let i=0;i<MAIN_FLOW.lengt/s    const idx=MAIN_FLOW.indexOf(o.mai?   let cls='flow-node',icome  for(let i=0;i<MAIN_FLOW.length;i+pan classice().reve </div></div>';
+  });
+  h+='</div></div>';
+  Q('#detailBody').innerHTML=h;openModal('detailModal');
+}
