@@ -112,7 +112,7 @@ function Dashboard({ onViewOrders }) {
  <div
  key={card.label}
  className={`${card.bgColor} rounded-xl p-6 cursor-pointer hover:shadow-md transition-shadow`}
- onClick={() => onViewOrders && onViewOrders({ status: 'pending' })}
+ onClick={() => onViewOrders && onViewOrders({ status: card.label === '待处理合计' ? 'pending,measuring,measured,needs_revision' : 'rejected,needs_revision' })}
  >
  <div className="flex items-center justify-between">
  <div>
@@ -226,7 +226,7 @@ function Dashboard({ onViewOrders }) {
  <div className="flex items-center justify-between mb-4">
  <h2 className="text-lg font-semibold text-slate-800">待处理订单</h2>
  <button
- onClick={() => onViewOrders && onViewOrders({ status: 'pending' })}
+ onClick={() => onViewOrders && onViewOrders({ status: 'pending,measuring,measured,needs_revision' })}
  className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center space-x-1"
  >
  <span>查看全部</span>
