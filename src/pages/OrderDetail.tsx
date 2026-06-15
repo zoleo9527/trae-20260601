@@ -40,9 +40,11 @@ export const OrderDetail = () => {
     confirmPartReturn,
     completeOrder,
     updateOrderStatus,
+    isOrderVisible,
   } = useOrderStore();
 
   const order = getOrderById(id || '');
+  const orderVisible = order ? isOrderVisible(order) : false;
 
   const [showChargeModal, setShowChargeModal] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
@@ -167,6 +169,23 @@ export const OrderDetail = () => {
       <div className="p-6">
         <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
           <p className="text-slate-500">工单不存在</p>
+          <button
+            onClick={() => navigate('/')}
+            className="mt-4 text-blue-600 hover:text-blue-700 text-sm"
+          >
+            返回工作台
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!orderVisible) {
+    return (
+      <div className="p-6">
+        <div className="bg-white rounded-lg border border-slate-200 p-12 text-center">
+          <p className="text-slate-500">您当前角色（{currentRole}）无权查看此工单</p>
+          <p className="text-slate-400 text-sm mt-1">请切换到对应角色后再查看</p>
           <button
             onClick={() => navigate('/')}
             className="mt-4 text-blue-600 hover:text-blue-700 text-sm"

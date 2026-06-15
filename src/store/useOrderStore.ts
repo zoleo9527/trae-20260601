@@ -4,6 +4,25 @@ import type { Order, OrderStatus, UserRole, Note, PartItem, ChargeMethod } from 
 import { mockOrders } from '../data/mockData';
 import { importFromExcelOrCSV } from '../utils/export';
 
+const ROLE_VISIBLE_STATUSES: Record<UserRole, OrderStatus[]> = {
+  '客服': ['pending_assign', 'pending_review', 'completed'],
+  '工程师': ['pending_work', 'working', 'pending_charge', 'pending_receipt', 'pending_return'],
+  '配件管理员': ['pending_return'],
+};
+
+const isOrderVisibleToRole = (order: Order, role: UserRole, user: string): boolean => {
+  const allowedStatuses = ROLE_VISIBLE_STATUSES[role] || [];
+  if (!allowedStatuses.includes(order.status)) return false;
+
+  if (role === '工程师') {
+    return order.assignedTo === user;
+  }
+  if (role === '配件管理员') {
+    return order.partReturn.status === 'submitted';
+  }
+  return true;
+};
+
 interface OrderState {
   orders: Order[];
   currentRole: UserRole;
@@ -18,6 +37,8 @@ interface OrderActions {
   setSearchKeyword: (keyword: string) => void;
   setStatusFilter: (status: OrderStatus | 'all') => void;
   getOrderById: (id: string) => Order | undefined;
+  isOrderVisible: (order: Order) => boolean;
+  getVisibleOrders: () => Order[];
   addNote: (orderId: string, content: string) => void;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   assignEngineer: (orderId: string, engineer: string) => void;
@@ -66,7 +87,7 @@ export const useOrderStore = create<OrderState & OrderActions>()(
           '工程师': '李明',
           '配件管理员': '陈仓库',
         };
-        set({ currentRole: role, currentUser: userMap[role] });
+        set({ currentRole: role, currentUser: userMap[role], statusFilter: 'all', searchKeyword: '' });
       },
 
       setCurrentUser: (user) => set({ currentUser: user }),
@@ -75,6 +96,16 @@ export const useOrderStore = create<OrderState & OrderActions>()(
 
       getOrderById: (id) => {
         return get().orders.find((o) => o.id === id);
+      },
+
+      isOrderVisible: (order) => {
+        const { currentRole, currentUser } = get();
+        return isOrderVisibleToRole(order, currentRole, currentUser);
+      },
+
+      getVisibleOrders: () => {
+        const { orders, currentRole, currentUser } = get();
+        return orders.filter((o) => isOrderVisibleToRole(o, currentRole, currentUser));
       },
 
       addNote: (orderId, content) => {

@@ -28,10 +28,10 @@ const roleCards: Record<string, { key: OrderStatus; label: string; icon: React.R
     { key: 'pending_work', label: '待施工', icon: <Wrench className="w-4 h-4 text-blue-500" /> },
     { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4 text-orange-500" /> },
     { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4 text-purple-500" /> },
+    { key: 'pending_return', label: '待退回', icon: <Package className="w-4 h-4 text-pink-500" /> },
   ],
   '配件管理员': [
     { key: 'pending_return', label: '待配件确认', icon: <Package className="w-4 h-4 text-pink-500" /> },
-    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4 text-green-500" /> },
   ],
 };
 
@@ -48,82 +48,66 @@ const roleStatusFilters: Record<string, { key: OrderStatus | 'all'; label: strin
     { key: 'working', label: '施工中', icon: <Wrench className="w-4 h-4" /> },
     { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4" /> },
     { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4" /> },
-    { key: 'pending_return', label: '待退回处理', icon: <Package className="w-4 h-4" /> },
+    { key: 'pending_return', label: '待退回', icon: <Package className="w-4 h-4" /> },
   ],
   '配件管理员': [
     { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
     { key: 'pending_return', label: '待配件确认', icon: <Package className="w-4 h-4" /> },
-    { key: 'completed', label: '已完成', icon: <FileCheck className="w-4 h-4" /> },
   ],
 };
 
 export const Dashboard = () => {
   const {
-    orders,
     currentRole,
     currentUser,
     searchKeyword,
     statusFilter,
     setSearchKeyword,
     setStatusFilter,
+    getVisibleOrders,
+    isOrderVisible,
   } = useOrderStore();
 
   const cards = roleCards[currentRole] || [];
   const statusFilters = roleStatusFilters[currentRole] || [];
+  const visibleOrders = getVisibleOrders();
 
   const stats = useMemo(() => {
     const result: Record<string, number> = {};
     statusFilters.forEach((f) => {
       if (f.key === 'all') {
-        result[f.key] = orders.length;
+        result[f.key] = visibleOrders.length;
       } else {
-        result[f.key] = orders.filter((o) => o.status === f.key).length;
+        result[f.key] = visibleOrders.filter((o) => o.status === f.key).length;
       }
     });
     return result;
-  }, [orders, statusFilters]);
+  }, [visibleOrders, statusFilters]);
 
   const todoStats = useMemo(() => {
     if (currentRole === '客服') {
-      return orders.filter(
+      return visibleOrders.filter(
         (o) => o.status === 'pending_assign' || o.status === 'pending_review'
       ).length;
     } else if (currentRole === '工程师') {
-      return orders.filter(
+      return visibleOrders.filter(
         (o) =>
-          o.assignedTo === currentUser &&
-          (o.status === 'pending_work' ||
-            o.status === 'pending_charge' ||
-            o.status === 'pending_receipt' ||
-            o.status === 'pending_return')
+          o.status === 'pending_work' ||
+          o.status === 'working' ||
+          o.status === 'pending_charge' ||
+          o.status === 'pending_receipt' ||
+          o.status === 'pending_return'
       ).length;
     } else if (currentRole === '配件管理员') {
-      return orders.filter(
+      return visibleOrders.filter(
         (o) => o.status === 'pending_return' && o.partReturn.status === 'submitted'
       ).length;
     }
     return 0;
-  }, [orders, currentRole, currentUser]);
+  }, [visibleOrders, currentRole, currentUser]);
 
   const filteredOrders = useMemo(() => {
-    let result = [...orders];
-
-    if (currentRole === '客服') {
-      // no pre-filter, see all
-    } else if (currentRole === '工程师') {
-      result = result.filter(
-        (o) =>
-          o.assignedTo === currentUser ||
-          o.status === 'pending_assign'
-      );
-    } else if (currentRole === '配件管理员') {
-      result = result.filter(
-        (o) =>
-          o.parts.length > 0 ||
-          o.partReturn.hasReturn ||
-          o.status === 'pending_return'
-      );
-    }
+    let result = [...visibleOrders];
 
     if (statusFilter !== 'all') {
       result = result.filter((o) => o.status === statusFilter);
@@ -149,7 +133,7 @@ export const Dashboard = () => {
     });
 
     return result;
-  }, [orders, statusFilter, searchKeyword, currentRole, currentUser]);
+  }, [visibleOrders, statusFilter, searchKeyword]);
 
   const navigate = useNavigate();
   const goToDetail = (id: string) => {
@@ -186,7 +170,7 @@ export const Dashboard = () => {
               {item.icon}
             </div>
             <div className="mt-2 text-2xl font-bold text-slate-800">
-              {orders.filter((o) => o.status === item.key).length}
+              {visibleOrders.filter((o) => o.status === item.key).length}
             </div>
           </div>
         ))}
