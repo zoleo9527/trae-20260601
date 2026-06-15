@@ -160,17 +160,51 @@ export default function OrderList() {
   };
 
   const getTitle = () => {
-    const titles: Record<string, string> = {
-      'receptionist': '订单管理',
+    const roleTitles: Record<string, string> = {
+      'receptionist': '接单待办',
       'designer': '设计任务',
-      'revisions': '待改稿订单',
       'installer': '安装任务',
       'production': '喷绘任务',
       'quality': '质检任务',
-      'customer': '我的订单',
+      'customer': '我的订单'
+    };
+    const statusTitles: Record<string, string> = {
+      'pending_review': '待审核',
+      'designing': '设计中',
+      'pending_approval': '待客户确认',
+      'revision_needed': '待改稿订单',
+      'approved': '待喷绘',
+      'printing': '喷绘中',
+      'quality_check': '质检中',
+      'ready_for_install': '待安装',
+      'installing': '安装中',
+      'completed': '已完成'
+    };
+    const viewTitles: Record<string, string> = {
+      'receptions': '接单待办',
+      'revisions': '待改稿订单',
       'batch': '批量处理'
     };
-    return titles[view || ''] || '全部订单';
+
+    if (hasIssuesParam === 'true') {
+      return '有问题的订单';
+    }
+    if (urgentParam === 'true') {
+      return '急单列表';
+    }
+    if (roleParam && roleTitles[roleParam]) {
+      return roleTitles[roleParam];
+    }
+    if (statusParam && statusTitles[statusParam]) {
+      return statusTitles[statusParam];
+    }
+    if (view && viewTitles[view]) {
+      return viewTitles[view];
+    }
+    if (view && roleTitles[view]) {
+      return roleTitles[view];
+    }
+    return '全部订单';
   };
 
   const canCreateOrder = currentUser?.role === 'admin' || currentUser?.role === 'receptionist';

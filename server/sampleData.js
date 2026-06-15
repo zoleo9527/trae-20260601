@@ -21,7 +21,7 @@ export const sampleOrders = [
     businessType: '门店招牌',
     title: '美味餐饮新店开业招牌',
     description: '客户提供的logo文件，要求做发光字招牌，安装在门店门头。客户强调要与总店颜色完全一致。',
-    width: 480,
+    width: 500,
     height: 120,
     unit: 'cm',
     quantity: 1,
@@ -40,21 +40,10 @@ export const sampleOrders = [
       { status: 'pending_review', operator: '张接单', remark: '已录入系统，转设计师处理', timestamp: hoursAgo(4.8) },
       { status: 'designing', operator: '李设计', remark: '开始设计，根据客户提供的logo制作效果图', timestamp: hoursAgo(4.5) },
       { status: 'pending_approval', operator: '李设计', remark: '第一稿完成，发送客户确认', timestamp: hoursAgo(3) },
-      { status: 'customer_confirm', operator: '王总(客户)', remark: '客户要求改稿：logo颜色偏蓝，需要调整PANTONE 286C', timestamp: hoursAgo(2.5) },
-      { status: 'revision_needed', operator: '李设计', remark: '颜色调整完成，等待二次确认。客户一直在打电话催！', timestamp: hoursAgo(1.5) }
+      { status: 'customer_confirm', operator: '王总(客户)', remark: '客户要求改稿：logo颜色偏蓝，门头实际宽度4.8米不是5米', timestamp: hoursAgo(2.5) },
+      { status: 'revision_needed', operator: '系统', remark: '客户拒绝确认，等待设计师改稿。客户一直在打电话催！', timestamp: hoursAgo(1.5) }
     ],
-    revisions: [
-      {
-        id: 'R001',
-        type: 'color',
-        description: '客户反馈logo颜色偏蓝，需要调整PANTONE 286C',
-        operator: '李设计',
-        fileUrl: null,
-        beforeData: { color: '#1E40AF', pantone: 'PANTONE 287C' },
-        afterData: { color: '#1D3557', pantone: 'PANTONE 286C' },
-        timestamp: hoursAgo(2)
-      }
-    ],
+    revisions: [],
     installation: null,
     customerConfirmation: {
       customerName: '王总',
@@ -67,10 +56,9 @@ export const sampleOrders = [
       {
         id: 'I001',
         type: 'customer_revision',
-        description: '颜色偏差：客户要求PANTONE 286C，初稿用了287C',
-        status: 'resolved',
-        reportedAt: hoursAgo(2.5),
-        resolvedAt: hoursAgo(1.5)
+        description: '客户确认页要求改稿：颜色偏差（PANTONE 286C）、尺寸疑问（500→480cm）',
+        status: 'pending',
+        reportedAt: hoursAgo(2.5)
       },
       {
         id: 'I002',

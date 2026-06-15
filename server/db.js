@@ -154,7 +154,9 @@ function updateOrderStatus(id, status, operator, remark) {
   };
   
   order.status = status;
-  order.currentHandler = handlerMap[status] || order.currentHandler;
+  if (status in handlerMap) {
+    order.currentHandler = handlerMap[status];
+  }
   order.updatedAt = now;
   order.history.push({
     status,
@@ -204,23 +206,39 @@ function addRevision(id, revisionData) {
     'other': null
   };
   const matchedIssueType = issueTypeMap[type];
+  let resolvedTotal = 0;
+  const resolvedTypes = [];
+
   if (matchedIssueType) {
-    let resolved = 0;
     for (const issue of order.issues) {
       if (issue.status === 'pending' && issue.type === matchedIssueType) {
         issue.status = 'resolved';
         issue.resolvedAt = now;
-        resolved++;
+        resolvedTotal++;
+        resolvedTypes.push(matchedIssueType);
       }
     }
-    if (resolved > 0) {
-      order.history.push({
-        status: 'issue_resolved',
-        operator: revisionData.operator,
-        remark: `改稿自动关闭 ${resolved} 个同类问题（${matchedIssueType}）`,
-        timestamp: now
-      });
+  }
+
+  if (order.status === 'revision_needed') {
+    for (const issue of order.issues) {
+      if (issue.status === 'pending' && issue.type === 'customer_revision') {
+        issue.status = 'resolved';
+        issue.resolvedAt = now;
+        resolvedTotal++;
+        resolvedTypes.push('customer_revision');
+      }
     }
+  }
+
+  if (resolvedTotal > 0) {
+    const uniqueTypes = [...new Set(resolvedTypes)];
+    order.history.push({
+      status: 'issue_resolved',
+      operator: revisionData.operator,
+      remark: `改稿自动关闭 ${resolvedTotal} 个问题（${uniqueTypes.join('、')}）`,
+      timestamp: now
+    });
   }
 
   order.updatedAt = now;
