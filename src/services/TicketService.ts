@@ -320,6 +320,17 @@ export const TicketService = {
     const carriedRemark = req.remark
       ? `【诊断备注】${t.diagnosis.remark || ''}。【申请备注】${req.remark}`
       : t.diagnosis.remark || '';
+    const isReapply = !!req.basedOnApplicationId;
+    let changeNote = '';
+    if (isReapply && req.changeSummary) {
+      const cs = req.changeSummary;
+      const parts: string[] = [];
+      if (cs.added.length) parts.push(`新增${cs.added.length}项：${cs.added.map((i) => i.name).join('、')}`);
+      if (cs.modified.length) parts.push(`修改${cs.modified.length}项：${cs.modified.map((m) => m.after.name).join('、')}`);
+      if (cs.removed.length) parts.push(`删除${cs.removed.length}项：${cs.removed.map((i) => i.name).join('、')}`);
+      if (cs.unchanged.length) parts.push(`未变${cs.unchanged.length}项`);
+      changeNote = parts.join('；');
+    }
     const app: PartsApplication = {
       id: uuidv4(),
       ticketId: t.id,
@@ -328,6 +339,9 @@ export const TicketService = {
       items: req.items,
       diagnosisRemarkCarried: carriedRemark,
       status: 'pending',
+      basedOnApplicationId: req.basedOnApplicationId,
+      baselineItemsSnapshot: req.baselineItemsSnapshot,
+      changeSummary: req.changeSummary,
     };
     const fromStatus = t.status;
     t.partsApplications.push(app);
@@ -339,14 +353,18 @@ export const TicketService = {
         fromStatus,
         operator: req.operator,
         operatorRole: 'engineer',
-        remark: `提交配件申请，共${req.items.length}项。携带诊断备注：${carriedRemark || '无'}`,
+        remark: isReapply
+          ? `重提配件申请，基于申请#${req.basedOnApplicationId!.slice(0, 8)}，共${req.items.length}项。${changeNote || ''}。携带诊断备注：${carriedRemark || '无'}`
+          : `提交配件申请，共${req.items.length}项。携带诊断备注：${carriedRemark || '无'}`,
       })
     );
     t.communications.push(
       makeCommunication({
         role: 'engineer',
         person: req.operator,
-        content: `提交配件申请：${req.items.map((i) => `${i.name}×${i.quantity}${i.unit}`).join('，')}。${carriedRemark ? `备注：${carriedRemark}` : ''}`,
+        content: isReapply
+          ? `【重提配件申请】基于申请#${req.basedOnApplicationId!.slice(0, 8)}。${changeNote ? changeNote + '。' : ''}配件：${req.items.map((i) => `${i.name}×${i.quantity}${i.unit}`).join('，')}。${carriedRemark ? `备注：${carriedRemark}` : ''}`
+          : `提交配件申请：${req.items.map((i) => `${i.name}×${i.quantity}${i.unit}`).join('，')}。${carriedRemark ? `备注：${carriedRemark}` : ''}`,
       })
     );
     write(all);

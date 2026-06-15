@@ -93,6 +93,15 @@ export interface PartsApplication {
   reviewAt?: string;
   reviewRemark?: string;
   status: 'pending' | 'approved' | 'rejected';
+  basedOnApplicationId?: string;
+  baselineItemsSnapshot?: PartItem[];
+  changeSummary?: {
+    added: PartItem[];
+    modified: Array<{ before: PartItem; after: PartItem; diffFields: string[] }>;
+    removed: PartItem[];
+    unchanged: PartItem[];
+    note?: string;
+  };
 }
 
 export interface CommunicationRecord {
@@ -170,6 +179,9 @@ export interface SubmitPartsApplicationRequest {
   operator: string;
   idempotencyKey: string;
   remark?: string;
+  basedOnApplicationId?: string;
+  baselineItemsSnapshot?: PartItem[];
+  changeSummary?: PartsApplication['changeSummary'];
 }
 
 export interface ReviewPartsRequest {

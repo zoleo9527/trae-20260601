@@ -327,6 +327,99 @@ export default function TicketDetailPage({ onUpdated }: { onUpdated: () => void 
                         rowKey="id"
                         pagination={false}
                       />
+                      {app.basedOnApplicationId && (
+                        <div style={{ marginTop: 12 }}>
+                          <Divider style={{ margin: '8px 0 12px 0' }} />
+                          <Descriptions size="small" column={1} bordered>
+                            <Descriptions.Item label="关联驳回">
+                              基于申请 #
+                              {app.basedOnApplicationId.slice(0, 8)} 重提
+                            </Descriptions.Item>
+                          </Descriptions>
+                          {app.changeSummary && (
+                            <div style={{ marginTop: 8 }}>
+                              <Text strong style={{ fontSize: 12 }}>
+                                变更说明：
+                              </Text>
+                              <Row gutter={[8, 4]} style={{ marginTop: 4 }}>
+                                {app.changeSummary.added.length > 0 && (
+                                  <Col span={24}>
+                                    <Tag color="green">
+                                      新增 {app.changeSummary.added.length} 项
+                                    </Tag>
+                                    <Text style={{ fontSize: 12 }}>
+                                      {app.changeSummary.added
+                                        .map((i) => `${i.name}×${i.quantity}${i.unit}`)
+                                        .join('、')}
+                                    </Text>
+                                  </Col>
+                                )}
+                                {app.changeSummary.modified.length > 0 && (
+                                  <Col span={24}>
+                                    <Tag color="blue">
+                                      修改 {app.changeSummary.modified.length} 项
+                                    </Tag>
+                                    <Text style={{ fontSize: 12 }}>
+                                      {app.changeSummary.modified
+                                        .map((m) => {
+                                          const before = `${m.before.name}×${m.before.quantity}${m.before.unit}`;
+                                          const after = `${m.after.name}×${m.after.quantity}${m.after.unit}`;
+                                          return `${before} → ${after}(${m.diffFields.join('/')})`;
+                                        })
+                                        .join('；')}
+                                    </Text>
+                                  </Col>
+                                )}
+                                {app.changeSummary.removed.length > 0 && (
+                                  <Col span={24}>
+                                    <Tag color="red">
+                                      删除 {app.changeSummary.removed.length} 项
+                                    </Tag>
+                                    <Text style={{ fontSize: 12 }}>
+                                      {app.changeSummary.removed
+                                        .map((i) => `${i.name}×${i.quantity}${i.unit}`)
+                                        .join('、')}
+                                    </Text>
+                                  </Col>
+                                )}
+                                {app.changeSummary.unchanged.length > 0 && (
+                                  <Col span={24}>
+                                    <Tag color="default">
+                                      未变 {app.changeSummary.unchanged.length} 项
+                                    </Tag>
+                                    <Text style={{ fontSize: 12 }}>
+                                      {app.changeSummary.unchanged
+                                        .map((i) => i.name)
+                                        .join('、')}
+                                    </Text>
+                                  </Col>
+                                )}
+                              </Row>
+                            </div>
+                          )}
+                          {(() => {
+                            const prev = ticket.partsApplications.find(
+                              (p) => p.id === app.basedOnApplicationId
+                            );
+                            if (!prev) return null;
+                            return (
+                              <Alert
+                                style={{ marginTop: 10 }}
+                                type="warning"
+                                showIcon
+                                message={
+                                  <Space direction="vertical" size={0}>
+                                    <Text style={{ fontSize: 12 }}>
+                                      【上次驳回原因】{prev.reviewBy} 于 {prev.reviewAt}：
+                                      <Text type="danger">{prev.reviewRemark || '(无)'}</Text>
+                                    </Text>
+                                  </Space>
+                                }
+                              />
+                            );
+                          })()}
+                        </div>
+                      )}
                     </Card>
                   </List.Item>
                 );

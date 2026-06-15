@@ -71,12 +71,67 @@ export default function EngineerPage({ role, onUpdated }: Props) {
     previousCarriedRemark: string;
     previousApplicationRemark: string;
     isReapply: boolean;
+    baselineItems: PartItem[];
   } | null>(null);
 
   const refresh = () => onUpdated();
 
   const myTickets = TicketService.listTickets(role);
   const isEngineer = role === 'engineer';
+
+  const matchPartsKey = (it: PartItem) => it.sku?.trim() || it.name.trim();
+
+  const computeChangeSummary = (baseline: PartItem[], current: PartItem[]) => {
+    const baselineMap = new Map<string, PartItem>();
+    baseline.forEach((b) => baselineMap.set(matchPartsKey(b), b));
+    const currentMap = new Map<string, PartItem>();
+    current.forEach((c) => currentMap.set(matchPartsKey(c), c));
+
+    const added: PartItem[] = [];
+    const removed: PartItem[] = [];
+    const unchanged: PartItem[] = [];
+    const modified: Array<{ before: PartItem; after: PartItem; diffFields: string[] }> = [];
+
+    current.forEach((c) => {
+      const key = matchPartsKey(c);
+      const b = baselineMap.get(key);
+      if (!b) {
+        added.push(c);
+        return;
+      }
+      const diffFields: string[] = [];
+      (['name', 'sku', 'quantity', 'unit', 'reason'] as const).forEach((f) => {
+        if (String(b[f] ?? '') !== String(c[f] ?? '')) diffFields.push(f);
+      });
+      if (diffFields.length === 0) unchanged.push(c);
+      else modified.push({ before: b, after: c, diffFields });
+    });
+
+    baseline.forEach((b) => {
+      const key = matchPartsKey(b);
+      if (!currentMap.has(key)) removed.push(b);
+    });
+
+    return { added, modified, removed, unchanged };
+  };
+
+  const computeRowTags = (rows: PartItem[]) => {
+    if (!reapplySource?.baselineItems) return new Map<string, { tag: string; color: string }>();
+    const { added, modified, removed, unchanged } = computeChangeSummary(reapplySource.baselineItems, rows);
+    const result = new Map<string, { tag: string; color: string }>();
+    const markAll = (list: PartItem[], tag: string, color: string) =>
+      list.forEach((i) => result.set(i.id, { tag, color }));
+    markAll(added, '新增', 'green');
+    modified.forEach((m) => result.set(m.after.id, { tag: `修改(${m.diffFields.join('/')})`, color: 'blue' }));
+    markAll(unchanged, '未变', 'default');
+    reapplySource.baselineItems.forEach((b) => {
+      const hit = rows.find((r) => matchPartsKey(r) === matchPartsKey(b));
+      if (!hit) {
+        result.set(`__removed__${b.id}`, { tag: '已删除', color: 'red' });
+      }
+    });
+    return result;
+  };
 
   const openDiagnosis = (t: ServiceTicket) => {
     setCurrentTicket(t);
@@ -147,6 +202,7 @@ export default function EngineerPage({ role, onUpdated }: Props) {
       : null;
 
     if (latestRejected) {
+      const baseline = latestRejected.items.map((it) => ({ ...it }));
       setPartsRows(
         latestRejected.items.map((it) => ({
           ...it,
@@ -159,6 +215,7 @@ export default function EngineerPage({ role, onUpdated }: Props) {
         previousCarriedRemark: latestRejected.diagnosisRemarkCarried || '',
         previousApplicationRemark: '',
         isReapply: true,
+        baselineItems: baseline,
       });
       partsForm.setFieldsValue({
         applicationRemark: '',
@@ -196,13 +253,20 @@ export default function EngineerPage({ role, onUpdated }: Props) {
       msgApi.error('请填写至少一项配件');
       return;
     }
-    const r = TicketService.submitPartsApplication({
+    const isReapply = !!reapplySource?.isReapply;
+    const payload: any = {
       ticketId: currentTicket.id,
       items,
       operator: '李工程师',
       idempotencyKey: uuidv4(),
       remark: v.applicationRemark,
-    });
+    };
+    if (isReapply && reapplySource) {
+      payload.basedOnApplicationId = reapplySource.rejectedApplicationId;
+      payload.baselineItemsSnapshot = reapplySource.baselineItems;
+      payload.changeSummary = computeChangeSummary(reapplySource.baselineItems, items);
+    }
+    const r = TicketService.submitPartsApplication(payload);
     if (r.success) {
       msgApi.success(r.message);
       setPartsOpen(false);
@@ -248,17 +312,41 @@ export default function EngineerPage({ role, onUpdated }: Props) {
           开始诊断
         </Button>
       );
-    if (r.status === 'parts_rejected')
+    if (r.status === 'parts_rejected') {
+      const rej = [...r.partsApplications].reverse().find((a) => a.status === 'rejected');
       return (
-        <Space>
-          <Button type="primary" size="small" icon={<SettingOutlined />} onClick={() => openPartsApply(r)}>
-            重提配件申请
-          </Button>
-          <Button size="small" icon={<SolutionOutlined />} onClick={() => openDiagnosis(r)}>
-            修改诊断
-          </Button>
+        <Space direction="vertical" size={4} style={{ display: 'flex' }}>
+          <Space wrap>
+            <Button type="primary" size="small" icon={<SettingOutlined />} onClick={() => openPartsApply(r)}>
+              重提配件申请
+            </Button>
+            <Button size="small" icon={<SolutionOutlined />} onClick={() => openDiagnosis(r)}>
+              修改诊断
+            </Button>
+          </Space>
+          {rej?.reviewRemark && (
+            <div
+              style={{
+                fontSize: 12,
+                color: '#a8071a',
+                background: '#fff1f0',
+                border: '1px solid #ffa39e',
+                padding: '3px 6px',
+                borderRadius: 4,
+                lineHeight: 1.5,
+                maxWidth: 240,
+              }}
+              title={rej.reviewRemark}
+            >
+              <Text strong style={{ color: '#cf1322' }}>
+                驳回：
+              </Text>
+              {rej.reviewRemark.length > 40 ? rej.reviewRemark.slice(0, 40) + '…' : rej.reviewRemark}
+            </div>
+          )}
         </Space>
       );
+    }
     if (r.status === 'diagnosing')
       return (
         <Button type="primary" size="small" icon={<SolutionOutlined />} onClick={() => openDiagnosis(r)}>
@@ -354,6 +442,22 @@ export default function EngineerPage({ role, onUpdated }: Props) {
       key: 'note',
       width: 260,
       render: (_: unknown, r: ServiceTicket) => {
+        if (r.status === 'parts_rejected') {
+          const rej = [...r.partsApplications].reverse().find((a) => a.status === 'rejected');
+          if (rej)
+            return (
+              <div style={{ fontSize: 12 }}>
+                <div style={{ color: '#cf1322', marginBottom: 2 }}>
+                  <Text strong style={{ color: '#cf1322' }}>
+                  管理员驳回：
+                </Text>
+                {rej.reviewRemark?.slice(0, 28) + (rej.reviewRemark && rej.reviewRemark.length > 28 ? '…' : '')}
+                </div>
+                <Text type="warning">携带备注：{rej.diagnosisRemarkCarried || '(无)'}
+                </Text>
+              </div>
+            );
+        }
         if (r.partsApplications.length > 0) {
           const latest = r.partsApplications[r.partsApplications.length - 1];
           return (
@@ -664,7 +768,16 @@ export default function EngineerPage({ role, onUpdated }: Props) {
         )}
 
         <Card
-          title="配件清单"
+          title={
+            <Space>
+              <span>配件清单</span>
+              {reapplySource?.isReapply && (
+                <Tag color="red">
+                  重提模式：对比上次申请，绿色=新增 蓝色=修改 红色=已删除
+                </Tag>
+              )}
+            </Space>
+          }
           size="small"
           extra={
             <Button size="small" type="dashed" onClick={addPartRow}>
@@ -672,62 +785,131 @@ export default function EngineerPage({ role, onUpdated }: Props) {
             </Button>
           }
         >
-          <List
-            size="small"
-            dataSource={partsRows}
-            renderItem={(row, idx) => (
-              <List.Item key={row.id}>
-                <Row gutter={8} style={{ width: '100%' }} align="middle">
-                  <Col span={1}>
-                    <Text type="secondary">{idx + 1}.</Text>
-                  </Col>
-                  <Col span={7}>
-                    <Input
-                      value={row.name}
-                      placeholder="配件名称"
-                      onChange={(e) => updatePartRow(row.id, 'name', e.target.value)}
+          {(() => {
+            const rowTags = computeRowTags(partsRows);
+            const removedBaseline = reapplySource?.baselineItems.filter(
+              (b) => !partsRows.find((r) => matchPartsKey(r) === matchPartsKey(b))
+            ) || [];
+            return (
+              <>
+                <List
+                  size="small"
+                  dataSource={partsRows}
+                  renderItem={(row, idx) => {
+                    const tag = rowTags.get(row.id);
+                    const borderColor = tag
+                      ? tag.color === 'red'
+                        ? '#ffa39e'
+                        : tag.color === 'green'
+                        ? '#b7eb8f'
+                        : tag.color === 'blue'
+                        ? '#91caff'
+                        : '#f0f0f0'
+                      : 'transparent';
+                    const bgColor = tag
+                      ? tag.color === 'red'
+                        ? '#fff1f0'
+                        : tag.color === 'green'
+                        ? '#f6ffed'
+                        : tag.color === 'blue'
+                        ? '#e6f4ff'
+                        : '#fafafa'
+                      : 'transparent';
+                    return (
+                      <List.Item
+                        key={row.id}
+                        style={{
+                          border: borderColor !== 'transparent' ? `1px solid ${borderColor}` : undefined,
+                          background: bgColor !== 'transparent' ? bgColor : undefined,
+                          borderRadius: 6,
+                          marginBottom: 4,
+                          padding: '6px 8px',
+                        }}
+                      >
+                        <Row gutter={8} style={{ width: '100%' }} align="middle">
+                          <Col span={1}>
+                            <Text type="secondary">{idx + 1}.</Text>
+                          </Col>
+                          <Col span={6}>
+                            <Input
+                              value={row.name}
+                              placeholder="配件名称"
+                              onChange={(e) => updatePartRow(row.id, 'name', e.target.value)}
+                            />
+                          </Col>
+                          <Col span={3}>
+                            <Input
+                              value={row.sku}
+                              placeholder="料号/SKU"
+                              onChange={(e) => updatePartRow(row.id, 'sku', e.target.value)}
+                            />
+                          </Col>
+                          <Col span={3}>
+                            <InputNumber
+                              min={1}
+                              value={row.quantity}
+                              style={{ width: '100%' }}
+                              onChange={(v) => updatePartRow(row.id, 'quantity', v)}
+                            />
+                          </Col>
+                          <Col span={2}>
+                            <Input
+                              value={row.unit}
+                              placeholder="单位"
+                              onChange={(e) => updatePartRow(row.id, 'unit', e.target.value)}
+                            />
+                          </Col>
+                          <Col span={5}>
+                            <Input
+                              value={row.reason}
+                              placeholder="申请原因"
+                              onChange={(e) => updatePartRow(row.id, 'reason', e.target.value)}
+                            />
+                          </Col>
+                          <Col span={3}>
+                            <Space>
+                              {tag && <Tag color={tag.color as any}>{tag.tag}</Tag>}
+                              {partsRows.length > 1 && (
+                                <Button danger type="link" onClick={() => removePartRow(row.id)}>
+                                  删除
+                                </Button>
+                              )}
+                            </Space>
+                          </Col>
+                        </Row>
+                      </List.Item>
+                    );
+                  }}
+                />
+                {removedBaseline.length > 0 && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: '8px 12px',
+                      background: '#fff1f0',
+                      border: '1px dashed #ffa39e',
+                      borderRadius: 6,
+                    }}
+                  >
+                    <Text strong style={{ color: '#cf1322' }}>
+                      相对上次已删除（共 {removedBaseline.length} 项）：
+                    </Text>
+                    <List
+                      size="small"
+                      dataSource={removedBaseline}
+                      style={{ marginTop: 4 }}
+                      renderItem={(it) => (
+                        <List.Item style={{ textDecoration: 'line-through', color: '#8c8c8c' }}>
+                          {it.name} {it.sku ? `(${it.sku})` : ''} × {it.quantity}{it.unit}
+                          {it.reason ? ` — ${it.reason}` : ''}
+                        </List.Item>
+                      )}
                     />
-                  </Col>
-                  <Col span={4}>
-                    <Input
-                      value={row.sku}
-                      placeholder="料号/SKU"
-                      onChange={(e) => updatePartRow(row.id, 'sku', e.target.value)}
-                    />
-                  </Col>
-                  <Col span={3}>
-                    <InputNumber
-                      min={1}
-                      value={row.quantity}
-                      style={{ width: '100%' }}
-                      onChange={(v) => updatePartRow(row.id, 'quantity', v)}
-                    />
-                  </Col>
-                  <Col span={2}>
-                    <Input
-                      value={row.unit}
-                      placeholder="单位"
-                      onChange={(e) => updatePartRow(row.id, 'unit', e.target.value)}
-                    />
-                  </Col>
-                  <Col span={5}>
-                    <Input
-                      value={row.reason}
-                      placeholder="申请原因"
-                      onChange={(e) => updatePartRow(row.id, 'reason', e.target.value)}
-                    />
-                  </Col>
-                  <Col span={2}>
-                    {partsRows.length > 1 && (
-                      <Button danger type="link" onClick={() => removePartRow(row.id)}>
-                        删除
-                      </Button>
-                    )}
-                  </Col>
-                </Row>
-              </List.Item>
-            )}
-          />
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </Card>
         <Form layout="vertical" form={partsForm} style={{ marginTop: 12 }} preserve={false}>
           <Form.Item label="申请补充备注（会与诊断备注一起传递给审核）" name="applicationRemark">
