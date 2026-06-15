@@ -27,6 +27,7 @@ let orderSeq = 1000;
 let noticeSeq = 1;
 let exceptionSeq = 1;
 let auditLogSeq = 1;
+let changeSeq = 1;
 
 function genOrderNo() {
   orderSeq++;
@@ -43,6 +44,10 @@ function genExceptionId() {
 
 function genAuditLogId() {
   return 'AL' + Date.now() + '-' + (auditLogSeq++);
+}
+
+function genChangeId() {
+  return 'CH' + Date.now() + '-' + (changeSeq++);
 }
 
 const initialLocations = [
@@ -203,6 +208,7 @@ const state = {
   locations: [],
   notices: [],
   exceptions: [],
+  changeTrackings: [],
   currentRole: ROLE.WAREHOUSE_SUPERVISOR
 };
 
@@ -227,6 +233,42 @@ function resetAll() {
   state.exceptions = [
     { id: genExceptionId(), orderId: soException.id, type: '库存不足', material: '红砖', plannedQty: 1000, actualQty: 950, diff: -50, reporter: '张主管', reportTime: new Date(Date.now() - 1800000).toLocaleString('zh-CN'), status: '待处理', handler: null, handleTime: null, handleRemark: '' }
   ];
+
+  state.changeTrackings = [
+    {
+      id: genChangeId(),
+      orderId: soWaiting.id,
+      changeType: '拣货复核通过',
+      summary: '拣货复核通过，数量无误，已入库待装车',
+      operator: '张主管',
+      relatedLogId: null,
+      diffItems: [],
+      status: '已确认',
+      confirmer: '刘师傅',
+      confirmTime: new Date(Date.now() - 3600000).toLocaleString('zh-CN'),
+      confirmRemark: '数量已核对，装车准备中',
+      createdAt: new Date(Date.now() - 7200000).toLocaleString('zh-CN'),
+      archivedAt: null,
+      archiveReason: null
+    },
+    {
+      id: genChangeId(),
+      orderId: soLoading.id,
+      changeType: '拣货复核变更（装车中重新修改）',
+      summary: '装车安排阶段复核数据更新，请司机重新核对',
+      operator: '张主管',
+      relatedLogId: null,
+      diffItems: [],
+      status: '待确认',
+      confirmer: null,
+      confirmTime: null,
+      confirmRemark: '',
+      createdAt: new Date(Date.now() - 1800000).toLocaleString('zh-CN'),
+      archivedAt: null,
+      archiveReason: null
+    }
+  ];
+
   state.currentRole = ROLE.WAREHOUSE_SUPERVISOR;
 }
 
@@ -282,6 +324,51 @@ function addException(orderId, type, material, plannedQty, actualQty, diff, repo
   });
 }
 
+function addChangeTracking(orderId, changeType, summary, operator, relatedLogId, diffItems) {
+  state.changeTrackings
+    .filter(c => c.orderId === orderId && c.status === '待确认')
+    .forEach(c => { c.status = '已归档'; c.archivedAt = new Date().toLocaleString('zh-CN'); c.archiveReason = '新变更产生，自动归档'; });
+
+  state.changeTrackings.unshift({
+    id: genChangeId(),
+    orderId,
+    changeType,
+    summary,
+    operator,
+    relatedLogId: relatedLogId || null,
+    diffItems: diffItems || [],
+    status: '待确认',
+    confirmer: null,
+    confirmTime: null,
+    confirmRemark: '',
+    createdAt: new Date().toLocaleString('zh-CN'),
+    archivedAt: null,
+    archiveReason: null
+  });
+}
+
+function confirmChange(changeId, confirmer, remark) {
+  const change = state.changeTrackings.find(c => c.id === changeId);
+  if (!change) return null;
+  change.status = '已确认';
+  change.confirmer = confirmer;
+  change.confirmTime = new Date().toLocaleString('zh-CN');
+  change.confirmRemark = remark || '';
+  return change;
+}
+
+function clearOrderChangeTrackings(orderId) {
+  state.changeTrackings = state.changeTrackings.filter(c => c.orderId !== orderId);
+}
+
+function getOrderChangeTrackings(orderId) {
+  return state.changeTrackings.filter(c => c.orderId === orderId);
+}
+
+function getLatestPendingChange(orderId) {
+  return state.changeTrackings.find(c => c.orderId === orderId && c.status === '待确认') || null;
+}
+
 resetAll();
 
 module.exports = {
@@ -293,9 +380,15 @@ module.exports = {
   addAuditLog,
   addNotice,
   addException,
+  addChangeTracking,
+  confirmChange,
   clearOrderRelatedNotices,
   clearOrderExceptions,
+  clearOrderChangeTrackings,
+  getOrderChangeTrackings,
+  getLatestPendingChange,
   genAuditLogId,
   genNoticeId,
-  genExceptionId
+  genExceptionId,
+  genChangeId
 };

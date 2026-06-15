@@ -9,8 +9,13 @@ const {
   addAuditLog,
   addNotice,
   addException,
+  addChangeTracking,
+  confirmChange,
   clearOrderRelatedNotices,
-  clearOrderExceptions
+  clearOrderExceptions,
+  clearOrderChangeTrackings,
+  getOrderChangeTrackings,
+  getLatestPendingChange
 } = require('../data/store');
 
 router.get('/role', (req, res) => {
@@ -76,6 +81,7 @@ router.put('/orders/:id/picking-audit', (req, res) => {
     order.status = STATUS.PICKING_AUDIT_REJECTED;
     addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, auditor || '张主管', '拣货复核驳回', remark || '数据不一致，需要重新拣货');
     addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${id} 拣货复核驳回`, `拣货复核被驳回：${remark || '请重新核对后提交'}`, id);
+    addChangeTracking(id, '拣货复核驳回', `拣货复核被驳回：${remark || '数据不一致，需重新拣货'}`, auditor || '张主管', null, order.pickingAudit.actualItems.filter(i => i.diff !== 0));
   } else {
     if (hasDiff) {
       order.pickingAudit.actualItems.forEach(item => {
@@ -90,10 +96,12 @@ router.put('/orders/:id/picking-audit', (req, res) => {
     if (order.loadingArrange && (order.status === STATUS.LOADING_ARRANGE || order.status === STATUS.LOADING)) {
       addNotice(ROLE.DRIVER, `订单 ${id} 装车数据已更新`, `拣货复核重新提交，装车数量有变化，请核对`, id);
       addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, auditor || '张主管', '拣货复核变更（装车中重新修改）', `装车安排阶段复核数据更新，司机需重新核对`);
+      addChangeTracking(id, '拣货复核变更（装车中重新修改）', `装车安排阶段复核数据更新，数量有变化，请司机重新核对`, auditor || '张主管', null, order.pickingAudit.actualItems.filter(i => i.diff !== 0));
     } else {
       order.status = STATUS.LOADING_ARRANGE;
       addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, auditor || '张主管', '拣货复核通过', remark || '数量确认无误，进入装车安排');
       addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${id} 待装车安排`, '拣货复核已通过，请安排车辆和司机', id);
+      addChangeTracking(id, '拣货复核通过', remark || '拣货复核通过，数量确认无误，进入装车安排阶段', auditor || '张主管', null, order.pickingAudit.actualItems.filter(i => i.diff !== 0));
     }
   }
 
@@ -131,6 +139,7 @@ router.post('/orders/:id/picking-audit/reset', (req, res) => {
 
   clearOrderExceptions(id);
   clearOrderRelatedNotices(id);
+  clearOrderChangeTrackings(id);
 
   addAuditLog(id, ROLE.WAREHOUSE_SUPERVISOR, operator || '张主管', '重置拣货复核', '已清理装车安排、异常记录和相关通知，重新进入拣货复核');
   addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${id} 已重置为待复核状态`, '请重新进行拣货复核', id);
@@ -218,6 +227,24 @@ router.get('/orders/:id/audit-logs', (req, res) => {
   res.json(order.auditLogs || []);
 });
 
+router.get('/orders/:id/changes', (req, res) => {
+  const order = state.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: '订单不存在' });
+  res.json(getOrderChangeTrackings(req.params.id));
+});
+
+router.post('/orders/:id/changes/:changeId/confirm', (req, res) => {
+  const order = state.orders.find(o => o.id === req.params.id);
+  if (!order) return res.status(404).json({ error: '订单不存在' });
+  const { confirmer, remark } = req.body;
+  const change = confirmChange(req.params.changeId, confirmer || '司机', remark || '');
+  if (!change) return res.status(404).json({ error: '变更记录不存在' });
+  addAuditLog(req.params.id, ROLE.DRIVER, confirmer || '司机', '变更确认', `确认变更「${change.changeType}」：${remark || '已核对无异议'}`);
+  addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${req.params.id} 变更已确认`, `司机 ${confirmer || '司机'} 已确认变更「${change.changeType}」`, req.params.id);
+  addNotice(ROLE.CUSTOMER_SERVICE, `订单 ${req.params.id} 变更已确认`, `司机已确认装车变更，配送可继续`, req.params.id);
+  res.json(change);
+});
+
 router.get('/notices', (req, res) => {
   const { role, unread } = req.query;
   let notices = state.notices;
@@ -262,9 +289,14 @@ router.put('/exceptions/:id', (req, res) => {
   const order = state.orders.find(o => o.id === exception.orderId);
   if (order) {
     addAuditLog(exception.orderId, ROLE.CUSTOMER_SERVICE, handler || '客服', `异常处理：${exception.type}`, handleRemark || `异常已${exception.status}`);
-    if (newStatus === '已处理' && order.status === STATUS.EXCEPTION) {
-      order.status = STATUS.LOADING_ARRANGE;
-      addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${exception.orderId} 异常已解决`, '可以继续安排装车了', exception.orderId);
+    if (newStatus === '已处理') {
+      addChangeTracking(exception.orderId, '异常已处理', `异常「${exception.type}」已处理：${handleRemark || '已解决'}`, handler || '客服', null, [
+        { material: exception.material, plannedQty: exception.plannedQty, actualQty: exception.actualQty, diff: exception.diff, reason: handleRemark || '' }
+      ]);
+      if (order.status === STATUS.EXCEPTION) {
+        order.status = STATUS.LOADING_ARRANGE;
+        addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${exception.orderId} 异常已解决`, '可以继续安排装车了', exception.orderId);
+      }
     }
   }
 
@@ -310,6 +342,7 @@ router.post('/demo/trigger-exception', (req, res) => {
     addAuditLog(order.id, ROLE.WAREHOUSE_SUPERVISOR, '系统演示', '拣货复核驳回', '演示触发：数据不一致，需要重新拣货');
     addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${order.id} 拣货复核驳回`, '演示触发：拣货复核被驳回，请重新核对后提交', order.id);
     addNotice(ROLE.CUSTOMER_SERVICE, `订单 ${order.id} 拣货复核异常`, '演示触发：拣货复核被驳回，可能影响配送时效', order.id);
+    addChangeTracking(order.id, '拣货复核驳回', '演示触发：拣货复核被驳回，数据不一致需重新拣货', '系统演示', null, []);
 
     res.json({ ok: true, orderId: order.id, type: 'reject', message: '已触发拣货复核驳回异常' });
   } else if (type === 'shortage') {
@@ -338,6 +371,9 @@ router.post('/demo/trigger-exception', (req, res) => {
     addNotice(ROLE.CUSTOMER_SERVICE, `订单 ${order.id} 拣货复核数量异常`, `演示触发：${targetItem.material} 短缺 ${shortageQty}${targetItem.unit}，请联系客户确认处理方式`, order.id);
     addNotice(ROLE.WAREHOUSE_SUPERVISOR, `订单 ${order.id} 出现库存异常`, `演示触发：${targetItem.material} 数量有差异，请复核`, order.id);
     addAuditLog(order.id, ROLE.WAREHOUSE_SUPERVISOR, '系统演示', '异常上报', `演示触发：${targetItem.material} 库存短缺 ${shortageQty}${targetItem.unit}`);
+    addChangeTracking(order.id, '异常上报', `演示触发：${targetItem.material} 库存短缺 ${shortageQty}${targetItem.unit}，请复核处理`, '系统演示', null, [
+      { material: targetItem.material, plannedQty: targetItem.qty, actualQty: actualQty, diff: -shortageQty, reason: '演示触发：库存短缺' }
+    ]);
 
     if (order.status === STATUS.PICKING_AUDIT) {
     } else if (order.status === STATUS.LOADING_ARRANGE || order.status === STATUS.LOADING) {
@@ -431,6 +467,13 @@ router.get('/orders-change-summary', (req, res) => {
       }
     }
 
+    const orderChanges = getOrderChangeTrackings(order.id);
+    const pendingChanges = orderChanges.filter(c => c.status === '待确认');
+    const pendingChange = pendingChanges.length ? pendingChanges[0] : null;
+    const confirmedChanges = orderChanges.filter(c => c.status === '已确认');
+    const archivedChanges = orderChanges.filter(c => c.status === '已归档');
+    const latestChange = orderChanges.length ? orderChanges[0] : null;
+
     return {
       orderId: order.id,
       status: order.status,
@@ -451,7 +494,14 @@ router.get('/orders-change-summary', (req, res) => {
       hasUnreadNotice: roleUnreadNotices.length > 0,
       noticeStatusByRole,
       lastAuditTime: audit?.auditTime || null,
-      lastExceptionTime: latestException?.reportTime || null
+      lastExceptionTime: latestException?.reportTime || null,
+      changeCount: orderChanges.length,
+      pendingChangeCount: pendingChanges.length,
+      confirmedChangeCount: confirmedChanges.length,
+      archivedChangeCount: archivedChanges.length,
+      hasPendingChange: pendingChanges.length > 0,
+      latestChange,
+      pendingChange
     };
   });
 

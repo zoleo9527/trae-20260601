@@ -618,6 +618,7 @@ async function loadLoadingView() {
       <label>快速筛选：</label>
       <div class="role-buttons" style="background:#f3f4f6;padding:3px;border-radius:6px">
         <button class="role-btn active" data-loading-filter="all">全部 (${list.length})</button>
+        <button class="role-btn" data-loading-filter="pending">⏳ 待确认变更 (${list.filter(o => summaryMap[o.id]?.hasPendingChange).length})</button>
         <button class="role-btn" data-loading-filter="diff">🔔 有复核变更 (${list.filter(o => summaryMap[o.id]?.hasAuditChange).length})</button>
         <button class="role-btn" data-loading-filter="exception">⚠️ 异常待处理 (${list.filter(o => summaryMap[o.id]?.hasOpenException).length})</button>
       </div>
@@ -637,6 +638,7 @@ async function loadLoadingView() {
       btn.classList.add('active');
       const filter = btn.dataset.loadingFilter;
       let filtered = list;
+      if (filter === 'pending') filtered = list.filter(o => summaryMap[o.id]?.hasPendingChange);
       if (filter === 'diff') filtered = list.filter(o => summaryMap[o.id]?.hasAuditChange);
       if (filter === 'exception') filtered = list.filter(o => summaryMap[o.id]?.hasOpenException);
       document.getElementById('loadingOrderList').innerHTML = filtered.length ?
@@ -667,12 +669,16 @@ function renderLoadingCard(order, summary) {
         </div>
       </div>
       <div class="order-card-body">
-        ${summary?.hasAuditChange || summary?.exceptionCount ? `
-          <div style="margin-bottom:12px;padding:10px;border-radius:6px;background:${summary?.hasOpenException ? '#fef2f2' : '#fffbeb'};border:1px solid ${summary?.hasOpenException ? '#fecaca' : '#fde68a'}">
-            <div style="font-size:12px;font-weight:600;color:${summary?.hasOpenException ? '#991b1b' : '#92400e'};margin-bottom:4px">
-              ${summary?.hasOpenException ? '⚠️ 变更追踪 - 有未处理异常' : '🔔 变更追踪 - 有复核变更记录'}
+        ${summary?.hasAuditChange || summary?.exceptionCount || summary?.changeCount ? `
+          <div style="margin-bottom:12px;padding:10px;border-radius:6px;background:${summary?.hasPendingChange ? '#fef2f2' : summary?.hasOpenException ? '#fef2f2' : '#fffbeb'};border:1px solid ${summary?.hasPendingChange ? '#fecaca' : summary?.hasOpenException ? '#fecaca' : '#fde68a'}">
+            <div style="font-size:12px;font-weight:600;color:${summary?.hasPendingChange ? '#991b1b' : summary?.hasOpenException ? '#991b1b' : '#92400e'};margin-bottom:4px">
+              ${summary?.hasPendingChange ? '⚠️ 变更追踪 - 待司机确认' : summary?.hasOpenException ? '⚠️ 变更追踪 - 有未处理异常' : '🔔 变更追踪 - 有复核变更记录'}
+              ${summary?.pendingChangeCount ? `<span style="margin-left:6px;font-weight:400">(${summary.pendingChangeCount}条待确认 / 共${summary.changeCount}条)</span>` : ''}
             </div>
-            ${summary?.lastAuditChangeSummary ? `<div style="font-size:12px;color:#374151">📝 最近复核操作：${summary.lastAuditChangeSummary}</div>` : ''}
+            ${summary?.latestChange ? `<div style="font-size:12px;color:#374151">📝 最近变更：${summary.latestChange.changeType}（${summary.latestChange.operator}，${summary.latestChange.createdAt}）</div>` : ''}
+            ${summary?.latestChange?.summary ? `<div style="font-size:12px;color:#374151;margin-top:2px">&nbsp;&nbsp;&nbsp;&nbsp;${summary.latestChange.summary}</div>` : ''}
+            ${summary?.pendingChange?.confirmer ? '' : summary?.latestChange?.status === '已确认' ?
+              `<div style="font-size:12px;color:#059669;margin-top:4px">✓ 已确认：${summary.latestChange.confirmer} · ${summary.latestChange.confirmTime}${summary.latestChange.confirmRemark ? ` · ${summary.latestChange.confirmRemark}` : ''}</div>` : ''}
             ${summary?.diffSummary ? `<div style="font-size:12px;color:#374151;margin-top:2px">📦 当前数量差异：${summary.diffSummary}</div>` : ''}
             ${summary?.exceptionSummary ? `<div style="font-size:12px;color:#374151;margin-top:2px">⚠️ 异常：${summary.exceptionSummary}</div>` : ''}
             ${summary?.noticeStatusByRole ? `
@@ -683,6 +689,8 @@ function renderLoadingCard(order, summary) {
                 ｜ 💬 客服 ${summary.noticeStatusByRole.customer_service.unread > 0 ? `<span style="color:#dc2626;font-weight:600">${summary.noticeStatusByRole.customer_service.unread}未读</span>` : '<span style="color:#059669">✓</span>'}
               </div>
             ` : ''}
+            ${summary?.hasPendingChange && currentRole === 'driver' ?
+              `<button class="btn btn-warning btn-sm" style="margin-top:8px;padding:4px 10px;font-size:12px" onclick="confirmChangeLoading('${order.id}', '${summary.pendingChange.id}')">✓ 确认已核对</button>` : ''}
           </div>
         ` : ''}
         <div class="detail-grid">
@@ -833,6 +841,29 @@ async function startLoading(orderId) {
   }
 }
 
+async function confirmChangeLoading(orderId, changeId) {
+  if (!confirm('确认已核对变更内容，继续装车？')) return;
+  try {
+    await api(`/orders/${orderId}/changes/${changeId}/confirm`, { method: 'POST', body: JSON.stringify({ confirmer: '刘师傅', remark: '已核对，数量确认无误' }) });
+    toast('变更已确认', 'success');
+    refreshAll();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+async function confirmChangeFromDetail(orderId, changeId) {
+  if (!confirm('确认已核对变更内容？')) return;
+  try {
+    await api(`/orders/${orderId}/changes/${changeId}/confirm`, { method: 'POST', body: JSON.stringify({ confirmer: '刘师傅', remark: '已核对，数量确认无误' }) });
+    toast('变更已确认', 'success');
+    await refreshAll();
+    openOrderDetail(orderId);
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
 async function completeLoading(orderId) {
   if (!confirm('确认装车完成，开始配送？')) return;
   try {
@@ -900,6 +931,7 @@ async function loadExceptionsView() {
         <option value="">全部</option>
         <option value="loading">仅装车阶段订单</option>
         <option value="hasChange">有复核变更订单</option>
+        <option value="pendingChange">待确认变更订单</option>
       </select>
       <button class="btn btn-danger btn-sm" onclick="triggerDemoException()">🎯 触发异常演示</button>
     </div>
@@ -918,6 +950,7 @@ async function loadExceptionsView() {
       return s && ['待装车安排', '装车中', '配送中'].includes(s.status);
     });
     if (orderFilter === 'hasChange') list = list.filter(ex => summaryMap[ex.orderId]?.hasAuditChange);
+    if (orderFilter === 'pendingChange') list = list.filter(ex => summaryMap[ex.orderId]?.hasPendingChange);
     document.getElementById('exceptionListContent').innerHTML = renderExceptionList(list, summaryMap);
   }
 
@@ -948,6 +981,8 @@ function renderExceptionList(list, summaryMap) {
         上报人：${e.reporter} | ${e.reportTime}
         ${hasChange ? '<span style="margin-left:8px;padding:2px 8px;background:#fef3c7;color:#92400e;border-radius:10px;font-size:11px">有复核变更</span>' : ''}
         ${isInLoading ? '<span style="margin-left:8px;padding:2px 8px;background:#dbeafe;color:#1e40af;border-radius:10px;font-size:11px">装车阶段</span>' : ''}
+        ${s?.hasPendingChange ? '<span style="margin-left:8px;padding:2px 8px;background:#fee2e2;color:#991b1b;border-radius:10px;font-size:11px">待司机确认</span>' : ''}
+        ${s?.latestChange?.status === '已确认' ? `<span style="margin-left:8px;padding:2px 8px;background:#d1fae5;color:#065f46;border-radius:10px;font-size:11px">✓ 已确认(${s.latestChange.confirmer})</span>` : ''}
       </div>
       ${e.handleRemark ? `<div class="exception-remark">处理结果：${e.handleRemark} (${e.handler} @ ${e.handleTime})</div>` : ''}
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
@@ -1138,15 +1173,16 @@ async function openOrderDetail(orderId) {
   const order = await api(`/orders/${orderId}`);
   const exceptions = await api(`/exceptions?orderId=${orderId}`);
   const summaryList = await api('/orders-change-summary');
+  const changes = await api(`/orders/${orderId}/changes`);
   const summary = summaryList.find(s => s.orderId === orderId);
 
   document.getElementById('orderDetailTitle').textContent = `订单详情 - ${order.id}`;
 
   let summaryHtml = '';
-  if (summary && (summary.hasAuditChange || summary.exceptionCount > 0)) {
-    const bgColor = summary.hasOpenException ? '#fef2f2' : '#fffbeb';
-    const borderColor = summary.hasOpenException ? '#fecaca' : '#fde68a';
-    const titleColor = summary.hasOpenException ? '#991b1b' : '#92400e';
+  if (summary && (summary.hasAuditChange || summary.exceptionCount > 0 || summary.changeCount > 0)) {
+    const bgColor = summary.hasPendingChange ? '#fef2f2' : summary.hasOpenException ? '#fef2f2' : '#fffbeb';
+    const borderColor = summary.hasPendingChange ? '#fecaca' : summary.hasOpenException ? '#fecaca' : '#fde68a';
+    const titleColor = summary.hasPendingChange ? '#991b1b' : summary.hasOpenException ? '#991b1b' : '#92400e';
 
     let noticeByRoleHtml = '';
     if (summary.noticeStatusByRole) {
@@ -1180,21 +1216,31 @@ async function openOrderDetail(orderId) {
 
     summaryHtml = `
       <div style="margin-bottom:18px;padding:14px;border-radius:8px;background:${bgColor};border:1px solid ${borderColor}">
-        <div style="font-size:14px;font-weight:600;color:${titleColor};margin-bottom:8px">
-          ⚡ 跨角色变更追踪汇总
+        <div style="font-size:14px;font-weight:600;color:${titleColor};margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+          <span>⚡ 跨角色变更追踪汇总</span>
+          <span style="font-size:12px;font-weight:400;color:#6b7280">
+            共 ${summary.changeCount || 0} 条变更
+            ${summary.pendingChangeCount ? ` · <span style="color:#dc2626;font-weight:600">${summary.pendingChangeCount} 条待确认</span>` : ''}
+            ${summary.confirmedChangeCount ? ` · <span style="color:#059669">${summary.confirmedChangeCount} 条已确认</span>` : ''}
+            ${summary.archivedChangeCount ? ` · <span style="color:#9ca3af">${summary.archivedChangeCount} 条已归档</span>` : ''}
+          </span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
           <div>
-            <span style="color:#6b7280">最近复核操作：</span>
-            ${summary.lastAuditChangeSummary ? `<strong style="color:#1f2937">${summary.lastAuditChangeSummary}</strong>` : '<span style="color:#9ca3af">无复核记录</span>'}
+            <span style="color:#6b7280">最近变更类型：</span>
+            ${summary.latestChange ? `<strong style="color:#1f2937">${summary.latestChange.changeType}</strong>` : '<span style="color:#9ca3af">无变更</span>'}
+          </div>
+          <div>
+            <span style="color:#6b7280">变更确认状态：</span>
+            ${summary.hasPendingChange ?
+              `<strong style="color:#dc2626">待司机确认</strong>` :
+              summary.latestChange?.status === '已确认' ?
+              `<strong style="color:#059669">✓ 已确认 (${summary.latestChange.confirmer}, ${summary.latestChange.confirmTime})</strong>` :
+              '<span style="color:#9ca3af">未涉及确认</span>'}
           </div>
           <div>
             <span style="color:#6b7280">当前数量差异：</span>
             ${summary.diffSummary ? `<strong style="color:#1f2937">${summary.diffSummary}</strong>` : '<span style="color:#9ca3af">无差异</span>'}
-          </div>
-          <div>
-            <span style="color:#6b7280">复核时间：</span>
-            ${summary.lastAuditTime ? `<strong style="color:#1f2937">${summary.lastAuditTime}</strong>` : '<span style="color:#9ca3af">未复核</span>'}
           </div>
           <div>
             <span style="color:#6b7280">异常处理结论：</span>
@@ -1202,11 +1248,13 @@ async function openOrderDetail(orderId) {
           </div>
         </div>
         ${noticeByRoleHtml}
-        ${summary.hasOpenException || summary.hasAuditChange ? `
-          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${borderColor};display:flex;gap:8px">
+        ${summary.hasOpenException || summary.hasAuditChange || summary.changeCount > 0 ? `
+          <div style="margin-top:10px;padding-top:10px;border-top:1px dashed ${borderColor};display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-warning btn-sm" onclick="closeAllDrawers(); openExceptionDrawer('${orderId}')">查看异常</button>
             ${['待装车安排', '装车中', '配送中'].includes(order.status) ?
               `<button class="btn btn-primary btn-sm" onclick="closeAllDrawers(); goToLoadingCard('${orderId}')">跳转到装车卡片</button>` : ''}
+            ${summary.hasPendingChange && currentRole === 'driver' ?
+              `<button class="btn btn-success btn-sm" onclick="confirmChangeFromDetail('${orderId}', '${summary.pendingChange.id}')">✓ 确认变更已核对</button>` : ''}
           </div>
         ` : ''}
       </div>
@@ -1308,6 +1356,41 @@ async function openOrderDetail(orderId) {
           </div>
           <div class="exception-meta">计划 ${e.plannedQty} / 实际 ${e.actualQty} / 差异 ${e.diff > 0 ? '+' : ''}${e.diff} · ${e.reporter}</div>
           ${e.handleRemark ? `<div class="exception-remark">${e.handleRemark} (${e.handler})</div>` : ''}
+        </div>
+      `).join('')}
+    ` : ''}
+
+    ${changes.length ? `
+      <div class="section-title" style="font-size:14px;margin-top:18px">🔄 变更追踪记录</div>
+      <div style="font-size:12px;color:#6b7280;margin-bottom:8px">共 ${changes.length} 条变更（只保留最近一条待确认，旧变更自动归档）</div>
+      ${changes.map(c => `
+        <div class="exception-item ${c.status === '已归档' ? 'handled' : ''}" style="${c.status === '已归档' ? 'opacity:0.6' : ''}">
+          <div class="exception-header">
+            <span class="exception-type">
+              ${c.status === '待确认' ? '⏳' : c.status === '已确认' ? '✓' : '📦'} ${c.changeType}
+            </span>
+            <span class="exception-status ${c.status === '待确认' ? 'pending' : c.status === '已确认' ? 'handled' : 'handled'}">${c.status}</span>
+          </div>
+          <div class="exception-meta">
+            操作人：${c.operator} · ${c.createdAt}
+          </div>
+          ${c.summary ? `<div class="exception-remark">${c.summary}</div>` : ''}
+          ${c.diffItems?.length ? `<div class="exception-remark">📦 差异明细：${c.diffItems.map(d => `${d.material} ${d.plannedQty}→${d.actualQty}(${d.diff > 0 ? '+' : ''}${d.diff})`).join('；')}</div>` : ''}
+          ${c.status === '已确认' ? `
+            <div class="exception-remark" style="color:#059669">
+              ✓ 已确认：${c.confirmer} · ${c.confirmTime}${c.confirmRemark ? ` · ${c.confirmRemark}` : ''}
+            </div>
+          ` : ''}
+          ${c.status === '已归档' ? `
+            <div class="exception-remark" style="color:#9ca3af">
+              📦 归档于 ${c.archivedAt}${c.archiveReason ? ` · ${c.archiveReason}` : ''}
+            </div>
+          ` : ''}
+          ${c.status === '待确认' && currentRole === 'driver' ? `
+            <div style="margin-top:8px">
+              <button class="btn btn-success btn-sm" onclick="confirmChangeFromDetail('${orderId}', '${c.id}')">✓ 确认已核对</button>
+            </div>
+          ` : ''}
         </div>
       `).join('')}
     ` : ''}
