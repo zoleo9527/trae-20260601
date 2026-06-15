@@ -1,11 +1,11 @@
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useDeviceStore } from '@/store/deviceStore'
 import StatusBadge from '@/components/StatusBadge'
 import GradeBadge from '@/components/GradeBadge'
 import Timeline from '@/components/Timeline'
 import { RiskTypeBadge, RiskSeverityDot, RiskStatusLabel } from '@/components/RiskBadge'
-import { ArrowLeft, Smartphone, CreditCard, User, FileText, AlertTriangle, Check, X, Send, MessageSquare, ChevronRight, Package, ClipboardCheck, DollarSign, Wallet, RotateCcw, CheckCircle2, Edit2, Shield } from 'lucide-react'
+import { ArrowLeft, Smartphone, CreditCard, User, FileText, AlertTriangle, Check, X, Send, MessageSquare, ChevronRight, Package, ClipboardCheck, DollarSign, Wallet, RotateCcw, CheckCircle2, Edit2, Shield, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { InspectionItem, DeviceStatus, Role } from '@/types'
 
@@ -30,6 +30,8 @@ function getStepIndex(status: DeviceStatus, hasReport: boolean): number {
 export default function DeviceDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const timelineRef = useRef<HTMLDivElement>(null)
   const {
     devices, inspectionReports, riskFlags, historyEntries,
     resolveRisk, updateRiskStatus, confirmPrice, markPriceRegret, returnDevice,
@@ -40,7 +42,28 @@ export default function DeviceDetail() {
   const [priceRegretReason, setPriceRegretReason] = useState('')
   const [noteRole, setNoteRole] = useState<Role>('receiver')
 
+  const from = searchParams.get('from')
+  const action = searchParams.get('action')
+
   const device = devices.find((d) => d.id === id)
+
+  useEffect(() => {
+    if (action && timelineRef.current) {
+      const t = setTimeout(() => {
+        timelineRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 300)
+      return () => clearTimeout(t)
+    }
+  }, [action, device])
+
+  useEffect(() => {
+    if (action) {
+      const t = setTimeout(() => {
+        setSearchParams({}, { replace: true })
+      }, 8000)
+      return () => clearTimeout(t)
+    }
+  }, [action, setSearchParams])
 
   if (!device) {
     return (
@@ -72,6 +95,66 @@ export default function DeviceDetail() {
   const passCount = report?.items.filter((i) => i.result === 'pass').length ?? 0
   const failCount = report?.items.filter((i) => i.result === 'fail').length ?? 0
   const skipCount = report?.items.filter((i) => i.result === 'skip').length ?? 0
+
+  const resultCardConfig = useMemo(() => {
+    if (!action) return null
+    const latest = deviceHistory[0]
+    const configs: Record<string, { title: string; subtitle: string; color: string; icon: React.ComponentType<{ className?: string }>; details: { label: string; value: string }[] }> = {
+      inspect_submit: {
+        title: '检测报告已提交',
+        subtitle: `等级：${device.grade ?? '—'} · ${report?.items.length ?? 0} 项检测`,
+        color: 'from-purple-500/20 via-purple-500/10 to-transparent border-purple-500/30',
+        icon: ClipboardCheck,
+        details: [
+          { label: '判定等级', value: device.grade ? `${device.grade} 级` : '—' },
+          { label: '检测通过', value: `${passCount} / ${report?.items.length ?? 0}` },
+          { label: '不通过项', value: `${failCount} 项` },
+          { label: '最终报价', value: `¥${(device.finalPrice ?? 0).toLocaleString()}` },
+        ],
+      },
+      verify: {
+        title: '账号核验通过',
+        subtitle: '已转入待打款队列',
+        color: 'from-cyan-500/20 via-cyan-500/10 to-transparent border-cyan-500/30',
+        icon: Shield,
+        details: [
+          { label: '客户姓名', value: device.customerName },
+          { label: '收款账号', value: device.paymentAccount },
+          { label: '开户行', value: device.paymentBank },
+          { label: '打款金额', value: `¥${(device.finalPrice ?? 0).toLocaleString()}` },
+        ],
+      },
+      fix_account: {
+        title: '账号已更新',
+        subtitle: '账号异常风险已解除',
+        color: 'from-green-500/20 via-green-500/10 to-transparent border-green-500/30',
+        icon: CheckCircle2,
+        details: [
+          { label: '新账号', value: device.paymentAccount },
+          { label: '开户行', value: device.paymentBank },
+          { label: '风险状态', value: '已解除' },
+          { label: '下一步', value: '账号核验' },
+        ],
+      },
+      pay: {
+        title: '打款成功',
+        subtitle: '设备流程已完成',
+        color: 'from-green-500/20 via-green-500/10 to-transparent border-green-500/30',
+        icon: CheckCircle2,
+        details: [
+          { label: '打款金额', value: `¥${(device.finalPrice ?? 0).toLocaleString()}` },
+          { label: '收款账号', value: device.paymentAccount },
+          { label: '客户姓名', value: device.customerName },
+          { label: '设备状态', value: '已完成' },
+        ],
+      },
+    }
+    const cfg = configs[action]
+    if (!cfg) return null
+    return { ...cfg, latest }
+  }, [action, device, report, passCount, failCount, deviceHistory])
+
+  const recentHistory = deviceHistory.slice(0, 5)
 
   function handleAddNote() {
     const content = noteContent.trim()
@@ -154,6 +237,81 @@ export default function DeviceDetail() {
           </p>
         </div>
       </div>
+
+      {resultCardConfig && (
+        <div className={cn('bg-gradient-to-r border-2 rounded-xl p-5 mb-6 relative overflow-hidden', resultCardConfig.color)}>
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+          <div className="relative flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/10 border border-white/10 flex items-center justify-center shrink-0">
+              {(() => {
+                const Icon = resultCardConfig.icon
+                return <Icon className="w-6 h-6 text-white" />
+              })()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-base font-bold text-white">{resultCardConfig.title}</h2>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-white/10 text-white/90 rounded text-[10px] font-medium">
+                  刚刚完成
+                </span>
+              </div>
+              <p className="text-sm text-white/70 mb-4">{resultCardConfig.subtitle}</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {resultCardConfig.details.map((d) => (
+                  <div key={d.label} className="bg-white/5 rounded-lg px-3 py-2 border border-white/5">
+                    <div className="text-[10px] text-white/50 mb-0.5">{d.label}</div>
+                    <div className="text-sm font-medium text-white font-mono truncate">{d.value}</div>
+                  </div>
+                ))}
+              </div>
+              {resultCardConfig.latest && (
+                <div className="mt-3 pt-3 border-t border-white/10 flex items-start gap-2">
+                  <MessageSquare className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
+                  <div className="text-xs text-white/60 flex-1 min-w-0">
+                    <span className="text-white/80 font-medium">{resultCardConfig.latest.operator}</span>
+                    <span className="text-white/40"> · {resultCardConfig.latest.timestamp}</span>
+                    <p className="text-white/70 mt-0.5 truncate">{resultCardConfig.latest.detail}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {resultCardConfig && recentHistory.length > 0 && (
+        <div className="bg-brand-card border border-brand-border rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs text-gray-500 font-medium tracking-wide flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5" />
+              最近操作摘要
+            </h3>
+            <span className="text-[10px] text-gray-600">共 {deviceHistory.length} 条记录</span>
+          </div>
+          <div className="space-y-2">
+            {recentHistory.map((h, i) => (
+              <div key={h.id ?? i} className="flex items-start gap-3 py-1.5 first:bg-brand-accent/5 first:-mx-2 first:px-2 first:py-2 first:rounded-lg first:border first:border-brand-accent/20">
+                <div className="w-1 h-1 rounded-full bg-gray-500 mt-2 shrink-0 first:bg-brand-accent" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className={cn(
+                      'font-medium',
+                      i === 0 ? 'text-brand-accent' : 'text-gray-200'
+                    )}>{h.action}</span>
+                    <span className="text-[10px] px-1 py-0.5 rounded bg-white/5 text-gray-500">
+                      {({ receiver: '收货', inspector: '检测', finance: '财务', manager: '系统' } as Record<string, string>)[h.role]}
+                    </span>
+                    <span className="text-[10px] text-gray-600 ml-auto shrink-0">{h.timestamp}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5 truncate">
+                    {h.operator} · {h.detail}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-brand-card border border-brand-border rounded-xl p-4 mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -617,15 +775,20 @@ export default function DeviceDetail() {
         </div>
       </div>
 
-      <div className="bg-brand-card border border-brand-border rounded-xl p-4">
+      <div ref={timelineRef} className="bg-brand-card border border-brand-border rounded-xl p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-gray-200 flex items-center gap-2">
             <RotateCcw className="w-4 h-4" />
             操作历史 · 时间线回看
+            {action && (
+              <span className="inline-flex items-center gap-1 text-[10px] bg-brand-accent/20 text-brand-accent px-1.5 py-0.5 rounded font-medium">
+                已定位到最新
+              </span>
+            )}
           </h3>
           <span className="text-xs text-gray-500">{deviceHistory.length} 条记录</span>
         </div>
-        <Timeline entries={deviceHistory} />
+        <Timeline entries={deviceHistory} highlightFirst={!!action} />
       </div>
 
       {priceRegretOpen && (
