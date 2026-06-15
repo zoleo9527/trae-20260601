@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { CheckSquare, XSquare, Clock, FileText, AlertTriangle, ChevronRight, Search, Filter, Edit2, Save, Eye } from 'lucide-react';
+import { CheckSquare, XSquare, Clock, FileText, AlertTriangle, ChevronRight, Search, Filter, Edit2, Save, Eye, History } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { QualityInspection as QualityInspectionType } from '../types';
+import { ProcessTimeline } from '../components/ProcessTimeline';
 
 export default function QualityInspection() {
-  const { orders, qualityInspections, updateCheckItem, updateQualityInspection } = useAppStore();
+  const { orders, qualityInspections, updateCheckItem, updateQualityInspection, getProcessRecordsByOrder } = useAppStore();
   const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
@@ -302,6 +303,14 @@ export default function QualityInspection() {
                   rows={3}
                   placeholder="输入质检备注..."
                 />
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  处理轨迹
+                </h4>
+                <ProcessTimeline records={getProcessRecordsByOrder(selectedOrder!)} />
               </div>
             </div>
           ) : (

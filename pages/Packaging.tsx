@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Package, CheckSquare, Truck, FileText, AlertTriangle, ChevronRight, Search, Plus, Edit2, Save, Send, History } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { Shipment } from '../types';
+import { ProcessTimeline } from '../components/ProcessTimeline';
 
 export default function Packaging() {
-  const { orders, qualityInspections, shipments, updatePackagingItem, updateShipmentStatus, updateShipmentInfo, createShipment } = useAppStore();
+  const { orders, qualityInspections, shipments, updatePackagingItem, updateShipmentStatus, updateShipmentInfo, createShipment, getProcessRecordsByOrder } = useAppStore();
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showHistory, setShowHistory] = useState(false);
@@ -327,6 +328,14 @@ export default function Packaging() {
                     placeholder="输入运单号"
                   />
                 </div>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <h4 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  处理轨迹
+                </h4>
+                <ProcessTimeline records={getProcessRecordsByOrder(selectedShipmentData.productionOrderId)} />
               </div>
             </div>
           ) : (

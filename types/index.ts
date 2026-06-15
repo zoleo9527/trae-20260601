@@ -106,3 +106,17 @@ export interface User {
 }
 
 export type Role = 'project_manager' | 'producer' | 'installer' | 'admin'
+
+export interface ProcessRecord {
+  id: string
+  orderId: string
+  type: 'quality_check' | 'quality_update' | 'packaging_create' | 'packaging_update' | 'shipment'
+  title: string
+  description: string
+  operatorName: string
+  operatorRole: Role
+  timestamp: string
+  statusBefore?: string
+  statusAfter?: string
+  offline: boolean
+}
