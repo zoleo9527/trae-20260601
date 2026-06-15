@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Search, Filter, Wallet, CheckCircle, XCircle, Clock, ArrowRight, Eye, Archive, MessageSquare } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import type { Payment, Claim } from '../types';
+import { getStatusLabel, getStatusColor } from '../constants/statusConfig';
 
 export function PaymentsPage() {
   const { claims, payments, addPayment, updatePaymentStatus, addRemark, updateClaimStatus, archiveClaim, selectClaim } = useClaimStore();
@@ -33,26 +34,6 @@ export function PaymentsPage() {
     { value: 'paid', label: '已打款' },
     { value: 'rejected', label: '已拒绝' },
   ];
-
-  const claimStatusLabels: Record<string, string> = {
-    pending: '待处理',
-    processing: '处理中',
-    review: '审核中',
-    approved: '已批准',
-    paid: '已赔付',
-    archived: '已归档',
-    exception: '异常',
-  };
-
-  const claimStatusColors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    processing: 'bg-blue-100 text-blue-800',
-    review: 'bg-purple-100 text-purple-800',
-    approved: 'bg-indigo-100 text-indigo-800',
-    paid: 'bg-green-100 text-green-800',
-    archived: 'bg-gray-100 text-gray-600',
-    exception: 'bg-red-100 text-red-800',
-  };
 
   const formatDate = (date?: Date) => {
     if (!date) return '-';
@@ -255,9 +236,9 @@ export function PaymentsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                      claim ? claimStatusColors[claim.status] : 'bg-gray-100 text-gray-600'
+                      claim ? getStatusColor(claim.status) : 'bg-gray-100 text-gray-600'
                     }`}>
-                      {claim ? claimStatusLabels[claim.status] : '-'}
+                      {claim ? getStatusLabel(claim.status) : '-'}
                     </span>
                   </td>
                   <td className="px-6 py-4">

@@ -1,6 +1,7 @@
 import { Clock, AlertCircle, ChevronRight, Camera } from 'lucide-react';
 import type { Claim } from '../types';
 import { useClaimStore } from '../store/claimStore';
+import { getStatusLabel, getStatusColor, RESPONSIBILITY_CONFIG } from '../constants/statusConfig';
 
 interface ClaimCardProps {
   claim: Claim;
@@ -18,40 +19,6 @@ export function ClaimCard({ claim }: ClaimCardProps) {
     });
   };
 
-  const statusLabels: Record<string, string> = {
-    pending: '待处理',
-    processing: '处理中',
-    review: '审核中',
-    approved: '已批准',
-    paid: '已赔付',
-    archived: '已归档',
-    exception: '异常',
-  };
-
-  const responsibilityLabels: Record<string, string> = {
-    company: '我方责任',
-    customer: '客户责任',
-    third_party: '第三方责任',
-    undetermined: '责任待定',
-  };
-
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    processing: 'bg-blue-100 text-blue-800 border-blue-200',
-    review: 'bg-purple-100 text-purple-800 border-purple-200',
-    approved: 'bg-green-100 text-green-800 border-green-200',
-    paid: 'bg-emerald-100 text-emerald-800 border-emerald-200',
-    archived: 'bg-gray-100 text-gray-600 border-gray-200',
-    exception: 'bg-red-100 text-red-800 border-red-200',
-  };
-
-  const responsibilityColors: Record<string, string> = {
-    company: 'text-red-600 bg-red-50',
-    customer: 'text-gray-600 bg-gray-50',
-    third_party: 'text-blue-600 bg-blue-50',
-    undetermined: 'text-yellow-600 bg-yellow-50',
-  };
-
   return (
     <div
       onClick={() => selectClaim(claim.id)}
@@ -60,8 +27,8 @@ export function ClaimCard({ claim }: ClaimCardProps) {
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
           <span className="font-mono text-sm text-primary-600">{claim.id}</span>
-          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${statusColors[claim.status]}`}>
-            {statusLabels[claim.status]}
+          <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(claim.status)}`}>
+            {getStatusLabel(claim.status)}
           </span>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-primary-500 transition-colors" />
@@ -79,8 +46,8 @@ export function ClaimCard({ claim }: ClaimCardProps) {
 
       <div className="flex items-center justify-between text-sm">
         <div className="flex items-center gap-3">
-          <span className={`px-2 py-0.5 rounded text-xs ${responsibilityColors[claim.responsibility]}`}>
-            {responsibilityLabels[claim.responsibility]}
+          <span className={`px-2 py-0.5 rounded text-xs ${RESPONSIBILITY_CONFIG[claim.responsibility]?.color || 'bg-gray-100 text-gray-600'}`}>
+            {RESPONSIBILITY_CONFIG[claim.responsibility]?.label || claim.responsibility}
           </span>
           {claim.damagePhotos.length > 0 && (
             <span className="text-gray-400 text-xs">{claim.damagePhotos.length}张照片</span>

@@ -3,6 +3,7 @@ import { Search, Filter, Plus, MessageSquare, CheckCircle, XCircle, ArrowRight, 
 import { useClaimStore } from '../store/claimStore';
 import { ClaimCard } from '../components/ClaimCard';
 import type { Claim } from '../types';
+import { CLAIM_STATUS_CONFIG, RESPONSIBILITY_CONFIG, getStatusLabel, getStatusColor } from '../constants/statusConfig';
 
 export function ClaimsPage() {
   const { claims, addRemark, updateClaimStatus, updateResponsibility, setException, selectClaim, sidebarOpen } = useClaimStore();
@@ -28,9 +29,10 @@ export function ClaimsPage() {
     { value: 'pending', label: '待处理' },
     { value: 'processing', label: '处理中' },
     { value: 'review', label: '审核中' },
-    { value: 'exception', label: '异常' },
+    { value: 'approved', label: '已批准' },
     { value: 'paid', label: '已赔付' },
     { value: 'archived', label: '已归档' },
+    { value: 'exception', label: '异常' },
   ];
 
   const handleOpenActionModal = (claim: Claim) => {
@@ -74,21 +76,13 @@ export function ClaimsPage() {
     setSelectedClaim(null);
   };
 
-  const statusLabels: Record<string, string> = {
-    pending: '待处理',
-    processing: '处理中',
-    review: '审核中',
-    approved: '已批准',
-    paid: '已赔付',
-    archived: '已归档',
-    exception: '异常',
-  };
-
-  const responsibilityLabels: Record<string, string> = {
-    company: '我方责任',
-    customer: '客户责任',
-    third_party: '第三方责任',
-    undetermined: '责任待定',
+  const getAvailableStatusOptions = () => {
+    const currentConfig = CLAIM_STATUS_CONFIG[selectedClaim?.status as keyof typeof CLAIM_STATUS_CONFIG];
+    if (!currentConfig) return [];
+    return currentConfig.allowedTransitions.map((status) => ({
+      value: status,
+      label: getStatusLabel(status),
+    }));
   };
 
   return (
@@ -134,21 +128,11 @@ export function ClaimsPage() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm text-primary-600">{claim.id}</span>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                    claim.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    claim.status === 'processing' ? 'bg-blue-100 text-blue-800' :
-                    claim.status === 'review' ? 'bg-purple-100 text-purple-800' :
-                    claim.status === 'exception' ? 'bg-red-100 text-red-800' :
-                    claim.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
-                  }`}>
-                    {statusLabels[claim.status]}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+                    {getStatusLabel(claim.status)}
                   </span>
-                  <span className={`px-2 py-0.5 rounded text-xs ${
-                    claim.responsibility === 'company' ? 'text-red-600 bg-red-50' :
-                    claim.responsibility === 'customer' ? 'text-gray-600 bg-gray-50' :
-                    claim.responsibility === 'third_party' ? 'text-blue-600 bg-blue-50' : 'text-yellow-600 bg-yellow-50'
-                  }`}>
-                    {responsibilityLabels[claim.responsibility]}
+                  <span className={`px-2 py-0.5 rounded text-xs ${RESPONSIBILITY_CONFIG[claim.responsibility]?.color || 'bg-gray-100 text-gray-600'}`}>
+                    {RESPONSIBILITY_CONFIG[claim.responsibility]?.label || claim.responsibility}
                   </span>
                 </div>
               </div>
@@ -269,22 +253,38 @@ export function ClaimsPage() {
 
             <div className="p-6 space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">当前状态</label>
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => {
-                    setSelectedStatus(e.target.value as Claim['status']);
-                    if (e.target.value !== 'exception') {
-                      setExceptionReason('');
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
-                >
-                  <option value="pending">待处理</option>
-                  <option value="processing">处理中</option>
-                  <option value="review">审核中</option>
-                  <option value="exception">异常</option>
-                </select>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-gray-700">当前状态</label>
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedClaim.status)}`}>
+                    {getStatusLabel(selectedClaim.status)}
+                  </span>
+                </div>
+                {(() => {
+                  const availableOptions = getAvailableStatusOptions();
+                  if (availableOptions.length === 0) {
+                    return (
+                      <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-500">
+                        当前状态不允许流转
+                      </div>
+                    );
+                  }
+                  return (
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => {
+                        setSelectedStatus(e.target.value as Claim['status']);
+                        if (e.target.value !== 'exception') {
+                          setExceptionReason('');
+                        }
+                      }}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      {availableOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  );
+                })()}
               </div>
 
               {selectedStatus === 'exception' && (

@@ -1,5 +1,6 @@
 import { X, FileText, Truck, Camera, MessageSquare, Clock, AlertTriangle } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
+import { getStatusLabel, getStatusColor, RESPONSIBILITY_CONFIG } from '../constants/statusConfig';
 
 export function Sidebar() {
   const { selectedClaimId, sidebarOpen, selectClaim, getClaimById, getOrderById, getVehicleById, getPaymentByClaimId } = useClaimStore();
@@ -21,33 +22,6 @@ export function Sidebar() {
     });
   };
 
-  const statusLabels: Record<string, string> = {
-    pending: '待处理',
-    processing: '处理中',
-    review: '审核中',
-    approved: '已批准',
-    paid: '已赔付',
-    archived: '已归档',
-    exception: '异常',
-  };
-
-  const responsibilityLabels: Record<string, string> = {
-    company: '我方责任',
-    customer: '客户责任',
-    third_party: '第三方责任',
-    undetermined: '责任待定',
-  };
-
-  const statusColors: Record<string, string> = {
-    pending: 'bg-yellow-100 text-yellow-800',
-    processing: 'bg-blue-100 text-blue-800',
-    review: 'bg-purple-100 text-purple-800',
-    approved: 'bg-green-100 text-green-800',
-    paid: 'bg-emerald-100 text-emerald-800',
-    archived: 'bg-gray-100 text-gray-600',
-    exception: 'bg-red-100 text-red-800',
-  };
-
   return (
     <div className="fixed inset-y-0 right-0 w-[480px] bg-white shadow-2xl z-50 transform transition-transform duration-300 overflow-y-auto">
       <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
@@ -67,11 +41,11 @@ export function Sidebar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[claim.status]}`}>
-            {statusLabels[claim.status]}
+          <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+            {getStatusLabel(claim.status)}
           </span>
           <span className={`px-3 py-1 rounded-full text-xs font-medium ${claim.status === 'exception' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700'}`}>
-            {responsibilityLabels[claim.responsibility]}
+            {RESPONSIBILITY_CONFIG[claim.responsibility]?.label || claim.responsibility}
           </span>
         </div>
 

@@ -1,4 +1,4 @@
-import { FileWarning, Clock, AlertTriangle, CheckCircle, TrendingUp, Archive } from 'lucide-react';
+import { FileWarning, Clock, AlertTriangle, CheckCircle, TrendingUp, Archive, FileCheck } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import { ClaimCard } from '../components/ClaimCard';
 
@@ -10,6 +10,7 @@ export function Dashboard() {
     pending: claims.filter((c) => c.status === 'pending').length,
     processing: claims.filter((c) => c.status === 'processing').length,
     review: claims.filter((c) => c.status === 'review').length,
+    approved: claims.filter((c) => c.status === 'approved').length,
     exception: claims.filter((c) => c.status === 'exception').length,
     paid: claims.filter((c) => c.status === 'paid').length,
     archived: claims.filter((c) => c.status === 'archived').length,
@@ -21,6 +22,7 @@ export function Dashboard() {
     { label: '待处理', value: stats.pending, icon: Clock, color: 'bg-yellow-50 text-yellow-600 border-yellow-200' },
     { label: '处理中', value: stats.processing, icon: TrendingUp, color: 'bg-blue-50 text-blue-600 border-blue-200' },
     { label: '审核中', value: stats.review, icon: FileWarning, color: 'bg-purple-50 text-purple-600 border-purple-200' },
+    { label: '已批准', value: stats.approved, icon: FileCheck, color: 'bg-indigo-50 text-indigo-600 border-indigo-200' },
     { label: '异常', value: stats.exception, icon: AlertTriangle, color: 'bg-red-50 text-red-600 border-red-200' },
     { label: '已赔付', value: stats.paid, icon: CheckCircle, color: 'bg-green-50 text-green-600 border-green-200' },
     { label: '已归档', value: stats.archived, icon: Archive, color: 'bg-gray-50 text-gray-600 border-gray-200' },
@@ -35,7 +37,7 @@ export function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         {statCards.map((stat) => {
           const Icon = stat.icon;
           return (
