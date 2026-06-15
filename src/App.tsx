@@ -7,19 +7,12 @@ import OrderDetail from '@/pages/OrderDetail';
 import TireSelection from '@/pages/TireSelection';
 import QuoteConfirm from '@/pages/QuoteConfirm';
 import { useAuthStore } from '@/store/authStore';
-import type { UserRole } from '@shared/types';
-
-const roleDefaultEntry: Record<UserRole, string> = {
-  RECEPTION: '/orders',
-  TECHNICIAN: '/orders?status=PENDING_SELECTION',
-  MANAGER: '/orders?status=PENDING_QUOTE',
-};
+import { ROLE_DEFAULT_ENTRY } from '@shared/types';
 
 function RoleBasedLanding() {
   const { user } = useAuthStore();
   if (!user) return <Navigate to="/login" replace />;
-  const target = roleDefaultEntry[user.role];
-  return <Navigate to={target} replace />;
+  return <Navigate to={ROLE_DEFAULT_ENTRY[user.role].path} replace />;
 }
 
 export default function App() {

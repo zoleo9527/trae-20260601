@@ -10,7 +10,7 @@ import {
   Store,
   AlertTriangle,
 } from 'lucide-react';
-import { ROLE_LABEL } from '@shared/types';
+import { ROLE_LABEL, ROLE_DEFAULT_ENTRY } from '@shared/types';
 import type { UserRole } from '@shared/types';
 
 const roleColors: Record<UserRole, string> = {
@@ -52,21 +52,21 @@ function Sidebar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const roleNavItems: Record<UserRole, Array<{ path: string; label: string; icon: typeof User; highlight?: boolean; badge?: string }>> = {
+  const roleNavItems: Record<UserRole, Array<{ path: string; label: string; icon: typeof User; highlight?: boolean; badge?: string; primary?: boolean }>> = {
     RECEPTION: [
+      { path: '/orders', label: '全部工单', icon: ClipboardList, primary: true, badge: '默认' },
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
-      { path: '/orders', label: '工单管理', icon: ClipboardList, badge: '新建' },
     ],
     TECHNICIAN: [
+      { path: ROLE_DEFAULT_ENTRY.TECHNICIAN.path, label: '待选型工单', icon: Wrench, primary: true, badge: '默认' },
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
-      { path: '/orders?status=PENDING_SELECTION', label: '待选型工单', icon: Wrench, highlight: true, badge: '待处理' },
       { path: '/orders?status=IN_SELECTION', label: '选型中', icon: Wrench },
       { path: '/orders?status=QUOTE_REJECTED', label: '驳回重选', icon: AlertTriangle },
       { path: '/orders', label: '全部工单', icon: ClipboardList },
     ],
     MANAGER: [
+      { path: ROLE_DEFAULT_ENTRY.MANAGER.path, label: '待审核报价', icon: ShieldAlert, primary: true, badge: '默认' },
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
-      { path: '/orders?status=PENDING_QUOTE', label: '待审核报价', icon: ShieldAlert, highlight: true, badge: '待审核' },
       { path: '/orders?status=QUOTE_REJECTED', label: '已驳回', icon: AlertTriangle },
       { path: '/orders?status=QUOTE_CONFIRMED', label: '已确认', icon: ClipboardList },
       { path: '/orders', label: '全部工单', icon: ClipboardList },
@@ -100,15 +100,16 @@ function Sidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map(({ path, label, icon: Icon, highlight, badge }) => (
+        {navItems.map(({ path, label, icon: Icon, primary, badge }) => (
           <NavLink
             key={path}
             to={path}
+            end={path === '/orders'}
             className={({ isActive }) =>
               `flex items-center justify-between gap-3 px-4 py-3 font-mono text-sm uppercase tracking-wider border-2 transition-colors ${
                 isActive
                   ? 'bg-ochre-800 border-ochre-600 text-white'
-                  : highlight
+                  : primary
                   ? 'border-ochre-900/40 bg-carbon-800/50 text-ochre-300 hover:bg-carbon-800 hover:text-white hover:border-ochre-700'
                   : 'border-transparent text-carbon-300 hover:bg-carbon-800 hover:text-white'
               }`

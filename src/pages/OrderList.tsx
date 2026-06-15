@@ -4,10 +4,10 @@ import { Search, Filter, Eye, Wrench, ShieldAlert, ChevronRight, ArrowRight, Use
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import StatusBadge, { getResponsibilityWarnings } from '@/components/StatusBadge';
-import type { Order, UserRole } from '@shared/types';
-import { STATUS_LABEL } from '@shared/types';
+import type { Order, OrderStatus } from '@shared/types';
+import { STATUS_LABEL, ROLE_DEFAULT_ENTRY } from '@shared/types';
 
-type StatusFilter = 'ALL' | 'PENDING_SELECTION' | 'IN_SELECTION' | 'PENDING_QUOTE' | 'QUOTE_REJECTED' | 'QUOTE_CONFIRMED';
+type StatusFilter = 'ALL' | OrderStatus;
 
 interface QuickFilter {
   key: StatusFilter | 'UNCLOSED';
@@ -27,12 +27,6 @@ const STATUS_FILTERS: Array<{ value: string; label: string }> = [
   { value: 'QUOTE_CONFIRMED', label: '已确认' },
 ];
 
-const roleDefaultFilters: Record<UserRole, StatusFilter | 'UNCLOSED'> = {
-  RECEPTION: 'ALL',
-  TECHNICIAN: 'PENDING_SELECTION',
-  MANAGER: 'PENDING_QUOTE',
-};
-
 export default function OrderList() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -45,7 +39,7 @@ export default function OrderList() {
   const defaultFilter: StatusFilter | 'UNCLOSED' = useMemo(() => {
     if (initialResp === 'unclosed') return 'UNCLOSED';
     if (initialStatus) return initialStatus as StatusFilter;
-    return user ? roleDefaultFilters[user.role] : 'ALL';
+    return user ? (ROLE_DEFAULT_ENTRY[user.role].statusFilter as StatusFilter | 'UNCLOSED') : 'ALL';
   }, [initialStatus, initialResp, user]);
 
   const [filter, setFilter] = useState<StatusFilter | 'UNCLOSED'>(defaultFilter);

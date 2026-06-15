@@ -4,6 +4,7 @@ import { User, Wrench, ShieldAlert, Store, ChevronRight } from 'lucide-react';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/authStore';
 import type { UserRole } from '@shared/types';
+import { ROLE_DEFAULT_ENTRY } from '@shared/types';
 
 interface RoleCard {
   role: UserRole;
@@ -64,7 +65,7 @@ export default function Login() {
         role: res.data.role as UserRole,
         username: res.data.username,
       });
-      navigate('/dashboard');
+      navigate(ROLE_DEFAULT_ENTRY[role].path);
     } else {
       alert(res.message);
     }

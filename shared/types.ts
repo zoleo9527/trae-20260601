@@ -103,6 +103,30 @@ export const ROLE_LABEL: Record<UserRole, string> = {
   MANAGER: '店长',
 };
 
+export interface RoleDefaultEntry {
+  path: string;
+  label: string;
+  statusFilter: OrderStatus | 'ALL';
+}
+
+export const ROLE_DEFAULT_ENTRY: Record<UserRole, RoleDefaultEntry> = {
+  RECEPTION: {
+    path: '/orders',
+    label: '全部工单',
+    statusFilter: 'ALL',
+  },
+  TECHNICIAN: {
+    path: '/orders?status=PENDING_SELECTION',
+    label: '待选型工单',
+    statusFilter: 'PENDING_SELECTION',
+  },
+  MANAGER: {
+    path: '/orders?status=PENDING_QUOTE',
+    label: '待审核报价',
+    statusFilter: 'PENDING_QUOTE',
+  },
+};
+
 export const ERROR_CODES = {
   SUCCESS: 0,
   ORDER_NOT_FOUND: 40001,
