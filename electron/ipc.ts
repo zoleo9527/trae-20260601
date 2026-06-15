@@ -445,7 +445,7 @@ export function registerIpcHandlers() {
       updateFields.push('return_photo_ids = @returnPhotoIds');
       params.returnPhotoIds = JSON.stringify(data.returnPhotoIds);
     }
-    if (data.status === 'confirmed' || data.status === 'customer_confirmed') {
+    if (data.status === 'confirmed') {
       updateFields.push('confirmed_at = @confirmedAt');
       params.confirmedAt = new Date().toISOString();
     }
@@ -635,7 +635,7 @@ export function registerIpcHandlers() {
     worksheet.addRow(['--- 租期与租金 ---', '', '']);
     worksheet.addRow(['租赁起始日期', contract?.rent_start_date || '', '']);
     worksheet.addRow(['计划归还日期', contract?.planned_return_date || '', '']);
-    worksheet.addRow(['实际归还日期', record.actualReturnDate, '']);
+    worksheet.addRow(['实际归还时间', record.returnTime ? new Date(record.returnTime).toLocaleString('zh-CN') : '', '']);
     worksheet.addRow(['租赁天数', `${record.rentDays} 天`, '']);
     worksheet.addRow(['日租金单价', '', contract?.daily_rate || 0]);
     worksheet.addRow(['超期天数', `${record.extraDays} 天`, '']);
