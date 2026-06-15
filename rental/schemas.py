@@ -158,6 +158,11 @@ class StatusChangeIn(Schema):
     reason: str = ""
 
 
+class SuspensionSettleIn(Schema):
+    changed_by: str = ""
+    reason: str = ""
+
+
 class SuspensionReviewIn(Schema):
     action: str
     reviewed_by: str = ""

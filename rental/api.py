@@ -31,6 +31,7 @@ from rental.schemas import (
     SuspensionCreateIn,
     SuspensionOut,
     SuspensionReviewIn,
+    SuspensionSettleIn,
     SuspensionUpdateIn,
 )
 from rental import services
@@ -203,9 +204,8 @@ def get_contract(request, item_id: int):
 @router.post("/contracts", response=ContractOut, tags=["租赁合同"])
 def create_contract(request, data: ContractCreateIn):
     contract = RentalContract.objects.create(**data.dict())
-    eq = contract.equipment
-    eq.status = EquipmentStatus.RENTED
-    eq.save(update_fields=["status", "updated_at"])
+    from rental import services
+    services._recalculate_equipment_status(contract.equipment, "", "创建租赁合同")
     return _contract_to_out(contract)
 
 
@@ -304,7 +304,7 @@ def review_suspension(request, item_id: int, data: SuspensionReviewIn):
 
 
 @router.post("/suspensions/{item_id}/settle", response=SuspensionOut, tags=["停租处理"])
-def settle_suspension(request, item_id: int, data: StatusChangeIn):
+def settle_suspension(request, item_id: int, data: SuspensionSettleIn):
     suspension = get_object_or_404(RentalSuspension, pk=item_id)
     suspension = services.settle_suspension(suspension, data.changed_by, data.reason)
     return _suspension_to_out(suspension)

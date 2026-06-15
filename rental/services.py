@@ -364,6 +364,7 @@ def check_overdue_contracts():
     for contract in overdue_contracts:
         contract.is_overdue = True
         contract.save(update_fields=["is_overdue", "updated_at"])
+        _recalculate_equipment_status(contract.equipment, "", "合同超期，重新计算设备状态")
         _create_notification(
             NotificationType.CONTRACT_OVERDUE,
             Role.RENTAL_MANAGER,
