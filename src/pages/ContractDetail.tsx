@@ -17,7 +17,7 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 import { Timeline } from '@/components/common/Timeline';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { formatDate, calculateDaysBetween, calculateOverdueInfo, getTodayDate, parseDate, deriveContractDisplayStatus, ContractDisplayStatus } from '@/utils/dateUtils';
+import { formatDate, calculateDaysBetween, getContractDisplayInfo } from '@/utils/dateUtils';
 import { ROLE_LABELS, ANOMALY_STATUS_LABELS } from '@/types';
 
 const ContractDetail: React.FC = () => {
@@ -64,31 +64,9 @@ const ContractDetail: React.FC = () => {
 
   const relatedRepairs = repairs.filter((r) => r.contractId === id);
 
-  const today = getTodayDate();
-
-  const displayStatus: ContractDisplayStatus = contract && reservation
-    ? deriveContractDisplayStatus(contract.status, reservation.expectedEndDate, contract.actualEndDate)
-    : 'active';
-
-  const rentalDays = contract
-    ? contract.actualEndDate
-      ? calculateDaysBetween(contract.actualStartDate, contract.actualEndDate)
-      : Math.max(1, calculateDaysBetween(contract.actualStartDate, today.toISOString().split('T')[0]))
-    : 0;
-
-  const overdueInfo = contract && reservation && equipment
-    ? calculateOverdueInfo(
-        contract.status,
-        reservation.expectedEndDate,
-        equipment.dailyRate,
-        contract.overdueDays,
-        contract.actualEndDate
-      )
-    : { isOverdue: false, overdueDays: 0, daysLeft: 0, overdueFee: 0 };
-
-  const { isOverdue, overdueDays, overdueFee } = overdueInfo;
-  const baseAmount = equipment ? rentalDays * equipment.dailyRate : 0;
-  const totalAmount = baseAmount + overdueFee;
+  const displayInfo = contract && reservation && equipment && customer
+    ? getContractDisplayInfo({ contract, reservation, equipment, customer })
+    : null;
 
   const fuelConsumed = contract?.initialFuel && contract?.returnFuel
     ? contract.initialFuel - contract.returnFuel
@@ -96,7 +74,7 @@ const ContractDetail: React.FC = () => {
     ? contract.initialFuel - returnFuel
     : 0;
 
-  if (!contract || !reservation || !equipment || !customer) {
+  if (!contract || !reservation || !equipment || !customer || !displayInfo) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -141,15 +119,7 @@ const ContractDetail: React.FC = () => {
   const canConfirmReturn = currentRole === 'dispatcher' && (contract.status === 'active' || contract.status === 'overdue');
   const canUpdateFuel = currentRole === 'dispatcher' && contract.status === 'returned';
 
-  const displayStatusLabel: Record<ContractDisplayStatus, string> = {
-    active: '租期进行中',
-    overdue: '已超期',
-    returned: '已归还待核验',
-    fuel_verified: '油耗核验中',
-    completed: '已完成',
-  };
-
-  const progressPercent = Math.min(100, (rentalDays / (rentalDays + overdueDays || 1)) * 100);
+  const progressPercent = Math.min(100, (displayInfo.rentalDays / (displayInfo.rentalDays + displayInfo.overdueDays || 1)) * 100);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -171,15 +141,15 @@ const ContractDetail: React.FC = () => {
                 </span>
               </h1>
               <p className="text-sm text-gray-500 mt-1">
-                关联预约：{reservation.reservationNo}
+                关联预约：{displayInfo.reservationNo}
                 <span className="mx-2">·</span>
                 当前状态：
                 <span
                   className={`font-medium ${
-                    displayStatus === 'overdue' ? 'text-red-600' : displayStatus === 'completed' ? 'text-green-600' : 'text-orange-600'
+                    displayInfo.displayStatus === 'overdue' ? 'text-red-600' : displayInfo.displayStatus === 'completed' ? 'text-green-600' : 'text-orange-600'
                   }`}
                 >
-                  {displayStatusLabel[displayStatus]}
+                  {displayInfo.displayStatusLabel}
                 </span>
               </p>
             </div>
@@ -244,51 +214,51 @@ const ContractDetail: React.FC = () => {
                       className="bg-[#1e3a5f] transition-all duration-500"
                       style={{ width: `${progressPercent}%` }}
                     />
-                    {overdueDays > 0 && (
+                    {displayInfo.overdueDays > 0 && (
                       <div className="bg-red-500 flex-1 animate-pulse" />
                     )}
                   </div>
                 </div>
                 <div className="flex justify-between mt-2 text-sm">
                   <span className="text-gray-500">
-                    起租：{formatDate(contract.actualStartDate)}
+                    起租：{formatDate(displayInfo.actualStartDate)}
                   </span>
                   <span className="text-gray-500">
-                    应还：{formatDate(reservation.expectedEndDate)}
+                    应还：{formatDate(displayInfo.expectedEndDate)}
                   </span>
                 </div>
               </div>
               <div className="grid grid-cols-4 gap-4 text-center">
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">已租用</p>
-                  <p className="text-xl font-bold font-mono text-[#1e3a5f]">{rentalDays}</p>
+                  <p className="text-xl font-bold font-mono text-[#1e3a5f]">{displayInfo.rentalDays}</p>
                   <p className="text-xs text-gray-500">天</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">超期</p>
-                  <p className={`text-xl font-bold font-mono ${overdueDays > 0 ? 'text-red-600' : 'text-gray-400'}`}>
-                    {overdueDays}
+                  <p className={`text-xl font-bold font-mono ${displayInfo.overdueDays > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                    {displayInfo.overdueDays}
                   </p>
                   <p className="text-xs text-gray-500">天</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">日租金</p>
                   <p className="text-xl font-bold font-mono text-orange-600">
-                    ¥{equipment.dailyRate.toLocaleString()}
+                    ¥{displayInfo.dailyRate.toLocaleString()}
                   </p>
                 </div>
                 <div className="bg-blue-50 rounded-lg p-3">
                   <p className="text-xs text-gray-500 mb-1">当前总额</p>
                   <p className="text-xl font-bold font-mono text-blue-600">
-                    ¥{totalAmount.toLocaleString()}
+                    ¥{displayInfo.totalAmount.toLocaleString()}
                   </p>
                 </div>
               </div>
-              {overdueDays > 0 && (
+              {displayInfo.overdueDays > 0 && (
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-sm text-red-700 flex items-center gap-2">
                     <AlertTriangle size={16} />
-                    设备已超期 {overdueDays} 天，产生超期费用 ¥{overdueFee.toLocaleString()}
+                    设备已超期 {displayInfo.overdueDays} 天，产生超期费用 ¥{displayInfo.overdueFee.toLocaleString()}
                     （按日租金1.5倍计算）
                   </p>
                 </div>

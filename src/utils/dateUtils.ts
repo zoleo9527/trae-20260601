@@ -93,9 +93,13 @@ export function calculateOverdueInfo(
   
   const isOverdue = isOverdueByDate || isOverdueByStatus;
   
+  const isClosed = actualEndDate !== null && actualEndDate !== undefined;
+  
   let overdueDays = 0;
   if (isOverdue) {
-    if (contractOverdueDays && contractOverdueDays > calculatedDays) {
+    if (isClosed) {
+      overdueDays = Math.max(0, calculatedDays);
+    } else if (contractOverdueDays && contractOverdueDays > calculatedDays) {
       overdueDays = contractOverdueDays;
     } else {
       overdueDays = Math.max(0, calculatedDays);
@@ -154,4 +158,109 @@ export function deriveContractDisplayStatus(
   }
   
   return 'active';
+}
+
+const CONTRACT_DISPLAY_STATUS_LABELS: Record<ContractDisplayStatus, string> = {
+  active: '租期进行中',
+  overdue: '已超期',
+  returned: '已归还待核验',
+  fuel_verified: '油耗核验中',
+  completed: '已完成',
+};
+
+export function getContractDisplayStatusLabel(status: ContractDisplayStatus): string {
+  return CONTRACT_DISPLAY_STATUS_LABELS[status];
+}
+
+export interface GetContractDisplayInfoParams {
+  contract: {
+    id: string;
+    reservationId: string;
+    contractNo: string;
+    status: string;
+    actualStartDate: string;
+    actualEndDate: string | null;
+    overdueDays?: number;
+  };
+  reservation: {
+    id: string;
+    reservationNo: string;
+    expectedEndDate: string;
+    equipmentId: string;
+    customerId: string;
+  };
+  equipment: {
+    id: string;
+    name: string;
+    model: string;
+    dailyRate: number;
+  };
+  customer: {
+    id: string;
+    name: string;
+  };
+}
+
+export function getContractDisplayInfo(params: GetContractDisplayInfoParams): {
+  displayStatus: ContractDisplayStatus;
+  displayStatusLabel: string;
+  isOverdue: boolean;
+  overdueDays: number;
+  daysLeft: number;
+  overdueFee: number;
+  rentalDays: number;
+  baseAmount: number;
+  totalAmount: number;
+  dailyRate: number;
+  expectedEndDate: string;
+  actualStartDate: string;
+  actualEndDate: string | null;
+  equipmentName: string;
+  customerName: string;
+  contractNo: string;
+  reservationNo: string;
+} {
+  const { contract, reservation, equipment, customer } = params;
+
+  const displayStatus = deriveContractDisplayStatus(
+    contract.status,
+    reservation.expectedEndDate,
+    contract.actualEndDate
+  );
+
+  const today = getTodayDate();
+  const rentalDays = contract.actualEndDate
+    ? calculateDaysBetween(contract.actualStartDate, contract.actualEndDate)
+    : Math.max(1, calculateDaysBetween(contract.actualStartDate, today.toISOString().split('T')[0]));
+
+  const overdueInfo = calculateOverdueInfo(
+    contract.status,
+    reservation.expectedEndDate,
+    equipment.dailyRate,
+    contract.overdueDays,
+    contract.actualEndDate
+  );
+
+  const baseAmount = rentalDays * equipment.dailyRate;
+  const totalAmount = baseAmount + overdueInfo.overdueFee;
+
+  return {
+    displayStatus,
+    displayStatusLabel: getContractDisplayStatusLabel(displayStatus),
+    isOverdue: overdueInfo.isOverdue,
+    overdueDays: overdueInfo.overdueDays,
+    daysLeft: overdueInfo.daysLeft,
+    overdueFee: overdueInfo.overdueFee,
+    rentalDays,
+    baseAmount,
+    totalAmount,
+    dailyRate: equipment.dailyRate,
+    expectedEndDate: reservation.expectedEndDate,
+    actualStartDate: contract.actualStartDate,
+    actualEndDate: contract.actualEndDate,
+    equipmentName: `${equipment.name} ${equipment.model}`,
+    customerName: customer.name,
+    contractNo: contract.contractNo,
+    reservationNo: reservation.reservationNo,
+  };
 }

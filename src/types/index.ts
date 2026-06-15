@@ -118,6 +118,26 @@ export interface OverdueInfo {
   today: string;
 }
 
+export interface ContractDisplayInfo {
+  displayStatus: 'active' | 'overdue' | 'returned' | 'fuel_verified' | 'completed';
+  displayStatusLabel: string;
+  isOverdue: boolean;
+  overdueDays: number;
+  daysLeft: number;
+  overdueFee: number;
+  rentalDays: number;
+  baseAmount: number;
+  totalAmount: number;
+  dailyRate: number;
+  expectedEndDate: string;
+  actualStartDate: string;
+  actualEndDate: string | null;
+  equipmentName: string;
+  customerName: string;
+  contractNo: string;
+  reservationNo: string;
+}
+
 export const ANOMALY_TYPE_LABELS: Record<AnomalyType, string> = {
   material_missing: '缺材料',
   overdue: '超时未还',
