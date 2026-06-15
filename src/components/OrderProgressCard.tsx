@@ -13,7 +13,6 @@ import {
   ChevronUp,
   X,
   AlertCircle,
-  MessageSquare,
   Edit3,
   RefreshCw
 } from 'lucide-react';
@@ -46,7 +45,7 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
       setDetail(data);
       setNewBlockReason(data.order.blockReason || '');
       if (data.checkin) {
-        setCheckinRemark(data.checkin.remark);
+        setCheckinRemark(data.checkin.remark || '');
         setCheckinNotArrivedReason(data.checkin.notArrivedReason || '');
       }
     } catch (error) {
@@ -87,19 +86,6 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
         return <Clock className="w-5 h-5 text-blue-500" />;
       default:
         return <AlertCircle className="w-5 h-5 text-gray-500" />;
-    }
-  };
-
-  const getHandlerIcon = (role: string) => {
-    switch (role) {
-      case '客服':
-        return <User className="w-4 h-4" />;
-      case '家政员':
-        return <CheckCircle className="w-4 h-4" />;
-      case '质检主管':
-        return <FileText className="w-4 h-4" />;
-      default:
-        return <User className="w-4 h-4" />;
     }
   };
 
@@ -187,47 +173,49 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
             </div>
           </div>
 
-          {order.blockReason && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-500" />
-                  <h4 className="font-medium text-yellow-800">阻塞原因</h4>
-                </div>
-                <button
-                  onClick={() => setShowEditBlockReason(true)}
-                  className="p-1 text-yellow-600 hover:bg-yellow-100 rounded"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="w-5 h-5 text-yellow-500" />
+                <h4 className="font-medium text-yellow-800">阻塞原因</h4>
               </div>
-              <p className="text-yellow-700 mt-2">{order.blockReason}</p>
-              {showEditBlockReason && (
-                <div className="mt-3 space-y-2">
-                  <textarea
-                    value={newBlockReason}
-                    onChange={(e) => setNewBlockReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                    rows={2}
-                  />
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setShowEditBlockReason(false)}
-                      className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded"
-                    >
-                      取消
-                    </button>
-                    <button
-                      onClick={handleUpdateBlockReason}
-                      className="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
-                    >
-                      保存
-                    </button>
-                  </div>
-                </div>
-              )}
+              <button
+                onClick={() => setShowEditBlockReason(true)}
+                className="p-1 text-yellow-600 hover:bg-yellow-100 rounded"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
             </div>
-          )}
+            <p className="text-yellow-700 mt-2">{newBlockReason || order.blockReason || '暂无阻塞原因'}</p>
+            {showEditBlockReason && (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  value={newBlockReason}
+                  onChange={(e) => setNewBlockReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-yellow-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                  rows={2}
+                  placeholder="请输入阻塞原因"
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setShowEditBlockReason(false);
+                      setNewBlockReason(order.blockReason || '');
+                    }}
+                    className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleUpdateBlockReason}
+                    className="px-3 py-1 text-sm bg-yellow-500 text-white rounded hover:bg-yellow-600"
+                  >
+                    保存
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <h4 className="font-medium text-gray-800 mb-4">处理人员状态</h4>
@@ -236,7 +224,7 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                 <div className="p-3 bg-blue-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${ROLE_COLORS['客服']}`}>
-                      {getHandlerIcon('客服')}
+                      <User className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{handlers.customerService.name}</p>
@@ -253,7 +241,7 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                 <div className="p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${ROLE_COLORS['家政员']}`}>
-                      {getHandlerIcon('家政员')}
+                      <CheckCircle className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{handlers.housekeeper.name}</p>
@@ -270,7 +258,7 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                 <div className="p-3 bg-purple-50 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${ROLE_COLORS['质检主管']}`}>
-                      {getHandlerIcon('质检主管')}
+                      <FileText className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">{handlers.qcSupervisor.name}</p>
@@ -292,8 +280,8 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <p className="text-gray-500">分配家政员</p>
-                  <p className="font-medium text-gray-800">{schedule.staffName} ({schedule.staffNo})</p>
-                  <p className="text-xs text-gray-400">状态: {schedule.staffStatus}</p>
+                  <p className="font-medium text-gray-800">{schedule.staffName || '未分配'} ({schedule.staffNo || '-'})</p>
+                  <p className="text-xs text-gray-400">状态: {schedule.staffStatus || '未知'}</p>
                 </div>
                 <div>
                   <p className="text-gray-500">排班时间</p>
@@ -345,13 +333,13 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                 </div>
                 <div className="col-span-2">
                   <p className="text-gray-500">备注</p>
-                  <p className="text-gray-700">{checkin.remark}</p>
+                  <p className="text-gray-700">{checkinRemark || checkin.remark || '-'}</p>
                 </div>
-                {checkin.notArrivedReason && (
+                {(checkinNotArrivedReason || checkin.notArrivedReason) && (
                   <div className="col-span-2 bg-yellow-50 p-2 rounded">
                     <p className="text-yellow-700 text-sm">
                       <AlertCircle className="w-4 h-4 inline mr-1" />
-                      未到岗原因: {checkin.notArrivedReason}
+                      未到岗原因: {checkinNotArrivedReason || checkin.notArrivedReason}
                     </p>
                   </div>
                 )}
@@ -365,9 +353,10 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                       onChange={(e) => setCheckinRemark(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       rows={2}
+                      placeholder="请输入备注"
                     />
                   </div>
-                  {checkin.status === '未到岗' && (
+                  {(checkin.status === '未到岗' || checkinNotArrivedReason) && (
                     <div>
                       <label className="block text-sm text-gray-600 mb-1">未到岗原因</label>
                       <textarea
@@ -375,12 +364,17 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                         onChange={(e) => setCheckinNotArrivedReason(e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                         rows={2}
+                        placeholder="请输入未到岗原因"
                       />
                     </div>
                   )}
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setShowEditCheckin(false)}
+                      onClick={() => {
+                        setShowEditCheckin(false);
+                        setCheckinRemark(checkin.remark || '');
+                        setCheckinNotArrivedReason(checkin.notArrivedReason || '');
+                      }}
                       className="px-3 py-1 text-sm text-gray-600 hover:bg-gray-100 rounded"
                     >
                       取消
@@ -410,7 +404,7 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
                 <div className="relative">
                   <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
                   <div className="space-y-4">
-                    {logs.map((log, index) => (
+                    {logs.map((log) => (
                       <div key={log.id} className="relative pl-10">
                         <div className={`absolute left-3 w-3 h-3 rounded-full ${ROLE_COLORS[log.operatorRole || '客服']}`}></div>
                         <div className="bg-gray-50 rounded-lg p-3">

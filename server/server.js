@@ -57,7 +57,7 @@ let operationLogs = [
   { id: 17, orderId: 6, operatorId: 4, operatorName: '陈主管', operatorRole: '质检主管', action: '服务完成', detail: '服务已完成，等待客户评价', createdAt: '2024-01-17 17:00:00' },
 ];
 
-const getBlockReason = (order) => {
+const getAutoBlockReason = (order) => {
   if (order.status === '待排班') {
     return '尚未分配家政员，等待客服排班';
   }
@@ -75,6 +75,13 @@ const getBlockReason = (order) => {
     return checkinRecord?.notArrivedReason || '到岗状态待确认';
   }
   return null;
+};
+
+const getBlockReason = (order) => {
+  if (order.blockReason) {
+    return order.blockReason;
+  }
+  return getAutoBlockReason(order);
 };
 
 app.get('/api/orders', (req, res) => {
@@ -311,9 +318,7 @@ app.put('/api/checkin/:id', (req, res) => {
   if (c) {
     c.status = status;
     c.remark = remark;
-    if (notArrivedReason) {
-      c.notArrivedReason = notArrivedReason;
-    }
+    c.notArrivedReason = notArrivedReason || null;
     
     const schedule = scheduling.find(s => s.id === c.schedulingId);
     if (schedule) {
@@ -334,7 +339,7 @@ app.put('/api/checkin/:id', (req, res) => {
       operatorName: sStaff?.name,
       operatorRole: sStaff?.role,
       action: '到岗状态更新',
-      detail: `状态更新为${status}, 备注: ${remark}`,
+      detail: `状态更新为${status}, 备注: ${remark || '-'}, 未到岗原因: ${notArrivedReason || '-' }`,
       createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
     });
     
