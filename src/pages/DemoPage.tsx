@@ -1,579 +1,801 @@
-import { Card, Steps, Button, Space, Typography, Tag, Divider, message, Modal, Alert } from 'antd';
+import {
+  Card,
+  Steps,
+  Button,
+  Space,
+  Typography,
+  Tag,
+  Divider,
+  message,
+  Alert,
+  Descriptions,
+  Table,
+  Empty,
+} from 'antd';
 import {
   CheckCircleOutlined,
-  PlayCircleOutlined,
   ExclamationCircleOutlined,
   InboxOutlined,
   ReloadOutlined,
   UserOutlined,
+  RightOutlined,
 } from '@ant-design/icons';
 import { useState } from 'react';
 import { useApi } from '@/services/api';
 import { useWorkflow } from '@/hooks/useWorkflow';
-import { roleDisplayMap, statusDisplayMap } from '@/utils/stateMachine';
+import {
+  roleDisplayMap,
+  statusDisplayMap,
+  exceptionTypeDisplayMap,
+} from '@/utils/stateMachine';
 import AuditTimeline from '@/components/AuditTimeline';
 import dayjs from 'dayjs';
+import type { ColumnsType } from 'antd/es/table';
+import type { MaterialItem, ExceptionRecord, AuditLog } from '@/types';
 
 const { Title, Paragraph, Text } = Typography;
 
 type DemoType = 'smooth' | 'problem' | 'archive';
 
+const SMOOTH_SCHEDULE_ID = 'schedule-002';
+const PROBLEM_DRAFT_ID = 'draft-002';
+const ARCHIVE_SCHEDULE_ID = 'schedule-003';
+
 export default function DemoPage() {
   const api = useApi();
   const workflow = useWorkflow();
   const [activeDemo, setActiveDemo] = useState<DemoType | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
-  const [demoLogs, setDemoLogs] = useState<Array<{ time: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }>>([]);
-
-  const addLog = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
-    setDemoLogs((prev) => [
-      ...prev,
-      { time: dayjs().format('HH:mm:ss'), message, type },
-    ]);
-  };
+  const [smoothStep, setSmoothStep] = useState(0);
+  const [problemStep, setProblemStep] = useState(0);
 
   const resetDemo = () => {
     api.resetDemoData();
-    setCurrentStep(0);
-    setIsRunning(false);
-    setDemoLogs([]);
+    setSmoothStep(0);
+    setProblemStep(0);
     setActiveDemo(null);
+    message.success('已重置为初始演示数据');
   };
 
-  const startDemo = (type: DemoType) => {
-    resetDemo();
-    setActiveDemo(type);
-    setIsRunning(true);
-    addLog(`开始演示: ${type === 'smooth' ? '顺利流程' : type === 'problem' ? '问题流程' : '最终归档'}`, 'info');
-  };
+  const smoothSchedule = api.getScheduleById(SMOOTH_SCHEDULE_ID);
+  const smoothPickups = smoothSchedule
+    ? api.getMaterialPickupsByScheduleId(smoothSchedule.id)
+    : [];
+  const smoothInstallation = smoothSchedule
+    ? api.getInstallationByScheduleId(smoothSchedule.id)
+    : null;
 
-  const autoRunSmoothFlow = async () => {
-    setIsRunning(true);
-    const steps = [
-      async () => {
-        api.switchUser('user-001');
-        addLog('切换用户: 张小红 (前台)', 'info');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-001');
-        if (draft) {
-          addLog(`选择稿件: ${draft.orderNo} - ${draft.customerName} - ${draft.content}`, 'info');
-          addLog(`稿件状态: ${statusDisplayMap[draft.status].text}`, 'success');
+  const problemDraft = api.getDraftById(PROBLEM_DRAFT_ID);
+  const problemSchedule = problemDraft
+    ? api.getSchedulesByDraftId(problemDraft.id)[0]
+    : null;
+  const problemException = problemSchedule
+    ? api.getExceptionsByScheduleId(problemSchedule.id)
+    : problemDraft
+    ? api
+        .getExceptions()
+        .filter((e) => e.type === 'size_error')
+        .slice(0, 1)
+    : [];
+
+  const archiveSchedule = api.getScheduleById(ARCHIVE_SCHEDULE_ID);
+  const archivePickups = archiveSchedule
+    ? api.getMaterialPickupsByScheduleId(archiveSchedule.id)
+    : [];
+  const archiveInstallation = archiveSchedule
+    ? api.getInstallationByScheduleId(archiveSchedule.id)
+    : null;
+  const archiveExceptions = archiveSchedule
+    ? api.getExceptionsByScheduleId(archiveSchedule.id)
+    : [];
+  const archiveLogs = archiveSchedule
+    ? api.getAuditLogsByEntity('schedule', archiveSchedule.id)
+    : [];
+
+  const runSmoothStep = () => {
+    if (!smoothSchedule) {
+      message.error('找不到顺利流的排产记录，请先重置演示数据');
+      return;
+    }
+    const currentUser = api.getCurrentUser();
+
+    switch (smoothStep) {
+      case 0: {
+        if (currentUser.id !== 'user-002') {
+          api.switchUser('user-002');
+          message.info('已切换到处理人员：李明');
         }
-      },
-      async () => {
-        const draft = api.getDrafts().find((d) => d.id === 'draft-001');
-        if (draft && draft.status === 'approved') {
-          addLog('前台张小红提交喷绘排产，数量: 5份，优先级: 加急', 'info');
-          workflow.submitScheduleFromDraft('draft-001', 5, 'urgent');
-          const schedule = api.getSchedulesByDraftId('draft-001')[0];
-          addLog(`排产已创建: ${schedule.scheduleNo}，状态: ${statusDisplayMap[schedule.status].text}`, 'success');
+        const items = [
+          {
+            id: api.generateId('item'),
+            materialType: '灯箱片',
+            specification: '1.52m宽',
+            unit: '平方米',
+            quantity: 3.24,
+            unitPrice: 52,
+          },
+        ];
+        workflow.createMaterialPickupForSchedule(smoothSchedule.id, items);
+        const pickup = api.getMaterialPickupsByScheduleId(smoothSchedule.id)[0];
+        if (pickup) {
+          workflow.transitionMaterialPickup(pickup.id, 'confirmed');
         }
-      },
-      async () => {
-        api.switchUser('user-002');
-        addLog('切换用户: 李明 (处理人员)', 'info');
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog(`处理人员李明开始处理排产: ${schedule.scheduleNo}`, 'info');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('登记材料领用: 户外背胶 10.8㎡ + 光膜 10.8㎡，合计 ¥572.40', 'info');
-        workflow.createMaterialPickupForSchedule(schedule.id, [
-          { materialType: '户外背胶', specification: '1.52m宽', unit: '平方米', quantity: 10.8, unitPrice: 45 },
-          { materialType: '过膜', specification: '光膜', unit: '平方米', quantity: 10.8, unitPrice: 8 },
-        ]);
-        const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
-        addLog(`材料领用已登记: ${pickup.pickupNo}，状态: ${statusDisplayMap[pickup.status].text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
-        addLog('处理人员李明确认材料领用', 'info');
-        workflow.transitionMaterialPickup(pickup.id, 'confirmed');
-        addLog(`材料领用状态: ${statusDisplayMap.confirmed.text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('处理人员李明确认排产材料已确认，准备开始喷绘', 'info');
-        workflow.transitionSchedule(schedule.id, 'material_confirmed');
-        addLog(`排产状态: ${statusDisplayMap.material_confirmed.text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('开始喷绘: 120×180cm 户外背胶海报 5张', 'info');
-        workflow.transitionSchedule(schedule.id, 'printing');
-        addLog(`排产状态: ${statusDisplayMap.printing.text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('喷绘完成，进行质量检查，颜色和尺寸均符合要求', 'info');
-        workflow.transitionSchedule(schedule.id, 'printed');
-        addLog(`排产状态: ${statusDisplayMap.printed.text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('开始安装，安装人员: 李明、张强', 'info');
-        workflow.transitionSchedule(schedule.id, 'installing');
-        addLog(`排产状态: ${statusDisplayMap.installing.text}`, 'success');
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        const installation = api.getInstallationByScheduleId(schedule.id);
-        if (installation) {
-          addLog('安装完成，拍摄安装照片2张，客户签字确认', 'info');
-          workflow.transitionInstallation(installation.id, 'completed', {
+        workflow.transitionSchedule(smoothSchedule.id, 'material_confirmed');
+        setSmoothStep(1);
+        break;
+      }
+      case 1: {
+        if (currentUser.id !== 'user-002') api.switchUser('user-002');
+        workflow.transitionSchedule(smoothSchedule.id, 'printing');
+        setSmoothStep(2);
+        break;
+      }
+      case 2: {
+        workflow.transitionSchedule(smoothSchedule.id, 'printed');
+        setSmoothStep(3);
+        break;
+      }
+      case 3: {
+        workflow.transitionSchedule(smoothSchedule.id, 'installing');
+        const install = api.getInstallationByScheduleId(smoothSchedule.id);
+        if (install) {
+          workflow.transitionInstallation(install.id, 'in_progress');
+        }
+        setSmoothStep(4);
+        break;
+      }
+      case 4: {
+        const install = api.getInstallationByScheduleId(smoothSchedule.id);
+        if (install) {
+          workflow.transitionInstallation(install.id, 'completed', {
             actualDate: dayjs().format('YYYY-MM-DD'),
-            installers: ['李明', '张强'],
-            photos: ['/photos/demo-1.jpg', '/photos/demo-2.jpg'],
+            installers: ['李明', '王师傅'],
+            photos: ['/photos/smooth-1.jpg', '/photos/smooth-2.jpg'],
             customerSigned: true,
-            signerName: '王经理',
+            signerName: '陈店长',
             signDate: dayjs().format('YYYY-MM-DD'),
           });
-          addLog('安装记录状态: 已完成', 'success');
         }
-      },
-      async () => {
-        const schedule = api.getSchedulesByDraftId('draft-001')[0];
-        addLog('订单完成，客户非常满意', 'info');
-        workflow.transitionSchedule(schedule.id, 'completed');
-        addLog(`排产状态: ${statusDisplayMap.completed.text}`, 'success');
-      },
-      async () => {
-        addLog('顺利流程演示完成！所有操作均已记录审计日志', 'success');
-        setIsRunning(false);
-      },
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      setCurrentStep(i);
-      await steps[i]();
-      if (i < steps.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1200));
+        workflow.transitionSchedule(smoothSchedule.id, 'completed');
+        setSmoothStep(5);
+        message.success('顺利流完成！所有状态已推进，审计日志已留痕');
+        break;
       }
+      default:
+        message.info('顺利流已全部完成');
     }
   };
 
-  const autoRunProblemFlow = async () => {
-    setIsRunning(true);
-    const steps = [
-      async () => {
-        api.switchUser('user-001');
-        addLog('切换用户: 张小红 (前台)', 'info');
-        addLog('创建新稿件: 阳光健身 - 会员招募海报', 'info');
-        addLog('录入尺寸: 100×150cm，材料: 相纸，颜色要求: 高清', 'info');
-      },
-      async () => {
-        api.switchUser('user-002');
-        addLog('切换用户: 李明 (处理人员)', 'info');
-        addLog('处理人员李明核稿，发现设计图标注尺寸为120×180cm，与订单录入的100×150cm不符', 'warning');
-      },
-      async () => {
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        if (draft) {
-          addLog('标记尺寸问题，通知前台与客户确认', 'warning');
-          workflow.reportSizeIssue(
-            draft.id,
-            '设计图标注尺寸为120×180cm，但订单录入为100×150cm，请与客户确认正确尺寸'
-          );
-          addLog(`稿件状态: ${statusDisplayMap.size_issue.text}`, 'warning');
-          addLog('异常记录已创建: 尺寸错误', 'warning');
-        }
-      },
-      async () => {
-        api.switchUser('user-001');
-        addLog('切换用户: 张小红 (前台)', 'info');
-        addLog('前台联系客户确认，客户确认正确尺寸应为120×180cm', 'info');
-      },
-      async () => {
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        if (draft) {
-          addLog('更新尺寸为120×180cm，重新提交审核', 'info');
-          workflow.transitionDraft(draft.id, 'pending_review', '客户确认正确尺寸为120×180cm');
-          addLog(`稿件状态: ${statusDisplayMap.pending_review.text}`, 'info');
-        }
-      },
-      async () => {
-        api.switchUser('user-003');
-        addLog('切换用户: 王店长 (店长)', 'info');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        if (draft) {
-          addLog('店长审核通过稿件', 'info');
-          workflow.transitionDraft(draft.id, 'approved');
-          addLog(`稿件状态: ${statusDisplayMap.approved.text}`, 'success');
-        }
-      },
-      async () => {
-        api.switchUser('user-001');
-        addLog('切换用户: 张小红 (前台)', 'info');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        if (draft) {
-          addLog('前台提交喷绘排产', 'info');
-          workflow.submitScheduleFromDraft(draft.id, 10, 'normal');
-          const schedule = api.getSchedulesByDraftId(draft.id)[0];
-          addLog(`排产已创建: ${schedule.scheduleNo}`, 'success');
-        }
-      },
-      async () => {
-        api.switchUser('user-002');
-        addLog('切换用户: 李明 (处理人员)', 'info');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        const schedule = api.getSchedulesByDraftId(draft!.id)[0];
-        addLog('登记并确认材料领用，开始喷绘', 'info');
-        workflow.createMaterialPickupForSchedule(schedule.id, [
-          { materialType: '相纸', specification: '1.27m宽', unit: '平方米', quantity: 21.6, unitPrice: 38 },
-        ]);
-        const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
-        workflow.transitionMaterialPickup(pickup.id, 'confirmed');
-        workflow.transitionSchedule(schedule.id, 'material_confirmed');
-        workflow.transitionSchedule(schedule.id, 'printing');
-        addLog('喷绘完成，客户来现场看样，反馈颜色偏暗，与设计稿有色差', 'warning');
-      },
-      async () => {
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        const schedule = api.getSchedulesByDraftId(draft!.id)[0];
-        addLog('上报色差投诉', 'warning');
-        workflow.reportColorComplaint(
-          schedule.id,
-          '客户反馈喷绘成品颜色比设计稿偏暗，蓝色部分不够鲜艳'
-        );
-        addLog('异常记录已创建: 色差投诉', 'warning');
-      },
-      async () => {
-        api.switchUser('user-003');
-        addLog('切换用户: 王店长 (店长)', 'info');
-        addLog('店长介入处理，向客户解释喷绘CMYK与屏幕RGB的色彩差异', 'info');
-        addLog('提供色彩校准样册给客户参考，承诺下次打印前先打样确认', 'info');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        const scheduleForException = draft ? api.getSchedulesByDraftId(draft.id)[0] : null;
-        const exception = scheduleForException
-          ? api.getExceptions().find((e) => e.type === 'color_complaint' && e.scheduleId === scheduleForException.id)
-          : null;
-        if (exception) {
-          api.resolveException(
-            exception.id,
-            '向客户解释喷绘色彩原理：屏幕显示为RGB光色，喷绘为CMYK油墨，存在天然差异。已提供色彩校准样册供客户参考，并承诺下次订单先打样确认。客户表示理解并接受现有成品。'
-          );
-          addLog('异常已解决，客户表示理解', 'success');
-        }
-      },
-      async () => {
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        const schedule = api.getSchedulesByDraftId(draft!.id)[0];
-        const installation = api.getInstallationByScheduleId(schedule.id);
-        if (installation) {
-          addLog('客户临时有事，需要变更安装时间', 'warning');
+  const runProblemStep = () => {
+    if (!problemDraft) {
+      message.error('找不到问题流的稿件记录，请先重置演示数据');
+      return;
+    }
+    const currentUser = api.getCurrentUser();
+
+    switch (problemStep) {
+      case 0: {
+        if (currentUser.id !== 'user-001') {
           api.switchUser('user-001');
-          workflow.changeInstallTime(
-            installation.id,
-            dayjs().add(3, 'day').format('YYYY-MM-DD'),
-            '客户临时出差，要求延后3天安装'
-          );
-          addLog(`安装时间已变更，异常记录已创建`, 'warning');
+          message.info('已切换到前台：张小红');
         }
-      },
-      async () => {
-        addLog('3天后，安装顺利完成，客户签字确认', 'success');
-        const draft = api.getDrafts().find((d) => d.id === 'draft-002');
-        const schedule = api.getSchedulesByDraftId(draft!.id)[0];
-        const installation = api.getInstallationByScheduleId(schedule.id);
-        if (installation) {
-          workflow.transitionInstallation(installation.id, 'in_progress');
-          workflow.transitionInstallation(installation.id, 'completed', {
-            customerSigned: true,
-            signerName: '刘经理',
-          });
+        workflow.transitionDraft(
+          problemDraft.id,
+          'pending_review',
+          '客户确认正确尺寸应为120×180cm'
+        );
+        setProblemStep(1);
+        break;
+      }
+      case 1: {
+        api.switchUser('user-003');
+        message.info('已切换到店长：王店长');
+        workflow.transitionDraft(problemDraft.id, 'approved');
+        setProblemStep(2);
+        break;
+      }
+      case 2: {
+        api.switchUser('user-001');
+        message.info('已切换到前台：张小红');
+        workflow.submitScheduleFromDraft(problemDraft.id, 10, 'normal');
+        setProblemStep(3);
+        break;
+      }
+      case 3: {
+        api.switchUser('user-002');
+        message.info('已切换到处理人员：李明');
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (schedule) {
+          const items = [
+            {
+              id: api.generateId('item'),
+              materialType: '相纸',
+              specification: '1.27m宽',
+              unit: '平方米',
+              quantity: 21.6,
+              unitPrice: 38,
+            },
+          ];
+          workflow.createMaterialPickupForSchedule(schedule.id, items);
+          const pickup = api.getMaterialPickupsByScheduleId(schedule.id)[0];
+          if (pickup) workflow.transitionMaterialPickup(pickup.id, 'confirmed');
+          workflow.transitionSchedule(schedule.id, 'material_confirmed');
+          workflow.transitionSchedule(schedule.id, 'printing');
           workflow.transitionSchedule(schedule.id, 'printed');
+        }
+        setProblemStep(4);
+        break;
+      }
+      case 4: {
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (schedule) {
+          workflow.reportColorComplaint(
+            schedule.id,
+            '客户反馈喷绘成品颜色比设计稿偏暗，蓝色部分不够鲜艳'
+          );
+        }
+        setProblemStep(5);
+        break;
+      }
+      case 5: {
+        api.switchUser('user-003');
+        message.info('已切换到店长：王店长');
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (schedule) {
+          const ex = api
+            .getExceptions()
+            .find(
+              (e) =>
+                e.scheduleId === schedule.id && e.type === 'color_complaint'
+            );
+          if (ex) {
+            api.resolveException(
+              ex.id,
+              '向客户解释喷绘色彩原理：屏幕显示为RGB光色，喷绘为CMYK油墨，存在天然差异。已提供色彩校准样册供客户参考，并承诺下次订单先打样确认。客户表示理解并接受现有成品。'
+            );
+          }
+        }
+        setProblemStep(6);
+        break;
+      }
+      case 6: {
+        api.switchUser('user-001');
+        message.info('已切换到前台：张小红');
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (schedule) {
+          const install = api.getInstallationByScheduleId(schedule.id);
+          if (install) {
+            workflow.changeInstallTime(
+              install.id,
+              dayjs().add(3, 'day').format('YYYY-MM-DD'),
+              '客户临时出差，要求延后3天安装'
+            );
+          }
+        }
+        setProblemStep(7);
+        break;
+      }
+      case 7: {
+        api.switchUser('user-002');
+        message.info('已切换到处理人员：李明');
+        const schedule = api.getSchedulesByDraftId(problemDraft.id)[0];
+        if (schedule) {
+          const install = api.getInstallationByScheduleId(schedule.id);
+          if (install) {
+            workflow.transitionInstallation(install.id, 'in_progress');
+            workflow.transitionInstallation(install.id, 'completed', {
+              customerSigned: true,
+              signerName: '刘经理',
+              installers: ['李明', '张强'],
+              photos: ['/photos/problem-1.jpg'],
+            });
+          }
           workflow.transitionSchedule(schedule.id, 'installing');
           workflow.transitionSchedule(schedule.id, 'completed');
         }
-        addLog('问题流程演示完成！虽然遇到了尺寸错误、色差投诉和安装时间变更，但都得到了妥善处理', 'success');
-        setIsRunning(false);
-      },
-    ];
-
-    for (let i = 0; i < steps.length; i++) {
-      setCurrentStep(i);
-      await steps[i]();
-      if (i < steps.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        setProblemStep(8);
+        message.success('问题流完成！尺寸错误→色差投诉→时间变更均已记录并处理');
+        break;
       }
+      default:
+        message.info('问题流已全部完成');
     }
   };
 
-  const autoRunArchiveFlow = async () => {
-    setIsRunning(true);
-    const steps = [
-      async () => {
-        addLog('查看已完成订单: 蓝天幼儿园 六一儿童节活动背景板', 'info');
-        const schedule = api.getScheduleById('schedule-003');
-        if (schedule) {
-          addLog(`订单号: ${schedule.orderNo}`, 'info');
-          addLog(`排产号: ${schedule.scheduleNo}`, 'info');
-          addLog(`状态: ${statusDisplayMap[schedule.status].text}`, 'success');
-          addLog(`尺寸: ${schedule.width}×${schedule.height}cm`, 'info');
-          addLog(`材料: ${schedule.materialType}`, 'info');
-          addLog(`完成时间: ${dayjs(schedule.completedAt!).format('YYYY-MM-DD HH:mm')}`, 'info');
-        }
-      },
-      async () => {
-        addLog('材料领用回看:', 'info');
-        const pickups = api.getMaterialPickupsByScheduleId('schedule-003');
-        pickups.forEach((p) => {
-          addLog(`  领用单: ${p.pickupNo}，金额: ¥${p.totalAmount}，状态: ${statusDisplayMap[p.status].text}`, 'info');
-          p.items.forEach((item) => {
-            addLog(`    - ${item.materialType} ${item.specification} × ${item.quantity}${item.unit} = ¥${(item.quantity * item.unitPrice).toFixed(2)}`, 'info');
-          });
-        });
-      },
-      async () => {
-        addLog('安装记录回看:', 'info');
-        const install = api.getInstallationByScheduleId('schedule-003');
-        if (install) {
-          addLog(`  计划日期: ${install.scheduledDate}`, 'info');
-          addLog(`  实际日期: ${install.actualDate}`, 'info');
-          addLog(`  安装人员: ${install.installers.join('、')}`, 'info');
-          addLog(`  客户签字: ${install.customerSigned ? `已签字 (${install.signerName})` : '未签字'}`, 'success');
-          addLog(`  照片数量: ${install.photos.length}张`, 'info');
-        }
-      },
-      async () => {
-        addLog('异常记录回看:', 'info');
-        const exceptions = api.getExceptionsByScheduleId('schedule-003');
-        exceptions.forEach((e) => {
-          addLog(`  类型: ${e.type === 'color_complaint' ? '色差投诉' : e.type}`, 'warning');
-          addLog(`  状态: ${e.status === 'resolved' ? '已解决' : e.status}`, e.status === 'resolved' ? 'success' : 'warning');
-          if (e.resolution) {
-            addLog(`  解决方案: ${e.resolution}`, 'success');
-          }
-        });
-      },
-      async () => {
-        addLog('操作留痕回看 (审计日志):', 'info');
-        const logs = api.getAuditLogsByEntity('schedule', 'schedule-003');
-        logs.forEach((log, idx) => {
-          if (idx < 5) {
-            addLog(`  ${dayjs(log.timestamp).format('HH:mm:ss')} - ${log.operatorName}(${roleDisplayMap[log.operatorRole]}) - ${log.detail}`, 'info');
-          }
-        });
-        if (logs.length > 5) {
-          addLog(`  ...还有${logs.length - 5}条操作记录`, 'info');
-        }
-      },
-      async () => {
-        const schedule = api.getScheduleById('schedule-003');
-        if (schedule) {
-          api.createAuditLog(
-            'schedule',
-            schedule.id,
-            'archive',
-            `订单 ${schedule.scheduleNo} 已完成归档，所有资料齐备，可追溯`,
-            { status: schedule.status },
-            { archived: true, archiveTime: dayjs().toISOString() }
-          );
-        }
-        addLog('订单已完成归档！所有信息完整保留，包括：', 'success');
-        addLog('  ✓ 客户稿件及审核记录', 'success');
-        addLog('  ✓ 喷绘排产全流程状态', 'success');
-        addLog('  ✓ 材料领用明细及金额', 'success');
-        addLog('  ✓ 安装照片及客户签字', 'success');
-        addLog('  ✓ 异常处理全过程', 'success');
-        addLog('  ✓ 所有人员操作留痕', 'success');
-        setIsRunning(false);
-      },
-    ];
+  const smoothSteps = [
+    '处理人员登记并确认材料领用',
+    '处理人员开始喷绘',
+    '处理人员喷绘完成',
+    '处理人员开始安装',
+    '安装完成 + 客户签字 + 订单完成',
+  ];
 
-    for (let i = 0; i < steps.length; i++) {
-      setCurrentStep(i);
-      await steps[i]();
-      if (i < steps.length - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1800));
-      }
-    }
-  };
+  const problemSteps = [
+    '前台修正尺寸后重提审核',
+    '店长审核通过稿件',
+    '前台提交喷绘排产（自动创建安装记录）',
+    '处理人员确认材料并完成喷绘',
+    '客户看样反馈色差，上报色差投诉',
+    '店长介入处理并解决异常',
+    '客户变更安装时间，前台登记变更',
+    '3天后安装完成，客户签字确认',
+  ];
 
-  const runDemo = () => {
-    if (!activeDemo) return;
-    if (activeDemo === 'smooth') {
-      autoRunSmoothFlow();
-    } else if (activeDemo === 'problem') {
-      autoRunProblemFlow();
-    } else {
-      autoRunArchiveFlow();
-    }
-  };
+  const pickupColumns: ColumnsType<MaterialItem> = [
+    { title: '材料类型', dataIndex: 'materialType', key: 'materialType' },
+    { title: '规格', dataIndex: 'specification', key: 'specification' },
+    { title: '单位', dataIndex: 'unit', key: 'unit', width: 80 },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      width: 100,
+      render: (v) => Number(v).toFixed(2),
+    },
+    {
+      title: '单价',
+      dataIndex: 'unitPrice',
+      key: 'unitPrice',
+      width: 100,
+      render: (v) => `¥${Number(v).toFixed(2)}`,
+    },
+    {
+      title: '小计',
+      key: 'subtotal',
+      width: 120,
+      render: (_, r) => `¥${(Number(r.quantity) * Number(r.unitPrice)).toFixed(2)}`,
+    },
+  ];
 
-  const demoDescriptions = {
-    smooth: {
-      title: '顺利流程',
-      icon: <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 32 }} />,
-      description: '正常的订单处理流程：前台创建稿件 → 店长审核 → 前台提交排产 → 处理人员确认材料 → 喷绘 → 安装 → 完成。所有环节无异常。',
-      steps: [
-        '前台创建并提交稿件',
-        '店长审核通过',
-        '前台提交喷绘排产',
-        '处理人员登记并确认材料领用',
-        '处理人员开始喷绘',
-        '处理人员完成喷绘',
-        '处理人员开始安装',
-        '客户签字确认，订单完成',
-      ],
+  const exceptionColumns: ColumnsType<ExceptionRecord> = [
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      width: 120,
+      render: (t) => (
+        <Tag color="orange">{exceptionTypeDisplayMap[t] || t}</Tag>
+      ),
     },
-    problem: {
-      title: '问题流程',
-      icon: <ExclamationCircleOutlined style={{ color: '#faad14', fontSize: 32 }} />,
-      description: '包含尺寸错误、色差投诉、安装时间变更三种典型异常场景，演示如何发现、上报、处理异常，以及整个过程的留痕。',
-      steps: [
-        '前台创建稿件（尺寸录入错误）',
-        '处理人员核稿发现尺寸问题',
-        '标记尺寸问题，创建异常记录',
-        '前台联系客户确认后重新提交',
-        '店长审核通过',
-        '处理人员喷绘后客户反馈色差',
-        '上报色差投诉，店长处理',
-        '客户要求变更安装时间',
-        '最终完成安装',
-      ],
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (s) => (
+        <Tag color={s === 'resolved' ? 'green' : 'gold'}>
+          {s === 'resolved' ? '已解决' : '待处理'}
+        </Tag>
+      ),
     },
-    archive: {
-      title: '最终归档',
-      icon: <InboxOutlined style={{ color: '#1890ff', fontSize: 32 }} />,
-      description: '展示已完成订单的完整资料回看：稿件信息、排产流程、材料领用明细、安装照片、异常处理记录、审计日志等，体现系统的可追溯性。',
-      steps: [
-        '查看订单基本信息',
-        '材料领用记录回看',
-        '安装记录及照片回看',
-        '异常处理记录回看',
-        '审计日志完整回看',
-        '订单归档完成',
-      ],
+    { title: '描述', dataIndex: 'description', key: 'description' },
+    {
+      title: '处理人',
+      dataIndex: 'handledBy',
+      key: 'handledBy',
+      width: 100,
+      render: (id) => (id ? api.getAllUsers().find((u) => u.id === id)?.name : '-'),
     },
-  };
+    { title: '解决方案', dataIndex: 'resolution', key: 'resolution' },
+  ];
 
   return (
     <div>
-      <Title level={2}>流程演示</Title>
+      <Title level={2}>真实业务链路演示</Title>
       <Paragraph type="secondary">
-        通过三个真实场景演示，展示系统如何替代传统反复确认的工作方式，以及如何确保尺寸看错、色差投诉、安装时间变更等问题可追溯、可处理。
+        基于同一批真实持久化记录推进状态，所有操作均写入审计日志。
+        <Text strong> 前台提交排产时直接落为"已提交"状态，并自动创建对应安装记录。</Text>
+        刷新页面后数据仍然保留。
       </Paragraph>
 
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {(['smooth', 'problem', 'archive'] as DemoType[]).map((type) => (
-            <Card
-              key={type}
-              hoverable
-              style={{
-                flex: 1,
-                minWidth: 300,
-                border: activeDemo === type ? '2px solid #1890ff' : undefined,
-              }}
-              onClick={() => !isRunning && startDemo(type)}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                {demoDescriptions[type].icon}
-                <Title level={4} style={{ margin: 0 }}>
-                  {demoDescriptions[type].title}
-                </Title>
-              </div>
-              <Paragraph style={{ minHeight: 60 }}>{demoDescriptions[type].description}</Paragraph>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text type="secondary">{demoDescriptions[type].steps.length} 个步骤</Text>
-                <Button
-                  type="primary"
-                  icon={<PlayCircleOutlined />}
-                  disabled={isRunning}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (activeDemo !== type) {
-                      startDemo(type);
-                    }
-                    runDemo();
-                  }}
-                >
-                  {activeDemo === type ? '继续演示' : '开始演示'}
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        <Button
-          icon={<ReloadOutlined />}
-          onClick={resetDemo}
-          danger
-          block
-        >
-          重置演示数据
+        <Button icon={<ReloadOutlined />} onClick={resetDemo} danger block>
+          重置演示数据（清空 localStorage 并回到初始种子数据）
         </Button>
 
-        {activeDemo && (
-          <Card title={`${demoDescriptions[activeDemo].title} - 演示进度`}>
-            <Steps
-              current={currentStep}
-              items={demoDescriptions[activeDemo].steps.map((step) => ({ title: step }))}
-              style={{ marginBottom: 16 }}
-            />
+        <Alert
+          type="info"
+          showIcon
+          message="当前登录：演示过程中会自动切换角色"
+          description={
+            <>
+              <Tag color="geekblue">{roleDisplayMap[api.getCurrentUser().role]}</Tag>
+              <Text strong> {api.getCurrentUser().name}</Text>
+              <Text type="secondary"> ({api.getCurrentUser().phone})</Text>
+            </>
+          }
+        />
 
-            <Card
-              title="执行日志"
-              size="small"
-              style={{ maxHeight: 400, overflowY: 'auto', background: '#fafafa' }}
-              extra={
-                <Tag color={isRunning ? 'processing' : 'success'}>
-                  {isRunning ? '运行中...' : '已完成'}
-                </Tag>
-              }
-            >
-              {demoLogs.map((log, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: '4px 0',
-                    borderBottom: '1px dashed #eee',
-                    color:
-                      log.type === 'success'
-                        ? '#52c41a'
-                        : log.type === 'warning'
-                        ? '#faad14'
-                        : log.type === 'error'
-                        ? '#f5222d'
-                        : '#666',
-                  }}
+        {/* 顺利流 */}
+        <Card
+          title={
+            <Space>
+              <CheckCircleOutlined style={{ color: '#52c41a', fontSize: 20 }} />
+              <span>顺利流：美味餐厅 - 新品推荐灯箱片（PH20260615002）</span>
+            </Space>
+          }
+          style={{
+            border: activeDemo === 'smooth' ? '2px solid #1890ff' : undefined,
+          }}
+          onClick={() => setActiveDemo('smooth')}
+        >
+          <Paragraph>
+            稿件已审核通过，排产已提交为 <Tag color="blue">已提交</Tag>{' '}
+            状态，安装记录已自动创建。点击右侧按钮推进下一步：
+          </Paragraph>
+
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 300 }}>
+              <Steps
+                direction="vertical"
+                size="small"
+                current={smoothStep}
+                items={smoothSteps.map((s) => ({ title: s }))}
+              />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 300 }}>
+              {smoothSchedule ? (
+                <Descriptions column={1} size="small" bordered>
+                  <Descriptions.Item label="排产单号">
+                    {smoothSchedule.scheduleNo}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="状态">
+                    <Tag color={statusDisplayMap[smoothSchedule.status]?.color}>
+                      {statusDisplayMap[smoothSchedule.status]?.text}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="尺寸">
+                    {smoothSchedule.width} × {smoothSchedule.height}{' '}
+                    {smoothSchedule.unit}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="材料">
+                    {smoothSchedule.materialType}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="数量">
+                    {smoothSchedule.quantity}份
+                  </Descriptions.Item>
+                  <Descriptions.Item label="材料领用">
+                    {smoothPickups.length > 0 ? (
+                      <>
+                        <Tag color="green">已登记</Tag> {smoothPickups[0].pickupNo}
+                        <br />
+                        合计 ¥{smoothPickups[0].totalAmount.toFixed(2)}
+                      </>
+                    ) : (
+                      <Tag>未登记</Tag>
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="安装记录">
+                    {smoothInstallation ? (
+                      <Tag
+                        color={
+                          statusDisplayMap[smoothInstallation.status]?.color
+                        }
+                      >
+                        {statusDisplayMap[smoothInstallation.status]?.text}
+                      </Tag>
+                    ) : (
+                      '未创建'
+                    )}
+                  </Descriptions.Item>
+                </Descriptions>
+              ) : (
+                <Empty description="找不到排产记录，请重置数据" />
+              )}
+
+              <Button
+                type="primary"
+                icon={<RightOutlined />}
+                onClick={runSmoothStep}
+                disabled={smoothStep >= 5}
+                style={{ marginTop: 16 }}
+                block
+              >
+                {smoothStep >= 5 ? '已完成' : `推进第 ${smoothStep + 1} 步`}
+              </Button>
+            </div>
+          </div>
+
+          {smoothStep >= 5 && smoothSchedule && (
+            <>
+              <Divider />
+              <Title level={4}>操作留痕（审计日志）</Title>
+              <AuditTimeline
+                logs={api.getAuditLogsByEntity('schedule', smoothSchedule.id)}
+              />
+            </>
+          )}
+        </Card>
+
+        {/* 问题流 */}
+        <Card
+          title={
+            <Space>
+              <ExclamationCircleOutlined
+                style={{ color: '#faad14', fontSize: 20 }}
+              />
+              <span>问题流：阳光健身 - 会员招募海报（DD20260615002）</span>
+            </Space>
+          }
+          style={{
+            border: activeDemo === 'problem' ? '2px solid #1890ff' : undefined,
+          }}
+          onClick={() => setActiveDemo('problem')}
+        >
+          <Paragraph>
+            稿件当前状态为 <Tag color="orange">尺寸问题</Tag>{' '}
+            ，需依次处理：尺寸纠错 → 排产 → 色差投诉 → 安装时间变更。
+          </Paragraph>
+
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ flex: 1, minWidth: 300 }}>
+              <Steps
+                direction="vertical"
+                size="small"
+                current={problemStep}
+                items={problemSteps.map((s) => ({ title: s }))}
+              />
+            </div>
+
+            <div style={{ flex: 1, minWidth: 300 }}>
+              {problemDraft ? (
+                <Descriptions column={1} size="small" bordered>
+                  <Descriptions.Item label="稿件单号">
+                    {problemDraft.orderNo}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="状态">
+                    <Tag color={statusDisplayMap[problemDraft.status]?.color}>
+                      {statusDisplayMap[problemDraft.status]?.text}
+                    </Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label="尺寸">
+                    {problemDraft.width} × {problemDraft.height}{' '}
+                    {problemDraft.unit}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="材料">
+                    {problemDraft.materialType}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="排产状态">
+                    {problemSchedule ? (
+                      <Tag
+                        color={statusDisplayMap[problemSchedule.status]?.color}
+                      >
+                        {statusDisplayMap[problemSchedule.status]?.text}
+                      </Tag>
+                    ) : (
+                      <Tag>未排产</Tag>
+                    )}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="异常记录">
+                    {problemException.length > 0 ? (
+                      problemException.map((e) => (
+                        <div key={e.id}>
+                          <Tag color="orange">
+                            {exceptionTypeDisplayMap[e.type]}
+                          </Tag>
+                          <Tag
+                            color={e.status === 'resolved' ? 'green' : 'gold'}
+                          >
+                            {e.status === 'resolved' ? '已解决' : '待处理'}
+                          </Tag>
+                        </div>
+                      ))
+                    ) : (
+                      '无'
+                    )}
+                  </Descriptions.Item>
+                </Descriptions>
+              ) : (
+                <Empty description="找不到稿件记录，请重置数据" />
+              )}
+
+              <Button
+                type="primary"
+                icon={<RightOutlined />}
+                onClick={runProblemStep}
+                disabled={problemStep >= 8}
+                style={{ marginTop: 16 }}
+                block
+              >
+                {problemStep >= 8 ? '已完成' : `推进第 ${problemStep + 1} 步`}
+              </Button>
+            </div>
+          </div>
+
+          {problemStep >= 8 && problemSchedule && (
+            <>
+              <Divider />
+              <Title level={4}>异常记录处理结果</Title>
+              <Table
+                columns={exceptionColumns}
+                dataSource={api.getExceptionsByScheduleId(problemSchedule.id)}
+                rowKey="id"
+                pagination={false}
+                size="small"
+              />
+              <Divider />
+              <Title level={4}>操作留痕（审计日志）</Title>
+              <AuditTimeline
+                logs={api.getAuditLogsByEntity('schedule', problemSchedule.id)}
+              />
+            </>
+          )}
+        </Card>
+
+        {/* 归档流 */}
+        <Card
+          title={
+            <Space>
+              <InboxOutlined style={{ color: '#1890ff', fontSize: 20 }} />
+              <span>归档流：蓝天幼儿园 - 六一儿童节活动背景板（PH20260615003）</span>
+            </Space>
+          }
+          style={{
+            border: activeDemo === 'archive' ? '2px solid #1890ff' : undefined,
+          }}
+          onClick={() => setActiveDemo('archive')}
+        >
+          <Paragraph>
+            已完成订单的完整资料回看，展示系统的可追溯性。所有信息均可追溯到操作人与操作时间。
+          </Paragraph>
+
+          {archiveSchedule ? (
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              <Descriptions column={2} size="small" bordered title="📄 订单基本信息">
+                <Descriptions.Item label="排产单号">
+                  {archiveSchedule.scheduleNo}
+                </Descriptions.Item>
+                <Descriptions.Item label="订单编号">
+                  {archiveSchedule.orderNo}
+                </Descriptions.Item>
+                <Descriptions.Item label="客户名称">
+                  {archiveSchedule.customerName}
+                </Descriptions.Item>
+                <Descriptions.Item label="内容">
+                  {archiveSchedule.content}
+                </Descriptions.Item>
+                <Descriptions.Item label="尺寸">
+                  {archiveSchedule.width} × {archiveSchedule.height}{' '}
+                  {archiveSchedule.unit}
+                </Descriptions.Item>
+                <Descriptions.Item label="材料">
+                  {archiveSchedule.materialType}
+                </Descriptions.Item>
+                <Descriptions.Item label="颜色要求">
+                  {archiveSchedule.colorRequirement}
+                </Descriptions.Item>
+                <Descriptions.Item label="安装地址">
+                  {archiveSchedule.installationAddress}
+                </Descriptions.Item>
+                <Descriptions.Item label="状态">
+                  <Tag
+                    color={statusDisplayMap[archiveSchedule.status]?.color}
+                  >
+                    {statusDisplayMap[archiveSchedule.status]?.text}
+                  </Tag>
+                </Descriptions.Item>
+                <Descriptions.Item label="完成时间">
+                  {archiveSchedule.completedAt
+                    ? dayjs(archiveSchedule.completedAt).format(
+                        'YYYY-MM-DD HH:mm'
+                      )
+                    : '-'}
+                </Descriptions.Item>
+              </Descriptions>
+
+              {archivePickups.length > 0 && (
+                <Card
+                  size="small"
+                  title="📦 材料领用回看"
+                  extra={
+                    <Space>
+                      <Tag color="green">
+                        {archivePickups[0].pickupNo}
+                      </Tag>
+                      <Text strong>
+                        合计 ¥{archivePickups[0].totalAmount.toFixed(2)}
+                      </Text>
+                    </Space>
+                  }
                 >
-                  <Text type="secondary" style={{ marginRight: 8 }}>
-                    [{log.time}]
-                  </Text>
-                  {log.type === 'success' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
-                  {log.type === 'warning' && <ExclamationCircleOutlined style={{ marginRight: 4 }} />}
-                  {log.type === 'error' && <ExclamationCircleOutlined style={{ marginRight: 4 }} />}
-                  {log.type === 'info' && <UserOutlined style={{ marginRight: 4 }} />}
-                  {log.message}
-                </div>
-              ))}
-            </Card>
+                  <Table
+                    columns={pickupColumns}
+                    dataSource={archivePickups[0].items}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
+                  <Descriptions
+                    column={2}
+                    size="small"
+                    style={{ marginTop: 8 }}
+                  >
+                    <Descriptions.Item label="登记人">
+                      <UserOutlined />{' '}
+                      {api
+                        .getAllUsers()
+                        .find(
+                          (u) => u.id === archivePickups[0].pickedBy
+                        )?.name || archivePickups[0].pickedBy}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="确认人">
+                      <UserOutlined />{' '}
+                      {archivePickups[0].confirmedBy
+                        ? api
+                            .getAllUsers()
+                            .find(
+                              (u) => u.id === archivePickups[0].confirmedBy
+                            )?.name
+                        : '-'}
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              )}
 
-            {!isRunning && demoLogs.length > 0 && activeDemo === 'archive' && (
-              <div style={{ marginTop: 16 }}>
-                <Divider />
-                <Title level={4}>审计日志回看</Title>
-                <AuditTimeline logs={api.getAuditLogsByEntity('schedule', 'schedule-003')} />
-              </div>
-            )}
+              {archiveInstallation && (
+                <Card size="small" title="📷 安装记录回看">
+                  <Descriptions column={2} size="small" bordered>
+                    <Descriptions.Item label="计划日期">
+                      {archiveInstallation.scheduledDate}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="实际日期">
+                      {archiveInstallation.actualDate || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="安装人员">
+                      {archiveInstallation.installers.join('、') || '-'}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="状态">
+                      <Tag
+                        color={
+                          statusDisplayMap[archiveInstallation.status]?.color
+                        }
+                      >
+                        {statusDisplayMap[archiveInstallation.status]?.text}
+                      </Tag>
+                    </Descriptions.Item>
+                    <Descriptions.Item label="客户签字">
+                      {archiveInstallation.customerSigned ? (
+                        <Tag color="green">
+                          已签字（{archiveInstallation.signerName}）
+                        </Tag>
+                      ) : (
+                        <Tag>未签字</Tag>
+                      )}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="照片数量">
+                      {archiveInstallation.photos.length} 张
+                    </Descriptions.Item>
+                  </Descriptions>
+                </Card>
+              )}
 
-            {!isRunning && demoLogs.length > 0 && activeDemo !== 'archive' && (
-              <div style={{ marginTop: 16 }}>
-                <Divider />
-                <Title level={4}>操作留痕 (审计日志)</Title>
-                <Alert
-                  type="info"
-                  showIcon
-                  message="系统已自动记录所有操作"
-                  description="每一步操作都已记录审计日志，包括操作人、操作时间、状态变更前后值。可在「审计日志」页面查看完整记录。"
-                />
-              </div>
-            )}
-          </Card>
-        )}
+              {archiveExceptions.length > 0 && (
+                <Card size="small" title="⚠️ 异常记录回看">
+                  <Table
+                    columns={exceptionColumns}
+                    dataSource={archiveExceptions}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
+                </Card>
+              )}
+
+              <Card size="small" title="📝 操作留痕（审计日志）">
+                <AuditTimeline logs={archiveLogs} />
+              </Card>
+
+              <Alert
+                type="success"
+                showIcon
+                message="订单归档完成"
+                description="以上所有资料均已持久化存储，包括客户稿件、喷绘排产全流程、材料领用明细、安装照片与签字、异常处理过程、所有人员操作留痕，可随时追溯。"
+              />
+            </Space>
+          ) : (
+            <Empty description="找不到归档订单记录" />
+          )}
+        </Card>
       </Space>
     </div>
   );

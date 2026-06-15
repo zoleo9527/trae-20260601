@@ -31,6 +31,40 @@ import {
   validateInstallationFlow,
   actionDisplayMap,
 } from '@/utils/stateMachine';
+import {
+  loadPersistedData,
+  savePersistedData,
+  clearPersistedData,
+  type PersistedData,
+} from '@/services/storage';
+
+function getInitialState() {
+  const persisted = loadPersistedData();
+  if (persisted) {
+    const currentUser =
+      persisted.users.find((u) => u.id === persisted.currentUserId) || seedUsers[0];
+    return {
+      currentUser,
+      users: persisted.users,
+      drafts: persisted.drafts,
+      schedules: persisted.schedules,
+      materialPickups: persisted.materialPickups,
+      installations: persisted.installations,
+      auditLogs: persisted.auditLogs,
+      exceptions: persisted.exceptions,
+    };
+  }
+  return {
+    currentUser: seedUsers[0],
+    users: seedUsers,
+    drafts: seedCustomerDrafts,
+    schedules: seedPrintSchedules,
+    materialPickups: seedMaterialPickups,
+    installations: seedInstallationRecords,
+    auditLogs: seedAuditLogs,
+    exceptions: seedExceptionRecords,
+  };
+}
 
 interface AppState {
   currentUser: User;
@@ -41,6 +75,7 @@ interface AppState {
   installations: InstallationRecord[];
   auditLogs: AuditLog[];
   exceptions: ExceptionRecord[];
+  persist: () => void;
   setCurrentUser: (user: User) => void;
   switchUser: (userId: string) => void;
   createAuditLog: (
@@ -58,8 +93,11 @@ interface AppState {
     remark?: string
   ) => boolean;
   createSchedule: (
-    schedule: Omit<PrintSchedule, 'id' | 'scheduleNo' | 'submittedAt' | 'status'>
-  ) => void;
+    schedule: Omit<
+      PrintSchedule,
+      'id' | 'scheduleNo' | 'submittedAt' | 'status' | 'submittedBy' | 'submittedAt'
+    > & { submittedBy: string }
+  ) => PrintSchedule | null;
   updateScheduleStatus: (
     scheduleId: string,
     targetStatus: PrintScheduleStatus,
@@ -68,12 +106,21 @@ interface AppState {
   createMaterialPickup: (
     pickup: Omit<MaterialPickup, 'id' | 'pickupNo' | 'status' | 'pickedAt'> & {
       items: MaterialItem[];
+      totalAmount: number;
     }
   ) => void;
   updateMaterialPickupStatus: (
     pickupId: string,
     targetStatus: MaterialPickupStatus
   ) => boolean;
+  createInstallationRecord: (
+    installation: Omit<
+      InstallationRecord,
+      'id' | 'status' | 'createdAt' | 'createdBy'
+    > & {
+      createdBy: string;
+    }
+  ) => InstallationRecord;
   updateInstallationStatus: (
     installationId: string,
     targetStatus: InstallationStatus,
@@ -82,10 +129,7 @@ interface AppState {
   createException: (
     exception: Omit<ExceptionRecord, 'id' | 'reportedAt' | 'status'>
   ) => void;
-  resolveException: (
-    exceptionId: string,
-    resolution: string
-  ) => void;
+  resolveException: (exceptionId: string, resolution: string) => void;
   getAuditLogsByEntity: (
     entityType: 'draft' | 'schedule' | 'material' | 'installation',
     entityId: string
@@ -96,21 +140,33 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
-  currentUser: seedUsers[0],
-  users: seedUsers,
-  drafts: seedCustomerDrafts,
-  schedules: seedPrintSchedules,
-  materialPickups: seedMaterialPickups,
-  installations: seedInstallationRecords,
-  auditLogs: seedAuditLogs,
-  exceptions: seedExceptionRecords,
+  ...getInitialState(),
 
-  setCurrentUser: (user) => set({ currentUser: user }),
+  persist: () => {
+    const state = get();
+    const data: PersistedData = {
+      currentUserId: state.currentUser.id,
+      users: state.users,
+      drafts: state.drafts,
+      schedules: state.schedules,
+      materialPickups: state.materialPickups,
+      installations: state.installations,
+      auditLogs: state.auditLogs,
+      exceptions: state.exceptions,
+    };
+    savePersistedData(data);
+  },
+
+  setCurrentUser: (user) => {
+    set({ currentUser: user });
+    get().persist();
+  },
 
   switchUser: (userId) => {
     const user = get().users.find((u) => u.id === userId);
     if (user) {
       set({ currentUser: user });
+      get().persist();
     }
   },
 
@@ -131,14 +187,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return `${prefix}${date}${String(count).padStart(3, '0')}`;
   },
 
-  createAuditLog: (
-    entityType,
-    entityId,
-    action,
-    detail,
-    oldValues,
-    newValues
-  ) => {
+  createAuditLog: (entityType, entityId, action, detail, oldValues, newValues) => {
     const { currentUser } = get();
     const log: AuditLog = {
       id: get().generateId('log'),
@@ -156,6 +205,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       auditLogs: [log, ...state.auditLogs],
     }));
+    get().persist();
   },
 
   createDraft: (draft) => {
@@ -183,6 +233,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         height: draft.height,
       }
     );
+    get().persist();
   },
 
   updateDraftStatus: (draftId, targetStatus, remark) => {
@@ -225,7 +276,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       'draft',
       draftId,
       action,
-      `${currentUser.name}${actionDisplayMap[action]} ${draft.orderNo}${remark ? `，备注：${remark}` : ''}`,
+      `${currentUser.name}${actionDisplayMap[action]} ${draft.orderNo}${
+        remark ? `，备注：${remark}` : ''
+      }`,
       { status: oldStatus },
       { status: targetStatus }
     );
@@ -234,30 +287,71 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   createSchedule: (schedule) => {
-    const { currentUser, createAuditLog, generateId, generateOrderNo } = get();
+    const { currentUser, createAuditLog, generateId, generateOrderNo, createInstallationRecord } =
+      get();
+
+    if (
+      currentUser.role !== 'reception' &&
+      currentUser.role !== 'manager'
+    ) {
+      return null;
+    }
+
     const scheduleNo = generateOrderNo('PH');
+    const now = dayjs().toISOString();
+
     const newSchedule: PrintSchedule = {
       ...schedule,
       id: generateId('schedule'),
       scheduleNo,
-      status: 'draft',
-      submittedAt: dayjs().toISOString(),
+      status: 'submitted',
+      submittedAt: now,
     };
+
     set((state) => ({
       schedules: [newSchedule, ...state.schedules],
     }));
+
     createAuditLog(
       'schedule',
       newSchedule.id,
-      'schedule_create',
-      `${currentUser.name}创建喷绘排产 ${scheduleNo}`,
+      'schedule_submit',
+      `${currentUser.name}提交喷绘排产 ${scheduleNo}`,
       undefined,
       {
         customerName: schedule.customerName,
         content: schedule.content,
         quantity: schedule.quantity,
+        priority: schedule.priority,
+        status: 'submitted',
       }
     );
+
+    const installation = createInstallationRecord({
+      scheduleId: newSchedule.id,
+      scheduleNo: newSchedule.scheduleNo,
+      scheduledDate: schedule.scheduledInstallDate,
+      installers: [],
+      photos: [],
+      customerSigned: false,
+      remark: schedule.remark,
+      createdBy: currentUser.id,
+    });
+
+    createAuditLog(
+      'installation',
+      installation.id,
+      'install_schedule',
+      `${currentUser.name}安排安装 ${newSchedule.scheduleNo}，计划日期: ${schedule.scheduledInstallDate}`,
+      undefined,
+      {
+        scheduleNo: newSchedule.scheduleNo,
+        scheduledDate: schedule.scheduledInstallDate,
+      }
+    );
+
+    get().persist();
+    return newSchedule;
   },
 
   updateScheduleStatus: (scheduleId, targetStatus, remark) => {
@@ -303,7 +397,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     let action: AuditLog['action'] = 'schedule_submit';
     if (targetStatus === 'submitted') action = 'schedule_submit';
-    else if (targetStatus === 'material_confirmed') action = 'schedule_material_confirm';
+    else if (targetStatus === 'material_confirmed')
+      action = 'schedule_material_confirm';
     else if (targetStatus === 'printing') action = 'schedule_start_print';
     else if (targetStatus === 'printed') action = 'schedule_complete_print';
     else if (targetStatus === 'installing') action = 'schedule_start_install';
@@ -314,28 +409,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       'schedule',
       scheduleId,
       action,
-      `${currentUser.name}${actionDisplayMap[action]} ${schedule.scheduleNo}${remark ? `，备注：${remark}` : ''}`,
+      `${currentUser.name}${actionDisplayMap[action]} ${schedule.scheduleNo}${
+        remark ? `，备注：${remark}` : ''
+      }`,
       { status: oldStatus },
       { status: targetStatus }
     );
 
+    get().persist();
     return true;
   },
 
   createMaterialPickup: (pickup) => {
     const { currentUser, createAuditLog, generateId, generateOrderNo } = get();
     const pickupNo = generateOrderNo('CK');
-    const totalAmount = pickup.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
-      0
-    );
     const newPickup: MaterialPickup = {
       ...pickup,
       id: generateId('pickup'),
       pickupNo,
       status: 'pending',
       pickedAt: dayjs().toISOString(),
-      totalAmount,
     };
     set((state) => ({
       materialPickups: [newPickup, ...state.materialPickups],
@@ -347,10 +440,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       `${currentUser.name}登记材料领用 ${pickupNo}`,
       undefined,
       {
-        items: pickup.items.map((i) => `${i.materialType} ${i.quantity}${i.unit}`),
-        totalAmount,
+        items: pickup.items.map(
+          (i) => `${i.materialType} ${i.quantity}${i.unit}`
+        ),
+        totalAmount: pickup.totalAmount,
       }
     );
+    get().persist();
   },
 
   updateMaterialPickupStatus: (pickupId, targetStatus) => {
@@ -395,7 +491,23 @@ export const useAppStore = create<AppState>((set, get) => ({
       { status: targetStatus }
     );
 
+    get().persist();
     return true;
+  },
+
+  createInstallationRecord: (installation) => {
+    const { generateId } = get();
+    const newInstallation: InstallationRecord = {
+      ...installation,
+      id: generateId('install'),
+      status: 'scheduled',
+      createdAt: dayjs().toISOString(),
+    };
+    set((state) => ({
+      installations: [newInstallation, ...state.installations],
+    }));
+    get().persist();
+    return newInstallation;
   },
 
   updateInstallationStatus: (installationId, targetStatus, updates) => {
@@ -446,6 +558,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       { status: targetStatus, ...updates }
     );
 
+    get().persist();
     return true;
   },
 
@@ -460,6 +573,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((state) => ({
       exceptions: [newException, ...state.exceptions],
     }));
+    get().persist();
   },
 
   resolveException: (exceptionId, resolution) => {
@@ -477,6 +591,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           : e
       ),
     }));
+    get().persist();
   },
 
   getAuditLogsByEntity: (entityType, entityId) => {
@@ -484,11 +599,17 @@ export const useAppStore = create<AppState>((set, get) => ({
       .auditLogs.filter(
         (log) => log.entityType === entityType && log.entityId === entityId
       )
-      .sort((a, b) => dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf());
+      .sort(
+        (a, b) =>
+          dayjs(b.timestamp).valueOf() - dayjs(a.timestamp).valueOf()
+      );
   },
 
   resetDemoData: () => {
+    clearPersistedData();
     set({
+      currentUser: seedUsers[0],
+      users: seedUsers,
       drafts: [...seedCustomerDrafts],
       schedules: [...seedPrintSchedules],
       materialPickups: [...seedMaterialPickups],

@@ -136,8 +136,13 @@ export function useWorkflow() {
       message.error('处理人员不能提交排产，请联系前台或店长');
       return false;
     }
+    const existingSchedules = api.getSchedulesByDraftId(draftId);
+    if (existingSchedules.length > 0) {
+      message.error('该稿件已有排产记录');
+      return false;
+    }
 
-    api.createSchedule({
+    const newSchedule = api.createSchedule({
       draftId: draft.id,
       orderNo: draft.orderNo,
       customerName: draft.customerName,
@@ -155,8 +160,13 @@ export function useWorkflow() {
       remark: draft.remark,
     });
 
-    message.success('排产已提交');
-    return true;
+    if (newSchedule) {
+      message.success(`排产已提交，排产单号: ${newSchedule.scheduleNo}`);
+      return true;
+    } else {
+      message.error('排产提交失败');
+      return false;
+    }
   };
 
   const createMaterialPickupForSchedule = (

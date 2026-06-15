@@ -88,11 +88,13 @@ export function useApi() {
     updateScheduleStatus: store.updateScheduleStatus,
     createMaterialPickup: store.createMaterialPickup,
     updateMaterialPickupStatus: store.updateMaterialPickupStatus,
+    createInstallationRecord: store.createInstallationRecord,
     updateInstallationStatus: store.updateInstallationStatus,
     createException: store.createException,
     resolveException: store.resolveException,
     createAuditLog: store.createAuditLog,
     generateOrderNo: store.generateOrderNo,
+    generateId: store.generateId,
     resetDemoData: store.resetDemoData,
   };
 }

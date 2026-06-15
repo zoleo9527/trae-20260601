@@ -303,8 +303,22 @@ export const seedInstallationRecords: InstallationRecord[] = [
     installers: [],
     photos: [],
     customerSigned: false,
+    remark: '客户要求加急',
     createdBy: 'user-001',
     createdAt: dayjs().subtract(1, 'hour').toISOString(),
+  },
+  {
+    id: 'install-003',
+    scheduleId: 'schedule-002',
+    scheduleNo: 'PH20260615002',
+    status: 'scheduled',
+    scheduledDate: dayjs().add(2, 'day').format('YYYY-MM-DD'),
+    installers: [],
+    photos: [],
+    customerSigned: false,
+    remark: '老客户，优先处理',
+    createdBy: 'user-001',
+    createdAt: dayjs().subtract(12, 'hour').toISOString(),
   },
 ];
 
