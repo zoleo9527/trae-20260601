@@ -1,6 +1,7 @@
-import React from 'react';
-import { LayoutDashboard, CheckSquare, Package, Bell, User, Wifi, WifiOff, Menu, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, CheckSquare, Package, Bell, User, Wifi, WifiOff, Menu, X, ChevronDown } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
+import { User as UserType } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,11 +15,24 @@ const menuItems = [
   { id: 'packaging', label: '打包出库', icon: Package },
 ];
 
+const roleLabels: Record<string, string> = {
+  project_manager: '项目专员',
+  producer: '制作师傅',
+  installer: '安装负责人',
+  admin: '管理员'
+};
+
 export function Layout({ children, activeMenu, onMenuChange }: LayoutProps) {
-  const { currentUser, notifications, offlineMode, toggleOfflineMode, getNotificationsByRole } = useAppStore();
+  const { currentUser, notifications, offlineMode, toggleOfflineMode, getNotificationsByRole, setCurrentUser, availableUsers } = useAppStore();
   const roleNotifications = getNotificationsByRole(currentUser.role);
   const unreadCount = roleNotifications.filter(n => !n.read).length;
-  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const handleUserChange = (user: UserType) => {
+    setCurrentUser(user);
+    setShowUserMenu(false);
+  };
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -48,19 +62,42 @@ export function Layout({ children, activeMenu, onMenuChange }: LayoutProps) {
             )}
           </button>
           
-          <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <User className="w-4 h-4 text-blue-600" />
-            </div>
-            <div className="text-sm">
-              <div className="font-medium text-gray-800">{currentUser.name}</div>
-              <div className="text-gray-500 text-xs">
-                {currentUser.role === 'project_manager' && '项目专员'}
-                {currentUser.role === 'producer' && '制作师傅'}
-                {currentUser.role === 'installer' && '安装负责人'}
-                {currentUser.role === 'admin' && '管理员'}
+          <div className="relative pl-3 border-l border-gray-200">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex items-center gap-2 hover:bg-gray-100 rounded-lg p-1 transition-colors"
+            >
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <User className="w-4 h-4 text-blue-600" />
               </div>
-            </div>
+              <div className="text-sm text-left">
+                <div className="font-medium text-gray-800">{currentUser.name}</div>
+                <div className="text-gray-500 text-xs">{roleLabels[currentUser.role]}</div>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+            </button>
+            
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-50">
+                {availableUsers.map(user => (
+                  <button
+                    key={user.id}
+                    onClick={() => handleUserChange(user)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 transition-colors ${
+                      user.id === currentUser.id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                    }`}
+                  >
+                    <div className="w-7 h-7 bg-gray-100 rounded-full flex items-center justify-center">
+                      <User className="w-3.5 h-3.5 text-gray-500" />
+                    </div>
+                    <div className="text-left">
+                      <div className="font-medium">{user.name}</div>
+                      <div className="text-xs text-gray-500">{roleLabels[user.role]}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           
           <button
@@ -71,6 +108,10 @@ export function Layout({ children, activeMenu, onMenuChange }: LayoutProps) {
           </button>
         </div>
       </header>
+
+      {showUserMenu && (
+        <div className="fixed inset-0 bg-transparent z-40" onClick={() => setShowUserMenu(false)} />
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         <aside className={`${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0 fixed lg:static inset-y-0 left-0 w-64 bg-white border-r border-gray-200 z-10 transition-transform`}>

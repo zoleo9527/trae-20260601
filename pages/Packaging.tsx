@@ -1,13 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Package, CheckSquare, Truck, FileText, AlertTriangle, ChevronRight, Search, Plus, Edit2, Save, Send, History } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { Shipment } from '../types';
 
 export default function Packaging() {
-  const { orders, qualityInspections, shipments, updatePackagingItem, updateShipmentStatus, createShipment } = useAppStore();
+  const { orders, qualityInspections, shipments, updatePackagingItem, updateShipmentStatus, updateShipmentInfo, createShipment } = useAppStore();
   const [selectedShipment, setSelectedShipment] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showHistory, setShowHistory] = useState(false);
+  const [shipmentForm, setShipmentForm] = useState<Partial<Pick<Shipment, 'boxCount' | 'weight' | 'shippingMethod' | 'trackingNo'>>>({});
+
+  useEffect(() => {
+    if (selectedShipment) {
+      const shipment = shipments.find(s => s.id === selectedShipment);
+      if (shipment) {
+        setShipmentForm({
+          boxCount: shipment.boxCount,
+          weight: shipment.weight,
+          shippingMethod: shipment.shippingMethod,
+          trackingNo: shipment.trackingNo
+        });
+      }
+    }
+  }, [selectedShipment, shipments]);
+
+  const handleShipmentInfoChange = (field: keyof typeof shipmentForm, value: number | string) => {
+    const newForm = { ...shipmentForm, [field]: value };
+    setShipmentForm(newForm);
+    if (selectedShipment) {
+      updateShipmentInfo(selectedShipment, newForm);
+    }
+  };
 
   const qualityPassedOrders = orders.filter(o => {
     const inspection = qualityInspections.find(qi => qi.productionOrderId === o.id);
@@ -269,7 +292,8 @@ export default function Packaging() {
                     <span className="text-gray-500">箱数:</span>
                     <input
                       type="number"
-                      defaultValue={selectedShipmentData.boxCount}
+                      value={shipmentForm.boxCount || ''}
+                      onChange={(e) => handleShipmentInfoChange('boxCount', parseInt(e.target.value) || 0)}
                       className="w-full mt-1 px-2 py-1 border border-gray-200 rounded text-center"
                     />
                   </div>
@@ -277,7 +301,8 @@ export default function Packaging() {
                     <span className="text-gray-500">重量(kg):</span>
                     <input
                       type="number"
-                      defaultValue={selectedShipmentData.weight}
+                      value={shipmentForm.weight || ''}
+                      onChange={(e) => handleShipmentInfoChange('weight', parseFloat(e.target.value) || 0)}
                       className="w-full mt-1 px-2 py-1 border border-gray-200 rounded text-center"
                     />
                   </div>
@@ -286,7 +311,8 @@ export default function Packaging() {
                   <span className="text-gray-500 text-sm">物流公司:</span>
                   <input
                     type="text"
-                    defaultValue={selectedShipmentData.shippingMethod}
+                    value={shipmentForm.shippingMethod || ''}
+                    onChange={(e) => handleShipmentInfoChange('shippingMethod', e.target.value)}
                     className="w-full mt-1 px-2 py-1 border border-gray-200 rounded text-sm"
                     placeholder="输入物流公司"
                   />
@@ -295,7 +321,8 @@ export default function Packaging() {
                   <span className="text-gray-500 text-sm">运单号:</span>
                   <input
                     type="text"
-                    defaultValue={selectedShipmentData.trackingNo}
+                    value={shipmentForm.trackingNo || ''}
+                    onChange={(e) => handleShipmentInfoChange('trackingNo', e.target.value)}
                     className="w-full mt-1 px-2 py-1 border border-gray-200 rounded text-sm"
                     placeholder="输入运单号"
                   />
