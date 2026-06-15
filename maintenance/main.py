@@ -228,6 +228,54 @@ async def add_rectification(project_id: str, description: str, deadline: str, re
     
     return {"message": "整改记录已添加", "rectification": rectification}
 
+@app.post("/api/projects/{project_id}/documents")
+async def upload_document(project_id: str, file: UploadFile = File(...), doc_type: str = "design"):
+    projects = load_projects()
+    project = next((p for p in projects if p.id == project_id), None)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    
+    filename = f"{project_id}_{doc_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    
+    if doc_type == "design":
+        project.design_drawing = filename
+    else:
+        project.measurements = filename
+    
+    save_projects(projects)
+    
+    return {"message": "文件上传成功", "filename": filename}
+
+@app.post("/api/projects/{project_id}/rectifications/{rect_id}/photos")
+async def upload_rectification_photo(project_id: str, rect_id: str, file: UploadFile = File(...), photo_type: str = "before"):
+    projects = load_projects()
+    project = next((p for p in projects if p.id == project_id), None)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    
+    rect = next((r for r in project.rectification_records if r.id == rect_id), None)
+    if not rect:
+        raise HTTPException(status_code=404, detail="整改记录不存在")
+    
+    filename = f"{project_id}_{rect_id}_{photo_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{file.filename}"
+    file_path = os.path.join(UPLOAD_DIR, filename)
+    
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+    
+    if photo_type == "before":
+        rect.before_photos.append(filename)
+    else:
+        rect.after_photos.append(filename)
+    
+    save_projects(projects)
+    
+    return {"message": "照片上传成功", "filename": filename}
+
 @app.put("/api/projects/{project_id}/rectifications/{rect_id}")
 async def update_rectification(project_id: str, rect_id: str, status: str):
     projects = load_projects()
@@ -240,10 +288,11 @@ async def update_rectification(project_id: str, rect_id: str, status: str):
         raise HTTPException(status_code=404, detail="整改记录不存在")
     
     rect.status = status
-    save_projects(projects)
     
     if all(r.status == "completed" for r in project.rectification_records):
         project.status = "pending_visit"
+    
+    save_projects(projects)
     
     return {"message": "整改状态已更新"}
 

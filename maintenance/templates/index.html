@@ -285,13 +285,24 @@
                             <div class="card-body">
                                 <div class="mb-3">
                                     <label>原设计图</label>
-                                    <p>${project.design_drawing || '<span class="text-muted">未上传</span>'}</p>
+                                    <div id="design-drawing">
+                                        ${project.design_drawing ? `<a href="/static/uploads/${project.design_drawing}" target="_blank" class="btn btn-sm btn-info">查看设计图</a>` : '<span class="text-muted">未上传</span>'}
+                                    </div>
                                 </div>
                                 <div class="mb-3">
                                     <label>现场测量报告</label>
-                                    <p>${project.measurements || '<span class="text-muted">未上传</span>'}</p>
+                                    <div id="measurements-doc">
+                                        ${project.measurements ? `<a href="/static/uploads/${project.measurements}" target="_blank" class="btn btn-sm btn-info">查看测量报告</a>` : '<span class="text-muted">未上传</span>'}
+                                    </div>
                                 </div>
-                                <button class="btn btn-outline-info btn-sm">上传设计图/测量报告</button>
+                                <div id="doc-upload-area" class="border border-dashed rounded p-3 mt-3">
+                                    <input type="file" id="doc-upload" accept=".pdf,.doc,.docx" style="display:none;">
+                                    <select id="doc-type" class="form-control d-inline-block w-auto mb-2">
+                                        <option value="design">设计图</option>
+                                        <option value="measurement">测量报告</option>
+                                    </select>
+                                    <button class="btn btn-outline-info btn-sm" onclick="document.getElementById('doc-upload').click()">上传文件</button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -380,6 +391,7 @@
             renderVisits(project);
             
             document.getElementById('photo-upload').addEventListener('change', (e) => handlePhotoUpload(projectId, e));
+            document.getElementById('doc-upload').addEventListener('change', (e) => handleDocUpload(projectId, e));
             document.getElementById('add-feedback-form').addEventListener('submit', (e) => handleAddFeedback(e, projectId));
             document.getElementById('inspection-form').addEventListener('submit', (e) => handleSubmitInspection(e, projectId));
             document.getElementById('add-visit-form').addEventListener('submit', (e) => handleAddVisit(e, projectId));
@@ -446,7 +458,7 @@
             }
             
             list.innerHTML = project.rectification_records.map(rect => `
-                <div class="card mb-2">
+                <div class="card mb-3">
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between">
                             <span>${rect.description}</span>
@@ -455,12 +467,47 @@
                         <div class="text-xs text-muted mt-1">
                             责任人: ${rect.responsible} | 期限: ${rect.deadline}
                         </div>
+                        
+                        <div class="mt-3">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <label class="text-xs text-muted">整改前照片</label>
+                                    <div class="row" id="before-photos-${rect.id}">
+                                        ${rect.before_photos && rect.before_photos.length > 0 ? rect.before_photos.map(photo => `
+                                            <div class="col-4 mb-2">
+                                                <img src="/static/uploads/${photo}" class="photo-thumbnail" onclick="showPhoto('/static/uploads/${photo}')">
+                                            </div>
+                                        `).join('') : '<span class="text-xs text-muted">暂无照片</span>'}
+                                    </div>
+                                    <input type="file" id="before-upload-${rect.id}" accept="image/*" style="display:none;">
+                                    <button class="btn btn-xs btn-outline-danger mt-1" onclick="document.getElementById('before-upload-${rect.id}').click()">上传整改前照片</button>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="text-xs text-muted">整改后照片</label>
+                                    <div class="row" id="after-photos-${rect.id}">
+                                        ${rect.after_photos && rect.after_photos.length > 0 ? rect.after_photos.map(photo => `
+                                            <div class="col-4 mb-2">
+                                                <img src="/static/uploads/${photo}" class="photo-thumbnail" onclick="showPhoto('/static/uploads/${photo}')">
+                                            </div>
+                                        `).join('') : '<span class="text-xs text-muted">暂无照片</span>'}
+                                    </div>
+                                    <input type="file" id="after-upload-${rect.id}" accept="image/*" style="display:none;">
+                                    <button class="btn btn-xs btn-outline-success mt-1" onclick="document.getElementById('after-upload-${rect.id}').click()">上传整改后照片</button>
+                                </div>
+                            </div>
+                        </div>
+                        
                         ${rect.status !== 'completed' ? `
-                            <button class="btn btn-xs btn-success mt-2" onclick="updateRectification('${project.id}', '${rect.id}', 'completed')">标记完成</button>
+                            <button class="btn btn-xs btn-success mt-3" onclick="updateRectification('${project.id}', '${rect.id}', 'completed')">标记完成</button>
                         ` : ''}
                     </div>
                 </div>
             `).join('');
+            
+            project.rectification_records.forEach(rect => {
+                document.getElementById(`before-upload-${rect.id}`).addEventListener('change', (e) => handleRectPhotoUpload(project.id, rect.id, 'before', e));
+                document.getElementById(`after-upload-${rect.id}`).addEventListener('change', (e) => handleRectPhotoUpload(project.id, rect.id, 'after', e));
+            });
         }
         
         function getRectStatusClass(status) {
@@ -512,6 +559,39 @@
                     body: formData
                 });
             }
+            
+            await showProjectDetail(projectId);
+            event.target.value = '';
+        }
+        
+        async function handleDocUpload(projectId, event) {
+            const file = event.target.files[0];
+            const docType = document.getElementById('doc-type').value;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('doc_type', docType);
+            
+            await fetch(`/api/projects/${projectId}/documents`, {
+                method: 'POST',
+                body: formData
+            });
+            
+            await showProjectDetail(projectId);
+            event.target.value = '';
+        }
+        
+        async function handleRectPhotoUpload(projectId, rectId, photoType, event) {
+            const file = event.target.files[0];
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('photo_type', photoType);
+            
+            await fetch(`/api/projects/${projectId}/rectifications/${rectId}/photos`, {
+                method: 'POST',
+                body: formData
+            });
             
             await showProjectDetail(projectId);
             event.target.value = '';
