@@ -1,6 +1,7 @@
-import { NextApiRequest, NextApiResponse } from 'next';
+import { NextResponse } from 'next/server';
 import { getAppealById, updateAppeal, addAuditLog, generateId } from '@/server/data';
 import { AppealStatus, AuditLog, ERROR_CODES, STATUS_TRANSITIONS, ROLE_ALLOWED_STATUS, STATUS_ASSIGNEE_MAP, UserRole } from '@/types';
+import { getErrorResponse } from '@/utils/errors';
 
 interface HandleAppealRequest {
   action: 'forward' | 'reject' | 'return' | 'resolve';
@@ -15,65 +16,27 @@ const isValidUserRole = (role: string): role is UserRole => {
   return ['receiver', 'inspector', 'finance', 'admin'].includes(role);
 };
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { id } = req.query;
-  const body: HandleAppealRequest = req.body;
-
-  if (req.method !== 'POST') {
-    res.status(405).json({ 
-      success: false, 
-      error: { 
-        code: ERROR_CODES.METHOD_NOT_ALLOWED, 
-        message: 'Method not allowed' 
-      } 
-    });
-    return;
-  }
-
+export async function POST(request: Request, { params }: { params: { id: string } }) {
   try {
+    const { id } = params;
+    
     if (!id) {
-      res.status(400).json({ 
-        success: false, 
-        error: { 
-          code: ERROR_CODES.APPEAL_NOT_FOUND, 
-          message: '缺少申诉ID' 
-        } 
-      });
-      return;
+      return NextResponse.json(getErrorResponse('APPEAL_NOT_FOUND', '缺少申诉ID'), { status: 400 });
     }
 
-    const appeal = getAppealById(id as string);
+    const body: HandleAppealRequest = await request.json();
+
+    const appeal = getAppealById(id);
     if (!appeal) {
-      res.status(404).json({ 
-        success: false, 
-        error: { 
-          code: ERROR_CODES.APPEAL_NOT_FOUND, 
-          message: '申诉不存在' 
-        } 
-      });
-      return;
+      return NextResponse.json(getErrorResponse('APPEAL_NOT_FOUND'), { status: 404 });
     }
 
     if (!isValidUserRole(body.actorRole)) {
-      res.status(400).json({ 
-        success: false, 
-        error: { 
-          code: ERROR_CODES.ROLE_PERMISSION_DENIED, 
-          message: '无效的角色' 
-        } 
-      });
-      return;
+      return NextResponse.json(getErrorResponse('ROLE_PERMISSION_DENIED', '无效的角色'), { status: 400 });
     }
 
     if (!ROLE_ALLOWED_STATUS[body.actorRole].includes(appeal.status)) {
-      res.status(403).json({ 
-        success: false, 
-        error: { 
-          code: ERROR_CODES.ROLE_PERMISSION_DENIED, 
-          message: '当前角色无权处理此状态的申诉' 
-        } 
-      });
-      return;
+      return NextResponse.json(getErrorResponse('ROLE_PERMISSION_DENIED'), { status: 403 });
     }
 
     let newStatus: AppealStatus = appeal.status;
@@ -84,14 +47,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
         const transitions = STATUS_TRANSITIONS[appeal.status];
         const forwardTarget = transitions.find(t => t !== 'rejected' && t !== 'returned');
         if (!forwardTarget) {
-          res.status(400).json({ 
-            success: false, 
-            error: { 
-              code: ERROR_CODES.INVALID_STATUS_TRANSITION, 
-              message: '无法转交到下一环节' 
-            } 
-          });
-          return;
+          return NextResponse.json(getErrorResponse('INVALID_STATUS_TRANSITION', '无法转交到下一环节'), { status: 400 });
         }
         newStatus = forwardTarget;
         break;
@@ -99,55 +55,27 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
       case 'reject':
         if (!STATUS_TRANSITIONS[appeal.status].includes('rejected')) {
-          res.status(400).json({ 
-            success: false, 
-            error: { 
-              code: ERROR_CODES.INVALID_STATUS_TRANSITION, 
-              message: '当前状态不允许驳回' 
-            } 
-          });
-          return;
+          return NextResponse.json(getErrorResponse('INVALID_STATUS_TRANSITION', '当前状态不允许驳回'), { status: 400 });
         }
         newStatus = 'rejected';
         break;
 
       case 'return':
         if (!STATUS_TRANSITIONS[appeal.status].includes('returned')) {
-          res.status(400).json({ 
-            success: false, 
-            error: { 
-              code: ERROR_CODES.INVALID_STATUS_TRANSITION, 
-              message: '当前状态不允许退回' 
-            } 
-          });
-          return;
+          return NextResponse.json(getErrorResponse('INVALID_STATUS_TRANSITION', '当前状态不允许退回'), { status: 400 });
         }
         newStatus = 'returned';
         break;
 
       case 'resolve':
         if (!STATUS_TRANSITIONS[appeal.status].includes('resolved')) {
-          res.status(400).json({ 
-            success: false, 
-            error: { 
-              code: ERROR_CODES.INVALID_STATUS_TRANSITION, 
-              message: '当前状态不允许直接解决' 
-            } 
-          });
-          return;
+          return NextResponse.json(getErrorResponse('INVALID_STATUS_TRANSITION', '当前状态不允许直接解决'), { status: 400 });
         }
         newStatus = 'resolved';
         break;
 
       default:
-        res.status(400).json({ 
-          success: false, 
-          error: { 
-            code: ERROR_CODES.INVALID_STATUS_TRANSITION, 
-            message: '无效的操作类型' 
-          } 
-        });
-        return;
+        return NextResponse.json(getErrorResponse('INVALID_STATUS_TRANSITION', '无效的操作类型'), { status: 400 });
     }
 
     const actionLabels: Record<string, string> = {
@@ -187,40 +115,27 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
     const success = updateAppeal(updatedAppeal);
     if (!success) {
-      res.status(500).json({ 
-        success: false, 
-        error: { 
-          code: ERROR_CODES.INTERNAL_ERROR, 
-          message: '更新申诉失败' 
-        } 
-      });
-      return;
+      return NextResponse.json(getErrorResponse('INTERNAL_ERROR', '更新申诉失败'), { status: 500 });
     }
 
     addAuditLog(auditLog);
 
-    res.status(200).json({ 
-      success: true, 
-      data: { 
-        appeal: updatedAppeal, 
+    return NextResponse.json({
+      success: true,
+      data: {
+        appeal: updatedAppeal,
         auditLog,
         meta: {
           previousStatus,
           newStatus,
           previousAssignee: appeal.assignedTo,
           newAssignee: updatedAppeal.assignedTo,
-        }
-      } 
+        },
+      },
     });
 
   } catch (error) {
     console.error('Handle appeal error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: { 
-        code: ERROR_CODES.INTERNAL_ERROR, 
-        message: '服务器内部错误' 
-      } 
-    });
+    return NextResponse.json(getErrorResponse('INTERNAL_ERROR'), { status: 500 });
   }
 }
