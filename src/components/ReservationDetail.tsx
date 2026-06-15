@@ -32,6 +32,7 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
   const updateReservation = useAppStore((state) => state.updateReservation);
   const addRemarkToReservation = useAppStore((state) => state.addRemarkToReservation);
   const updateColorLock = useAppStore((state) => state.updateColorLock);
+  const addRemarkToLock = useAppStore((state) => state.addRemarkToLock);
 
   const [remarkText, setRemarkText] = useState('');
   const [actualQuantity, setActualQuantity] = useState('');
@@ -53,11 +54,20 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
 
   const handleReserve = () => {
     updateReservation(reservationId, { status: 'reserved' });
+    const reserveRemark = `${currentUser.name}已确认预留库存`;
     addRemarkToReservation(reservationId, {
-      content: `${currentUser.name}已确认预留库存`,
+      content: reserveRemark,
       author: currentUser.name,
       authorRole: currentUser.role,
     });
+    if (colorLock) {
+      updateColorLock(colorLock.id, { status: 'reserved' });
+      addRemarkToLock(colorLock.id, {
+        content: `[库存预留${reservationId}] ${reserveRemark}`,
+        author: currentUser.name,
+        authorRole: currentUser.role,
+      });
+    }
   };
 
   const handleShip = () => {
@@ -66,22 +76,46 @@ export default function ReservationDetail({ reservationId, onBack }: Reservation
       status: 'shipped',
       actualQuantity: qty 
     });
+    const shipRemark = `已发货，数量：${qty}片`;
     addRemarkToReservation(reservationId, {
-      content: `已发货，数量：${qty}片`,
-      author: currentUser.name,
-      authorRole: currentUser.role,
-    });
-  };
-
-  const handleComplete = () => {
-    updateReservation(reservationId, { status: 'completed' });
-    addRemarkToReservation(reservationId, {
-      content: `${currentUser.name}已确认完成`,
+      content: shipRemark,
       author: currentUser.name,
       authorRole: currentUser.role,
     });
     if (colorLock) {
-      updateColorLock(colorLock.id, { status: 'completed' });
+      addRemarkToLock(colorLock.id, {
+        content: `[库存预留${reservationId}] ${shipRemark}`,
+        author: currentUser.name,
+        authorRole: currentUser.role,
+      });
+    }
+  };
+
+  const handleComplete = () => {
+    updateReservation(reservationId, { status: 'completed' });
+    const completeRemark = `${currentUser.name}已确认完成`;
+    addRemarkToReservation(reservationId, {
+      content: completeRemark,
+      author: currentUser.name,
+      authorRole: currentUser.role,
+    });
+    if (colorLock) {
+      updateColorLock(colorLock.id, { 
+        status: 'completed',
+        responsibilityFlag: reservation.responsibilityFlag
+      });
+      addRemarkToLock(colorLock.id, {
+        content: `[库存预留${reservationId}] ${completeRemark}`,
+        author: currentUser.name,
+        authorRole: currentUser.role,
+      });
+      if (reservation.responsibilityFlag) {
+        addRemarkToLock(colorLock.id, {
+          content: `⚠️ [库存预留${reservationId}] 责任不清标记已同步`,
+          author: currentUser.name,
+          authorRole: currentUser.role,
+        });
+      }
     }
   };
 

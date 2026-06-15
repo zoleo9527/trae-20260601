@@ -53,11 +53,23 @@ export const useAppStore = create<AppState>((set) => ({
   },
   
   updateColorLock: (id, updates) => {
-    set((state) => ({
-      colorLocks: state.colorLocks.map((lock) =>
-        lock.id === id ? { ...lock, ...updates, updatedAt: new Date().toLocaleString('zh-CN') } : lock
-      ),
-    }));
+    set((state) => {
+      const lock = state.colorLocks.find(l => l.id === id);
+      const hasReservation = lock?.linkedReservationId;
+      
+      return {
+        colorLocks: state.colorLocks.map((lock) =>
+          lock.id === id ? { ...lock, ...updates, updatedAt: new Date().toLocaleString('zh-CN') } : lock
+        ),
+        reservations: hasReservation && updates.responsibilityFlag !== undefined
+          ? state.reservations.map((res) =>
+              res.id === hasReservation
+                ? { ...res, responsibilityFlag: updates.responsibilityFlag, updatedAt: new Date().toLocaleString('zh-CN') }
+                : res
+            )
+          : state.reservations,
+      };
+    });
   },
   
   addRemarkToLock: (lockId, remark) => {
@@ -66,13 +78,25 @@ export const useAppStore = create<AppState>((set) => ({
       id: `R${Date.now()}`,
       createdAt: new Date().toLocaleString('zh-CN'),
     };
-    set((state) => ({
-      colorLocks: state.colorLocks.map((lock) =>
-        lock.id === lockId
-          ? { ...lock, remarks: [...lock.remarks, newRemark], updatedAt: new Date().toLocaleString('zh-CN') }
-          : lock
-      ),
-    }));
+    set((state) => {
+      const lock = state.colorLocks.find(l => l.id === lockId);
+      const hasReservation = lock?.linkedReservationId;
+      
+      return {
+        colorLocks: state.colorLocks.map((lock) =>
+          lock.id === lockId
+            ? { ...lock, remarks: [...lock.remarks, newRemark], updatedAt: new Date().toLocaleString('zh-CN') }
+            : lock
+        ),
+        reservations: hasReservation 
+          ? state.reservations.map((res) =>
+              res.id === hasReservation
+                ? { ...res, remarks: [...res.remarks, newRemark], updatedAt: new Date().toLocaleString('zh-CN') }
+                : res
+            )
+          : state.reservations,
+      };
+    });
   },
   
   addReservation: (reservation) => {
