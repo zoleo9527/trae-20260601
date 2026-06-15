@@ -1,10 +1,10 @@
+import { AlertTriangle, ArrowRight, CheckCircle, Clock, Filter, MessageSquare, Search } from 'lucide-react';
 import { useState } from 'react';
-import { AlertTriangle, Clock, MessageSquare, CheckCircle, ArrowRight, Search, Filter } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import type { Claim } from '../types';
 
 export function ExceptionsPage() {
-  const { claims, addRemark, updateClaimStatus, updateResponsibility } = useClaimStore();
+  const { claims, addRemark, updateClaimStatus, updateResponsibility, resolveException } = useClaimStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [showActionModal, setShowActionModal] = useState(false);
   const [selectedClaim, setSelectedClaim] = useState<Claim | null>(null);
@@ -47,7 +47,7 @@ export function ExceptionsPage() {
     }
 
     updateResponsibility(selectedClaim.id, selectedResponsibility);
-    updateClaimStatus(selectedClaim.id, 'processing');
+    resolveException(selectedClaim.id, '管理员');
 
     setShowActionModal(false);
     setSelectedClaim(null);

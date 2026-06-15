@@ -1,11 +1,11 @@
 import { useState } from 'react';
-import { Search, Filter, Plus, MessageSquare, CheckCircle, XCircle, ArrowRight } from 'lucide-react';
+import { Search, Filter, Plus, MessageSquare, CheckCircle, XCircle, ArrowRight, Eye } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import { ClaimCard } from '../components/ClaimCard';
 import type { Claim } from '../types';
 
 export function ClaimsPage() {
-  const { claims, addRemark, updateClaimStatus, updateResponsibility, getClaimById, sidebarOpen } = useClaimStore();
+  const { claims, addRemark, updateClaimStatus, updateResponsibility, setException, selectClaim, sidebarOpen } = useClaimStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showActionModal, setShowActionModal] = useState(false);
@@ -13,6 +13,7 @@ export function ClaimsPage() {
   const [remarkText, setRemarkText] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<Claim['status']>('processing');
   const [selectedResponsibility, setSelectedResponsibility] = useState<Claim['responsibility']>('company');
+  const [exceptionReason, setExceptionReason] = useState('');
 
   const filteredClaims = claims.filter((claim) => {
     const matchesSearch = claim.customerName.includes(searchTerm) || 
@@ -28,17 +29,26 @@ export function ClaimsPage() {
     { value: 'processing', label: '处理中' },
     { value: 'review', label: '审核中' },
     { value: 'exception', label: '异常' },
+    { value: 'paid', label: '已赔付' },
+    { value: 'archived', label: '已归档' },
   ];
 
   const handleOpenActionModal = (claim: Claim) => {
     setSelectedClaim(claim);
     setSelectedStatus(claim.status);
     setSelectedResponsibility(claim.responsibility);
+    setRemarkText('');
+    setExceptionReason('');
     setShowActionModal(true);
   };
 
   const handleSubmitAction = () => {
     if (!selectedClaim) return;
+
+    if (selectedStatus === 'exception' && !exceptionReason.trim()) {
+      alert('请填写异常原因');
+      return;
+    }
 
     if (remarkText.trim()) {
       addRemark(selectedClaim.id, {
@@ -48,7 +58,9 @@ export function ClaimsPage() {
       });
     }
 
-    if (selectedStatus !== selectedClaim.status) {
+    if (selectedStatus === 'exception') {
+      setException(selectedClaim.id, exceptionReason, '管理员');
+    } else if (selectedStatus !== selectedClaim.status) {
       updateClaimStatus(selectedClaim.id, selectedStatus);
     }
 
@@ -58,6 +70,7 @@ export function ClaimsPage() {
 
     setShowActionModal(false);
     setRemarkText('');
+    setExceptionReason('');
     setSelectedClaim(null);
   };
 
@@ -125,7 +138,8 @@ export function ClaimsPage() {
                     claim.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                     claim.status === 'processing' ? 'bg-blue-100 text-blue-800' :
                     claim.status === 'review' ? 'bg-purple-100 text-purple-800' :
-                    claim.status === 'exception' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'
+                    claim.status === 'exception' ? 'bg-red-100 text-red-800' :
+                    claim.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
                   }`}>
                     {statusLabels[claim.status]}
                   </span>
@@ -161,6 +175,26 @@ export function ClaimsPage() {
                 </div>
               )}
 
+              {claim.exceptionHistory.length > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-medium text-orange-800">异常历史记录</span>
+                  </div>
+                  <div className="space-y-2">
+                    {claim.exceptionHistory.map((record) => (
+                      <div key={record.id} className="text-xs text-orange-700">
+                        <span className="font-medium">[{record.createdBy}]</span> {record.reason}
+                        {record.resolved && record.resolvedBy && (
+                          <span className="ml-2 text-green-600">
+                            - 已由{record.resolvedBy}于{new Date(record.resolvedAt!).toLocaleDateString()}解决
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {claim.remarks.length > 0 && (
                 <div className="bg-gray-50 rounded-lg p-3 mb-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -185,19 +219,28 @@ export function ClaimsPage() {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleOpenActionModal(claim)}
-                  className="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                  onClick={() => selectClaim(claim.id)}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1"
                 >
-                  <MessageSquare className="w-4 h-4" />
-                  处理
+                  <Eye className="w-4 h-4" />
+                  详情
                 </button>
+                {claim.status !== 'archived' && (
+                  <button
+                    onClick={() => handleOpenActionModal(claim)}
+                    className="px-4 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    处理
+                  </button>
+                )}
                 {claim.status === 'processing' && (
                   <button
                     onClick={() => {
                       updateClaimStatus(claim.id, 'review');
                       addRemark(claim.id, { userId: 'u_admin', userName: '管理员', content: '已提交审核' });
                     }}
-                    className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
                   >
                     <ArrowRight className="w-4 h-4" />
                     提交审核
@@ -224,7 +267,12 @@ export function ClaimsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">当前状态</label>
                 <select
                   value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value as Claim['status'])}
+                  onChange={(e) => {
+                    setSelectedStatus(e.target.value as Claim['status']);
+                    if (e.target.value !== 'exception') {
+                      setExceptionReason('');
+                    }
+                  }}
                   className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   <option value="pending">待处理</option>
@@ -233,6 +281,20 @@ export function ClaimsPage() {
                   <option value="exception">异常</option>
                 </select>
               </div>
+
+              {selectedStatus === 'exception' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">异常原因 <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={exceptionReason}
+                    onChange={(e) => setExceptionReason(e.target.value)}
+                    placeholder="请填写异常原因，此记录将被永久保存..."
+                    rows={3}
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">异常原因将被记录到异常历史中，便于后续追溯</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">责任判定</label>
@@ -280,7 +342,7 @@ export function ClaimsPage() {
         </div>
       )}
 
-      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40" onClick={() => getClaimById('')}></div>}
+      {sidebarOpen && <div className="fixed inset-0 bg-black/30 z-40" onClick={() => selectClaim(null)}></div>}
     </div>
   );
 }

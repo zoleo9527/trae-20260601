@@ -59,14 +59,16 @@ export const mockClaims: Claim[] = [
     damageDescription: '搬家过程中，一台55寸电视屏幕被划伤，外壳有轻微凹陷。客户提供了购买发票，价值5999元。',
     damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=broken%20tv%20screen%20damage%20closeup&image_size=square'],
     responsibility: 'company',
-    status: 'paid',
+    status: 'archived',
     remarks: [
       { id: 'r1', claimId: 'c1', userId: 'u1', userName: '陈处理员', content: '已联系客户，确认物损情况属实，照片已上传。', createdAt: new Date('2024-01-15T11:00:00') },
       { id: 'r2', claimId: 'c1', userId: 'u2', userName: '王审核员', content: '审核通过，同意赔付5000元。', createdAt: new Date('2024-01-15T14:00:00') },
       { id: 'r3', claimId: 'c1', userId: 'u3', userName: '财务小李', content: '已通过银行转账完成打款。', createdAt: new Date('2024-01-16T10:00:00') },
+      { id: 'r8', claimId: 'c1', userId: 'u_admin', userName: '管理员', content: '工单已归档。', createdAt: new Date('2024-01-17T09:00:00') },
     ],
+    exceptionHistory: [],
     createdAt: new Date('2024-01-15T10:30:00'),
-    updatedAt: new Date('2024-01-16T10:00:00'),
+    updatedAt: new Date('2024-01-17T09:00:00'),
   },
   {
     id: 'c2',
@@ -82,6 +84,16 @@ export const mockClaims: Claim[] = [
     remarks: [
       { id: 'r4', claimId: 'c2', userId: 'u1', userName: '陈处理员', content: '客户反馈餐桌损坏，已拍照存档。初步判断可能为旧伤。', createdAt: new Date('2024-01-16T11:30:00') },
       { id: 'r5', claimId: 'c2', userId: 'u4', userName: '张主管', content: '已联系客户沟通，客户不接受我方判断，需要管理层介入协调。', createdAt: new Date('2024-01-16T16:00:00') },
+    ],
+    exceptionHistory: [
+      {
+        id: 'e1',
+        claimId: 'c2',
+        reason: '责任认定存在争议，客户坚称是搬运造成，我方认为是旧伤',
+        resolved: false,
+        createdAt: new Date('2024-01-16T16:00:00'),
+        createdBy: '张主管',
+      },
     ],
     createdAt: new Date('2024-01-16T11:00:00'),
     updatedAt: new Date('2024-01-16T16:00:00'),
@@ -99,6 +111,18 @@ export const mockClaims: Claim[] = [
     remarks: [
       { id: 'r6', claimId: 'c3', userId: 'u5', userName: '李处理员', content: '已核实物损情况，责任明确在我方，申请赔付3000元。', createdAt: new Date('2024-01-17T09:30:00') },
     ],
+    exceptionHistory: [
+      {
+        id: 'e2',
+        claimId: 'c3',
+        reason: '客户最初拒绝提供购买凭证，导致审核延迟',
+        resolved: true,
+        createdAt: new Date('2024-01-17T10:00:00'),
+        createdBy: '李处理员',
+        resolvedAt: new Date('2024-01-17T11:00:00'),
+        resolvedBy: '李处理员',
+      },
+    ],
     createdAt: new Date('2024-01-17T09:00:00'),
     updatedAt: new Date('2024-01-17T09:30:00'),
   },
@@ -115,6 +139,7 @@ export const mockClaims: Claim[] = [
     remarks: [
       { id: 'r7', claimId: 'c4', userId: 'u1', userName: '陈处理员', content: '已接收客户申诉，正在收集证据材料。', createdAt: new Date('2024-01-18T15:00:00') },
     ],
+    exceptionHistory: [],
     createdAt: new Date('2024-01-18T14:30:00'),
     updatedAt: new Date('2024-01-18T15:00:00'),
   },

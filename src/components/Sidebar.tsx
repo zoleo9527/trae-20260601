@@ -80,9 +80,36 @@ export function Sidebar() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div>
-                <span className="font-medium text-red-800">异常说明</span>
+                <span className="font-medium text-red-800">当前异常</span>
                 <p className="text-sm text-red-700 mt-1">{claim.exceptionReason}</p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {claim.exceptionHistory.length > 0 && (
+          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+            <h3 className="font-medium text-orange-800 mb-3 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              异常历史记录
+            </h3>
+            <div className="space-y-3">
+              {claim.exceptionHistory.map((record) => (
+                <div key={record.id} className="text-sm">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-orange-700">{record.reason}</span>
+                    {record.resolved && (
+                      <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">已解决</span>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between mt-1 text-xs text-orange-500">
+                    <span>创建于 {formatDate(record.createdAt)} by {record.createdBy}</span>
+                    {record.resolved && record.resolvedBy && (
+                      <span>解决于 {formatDate(record.resolvedAt!)} by {record.resolvedBy}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

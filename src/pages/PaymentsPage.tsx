@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Search, Filter, Wallet, CheckCircle, XCircle, Clock, ArrowRight, MessageSquare } from 'lucide-react';
+import { Search, Filter, Wallet, CheckCircle, XCircle, Clock, ArrowRight, Eye, Archive, MessageSquare } from 'lucide-react';
 import { useClaimStore } from '../store/claimStore';
 import type { Payment, Claim } from '../types';
 
 export function PaymentsPage() {
-  const { claims, payments, addPayment, updatePaymentStatus, addRemark, updateClaimStatus } = useClaimStore();
+  const { claims, payments, addPayment, updatePaymentStatus, addRemark, updateClaimStatus, archiveClaim, selectClaim } = useClaimStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -105,6 +105,14 @@ export function PaymentsPage() {
     }
   };
 
+  const handleArchive = (claimId: string) => {
+    archiveClaim(claimId);
+    const claim = getClaimForPayment(claimId);
+    if (claim) {
+      addRemark(claim.id, { userId: 'u_admin', userName: '管理员', content: '工单已归档' });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -129,12 +137,21 @@ export function PaymentsPage() {
                   <span className="font-medium">{claim.customerName}</span>
                   <span className="text-sm opacity-70 ml-2">{claim.id}</span>
                 </div>
-                <button
-                  onClick={() => handleOpenPaymentModal(claim)}
-                  className="px-4 py-1.5 bg-white text-accent-600 text-sm font-medium rounded-lg hover:bg-white/90 transition-colors"
-                >
-                  创建赔付
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => selectClaim(claim.id)}
+                    className="px-3 py-1.5 bg-white/20 text-white text-sm rounded-lg hover:bg-white/30 transition-colors flex items-center gap-1"
+                  >
+                    <Eye className="w-4 h-4" />
+                    查看详情
+                  </button>
+                  <button
+                    onClick={() => handleOpenPaymentModal(claim)}
+                    className="px-4 py-1.5 bg-white text-accent-600 text-sm font-medium rounded-lg hover:bg-white/90 transition-colors"
+                  >
+                    创建赔付
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -234,6 +251,13 @@ export function PaymentsPage() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => claim && selectClaim(claim.id)}
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="查看工单详情"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
                       {payment.status === 'pending' && (
                         <>
                           <button
@@ -262,10 +286,13 @@ export function PaymentsPage() {
                         </button>
                       )}
                       {payment.status === 'paid' && (
-                        <span className="text-xs text-green-600 flex items-center gap-1">
-                          <CheckCircle className="w-4 h-4" />
-                          已完成
-                        </span>
+                        <button
+                          onClick={() => claim && handleArchive(claim.id)}
+                          className="px-3 py-1.5 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-1"
+                        >
+                          <Archive className="w-3 h-3" />
+                          归档
+                        </button>
                       )}
                     </div>
                   </td>

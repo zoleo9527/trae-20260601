@@ -7,6 +7,17 @@ export interface Remark {
   createdAt: Date;
 }
 
+export interface ExceptionRecord {
+  id: string;
+  claimId: string;
+  reason: string;
+  resolved: boolean;
+  resolvedAt?: Date;
+  resolvedBy?: string;
+  createdAt: Date;
+  createdBy: string;
+}
+
 export interface Claim {
   id: string;
   orderId: string;
@@ -18,6 +29,7 @@ export interface Claim {
   responsibility: 'company' | 'customer' | 'third_party' | 'undetermined';
   status: 'pending' | 'processing' | 'review' | 'approved' | 'paid' | 'archived' | 'exception';
   remarks: Remark[];
+  exceptionHistory: ExceptionRecord[];
   createdAt: Date;
   updatedAt: Date;
   exceptionReason?: string;

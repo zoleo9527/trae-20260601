@@ -17,6 +17,9 @@ interface ClaimStore {
   updateResponsibility: (claimId: string, responsibility: Claim['responsibility']) => void;
   addPayment: (payment: Omit<Payment, 'id'>) => void;
   updatePaymentStatus: (paymentId: string, status: Payment['status']) => void;
+  setException: (claimId: string, reason: string, createdBy: string) => void;
+  resolveException: (claimId: string, resolvedBy: string) => void;
+  archiveClaim: (claimId: string) => void;
   getClaimById: (id: string) => Claim | undefined;
   getOrderById: (id: string) => Order | undefined;
   getVehicleById: (id: string) => Vehicle | undefined;
@@ -92,6 +95,52 @@ export const useClaimStore = create<ClaimStore>((set, get) => ({
         }
         return payment;
       }),
+    }));
+  },
+
+  setException: (claimId, reason, createdBy) => {
+    const now = new Date();
+    const exceptionRecord = {
+      id: `e${Date.now()}`,
+      claimId,
+      reason,
+      resolved: false,
+      createdAt: now,
+      createdBy,
+    };
+    set((state) => ({
+      claims: state.claims.map((claim) =>
+        claim.id === claimId
+          ? { ...claim, status: 'exception', exceptionReason: reason, exceptionHistory: [...claim.exceptionHistory, exceptionRecord], updatedAt: now }
+          : claim
+      ),
+    }));
+  },
+
+  resolveException: (claimId, resolvedBy) => {
+    const now = new Date();
+    set((state) => ({
+      claims: state.claims.map((claim) =>
+        claim.id === claimId
+          ? {
+              ...claim,
+              status: 'processing',
+              exceptionReason: undefined,
+              exceptionHistory: claim.exceptionHistory.map((record) =>
+                record.resolved === false ? { ...record, resolved: true, resolvedAt: now, resolvedBy } : record
+              ),
+              updatedAt: now,
+            }
+          : claim
+      ),
+    }));
+  },
+
+  archiveClaim: (claimId) => {
+    set((state) => ({
+      claims: state.claims.map((claim) =>
+        claim.id === claimId ? { ...claim, status: 'archived', updatedAt: new Date() } : claim
+      ),
     }));
   },
 
