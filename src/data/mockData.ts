@@ -1,0 +1,142 @@
+import type { Claim, Order, Vehicle, Payment } from '../types';
+
+export const mockVehicles: Vehicle[] = [
+  { id: 'v1', plateNumber: '京A12345', driverName: '张师傅', driverPhone: '13800138001', status: 'assigned' },
+  { id: 'v2', plateNumber: '京B67890', driverName: '李师傅', driverPhone: '13800138002', status: 'assigned' },
+  { id: 'v3', plateNumber: '京C11111', driverName: '王师傅', driverPhone: '13800138003', status: 'available' },
+];
+
+export const mockOrders: Order[] = [
+  {
+    id: 'o1',
+    customerName: '刘女士',
+    customerPhone: '13900139001',
+    addressFrom: '北京市朝阳区望京SOHO',
+    addressTo: '北京市海淀区中关村',
+    scheduledDate: new Date('2024-01-15T09:00:00'),
+    vehicleId: 'v1',
+    driverName: '张师傅',
+  },
+  {
+    id: 'o2',
+    customerName: '王先生',
+    customerPhone: '13900139002',
+    addressFrom: '北京市西城区金融街',
+    addressTo: '北京市东城区王府井',
+    scheduledDate: new Date('2024-01-16T10:00:00'),
+    vehicleId: 'v2',
+    driverName: '李师傅',
+  },
+  {
+    id: 'o3',
+    customerName: '赵先生',
+    customerPhone: '13900139003',
+    addressFrom: '北京市丰台区方庄',
+    addressTo: '北京市石景山区石景山',
+    scheduledDate: new Date('2024-01-17T08:30:00'),
+    vehicleId: 'v1',
+    driverName: '张师傅',
+  },
+  {
+    id: 'o4',
+    customerName: '孙女士',
+    customerPhone: '13900139004',
+    addressFrom: '北京市大兴区黄村',
+    addressTo: '北京市通州区通州',
+    scheduledDate: new Date('2024-01-18T14:00:00'),
+    vehicleId: 'v2',
+    driverName: '李师傅',
+  },
+];
+
+export const mockClaims: Claim[] = [
+  {
+    id: 'c1',
+    orderId: 'o1',
+    vehicleId: 'v1',
+    customerName: '刘女士',
+    customerPhone: '13900139001',
+    damageDescription: '搬家过程中，一台55寸电视屏幕被划伤，外壳有轻微凹陷。客户提供了购买发票，价值5999元。',
+    damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=broken%20tv%20screen%20damage%20closeup&image_size=square'],
+    responsibility: 'company',
+    status: 'paid',
+    remarks: [
+      { id: 'r1', claimId: 'c1', userId: 'u1', userName: '陈处理员', content: '已联系客户，确认物损情况属实，照片已上传。', createdAt: new Date('2024-01-15T11:00:00') },
+      { id: 'r2', claimId: 'c1', userId: 'u2', userName: '王审核员', content: '审核通过，同意赔付5000元。', createdAt: new Date('2024-01-15T14:00:00') },
+      { id: 'r3', claimId: 'c1', userId: 'u3', userName: '财务小李', content: '已通过银行转账完成打款。', createdAt: new Date('2024-01-16T10:00:00') },
+    ],
+    createdAt: new Date('2024-01-15T10:30:00'),
+    updatedAt: new Date('2024-01-16T10:00:00'),
+  },
+  {
+    id: 'c2',
+    orderId: 'o2',
+    vehicleId: 'v2',
+    customerName: '王先生',
+    customerPhone: '13900139002',
+    damageDescription: '客户声称一台实木餐桌在搬运过程中腿部断裂。但现场照片显示桌子有陈旧裂痕，怀疑是旧伤。',
+    damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=broken%20wooden%20table%20leg%20furniture%20damage&image_size=square'],
+    responsibility: 'undetermined',
+    status: 'exception',
+    exceptionReason: '责任认定存在争议，客户坚称是搬运造成，我方认为是旧伤',
+    remarks: [
+      { id: 'r4', claimId: 'c2', userId: 'u1', userName: '陈处理员', content: '客户反馈餐桌损坏，已拍照存档。初步判断可能为旧伤。', createdAt: new Date('2024-01-16T11:30:00') },
+      { id: 'r5', claimId: 'c2', userId: 'u4', userName: '张主管', content: '已联系客户沟通，客户不接受我方判断，需要管理层介入协调。', createdAt: new Date('2024-01-16T16:00:00') },
+    ],
+    createdAt: new Date('2024-01-16T11:00:00'),
+    updatedAt: new Date('2024-01-16T16:00:00'),
+  },
+  {
+    id: 'c3',
+    orderId: 'o3',
+    vehicleId: 'v1',
+    customerName: '赵先生',
+    customerPhone: '13900139003',
+    damageDescription: '一台笔记本电脑在搬运时被重物挤压，外壳变形，屏幕出现亮斑。',
+    damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=laptop%20screen%20bright%20spot%20damage&image_size=square', 'https://neeko-copilot.bytedance.net/api/text_to_image?prompt=damaged%20laptop%20case%20deformation&image_size=square'],
+    responsibility: 'company',
+    status: 'review',
+    remarks: [
+      { id: 'r6', claimId: 'c3', userId: 'u5', userName: '李处理员', content: '已核实物损情况，责任明确在我方，申请赔付3000元。', createdAt: new Date('2024-01-17T09:30:00') },
+    ],
+    createdAt: new Date('2024-01-17T09:00:00'),
+    updatedAt: new Date('2024-01-17T09:30:00'),
+  },
+  {
+    id: 'c4',
+    orderId: 'o4',
+    vehicleId: 'v2',
+    customerName: '孙女士',
+    customerPhone: '13900139004',
+    damageDescription: '一箱易碎品（陶瓷餐具）在运输过程中破损3件，客户要求全额赔偿。',
+    damagePhotos: ['https://neeko-copilot.bytedance.net/api/text_to_image?prompt=broken%20ceramic%20dishes%20fragile%20items&image_size=square'],
+    responsibility: 'company',
+    status: 'processing',
+    remarks: [
+      { id: 'r7', claimId: 'c4', userId: 'u1', userName: '陈处理员', content: '已接收客户申诉，正在收集证据材料。', createdAt: new Date('2024-01-18T15:00:00') },
+    ],
+    createdAt: new Date('2024-01-18T14:30:00'),
+    updatedAt: new Date('2024-01-18T15:00:00'),
+  },
+];
+
+export const mockPayments: Payment[] = [
+  {
+    id: 'p1',
+    claimId: 'c1',
+    amount: 5000,
+    method: 'bank',
+    status: 'paid',
+    approvedAt: new Date('2024-01-15T14:00:00'),
+    paidAt: new Date('2024-01-16T10:00:00'),
+    remarks: '银行转账至客户账户',
+  },
+  {
+    id: 'p2',
+    claimId: 'c3',
+    amount: 3000,
+    method: 'wechat',
+    status: 'pending',
+    remarks: '等待审核',
+  },
+];
