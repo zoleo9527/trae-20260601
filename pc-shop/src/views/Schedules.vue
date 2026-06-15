@@ -72,7 +72,10 @@
             <td>
               <span class="tag" :class="statusTagClass(sch.status)">{{ statusLabel(sch.status) }}</span>
             </td>
-            <td class="text-sm">{{ sch.technician || '<span class="text-muted">待指派</span>' }}</td>
+            <td class="text-sm">
+              <span v-if="sch.technician">{{ sch.technician }}</span>
+              <span v-else class="text-muted">待指派</span>
+            </td>
             <td>
               <div class="flex gap-8 items-center">
                 <div style="width:60px;height:6px;background:var(--gray-100);border-radius:3px;overflow:hidden">

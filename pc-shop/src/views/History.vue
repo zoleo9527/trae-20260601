@@ -21,10 +21,8 @@
     
     <div v-if="filterId" class="filter-info card mb-12" style="padding:10px 16px">
       <span class="text-sm">
-        📌 当前筛选: <b>{{ filterType === 'all' ? '全部类型' : typeLabel(filterType) }}</b> 
-        <span v-if="filterId">· 单据: <b>{{ filterId }}</b></span>
-        <span v-if="filterKeyword">· 搜索: <b>{{ filterKeyword }}</b></span>
-        <span class="text-muted">（共 {{ filteredEntries.length }} 条记录）</span>
+        📌 当前筛选: <b>{{ filterId }}</b> 的全部相关记录
+        <span class="text-muted">（共 {{ filteredEntries.length }} 条，含操作历史与异常处理）</span>
       </span>
     </div>
 
@@ -127,8 +125,11 @@ const allEntries = computed(() => {
 
 const filteredEntries = computed(() => {
   let list = allEntries.value
-  if (filterType.value !== 'all') list = list.filter(e => e.targetType === filterType.value)
-  if (filterId.value.trim()) list = list.filter(e => e.targetId === filterId.value.trim())
+  if (filterId.value.trim()) {
+    list = list.filter(e => e.targetId === filterId.value.trim())
+  } else if (filterType.value !== 'all') {
+    list = list.filter(e => e.targetType === filterType.value)
+  }
   if (filterKeyword.value.trim()) {
     const kw = filterKeyword.value.toLowerCase()
     list = list.filter(e => 

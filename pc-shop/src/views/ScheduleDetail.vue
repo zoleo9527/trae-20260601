@@ -64,7 +64,10 @@
         <div class="card-body">
           <div class="info-grid mb-16">
             <div><span class="label">销售</span>{{ schedule.salesPerson }}</div>
-            <div><span class="label">装机师</span>{{ schedule.technician || '<span class="text-muted">待指派</span>' }}</div>
+            <div><span class="label">装机师</span>
+              <span v-if="schedule.technician">{{ schedule.technician }}</span>
+              <span v-else class="text-muted">待指派</span>
+            </div>
             <div><span class="label">创建时间</span>{{ schedule.createdAt }}</div>
             <div><span class="label">预计完成</span>{{ schedule.expectedComplete }}</div>
             <div><span class="label">实际完成</span>{{ schedule.actualComplete || '-' }}</div>
@@ -129,7 +132,9 @@
             <div v-for="(h, i) in schedule.history.slice().reverse()" :key="i" class="timeline-item">
               <div class="flex-between">
                 <div class="timeline-time">{{ h.time }}</div>
-                <span class="responsibility-tag">{{ extractRole(h.operator) }}</span>
+                <span class="responsibility-tag">
+                  <span class="tag" :class="extractRoleClass(h.operator)">{{ extractRoleLabel(h.operator) }}</span>
+                </span>
               </div>
               <div class="timeline-content">
                 <b>{{ h.action }}</b>
@@ -555,13 +560,21 @@ function getRelatedBatches(partId) {
   return batches
 }
 
-function extractRole(name) {
-  if (name.includes('销售')) return '<span class="tag tag-cyan">销售</span>'
-  if (name.includes('仓管') || name.includes('仓库')) return '<span class="tag tag-green">仓储</span>'
-  if (name.includes('工') || name.includes('技')) return '<span class="tag tag-purple">技术</span>'
-  if (name.includes('店长') || name.includes('经理')) return '<span class="tag tag-blue">管理</span>'
-  if (name.includes('客服')) return '<span class="tag tag-yellow">售后</span>'
-  return '<span class="tag tag-gray">系统</span>'
+function extractRoleLabel(name) {
+  if (name.includes('销售')) return '销售'
+  if (name.includes('仓管') || name.includes('仓库')) return '仓储'
+  if (name.includes('工') || name.includes('技')) return '技术'
+  if (name.includes('店长') || name.includes('经理')) return '管理'
+  if (name.includes('客服')) return '售后'
+  return '系统'
+}
+function extractRoleClass(name) {
+  if (name.includes('销售')) return 'tag-cyan'
+  if (name.includes('仓管') || name.includes('仓库')) return 'tag-green'
+  if (name.includes('工') || name.includes('技')) return 'tag-purple'
+  if (name.includes('店长') || name.includes('经理')) return 'tag-blue'
+  if (name.includes('客服')) return 'tag-yellow'
+  return 'tag-gray'
 }
 
 function lookupBatch(code) {
