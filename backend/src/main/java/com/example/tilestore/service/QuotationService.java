@@ -5,6 +5,7 @@ import com.example.tilestore.common.ErrorCode;
 import com.example.tilestore.common.UserContext;
 import com.example.tilestore.dto.request.QuotationCreateRequest;
 import com.example.tilestore.dto.request.QuotationUpdateRequest;
+import com.example.tilestore.dto.response.MeasurementRecordResponse;
 import com.example.tilestore.dto.response.QuotationHistoryResponse;
 import com.example.tilestore.dto.response.QuotationResponse;
 import com.example.tilestore.entity.*;
@@ -33,11 +34,12 @@ public class QuotationService {
     private final ProductMapper productMapper;
     private final SysUserMapper sysUserMapper;
     private final ObjectMapper objectMapper;
+    private final UserService userService;
 
     @Transactional
     public QuotationResponse createQuotation(QuotationCreateRequest request) {
-        UserService.checkPermission("DESIGNER", "ADMIN");
-        SysUser currentUser = UserContext.getCurrentUser();
+        userService.checkPermission("DESIGNER", "ADMIN");
+        SysUser currentUser = userService.getCurrentUser();
 
         MeasurementRecord measurement = measurementRecordMapper.selectById(request.getMeasurementId());
         if (measurement == null) {
@@ -95,16 +97,18 @@ public class QuotationService {
     }
 
     public QuotationResponse getQuotation(Long id) {
+        userService.getCurrentUser();
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
         }
+        validateAccess(quotation);
         return buildResponse(quotation);
     }
 
     @Transactional
     public QuotationResponse updateQuotation(Long id, QuotationUpdateRequest request) {
-        UserService.checkPermission("DESIGNER", "ADMIN");
+        userService.checkPermission("DESIGNER", "ADMIN");
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
@@ -114,7 +118,7 @@ public class QuotationService {
             throw new BusinessException(ErrorCode.QUOTATION_STATUS_ERROR, "只能修改草稿状态的报价单");
         }
 
-        SysUser currentUser = UserContext.getCurrentUser();
+        SysUser currentUser = userService.getCurrentUser();
         if (!quotation.getDesignerId().equals(currentUser.getId()) && !"ADMIN".equals(currentUser.getRole())) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
@@ -169,7 +173,7 @@ public class QuotationService {
 
     @Transactional
     public QuotationResponse submitQuotation(Long id) {
-        UserService.checkPermission("DESIGNER", "ADMIN");
+        userService.checkPermission("DESIGNER", "ADMIN");
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
@@ -179,7 +183,7 @@ public class QuotationService {
             throw new BusinessException(ErrorCode.QUOTATION_STATUS_ERROR, "只能提交草稿状态的报价单");
         }
 
-        SysUser currentUser = UserContext.getCurrentUser();
+        SysUser currentUser = userService.getCurrentUser();
         if (!quotation.getDesignerId().equals(currentUser.getId()) && !"ADMIN".equals(currentUser.getRole())) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
@@ -197,7 +201,7 @@ public class QuotationService {
 
     @Transactional
     public QuotationResponse approveQuotation(Long id) {
-        UserService.checkPermission("ADMIN");
+        userService.checkPermission("ADMIN");
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
@@ -220,7 +224,7 @@ public class QuotationService {
 
     @Transactional
     public QuotationResponse rejectQuotation(Long id, String remark) {
-        UserService.checkPermission("ADMIN");
+        userService.checkPermission("ADMIN");
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
@@ -244,7 +248,7 @@ public class QuotationService {
 
     @Transactional
     public QuotationResponse signQuotation(Long id) {
-        UserService.checkPermission("SALESMAN", "ADMIN");
+        userService.checkPermission("SALESMAN", "ADMIN");
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
@@ -265,19 +269,40 @@ public class QuotationService {
         return buildResponse(quotation);
     }
 
-    public List<QuotationResponse> listQuotations(String status, Long measurementId, Long customerId, Long designerId) {
+    public List<QuotationResponse> listQuotations(String status, Long measurementId, Long customerId) {
+        userService.getCurrentUser();
+        SysUser currentUser = UserContext.getCurrentUser();
         List<Quotation> quotations;
 
-        if (status != null && !status.isEmpty()) {
-            quotations = quotationMapper.findByStatus(status);
-        } else if (measurementId != null) {
-            quotations = quotationMapper.findByMeasurementId(measurementId);
-        } else if (customerId != null) {
-            quotations = quotationMapper.findByCustomerId(customerId);
-        } else if (designerId != null) {
-            quotations = quotationMapper.findByDesignerId(designerId);
-        } else {
+        String role = currentUser.getRole();
+        if ("DESIGNER".equals(role)) {
+            quotations = quotationMapper.findByDesignerId(currentUser.getId());
+        } else if ("SALESMAN".equals(role)) {
             quotations = quotationMapper.selectList(null);
+        } else if ("WAREHOUSE".equals(role)) {
+            quotations = quotationMapper.selectList(null);
+        } else if ("ADMIN".equals(role)) {
+            quotations = quotationMapper.selectList(null);
+        } else {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
+
+        if (status != null && !status.isEmpty()) {
+            quotations = quotations.stream()
+                    .filter(q -> status.equals(q.getStatus()))
+                    .collect(Collectors.toList());
+        }
+
+        if (measurementId != null) {
+            quotations = quotations.stream()
+                    .filter(q -> measurementId.equals(q.getMeasurementId()))
+                    .collect(Collectors.toList());
+        }
+
+        if (customerId != null) {
+            quotations = quotations.stream()
+                    .filter(q -> customerId.equals(q.getCustomerId()))
+                    .collect(Collectors.toList());
         }
 
         return quotations.stream()
@@ -286,16 +311,38 @@ public class QuotationService {
     }
 
     public List<QuotationHistoryResponse> getQuotationHistory(Long id) {
+        userService.getCurrentUser();
         Quotation quotation = quotationMapper.selectById(id);
         if (quotation == null) {
             throw new BusinessException(ErrorCode.QUOTATION_NOT_FOUND);
         }
+        validateAccess(quotation);
 
         List<QuotationHistory> histories = quotationHistoryMapper.findByQuotationId(id);
 
         return histories.stream()
                 .map(this::buildHistoryResponse)
                 .collect(Collectors.toList());
+    }
+
+    private void validateAccess(Quotation quotation) {
+        SysUser currentUser = UserContext.getCurrentUser();
+        String role = currentUser.getRole();
+        
+        if ("ADMIN".equals(role) || "WAREHOUSE".equals(role)) {
+            return;
+        }
+        
+        if ("DESIGNER".equals(role) && !quotation.getDesignerId().equals(currentUser.getId())) {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
+        
+        if ("SALESMAN".equals(role)) {
+            MeasurementRecord measurement = measurementRecordMapper.selectById(quotation.getMeasurementId());
+            if (measurement != null && !measurement.getSalesmanId().equals(currentUser.getId())) {
+                throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+            }
+        }
     }
 
     private QuotationResponse buildResponse(Quotation quotation) {
@@ -317,7 +364,7 @@ public class QuotationService {
 
         Customer customer = customerMapper.selectById(quotation.getCustomerId());
         if (customer != null) {
-            QuotationResponse.MeasurementRecordResponse.CustomerResponse customerResponse = new QuotationResponse.MeasurementRecordResponse.CustomerResponse();
+            MeasurementRecordResponse.CustomerResponse customerResponse = new MeasurementRecordResponse.CustomerResponse();
             customerResponse.setId(customer.getId());
             customerResponse.setName(customer.getName());
             customerResponse.setPhone(customer.getPhone());
@@ -327,7 +374,7 @@ public class QuotationService {
 
         SysUser designer = sysUserMapper.selectById(quotation.getDesignerId());
         if (designer != null) {
-            QuotationResponse.MeasurementRecordResponse.UserResponse designerResponse = new QuotationResponse.MeasurementRecordResponse.UserResponse();
+            MeasurementRecordResponse.UserResponse designerResponse = new MeasurementRecordResponse.UserResponse();
             designerResponse.setId(designer.getId());
             designerResponse.setUsername(designer.getUsername());
             designerResponse.setRealName(designer.getRealName());
@@ -356,8 +403,8 @@ public class QuotationService {
         return response;
     }
 
-    private QuotationResponse.MeasurementRecordResponse buildMeasurementResponse(MeasurementRecord measurement) {
-        QuotationResponse.MeasurementRecordResponse response = new QuotationResponse.MeasurementRecordResponse();
+    private MeasurementRecordResponse buildMeasurementResponse(MeasurementRecord measurement) {
+        MeasurementRecordResponse response = new MeasurementRecordResponse();
         response.setId(measurement.getId());
         response.setRoomType(measurement.getRoomType());
         response.setArea(measurement.getArea());
@@ -376,7 +423,7 @@ public class QuotationService {
 
         SysUser operator = sysUserMapper.selectById(history.getOperatorId());
         if (operator != null) {
-            QuotationResponse.MeasurementRecordResponse.UserResponse operatorResponse = new QuotationResponse.MeasurementRecordResponse.UserResponse();
+            MeasurementRecordResponse.UserResponse operatorResponse = new MeasurementRecordResponse.UserResponse();
             operatorResponse.setId(operator.getId());
             operatorResponse.setUsername(operator.getUsername());
             operatorResponse.setRealName(operator.getRealName());

@@ -48,4 +48,12 @@ public class QuotationResponse {
         private BigDecimal amount;
         private String remark;
     }
+
+    @Data
+    public static class BriefMeasurementResponse {
+        private Long id;
+        private String roomType;
+        private BigDecimal area;
+        private String status;
+    }
 }

@@ -65,9 +65,8 @@ public class QuotationController {
     public ApiResponse<List<QuotationResponse>> list(
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long measurementId,
-            @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) Long designerId) {
-        List<QuotationResponse> response = quotationService.listQuotations(status, measurementId, customerId, designerId);
+            @RequestParam(required = false) Long customerId) {
+        List<QuotationResponse> response = quotationService.listQuotations(status, measurementId, customerId);
         return ApiResponse.success(response);
     }
 

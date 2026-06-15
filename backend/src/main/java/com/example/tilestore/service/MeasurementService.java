@@ -33,11 +33,12 @@ public class MeasurementService {
     private final CustomerMapper customerMapper;
     private final SysUserMapper sysUserMapper;
     private final ObjectMapper objectMapper;
+    private final UserService userService;
 
     @Transactional
     public MeasurementRecordResponse createMeasurement(MeasurementCreateRequest request) {
-        UserService.checkPermission("SALESMAN", "ADMIN");
-        SysUser currentUser = UserContext.getCurrentUser();
+        userService.checkPermission("SALESMAN", "ADMIN");
+        SysUser currentUser = userService.getCurrentUser();
 
         Customer customer = customerMapper.findByPhone(request.getCustomerPhone());
         if (customer == null) {
@@ -73,22 +74,24 @@ public class MeasurementService {
     }
 
     public MeasurementRecordResponse getMeasurement(Long id) {
+        userService.getCurrentUser();
         MeasurementRecord record = measurementRecordMapper.selectById(id);
         if (record == null) {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
+        validateAccess(record);
         return buildResponse(record);
     }
 
     @Transactional
     public MeasurementRecordResponse updateMeasurement(Long id, MeasurementUpdateRequest request) {
-        UserService.checkPermission("SALESMAN", "DESIGNER", "ADMIN");
+        userService.checkPermission("SALESMAN", "DESIGNER", "ADMIN");
         MeasurementRecord record = measurementRecordMapper.selectById(id);
         if (record == null) {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
 
-        SysUser currentUser = UserContext.getCurrentUser();
+        SysUser currentUser = userService.getCurrentUser();
         if (!record.getSalesmanId().equals(currentUser.getId()) 
             && !"ADMIN".equals(currentUser.getRole())
             && !record.getDesignerId().equals(currentUser.getId())) {
@@ -117,7 +120,7 @@ public class MeasurementService {
 
     @Transactional
     public MeasurementRecordResponse assignDesigner(Long id, Long designerId) {
-        UserService.checkPermission("SALESMAN", "ADMIN");
+        userService.checkPermission("SALESMAN", "ADMIN");
         MeasurementRecord record = measurementRecordMapper.selectById(id);
         if (record == null) {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
@@ -142,13 +145,13 @@ public class MeasurementService {
 
     @Transactional
     public MeasurementRecordResponse completeMeasurement(Long id) {
-        UserService.checkPermission("DESIGNER", "ADMIN");
+        userService.checkPermission("DESIGNER", "ADMIN");
         MeasurementRecord record = measurementRecordMapper.selectById(id);
         if (record == null) {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
 
-        SysUser currentUser = UserContext.getCurrentUser();
+        SysUser currentUser = userService.getCurrentUser();
         if (!record.getDesignerId().equals(currentUser.getId()) && !"ADMIN".equals(currentUser.getRole())) {
             throw new BusinessException(ErrorCode.PERMISSION_DENIED);
         }
@@ -164,17 +167,40 @@ public class MeasurementService {
         return buildResponse(record);
     }
 
-    public List<MeasurementRecordResponse> listMeasurements(String status, Long customerId, Long salesmanId, Long designerId) {
+    public List<MeasurementRecordResponse> listMeasurements(String status, Long customerId) {
+        userService.getCurrentUser();
+        SysUser currentUser = UserContext.getCurrentUser();
         List<MeasurementRecord> records;
 
-        if (status != null && !status.isEmpty()) {
-            records = measurementRecordMapper.findByStatus(status);
-        } else if (salesmanId != null) {
-            records = measurementRecordMapper.findBySalesmanId(salesmanId);
-        } else if (designerId != null) {
-            records = measurementRecordMapper.findByDesignerId(designerId);
-        } else {
+        String role = currentUser.getRole();
+        if ("SALESMAN".equals(role)) {
+            records = measurementRecordMapper.findBySalesmanId(currentUser.getId());
+        } else if ("DESIGNER".equals(role)) {
+            records = measurementRecordMapper.findByDesignerId(currentUser.getId());
+        } else if ("WAREHOUSE".equals(role)) {
             records = measurementRecordMapper.selectList(null);
+        } else if ("ADMIN".equals(role)) {
+            if (status != null && !status.isEmpty()) {
+                records = measurementRecordMapper.findByStatus(status);
+            } else if (customerId != null) {
+                records = measurementRecordMapper.selectList(null);
+            } else {
+                records = measurementRecordMapper.selectList(null);
+            }
+        } else {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
+
+        if (status != null && !status.isEmpty()) {
+            records = records.stream()
+                    .filter(r -> status.equals(r.getStatus()))
+                    .collect(Collectors.toList());
+        }
+
+        if (customerId != null) {
+            records = records.stream()
+                    .filter(r -> customerId.equals(r.getCustomerId()))
+                    .collect(Collectors.toList());
         }
 
         return records.stream()
@@ -183,16 +209,35 @@ public class MeasurementService {
     }
 
     public List<MeasurementHistoryResponse> getMeasurementHistory(Long id) {
+        userService.getCurrentUser();
         MeasurementRecord record = measurementRecordMapper.selectById(id);
         if (record == null) {
             throw new BusinessException(ErrorCode.MEASUREMENT_NOT_FOUND);
         }
+        validateAccess(record);
 
         List<MeasurementHistory> histories = measurementHistoryMapper.findByMeasurementId(id);
 
         return histories.stream()
                 .map(this::buildHistoryResponse)
                 .collect(Collectors.toList());
+    }
+
+    private void validateAccess(MeasurementRecord record) {
+        SysUser currentUser = UserContext.getCurrentUser();
+        String role = currentUser.getRole();
+        
+        if ("ADMIN".equals(role) || "WAREHOUSE".equals(role)) {
+            return;
+        }
+        
+        if ("SALESMAN".equals(role) && !record.getSalesmanId().equals(currentUser.getId())) {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
+        
+        if ("DESIGNER".equals(role) && !record.getDesignerId().equals(currentUser.getId())) {
+            throw new BusinessException(ErrorCode.PERMISSION_DENIED);
+        }
     }
 
     private MeasurementRecordResponse buildResponse(MeasurementRecord record) {

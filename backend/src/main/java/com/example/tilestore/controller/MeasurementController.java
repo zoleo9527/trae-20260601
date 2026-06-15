@@ -52,10 +52,8 @@ public class MeasurementController {
     @GetMapping
     public ApiResponse<List<MeasurementRecordResponse>> list(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) Long salesmanId,
-            @RequestParam(required = false) Long designerId) {
-        List<MeasurementRecordResponse> response = measurementService.listMeasurements(status, customerId, salesmanId, designerId);
+            @RequestParam(required = false) Long customerId) {
+        List<MeasurementRecordResponse> response = measurementService.listMeasurements(status, customerId);
         return ApiResponse.success(response);
     }
 
