@@ -2,15 +2,15 @@
   <div class="login-container">
     <div class="login-box">
       <div class="login-title">手机维修店管理系统</div>
-      <el-form :model="loginForm" ref="loginForm" label-width="80px">
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="loginForm.username" placeholder="请输入用户名" />
+      <el-form :model="loginForm" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input v-model="loginForm.username" placeholder="请输入用户名" @keyup.enter="login" />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input type="password" v-model="loginForm.password" placeholder="请输入密码" />
+        <el-form-item label="密码">
+          <el-input type="password" v-model="loginForm.password" placeholder="请输入密码" @keyup.enter="login" />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" @click="login" :loading="loading">登录</el-button>
+          <el-button type="primary" @click="login" :loading="loading" style="width: 100%">登录</el-button>
         </el-form-item>
         <div class="user-hints">
           <span>测试用户: admin/frontdesk/technician/manager</span>
@@ -24,6 +24,7 @@
 <script setup>
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { auth } from '../api'
 
 const router = useRouter()
@@ -34,6 +35,10 @@ const loginForm = reactive({
 const loading = ref(false)
 
 const login = async () => {
+  if (!loginForm.username) {
+    ElMessage.warning('请输入用户名')
+    return
+  }
   loading.value = true
   try {
     const res = await auth.login(loginForm.username, loginForm.password)
@@ -41,8 +46,8 @@ const login = async () => {
     localStorage.setItem('user', JSON.stringify(res.data.user))
     router.push('/dashboard')
   } catch (error) {
-    console.error(error)
-    alert('登录失败，请检查用户名和密码')
+    console.error('登录失败:', error)
+    ElMessage.error('登录失败，请检查用户名和密码')
   } finally {
     loading.value = false
   }

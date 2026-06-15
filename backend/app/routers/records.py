@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from datetime import datetime, date
-from ..database import get_db
-from ..models import RepairOrder, RepairRecord, SparePartIssue, SparePart, Notification
 from pydantic import BaseModel
 from typing import Optional, List
+from ..database import get_db
+from ..models import RepairOrder, RepairRecord, SparePartIssue, SparePart, Notification, ShiftHandOver
 
 router = APIRouter()
 
@@ -13,6 +13,19 @@ class NotificationCreate(BaseModel):
     title: str
     content: str
     type: str
+
+class BatchUpdateRequest(BaseModel):
+    order_ids: List[int]
+    status: str
+    technician: str
+
+class ShiftHandOverCreate(BaseModel):
+    shift: str
+    off_duty_user: str
+    on_duty_user: str
+    summary: Optional[str] = None
+    pending_orders: Optional[int] = 0
+    completed_orders: Optional[int] = 0
 
 @router.get("/orders")
 async def get_all_records(
@@ -59,10 +72,10 @@ async def get_daily_summary(date: str, db: Session = Depends(get_db)):
         SparePartIssue.issued_at <= end
     ).all()
     
-    total_parts_value = sum(
-        i.quantity * i.spare_part.unit_price
-        for i in issues if i.spare_part
-    )
+    total_parts_value = 0.0
+    for issue in issues:
+        if issue.spare_part:
+            total_parts_value += issue.quantity * issue.spare_part.unit_price
     
     return {
         "date": date,
@@ -115,25 +128,87 @@ async def get_shift_report(shift: str, db: Session = Depends(get_db)):
     }
 
 @router.post("/batch/update_status")
-async def batch_update_status(order_ids: List[int], status: str, technician: str, db: Session = Depends(get_db)):
+async def batch_update_status(request: BatchUpdateRequest, db: Session = Depends(get_db)):
     updated_count = 0
-    for order_id in order_ids:
+    updated_orders = []
+    
+    for order_id in request.order_ids:
         order = db.query(RepairOrder).filter(RepairOrder.id == order_id).first()
         if order:
-            order.status = status
-            order.assigned_to = technician
+            old_status = order.status
+            order.status = request.status
+            if request.technician:
+                order.assigned_to = request.technician
+            
+            status_text = {
+                "pending": "待处理",
+                "processing": "维修中", 
+                "completed": "已完成",
+                "cancelled": "已取消"
+            }.get(request.status, request.status)
+            
+            description = f"批量操作: 状态从【{old_status}】更新为【{status_text}】"
+            if request.technician:
+                description += f"，分配维修师: {request.technician}"
             
             record = RepairRecord(
                 order_id=order_id,
-                status=status,
-                description=f"批量更新状态为: {status}",
-                technician=technician
+                status=request.status,
+                description=description,
+                technician=request.technician
             )
             db.add(record)
+            updated_orders.append({
+                "id": order.id,
+                "order_no": order.order_no,
+                "old_status": old_status,
+                "new_status": request.status
+            })
             updated_count += 1
     
     db.commit()
-    return {"updated_count": updated_count}
+    return {
+        "updated_count": updated_count,
+        "updated_orders": updated_orders,
+        "message": f"成功更新 {updated_count} 个工单"
+    }
+
+@router.post("/shift_handover")
+async def create_shift_handover(request: ShiftHandOverCreate, db: Session = Depends(get_db)):
+    handover = ShiftHandOver(
+        shift=request.shift,
+        off_duty_user=request.off_duty_user,
+        on_duty_user=request.on_duty_user,
+        summary=request.summary,
+        pending_orders=request.pending_orders,
+        completed_orders=request.completed_orders
+    )
+    db.add(handover)
+    db.commit()
+    db.refresh(handover)
+    return handover
+
+@router.get("/shift_handover")
+async def get_shift_handovers(
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(ShiftHandOver)
+    
+    if date_from:
+        query = query.filter(ShiftHandOver.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+    if date_to:
+        query = query.filter(ShiftHandOver.created_at <= datetime.strptime(date_to, "%Y-%m-%d"))
+    
+    return query.order_by(ShiftHandOver.created_at.desc()).all()
+
+@router.get("/shift_handover/{hand_over_id}")
+async def get_shift_handover(hand_over_id: int, db: Session = Depends(get_db)):
+    handover = db.query(ShiftHandOver).filter(ShiftHandOver.id == hand_over_id).first()
+    if not handover:
+        raise HTTPException(status_code=404, detail="交班记录不存在")
+    return handover
 
 @router.post("/notifications")
 async def create_notification(notification: NotificationCreate, db: Session = Depends(get_db)):

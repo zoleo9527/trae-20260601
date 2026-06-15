@@ -80,3 +80,15 @@ class Notification(Base):
     type = Column(String)
     read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.now)
+
+class ShiftHandOver(Base):
+    __tablename__ = "shift_handovers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    shift = Column(String)
+    off_duty_user = Column(String)
+    on_duty_user = Column(String)
+    summary = Column(Text)
+    pending_orders = Column(Integer, default=0)
+    completed_orders = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.now)

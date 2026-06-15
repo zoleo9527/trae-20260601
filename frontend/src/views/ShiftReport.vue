@@ -60,47 +60,63 @@
         </el-table>
       </el-card>
 
-      <div class="sign-off">
-        <el-card title="交班签字">
-          <div class="sign-row">
-            <div class="sign-item">
-              <span class="sign-label">交班人:</span>
-              <el-input v-model="signForm.off_signature" placeholder="请输入姓名" />
-            </div>
-            <div class="sign-item">
-              <span class="sign-label">接班人:</span>
-              <el-input v-model="signForm.on_signature" placeholder="请输入姓名" />
-            </div>
-            <div class="sign-item">
-              <span class="sign-label">交接时间:</span>
-              <span class="sign-value">{{ new Date().toLocaleString('zh-CN') }}</span>
-            </div>
-          </div>
-          <el-button @click="signOff" type="primary" style="margin-top: 20px">确认交接</el-button>
-        </el-card>
-      </div>
+      <el-card title="交班签字" class="sign-off">
+        <el-form :model="signForm" label-width="100px">
+          <el-form-item label="交班人">
+            <el-input v-model="signForm.off_duty_user" placeholder="请输入交班人姓名" />
+          </el-form-item>
+          <el-form-item label="接班人">
+            <el-input v-model="signForm.on_duty_user" placeholder="请输入接班人姓名" />
+          </el-form-item>
+          <el-form-item label="交接备注">
+            <el-input type="textarea" v-model="signForm.summary" rows="3" placeholder="请输入交接备注" />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="confirmHandover" :loading="submitting">
+              确认交接
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
     </div>
 
-    <div v-else class="empty-state">
-      <el-icon class="empty-icon"><component :is="icons.FileText" /></el-icon>
-      <div class="empty-text">请选择班次并生成报表</div>
-    </div>
+    <el-card v-if="!reportData" class="empty-state">
+      <el-empty description="请选择班次并生成报表" />
+    </el-card>
+
+    <el-card title="历史交班记录" class="history-card">
+      <el-table :data="handoverHistory" border>
+        <el-table-column prop="id" label="ID" width="60" />
+        <el-table-column prop="shift" label="班次">
+          <template #default="scope">
+            {{ getShiftName(scope.row.shift) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="off_duty_user" label="交班人" />
+        <el-table-column prop="on_duty_user" label="接班人" />
+        <el-table-column prop="pending_orders" label="待处理" />
+        <el-table-column prop="completed_orders" label="已完成" />
+        <el-table-column prop="summary" label="备注" :show-overflow-tooltip="true" />
+        <el-table-column prop="created_at" label="交接时间" />
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
-import { FileText } from '@element-plus/icons-vue'
-import { records } from '../api'
-
-const icons = { FileText }
+import { ref, computed, reactive, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
+import { records as recordsApi } from '../api'
 
 const selectedShift = ref('morning')
 const reportData = ref(null)
+const handoverHistory = ref([])
+const submitting = ref(false)
 
 const signForm = reactive({
-  off_signature: '',
-  on_signature: ''
+  off_duty_user: '',
+  on_duty_user: '',
+  summary: ''
 })
 
 const getShiftName = (shift) => {
@@ -138,8 +154,14 @@ const completionRate = computed(() => {
 })
 
 const generateReport = async () => {
-  const res = await records.getShiftReport(selectedShift.value)
-  reportData.value = res.data
+  try {
+    const res = await recordsApi.getShiftReport(selectedShift.value)
+    reportData.value = res.data
+    ElMessage.success('报表生成成功')
+  } catch (error) {
+    console.error('生成报表失败:', error)
+    ElMessage.error('生成报表失败')
+  }
 }
 
 const exportReport = async () => {
@@ -161,13 +183,49 @@ const exportReport = async () => {
   URL.revokeObjectURL(url)
 }
 
-const signOff = () => {
-  if (!signForm.off_signature || !signForm.on_signature) {
-    alert('请填写交班人和接班人姓名')
+const confirmHandover = async () => {
+  if (!signForm.off_duty_user || !signForm.on_duty_user) {
+    ElMessage.warning('请填写交班人和接班人')
     return
   }
-  alert(`交接完成！\n交班人: ${signForm.off_signature}\n接班人: ${signForm.on_signature}\n时间: ${new Date().toLocaleString('zh-CN')}`)
+  
+  submitting.value = true
+  try {
+    await recordsApi.createShiftHandover({
+      shift: selectedShift.value,
+      off_duty_user: signForm.off_duty_user,
+      on_duty_user: signForm.on_duty_user,
+      summary: signForm.summary,
+      pending_orders: reportData.value?.in_progress || 0,
+      completed_orders: reportData.value?.completed || 0
+    })
+    
+    ElMessage.success('交接班记录已保存')
+    signForm.off_duty_user = ''
+    signForm.on_duty_user = ''
+    signForm.summary = ''
+    
+    loadHandoverHistory()
+  } catch (error) {
+    console.error('保存交接记录失败:', error)
+    ElMessage.error('保存交接记录失败')
+  } finally {
+    submitting.value = false
+  }
 }
+
+const loadHandoverHistory = async () => {
+  try {
+    const res = await recordsApi.getShiftHandovers()
+    handoverHistory.value = res.data
+  } catch (error) {
+    console.error('加载历史记录失败:', error)
+  }
+}
+
+onMounted(() => {
+  loadHandoverHistory()
+})
 </script>
 
 <style scoped>
@@ -251,41 +309,15 @@ const signOff = () => {
 }
 
 .sign-off {
-  max-width: 800px;
-}
-
-.sign-row {
-  display: flex;
-  gap: 40px;
-}
-
-.sign-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.sign-label {
-  font-weight: bold;
-}
-
-.sign-value {
-  color: #666;
+  max-width: 500px;
 }
 
 .empty-state {
   text-align: center;
-  padding: 100px 0;
+  padding: 50px 0;
 }
 
-.empty-icon {
-  font-size: 48px;
-  color: #ddd;
-  margin-bottom: 20px;
-}
-
-.empty-text {
-  color: #999;
-  font-size: 16px;
+.history-card {
+  margin-top: 20px;
 }
 </style>

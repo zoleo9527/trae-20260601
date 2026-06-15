@@ -2,7 +2,9 @@
   <div class="repair-orders">
     <div class="toolbar">
       <el-button @click="showCreateDialog = true" type="primary">新建工单</el-button>
-      <el-button @click="batchUpdate" type="success">批量更新状态</el-button>
+      <el-button @click="batchUpdate" type="success" :disabled="selectedOrders.length === 0">
+        批量更新状态 ({{ selectedOrders.length }})
+      </el-button>
       <div class="filters">
         <el-select v-model="filterStatus" placeholder="状态筛选">
           <el-option label="全部" value="" />
@@ -34,30 +36,29 @@
       <el-table-column label="操作">
         <template #default="scope">
           <el-button @click="viewOrder(scope.row.id)" type="text">查看</el-button>
-          <el-button @click="editOrder(scope.row)" type="text">编辑</el-button>
           <el-button @click="deleteOrder(scope.row.id)" type="text" danger>删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <el-dialog title="新建工单" v-model="showCreateDialog" width="600px">
-      <el-form :model="orderForm" ref="orderForm">
-        <el-form-item label="客户姓名" prop="customer_name">
+      <el-form :model="orderForm">
+        <el-form-item label="客户姓名">
           <el-input v-model="orderForm.customer_name" />
         </el-form-item>
-        <el-form-item label="联系电话" prop="phone">
+        <el-form-item label="联系电话">
           <el-input v-model="orderForm.phone" />
         </el-form-item>
-        <el-form-item label="设备型号" prop="device_model">
+        <el-form-item label="设备型号">
           <el-input v-model="orderForm.device_model" />
         </el-form-item>
-        <el-form-item label="设备序列号" prop="device_serial">
+        <el-form-item label="设备序列号">
           <el-input v-model="orderForm.device_serial" />
         </el-form-item>
-        <el-form-item label="问题描述" prop="problem_description">
-          <el-textarea v-model="orderForm.problem_description" rows="3" />
+        <el-form-item label="问题描述">
+          <el-input type="textarea" v-model="orderForm.problem_description" rows="3" />
         </el-form-item>
-        <el-form-item label="优先级" prop="priority">
+        <el-form-item label="优先级">
           <el-select v-model="orderForm.priority">
             <el-option label="普通" value="normal" />
             <el-option label="加急" value="urgent" />
@@ -70,9 +71,9 @@
       </template>
     </el-dialog>
 
-    <el-dialog title="批量更新状态" v-model="showBatchDialog" width="400px">
-      <el-form :model="batchForm">
-        <el-form-item label="目标状态" prop="status">
+    <el-dialog title="批量更新状态" v-model="showBatchDialog" width="500px">
+      <el-form :model="batchForm" label-width="100px">
+        <el-form-item label="目标状态">
           <el-select v-model="batchForm.status">
             <el-option label="待处理" value="pending" />
             <el-option label="维修中" value="processing" />
@@ -80,22 +81,23 @@
             <el-option label="已取消" value="cancelled" />
           </el-select>
         </el-form-item>
-        <el-form-item label="处理人" prop="technician">
-          <el-input v-model="batchForm.technician" />
+        <el-form-item label="分配维修师">
+          <el-input v-model="batchForm.technician" placeholder="请输入维修师姓名" />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showBatchDialog = false">取消</el-button>
-        <el-button type="primary" @click="confirmBatchUpdate">确定</el-button>
+        <el-button type="primary" @click="confirmBatchUpdate" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { repairs, records } from '../api'
+import { ElMessage } from 'element-plus'
+import { repairs, records as recordsApi } from '../api'
 
 const router = useRouter()
 
@@ -105,6 +107,7 @@ const searchKeyword = ref('')
 const selectedOrders = ref([])
 const showCreateDialog = ref(false)
 const showBatchDialog = ref(false)
+const submitting = ref(false)
 const user = JSON.parse(localStorage.getItem('user') || '{}')
 
 const orderForm = reactive({
@@ -153,34 +156,42 @@ const getStatusText = (status) => {
 }
 
 const loadOrders = async () => {
-  const res = await repairs.getOrders()
-  orders.value = res.data
+  try {
+    const res = await repairs.getOrders()
+    orders.value = res.data
+  } catch (error) {
+    console.error('加载工单失败:', error)
+  }
 }
 
 const createOrder = async () => {
-  await repairs.createOrder(orderForm)
-  showCreateDialog.value = false
-  loadOrders()
-  orderForm.customer_name = ''
-  orderForm.phone = ''
-  orderForm.device_model = ''
-  orderForm.device_serial = ''
-  orderForm.problem_description = ''
-  orderForm.priority = 'normal'
+  try {
+    await repairs.createOrder(orderForm)
+    showCreateDialog.value = false
+    ElMessage.success('工单创建成功')
+    loadOrders()
+    orderForm.customer_name = ''
+    orderForm.phone = ''
+    orderForm.device_model = ''
+    orderForm.device_serial = ''
+    orderForm.problem_description = ''
+    orderForm.priority = 'normal'
+  } catch (error) {
+    ElMessage.error('创建工单失败')
+  }
 }
 
 const viewOrder = (id) => {
   router.push(`/order/${id}`)
 }
 
-const editOrder = (order) => {
-  console.log('Edit order:', order)
-}
-
 const deleteOrder = async (id) => {
-  if (confirm('确定删除该工单吗？')) {
+  try {
     await repairs.deleteOrder(id)
+    ElMessage.success('工单已删除')
     loadOrders()
+  } catch (error) {
+    ElMessage.error('删除失败')
   }
 }
 
@@ -190,21 +201,44 @@ const handleSelectionChange = (val) => {
 
 const batchUpdate = () => {
   if (selectedOrders.value.length === 0) {
-    alert('请先选择工单')
+    ElMessage.warning('请先选择工单')
     return
   }
   showBatchDialog.value = true
 }
 
 const confirmBatchUpdate = async () => {
-  const orderIds = selectedOrders.value.map(o => o.id)
-  await records.batchUpdateStatus(orderIds, batchForm.status, batchForm.technician)
-  showBatchDialog.value = false
-  selectedOrders.value = []
-  loadOrders()
+  if (!batchForm.status) {
+    ElMessage.warning('请选择目标状态')
+    return
+  }
+  
+  submitting.value = true
+  try {
+    const orderIds = selectedOrders.value.map(o => o.id)
+    const res = await recordsApi.batchUpdateStatus({
+      order_ids: orderIds,
+      status: batchForm.status,
+      technician: batchForm.technician || user.username
+    })
+    
+    ElMessage.success(res.data.message || '批量更新成功')
+    showBatchDialog.value = false
+    selectedOrders.value = []
+    batchForm.status = 'processing'
+    batchForm.technician = ''
+    loadOrders()
+  } catch (error) {
+    console.error('批量更新失败:', error)
+    ElMessage.error('批量更新失败')
+  } finally {
+    submitting.value = false
+  }
 }
 
-loadOrders()
+onMounted(() => {
+  loadOrders()
+})
 </script>
 
 <style scoped>
