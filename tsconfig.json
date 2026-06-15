@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "jsx": "preserve",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ES2020", "DOM"],
+    "skipLibCheck": true,
+    "noEmit": true,
+    "paths": {
+      "$lib/*": ["./src/lib/*"],
+      "$data/*": ["./src/data/*"],
+      "$server/*": ["./src/server/*"]
+    },
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "src/**/*.svelte"]
+}
