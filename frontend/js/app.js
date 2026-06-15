@@ -598,7 +598,7 @@ function showSurveyForm(surveyId = null) {
     document.getElementById('modal').style.display = 'block';
 }
 
-function showQuotationForm(surveyId = null) {
+async function showQuotationForm(surveyId = null) {
     let modalContent = `
         <h2>新建报价单</h2>
         
