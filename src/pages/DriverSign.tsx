@@ -11,15 +11,14 @@ import {
   Wrench,
   Truck,
   ClipboardCheck,
-  Send,
   FileText,
-  ChevronRight,
   ShieldAlert,
   ArrowRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { SignaturePad } from '@/components/business/SignaturePad';
+import { SignatureSummaryCard } from '@/components/business/SignatureSummaryCard';
 import { useInspectionStore } from '@/store/useInspectionStore';
 import { useUserStore } from '@/store/useUserStore';
 import { statusMap, priorityMap } from '@/utils/status';
@@ -114,10 +113,8 @@ export default function DriverSign() {
   }
 
   const statusInfo = statusMap[inspection.status];
-  const priorityInfo = priorityMap[inspection.priority];
 
   const failCount = inspection.items.filter((i) => i.result === 'fail').length;
-  const passCount = inspection.items.filter((i) => i.result === 'pass').length;
   const currentStepIndex = 3;
 
   const handleSubmit = () => {
@@ -295,74 +292,12 @@ export default function DriverSign() {
         </CardContent>
       </Card>
 
-      <Card className={failCount > 0 ? 'border-amber-300' : 'border-emerald-200'}>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span className="flex items-center gap-2">
-              <Wrench size={18} className="text-slate-500" />
-              验机结果摘要
-            </span>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-emerald-600 flex items-center gap-1">
-                <CheckCircle2 size={14} />
-                通过 {passCount} 项
-              </span>
-              {failCount > 0 ? (
-                <span className="text-rose-600 flex items-center gap-1">
-                  <AlertTriangle size={14} />
-                  异常 {failCount} 项
-                </span>
-              ) : (
-                <span className="text-emerald-600">全部正常</span>
-              )}
-            </div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {['外观检查', '性能检查', '安全检查', '附件检查'].map((category) => {
-              const categoryItems = inspection.items.filter((i) => i.category === category);
-              const hasFail = categoryItems.some((i) => i.result === 'fail');
-              const hasNa = categoryItems.some((i) => i.result === 'na');
-              return (
-                <div
-                  key={category}
-                  className={cn(
-                    'p-3 rounded-lg border text-center',
-                    hasFail
-                      ? 'bg-rose-50 border-rose-200'
-                      : hasNa
-                      ? 'bg-slate-50 border-slate-200'
-                      : 'bg-emerald-50 border-emerald-200'
-                  )}
-                >
-                  <p className="text-sm font-medium text-slate-700 mb-1">{category}</p>
-                  <p
-                    className={cn(
-                      'text-xs',
-                      hasFail
-                        ? 'text-rose-600'
-                        : hasNa
-                        ? 'text-slate-500'
-                        : 'text-emerald-600'
-                    )}
-                  >
-                    {hasFail ? '存在异常' : hasNa ? '未检查' : '全部正常'}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-
-          <button
-            onClick={() => navigate(`/inspections/${inspection.id}`)}
-            className="mt-4 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
-          >
-            查看完整验机报告
-            <ChevronRight size={14} />
-          </button>
-        </CardContent>
-      </Card>
+      <SignatureSummaryCard
+        pending
+        driverName={inspection.driverName || currentUser.name}
+        items={inspection.items}
+        onViewDetail={() => navigate(`/inspections/${inspection.id}`)}
+      />
 
       {failCount > 0 && (
         <Card className="border-rose-300 bg-rose-50">
