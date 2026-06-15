@@ -18,6 +18,12 @@
       </el-alert>
     </div>
 
+    <div v-if="userRole === 'manager'" class="role-hint">
+      <el-alert title="店长提示" type="warning" show-icon>
+        您负责派工和交班管理，维修操作请由维修师完成。
+      </el-alert>
+    </div>
+
     <div class="main-content">
       <div class="left-panel">
         <el-card title="工单信息">
@@ -56,12 +62,26 @@
                 <template v-if="userRole === 'technician' && !scope.row.returned">
                   <el-button @click="returnPart(scope.row)" type="text">归还</el-button>
                 </template>
+                <template v-else-if="!scope.row.returned">
+                  <el-button disabled type="text" title="维修师操作">归还</el-button>
+                </template>
+                <template v-else>
+                  <span class="no-action">-</span>
+                </template>
               </template>
             </el-table-column>
           </el-table>
-          <template v-if="userRole === 'technician'">
-            <el-button @click="showIssueDialog = true" type="primary" style="margin-top: 10px">领用备件</el-button>
-          </template>
+          <div style="margin-top: 10px;">
+            <el-button 
+              @click="showIssueDialog = true" 
+              type="primary" 
+              :disabled="userRole !== 'technician'"
+              :title="userRole !== 'technician' ? '维修师操作' : ''"
+            >
+              领用备件
+            </el-button>
+            <span v-if="userRole !== 'technician'" class="disabled-hint">维修师操作</span>
+          </div>
         </el-card>
       </div>
 
@@ -95,34 +115,55 @@
               </el-form-item>
             </el-form>
           </el-card>
-        </template>
 
-        <template v-if="userRole === 'technician' || userRole === 'manager'">
-          <el-card title="添加维修记录">
-            <el-form :model="recordForm">
-              <el-form-item label="状态">
-                <el-select v-model="recordForm.status">
-                  <el-option label="待处理" value="pending" />
-                  <el-option label="维修中" value="processing" />
-                  <el-option label="已完成" value="completed" />
-                  <el-option label="已取消" value="cancelled" />
-                </el-select>
-              </el-form-item>
-              <el-form-item label="描述">
-                <el-textarea v-model="recordForm.description" rows="3" />
+          <el-card title="交班处理">
+            <el-form :model="handoverForm" label-width="80px">
+              <el-form-item label="交班备注">
+                <el-textarea v-model="handoverForm.summary" rows="2" placeholder="记录交班相关信息" />
               </el-form-item>
               <el-form-item>
-                <el-button type="primary" @click="addRecord">添加记录</el-button>
+                <el-button type="warning" @click="handleHandover">标记待交接</el-button>
               </el-form-item>
             </el-form>
           </el-card>
         </template>
 
-        <template v-if="userRole === 'technician' && order?.status === 'processing' && order?.assigned_to === user.username">
-          <el-card>
-            <el-button type="success" @click="finishRepair" style="width: 100%">完成维修</el-button>
-          </el-card>
-        </template>
+        <el-card title="添加维修记录">
+          <el-form :model="recordForm">
+            <el-form-item label="状态">
+              <el-select v-model="recordForm.status" :disabled="userRole !== 'technician'">
+                <el-option label="待处理" value="pending" />
+                <el-option label="维修中" value="processing" />
+                <el-option label="已完成" value="completed" />
+                <el-option label="已取消" value="cancelled" />
+              </el-select>
+            </el-form-item>
+            <el-form-item label="描述">
+              <el-textarea v-model="recordForm.description" rows="3" :disabled="userRole !== 'technician'" />
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" @click="addRecord" :disabled="userRole !== 'technician'" :title="userRole !== 'technician' ? '维修师操作' : ''">
+                添加记录
+              </el-button>
+              <span v-if="userRole !== 'technician'" class="disabled-hint">维修师操作</span>
+            </el-form-item>
+          </el-form>
+        </el-card>
+
+        <el-card>
+          <el-button 
+            type="success" 
+            @click="finishRepair" 
+            :disabled="userRole !== 'technician' || order?.status !== 'processing' || order?.assigned_to !== user.username"
+            style="width: 100%"
+            :title="getFinishButtonTitle()"
+          >
+            完成维修
+          </el-button>
+          <span v-if="userRole !== 'technician'" class="disabled-hint">维修师操作</span>
+          <span v-else-if="order?.status !== 'processing'" class="disabled-hint">当前状态不可完成</span>
+          <span v-else-if="order?.assigned_to !== user.username" class="disabled-hint">非本人工单</span>
+        </el-card>
       </div>
     </div>
 
@@ -164,7 +205,7 @@
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { repairs, spareParts } from '../api'
+import { repairs, spareParts, records as recordsApi } from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -201,6 +242,10 @@ const recordForm = reactive({
 
 const assignForm = reactive({
   technician: ''
+})
+
+const handoverForm = reactive({
+  summary: ''
 })
 
 const getStatusTagType = (status) => {
@@ -248,6 +293,13 @@ const getRecordDotClass = (index) => {
   return ''
 }
 
+const getFinishButtonTitle = () => {
+  if (userRole.value !== 'technician') return '维修师操作'
+  if (order.value?.status !== 'processing') return '当前状态不可完成'
+  if (order.value?.assigned_to !== user.username) return '非本人工单'
+  return ''
+}
+
 const formatTime = (dateStr) => {
   if (!dateStr) return '-'
   const date = new Date(dateStr)
@@ -283,6 +335,10 @@ const goBack = () => {
 }
 
 const addRecord = async () => {
+  if (userRole.value !== 'technician') {
+    ElMessage.warning('只有维修师可以添加维修记录')
+    return
+  }
   if (!recordForm.status || !recordForm.description) {
     ElMessage.warning('请填写完整信息')
     return
@@ -295,6 +351,10 @@ const addRecord = async () => {
 }
 
 const issuePart = async () => {
+  if (userRole.value !== 'technician') {
+    ElMessage.warning('只有维修师可以领用备件')
+    return
+  }
   if (!issueForm.part_id || issueForm.quantity <= 0) {
     ElMessage.warning('请选择备件并填写数量')
     return
@@ -310,6 +370,10 @@ const issuePart = async () => {
 }
 
 const returnPart = (issue) => {
+  if (userRole.value !== 'technician') {
+    ElMessage.warning('只有维修师可以归还备件')
+    return
+  }
   currentIssue.value = issue
   showReturnDialog.value = true
 }
@@ -347,6 +411,19 @@ const assignOrder = async () => {
 }
 
 const finishRepair = async () => {
+  if (userRole.value !== 'technician') {
+    ElMessage.warning('只有维修师可以完成维修')
+    return
+  }
+  if (order.value?.status !== 'processing') {
+    ElMessage.warning('当前状态不可完成')
+    return
+  }
+  if (order.value?.assigned_to !== user.username) {
+    ElMessage.warning('只能完成自己的工单')
+    return
+  }
+  
   await repairs.updateOrder(route.params.id, {
     status: 'completed'
   })
@@ -359,6 +436,18 @@ const finishRepair = async () => {
   
   ElMessage.success('维修完成')
   loadOrder()
+  loadRecords()
+}
+
+const handleHandover = async () => {
+  await repairs.createRecord(route.params.id, {
+    status: order.value?.status || 'pending',
+    description: `交班备注: ${handoverForm.summary || '待交接'}`,
+    technician: user.username
+  })
+  
+  ElMessage.success('已标记待交接')
+  handoverForm.summary = ''
   loadRecords()
 }
 
@@ -396,6 +485,12 @@ onMounted(async () => {
   text-align: center;
   color: #999;
   padding: 20px;
+}
+
+.disabled-hint {
+  margin-left: 10px;
+  color: #999;
+  font-size: 12px;
 }
 
 .timeline {
@@ -456,6 +551,10 @@ onMounted(async () => {
 
 .timeline-technician {
   font-size: 12px;
+  color: #999;
+}
+
+.no-action {
   color: #999;
 }
 </style>
