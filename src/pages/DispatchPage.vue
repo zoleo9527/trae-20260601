@@ -30,7 +30,7 @@ const newOrder = ref({
   address: '',
   product_type: '',
   product_model: '',
-  scheduled_date: ''
+  scheduled_time: ''
 })
 
 const questionText = ref('')
@@ -99,7 +99,7 @@ const handleCreateOrder = async () => {
   
   const result = await store.createOrder({
     ...newOrder.value,
-    scheduled_date: newOrder.value.scheduled_date ? new Date(newOrder.value.scheduled_date).toISOString() : new Date().toISOString()
+    scheduled_time: newOrder.value.scheduled_time ? new Date(newOrder.value.scheduled_time).toISOString() : new Date().toISOString()
   })
   
   if (result) {
@@ -111,7 +111,7 @@ const handleCreateOrder = async () => {
       address: '',
       product_type: '',
       product_model: '',
-      scheduled_date: ''
+      scheduled_time: ''
     }
     await store.loadOrders()
     orders.value = store.state.orders
@@ -232,9 +232,9 @@ onMounted(() => {
             <ElTableColumn prop="id" label="订单号" width="120" />
             <ElTableColumn prop="customer_name" label="客户" width="100" />
             <ElTableColumn prop="product_type" label="产品" width="120" />
-            <ElTableColumn prop="scheduled_date" label="预约时间" width="150">
+            <ElTableColumn prop="scheduled_time" label="预约时间" width="150">
               <template #default="scope">
-                {{ new Date(scope.row.scheduled_date).toLocaleString('zh-CN') }}
+                {{ new Date(scope.row.scheduled_time).toLocaleString('zh-CN') }}
               </template>
             </ElTableColumn>
             <ElTableColumn prop="address" label="地址" />
@@ -260,9 +260,9 @@ onMounted(() => {
             <ElTableColumn prop="id" label="订单号" width="120" />
             <ElTableColumn prop="customer_name" label="客户" width="100" />
             <ElTableColumn prop="product_type" label="产品" width="120" />
-            <ElTableColumn prop="scheduled_date" label="预约时间" width="150">
+            <ElTableColumn prop="scheduled_time" label="预约时间" width="150">
               <template #default="scope">
-                {{ new Date(scope.row.scheduled_date).toLocaleString('zh-CN') }}
+                {{ new Date(scope.row.scheduled_time).toLocaleString('zh-CN') }}
               </template>
             </ElTableColumn>
             <ElTableColumn prop="status" label="状态" width="100">
@@ -368,7 +368,7 @@ onMounted(() => {
           <ElInput v-model="newOrder.product_model" />
         </ElFormItem>
         <ElFormItem label="预约时间">
-          <ElDatePicker v-model="newOrder.scheduled_date" type="datetime" />
+          <ElDatePicker v-model="newOrder.scheduled_time" type="datetime" />
         </ElFormItem>
       </ElForm>
       <template #footer>

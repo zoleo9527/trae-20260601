@@ -52,7 +52,7 @@ const statusColors: Record<OrderStatus, string> = {
 
 const myOrders = computed(() => {
   const userId = store.state.currentUser?.id
-  return orders.value.filter(o => o.technician_id === userId)
+  return orders.value.filter(o => o.installer_id === userId)
 })
 
 const assignedOrders = computed(() => myOrders.value.filter(o => o.status === 'assigned'))
@@ -76,7 +76,16 @@ const handleViewOrder = (order: Order) => {
 }
 
 const handleAcceptOrder = async (order: Order) => {
-  const success = await store.acceptOrder(order.id)
+  let success = false
+  if (order.status === 'rework_requested') {
+    const reworkRecord = order.after_sales_records[0]
+    if (reworkRecord) {
+      success = await store.acceptRework(reworkRecord.id)
+    }
+  } else {
+    success = await store.acceptOrder(order.id)
+  }
+  
   if (success) {
     ElMessage.success(order.status === 'rework_requested' ? '已接受返工任务' : '接单成功')
     await store.loadOrders()
@@ -93,8 +102,8 @@ const handleStartOrder = async (order: Order) => {
   }
 }
 
-const handleMarkAccessory = async (orderId: string, accessoryId: string, used: boolean, installed: boolean) => {
-  const success = await store.markAccessory(orderId, accessoryId, used, installed)
+const handleMarkAccessory = async (orderId: string | number, accessoryId: string | number, installed: boolean) => {
+  const success = await store.markAccessoryInstalled(String(accessoryId))
   if (success) {
     await store.loadOrders()
     orders.value = store.state.orders
@@ -213,9 +222,9 @@ onMounted(() => {
             <ElTableColumn prop="customer_name" label="客户" width="100" />
             <ElTableColumn prop="product_type" label="产品" width="120" />
             <ElTableColumn prop="address" label="地址" />
-            <ElTableColumn prop="scheduled_date" label="预约时间" width="150">
+            <ElTableColumn prop="scheduled_time" label="预约时间" width="150">
               <template #default="scope">
-                {{ new Date(scope.row.scheduled_date).toLocaleString('zh-CN') }}
+                {{ new Date(scope.row.scheduled_time).toLocaleString('zh-CN') }}
               </template>
             </ElTableColumn>
             <ElTableColumn label="操作" width="160">
@@ -268,9 +277,9 @@ onMounted(() => {
             <ElTableColumn prop="customer_name" label="客户" width="100" />
             <ElTableColumn prop="product_type" label="产品" width="120" />
             <ElTableColumn prop="address" label="地址" />
-            <ElTableColumn prop="scheduled_date" label="预约时间" width="150">
+            <ElTableColumn prop="scheduled_time" label="预约时间" width="150">
               <template #default="scope">
-                {{ new Date(scope.row.scheduled_date).toLocaleString('zh-CN') }}
+                {{ new Date(scope.row.scheduled_time).toLocaleString('zh-CN') }}
               </template>
             </ElTableColumn>
             <ElTableColumn label="操作" width="160">
@@ -383,19 +392,11 @@ onMounted(() => {
       <ElTable v-if="selectedOrder" :data="selectedOrder.accessories" border>
         <ElTableColumn prop="name" label="配件名称" />
         <ElTableColumn prop="quantity" label="数量" width="80" />
-        <ElTableColumn label="已使用" width="100">
-          <template #default="scope">
-            <ElCheckbox 
-              :checked="scope.row.used" 
-              @change="(val: boolean) => handleMarkAccessory(selectedOrder!.id, scope.row.id, val, scope.row.installed)"
-            />
-          </template>
-        </ElTableColumn>
         <ElTableColumn label="已安装" width="100">
           <template #default="scope">
             <ElCheckbox 
               :checked="scope.row.installed" 
-              @change="(val: boolean) => handleMarkAccessory(selectedOrder!.id, scope.row.id, scope.row.used, val)"
+              @change="(val: boolean) => handleMarkAccessory(selectedOrder!.id, scope.row.id, val)"
             />
           </template>
         </ElTableColumn>

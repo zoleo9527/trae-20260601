@@ -962,6 +962,9 @@ def answer_question(question_id: int, answer: QuestionAnswer, answered_by: int, 
 
 @api_router.post("/init-sample-data/")
 def init_sample_data(db: Session = Depends(get_db)):
+    if db.query(User).filter(User.phone == "13800138001").first():
+        return {"message": "样例数据已存在，无需重复初始化"}
+    
     dispatcher = User(name="张调度", phone="13800138001", role=UserRole.DISPATCHER)
     installer1 = User(name="李师傅", phone="13800138002", role=UserRole.INSTALLER)
     installer2 = User(name="王师傅", phone="13800138003", role=UserRole.INSTALLER)

@@ -144,11 +144,11 @@ const handleJudgeResponsibility = async () => {
   }
   
   const success = await store.judgeResponsibility(
-    selectedOrder.value.id,
+    String(selectedOrder.value.id),
     judgmentForm.value.responsible_party,
-    judgmentForm.value.reason,
-    judgmentForm.value.evidence,
-    judgmentForm.value.compensation_amount
+    judgmentForm.value.evidence.join(';'),
+    judgmentForm.value.compensation_amount,
+    judgmentForm.value.reason
   )
   
   if (success) {
@@ -175,9 +175,9 @@ const handleRejectResponsibility = async () => {
   }
   
   const success = await store.rejectResponsibility(
-    selectedResultId.value,
+    String(selectedResultId.value),
     rejectForm.value.reason,
-    rejectForm.value.additional_evidence_required
+    rejectForm.value.additional_evidence_required.join(';')
   )
   
   if (success) {

@@ -119,16 +119,18 @@ export interface Question {
 }
 
 export interface Order {
-  id: string
+  id: string | number
   customer_name: string
   customer_phone: string
   address: string
   product_type: string
   product_model: string
-  scheduled_date: string
+  scheduled_time: string
   status: OrderStatus
-  technician_id?: string
-  dispatcher_id?: string
+  installer_id?: number
+  installer_name?: string
+  dispatcher_id?: number
+  dispatcher_name?: string
   accessories: Accessory[]
   photos: InstallationPhoto[]
   after_sales_records: AfterSalesRecord[]
@@ -156,7 +158,7 @@ export interface OrderCreateRequest {
   address: string
   product_type: string
   product_model: string
-  scheduled_date: string
+  scheduled_time: string
 }
 
 export interface ResponsibilityJudgmentRequest {
