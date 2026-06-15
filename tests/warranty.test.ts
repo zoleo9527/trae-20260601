@@ -49,16 +49,19 @@ describe('Warranty Claim API', () => {
       phone: '13800138777',
     });
 
+    const today = new Date();
+    const twoYearsLater = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+
     tire = await Tire.create({
       brand: '测试品牌',
       model: '测试型号',
       size: '205/55R16',
-      serialNumber: 'TEST20240001',
-      productionDate: new Date('2023-01-01'),
-      installationDate: new Date('2023-02-01'),
+      serialNumber: 'TEST20260001',
+      productionDate: new Date(today.getFullYear() - 1, 0, 1),
+      installationDate: new Date(today.getFullYear() - 1, 1, 1),
       vehiclePlate: '京TEST01',
       storeId: store.id,
-      warrantyEndDate: new Date('2025-02-01'),
+      warrantyEndDate: twoYearsLater,
     });
 
     const loginResponse = await request(app)
@@ -176,8 +179,8 @@ describe('Warranty Claim API', () => {
     });
   });
 
-  describe('technician review', () => {
-    it('should allow technician to review claim', async () => {
+  describe('technician workflow', () => {
+    it('should allow technician to assign and review claim', async () => {
       const techLogin = await request(app)
         .post('/api/auth/login')
         .send({ username: 'test_technician', password: '123456' });
@@ -196,6 +199,14 @@ describe('Warranty Claim API', () => {
 
       const claimId = claimResponse.body.data.id;
 
+      const assignResponse = await request(app)
+        .post(`/api/claims/${claimId}/assign-technician`)
+        .set('Authorization', `Bearer ${techToken}`);
+
+      expect(assignResponse.status).toBe(200);
+      expect(assignResponse.body.success).toBe(true);
+      expect(assignResponse.body.data.status).toBe('TECHNICIAN_REVIEW');
+
       const reviewResponse = await request(app)
         .post(`/api/claims/${claimId}/technician-review`)
         .set('Authorization', `Bearer ${techToken}`)
@@ -208,10 +219,42 @@ describe('Warranty Claim API', () => {
       expect(reviewResponse.body.success).toBe(true);
       expect(reviewResponse.body.data.status).toBe('TECHNICIAN_APPROVED');
     });
+
+    it('should reject technician review without assignment', async () => {
+      const techLogin = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'test_technician', password: '123456' });
+      
+      const techToken = techLogin.body.data.token;
+
+      const claimResponse = await request(app)
+        .post('/api/claims')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          tireId: tire.id,
+          customerName: '未领取审核测试',
+          customerPhone: '13900139000',
+          issueDescription: '未领取直接审核',
+        });
+
+      const claimId = claimResponse.body.data.id;
+
+      const reviewResponse = await request(app)
+        .post(`/api/claims/${claimId}/technician-review`)
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({
+          comment: '直接审核',
+          approve: true,
+        });
+
+      expect(reviewResponse.status).toBe(400);
+      expect(reviewResponse.body.success).toBe(false);
+      expect(reviewResponse.body.error).toBe('请先领取技师审核任务');
+    });
   });
 
-  describe('manager review', () => {
-    it('should allow manager to review claim', async () => {
+  describe('manager workflow', () => {
+    it('should allow manager to assign and review claim', async () => {
       const techLogin = await request(app)
         .post('/api/auth/login')
         .send({ username: 'test_technician', password: '123456' });
@@ -235,12 +278,24 @@ describe('Warranty Claim API', () => {
       const claimId = claimResponse.body.data.id;
 
       await request(app)
+        .post(`/api/claims/${claimId}/assign-technician`)
+        .set('Authorization', `Bearer ${techToken}`);
+
+      await request(app)
         .post(`/api/claims/${claimId}/technician-review`)
         .set('Authorization', `Bearer ${techToken}`)
         .send({
           comment: '技师通过',
           approve: true,
         });
+
+      const assignResponse = await request(app)
+        .post(`/api/claims/${claimId}/assign-manager`)
+        .set('Authorization', `Bearer ${managerToken}`);
+
+      expect(assignResponse.status).toBe(200);
+      expect(assignResponse.body.success).toBe(true);
+      expect(assignResponse.body.data.status).toBe('MANAGER_REVIEW');
 
       const reviewResponse = await request(app)
         .post(`/api/claims/${claimId}/manager-review`)
@@ -253,6 +308,54 @@ describe('Warranty Claim API', () => {
       expect(reviewResponse.status).toBe(200);
       expect(reviewResponse.body.success).toBe(true);
       expect(reviewResponse.body.data.status).toBe('APPROVED');
+    });
+
+    it('should reject manager review without assignment', async () => {
+      const techLogin = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'test_technician', password: '123456' });
+      const techToken = techLogin.body.data.token;
+
+      const managerLogin = await request(app)
+        .post('/api/auth/login')
+        .send({ username: 'test_manager', password: '123456' });
+      const managerToken = managerLogin.body.data.token;
+
+      const claimResponse = await request(app)
+        .post('/api/claims')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          tireId: tire.id,
+          customerName: '未领取店长审核测试',
+          customerPhone: '13900139000',
+          issueDescription: '未领取直接店长审核',
+        });
+
+      const claimId = claimResponse.body.data.id;
+
+      await request(app)
+        .post(`/api/claims/${claimId}/assign-technician`)
+        .set('Authorization', `Bearer ${techToken}`);
+
+      await request(app)
+        .post(`/api/claims/${claimId}/technician-review`)
+        .set('Authorization', `Bearer ${techToken}`)
+        .send({
+          comment: '技师通过',
+          approve: true,
+        });
+
+      const reviewResponse = await request(app)
+        .post(`/api/claims/${claimId}/manager-review`)
+        .set('Authorization', `Bearer ${managerToken}`)
+        .send({
+          comment: '未领取直接审核',
+          approve: true,
+        });
+
+      expect(reviewResponse.status).toBe(400);
+      expect(reviewResponse.body.success).toBe(false);
+      expect(reviewResponse.body.error).toBe('请先领取店长审核任务');
     });
   });
 });
