@@ -39,18 +39,45 @@ def _create_notification(notification_type, target_role, title, content, mainten
     )
 
 
-def _update_equipment_status(equipment, new_status, changed_by="", reason=""):
+def _recalculate_equipment_status(equipment, changed_by="", reason=""):
+    has_active_maintenance = MaintenanceRecord.objects.filter(
+        equipment=equipment,
+        status__in=[MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS],
+    ).exists()
+
+    if has_active_maintenance:
+        target_status = EquipmentStatus.IN_MAINTENANCE
+    else:
+        has_active_suspension = RentalSuspension.objects.filter(
+            equipment=equipment,
+            status__in=[SuspensionStatus.PENDING, SuspensionStatus.APPROVED],
+        ).exists()
+
+        if has_active_suspension:
+            target_status = EquipmentStatus.SUSPENDED
+        else:
+            today = timezone.now().date()
+            has_active_contract = RentalContract.objects.filter(
+                equipment=equipment,
+                end_date__gte=today,
+                is_overdue=False,
+            ).exists()
+            if has_active_contract:
+                target_status = EquipmentStatus.RENTED
+            else:
+                target_status = EquipmentStatus.AVAILABLE
+
     old_status = equipment.status
-    if old_status == new_status:
+    if old_status == target_status:
         return
-    equipment.status = new_status
+    equipment.status = target_status
     equipment.save(update_fields=["status", "updated_at"])
-    _log_status_change("equipment", equipment.id, old_status, new_status, changed_by, reason)
+    _log_status_change("equipment", equipment.id, old_status, target_status, changed_by, reason)
     _create_notification(
         NotificationType.EQUIPMENT_STATUS_CHANGED,
         Role.DISPATCHER,
         f"设备状态变更: {equipment.code}",
-        f"{equipment.code}({equipment.name}) 状态从 {old_status} 变更为 {new_status}。原因: {reason}",
+        f"{equipment.code}({equipment.name}) 状态从 {old_status} 变更为 {target_status}。原因: {reason}",
         equipment=equipment,
     )
 
@@ -94,7 +121,7 @@ def create_maintenance_record(data: dict) -> MaintenanceRecord:
         cost_bearer=data.get("cost_bearer", ""),
     )
 
-    _update_equipment_status(equipment, EquipmentStatus.IN_MAINTENANCE, data.get("reported_by", ""), "创建维保记录")
+    _recalculate_equipment_status(equipment, data.get("reported_by", ""), "创建维保记录")
 
     _create_notification(
         NotificationType.MAINTENANCE_CREATED,
@@ -179,12 +206,7 @@ def transition_maintenance_status(record: MaintenanceRecord, new_status: str, ch
         )
 
     if new_status == MaintenanceStatus.COMPLETED:
-        has_other_active = MaintenanceRecord.objects.filter(
-            equipment=record.equipment,
-            status__in=[MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS],
-        ).exclude(pk=record.pk).exists()
-        if not has_other_active:
-            _update_equipment_status(record.equipment, EquipmentStatus.RENTED, changed_by, "维保完成")
+        _recalculate_equipment_status(record.equipment, changed_by, "维保完成")
 
         _create_notification(
             NotificationType.MAINTENANCE_COMPLETED,
@@ -198,12 +220,7 @@ def transition_maintenance_status(record: MaintenanceRecord, new_status: str, ch
         _notify_suspensions_on_maintenance_change(record)
 
     if new_status == MaintenanceStatus.CANCELLED:
-        has_other_active = MaintenanceRecord.objects.filter(
-            equipment=record.equipment,
-            status__in=[MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS],
-        ).exists()
-        if not has_other_active and record.equipment.status == EquipmentStatus.IN_MAINTENANCE:
-            _update_equipment_status(record.equipment, EquipmentStatus.RENTED, changed_by, "维保取消")
+        _recalculate_equipment_status(record.equipment, changed_by, "维保取消")
 
     return record
 
@@ -249,7 +266,7 @@ def create_suspension(data: dict) -> RentalSuspension:
         maintenance_snapshot=snapshot,
     )
 
-    _update_equipment_status(equipment, EquipmentStatus.SUSPENDED, "", "创建停租处理")
+    _recalculate_equipment_status(equipment, "", "创建停租处理")
 
     _create_notification(
         NotificationType.SUSPENSION_CREATED,
@@ -301,7 +318,7 @@ def review_suspension(suspension: RentalSuspension, action: str, reviewed_by: st
     )
 
     if new_status == SuspensionStatus.REJECTED:
-        _update_equipment_status(suspension.equipment, EquipmentStatus.RENTED, reviewed_by, "停租驳回，恢复出租")
+        _recalculate_equipment_status(suspension.equipment, reviewed_by, "停租驳回，重新计算设备状态")
 
     return suspension
 
@@ -312,13 +329,14 @@ def settle_suspension(suspension: RentalSuspension, changed_by: str = "", reason
         raise ValueError(f"停租单当前状态为 {suspension.status}，只有已批准状态才可结算")
 
     old_status = suspension.status
-    suspension.status = SuspensionStatus.SETTLED
+    new_status = SuspensionStatus.SETTLED
+    suspension.status = new_status
     suspension.settlement_date = timezone.now().date()
     suspension.save()
 
-    _log_status_change("suspension", suspension.id, old_status, SuspensionStatus.SETTLED, changed_by, reason)
+    _log_status_change("suspension", suspension.id, old_status, new_status, changed_by, reason)
 
-    _update_equipment_status(suspension.equipment, EquipmentStatus.AVAILABLE, changed_by, "停租结算完成，设备释放")
+    _recalculate_equipment_status(suspension.equipment, changed_by, "停租结算完成，重新计算设备状态")
 
     _create_notification(
         NotificationType.SUSPENSION_STATUS_CHANGED,
