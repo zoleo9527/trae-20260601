@@ -171,6 +171,44 @@ export class DashboardService {
       [IntakeStatus.READY]: 24 * 60 * 60 * 1000,
     };
 
+    const stuckJudgement: Partial<Record<IntakeStatus, { hint: string; nextAction: string; evidenceType: string }>> = {
+      [IntakeStatus.WAITING_CONSENT]: {
+        hint: '客户未签署隐私授权，维修无法启动',
+        nextAction: '联系客户签署授权（/privacy/order/:id/sign）',
+        evidenceType: '隐私授权记录',
+      },
+      [IntakeStatus.CONSENT_SIGNED]: {
+        hint: '已授权但无维修师接手',
+        nextAction: '分配或由维修师领取工单（/repair/:id/claim）',
+        evidenceType: '工单分配记录',
+      },
+      [IntakeStatus.DIAGNOSING]: {
+        hint: '诊断超过预期时长',
+        nextAction: '查看维修师诊断记录与照片附件，必要时升级处理',
+        evidenceType: '诊断照片 / 维修师诊断结果',
+      },
+      [IntakeStatus.WAITING_PARTS]: {
+        hint: '备件未到货或未确认',
+        nextAction: '查看备件申请单状态，跟进供应商或确认到货（/repair/part-request/:id/arrive）',
+        evidenceType: '备件申请记录 / 备件实物照片',
+      },
+      [IntakeStatus.REPAIRING]: {
+        hint: '维修超过预期时长',
+        nextAction: '查看维修进度备注与维修前后对比照片',
+        evidenceType: '维修过程照片 / 维修备注',
+      },
+      [IntakeStatus.QUALITY_CHECK]: {
+        hint: '质检未完成或被退回',
+        nextAction: '完成结构化质检（/repair/:id/quality-check），查看质检历史中不合格项',
+        evidenceType: '质检记录 / 质检照片',
+      },
+      [IntakeStatus.READY]: {
+        hint: '客户未取机',
+        nextAction: '联系客户取机，完成交付闭环',
+        evidenceType: '取机通知记录',
+      },
+    };
+
     const result = [];
     const now = new Date();
 
@@ -190,12 +228,21 @@ export class DashboardService {
       const stuck = orders.filter((o) => new Date(o.updatedAt) < cutoff);
 
       if (stuck.length > 0) {
+        const judgement = stuckJudgement[status] || {
+          hint: '请查看工单详情与操作日志',
+          nextAction: '打开工单详情跟进',
+          evidenceType: '工单操作日志',
+        };
         result.push({
           status,
           statusLabel: statusLabels[status],
           thresholdMinutes: Math.round(threshold / 60000),
           stuckCount: stuck.length,
           totalInStatus: orders.length,
+          judgementHint: judgement.hint,
+          nextAction: judgement.nextAction,
+          evidenceType: judgement.evidenceType,
+          evidenceEndpoint: `/repair/:orderId/evidence`,
           items: stuck.map((o) => ({
             id: o.id,
             orderNo: o.orderNo,
@@ -207,6 +254,10 @@ export class DashboardService {
               (now.getTime() - new Date(o.updatedAt).getTime()) / 60000,
             ),
             technicianName: o.technician?.name,
+            evidenceLink: {
+              orderEvidence: `/repair/${o.id}/evidence`,
+              logs: `/intake/${o.id}/logs`,
+            },
           })),
         });
       }
@@ -225,6 +276,9 @@ export class DashboardService {
     const entityLabels: Record<string, string> = {
       IntakeOrder: '接机工单',
       PrivacyConsent: '隐私授权',
+      PartRequest: '备件申请',
+      QualityCheck: '质检记录',
+      Attachment: '附件/照片',
     };
 
     const actionLabels: Record<string, string> = {
@@ -232,20 +286,43 @@ export class DashboardService {
       update: '更新',
       sign: '签署',
       revoke: '撤销',
+      delete: '删除',
+      ordered: '标记已下单',
+      arrived: '确认到货',
     };
 
-    return logs.map((log) => ({
-      id: log.id,
-      entityType: log.entityType,
-      entityLabel: entityLabels[log.entityType] || log.entityType,
-      entityId: log.entityId,
-      action: log.action,
-      actionLabel: actionLabels[log.action] || log.action,
-      operatorName: log.operator?.name,
-      operatorRole: log.operator?.role,
-      metadata: log.metadata,
-      createdAt: log.createdAt,
-    }));
+    return logs.map((log) => {
+      const meta = log.metadata || {};
+      let summary = '';
+      if (log.entityType === 'PartRequest') {
+        summary = meta.partName ? `备件: ${meta.partName}` : '备件操作';
+        if (meta.action === 'ordered') summary += ' (已下单)';
+        if (meta.action === 'arrived') summary += ' (已到货)';
+      } else if (log.entityType === 'QualityCheck') {
+        summary = meta.passed ? '质检通过' : '质检退回';
+      } else if (log.entityType === 'Attachment') {
+        summary = meta.fileName ? `附件: ${meta.fileName} (${meta.type || ''})` : '附件上传';
+      } else if (log.entityType === 'IntakeOrder') {
+        summary = meta.orderNo || '工单操作';
+      } else if (log.entityType === 'PrivacyConsent') {
+        summary = log.action === 'sign' ? '客户签署授权' : '授权操作';
+      } else {
+        summary = JSON.stringify(meta).slice(0, 50);
+      }
+      return {
+        id: log.id,
+        entityType: log.entityType,
+        entityLabel: entityLabels[log.entityType] || log.entityType,
+        entityId: log.entityId,
+        action: log.action,
+        actionLabel: actionLabels[log.action] || log.action,
+        operatorName: log.operator?.name,
+        operatorRole: log.operator?.role,
+        metadata: log.metadata,
+        summary,
+        createdAt: log.createdAt,
+      };
+    });
   }
 
   async getTechnicianWorkload() {

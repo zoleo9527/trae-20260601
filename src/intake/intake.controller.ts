@@ -57,14 +57,21 @@ export class IntakeController {
 
   @Get(':id')
   @ApiParam({ name: 'id', description: '工单ID' })
-  @ApiOperation({ summary: '获取工单详情' })
+  @ApiOperation({
+    summary: '获取工单详情（含证据链）',
+    description: '返回工单基本信息 + 证据链（备件申请记录 / 质检记录 / 附件照片）',
+  })
   async findOne(@Param('id') id: string) {
     return this.intakeService.findOne(id);
   }
 
   @Patch(':id')
   @ApiParam({ name: 'id', description: '工单ID' })
-  @ApiOperation({ summary: '更新工单', description: '可更新诊断结果、维修备注、优先级、状态、分配维修师；状态流转受规则校验' })
+  @ApiOperation({
+    summary: '更新工单（通用接口，已收紧权限）',
+    description:
+      '【禁止改状态】状态变更必须走对应流程接口。允许字段：前台→优先级/分配维修师；维修师→诊断结果/维修备注/优先级；店长→全部（状态除外）',
+  })
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateIntakeDto,

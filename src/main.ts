@@ -31,8 +31,9 @@ async function bootstrap() {
     .addTag('认证', '登录、角色权限')
     .addTag('接机登记', '前台接机、工单创建')
     .addTag('隐私授权', '授权签署、回看记录')
-    .addTag('维修工单', '维修师处理工单')
-    .addTag('仪表盘', '优先级视图、进度概览')
+    .addTag('维修工单', '维修师处理工单（领取/诊断/申请备件等流程接口）')
+    .addTag('维修证据（备件/质检/附件）', '结构化证据记录：备件申请与到货、质检10项检查、照片附件上传、证据链汇总')
+    .addTag('仪表盘', '优先级视图、卡住分析、最近变更、工作量')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

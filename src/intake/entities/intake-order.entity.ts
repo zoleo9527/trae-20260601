@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
   JoinColumn,
   OneToOne,
   Index,
@@ -13,6 +14,9 @@ import { IntakeStatus } from '../../common/enums/intake-status.enum';
 import { PriorityLevel } from '../../common/enums/priority-level.enum';
 import { User } from '../../auth/entities/user.entity';
 import { PrivacyConsent } from '../../privacy/entities/privacy-consent.entity';
+import { PartRequest } from '../../repair/entities/part-request.entity';
+import { QualityCheckRecord } from '../../repair/entities/quality-check.entity';
+import { Attachment } from '../../repair/entities/attachment.entity';
 
 @Entity('intake_orders')
 export class IntakeOrder {
@@ -113,6 +117,15 @@ export class IntakeOrder {
     nullable: true,
   })
   privacyConsent: PrivacyConsent;
+
+  @OneToMany(() => PartRequest, (pr) => pr.order, { cascade: true })
+  partRequests: PartRequest[];
+
+  @OneToMany(() => QualityCheckRecord, (qc) => qc.order, { cascade: true })
+  qualityChecks: QualityCheckRecord[];
+
+  @OneToMany(() => Attachment, (a) => a.order, { cascade: true })
+  attachments: Attachment[];
 
   @Column({ type: 'datetime', nullable: true })
   completedAt: Date;

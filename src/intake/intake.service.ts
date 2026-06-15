@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets, Like } from 'typeorm';
 import { IntakeOrder } from './entities/intake-order.entity';
@@ -12,6 +12,7 @@ import { ErrorCode } from '../common/enums/error-code.enum';
 import { IntakeStatus } from '../common/enums/intake-status.enum';
 import { OperationLogService } from '../common/services/operation-log.service';
 import { UserRole } from '../common/enums/user-role.enum';
+import { EvidenceService } from '../repair/evidence.service';
 
 @Injectable()
 export class IntakeService {
@@ -23,6 +24,8 @@ export class IntakeService {
     @InjectRepository(PrivacyConsent)
     private readonly consentRepo: Repository<PrivacyConsent>,
     private readonly logService: OperationLogService,
+    @Inject(forwardRef(() => EvidenceService))
+    private readonly evidenceService: EvidenceService,
   ) {}
 
   private generateOrderNo(): string {
@@ -143,7 +146,7 @@ export class IntakeService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, withEvidence = true) {
     const order = await this.intakeRepo.findOne({
       where: { id },
       relations: ['receptionist', 'technician', 'privacyConsent'],
@@ -151,40 +154,57 @@ export class IntakeService {
     if (!order) {
       throw new BusinessException(ErrorCode.INTAKE_NOT_FOUND);
     }
+    if (withEvidence) {
+      const evidence = await this.evidenceService.getOrderEvidence(id);
+      return { ...order, evidence };
+    }
     return order;
   }
 
+  private getAllowedFieldsByRole(role: UserRole): string[] {
+    switch (role) {
+      case UserRole.MANAGER:
+        return ['diagnosisResult', 'repairNotes', 'priority', 'technicianId'];
+      case UserRole.RECEPTIONIST:
+        return ['priority', 'technicianId'];
+      case UserRole.TECHNICIAN:
+        return ['diagnosisResult', 'repairNotes', 'priority'];
+      default:
+        return [];
+    }
+  }
+
   async update(id: string, dto: UpdateIntakeDto, operator: User) {
-    const order = await this.findOne(id);
+    const order = await this.findOne(id, false);
     const oldValue = { ...order };
 
-    const statusFlow: Record<IntakeStatus, IntakeStatus[]> = {
-      [IntakeStatus.PENDING]: [IntakeStatus.WAITING_CONSENT, IntakeStatus.CANCELLED],
-      [IntakeStatus.WAITING_CONSENT]: [IntakeStatus.CONSENT_SIGNED, IntakeStatus.CANCELLED],
-      [IntakeStatus.CONSENT_SIGNED]: [IntakeStatus.DIAGNOSING, IntakeStatus.CANCELLED],
-      [IntakeStatus.DIAGNOSING]: [IntakeStatus.WAITING_PARTS, IntakeStatus.REPAIRING, IntakeStatus.CANCELLED],
-      [IntakeStatus.WAITING_PARTS]: [IntakeStatus.REPAIRING, IntakeStatus.CANCELLED],
-      [IntakeStatus.REPAIRING]: [IntakeStatus.QUALITY_CHECK, IntakeStatus.CANCELLED],
-      [IntakeStatus.QUALITY_CHECK]: [IntakeStatus.READY, IntakeStatus.REPAIRING, IntakeStatus.CANCELLED],
-      [IntakeStatus.READY]: [IntakeStatus.COMPLETED],
-      [IntakeStatus.COMPLETED]: [],
-      [IntakeStatus.CANCELLED]: [],
-    };
+    const allowedFields = this.getAllowedFieldsByRole(operator.role);
+    const dtoKeys = Object.keys(dto);
 
-    if (dto.status && dto.status !== order.status) {
-      const allowed = statusFlow[order.status];
-      if (!allowed || !allowed.includes(dto.status)) {
-        throw new BusinessException(ErrorCode.INTAKE_STATUS_INVALID, undefined, {
-          current: order.status,
-          target: dto.status,
-          allowed,
-        });
-      }
-      order.status = dto.status;
+    const anyDto = dto as any;
+    if (anyDto.status !== undefined) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        '禁止通过通用更新接口直接修改状态，请通过对应流程接口操作（签署授权/领取工单/提交诊断/申请备件/提交质检等）',
+      );
+    }
 
-      if (dto.status === IntakeStatus.COMPLETED) {
-        order.completedAt = new Date();
-      }
+    const disallowed = dtoKeys.filter((k) => !allowedFields.includes(k));
+    if (disallowed.length > 0) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        `当前角色(${operator.role})不允许修改字段: ${disallowed.join(', ')}。允许字段: ${allowedFields.join(', ') || '无'}`,
+      );
+    }
+
+    if (
+      operator.role === UserRole.TECHNICIAN &&
+      order.technician?.id !== operator.id
+    ) {
+      throw new BusinessException(
+        ErrorCode.AUTH_FORBIDDEN,
+        '维修师只能修改自己负责的工单',
+      );
     }
 
     if (dto.diagnosisResult !== undefined) {
@@ -211,7 +231,7 @@ export class IntakeService {
       operator,
       oldValue,
       saved,
-      { changes: Object.keys(dto) },
+      { changes: dtoKeys, role: operator.role, restricted: true },
     );
 
     return saved;
