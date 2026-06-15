@@ -1,0 +1,24 @@
+{
+  "name": "sign-quality-system",
+  "version": "1.0.0",
+  "description": "标识制作厂-成品质检与打包出库系统",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.1",
+    "lucide-react": "^0.312.0",
+    "next": "^14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^4.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "typescript": "^5.3.0"
+  }
+}
