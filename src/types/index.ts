@@ -119,6 +119,7 @@ export interface SupplementApplication {
   totalAmount: number
   expectedDeliveryDate: string     // 期望送达日期
   actualDeliveryDate?: string
+  expressNo?: string               // 物流单号
   status: SupplementStatus
   createdAt: string
   updatedAt: string

@@ -29,11 +29,12 @@ import {
   InboxOutlined,
   RocketOutlined,
   CalendarOutlined,
+  MinusCircleOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useCurrentUser } from '@/layouts/MainLayout'
-import { SupplementService } from '@/services/supplementService'
+import { SupplementApi } from '@/api/supplement'
 import {
   SUPPLEMENT_STATUS_MAP,
   type SupplementApplication,
@@ -82,7 +83,7 @@ export default function SupplementList() {
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
       }
-      const res = await SupplementService.list(query)
+      const res = await SupplementApi.list(query)
       setData(res.list)
       setTotal(res.total)
     } finally {
@@ -113,7 +114,7 @@ export default function SupplementList() {
       dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
     }
     try {
-      const res = await SupplementService.exportList(query)
+      const res = await SupplementApi.exportList(query)
       message.success(`已生成导出文件：${res.fileName}，共 ${res.recordCount} 条记录`)
     } catch (e) {
       message.error('导出失败')
@@ -122,7 +123,7 @@ export default function SupplementList() {
 
   const handleSubmit = async (id: string) => {
     try {
-      await SupplementService.submit(id, currentUser.id)
+      await SupplementApi.submit(id, currentUser.id)
       message.success('已提交设计师复核')
       setSubmitId(null)
       fetchData()
@@ -133,7 +134,7 @@ export default function SupplementList() {
 
   const handleStartDesign = async (id: string) => {
     try {
-      await SupplementService.startDesign(id, currentUser.id)
+      await SupplementApi.startDesign(id, currentUser.id)
       message.success('已开始量房复核')
       fetchData()
     } catch {
@@ -144,7 +145,7 @@ export default function SupplementList() {
   const handleConfirmDesign = async () => {
     try {
       const values = await confirmForm.validateFields()
-      await SupplementService.confirmDesign(confirmId!, currentUser.id, {
+      await SupplementApi.confirmDesign(confirmId!, currentUser.id, {
         remark: values.remark,
       })
       message.success('设计师确认无误')
@@ -159,7 +160,7 @@ export default function SupplementList() {
   const handleReject = async () => {
     try {
       const values = await rejectForm.validateFields()
-      await SupplementService.reject(rejectId!, currentUser.id, values.reason)
+      await SupplementApi.reject(rejectId!, currentUser.id, values.reason)
       message.success('已驳回')
       setRejectId(null)
       rejectForm.resetFields()
@@ -171,7 +172,7 @@ export default function SupplementList() {
 
   const handleStartWarehouse = async (id: string) => {
     try {
-      await SupplementService.startWarehouse(id, currentUser.id)
+      await SupplementApi.startWarehouse(id, currentUser.id)
       message.success('已开始备货')
       fetchData()
     } catch {
@@ -182,19 +183,20 @@ export default function SupplementList() {
   const handleShip = async () => {
     try {
       const values = await shipForm.validateFields()
-      await SupplementService.ship(shipId!, currentUser.id, values.logisticsRemark)
+      await SupplementApi.ship(shipId!, currentUser.id, values.expressNo, values.logisticsRemark)
       message.success('已安排发货')
       setShipId(null)
       shipForm.resetFields()
       fetchData()
-    } catch {
+    } catch (e: any) {
+      if (e?.errorFields) return
       message.error('操作失败')
     }
   }
 
   const handleComplete = async (id: string) => {
     try {
-      await SupplementService.complete(id, currentUser.id, '客户签收确认')
+      await SupplementApi.complete(id, currentUser.id, '客户签收确认')
       message.success('已完成')
       fetchData()
     } catch {
@@ -205,7 +207,7 @@ export default function SupplementList() {
   const handleReschedule = async () => {
     try {
       const values = await rescheduleForm.validateFields()
-      await SupplementService.reschedule(
+      await SupplementApi.reschedule(
         rescheduleId!,
         currentUser.id,
         values.newDate.format('YYYY-MM-DD'),
@@ -223,8 +225,17 @@ export default function SupplementList() {
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields()
-      const tiles: TileItem[] = values.tiles || []
-      await SupplementService.create({
+      const tiles: TileItem[] = values.tiles?.map((t: any) => ({
+        sku: t.sku,
+        name: t.name,
+        spec: t.spec,
+        color: t.color,
+        unit: t.unit,
+        quantity: t.quantity,
+        unitPrice: t.unitPrice,
+        remark: t.remark,
+      })) || []
+      const created = await SupplementApi.create({
         orderNo: values.orderNo,
         customerName: values.customerName,
         customerPhone: values.customerPhone,
@@ -237,11 +248,13 @@ export default function SupplementList() {
         tiles,
         expectedDeliveryDate: values.expectedDeliveryDate.format('YYYY-MM-DD'),
       })
-      message.success('创建成功')
+      message.success('创建成功，已跳转到详情页')
       setCreateOpen(false)
       createForm.resetFields()
       fetchData()
-    } catch {
+      setTimeout(() => navigate(`/supplements/${created.id}`), 300)
+    } catch (e: any) {
+      if (e?.errorFields) return
       message.error('创建失败')
     }
   }
@@ -250,16 +263,16 @@ export default function SupplementList() {
     const role: Role = currentUser.role
     const s = record.status
     return {
-      submit: role === 'guide' && s === 'pending',
-      startDesign: role === 'designer' && (s === 'designing' || s === 'pending' || s === 'supplemented'),
-      confirmDesign: role === 'designer' && (s === 'designing' || s === 'supplemented'),
-      rejectDesign: role === 'designer' && (s === 'designing' || s === 'supplemented'),
-      rejectWarehouse: role === 'warehouse' && (s === 'confirmed' || s === 'warehousing'),
-      startWarehouse: role === 'warehouse' && s === 'confirmed',
-      ship: role === 'warehouse' && s === 'warehousing',
-      complete: role === 'guide' && s === 'shipped',
-      reschedule: (role === 'guide') && !['completed', 'rejected'].includes(s),
-      supplement: role === 'guide' && s === 'rejected',
+      submit: role === 'guide' && ['pending', 'supplemented'].includes(s),
+      startDesign: role === 'designer' && ['pending', 'designing', 'supplemented'].includes(s),
+      confirmDesign: role === 'designer' && ['designing', 'supplemented', 'rescheduled'].includes(s),
+      rejectDesign: role === 'designer' && ['designing', 'supplemented', 'pending'].includes(s),
+      rejectWarehouse: role === 'warehouse' && ['confirmed', 'warehousing', 'rescheduled'].includes(s),
+      startWarehouse: role === 'warehouse' && ['confirmed', 'rescheduled', 'supplemented'].includes(s),
+      ship: role === 'warehouse' && ['warehousing'].includes(s),
+      complete: role === 'guide' && ['shipped'].includes(s),
+      reschedule: role === 'guide' && !['completed', 'rejected'].includes(s),
+      supplement: role === 'guide' && ['rejected'].includes(s),
     }
   }
 
@@ -577,11 +590,48 @@ export default function SupplementList() {
             <AntDatePicker style={{ width: '100%' }} placeholder="选择日期" />
           </Form.Item>
           <Form.Item name="reason" label="补砖原因" rules={[{ required: true }]}>
-            <TextArea rows={3} placeholder="说明补砖原因" />
+            <TextArea rows={2} placeholder="说明补砖原因" />
           </Form.Item>
-          <div style={{ color: '#999', fontSize: 12 }}>
-            注：瓷砖明细可在创建后在详情页录入，或直接联系设计师。
-          </div>
+          <Form.Item label="瓷砖明细（可创建后在详情页继续补充）">
+            <Form.List name="tiles">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline" wrap>
+                      <Form.Item {...restField} name={[name, 'sku']} rules={[{ required: true, message: 'SKU' }]}>
+                        <Input placeholder="SKU" style={{ width: 110 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '名称' }]}>
+                        <Input placeholder="名称" style={{ width: 140 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'spec']}>
+                        <Input placeholder="规格" style={{ width: 100 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'color']}>
+                        <Input placeholder="颜色" style={{ width: 80 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'unit']}>
+                        <Input placeholder="单位" style={{ width: 65 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'quantity']} rules={[{ required: true, message: '数量' }]}>
+                        <InputNumber placeholder="数量" min={0} style={{ width: 85 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'unitPrice']} rules={[{ required: true, message: '单价' }]}>
+                        <InputNumber placeholder="单价" min={0} style={{ width: 85 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'remark']}>
+                        <Input placeholder="备注" style={{ width: 90 }} />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                    添加瓷砖明细
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </Form.Item>
         </Form>
       </Modal>
 
@@ -643,8 +693,11 @@ export default function SupplementList() {
         destroyOnClose
       >
         <Form form={shipForm} layout="vertical">
-          <Form.Item name="logisticsRemark" label="物流信息">
-            <TextArea rows={3} placeholder="填写物流单号、司机、预计到达时间等" />
+          <Form.Item name="expressNo" label="物流单号" rules={[{ required: true }]}>
+            <Input placeholder="请输入物流单号" />
+          </Form.Item>
+          <Form.Item name="logisticsRemark" label="物流备注">
+            <TextArea rows={2} placeholder="填写司机、预计到达时间等" />
           </Form.Item>
         </Form>
       </Modal>

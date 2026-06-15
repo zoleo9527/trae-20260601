@@ -40,7 +40,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useCurrentUser } from '@/layouts/MainLayout'
-import { SupplementService } from '@/services/supplementService'
+import { SupplementApi } from '@/api/supplement'
 import {
   SUPPLEMENT_STATUS_MAP,
   type SupplementApplication,
@@ -68,8 +68,8 @@ export default function SupplementDetail() {
     setLoading(true)
     try {
       const [d, h] = await Promise.all([
-        SupplementService.detail(id),
-        SupplementService.history(id),
+        SupplementApi.detail(id),
+        SupplementApi.history(id),
       ])
       setData(d)
       setHistory(h || [])
@@ -87,16 +87,16 @@ export default function SupplementDetail() {
     const role: Role = currentUser.role
     const s = data.status
     return {
-      submit: role === 'guide' && s === 'pending',
-      startDesign: role === 'designer' && (s === 'designing' || s === 'pending' || s === 'supplemented'),
-      confirmDesign: role === 'designer' && (s === 'designing' || s === 'supplemented'),
-      rejectDesign: role === 'designer' && (s === 'designing' || s === 'supplemented'),
-      rejectWarehouse: role === 'warehouse' && (s === 'confirmed' || s === 'warehousing'),
-      startWarehouse: role === 'warehouse' && s === 'confirmed',
-      ship: role === 'warehouse' && s === 'warehousing',
-      complete: role === 'guide' && s === 'shipped',
+      submit: role === 'guide' && ['pending', 'supplemented'].includes(s),
+      startDesign: role === 'designer' && ['pending', 'designing', 'supplemented'].includes(s),
+      confirmDesign: role === 'designer' && ['designing', 'supplemented', 'rescheduled'].includes(s),
+      rejectDesign: role === 'designer' && ['designing', 'supplemented', 'pending'].includes(s),
+      rejectWarehouse: role === 'warehouse' && ['confirmed', 'warehousing', 'rescheduled'].includes(s),
+      startWarehouse: role === 'warehouse' && ['confirmed', 'rescheduled', 'supplemented'].includes(s),
+      ship: role === 'warehouse' && ['warehousing'].includes(s),
+      complete: role === 'guide' && ['shipped'].includes(s),
       reschedule: role === 'guide' && !['completed', 'rejected'].includes(s),
-      supplement: role === 'guide' && s === 'rejected',
+      supplement: role === 'guide' && ['rejected'].includes(s),
     }
   }
 
@@ -110,48 +110,48 @@ export default function SupplementDetail() {
     try {
       switch (actionType) {
         case 'submit': {
-          await SupplementService.submit(data.id, currentUser.id)
+          await SupplementApi.submit(data.id, currentUser.id)
           message.success('已提交设计师复核')
           break
         }
         case 'startDesign': {
           const values = await form.validateFields()
-          await SupplementService.startDesign(data.id, currentUser.id, values.remark)
+          await SupplementApi.startDesign(data.id, currentUser.id, values.remark)
           message.success('已开始量房复核')
           break
         }
         case 'confirmDesign': {
           const values = await form.validateFields()
-          await SupplementService.confirmDesign(data.id, currentUser.id, { remark: values.remark })
+          await SupplementApi.confirmDesign(data.id, currentUser.id, { remark: values.remark })
           message.success('设计师确认无误')
           break
         }
         case 'reject': {
           const values = await form.validateFields()
-          await SupplementService.reject(data.id, currentUser.id, values.reason)
+          await SupplementApi.reject(data.id, currentUser.id, values.reason)
           message.success('已驳回')
           break
         }
         case 'startWarehouse': {
-          await SupplementService.startWarehouse(data.id, currentUser.id)
+          await SupplementApi.startWarehouse(data.id, currentUser.id)
           message.success('已开始备货')
           break
         }
         case 'ship': {
           const values = await form.validateFields()
-          await SupplementService.ship(data.id, currentUser.id, values.logisticsRemark)
+          await SupplementApi.ship(data.id, currentUser.id, values.expressNo, values.logisticsRemark)
           message.success('已安排发货')
           break
         }
         case 'complete': {
           const values = await form.validateFields()
-          await SupplementService.complete(data.id, currentUser.id, values.remark)
+          await SupplementApi.complete(data.id, currentUser.id, values.remark)
           message.success('已完成')
           break
         }
         case 'reschedule': {
           const values = await form.validateFields()
-          await SupplementService.reschedule(
+          await SupplementApi.reschedule(
             data.id,
             currentUser.id,
             values.newDate.format('YYYY-MM-DD'),
@@ -177,7 +177,7 @@ export default function SupplementDetail() {
             const [oldValue, newValue] = (rest || '').split('→')
             return { field: field?.trim() || '', oldValue: oldValue?.trim() || '', newValue: newValue?.trim() || '' }
           })
-          await SupplementService.supplement(data.id, currentUser.id, {
+          await SupplementApi.supplement(data.id, currentUser.id, {
             remark: values.remark,
             tiles,
             expectedDeliveryDate: values.expectedDeliveryDate?.format('YYYY-MM-DD'),
@@ -189,15 +189,16 @@ export default function SupplementDetail() {
       }
       setActionType(null)
       fetchDetail()
-    } catch (e) {
-      // error already handled
+    } catch (e: any) {
+      if (e?.errorFields) return
+      message.error(e?.message || '操作失败')
     }
   }
 
   const handleExport = async () => {
     if (!data) return
     try {
-      const res = await SupplementService.exportDetail(data.id)
+      const res = await SupplementApi.exportDetail(data.id)
       message.success(`已生成：${res.fileName}`)
     } catch {
       message.error('导出失败')
@@ -259,7 +260,13 @@ export default function SupplementDetail() {
         <Space>
           <Button icon={<ExportOutlined />} onClick={handleExport}>导出详情</Button>
           {can.submit && (
-            <Popconfirm title="确认提交设计师复核？" onConfirm={() => doAction()}>
+            <Popconfirm
+              title="确认提交设计师复核？"
+              onConfirm={() => {
+                setActionType('submit')
+                setTimeout(() => doAction(), 0)
+              }}
+            >
               <Button type="primary" icon={<SendOutlined />}>提交</Button>
             </Popconfirm>
           )}
@@ -273,7 +280,15 @@ export default function SupplementDetail() {
             <Button danger icon={<CloseCircleOutlined />} onClick={() => openAction('reject')}>驳回</Button>
           )}
           {can.startWarehouse && (
-            <Button type="primary" icon={<InboxOutlined />} onClick={() => openAction('startWarehouse')}>开始备货</Button>
+            <Popconfirm
+              title="确认开始备货？"
+              onConfirm={() => {
+                setActionType('startWarehouse')
+                setTimeout(() => doAction(), 0)
+              }}
+            >
+              <Button type="primary" icon={<InboxOutlined />}>开始备货</Button>
+            </Popconfirm>
           )}
           {can.ship && (
             <Button type="primary" icon={<RocketOutlined />} onClick={() => openAction('ship')}>安排发货</Button>
@@ -472,9 +487,14 @@ export default function SupplementDetail() {
             </Form.Item>
           )}
           {actionType === 'ship' && (
-            <Form.Item name="logisticsRemark" label="物流信息">
-              <TextArea rows={3} placeholder="填写物流单号、司机、预计到达时间等" />
-            </Form.Item>
+            <>
+              <Form.Item name="expressNo" label="物流单号" rules={[{ required: true }]}>
+                <Input placeholder="请输入物流单号" />
+              </Form.Item>
+              <Form.Item name="logisticsRemark" label="物流备注">
+                <TextArea rows={2} placeholder="填写司机、预计到达时间等" />
+              </Form.Item>
+            </>
           )}
           {actionType === 'reschedule' && (
             <>

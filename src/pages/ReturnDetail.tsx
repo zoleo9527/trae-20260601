@@ -40,7 +40,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useCurrentUser } from '@/layouts/MainLayout'
-import { ReturnService } from '@/services/returnService'
+import { ReturnApi } from '@/api/return'
 import {
   RETURN_STATUS_MAP,
   type ReturnReview,
@@ -68,8 +68,8 @@ export default function ReturnDetail() {
     setLoading(true)
     try {
       const [d, h] = await Promise.all([
-        ReturnService.detail(id),
-        ReturnService.history(id),
+        ReturnApi.detail(id),
+        ReturnApi.history(id),
       ])
       setData(d)
       setHistory(h || [])
@@ -87,12 +87,12 @@ export default function ReturnDetail() {
     const role: Role = currentUser.role
     const s = data.status
     return {
-      inspect: role === 'warehouse' && (s === 'pending' || s === 'supplemented' || s === 'rescheduled'),
-      pass: role === 'warehouse' && (s === 'inspecting' || s === 'supplemented' || s === 'rescheduled'),
-      reject: role === 'warehouse' && (s === 'inspecting' || s === 'pending' || s === 'supplemented'),
-      refund: role === 'guide' && s === 'confirmed',
+      inspect: role === 'warehouse' && ['pending', 'supplemented', 'rescheduled'].includes(s),
+      pass: role === 'warehouse' && ['inspecting', 'supplemented', 'rescheduled'].includes(s),
+      reject: role === 'warehouse' && ['inspecting', 'pending', 'supplemented', 'rescheduled'].includes(s),
+      refund: role === 'guide' && ['confirmed'].includes(s),
       reschedule: role === 'guide' && !['refunded', 'rejected'].includes(s),
-      supplement: role === 'guide' && s === 'rejected',
+      supplement: role === 'guide' && ['rejected'].includes(s),
     }
   }
 
@@ -107,7 +107,7 @@ export default function ReturnDetail() {
       switch (actionType) {
         case 'inspect': {
           const values = await form.validateFields()
-          await ReturnService.inspect(data.id, currentUser.id, {
+          await ReturnApi.inspect(data.id, currentUser.id, {
             remark: values.remark,
             warehouseId: currentUser.role === 'warehouse' ? currentUser.id : undefined,
           })
@@ -116,7 +116,7 @@ export default function ReturnDetail() {
         }
         case 'pass': {
           const values = await form.validateFields()
-          await ReturnService.pass(data.id, currentUser.id, {
+          await ReturnApi.pass(data.id, currentUser.id, {
             remark: values.remark,
             inspectionResult: values.inspectionResult,
             changes: [{ field: '验货结果', oldValue: '', newValue: values.inspectionResult || '通过' }],
@@ -126,13 +126,13 @@ export default function ReturnDetail() {
         }
         case 'reject': {
           const values = await form.validateFields()
-          await ReturnService.reject(data.id, currentUser.id, values.reason)
+          await ReturnApi.reject(data.id, currentUser.id, values.reason)
           message.success('已驳回')
           break
         }
         case 'reschedule': {
           const values = await form.validateFields()
-          await ReturnService.reschedule(
+          await ReturnApi.reschedule(
             data.id,
             currentUser.id,
             values.newDate.format('YYYY-MM-DD'),
@@ -144,7 +144,7 @@ export default function ReturnDetail() {
         case 'refund': {
           const values = await form.validateFields()
           const changes = [{ field: '退款金额', oldValue: '', newValue: `¥${values.refundAmount || 0}` }]
-          await ReturnService.refund(data.id, currentUser.id, {
+          await ReturnApi.refund(data.id, currentUser.id, {
             remark: values.remark,
             changes,
           })
@@ -172,7 +172,7 @@ export default function ReturnDetail() {
             const [name, url] = line.split('|')
             return { name: name?.trim() || '', url: url?.trim() || '#' }
           })
-          await ReturnService.supplement(data.id, currentUser.id, {
+          await ReturnApi.supplement(data.id, currentUser.id, {
             remark: values.remark,
             tiles,
             inspectionResult: values.inspectionResult,
@@ -185,15 +185,16 @@ export default function ReturnDetail() {
       }
       setActionType(null)
       fetchDetail()
-    } catch (e) {
-      // error handled
+    } catch (e: any) {
+      if (e?.errorFields) return
+      message.error(e?.message || '操作失败')
     }
   }
 
   const handleExport = async () => {
     if (!data) return
     try {
-      const res = await ReturnService.exportDetail(data.id)
+      const res = await ReturnApi.exportDetail(data.id)
       message.success(`已生成：${res.fileName}`)
     } catch {
       message.error('导出失败')

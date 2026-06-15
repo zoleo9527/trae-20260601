@@ -4,6 +4,7 @@ import {
   Table,
   Button,
   Input,
+  InputNumber,
   Select,
   DatePicker,
   Space,
@@ -27,11 +28,12 @@ import {
   DollarOutlined,
   AppstoreOutlined,
   InboxOutlined,
+  MinusCircleOutlined,
 } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useCurrentUser } from '@/layouts/MainLayout'
-import { ReturnService } from '@/services/returnService'
+import { ReturnApi } from '@/api/return'
 import {
   RETURN_STATUS_MAP,
   type ReturnReview,
@@ -81,7 +83,7 @@ export default function ReturnList() {
         dateFrom: dateRange?.[0]?.format('YYYY-MM-DD'),
         dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
       }
-      const res = await ReturnService.list(query)
+      const res = await ReturnApi.list(query)
       setData(res.list)
       setTotal(res.total)
     } finally {
@@ -109,7 +111,7 @@ export default function ReturnList() {
       dateTo: dateRange?.[1]?.format('YYYY-MM-DD'),
     }
     try {
-      const res = await ReturnService.exportList(query)
+      const res = await ReturnApi.exportList(query)
       message.success(`已生成导出文件：${res.fileName}，共 ${res.recordCount} 条记录`)
     } catch {
       message.error('导出失败')
@@ -119,7 +121,7 @@ export default function ReturnList() {
   const handleInspect = async () => {
     try {
       const values = await inspectForm.validateFields()
-      await ReturnService.inspect(inspectId!, currentUser.id, {
+      await ReturnApi.inspect(inspectId!, currentUser.id, {
         remark: values.remark,
         warehouseId: currentUser.role === 'warehouse' ? currentUser.id : undefined,
       })
@@ -135,7 +137,7 @@ export default function ReturnList() {
   const handlePass = async () => {
     try {
       const values = await passForm.validateFields()
-      await ReturnService.pass(passId!, currentUser.id, {
+      await ReturnApi.pass(passId!, currentUser.id, {
         remark: values.remark,
         inspectionResult: values.inspectionResult,
         changes: [{ field: '验货结果', oldValue: '', newValue: values.inspectionResult || '通过' }],
@@ -152,7 +154,7 @@ export default function ReturnList() {
   const handleReject = async () => {
     try {
       const values = await rejectForm.validateFields()
-      await ReturnService.reject(rejectId!, currentUser.id, values.reason)
+      await ReturnApi.reject(rejectId!, currentUser.id, values.reason)
       message.success('已驳回')
       setRejectId(null)
       rejectForm.resetFields()
@@ -165,7 +167,7 @@ export default function ReturnList() {
   const handleReschedule = async () => {
     try {
       const values = await rescheduleForm.validateFields()
-      await ReturnService.reschedule(
+      await ReturnApi.reschedule(
         rescheduleId!,
         currentUser.id,
         values.newDate.format('YYYY-MM-DD'),
@@ -184,7 +186,7 @@ export default function ReturnList() {
     try {
       const values = await refundForm.validateFields()
       const changes = [{ field: '退款金额', oldValue: '', newValue: `¥${values.refundAmount?.toLocaleString() || 0}` }]
-      await ReturnService.refund(refundId!, currentUser.id, {
+      await ReturnApi.refund(refundId!, currentUser.id, {
         remark: values.remark,
         changes,
       })
@@ -200,8 +202,17 @@ export default function ReturnList() {
   const handleCreate = async () => {
     try {
       const values = await createForm.validateFields()
-      const tiles: TileItem[] = values.tiles || []
-      await ReturnService.create({
+      const tiles: TileItem[] = values.tiles?.map((t: any) => ({
+        sku: t.sku,
+        name: t.name,
+        spec: t.spec,
+        color: t.color,
+        unit: t.unit,
+        quantity: t.quantity,
+        unitPrice: t.unitPrice,
+        remark: t.remark,
+      })) || []
+      const created = await ReturnApi.create({
         orderNo: values.orderNo,
         supplementId: values.supplementId,
         customerName: values.customerName,
@@ -212,11 +223,13 @@ export default function ReturnList() {
         tiles,
         pickupDate: values.pickupDate.format('YYYY-MM-DD'),
       })
-      message.success('创建成功')
+      message.success('创建成功，已跳转到详情页')
       setCreateOpen(false)
       createForm.resetFields()
       fetchData()
-    } catch {
+      setTimeout(() => navigate(`/returns/${created.id}`), 300)
+    } catch (e: any) {
+      if (e?.errorFields) return
       message.error('创建失败')
     }
   }
@@ -225,12 +238,12 @@ export default function ReturnList() {
     const role: Role = currentUser.role
     const s = record.status
     return {
-      inspect: role === 'warehouse' && (s === 'pending' || s === 'supplemented' || s === 'rescheduled'),
-      pass: role === 'warehouse' && (s === 'inspecting' || s === 'supplemented' || s === 'rescheduled'),
-      reject: role === 'warehouse' && (s === 'inspecting' || s === 'pending' || s === 'supplemented'),
-      refund: role === 'guide' && s === 'confirmed',
+      inspect: role === 'warehouse' && ['pending', 'supplemented', 'rescheduled'].includes(s),
+      pass: role === 'warehouse' && ['inspecting', 'supplemented', 'rescheduled'].includes(s),
+      reject: role === 'warehouse' && ['inspecting', 'pending', 'supplemented', 'rescheduled'].includes(s),
+      refund: role === 'guide' && ['confirmed'].includes(s),
       reschedule: role === 'guide' && !['refunded', 'rejected'].includes(s),
-      supplement: role === 'guide' && s === 'rejected',
+      supplement: role === 'guide' && ['rejected'].includes(s),
     }
   }
 
@@ -511,11 +524,48 @@ export default function ReturnList() {
             <AntDatePicker style={{ width: '100%' }} placeholder="选择日期" />
           </Form.Item>
           <Form.Item name="reason" label="退货原因" rules={[{ required: true }]}>
-            <TextArea rows={3} placeholder="说明退货原因" />
+            <TextArea rows={2} placeholder="说明退货原因" />
           </Form.Item>
-          <div style={{ color: '#999', fontSize: 12 }}>
-            注：瓷砖明细可在创建后在详情页录入，或由仓库验货时补录。
-          </div>
+          <Form.Item label="退货明细（可创建后在详情页继续补充）">
+            <Form.List name="tiles">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline" wrap>
+                      <Form.Item {...restField} name={[name, 'sku']} rules={[{ required: true, message: 'SKU' }]}>
+                        <Input placeholder="SKU" style={{ width: 110 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'name']} rules={[{ required: true, message: '名称' }]}>
+                        <Input placeholder="名称" style={{ width: 140 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'spec']}>
+                        <Input placeholder="规格" style={{ width: 100 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'color']}>
+                        <Input placeholder="颜色" style={{ width: 80 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'unit']}>
+                        <Input placeholder="单位" style={{ width: 65 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'quantity']} rules={[{ required: true, message: '数量' }]}>
+                        <InputNumber placeholder="数量" min={0} style={{ width: 85 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'unitPrice']} rules={[{ required: true, message: '单价' }]}>
+                        <InputNumber placeholder="单价" min={0} style={{ width: 85 }} />
+                      </Form.Item>
+                      <Form.Item {...restField} name={[name, 'remark']}>
+                        <Input placeholder="备注" style={{ width: 90 }} />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                    添加退货明细
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </Form.Item>
         </Form>
       </Modal>
 

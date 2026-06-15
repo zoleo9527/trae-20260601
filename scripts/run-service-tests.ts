@@ -177,25 +177,32 @@ async function main() {
     assert(history!.length >= 7, `历史记录应≥7，实际${history!.length}`)
   })
 
-  await test('问题单 - 仓库备货→发货→签收（接问题单改期后继续走完）', async () => {
+  await test('问题单 - 仓库备货→发货→签收（接问题单改期后继续走完，完整闭合）', async () => {
     // 使用刚才创建的模拟单：找到状态为 rescheduled 的那一条
     const list = await SupplementService.list({ page: 1, pageSize: 20, status: 'rescheduled' })
     const target = list.list.find(x => x.orderNo === 'XS-TEST-001')
     assert(target, '未找到待继续的模拟单')
 
-    // 仓库从 rescheduled 状态也能开始备货
+    // 仓库从 rescheduled 状态也能开始备货（修复后的权限）
     const warehoused = await SupplementService.startWarehouse(target!.id, 'U003')
-    // 直接通过 reject 模拟的状态不符合，那走 confirm → warehousing
-    // 重新提交到 confirmed：
-    const confirmed2 = await SupplementService.confirmDesign(target!.id, 'U002', { remark: '继续流转' })
-    // 上面可能报错，忽略，直接测试核心函数：
-    const warehouseId = (await SupplementService.list({ page: 1, pageSize: 100, keyword: 'XS-TEST-001' })).list[0].id
-    await SupplementService.startWarehouse(warehouseId, 'U003')
-    const shipped = await SupplementService.ship(warehouseId, 'U003', '物流 SF-TEST-001')
-    assert(shipped.status === 'shipped' || shipped.status === 'warehousing', '发货后状态应变更')
-    const completed = await SupplementService.complete(warehouseId, 'U001', '客户已签收')
-    assert(completed.status === 'completed', '签收后应为 completed')
+    assertEq(warehoused.status, 'warehousing', 'rescheduled → warehousing 流转失败')
+
+    const shipped = await SupplementService.ship(target!.id, 'U003', '物流 SF-TEST-001')
+    assertEq(shipped.status, 'shipped', '发货后应为 shipped')
+    assertEq(shipped.expressNo, '物流 SF-TEST-001', '物流单号未绑定')
+
+    const completed = await SupplementService.complete(target!.id, 'U001', '客户已签收，确认无误')
+    assertEq(completed.status, 'completed', '签收后应为 completed')
     assert(completed.actualDeliveryDate && completed.actualDeliveryDate.length > 0, '应有实际送达日期')
+
+    // 最终历史条数校验
+    const history = await SupplementService.history(target!.id)
+    assert(history!.length >= 10, `历史记录应≥10，实际${history!.length}`)
+    const actions = history!.map(x => x.action)
+    assert(actions.includes('reschedule'), '缺少 reschedule 记录')
+    assert(actions.includes('start_warehouse'), '缺少 start_warehouse 记录')
+    assert(actions.includes('ship'), '缺少 ship 记录')
+    assert(actions.includes('complete'), '缺少 complete 记录')
   })
 
   // ============================================================

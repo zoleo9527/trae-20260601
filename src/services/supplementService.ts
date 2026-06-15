@@ -271,15 +271,17 @@ export const SupplementService = {
   async ship(
     id: string,
     operatorId: string,
+    expressNo?: string,
     logisticsRemark?: string
   ): Promise<SupplementApplication> {
     const s = _find(id)!
     const from = s.status
     s.status = 'shipped'
+    if (expressNo) s.expressNo = expressNo
     _pushHistory(s, 'ship', '安排发货', operatorId, {
       fromStatus: from,
       toStatus: 'shipped',
-      remark: logisticsRemark,
+      remark: logisticsRemark || expressNo,
     })
     _touch(s)
     return JSON.parse(JSON.stringify(s))
