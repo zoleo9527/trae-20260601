@@ -1,14 +1,19 @@
-import { users } from '~/data/mockData';
+import { query } from '~/utils/db.server';
 
 export async function login(username, password) {
-  const user = users.find(u => u.username === username && u.password === password);
-  return user || null;
+  const result = await query(
+    'SELECT * FROM users WHERE username = $1 AND password = $2',
+    [username, password]
+  );
+  return result.rows[0] || null;
 }
 
 export async function getUserById(id) {
-  return users.find(u => u.id === id) || null;
+  const result = await query('SELECT * FROM users WHERE id = $1', [id]);
+  return result.rows[0] || null;
 }
 
 export async function getUserByUsername(username) {
-  return users.find(u => u.username === username) || null;
+  const result = await query('SELECT * FROM users WHERE username = $1', [username]);
+  return result.rows[0] || null;
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from '@remix-run/react';
+import { Link, useNavigate, useLoaderData, redirect } from '@remix-run/react';
 import { getDeliveriesInTransit } from '~/models/delivery.server';
 import { createDamageRecord } from '~/models/damage.server';
 import { createOperationLog } from '~/models/log.server';
@@ -18,7 +18,9 @@ export async function action({ request }) {
   const damageDescription = formData.get('damageDescription');
   const damageQuantity = parseInt(formData.get('damageQuantity'));
   
-  await createDamageRecord({
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  
+  const newDamage = await createDamageRecord({
     deliveryRecordId: deliveryId,
     salesOrderId,
     reporterId: '2',
@@ -29,7 +31,7 @@ export async function action({ request }) {
     history: [{
       action: 'reported',
       user: '司机张师傅',
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      time: now,
       remark: damageDescription,
     }],
   });
@@ -38,14 +40,15 @@ export async function action({ request }) {
     userId: '2',
     action: 'report_damage',
     targetType: 'damage',
-    targetId: `DM${Date.now()}`,
+    targetId: newDamage.id,
     remark: `上报破损: ${damageType}`,
   });
   
-  return { success: true, message: '破损登记成功' };
+  return redirect('/damages');
 }
 
-export default function DamageReportPage({ deliveries }) {
+export default function DamageReportPage() {
+  const { deliveries } = useLoaderData();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     deliveryId: '',
@@ -64,25 +67,17 @@ export default function DamageReportPage({ deliveries }) {
     }));
   };
   
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.deliveryId || !formData.damageDescription || !formData.damageQuantity) {
       alert('请填写完整信息');
       return;
     }
     
-    const response = await fetch('/damages/report', {
-      method: 'POST',
-      body: new FormData(Object.entries({
-        ...formData,
-        salesOrderId: selectedDelivery?.order.id,
-      })),
-    });
-    const result = await response.json();
-    if (result.success) {
-      alert(result.message);
-      navigate('/damages');
-    }
+    const form = e.target;
+    form.action = '/damages/report';
+    form.method = 'POST';
+    form.submit();
   };
 
   return (
@@ -100,6 +95,8 @@ export default function DamageReportPage({ deliveries }) {
           </div>
           
           <form onSubmit={handleSubmit} style={styles.form}>
+            <input type="hidden" name="salesOrderId" value={selectedDelivery?.order?.id} />
+            
             <div style={styles.formGroup}>
               <label style={styles.label}>选择配送单 *</label>
               <select
@@ -107,6 +104,7 @@ export default function DamageReportPage({ deliveries }) {
                 value={formData.deliveryId}
                 onChange={handleInputChange}
                 style={styles.select}
+                required
               >
                 <option value="">请选择配送单</option>
                 {deliveries.map((delivery) => (
@@ -131,7 +129,7 @@ export default function DamageReportPage({ deliveries }) {
                   </div>
                   <div style={styles.previewItem}>
                     <span style={styles.previewLabel}>地址</span>
-                    <span>{selectedDelivery.deliveryAddress}</span>
+                    <span>{selectedDelivery.delivery_address}</span>
                   </div>
                 </div>
               </div>
@@ -144,6 +142,7 @@ export default function DamageReportPage({ deliveries }) {
                 value={formData.damageType}
                 onChange={handleInputChange}
                 style={styles.select}
+                required
               >
                 {damageTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -162,6 +161,7 @@ export default function DamageReportPage({ deliveries }) {
                 onChange={handleInputChange}
                 min="1"
                 style={styles.input}
+                required
               />
             </div>
             
@@ -174,6 +174,7 @@ export default function DamageReportPage({ deliveries }) {
                 placeholder="请详细描述破损情况，包括位置、程度等..."
                 rows={4}
                 style={styles.textarea}
+                required
               />
             </div>
             

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from '@remix-run/react';
-import { getDeliveriesInTransit } from '~/models/delivery.server';
+import { Link, useNavigate, useLoaderData, redirect, json } from '@remix-run/react';
+import { getDeliveriesInTransit, updateDeliveryStatus } from '~/models/delivery.server';
 import { createDamageRecord } from '~/models/damage.server';
 import { createOperationLog } from '~/models/log.server';
 import { deliveryStatusMap } from '~/data/mockData';
@@ -20,6 +20,14 @@ export async function action({ request }) {
     const signerPhone = formData.get('signerPhone');
     const hasDamage = formData.get('hasDamage') === 'true';
     
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    
+    await updateDeliveryStatus(deliveryId, hasDamage ? 'damaged' : 'signed', {
+      signerName,
+      signerPhone,
+      signedAt: now,
+    });
+    
     await createOperationLog({
       userId: '2',
       action: 'sign',
@@ -29,10 +37,10 @@ export async function action({ request }) {
     });
     
     if (!hasDamage) {
-      return { success: true, message: '签收成功', deliveryId, showDamageForm: false };
+      return redirect('/dashboard/driver');
     }
     
-    return { success: true, message: '签收成功', deliveryId, showDamageForm: true };
+    return json({ success: true, deliveryId, showDamageForm: true });
   }
   
   if (actionType === 'report_damage') {
@@ -41,8 +49,18 @@ export async function action({ request }) {
     const damageType = formData.get('damageType');
     const damageDescription = formData.get('damageDescription');
     const damageQuantity = parseInt(formData.get('damageQuantity'));
+    const signerName = formData.get('signerName');
+    const signerPhone = formData.get('signerPhone');
     
-    await createDamageRecord({
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    
+    await updateDeliveryStatus(deliveryId, 'damaged', {
+      signerName,
+      signerPhone,
+      signedAt: now,
+    });
+    
+    const newDamage = await createDamageRecord({
       deliveryRecordId: deliveryId,
       salesOrderId,
       reporterId: '2',
@@ -53,7 +71,7 @@ export async function action({ request }) {
       history: [{
         action: 'reported',
         user: '司机张师傅',
-        time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+        time: now,
         remark: damageDescription,
       }],
     });
@@ -62,17 +80,18 @@ export async function action({ request }) {
       userId: '2',
       action: 'report_damage',
       targetType: 'damage',
-      targetId: `DM${Date.now()}`,
+      targetId: newDamage.id,
       remark: `上报破损: ${damageType}`,
     });
     
-    return { success: true, message: '破损上报成功', deliveryId, showDamageForm: false };
+    return redirect('/dashboard/driver');
   }
   
-  return { success: false, message: '操作失败' };
+  return redirect('/deliveries/sign');
 }
 
-export default function DeliverySignPage({ deliveries }) {
+export default function DeliverySignPage() {
+  const { deliveries } = useLoaderData();
   const navigate = useNavigate();
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [showDamageForm, setShowDamageForm] = useState(false);
@@ -106,7 +125,7 @@ export default function DeliverySignPage({ deliveries }) {
     }));
   };
   
-  const handleSubmitSign = async (e) => {
+  const handleSubmitSign = (e) => {
     e.preventDefault();
     if (!formData.signerName || !formData.signerPhone) {
       alert('请填写签收人信息');
@@ -115,47 +134,14 @@ export default function DeliverySignPage({ deliveries }) {
     
     if (formData.hasDamage) {
       setShowDamageForm(true);
-    } else {
-      const response = await fetch('/deliveries/sign', {
-        method: 'POST',
-        body: new FormData(Object.entries({
-          action: 'sign',
-          deliveryId: selectedDelivery.id,
-          signerName: formData.signerName,
-          signerPhone: formData.signerPhone,
-          hasDamage: false,
-        })),
-      });
-      const result = await response.json();
-      if (result.success) {
-        alert(result.message);
-        navigate('/dashboard/driver');
-      }
     }
   };
   
-  const handleSubmitDamage = async (e) => {
+  const handleSubmitDamage = (e) => {
     e.preventDefault();
     if (!formData.damageDescription || !formData.damageQuantity) {
       alert('请填写完整破损信息');
       return;
-    }
-    
-    const response = await fetch('/deliveries/sign', {
-      method: 'POST',
-      body: new FormData(Object.entries({
-        action: 'report_damage',
-        deliveryId: selectedDelivery.id,
-        salesOrderId: selectedDelivery.order.id,
-        damageType: formData.damageType,
-        damageDescription: formData.damageDescription,
-        damageQuantity: formData.damageQuantity,
-      })),
-    });
-    const result = await response.json();
-    if (result.success) {
-      alert(result.message);
-      navigate('/dashboard/driver');
     }
   };
 
@@ -195,7 +181,7 @@ export default function DeliverySignPage({ deliveries }) {
                       </div>
                       <div style={styles.deliveryInfo}>
                         <div>📍 {delivery.deliveryAddress}</div>
-                        <div>⏰ 计划时间: {delivery.plannedTime}</div>
+                        <div>⏰ 计划时间: {delivery.plannedTime?.toLocaleString()}</div>
                       </div>
                     </div>
                     <button
@@ -229,7 +215,11 @@ export default function DeliverySignPage({ deliveries }) {
               </div>
             </div>
             
-            <form onSubmit={handleSubmitSign} style={styles.form}>
+            <form method="post" style={styles.form} onSubmit={handleSubmitSign}>
+              <input type="hidden" name="action" value="sign" />
+              <input type="hidden" name="deliveryId" value={selectedDelivery.id} />
+              <input type="hidden" name="salesOrderId" value={selectedDelivery.order?.id} />
+              
               <div style={styles.formGroup}>
                 <label style={styles.label}>签收人姓名 *</label>
                 <input
@@ -239,6 +229,7 @@ export default function DeliverySignPage({ deliveries }) {
                   onChange={handleInputChange}
                   placeholder="请输入签收人姓名"
                   style={styles.input}
+                  required
                 />
               </div>
               
@@ -251,6 +242,7 @@ export default function DeliverySignPage({ deliveries }) {
                   onChange={handleInputChange}
                   placeholder="请输入联系电话"
                   style={styles.input}
+                  required
                 />
               </div>
               
@@ -272,7 +264,7 @@ export default function DeliverySignPage({ deliveries }) {
                   取消
                 </button>
                 <button type="submit" style={styles.submitBtn}>
-                  确认签收
+                  {formData.hasDamage ? '确认签收并登记破损' : '确认签收'}
                 </button>
               </div>
             </form>
@@ -286,7 +278,13 @@ export default function DeliverySignPage({ deliveries }) {
               ⚠️ 请详细填写破损信息，以便后续责任认定和处理
             </div>
             
-            <form onSubmit={handleSubmitDamage} style={styles.form}>
+            <form method="post" style={styles.form} onSubmit={handleSubmitDamage}>
+              <input type="hidden" name="action" value="report_damage" />
+              <input type="hidden" name="deliveryId" value={selectedDelivery.id} />
+              <input type="hidden" name="salesOrderId" value={selectedDelivery.order?.id} />
+              <input type="hidden" name="signerName" value={formData.signerName} />
+              <input type="hidden" name="signerPhone" value={formData.signerPhone} />
+              
               <div style={styles.formGroup}>
                 <label style={styles.label}>破损类型 *</label>
                 <select
@@ -294,6 +292,7 @@ export default function DeliverySignPage({ deliveries }) {
                   value={formData.damageType}
                   onChange={handleInputChange}
                   style={styles.select}
+                  required
                 >
                   <option value="package_damage">包装破损</option>
                   <option value="product_damage">产品损坏</option>
@@ -311,6 +310,7 @@ export default function DeliverySignPage({ deliveries }) {
                   onChange={handleInputChange}
                   min="1"
                   style={styles.input}
+                  required
                 />
               </div>
               
@@ -323,6 +323,7 @@ export default function DeliverySignPage({ deliveries }) {
                   placeholder="请详细描述破损情况..."
                   rows={4}
                   style={styles.textarea}
+                  required
                 />
               </div>
               

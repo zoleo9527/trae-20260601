@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from '@remix-run/react';
+import { Link, useLoaderData, redirect } from '@remix-run/react';
 import { getDamageRecordById, updateDamageRecord, addDamageHistory } from '~/models/damage.server';
 import { createOperationLog } from '~/models/log.server';
 import { damageStatusMap, damageTypes, deliveryStatusMap } from '~/data/mockData';
@@ -14,13 +14,16 @@ export async function action({ request, params }) {
   const { id } = params;
   const formData = await request.formData();
   const actionType = formData.get('action');
+  const remark = formData.get('remark') || '';
+  
+  const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
   
   if (actionType === 'review') {
     await updateDamageRecord(id, { status: 'processing' });
     await addDamageHistory(id, {
       action: 'reviewed',
       user: '仓库主管',
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      time: now,
       remark: '已审核通过，转客服处理',
     });
     await createOperationLog({
@@ -30,15 +33,14 @@ export async function action({ request, params }) {
       targetId: id,
       remark: '审核破损记录',
     });
-    return { success: true, message: '审核成功' };
+    return redirect(`/damages/${id}`);
   }
   
   if (actionType === 'process') {
-    const remark = formData.get('remark');
     await addDamageHistory(id, {
       action: 'contacted',
       user: '客服小李',
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      time: now,
       remark: remark || '已联系客户沟通解决方案',
     });
     await createOperationLog({
@@ -48,19 +50,18 @@ export async function action({ request, params }) {
       targetId: id,
       remark: '联系客户',
     });
-    return { success: true, message: '处理记录已添加' };
+    return redirect(`/damages/${id}`);
   }
   
   if (actionType === 'resolve') {
-    const remark = formData.get('remark');
     await updateDamageRecord(id, { 
       status: 'resolved',
-      resolvedAt: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      resolvedAt: now,
     });
     await addDamageHistory(id, {
       action: 'resolved',
       user: '客服小李',
-      time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      time: now,
       remark: remark || '问题已解决',
     });
     await createOperationLog({
@@ -70,14 +71,14 @@ export async function action({ request, params }) {
       targetId: id,
       remark: '完成破损处理',
     });
-    return { success: true, message: '已标记为已解决' };
+    return redirect(`/damages/${id}`);
   }
   
-  return { success: false, message: '操作失败' };
+  return redirect(`/damages/${id}`);
 }
 
-export default function DamageDetailPage({ damage }) {
-  const navigate = useNavigate();
+export default function DamageDetailPage() {
+  const { damage } = useLoaderData();
   const [remark, setRemark] = useState('');
   const [processingRemark, setProcessingRemark] = useState('');
   
@@ -132,6 +133,17 @@ export default function DamageDetailPage({ damage }) {
     return labels[action] || action;
   };
 
+  const formatTime = (time) => {
+    if (!time) return '';
+    return new Date(time).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -158,7 +170,7 @@ export default function DamageDetailPage({ damage }) {
             </div>
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>上报时间</span>
-              <span style={styles.infoValue}>{damage.reportedAt}</span>
+              <span style={styles.infoValue}>{formatTime(damage.reportedAt)}</span>
             </div>
             <div style={styles.infoItem}>
               <span style={styles.infoLabel}>上报人</span>
@@ -245,7 +257,7 @@ export default function DamageDetailPage({ damage }) {
                       <span style={styles.timelineAction}>{getActionLabel(item.action)}</span>
                       <span style={styles.timelineUser}>{item.user}</span>
                     </div>
-                    <div style={styles.timelineTime}>{item.time}</div>
+                    <div style={styles.timelineTime}>{formatTime(item.time)}</div>
                     <div style={styles.timelineRemark}>{item.remark}</div>
                   </div>
                 </div>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from '@remix-run/react';
+import { Link, useLoaderData } from '@remix-run/react';
 import { getDamageRecords } from '~/models/damage.server';
 import { damageStatusMap, damageTypes } from '~/data/mockData';
 
@@ -8,7 +8,8 @@ export async function loader() {
   return { damages };
 }
 
-export default function DamageListPage({ damages }) {
+export default function DamageListPage() {
+  const { damages } = useLoaderData();
   const [filterStatus, setFilterStatus] = useState('all');
   
   const filteredDamages = filterStatus === 'all' 
@@ -27,6 +28,16 @@ export default function DamageListPage({ damages }) {
       resolved: '#4CAF50',
     };
     return colors[status] || '#9E9E9E';
+  };
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    return new Date(time).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -101,7 +112,7 @@ export default function DamageListPage({ damages }) {
                   <div style={styles.damageDesc}>{damage.damageDescription}</div>
                 </div>
                 <div style={styles.cardFooter}>
-                  <span style={styles.reportTime}>上报时间: {damage.reportedAt}</span>
+                  <span style={styles.reportTime}>上报时间: {formatTime(damage.reportedAt)}</span>
                   <span style={styles.reporter}>上报人: {damage.reporter?.name}</span>
                 </div>
               </Link>

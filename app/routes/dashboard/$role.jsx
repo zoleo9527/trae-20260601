@@ -1,4 +1,4 @@
-import { useParams, Link, useNavigate } from '@remix-run/react';
+import { Link, useNavigate } from '@remix-run/react';
 import { getUserById } from '~/models/user.server';
 import { getDeliveryRecords, getPendingDeliveries, getDeliveriesInTransit } from '~/models/delivery.server';
 import { getDamageRecords, getPendingDamageRecords, getProcessingDamageRecords } from '~/models/damage.server';
@@ -7,7 +7,12 @@ import { deliveryStatusMap, damageStatusMap } from '~/data/mockData';
 
 export async function loader({ params, request }) {
   const { role } = params;
-  const user = await getUserById('1');
+  
+  const cookieHeader = request.headers.get('Cookie');
+  const userIdMatch = cookieHeader?.match(/userId=(\d+)/);
+  const userId = userIdMatch ? userIdMatch[1] : '1';
+  
+  const user = await getUserById(userId);
   
   const [
     allDeliveries,
@@ -56,8 +61,8 @@ export default function DashboardPage({
       name: '仓库主管',
       icon: '🏭',
       mainActions: [
-        { label: '待出库订单', count: pendingDeliveries.length, path: '/deliveries', bgColor: '#4CAF50' },
-        { label: '运输中订单', count: inTransitDeliveries.length, path: '/deliveries', bgColor: '#2196F3' },
+        { label: '待出库订单', count: pendingDeliveries.length, path: '/deliveries/sign', bgColor: '#4CAF50' },
+        { label: '运输中订单', count: inTransitDeliveries.length, path: '/deliveries/sign', bgColor: '#2196F3' },
         { label: '待审核破损', count: pendingDamages.length, path: '/damages', bgColor: '#FF9800' },
       ],
     },
@@ -87,6 +92,16 @@ export default function DashboardPage({
     day: 'numeric',
     weekday: 'long',
   });
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    return new Date(time).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <div style={styles.container}>
@@ -162,7 +177,7 @@ export default function DashboardPage({
           <div style={styles.section}>
             <div style={styles.sectionHeader}>
               <h2 style={styles.sectionTitle}>今日配送任务</h2>
-              <Link to="/deliveries" style={styles.viewAll}>查看全部</Link>
+              <Link to="/deliveries/sign" style={styles.viewAll}>查看全部</Link>
             </div>
             <div style={styles.taskList}>
               {(pendingDeliveries.concat(inTransitDeliveries)).slice(0, 3).map((delivery) => (
@@ -179,10 +194,10 @@ export default function DashboardPage({
                     <div style={styles.taskAddress}>📍 {delivery.deliveryAddress}</div>
                   </div>
                   <div style={styles.taskTime}>
-                    计划: {delivery.plannedTime}
+                    计划: {formatTime(delivery.plannedTime)}
                   </div>
                   {delivery.status === 'in_transit' && (
-                    <Link to={`/deliveries/${delivery.id}/sign`} style={styles.signBtn}>
+                    <Link to="/deliveries/sign" style={styles.signBtn}>
                       立即签收
                     </Link>
                   )}
@@ -213,7 +228,7 @@ export default function DashboardPage({
                     <div style={styles.damageDesc}>{damage.damageDescription}</div>
                   </div>
                   <div style={styles.taskTime}>
-                    上报时间: {damage.reportedAt}
+                    上报时间: {formatTime(damage.reportedAt)}
                   </div>
                   <Link to={`/damages/${damage.id}`} style={styles.detailBtn}>
                     查看详情
@@ -232,7 +247,7 @@ export default function DashboardPage({
             <div style={styles.logList}>
               {logs.slice(0, 5).map((log) => (
                 <div key={log.id} style={styles.logItem}>
-                  <span style={styles.logTime}>{log.time}</span>
+                  <span style={styles.logTime}>{formatTime(log.time)}</span>
                   <span style={styles.logUser}>{log.user?.name}</span>
                   <span style={styles.logAction}>{log.remark}</span>
                 </div>
@@ -508,7 +523,7 @@ const styles = {
   logTime: {
     fontSize: '12px',
     color: '#999',
-    minWidth: '140px',
+    minWidth: '100px',
   },
   logUser: {
     fontSize: '13px',

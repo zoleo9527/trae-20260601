@@ -1,4 +1,4 @@
-import { Link } from '@remix-run/react';
+import { Link, useLoaderData } from '@remix-run/react';
 import { getOperationLogs } from '~/models/log.server';
 
 export async function loader() {
@@ -6,7 +6,9 @@ export async function loader() {
   return { logs };
 }
 
-export default function LogsPage({ logs }) {
+export default function LogsPage() {
+  const { logs } = useLoaderData();
+  
   const getActionLabel = (action) => {
     const labels = {
       dispatch: '出库配送',
@@ -29,6 +31,16 @@ export default function LogsPage({ logs }) {
       resolve_damage: '🎉',
     };
     return icons[action] || '📌';
+  };
+
+  const formatTime = (time) => {
+    if (!time) return '';
+    return new Date(time).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   return (
@@ -56,7 +68,7 @@ export default function LogsPage({ logs }) {
             </div>
             {logs.map((log) => (
               <div key={log.id} style={styles.tableRow}>
-                <div style={styles.td}>{log.time}</div>
+                <div style={styles.td}>{formatTime(log.time)}</div>
                 <div style={styles.td}>{log.user?.name}</div>
                 <div style={styles.td}>
                   <span style={styles.actionIcon}>{getActionIcon(log.action)}</span>
@@ -64,9 +76,9 @@ export default function LogsPage({ logs }) {
                 </div>
                 <div style={styles.td}>
                   <span style={styles.targetBadge}>
-                    {log.targetType === 'delivery' ? '送货单' : '破损记录'}
+                    {log.target_type === 'delivery' ? '送货单' : '破损记录'}
                   </span>
-                  <span style={styles.targetId}>{log.targetId}</span>
+                  <span style={styles.targetId}>{log.target_id}</span>
                 </div>
                 <div style={styles.td}>{log.remark}</div>
               </div>
@@ -130,7 +142,7 @@ const styles = {
   },
   tableHeader: {
     display: 'grid',
-    gridTemplateColumns: '200px 120px 120px 200px 1fr',
+    gridTemplateColumns: '150px 120px 120px 200px 1fr',
     padding: '12px 16px',
     background: '#f8f9fa',
     borderBottom: '1px solid #eee',
@@ -142,7 +154,7 @@ const styles = {
   },
   tableRow: {
     display: 'grid',
-    gridTemplateColumns: '200px 120px 120px 200px 1fr',
+    gridTemplateColumns: '150px 120px 120px 200px 1fr',
     padding: '12px 16px',
     borderBottom: '1px solid #f0f0f0',
     alignItems: 'center',
