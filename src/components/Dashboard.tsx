@@ -35,7 +35,7 @@ const Dashboard: React.FC = () => {
   const pendingPartsOrders = orders.filter(o => 
     o.partRequests.some(p => p.status === 'requested')
   );
-  const afterSaleOrders = orders.filter(o => o.afterSaleStatus === 'processing');
+  const afterSaleOrders = orders.filter(o => o.afterSale?.status === 'processing');
   const completedOrders = orders.filter(o => o.status === 'completed');
 
   const stats = {
@@ -418,7 +418,7 @@ const Dashboard: React.FC = () => {
                       description={
                         <Space split={<ArrowRightOutlined />}>
                           <span>{item.customerName}</span>
-                          <span style={{ color: '#999' }}>处理人: {item.afterSaleHandler}</span>
+                          <span style={{ color: '#999' }}>处理人: {item.afterSale?.handler || '-'}</span>
                         </Space>
                       }
                     />
@@ -512,11 +512,11 @@ const Dashboard: React.FC = () => {
               <Descriptions.Item label="产品">{selectedOrder.productType} - {selectedOrder.productModel}</Descriptions.Item>
               <Descriptions.Item label="师傅">{selectedOrder.assignedMaster || '-'}</Descriptions.Item>
               <Descriptions.Item label="调度员">{selectedOrder.dispatcher || '-'}</Descriptions.Item>
-              <Descriptions.Item label="售后处理人">{selectedOrder.afterSaleHandler || '-'}</Descriptions.Item>
+              <Descriptions.Item label="售后处理人">{selectedOrder.afterSale?.handler || '-'}</Descriptions.Item>
               <Descriptions.Item label="售后状态">
-                {selectedOrder.afterSaleStatus ? (
-                  <Tag color={selectedOrder.afterSaleStatus === 'processing' ? 'blue' : selectedOrder.afterSaleStatus === 'resolved' ? 'green' : 'orange'}>
-                    {selectedOrder.afterSaleStatus === 'processing' ? '处理中' : selectedOrder.afterSaleStatus === 'resolved' ? '已解决' : '待处理'}
+                {selectedOrder.afterSale?.status ? (
+                  <Tag color={selectedOrder.afterSale.status === 'processing' ? 'blue' : selectedOrder.afterSale.status === 'resolved' ? 'green' : 'orange'}>
+                    {selectedOrder.afterSale.status === 'processing' ? '处理中' : selectedOrder.afterSale.status === 'resolved' ? '已解决' : '待处理'}
                   </Tag>
                 ) : '-'}
               </Descriptions.Item>

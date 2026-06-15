@@ -534,12 +534,12 @@ const MasterDispatch: React.FC = () => {
                         ) : '-'}
                       </Descriptions.Item>
                       <Descriptions.Item label="售后处理人">
-                        {currentOrder.afterSaleHandler || '-'}
+                        {currentOrder.afterSale?.handler || '-'}
                       </Descriptions.Item>
                       <Descriptions.Item label="售后状态">
-                        {currentOrder.afterSaleStatus ? (
-                          <Tag color={currentOrder.afterSaleStatus === 'processing' ? 'blue' : 'green'}>
-                            {currentOrder.afterSaleStatus === 'processing' ? '处理中' : '已解决'}
+                        {currentOrder.afterSale?.status ? (
+                          <Tag color={currentOrder.afterSale.status === 'processing' ? 'blue' : currentOrder.afterSale.status === 'resolved' ? 'green' : 'orange'}>
+                            {currentOrder.afterSale.status === 'processing' ? '处理中' : currentOrder.afterSale.status === 'resolved' ? '已解决' : '待处理'}
                           </Tag>
                         ) : '-'}
                       </Descriptions.Item>

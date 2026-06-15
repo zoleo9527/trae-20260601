@@ -474,8 +474,8 @@ const PartManagement: React.FC = () => {
                             }
                           </Tag>
                         </Descriptions.Item>
-                        {currentPart.orderInfo.afterSaleHandler && (
-                          <Descriptions.Item label="售后处理人">{currentPart.orderInfo.afterSaleHandler}</Descriptions.Item>
+                        {currentPart.orderInfo.afterSale?.handler && (
+                          <Descriptions.Item label="售后处理人">{currentPart.orderInfo.afterSale?.handler}</Descriptions.Item>
                         )}
                       </Descriptions>
                     </Card>
