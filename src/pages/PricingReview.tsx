@@ -11,7 +11,7 @@ const changeTypeConfig = {
 
 export default function PricingReview() {
   const { id } = useParams<{ id: string }>();
-  const { getOrderById, updatePaidAmount } = useStore();
+  const { getOrderById, updatePaidAmount, getOrderFinalTotal, getOrderRemainingAmount } = useStore();
   const order = getOrderById(id || '');
   const [confirmAmount, setConfirmAmount] = useState(0);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -43,8 +43,8 @@ export default function PricingReview() {
     return diff + part.total_price;
   }, 0);
 
-  const finalTotal = configTotal + modifyTotal + effectiveInstalledDiff;
-  const remainingAmount = finalTotal - order.paid_amount;
+  const finalTotal = getOrderFinalTotal(order);
+  const remainingAmount = getOrderRemainingAmount(order);
   const hasPendingDiff = remainingAmount > 0 || effectiveInstalledDiff !== 0;
 
   const handleConfirmPayment = () => {

@@ -11,7 +11,7 @@ const statusConfig = {
 };
 
 export default function OrderList() {
-  const { orders } = useStore();
+  const { orders, getOrderFinalTotal, getOrderRemainingAmount } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
@@ -128,7 +128,8 @@ export default function OrderList() {
                 const StatusIcon = statusConfig[order.status].icon;
                 const statusColor = statusConfig[order.status].color;
                 const statusLabel = statusConfig[order.status].label;
-                const remainingAmount = order.total_price - order.paid_amount;
+                const finalTotal = getOrderFinalTotal(order);
+                const remainingAmount = getOrderRemainingAmount(order);
 
                 return (
                   <tr key={order.id} className="hover:bg-gray-50 transition-colors">
@@ -145,7 +146,7 @@ export default function OrderList() {
                       {order.order_date}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <span className="font-medium text-gray-900">¥{order.total_price.toLocaleString()}</span>
+                      <span className="font-medium text-gray-900">¥{finalTotal.toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <span className={remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}>

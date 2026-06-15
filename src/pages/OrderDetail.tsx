@@ -17,7 +17,7 @@ const installStatusConfig = {
 
 export default function OrderDetail() {
   const { id } = useParams<{ id: string }>();
-  const { getOrderById } = useStore();
+  const { getOrderById, getOrderFinalTotal, getOrderRemainingAmount } = useStore();
   const order = getOrderById(id || '');
 
   if (!order) {
@@ -27,6 +27,9 @@ export default function OrderDetail() {
       </div>
     );
   }
+
+  const finalTotal = getOrderFinalTotal(order);
+  const remainingAmount = getOrderRemainingAmount(order);
 
   const StatusIcon = statusConfig[order.status].icon;
   const statusColor = statusConfig[order.status].color;
@@ -168,16 +171,16 @@ export default function OrderDetail() {
               </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-700 font-semibold">最终总价</span>
-                <span className="text-xl font-bold text-gray-900">¥{order.total_price.toLocaleString()}</span>
+                <span className="text-xl font-bold text-gray-900">¥{finalTotal.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-500">已付金额</span>
                 <span className="text-lg font-bold text-green-600">¥{order.paid_amount.toLocaleString()}</span>
               </div>
-              <div className={`flex items-center justify-between p-3 rounded-lg ${(order.total_price - order.paid_amount) > 0 ? 'bg-orange-50' : 'bg-green-50'}`}>
-                <span className={`${(order.total_price - order.paid_amount) > 0 ? 'text-orange-600' : 'text-green-600'}`}>待补金额</span>
-                <span className={`text-lg font-bold ${(order.total_price - order.paid_amount) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
-                  {(order.total_price - order.paid_amount) > 0 ? '待补 ' : '已付清 '}¥{(order.total_price - order.paid_amount).toLocaleString()}
+              <div className={`flex items-center justify-between p-3 rounded-lg ${remainingAmount > 0 ? 'bg-orange-50' : 'bg-green-50'}`}>
+                <span className={`${remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>待补金额</span>
+                <span className={`text-lg font-bold ${remainingAmount > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {remainingAmount > 0 ? '待补 ' : '已付清 '}¥{remainingAmount.toLocaleString()}
                 </span>
               </div>
             </div>

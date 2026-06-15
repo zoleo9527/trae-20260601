@@ -12,6 +12,8 @@ interface Store {
 
   setCurrentUser: (user: User) => void;
   getOrderById: (id: string) => Order | undefined;
+  getOrderFinalTotal: (order: Order) => number;
+  getOrderRemainingAmount: (order: Order) => number;
   addModifyRecord: (orderId: string, record: Omit<ModifyRecord, 'id' | 'created_at'>) => void;
   addDeliveryRecord: (orderId: string, record: Omit<DeliveryRecord, 'id' | 'created_at'>) => void;
   updateOrderStatus: (orderId: string, status: Order['status']) => void;
@@ -38,6 +40,26 @@ export const useStore = create<Store>()(
         return orders.find((order) => order.id === id);
       },
 
+      getOrderFinalTotal: (order) => {
+        const configTotal = order.config_items.reduce((sum, item) => sum + item.total_price, 0);
+        const modifyTotal = order.modify_records.reduce((sum, record) => sum + record.price_diff, 0);
+        const modifiedPartIds = new Set(order.modify_records.map(r => r.part_id));
+        const effectiveInstalledDiff = order.installed_parts.reduce((diff, part) => {
+          if (modifiedPartIds.has(part.part_id)) return diff;
+          const configItem = order.config_items.find(
+            item => item.part_id === part.part_id || item.part_name === part.part_name
+          );
+          if (configItem) return diff + (part.total_price - configItem.total_price);
+          return diff + part.total_price;
+        }, 0);
+        return configTotal + modifyTotal + effectiveInstalledDiff;
+      },
+
+      getOrderRemainingAmount: (order) => {
+        const finalTotal = get().getOrderFinalTotal(order);
+        return finalTotal - order.paid_amount;
+      },
+
       addModifyRecord: (orderId, record) => {
         const { orders } = get();
         const newRecord: ModifyRecord = {
@@ -48,10 +70,8 @@ export const useStore = create<Store>()(
 
         const updatedOrders = orders.map((order) => {
           if (order.id === orderId) {
-            const priceDiff = record.price_diff;
             return {
               ...order,
-              total_price: order.total_price + priceDiff,
               modify_records: [...order.modify_records, newRecord],
             };
           }
