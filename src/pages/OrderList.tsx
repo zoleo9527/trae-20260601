@@ -67,10 +67,11 @@ export default function OrderList() {
   const statusParam = searchParams.get('status');
   const urgentParam = searchParams.get('urgent');
   const hasIssuesParam = searchParams.get('hasIssues');
+  const issueTypeParam = searchParams.get('issueType');
 
   useEffect(() => {
     loadOrders();
-  }, [view, roleParam, statusParam, urgentParam, hasIssuesParam]);
+  }, [view, roleParam, statusParam, urgentParam, hasIssuesParam, issueTypeParam]);
 
   const loadOrders = async () => {
     setLoading(true);
@@ -107,6 +108,10 @@ export default function OrderList() {
 
       if (hasIssuesParam === 'true') {
         params.hasIssues = 'true';
+      }
+
+      if (issueTypeParam) {
+        params.issueType = issueTypeParam;
       }
 
       const data = await orderApi.getOrders(params);
@@ -185,7 +190,19 @@ export default function OrderList() {
       'revisions': '待改稿订单',
       'batch': '批量处理'
     };
+    const issueTypeTitles: Record<string, string> = {
+      'dimension': '尺寸问题订单',
+      'color': '色差投诉订单',
+      'customer_revision': '客户改稿订单',
+      'installation': '安装变更订单',
+      'quality': '质量问题订单',
+      'design': '设计问题订单',
+      'other': '其他问题订单'
+    };
 
+    if (issueTypeParam && issueTypeTitles[issueTypeParam]) {
+      return issueTypeTitles[issueTypeParam];
+    }
     if (hasIssuesParam === 'true') {
       return '有问题的订单';
     }

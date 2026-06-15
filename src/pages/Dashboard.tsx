@@ -100,6 +100,57 @@ export default function Dashboard() {
     },
   ];
 
+  const issueEntries = [
+    {
+      type: 'dimension',
+      title: '尺寸问题',
+      desc: '尺寸看错、出入较大',
+      icon: '📐',
+      color: '#722ed1',
+      link: '/orders?issueType=dimension'
+    },
+    {
+      type: 'color',
+      title: '色差投诉',
+      desc: '颜色偏差、PANTONE不对',
+      icon: '🎨',
+      color: '#f5222d',
+      link: '/orders?issueType=color'
+    },
+    {
+      type: 'customer_revision',
+      title: '客户改稿',
+      desc: '客户确认页退回要求改稿',
+      icon: '📝',
+      color: '#fa8c16',
+      link: '/orders?issueType=customer_revision'
+    },
+    {
+      type: 'installation',
+      title: '安装变更',
+      desc: '安装时间、地址变更',
+      icon: '🛠',
+      color: '#13c2c2',
+      link: '/orders?issueType=installation'
+    },
+    {
+      type: 'quality',
+      title: '质量问题',
+      desc: '喷绘、装框质量缺陷',
+      icon: '🔍',
+      color: '#a0d911',
+      link: '/orders?issueType=quality'
+    },
+    {
+      type: 'design',
+      title: '设计问题',
+      desc: '布局、字体、素材疑问',
+      icon: '✏️',
+      color: '#2f54eb',
+      link: '/orders?issueType=design'
+    }
+  ];
+
   return (
     <div>
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -202,6 +253,58 @@ export default function Dashboard() {
             </Col>
           ))}
         </Row>
+
+        <Card 
+          title={
+            <Space>
+              <ExclamationCircleOutlined style={{ color: '#eb2f96' }} />
+              <span>问题分类入口</span>
+            </Space>
+          }
+          size="small"
+        >
+          <Row gutter={[12, 12]}>
+            {issueEntries.map((entry, idx) => {
+              const count = stats.issuesByType?.[entry.type] || 0;
+              const disabled = count === 0;
+              return (
+                <Col xs={12} sm={8} md={4} key={idx}>
+                  <Card 
+                    hoverable={!disabled}
+                    size="small"
+                    onClick={() => !disabled && navigate(entry.link)}
+                    style={{ 
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      opacity: disabled ? 0.55 : 1,
+                      border: `1px solid ${entry.color}30`,
+                      background: disabled ? undefined : `linear-gradient(135deg, ${entry.color}08 0%, #fff 100%)`
+                    }}
+                    styles={{ body: { padding: '12px 14px' } }}
+                  >
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: 22 }}>{entry.icon}</span>
+                        <Badge 
+                          count={count} 
+                          style={{ 
+                            backgroundColor: count > 0 ? entry.color : '#d9d9d9',
+                            fontSize: 11
+                          }} 
+                        />
+                      </div>
+                      <Text strong style={{ fontSize: 13, color: disabled ? undefined : entry.color }}>
+                        {entry.title}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.4 }}>
+                        {entry.desc}
+                      </Text>
+                    </Space>
+                  </Card>
+                </Col>
+              );
+            })}
+          </Row>
+        </Card>
 
         <Row gutter={[16, 16]}>
           <Col xs={24} lg={16}>

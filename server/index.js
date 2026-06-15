@@ -45,8 +45,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 app.get('/api/orders', (req, res) => {
-  const { status, role, urgent, hasIssues } = req.query;
-  const orders = getOrders({ status, role, urgent, hasIssues });
+  const { status, role, urgent, hasIssues, issueType } = req.query;
+  const orders = getOrders({ status, role, urgent, hasIssues, issueType });
   res.json(orders);
 });
 

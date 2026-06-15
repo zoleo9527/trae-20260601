@@ -103,6 +103,7 @@ export interface Statistics {
   installing: number;
   completed: number;
   openIssues: number;
+  issuesByType: Record<string, number>;
   overdue: number;
   approachingDeadline: number;
   alerts: Alert[];

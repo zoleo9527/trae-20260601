@@ -49,7 +49,7 @@ function generateOrderNo() {
   return prefix + '-' + (++orderIdCounter).toString().padStart(4, '0');
 }
 
-function getOrders({ status, role, urgent, hasIssues } = {}) {
+function getOrders({ status, role, urgent, hasIssues, issueType } = {}) {
   let filtered = [...orders];
   
   if (status) {
@@ -77,6 +77,10 @@ function getOrders({ status, role, urgent, hasIssues } = {}) {
 
   if (hasIssues === 'true') {
     filtered = filtered.filter(o => o.issues?.some(i => i.status === 'pending'));
+  }
+
+  if (issueType) {
+    filtered = filtered.filter(o => o.issues?.some(i => i.status === 'pending' && i.type === issueType));
   }
   
   return filtered.sort((a, b) => {
@@ -357,6 +361,23 @@ function getStatistics() {
   const now = Date.now();
   const oneHour = 3600000;
   const fourHours = 14400000;
+
+  const issueTypeCount = {
+    customer_revision: 0,
+    color: 0,
+    dimension: 0,
+    quality: 0,
+    installation: 0,
+    design: 0,
+    other: 0
+  };
+  for (const order of orders) {
+    for (const issue of order.issues || []) {
+      if (issue.status === 'pending') {
+        issueTypeCount[issue.type] = (issueTypeCount[issue.type] || 0) + 1;
+      }
+    }
+  }
   
   const stats = {
     total: orders.length,
@@ -371,6 +392,7 @@ function getStatistics() {
     installing: orders.filter(o => o.status === 'installing').length,
     completed: orders.filter(o => o.status === 'completed').length,
     openIssues: orders.reduce((sum, o) => sum + (o.issues?.filter(i => i.status === 'pending').length || 0), 0),
+    issuesByType: issueTypeCount,
     overdue: orders.filter(o => {
       if (o.status === 'completed' || !o.expectedDelivery) return false;
       return new Date(o.expectedDelivery) < new Date();

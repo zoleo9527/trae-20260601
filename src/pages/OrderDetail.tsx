@@ -248,6 +248,22 @@ export default function OrderDetail() {
   const pendingIssues = order?.issues?.filter(i => i.status === 'pending') || [];
   const resolvedIssues = order?.issues?.filter(i => i.status === 'resolved') || [];
 
+  const latestSummary = useMemo(() => {
+    if (!order) return null;
+    const latestCustomerConfirm = order.customerConfirmation;
+    const sortedIssues = [...(order.issues || [])].sort((a, b) =>
+      new Date(b.reportedAt).getTime() - new Date(a.reportedAt).getTime()
+    );
+    const latestIssue = sortedIssues[0];
+    const sortedRevisions = [...(order.revisions || [])].sort((a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+    const latestRevision = sortedRevisions[0];
+    const latestInstallation = order.installation;
+
+    return { latestCustomerConfirm, latestIssue, latestRevision, latestInstallation };
+  }, [order]);
+
   const canAddRevision = currentUser?.role === 'designer' || currentUser?.role === 'admin';
   const canAddInstallation = currentUser?.role === 'installer' || currentUser?.role === 'admin';
   const canChangeStatus = getAvailableStatuses().length > 0;
@@ -360,6 +376,217 @@ export default function OrderDetail() {
               </List.Item>
             )}
           />
+        </Card>
+      )}
+
+      {latestSummary && (latestSummary.latestCustomerConfirm || latestSummary.latestIssue || latestSummary.latestRevision || latestSummary.latestInstallation) && (
+        <Card
+          size="small"
+          title={
+            <Space>
+              <HistoryOutlined style={{ color: '#1890ff' }} />
+              <span>最近反馈与变更摘要</span>
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 'normal' }}>
+                （无需翻历史记录，一眼看最近关键点）
+              </Text>
+            </Space>
+          }
+        >
+          <Row gutter={[12, 12]}>
+            {latestSummary.latestCustomerConfirm && (
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  size="small"
+                  style={{
+                    height: '100%',
+                    borderColor: latestSummary.latestCustomerConfirm.confirmType === 'revise' ? '#ffa940' : '#b7eb8f',
+                    background: latestSummary.latestCustomerConfirm.confirmType === 'revise' ? '#fff7e6' : '#f6ffed'
+                  }}
+                >
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space>
+                      <Tag color={latestSummary.latestCustomerConfirm.confirmType === 'revise' ? 'orange' : 'green'}>
+                        客户确认
+                      </Tag>
+                      <Tag color="blue">{latestSummary.latestCustomerConfirm.customerName}</Tag>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {dayjs(latestSummary.latestCustomerConfirm.confirmedAt).format('MM-DD HH:mm')}
+                    </Text>
+                    <Paragraph
+                      type={latestSummary.latestCustomerConfirm.confirmType === 'revise' ? 'warning' : 'success'}
+                      strong
+                      style={{ margin: '4px 0 0 0', fontSize: 13 }}
+                    >
+                      {latestSummary.latestCustomerConfirm.confirmType === 'revise' ? '⚠️ 要求改稿' : '✅ 已确认通过'}
+                    </Paragraph>
+                    {latestSummary.latestCustomerConfirm.feedback && (
+                      <Text
+                        type="secondary"
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          display: '-webkit-box',
+                          overflow: 'hidden',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {latestSummary.latestCustomerConfirm.feedback}
+                      </Text>
+                    )}
+                  </Space>
+                </Card>
+              </Col>
+            )}
+
+            {latestSummary.latestIssue && (
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  size="small"
+                  style={{
+                    height: '100%',
+                    borderColor: latestSummary.latestIssue.status === 'pending' ? '#ff7875' : '#d9d9d9'
+                  }}
+                >
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space>
+                      <Badge
+                        status={latestSummary.latestIssue.status === 'pending' ? 'error' : 'success'}
+                        text={
+                          <Tag color={latestSummary.latestIssue.status === 'pending' ? 'red' : 'green'}>
+                            {latestSummary.latestIssue.status === 'pending' ? '待处理' : '已解决'}
+                          </Tag>
+                        }
+                      />
+                      <Tag color="purple">
+                        {ISSUE_TYPE_LABELS[latestSummary.latestIssue.type as IssueType]}
+                      </Tag>
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      问题单 {latestSummary.latestIssue.id} · {dayjs(latestSummary.latestIssue.reportedAt).format('MM-DD HH:mm')}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        fontWeight: 500,
+                        display: '-webkit-box',
+                        overflow: 'hidden',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical'
+                      }}
+                    >
+                      {latestSummary.latestIssue.description}
+                    </Text>
+                    {latestSummary.latestIssue.status === 'resolved' && latestSummary.latestIssue.resolvedAt && (
+                      <Text type="secondary" style={{ fontSize: 11, color: '#52c41a' }}>
+                        已解决：{dayjs(latestSummary.latestIssue.resolvedAt).format('MM-DD HH:mm')}
+                      </Text>
+                    )}
+                  </Space>
+                </Card>
+              </Col>
+            )}
+
+            {latestSummary.latestRevision && (
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  size="small"
+                  style={{ height: '100%', borderColor: '#91caff', background: '#f0f8ff' }}
+                >
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space>
+                      <Tag color="blue">
+                        改稿 {REVISION_TYPE_LABELS[latestSummary.latestRevision.type]}
+                      </Tag>
+                      {latestSummary.latestRevision.fileUrl && <Tag color="geekblue">有附件</Tag>}
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {latestSummary.latestRevision.operator} · {dayjs(latestSummary.latestRevision.timestamp).format('MM-DD HH:mm')}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        display: '-webkit-box',
+                        overflow: 'hidden',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical'
+                      }}
+                    >
+                      {latestSummary.latestRevision.description}
+                    </Text>
+                    <Descriptions size="small" column={1} style={{ marginTop: 4 }}>
+                      {Object.keys(latestSummary.latestRevision.afterData).slice(0, 2).map(key => {
+                        const before = latestSummary.latestRevision.beforeData?.[key] ?? '—';
+                        const after = latestSummary.latestRevision.afterData[key];
+                        const changed = String(before) !== String(after);
+                        return (
+                          <Descriptions.Item key={key} label={key} labelStyle={{ fontSize: 11 }}>
+                            <Text delete={changed} type={changed ? 'secondary' : undefined} style={{ fontSize: 11 }}>
+                              {before}
+                            </Text>
+                            {changed && (
+                              <>
+                                {' → '}
+                                <Text strong style={{ fontSize: 11, color: '#1677ff' }}>
+                                  {after}
+                                </Text>
+                              </>
+                            )}
+                          </Descriptions.Item>
+                        );
+                      })}
+                    </Descriptions>
+                  </Space>
+                </Card>
+              </Col>
+            )}
+
+            {latestSummary.latestInstallation && (
+              <Col xs={24} sm={12} lg={6}>
+                <Card
+                  size="small"
+                  style={{
+                    height: '100%',
+                    borderColor: '#86e7de',
+                    background: '#e6fffb'
+                  }}
+                >
+                  <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                    <Space>
+                      <Tag color="cyan">安装记录</Tag>
+                      {latestSummary.latestInstallation.issueReported && (
+                        <Tag color="red">现场有问题</Tag>
+                      )}
+                      {latestSummary.latestInstallation.photos?.length > 0 && (
+                        <Tag color="geekblue">{latestSummary.latestInstallation.photos.length}张图</Tag>
+                      )}
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      {latestSummary.latestInstallation.operator} · {dayjs(latestSummary.latestInstallation.completedAt).format('MM-DD HH:mm')}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      安装时间：{dayjs(latestSummary.latestInstallation.installTime).format('MM-DD HH:mm')}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        lineHeight: 1.5,
+                        display: '-webkit-box',
+                        overflow: 'hidden',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical'
+                      }}
+                    >
+                      {latestSummary.latestInstallation.remark || '（无备注）'}
+                    </Text>
+                  </Space>
+                </Card>
+              </Col>
+            )}
+          </Row>
         </Card>
       )}
 

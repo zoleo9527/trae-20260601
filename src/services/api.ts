@@ -28,7 +28,7 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export const orderApi = {
-  getOrders: (params?: { status?: string; role?: string; urgent?: string; hasIssues?: string }) => {
+  getOrders: (params?: { status?: string; role?: string; urgent?: string; hasIssues?: string; issueType?: string }) => {
     const query = params ? '?' + new URLSearchParams(params).toString() : '';
     return request<Order[]>(`/orders${query}`);
   },
