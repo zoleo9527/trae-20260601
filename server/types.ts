@@ -18,6 +18,17 @@ export interface Dimension {
   unit: string
 }
 
+export interface DimensionReviewRecord {
+  version: number
+  originalDimension: Dimension
+  reviewedDimension?: Dimension
+  passed?: boolean
+  note?: string
+  reviewedBy?: string
+  reviewedAt?: string
+  supersededAt?: string
+}
+
 export interface Attachment {
   id: string
   name: string
@@ -59,6 +70,7 @@ export interface Order {
   dimensionReviewedBy?: string
   dimensionReviewNote?: string
   dimensionModified: boolean
+  dimensionReviewHistory: DimensionReviewRecord[]
 
   colorRequirement?: string
   colorConfirmed?: boolean

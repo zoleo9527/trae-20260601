@@ -138,10 +138,25 @@ app.post('/api/orders/:id/receive-manuscript', (req, res) => {
   const isModification = order.manuscriptReceived
 
   if (isModification) {
+    if (order.dimensionReviewed) {
+      order.dimensionReviewHistory.push({
+        version: order.manuscriptVersion,
+        originalDimension: { ...order.originalDimension },
+        reviewedDimension: order.reviewedDimension ? { ...order.reviewedDimension } : undefined,
+        passed: order.status !== 'review_rejected',
+        note: order.dimensionReviewNote,
+        reviewedBy: order.dimensionReviewedBy,
+        reviewedAt: order.dimensionReviewedAt,
+        supersededAt: new Date().toISOString(),
+      })
+    }
     order.manuscriptVersion += 1
     order.dimensionModified = true
     order.dimensionReviewed = false
     order.reviewedDimension = undefined
+    order.dimensionReviewedAt = undefined
+    order.dimensionReviewedBy = undefined
+    order.dimensionReviewNote = undefined
     order.currentHandler = 'designer'
     order.status = 'pending_review'
   } else {
@@ -193,6 +208,31 @@ app.post('/api/orders/:id/review-dimension', (req, res) => {
   order.dimensionReviewNote = note
   order.reviewedDimension = reviewedDimension
   order.dimensionModified = false
+
+  const existingIdx = order.dimensionReviewHistory.findIndex(
+    (r) => r.version === order.manuscriptVersion && !r.reviewedAt
+  )
+  if (existingIdx >= 0) {
+    order.dimensionReviewHistory[existingIdx] = {
+      version: order.manuscriptVersion,
+      originalDimension: { ...order.originalDimension },
+      reviewedDimension: { ...reviewedDimension },
+      passed,
+      note,
+      reviewedBy: operator,
+      reviewedAt: new Date().toISOString(),
+    }
+  } else {
+    order.dimensionReviewHistory.push({
+      version: order.manuscriptVersion,
+      originalDimension: { ...order.originalDimension },
+      reviewedDimension: { ...reviewedDimension },
+      passed,
+      note,
+      reviewedBy: operator,
+      reviewedAt: new Date().toISOString(),
+    })
+  }
 
   if (passed) {
     order.status = 'pending_print'

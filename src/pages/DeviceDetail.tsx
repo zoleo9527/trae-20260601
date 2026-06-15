@@ -518,6 +518,101 @@ export default function DeviceDetail({ currentUser }: Props) {
           </Descriptions>
         </Card>
 
+        {order.dimensionReviewHistory.length > 0 && (
+          <Card
+            title={
+              <Space>
+                <HistoryOutlined />
+                <span>尺寸复核回看</span>
+                <Tag color="blue">共 {order.dimensionReviewHistory.length} 版记录</Tag>
+                {order.dimensionModified && <Tag color="red">当前版本待复核</Tag>}
+              </Space>
+            }
+          >
+            <Timeline
+              items={order.dimensionReviewHistory.map((record, idx) => {
+                const isCurrent = idx === order.dimensionReviewHistory.length - 1 && !record.supersededAt
+                const isSuperseded = !!record.supersededAt
+                return {
+                  color: isSuperseded
+                    ? 'gray'
+                    : record.passed
+                    ? 'green'
+                    : 'red',
+                  children: (
+                    <div style={{ opacity: isSuperseded ? 0.6 : 1 }}>
+                      <Space style={{ marginBottom: 8 }}>
+                        <Tag color={isCurrent ? 'blue' : 'default'}>
+                          稿件 v{record.version}
+                        </Tag>
+                        {isSuperseded && <Tag color="default">已过期</Tag>}
+                        {isCurrent && !isSuperseded && <Tag color="blue">当前版本</Tag>}
+                        {record.passed === true && <Tag color="green">复核通过</Tag>}
+                        {record.passed === false && <Tag color="red">复核驳回</Tag>}
+                        {record.passed === undefined && <Tag color="orange">待复核</Tag>}
+                      </Space>
+                      <Row gutter={24} style={{ marginBottom: 4 }}>
+                        <Col span={8}>
+                          <Text type="secondary">原始尺寸</Text>
+                          <div>
+                            <Text strong>
+                              {record.originalDimension.width} × {record.originalDimension.height} {record.originalDimension.unit}
+                            </Text>
+                          </div>
+                        </Col>
+                        {record.reviewedDimension && (
+                          <Col span={8}>
+                            <Text type="secondary">复核尺寸</Text>
+                            <div>
+                              <Text strong type={record.passed ? 'success' : 'danger'}>
+                                {record.reviewedDimension.width} × {record.reviewedDimension.height} {record.reviewedDimension.unit}
+                              </Text>
+                            </div>
+                          </Col>
+                        )}
+                        {record.reviewedBy && (
+                          <Col span={8}>
+                            <Text type="secondary">复核人</Text>
+                            <div>
+                              <Text>{record.reviewedBy}</Text>
+                              {record.reviewedAt && (
+                                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                                  {dayjs(record.reviewedAt).format('MM-DD HH:mm')}
+                                </Text>
+                              )}
+                            </div>
+                          </Col>
+                        )}
+                      </Row>
+                      {record.note && (
+                        <Paragraph
+                          type={isSuperseded ? 'secondary' : undefined}
+                          style={{ marginTop: 4, marginBottom: 0, fontSize: 13 }}
+                        >
+                          备注：{record.note}
+                        </Paragraph>
+                      )}
+                      {isSuperseded && record.supersededAt && (
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          此版本于 {dayjs(record.supersededAt).format('MM-DD HH:mm')} 被新稿件替代
+                        </Text>
+                      )}
+                    </div>
+                  ),
+                }
+              })}
+            />
+            {order.dimensionModified && (
+              <Alert
+                message="当前稿件已被接单员修改，以上最新版本需要重新复核"
+                type="warning"
+                showIcon
+                style={{ marginTop: 8 }}
+              />
+            )}
+          </Card>
+        )}
+
         <Row gutter={16}>
           <Col span={14}>
             <Card
