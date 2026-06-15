@@ -111,9 +111,9 @@ const handleReportLeakage = async () => {
   }
   
   const success = await store.reportLeakage(
-    selectedOrder.value.id, 
-    reportForm.value.description,
-    reportForm.value.photos.length > 0 ? reportForm.value.photos : undefined
+    String(selectedOrder.value.id),
+    '漏水',
+    reportForm.value.description
   )
   
   if (success) {
@@ -186,15 +186,6 @@ const handleRejectResponsibility = async () => {
     selectedOrder.value = null
     selectedResultId.value = ''
     rejectForm.value = { reason: '', additional_evidence_required: [] }
-    await store.loadOrders()
-    orders.value = store.state.orders
-  }
-}
-
-const handleFinalizeResponsibility = async (resultId: string) => {
-  const success = await store.finalizeResponsibility(resultId)
-  if (success) {
-    ElMessage.success('已终审')
     await store.loadOrders()
     orders.value = store.state.orders
   }

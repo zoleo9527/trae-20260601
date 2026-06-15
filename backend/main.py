@@ -507,6 +507,88 @@ def get_orders(status: Optional[OrderStatus] = None, installer_id: Optional[int]
     orders = query.order_by(Order.scheduled_time).all()
     result = []
     for order in orders:
+        accessories = db.query(Accessory).filter(Accessory.order_id == order.id).all()
+        accessories_list = [{
+            "id": a.id,
+            "name": a.name,
+            "quantity": a.quantity,
+            "installed": a.installed,
+            "remark": ""
+        } for a in accessories]
+        
+        reworks = db.query(Rework).filter(Rework.order_id == order.id).all()
+        rework_status_map = {
+            OrderStatus.REWORK_REQUESTED: "pending",
+            OrderStatus.REWORK_IN_PROGRESS: "processing",
+            OrderStatus.REWORK_COMPLETED: "resolved"
+        }
+        after_sales_records = [{
+            "id": r.id,
+            "order_id": r.order_id,
+            "type": "leakage",
+            "description": r.description,
+            "photos": [],
+            "reported_at": r.reported_at,
+            "reported_by": r.reported_by,
+            "status": rework_status_map.get(r.status, "pending"),
+            "rejected_reason": ""
+        } for r in reworks]
+        
+        liability = db.query(Liability).filter(Liability.order_id == order.id).first()
+        responsibility_result = None
+        if liability:
+            liability_result_map = {
+                LiabilityResult.INSTALLER: "technician",
+                LiabilityResult.MATERIAL: "supplier",
+                LiabilityResult.USER: "customer",
+                LiabilityResult.UNKNOWN: "company"
+            }
+            responsibility_result = {
+                "id": liability.id,
+                "order_id": liability.order_id,
+                "responsible_party": liability_result_map.get(liability.result, "company"),
+                "reason": liability.evidence,
+                "evidence": liability.notes.split(';') if liability.notes else [],
+                "created_at": liability.handled_at,
+                "created_by": liability.handler_id,
+                "status": "confirmed",
+                "compensation_amount": liability.compensation_amount
+            }
+        
+        rejections = db.query(Rejection).filter(Rejection.order_id == order.id).all()
+        rejection_records = [{
+            "id": r.id,
+            "liability_id": r.liability_id,
+            "order_id": r.order_id,
+            "reason": r.reason,
+            "rejected_by": r.rejected_by,
+            "rejected_at": r.rejected_at,
+            "additional_evidence_required": [r.additional_evidence_required],
+            "status": r.status.lower()
+        } for r in rejections]
+        
+        questions = db.query(Question).filter(Question.order_id == order.id).all()
+        questions_list = [{
+            "id": q.id,
+            "order_id": q.order_id,
+            "question": q.question,
+            "asked_by": q.asked_by,
+            "asked_at": q.asked_at,
+            "answer": q.answer,
+            "answered_by": q.answered_by,
+            "answered_at": q.answered_at
+        } for q in questions]
+        
+        installer_name = None
+        if order.installer_id:
+            installer = db.query(User).filter(User.id == order.installer_id).first()
+            installer_name = installer.name if installer else None
+        
+        dispatcher_name = None
+        if order.dispatcher_id:
+            dispatcher = db.query(User).filter(User.id == order.dispatcher_id).first()
+            dispatcher_name = dispatcher.name if dispatcher else None
+        
         result.append({
             "id": order.id,
             "customer_name": order.customer_name,
@@ -517,9 +599,18 @@ def get_orders(status: Optional[OrderStatus] = None, installer_id: Optional[int]
             "scheduled_time": order.scheduled_time,
             "status": status_map.get(order.status, "pending"),
             "installer_id": order.installer_id,
+            "installer_name": installer_name,
             "dispatcher_id": order.dispatcher_id,
+            "dispatcher_name": dispatcher_name,
             "created_at": order.created_at,
-            "updated_at": order.updated_at
+            "updated_at": order.updated_at,
+            "accessories": accessories_list,
+            "photos": [],
+            "after_sales_records": after_sales_records,
+            "responsibility_result": responsibility_result,
+            "rejection_records": rejection_records,
+            "progress_trackings": [],
+            "questions": questions_list
         })
     return result
 
@@ -612,7 +703,7 @@ def get_order_detail(order_id: int, db: Session = Depends(get_db)):
             "order_id": liability.order_id,
             "responsible_party": liability_result_map.get(liability.result, "company"),
             "reason": liability.evidence,
-            "evidence": [liability.evidence],
+            "evidence": liability.notes.split(';') if liability.notes else [],
             "created_at": liability.handled_at,
             "created_by": liability.handler_id,
             "status": "confirmed",
@@ -841,15 +932,25 @@ def create_liability(order_id: int, liability: LiabilityCreate, handler_id: int,
     if order.status not in [OrderStatus.REWORK_COMPLETED, OrderStatus.LIABILITY_PENDING]:
         raise HTTPException(status_code=400, detail="只有返工完成或待责任判定的订单才能进行责任判定")
     
-    db_liability = Liability(
-        order_id=order_id,
-        result=liability.result,
-        evidence=liability.evidence,
-        handler_id=handler_id,
-        compensation_amount=liability.compensation_amount,
-        notes=liability.notes
-    )
-    db.add(db_liability)
+    existing_liability = db.query(Liability).filter(Liability.order_id == order_id).first()
+    if existing_liability:
+        existing_liability.result = liability.result
+        existing_liability.evidence = liability.evidence
+        existing_liability.compensation_amount = liability.compensation_amount
+        existing_liability.notes = liability.notes
+        existing_liability.handler_id = handler_id
+        existing_liability.handled_at = datetime.now()
+    else:
+        db_liability = Liability(
+            order_id=order_id,
+            result=liability.result,
+            evidence=liability.evidence,
+            handler_id=handler_id,
+            compensation_amount=liability.compensation_amount,
+            notes=liability.notes
+        )
+        db.add(db_liability)
+    
     order.status = OrderStatus.LIABILITY_DONE
     db.commit()
     return {"message": "责任判定已完成"}
