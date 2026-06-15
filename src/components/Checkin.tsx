@@ -307,6 +307,7 @@ export default function Checkin() {
         <OrderProgressCard
           orderId={selectedOrderId}
           onClose={() => setSelectedOrderId(null)}
+          onUpdate={fetchData}
         />
       )}
     </div>

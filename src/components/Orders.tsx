@@ -153,6 +153,7 @@ export default function Orders() {
         <OrderProgressCard
           orderId={selectedOrderId}
           onClose={() => setSelectedOrderId(null)}
+          onUpdate={fetchOrders}
         />
       )}
     </div>

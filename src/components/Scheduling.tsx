@@ -221,6 +221,7 @@ export default function Scheduling() {
         <OrderProgressCard
           orderId={selectedOrderId}
           onClose={() => setSelectedOrderId(null)}
+          onUpdate={fetchData}
         />
       )}
     </div>

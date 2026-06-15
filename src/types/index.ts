@@ -35,6 +35,8 @@ export interface Scheduling {
   customerName?: string;
   serviceAddress?: string;
   staffName?: string;
+  staffNo?: string;
+  staffPhone?: string;
   staffRole?: string;
   staffStatus?: string;
 }

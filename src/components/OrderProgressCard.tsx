@@ -1,30 +1,30 @@
-import { useState, useEffect } from 'react';
 import {
-  User,
-  MapPin,
-  Calendar,
-  Clock,
-  CheckCircle,
+  AlertCircle,
   AlertTriangle,
-  CircleDot,
-  FileText,
-  Phone,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
-  X,
-  AlertCircle,
+  CircleDot,
+  Clock,
   Edit3,
-  RefreshCw
+  FileText,
+  MapPin,
+  Phone,
+  RefreshCw,
+  User,
+  X
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { getOrderDetail, updateBlockReason, updateCheckin } from '../api';
-import { OrderDetail, STATUS_COLORS, ROLE_COLORS } from '../types';
+import { OrderDetail, ROLE_COLORS, STATUS_COLORS } from '../types';
 
 interface OrderProgressCardProps {
   orderId: number;
   onClose: () => void;
+  onUpdate?: () => void;
 }
 
-export default function OrderProgressCard({ orderId, onClose }: OrderProgressCardProps) {
+export default function OrderProgressCard({ orderId, onClose, onUpdate }: OrderProgressCardProps) {
   const [detail, setDetail] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedLogs, setExpandedLogs] = useState(true);
@@ -59,6 +59,9 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
     await updateBlockReason(orderId, newBlockReason);
     setShowEditBlockReason(false);
     await fetchDetail();
+    if (onUpdate) {
+      onUpdate();
+    }
   };
 
   const handleUpdateCheckin = async () => {
@@ -70,6 +73,9 @@ export default function OrderProgressCard({ orderId, onClose }: OrderProgressCar
     });
     setShowEditCheckin(false);
     await fetchDetail();
+    if (onUpdate) {
+      onUpdate();
+    }
   };
 
   const getStatusIcon = (status: string) => {
