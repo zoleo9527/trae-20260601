@@ -4,7 +4,7 @@ import { Button, Card, Input, Select, Table, Badge } from './common';
 import { Task } from '../types';
 
 export function TodoTaskPage() {
-  const { tasks, adjustments, alerts, completeTask, notifications, currentRole } = useWorkbench();
+  const { tasks, adjustments, alerts, completeTask, markTaskBatchComplete, notifications, currentRole, currentUserName } = useWorkbench();
   const [filterType, setFilterType] = useState('');
   const [filterPriority, setFilterPriority] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -17,11 +17,11 @@ export function TodoTaskPage() {
   const getTasksForCurrentRole = (taskList: Task[]) => {
     return taskList.filter(task => {
       if (currentRole === 'clerk') {
-        return task.assignee === '张三' && task.type === 'adjustment_audit';
+        return task.assignee === currentUserName && task.type === 'adjustment_audit';
       } else if (currentRole === 'manager') {
-        return task.assignee === '王经理' && task.type === 'adjustment_audit';
+        return task.assignee === currentUserName && task.type === 'adjustment_audit';
       } else if (currentRole === 'buyer') {
-        return task.assignee === '采购刘';
+        return task.assignee === currentUserName;
       }
       return false;
     });
@@ -40,10 +40,11 @@ export function TodoTaskPage() {
   const handleComplete = (taskId: string) => {
     completeTask(taskId);
     if (continuousMode) {
-      const currentTaskIndex = filteredTasks.findIndex(t => t.id === taskId);
-      if (currentTaskIndex < filteredTasks.length - 1) {
-        setCurrentIndex(currentTaskIndex + 1);
-        setSelectedTask(filteredTasks[currentTaskIndex + 1]);
+      const pendingTasks = filteredTasks.filter(t => t.status !== 'completed');
+      const currentPos = pendingTasks.findIndex(t => t.id === taskId);
+      if (currentPos < pendingTasks.length - 1) {
+        setCurrentIndex(currentPos + 1);
+        setSelectedTask(pendingTasks[currentPos + 1]);
       } else {
         setContinuousMode(false);
         setSelectedTask(null);
@@ -56,7 +57,7 @@ export function TodoTaskPage() {
 
   const handleBatchComplete = () => {
     if (selectedItems.length > 0) {
-      selectedItems.forEach(id => completeTask(id));
+      markTaskBatchComplete(selectedItems);
       setSelectedItems([]);
     }
   };
@@ -109,25 +110,27 @@ export function TodoTaskPage() {
     { key: 'actions', label: '操作', width: '100px' }
   ];
 
-  const tableData = filteredTasks.map(task => ({
-    id: task.id,
-    title: task.title,
-    type: typeLabels[task.type],
-    priority: <Badge color={priorityColors[task.priority]}>{priorityLabels[task.priority]}</Badge>,
-    status: <Badge color={statusColors[task.status]}>{statusLabels[task.status]}</Badge>,
-    createTime: task.createTime,
-    dueTime: task.dueTime || '-',
-    actions: (
-      <div style={{ display: 'flex', gap: '8px' }}>
-        {task.status !== 'completed' && (
-          <Button size="small" onClick={() => setSelectedTask(task)}>处理</Button>
-        )}
-        {task.status === 'completed' && (
-          <Badge color="green">已完成</Badge>
-        )}
-      </div>
-    )
-  }));
+  const tableData = filteredTasks.map(task => {
+    return {
+      id: task.id,
+      title: task.title,
+      type: typeLabels[task.type],
+      priority: <Badge color={priorityColors[task.priority]}>{priorityLabels[task.priority]}</Badge>,
+      status: <Badge color={statusColors[task.status]}>{statusLabels[task.status]}</Badge>,
+      createTime: task.createTime,
+      dueTime: task.dueTime || '-',
+      actions: (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {task.status !== 'completed' && (
+            <Button size="small" onClick={() => setSelectedTask(task)}>处理</Button>
+          )}
+          {task.status === 'completed' && (
+            <Badge color="green">已完成</Badge>
+          )}
+        </div>
+      )
+    };
+  });
 
   const roleTaskSummary = {
     pending: getTasksForCurrentRole(tasks).filter(t => t.status === 'pending').length,
@@ -148,7 +151,9 @@ export function TodoTaskPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <div>
           <h2>待办任务</h2>
-          <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>当前角色: {roleLabels[currentRole]}</p>
+          <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>
+            当前角色: {roleLabels[currentRole]} | 当前用户: {currentUserName}
+          </p>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {unreadCount > 0 && (
@@ -219,7 +224,9 @@ export function TodoTaskPage() {
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginLeft: 'auto' }}>
               <span style={{ color: '#666', fontSize: '14px' }}>已选择 {selectedItems.length} 项</span>
               {selectedPendingCount > 0 && (
-                <Button size="small" variant="success" onClick={handleBatchComplete}>批量标记完成 ({selectedPendingCount})</Button>
+                <Button size="small" variant="success" onClick={handleBatchComplete}>
+                  批量标记完成 ({selectedPendingCount})
+                </Button>
               )}
               <Button size="small" variant="secondary" onClick={() => setSelectedItems([])}>取消选择</Button>
             </div>
@@ -232,7 +239,12 @@ export function TodoTaskPage() {
                 }}>全选待处理</Button>
               )}
               {!continuousMode && filteredTasks.filter(t => t.status !== 'completed').length > 0 && (
-                <Button variant="secondary" onClick={() => { setContinuousMode(true); setCurrentIndex(0); setSelectedTask(filteredTasks.find(t => t.status !== 'completed') || null); }}>
+                <Button variant="secondary" onClick={() => { 
+                  setContinuousMode(true); 
+                  setCurrentIndex(0); 
+                  const firstPending = filteredTasks.filter(t => t.status !== 'completed')[0];
+                  setSelectedTask(firstPending || null); 
+                }}>
                   连续处理模式
                 </Button>
               )}
@@ -268,24 +280,36 @@ export function TodoTaskPage() {
             {selectedTask.type === 'adjustment_audit' && (
               <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#f5f7fa', borderRadius: '4px' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '8px' }}>关联批号调整</p>
-                {adjustments.find(a => a.id === selectedTask.relatedData) && (
-                  <>
-                    <p>申请单号: {selectedTask.relatedData}</p>
-                    <p>状态: <Badge color={statusColors[adjustments.find(a => a.id === selectedTask.relatedData)?.status || 'pending']}>{adjustments.find(a => a.id === selectedTask.relatedData)?.status === 'pending' ? '待审核' : adjustments.find(a => a.id === selectedTask.relatedData)?.status === 'approved' ? '已通过' : adjustments.find(a => a.id === selectedTask.relatedData)?.status}</Badge></p>
-                  </>
-                )}
+                {(() => {
+                  const adj = adjustments.find(a => a.id === selectedTask.relatedData);
+                  if (adj) {
+                    return (
+                      <>
+                        <p>申请单号: {adj.id}</p>
+                        <p>状态: <Badge color={statusColors[adj.status]}>{adj.status === 'pending' ? '待审核' : adj.status === 'approved' ? '已通过' : adj.status === 'rejected' ? '已驳回' : '已完成'}</Badge></p>
+                      </>
+                    );
+                  }
+                  return <p>未找到关联申请</p>;
+                })()}
               </div>
             )}
             {selectedTask.type === 'alert_response' && (
               <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#fff7e6', borderRadius: '4px' }}>
                 <p style={{ fontWeight: 'bold', marginBottom: '8px', color: '#fa8c16' }}>关联库存预警</p>
-                {alerts.find(a => a.id === selectedTask.relatedData) && (
-                  <>
-                    <p>预警编号: {selectedTask.relatedData}</p>
-                    <p>预警级别: <Badge color={alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'red' ? 'red' : alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'orange' ? 'orange' : 'yellow'}>{alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'red' ? '红色' : alerts.find(a => a.id === selectedTask.relatedData)?.alertLevel === 'orange' ? '橙色' : '黄色'}预警</Badge></p>
-                    <p>当前库存: {alerts.find(a => a.id === selectedTask.relatedData)?.currentStock} / 安全库存: {alerts.find(a => a.id === selectedTask.relatedData)?.safetyStock}</p>
-                  </>
-                )}
+                {(() => {
+                  const alt = alerts.find(a => a.id === selectedTask.relatedData || a.skuId === selectedTask.relatedData);
+                  if (alt) {
+                    return (
+                      <>
+                        <p>预警编号: {alt.id}</p>
+                        <p>预警级别: <Badge color={alt.alertLevel === 'red' ? 'red' : alt.alertLevel === 'orange' ? 'orange' : 'yellow'}>{alt.alertLevel === 'red' ? '红色' : alt.alertLevel === 'orange' ? '橙色' : '黄色'}预警</Badge></p>
+                        <p>当前库存: {alt.currentStock} / 安全库存: {alt.safetyStock}</p>
+                      </>
+                    );
+                  }
+                  return <p>未找到关联预警</p>;
+                })()}
               </div>
             )}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between' }}>

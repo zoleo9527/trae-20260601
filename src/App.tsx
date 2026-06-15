@@ -9,8 +9,21 @@ import { Role } from './types';
 
 type PageType = 'adjustment' | 'alert' | 'task' | 'record';
 
+const roleUsers: Record<Role, { name: string; displayName: string }[]> = {
+  clerk: [
+    { name: '张三', displayName: '张三（店员）' },
+    { name: '李四', displayName: '李四（店员）' }
+  ],
+  manager: [
+    { name: '王经理', displayName: '王经理（店长）' }
+  ],
+  buyer: [
+    { name: '采购刘', displayName: '采购刘（采购）' }
+  ]
+};
+
 function App() {
-  const { currentRole, setCurrentRole, notifications } = useWorkbench();
+  const { currentRole, setCurrentRole, currentUserName, setCurrentUserName, notifications } = useWorkbench();
   const [activePage, setActivePage] = useState<PageType>('adjustment');
   const [showSimplificationNotes, setShowSimplificationNotes] = useState(false);
 
@@ -22,6 +35,14 @@ function App() {
 
   const unreadCount = notifications.filter(n => !n.read && 
     (n.targetRole === currentRole || n.targetRole === 'all')).length;
+
+  const handleRoleChange = (role: Role) => {
+    setCurrentRole(role);
+    const users = roleUsers[role];
+    if (users.length > 0) {
+      setCurrentUserName(users[0].name);
+    }
+  };
 
   const navItems = [
     { key: 'adjustment' as PageType, label: '批号处理', icon: '📦' },
@@ -66,7 +87,7 @@ function App() {
             {(Object.keys(roleLabels) as Role[]).map(role => (
               <button
                 key={role}
-                onClick={() => setCurrentRole(role)}
+                onClick={() => handleRoleChange(role)}
                 style={{
                   padding: '4px 12px',
                   borderRadius: '4px',
@@ -81,6 +102,26 @@ function App() {
                 {roleLabels[role]}
               </button>
             ))}
+          </div>
+          <div style={{ marginTop: '8px' }}>
+            <select
+              value={currentUserName}
+              onChange={(e) => setCurrentUserName(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '6px 8px',
+                borderRadius: '4px',
+                backgroundColor: '#1f2d3d',
+                color: '#fff',
+                border: '1px solid #2f4050',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              {roleUsers[currentRole].map(user => (
+                <option key={user.name} value={user.name}>{user.displayName}</option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -154,7 +195,7 @@ function App() {
               {navItems.find(n => n.key === activePage)?.label}
             </h2>
             <p style={{ fontSize: '12px', color: '#666', margin: '4px 0 0' }}>
-              当前角色: {roleLabels[currentRole]} | 门店: 朝阳区店
+              当前用户: {currentUserName} ({roleLabels[currentRole]}) | 门店: 朝阳区店
             </p>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
