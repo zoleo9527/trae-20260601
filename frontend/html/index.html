@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标识制作厂 - 现场勘测与方案报价系统</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>标识制作厂管理系统</h1>
+            <div class="user-info">
+                <span id="current-user">admin</span>
+                <button onclick="logout()">退出登录</button>
+            </div>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#dashboard" class="active">首页</a></li>
+                <li><a href="#surveys">现场勘测</a></li>
+                <li><a href="#quotations">方案报价</a></li>
+                <li><a href="#customers">客户管理</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section id="dashboard" class="active-section">
+            <h2>工作看板</h2>
+            
+            <div class="dashboard-grid">
+                <div class="panel" id="todo-panel">
+                    <div class="panel-header">
+                        <h3>待办事项</h3>
+                        <span class="badge" id="todo-count">0</span>
+                    </div>
+                    <div class="panel-content" id="todo-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+
+                <div class="panel" id="risk-panel">
+                    <div class="panel-header">
+                        <h3>风险项</h3>
+                        <span class="badge warning" id="risk-count">0</span>
+                    </div>
+                    <div class="panel-content" id="risk-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+
+                <div class="panel" id="changes-panel">
+                    <div class="panel-header">
+                        <h3>最近变更</h3>
+                        <span class="badge info" id="changes-count">0</span>
+                    </div>
+                    <div class="panel-content" id="changes-list">
+                        <div class="loading">加载中...</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="surveys" class="hidden">
+            <div class="section-header">
+                <h2>现场勘测管理</h2>
+                <button class="btn-primary" onclick="showSurveyForm()">新建勘测单</button>
+            </div>
+            
+            <div class="filter-bar">
+                <select id="survey-status-filter" onchange="loadSurveys()">
+                    <option value="">全部状态</option>
+                    <option value="pending">待勘测</option>
+                    <option value="completed">已完成</option>
+                    <option value="reviewing">审核中</option>
+                </select>
+                <input type="text" id="survey-search" placeholder="搜索客户或位置..." onkeyup="loadSurveys()">
+            </div>
+            
+            <table class="data-table" id="survey-table">
+                <thead>
+                    <tr>
+                        <th>勘测单号</th>
+                        <th>客户</th>
+                        <th>位置</th>
+                        <th>状态</th>
+                        <th>勘测日期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="survey-table-body">
+                    <tr><td colspan="6" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="quotations" class="hidden">
+            <div class="section-header">
+                <h2>方案报价管理</h2>
+                <button class="btn-primary" onclick="showQuotationForm()">新建报价单</button>
+            </div>
+            
+            <div class="filter-bar">
+                <select id="quotation-status-filter" onchange="loadQuotations()">
+                    <option value="">全部状态</option>
+                    <option value="draft">草稿</option>
+                    <option value="submitted">已提交</option>
+                    <option value="approved">已批准</option>
+                    <option value="rejected">已拒绝</option>
+                    <option value="signed">已签约</option>
+                </select>
+                <input type="text" id="quotation-search" placeholder="搜索客户或报价单号..." onkeyup="loadQuotations()">
+            </div>
+            
+            <table class="data-table" id="quotation-table">
+                <thead>
+                    <tr>
+                        <th>报价单号</th>
+                        <th>客户</th>
+                        <th>勘测单号</th>
+                        <th>状态</th>
+                        <th>金额</th>
+                        <th>有效期</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="quotation-table-body">
+                    <tr><td colspan="7" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section id="customers" class="hidden">
+            <div class="section-header">
+                <h2>客户管理</h2>
+                <button class="btn-primary" onclick="showCustomerForm()">新建客户</button>
+            </div>
+            
+            <input type="text" id="customer-search" placeholder="搜索客户名称..." onkeyup="loadCustomers()" class="search-input">
+            
+            <table class="data-table" id="customer-table">
+                <thead>
+                    <tr>
+                        <th>客户名称</th>
+                        <th>联系人</th>
+                        <th>电话</th>
+                        <th>地址</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody id="customer-table-body">
+                    <tr><td colspan="5" class="loading">加载中...</td></tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal()">&times;</span>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <script src="../js/app.js"></script>
+</body>
+</html>
