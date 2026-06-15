@@ -10,14 +10,14 @@ function getUsername() {
 
 function checkLogin() {
     if (!getToken()) {
-        window.location.href = 'login.html';
+        window.location.href = '/';
     }
 }
 
 async function apiCall(endpoint, method = 'GET', data = null) {
     const token = getToken();
     if (!token) {
-        window.location.href = 'login.html';
+        window.location.href = '/';
         return Promise.reject('未登录');
     }
     
@@ -36,7 +36,7 @@ async function apiCall(endpoint, method = 'GET', data = null) {
     if (response.status === 401) {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('username');
-        window.location.href = 'login.html';
+        window.location.href = '/';
         return Promise.reject('登录失效');
     }
     
@@ -338,7 +338,7 @@ async function openSurveyDetail(id) {
         </div>
         
         <div class="form-actions">
-            <button class="btn-primary" onclick="showQuotationForm(${survey.id})">创建报价单</button>
+            ${survey.status === 'completed' && !survey.has_quotation ? `<button class="btn-primary" onclick="showQuotationForm(${survey.id})">创建报价单</button>` : ''}
             <button class="btn-secondary" onclick="closeModal()">关闭</button>
         </div>
     `;
@@ -684,12 +684,14 @@ function showQuotationForm(surveyId = null) {
     `;
     
     document.getElementById('modal-body').innerHTML = modalContent;
-    loadSurveysForSelect();
+    
+    const surveySelect = document.getElementById('quotation-survey');
     
     if (surveyId) {
-        document.getElementById('quotation-survey').value = surveyId;
-        document.getElementById('quotation-survey').disabled = true;
+        surveySelect.disabled = true;
     }
+    
+    await loadSurveysForSelect(surveyId);
     
     document.getElementById('quotation-form').addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -880,11 +882,25 @@ async function loadCustomersForSelect() {
     select.innerHTML = customers.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
-async function loadSurveysForSelect() {
+async function loadSurveysForSelect(selectedSurveyId = null) {
     const surveys = await apiCall('/surveys/');
     const completedSurveys = surveys.filter(s => s.status === 'completed' && !s.has_quotation);
     const select = document.getElementById('quotation-survey');
-    select.innerHTML = completedSurveys.map(s => `<option value="${s.id}">${s.survey_no} - ${s.customer_name}</option>`).join('');
+    
+    let options = '';
+    if (selectedSurveyId) {
+        const selectedSurvey = surveys.find(s => s.id === selectedSurveyId);
+        if (selectedSurvey) {
+            options = `<option value="${selectedSurvey.id}" selected>${selectedSurvey.survey_no} - ${selectedSurvey.customer_name}</option>`;
+        }
+    }
+    
+    options += completedSurveys
+        .filter(s => selectedSurveyId !== s.id)
+        .map(s => `<option value="${s.id}">${s.survey_no} - ${s.customer_name}</option>`)
+        .join('');
+    
+    select.innerHTML = options;
 }
 
 async function completeSurvey(id) {
