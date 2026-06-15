@@ -60,6 +60,14 @@ function formatMoney(value) {
     return Number(value).toFixed(2);
 }
 
+function openTodoDetail(id, type) {
+    if (type === 'survey') {
+        openSurveyDetail(id);
+    } else if (type === 'quotation' || type === 'approval') {
+        openQuotationDetail(id);
+    }
+}
+
 async function loadDashboard() {
     const todoData = await apiCall('/dashboard/todo/');
     const riskData = await apiCall('/dashboard/risk/');
@@ -82,7 +90,7 @@ function renderTodoList(data) {
     }
     
     container.innerHTML = data.map(item => `
-        <div class="todo-item" onclick="openSurveyDetail(${item.id})">
+        <div class="todo-item" onclick="openTodoDetail(${item.id}, '${item.type}')">
             <div class="todo-title">${item.title}</div>
             <div class="todo-meta">
                 <span class="priority-${item.priority}">${item.priority === 'high' ? '高优先级' : '中优先级'}</span>
@@ -874,7 +882,7 @@ async function loadCustomersForSelect() {
 
 async function loadSurveysForSelect() {
     const surveys = await apiCall('/surveys/');
-    const completedSurveys = surveys.filter(s => s.status === 'completed' && !s.quotation);
+    const completedSurveys = surveys.filter(s => s.status === 'completed' && !s.has_quotation);
     const select = document.getElementById('quotation-survey');
     select.innerHTML = completedSurveys.map(s => `<option value="${s.id}">${s.survey_no} - ${s.customer_name}</option>`).join('');
 }
@@ -932,7 +940,7 @@ function closeModal() {
 function logout() {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('username');
-    window.location.href = 'login.html';
+    window.location.href = '/';
 }
 
 function initApp() {

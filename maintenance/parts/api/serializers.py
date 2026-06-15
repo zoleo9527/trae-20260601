@@ -16,6 +16,10 @@ class SiteSurveySerializer(serializers.ModelSerializer):
     surveyor_name = serializers.CharField(source='surveyor.username', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
     items = SurveyItemSerializer(many=True, read_only=True)
+    has_quotation = serializers.SerializerMethodField()
+    
+    def get_has_quotation(self, obj):
+        return hasattr(obj, 'quotation')
     
     class Meta:
         model = SiteSurvey
@@ -24,7 +28,7 @@ class SiteSurveySerializer(serializers.ModelSerializer):
             'building_type', 'floor_count', 'wall_material', 'power_supply', 
             'installation_height', 'access_condition', 'photos', 'notes',
             'status', 'status_display', 'surveyor', 'surveyor_name',
-            'created_at', 'updated_at', 'items'
+            'created_at', 'updated_at', 'items', 'has_quotation'
         ]
 
 class SurveyCreateSerializer(serializers.ModelSerializer):
