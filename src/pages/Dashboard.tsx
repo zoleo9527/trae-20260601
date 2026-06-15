@@ -53,6 +53,10 @@ export default function Dashboard({ currentUser }: Props) {
   }
 
   const isSecondModification = (order: Order) =>
+    order.dimensionModified &&
+    order.dimensionReviewHistory.filter((r) => r.supersededAt).length >= 1
+
+  const everSecondModification = (order: Order) =>
     order.dimensionReviewHistory.filter((r) => r.supersededAt).length >= 1
 
   const renderOrderCard = (order: Order) => {
@@ -128,9 +132,14 @@ export default function Dashboard({ currentUser }: Props) {
                   <SwapOutlined style={{ color: '#888' }} />
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     复核历史 {order.dimensionReviewHistory.length} 版
-                    {secondMod && (
+                    {isSecondModification(order) && (
                       <Text type="danger" style={{ fontSize: 12 }}>
-                        {' '}(含二次改稿)
+                        {' '}(需重新复核)
+                      </Text>
+                    )}
+                    {!isSecondModification(order) && everSecondModification(order) && order.manuscriptVersion > 1 && (
+                      <Text type="success" style={{ fontSize: 12 }}>
+                        {' '}(已完成复核)
                       </Text>
                     )}
                   </Text>

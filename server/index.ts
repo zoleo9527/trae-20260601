@@ -86,7 +86,7 @@ app.get('/api/orders/today/tasks', (req, res) => {
     const isTodayOrEarlier = new Date(order.createdAt) < tomorrow
 
     if (isTodayOrEarlier) {
-      if (order.dimensionModified || order.installTimeModified || order.manuscriptVersion > 1) {
+      if (order.dimensionModified || order.installTimeModified) {
         result.modified.push(order)
       }
 
@@ -103,13 +103,15 @@ app.get('/api/orders/today/tasks', (req, res) => {
 
   result.pending.sort((a, b) => {
     const priority = (o: Order) => {
-      if (o.dimensionModified) return 0
-      if (o.installTimeModified) return 1
-      if (o.status === 'install_completed') return 2
-      if (o.status === 'pending_review') return 3
-      if (o.status === 'pending_receipt') return 4
-      if (o.status === 'pending_install') return 5
-      return 6
+      const hasSuperseded = o.dimensionReviewHistory.some((r) => r.supersededAt)
+      if (o.dimensionModified && hasSuperseded) return 0
+      if (o.dimensionModified) return 1
+      if (o.installTimeModified) return 2
+      if (o.status === 'install_completed') return 3
+      if (o.status === 'pending_review') return 4
+      if (o.status === 'pending_receipt') return 5
+      if (o.status === 'pending_install') return 6
+      return 7
     }
     return priority(a) - priority(b)
   })
@@ -136,21 +138,37 @@ app.post('/api/orders/:id/receive-manuscript', (req, res) => {
   } = req.body
 
   const isModification = order.manuscriptReceived
+  const now = new Date().toISOString()
 
   if (isModification) {
-    if (order.dimensionReviewed) {
+    const oldVersion = order.manuscriptVersion
+
+    const supersededIdx = order.dimensionReviewHistory.findIndex(
+      (r) => r.version === oldVersion && !r.supersededAt
+    )
+    if (supersededIdx >= 0) {
+      order.dimensionReviewHistory[supersededIdx].supersededAt = now
+    } else if (order.dimensionReviewed) {
       order.dimensionReviewHistory.push({
-        version: order.manuscriptVersion,
+        version: oldVersion,
         originalDimension: { ...order.originalDimension },
         reviewedDimension: order.reviewedDimension ? { ...order.reviewedDimension } : undefined,
         passed: order.status !== 'review_rejected',
         note: order.dimensionReviewNote,
         reviewedBy: order.dimensionReviewedBy,
         reviewedAt: order.dimensionReviewedAt,
-        supersededAt: new Date().toISOString(),
+        supersededAt: now,
       })
     }
-    order.manuscriptVersion += 1
+
+    const newVersion = oldVersion + 1
+    order.manuscriptVersion = newVersion
+
+    order.dimensionReviewHistory.push({
+      version: newVersion,
+      originalDimension: { ...dimension },
+    })
+
     order.dimensionModified = true
     order.dimensionReviewed = false
     order.reviewedDimension = undefined
