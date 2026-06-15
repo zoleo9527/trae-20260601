@@ -6,12 +6,11 @@ import { BurnInTestPanel } from '@/components/BurnInTestPanel';
 import { ApprovalPanel } from '@/components/ApprovalPanel';
 import { ExceptionPanel } from '@/components/ExceptionPanel';
 import { ExportPanel } from '@/components/ExportPanel';
-import type { Machine, ExportTask, DashboardStats, TestItem } from '@/types';
+import type { Machine, ExportTask, DashboardStats } from '@/types';
 import {
   getMachines,
   getStats,
   startBurnInTest,
-  updateTestItem,
   addException,
   resolveException,
   approveMachine,
@@ -35,6 +34,8 @@ function App() {
     totalMachines: 0,
     pendingTest: 0,
     testing: 0,
+    reRecording: 0,
+    pendingReview: 0,
     pendingApproval: 0,
     approved: 0,
     rejected: 0,
@@ -83,11 +84,6 @@ function App() {
 
   const handleStartTest = (machineId: string, operator: string) => {
     const newMachines = startBurnInTest(machineId, operator);
-    saveAndRefresh(newMachines);
-  };
-
-  const handleUpdateTestItem = (machineId: string, itemId: string, update: Partial<TestItem>) => {
-    const newMachines = updateTestItem(machineId, itemId, update);
     saveAndRefresh(newMachines);
   };
 
@@ -160,7 +156,6 @@ function App() {
                   <BurnInTestPanel
                     machine={selectedMachine}
                     onStartTest={handleStartTest}
-                    onUpdateTestItem={handleUpdateTestItem}
                     onReturnToPending={handleReturnToTesting}
                   />
                 ) : (

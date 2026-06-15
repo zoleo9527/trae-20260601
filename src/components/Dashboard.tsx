@@ -1,4 +1,4 @@
-import { Cpu, CheckCircle, AlertCircle, Clock, FileText, Package } from 'lucide-react';
+import { Cpu, CheckCircle, AlertCircle, Clock, FileText, Package, Edit3, Eye } from 'lucide-react';
 import type { DashboardStats } from '@/types';
 
 interface DashboardProps {
@@ -11,6 +11,8 @@ export function Dashboard({ stats, onNavigate }: DashboardProps) {
     { label: '总订单', value: stats.totalMachines, icon: FileText, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: '待测试', value: stats.pendingTest, icon: Clock, color: 'text-gray-600', bg: 'bg-gray-50' },
     { label: '测试中', value: stats.testing, icon: Cpu, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: '补录中', value: stats.reRecording, icon: Edit3, color: 'text-cyan-600', bg: 'bg-cyan-50' },
+    { label: '待复核', value: stats.pendingReview, icon: Eye, color: 'text-indigo-600', bg: 'bg-indigo-50' },
     { label: '待验收', value: stats.pendingApproval, icon: AlertCircle, color: 'text-yellow-600', bg: 'bg-yellow-50' },
     { label: '验收通过', value: stats.approved, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
     { label: '已交付', value: stats.completed, icon: Package, color: 'text-purple-600', bg: 'bg-purple-50' },
@@ -74,6 +76,8 @@ export function Dashboard({ stats, onNavigate }: DashboardProps) {
             {[
               { label: '待测试', value: stats.pendingTest, color: 'bg-gray-400', percent: stats.totalMachines ? (stats.pendingTest / stats.totalMachines * 100).toFixed(1) : '0' },
               { label: '测试中', value: stats.testing, color: 'bg-blue-500', percent: stats.totalMachines ? (stats.testing / stats.totalMachines * 100).toFixed(1) : '0' },
+              { label: '补录中', value: stats.reRecording, color: 'bg-cyan-500', percent: stats.totalMachines ? (stats.reRecording / stats.totalMachines * 100).toFixed(1) : '0' },
+              { label: '待复核', value: stats.pendingReview, color: 'bg-indigo-500', percent: stats.totalMachines ? (stats.pendingReview / stats.totalMachines * 100).toFixed(1) : '0' },
               { label: '待验收', value: stats.pendingApproval, color: 'bg-yellow-500', percent: stats.totalMachines ? (stats.pendingApproval / stats.totalMachines * 100).toFixed(1) : '0' },
               { label: '验收通过', value: stats.approved, color: 'bg-green-500', percent: stats.totalMachines ? (stats.approved / stats.totalMachines * 100).toFixed(1) : '0' },
               { label: '验收驳回', value: stats.rejected, color: 'bg-orange-500', percent: stats.totalMachines ? (stats.rejected / stats.totalMachines * 100).toFixed(1) : '0' },

@@ -34,6 +34,8 @@ export function getStats(): DashboardStats {
     totalMachines: machines.length,
     pendingTest: machines.filter(m => m.status === 'pending').length,
     testing: machines.filter(m => m.status === 'testing').length,
+    reRecording: machines.filter(m => m.status === 're_recording').length,
+    pendingReview: machines.filter(m => m.status === 'pending_review').length,
     pendingApproval: machines.filter(m => m.status === 'pending_approval').length,
     approved: machines.filter(m => m.status === 'approved').length,
     rejected: machines.filter(m => m.status === 'rejected').length,
@@ -339,7 +341,7 @@ export function returnToTesting(machineId: string, operator: string, reason: str
       
       return {
         ...m,
-        status: 'pending',
+        status: 're_recording',
         burnInTest: undefined,
         burnInTestHistory,
         approval: undefined,
@@ -349,6 +351,82 @@ export function returnToTesting(machineId: string, operator: string, reason: str
         updatedAt: now,
         lastModifiedBy: operator,
       };
+    }
+    return m;
+  });
+}
+
+export function completeReRecording(machineId: string, operator: string, reRecordInfo: string): Machine[] {
+  const machines = loadMachines();
+  const now = new Date().toLocaleString('zh-CN');
+  
+  return machines.map(m => {
+    if (m.id === machineId && m.status === 're_recording') {
+      const newOperation: OperationRecord = {
+        id: `OP${Date.now()}`,
+        machineId,
+        type: 're_record',
+        operator,
+        description: `补录完成：${reRecordInfo}`,
+        createdAt: now,
+      };
+      
+      return {
+        ...m,
+        status: 'pending_review',
+        operations: [...m.operations, newOperation],
+        updatedAt: now,
+        lastModifiedBy: operator,
+      };
+    }
+    return m;
+  });
+}
+
+export function completeReview(machineId: string, operator: string, reviewResult: 'approve' | 'reject', comments: string): Machine[] {
+  const machines = loadMachines();
+  const now = new Date().toLocaleString('zh-CN');
+  
+  return machines.map(m => {
+    if (m.id === machineId && m.status === 'pending_review') {
+      const newOperation: OperationRecord = {
+        id: `OP${Date.now()}`,
+        machineId,
+        type: 'review',
+        operator,
+        description: `复核${reviewResult === 'approve' ? '通过' : '驳回'}：${comments}`,
+        createdAt: now,
+      };
+      
+      if (reviewResult === 'approve') {
+        const approvalRecord = m.approvalHistory.length > 0 ? {
+          ...m.approvalHistory[m.approvalHistory.length - 1],
+          id: `A${Date.now()}`,
+          status: 'reviewed' as const,
+          approver: operator,
+          comments,
+          approvedAt: now,
+          createdAt: now,
+        } : undefined;
+        
+        return {
+          ...m,
+          status: 'pending',
+          approval: approvalRecord,
+          approvalHistory: approvalRecord ? [...m.approvalHistory, approvalRecord] : m.approvalHistory,
+          operations: [...m.operations, newOperation],
+          updatedAt: now,
+          lastModifiedBy: operator,
+        };
+      } else {
+        return {
+          ...m,
+          status: 're_recording',
+          operations: [...m.operations, newOperation],
+          updatedAt: now,
+          lastModifiedBy: operator,
+        };
+      }
     }
     return m;
   });
@@ -416,26 +494,54 @@ export function completeExportTask(taskId: string, machines: Machine[]): ExportT
 
 export function generateReportData(type: ExportTask['type'], machines: Machine[]): string {
   const headers = {
-    burn_in_test: ['订单号', '客户姓名', '配置', '测试状态', '测试开始时间', '测试结束时间', '测试时长', '操作人员'],
-    delivery: ['订单号', '客户姓名', '交付日期', '交付地址', '签收人', '配件清单', '保修卡', '发票'],
-    exception: ['订单号', '客户姓名', '异常类型', '严重程度', '异常描述', '状态', '创建时间'],
-    all: ['订单号', '客户姓名', '配置', '状态', '测试状态', '验收状态', '交付状态', '创建时间'],
+    burn_in_test: ['订单号', '客户姓名', '配置', '测试状态', '测试开始时间', '测试结束时间', '测试时长', '操作人员', '温度', 'CPU使用率', '内存使用率', 'GPU使用率', '测试备注', '历史测试次数', '历史测试结果'],
+    delivery: ['订单号', '客户姓名', '交付日期', '交付地址', '签收人', '配件清单', '保修卡', '发票', '客户电话', '旧台账号', '现场记录'],
+    exception: ['订单号', '客户姓名', '异常类型', '严重程度', '异常描述', '状态', '创建时间', '处理人', '处理结果', '处理时间'],
+    all: ['订单号', '客户姓名', '配置', '状态', '测试状态', '验收状态', '驳回原因', '复核结论', '交付状态', '创建时间', '最近操作', '历史测试次数', '历史验收次数'],
   };
   
   const rows: string[][] = [];
   
   machines.forEach(m => {
-    if (type === 'burn_in_test' && m.burnInTest) {
-      rows.push([
-        m.orderNo,
-        m.customerName,
-        m.configuration,
-        m.burnInTest.overallStatus === 'passed' ? '通过' : m.burnInTest.overallStatus === 'failed' ? '失败' : '进行中',
-        m.burnInTest.startTime,
-        m.burnInTest.endTime || '',
-        m.burnInTest.duration ? `${Math.floor(m.burnInTest.duration / 60)}小时${m.burnInTest.duration % 60}分钟` : '',
-        m.burnInTest.operator,
-      ]);
+    if (type === 'burn_in_test') {
+      if (m.burnInTest) {
+        rows.push([
+          m.orderNo,
+          m.customerName,
+          m.configuration,
+          m.burnInTest.overallStatus === 'passed' ? '通过' : m.burnInTest.overallStatus === 'failed' ? '失败' : '进行中',
+          m.burnInTest.startTime,
+          m.burnInTest.endTime || '',
+          m.burnInTest.duration ? `${Math.floor(m.burnInTest.duration / 60)}小时${m.burnInTest.duration % 60}分钟` : '',
+          m.burnInTest.operator,
+          `${m.burnInTest.temperature}°C`,
+          `${m.burnInTest.cpuUsage}%`,
+          `${m.burnInTest.memoryUsage}%`,
+          `${m.burnInTest.gpuUsage}%`,
+          m.burnInTest.remarks || '',
+          `${m.burnInTestHistory.length}`,
+          m.burnInTestHistory.map(t => t.overallStatus === 'passed' ? '通过' : '失败').join('; ') || '',
+        ]);
+      }
+      m.burnInTestHistory.forEach(test => {
+        rows.push([
+          `${m.orderNo}(历史)`,
+          m.customerName,
+          m.configuration,
+          test.overallStatus === 'passed' ? '通过' : test.overallStatus === 'failed' ? '失败' : '进行中',
+          test.startTime,
+          test.endTime || '',
+          test.duration ? `${Math.floor(test.duration / 60)}小时${test.duration % 60}分钟` : '',
+          test.operator,
+          `${test.temperature}°C`,
+          `${test.cpuUsage}%`,
+          `${test.memoryUsage}%`,
+          `${test.gpuUsage}%`,
+          test.remarks || '',
+          '-',
+          '-',
+        ]);
+      });
     } else if (type === 'delivery' && m.delivery) {
       rows.push([
         m.orderNo,
@@ -446,6 +552,9 @@ export function generateReportData(type: ExportTask['type'], machines: Machine[]
         m.delivery.accessories.join(';'),
         m.delivery.warrantyCard ? '是' : '否',
         m.delivery.invoice ? '是' : '否',
+        m.customerPhone || '',
+        m.oldLedgerNo || '',
+        m.siteRecord || '',
       ]);
     } else if (type === 'exception') {
       m.exceptions.forEach(e => {
@@ -457,9 +566,18 @@ export function generateReportData(type: ExportTask['type'], machines: Machine[]
           e.description,
           e.resolved ? '已解决' : '待处理',
           e.createdAt,
+          e.resolvedBy || '',
+          e.resolution || '',
+          e.resolvedAt || '',
         ]);
       });
     } else if (type === 'all') {
+      const lastOperation = m.operations[m.operations.length - 1];
+      const rejectReason = m.approval?.status === 'rejected' ? m.approval.comments : 
+                          m.approvalHistory.find(a => a.status === 'rejected')?.comments || '';
+      const reviewConclusion = m.approval?.status === 'reviewed' ? m.approval.comments :
+                             m.approvalHistory.find(a => a.status === 'reviewed')?.comments || '';
+      
       rows.push([
         m.orderNo,
         m.customerName,
@@ -467,13 +585,22 @@ export function generateReportData(type: ExportTask['type'], machines: Machine[]
         m.status === 'pending' ? '待测试' : 
         m.status === 'testing' ? '测试中' :
         m.status === 'test_failed' ? '测试失败' :
+        m.status === 're_recording' ? '补录中' :
+        m.status === 'pending_review' ? '待复核' :
         m.status === 'pending_approval' ? '待验收' :
         m.status === 'approved' ? '验收通过' :
         m.status === 'rejected' ? '验收驳回' : '已交付',
         m.burnInTest ? (m.burnInTest.overallStatus === 'passed' ? '通过' : m.burnInTest.overallStatus === 'failed' ? '失败' : '进行中') : '',
-        m.approval ? (m.approval.status === 'approved' ? '通过' : m.approval.status === 'rejected' ? '驳回' : '待审批') : '',
+        m.approval ? (m.approval.status === 'approved' ? '通过' : 
+                     m.approval.status === 'rejected' ? '驳回' : 
+                     m.approval.status === 'reviewed' ? '已复核' : '待审批') : '',
+        rejectReason,
+        reviewConclusion,
         m.delivery ? '已交付' : '',
         m.createdAt,
+        lastOperation ? `${lastOperation.type}: ${lastOperation.description}` : '',
+        `${m.burnInTestHistory.length + (m.burnInTest ? 1 : 0)}`,
+        `${m.approvalHistory.length + (m.approval ? 1 : 0)}`,
       ]);
     }
   });

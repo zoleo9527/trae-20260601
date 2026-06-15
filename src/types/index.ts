@@ -1,10 +1,10 @@
-export type MachineStatus = 'pending' | 'testing' | 'test_passed' | 'test_failed' | 'pending_approval' | 'approved' | 'rejected' | 'completed';
+export type MachineStatus = 'pending' | 'testing' | 'test_passed' | 'test_failed' | 're_recording' | 'pending_review' | 'pending_approval' | 'approved' | 'rejected' | 'completed';
 
 export type TestItemStatus = 'pending' | 'running' | 'passed' | 'failed' | 'skipped';
 
-export type ApprovalStatus = 'pending' | 'approved' | 'rejected';
+export type ApprovalStatus = 'pending' | 'approved' | 'rejected' | 'reviewed';
 
-export type OperationType = 'start_test' | 'update_test_item' | 'complete_test' | 'approve' | 'reject' | 'return' | 'complete_delivery' | 'add_exception' | 'resolve_exception';
+export type OperationType = 'start_test' | 'update_test_item' | 'complete_test' | 'approve' | 'reject' | 'return' | 'complete_delivery' | 'add_exception' | 'resolve_exception' | 're_record' | 'review';
 
 export interface OperationRecord {
   id: string;
@@ -138,6 +138,8 @@ export interface DashboardStats {
   totalMachines: number;
   pendingTest: number;
   testing: number;
+  reRecording: number;
+  pendingReview: number;
   pendingApproval: number;
   approved: number;
   rejected: number;

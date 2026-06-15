@@ -5,6 +5,8 @@ export const statusLabels: Record<MachineStatus, string> = {
   testing: '测试中',
   test_passed: '测试通过',
   test_failed: '测试失败',
+  re_recording: '补录中',
+  pending_review: '待复核',
   pending_approval: '待验收',
   approved: '验收通过',
   rejected: '验收驳回',
@@ -16,6 +18,8 @@ export const statusColors: Record<MachineStatus, string> = {
   testing: 'bg-blue-100 text-blue-700',
   test_passed: 'bg-green-100 text-green-700',
   test_failed: 'bg-red-100 text-red-700',
+  re_recording: 'bg-cyan-100 text-cyan-700',
+  pending_review: 'bg-indigo-100 text-indigo-700',
   pending_approval: 'bg-yellow-100 text-yellow-700',
   approved: 'bg-emerald-100 text-emerald-700',
   rejected: 'bg-orange-100 text-orange-700',
@@ -42,12 +46,14 @@ export const approvalStatusLabels: Record<ApprovalStatus, string> = {
   pending: '待审批',
   approved: '已通过',
   rejected: '已驳回',
+  reviewed: '已复核',
 };
 
 export const approvalStatusColors: Record<ApprovalStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
   approved: 'bg-green-100 text-green-700',
   rejected: 'bg-red-100 text-red-700',
+  reviewed: 'bg-indigo-100 text-indigo-700',
 };
 
 export const exceptionTypeLabels: Record<ExceptionRecord['type'], string> = {
@@ -93,6 +99,8 @@ export const getStatusFlow = (status: MachineStatus): string => {
     testing: '下单 → 测试中',
     test_passed: '下单 → 测试通过',
     test_failed: '下单 → 测试失败',
+    re_recording: '下单 → 测试失败/驳回 → 补录中',
+    pending_review: '下单 → 测试失败/驳回 → 补录中 → 待复核',
     pending_approval: '下单 → 测试通过 → 待验收',
     approved: '下单 → 测试通过 → 验收通过',
     rejected: '下单 → 测试通过 → 验收驳回',

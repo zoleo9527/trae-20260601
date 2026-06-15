@@ -15,6 +15,8 @@ export function useMachineStore() {
       totalMachines: machines.length,
       pendingTest: machines.filter(m => m.status === 'pending').length,
       testing: machines.filter(m => m.status === 'testing').length,
+      reRecording: machines.filter(m => m.status === 're_recording').length,
+      pendingReview: machines.filter(m => m.status === 'pending_review').length,
       pendingApproval: machines.filter(m => m.status === 'pending_approval').length,
       approved: machines.filter(m => m.status === 'approved').length,
       rejected: machines.filter(m => m.status === 'rejected').length,

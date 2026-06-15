@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle, XCircle, Package, RotateCcw, FileText, User, Phone, MapPin } from 'lucide-react';
-import type { Machine } from '@/types';
+import { CheckCircle, XCircle, Package, RotateCcw, FileText, User, Phone, MapPin, History, ChevronDown, ChevronUp, Clock, AlertCircle } from 'lucide-react';
+import type { Machine, ApprovalRecord } from '@/types';
 import { approvalStatusLabels, approvalStatusColors, statusLabels, statusColors } from '@/utils/helpers';
 
 interface ApprovalPanelProps {
@@ -18,6 +18,8 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [returnOperator, setReturnOperator] = useState('');
+  const [showApprovalHistory, setShowApprovalHistory] = useState(true);
+  const [showOperationHistory, setShowOperationHistory] = useState(true);
   const [deliveryData, setDeliveryData] = useState({
     customerName: machine.customerName,
     customerPhone: machine.customerPhone,
@@ -57,6 +59,77 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
     }
   };
 
+  const renderApprovalRecord = (approval: ApprovalRecord, isHistory: boolean = false) => (
+    <div className={`rounded-lg p-3 ${
+      approval.status === 'approved' ? 'bg-green-50' :
+      approval.status === 'rejected' ? 'bg-red-50' :
+      approval.status === 'reviewed' ? 'bg-indigo-50' : 'bg-yellow-50'
+    }`}>
+      {isHistory && (
+        <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+          <History className="h-3 w-3" />
+          <span>历史验收 - 验收ID: {approval.id}</span>
+        </div>
+      )}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-medium text-gray-700">验收状态</span>
+        <span className={`px-2 py-0.5 rounded text-xs font-medium ${approvalStatusColors[approval.status]}`}>
+          {approvalStatusLabels[approval.status]}
+        </span>
+      </div>
+      {approval.approver && (
+        <div className="flex items-center justify-between text-sm mb-1">
+          <span className="text-gray-600">验收人</span>
+          <span className="text-gray-700">{approval.approver}</span>
+        </div>
+      )}
+      {approval.approvedAt && (
+        <div className="flex items-center justify-between text-sm mb-1">
+          <span className="text-gray-600">验收时间</span>
+          <span className="text-gray-700">{approval.approvedAt}</span>
+        </div>
+      )}
+      {approval.comments && (
+        <p className="text-sm text-gray-600 mt-2">
+          {approval.status === 'rejected' ? <strong>驳回原因:</strong> : <strong>验收意见:</strong>} {approval.comments}
+        </p>
+      )}
+    </div>
+  );
+
+  const getOperationIcon = (type: string) => {
+    switch (type) {
+      case 'start_test': return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'complete_test': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'approve': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'reject': return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'return': return <RotateCcw className="h-4 w-4 text-yellow-500" />;
+      case 'complete_delivery': return <Package className="h-4 w-4 text-purple-500" />;
+      case 'add_exception': return <AlertCircle className="h-4 w-4 text-orange-500" />;
+      case 'resolve_exception': return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 're_record': return <FileText className="h-4 w-4 text-cyan-500" />;
+      case 'review': return <CheckCircle className="h-4 w-4 text-indigo-500" />;
+      default: return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
+
+  const getOperationLabel = (type: string) => {
+    switch (type) {
+      case 'start_test': return '开始测试';
+      case 'update_test_item': return '更新测试项';
+      case 'complete_test': return '完成测试';
+      case 'approve': return '验收通过';
+      case 'reject': return '验收驳回';
+      case 'return': return '退回处理';
+      case 'complete_delivery': return '完成交付';
+      case 'add_exception': return '记录异常';
+      case 'resolve_exception': return '处理异常';
+      case 're_record': return '补录完成';
+      case 'review': return '复核完成';
+      default: return type;
+    }
+  };
+
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-6">
@@ -69,8 +142,8 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-4 lg:col-span-2">
           <div className="bg-gray-50 rounded-xl p-4">
             <h3 className="font-semibold text-gray-900 mb-3">客户信息</h3>
             <div className="space-y-2">
@@ -128,33 +201,62 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
             </div>
           )}
 
-          {machine.approval && (
-            <div className={`rounded-xl p-4 ${
-              machine.approval.status === 'approved' ? 'bg-green-50' :
-              machine.approval.status === 'rejected' ? 'bg-red-50' : 'bg-yellow-50'
-            }`}>
-              <h3 className="font-semibold text-gray-900 mb-3">验收记录</h3>
+          <div className={`rounded-xl p-4 ${
+            machine.approval?.status === 'approved' ? 'bg-green-50' :
+            machine.approval?.status === 'rejected' ? 'bg-red-50' : 
+            machine.approval?.status === 'reviewed' ? 'bg-indigo-50' : 'bg-yellow-50'
+          }`}>
+            <h3 className="font-semibold text-gray-900 mb-3">验收记录</h3>
+            {machine.approval ? (
+              renderApprovalRecord(machine.approval)
+            ) : (
+              <p className="text-sm text-gray-500">暂无验收记录</p>
+            )}
+          </div>
+
+          {machine.delivery && (
+            <div className="bg-purple-50 rounded-xl p-4">
+              <h3 className="font-semibold text-gray-900 mb-3">交付记录</h3>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-gray-600">验收状态</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${approvalStatusColors[machine.approval.status]}`}>
-                    {approvalStatusLabels[machine.approval.status]}
+                  <span className="text-gray-600">交付日期</span>
+                  <span className="text-gray-700">{machine.delivery.deliveryDate}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-5 w-5 text-gray-400" />
+                  <span className="text-gray-700">{machine.delivery.address}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">签收人</span>
+                  <span className="text-gray-700">{machine.delivery.signer}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">保修卡</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    machine.delivery.warrantyCard ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {machine.delivery.warrantyCard ? '已提供' : '未提供'}
                   </span>
                 </div>
-                {machine.approval.approver && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">验收人</span>
-                    <span className="text-gray-700">{machine.approval.approver}</span>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">发票</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    machine.delivery.invoice ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                  }`}>
+                    {machine.delivery.invoice ? '已提供' : '未提供'}
+                  </span>
+                </div>
+                {machine.delivery.accessories.length > 0 && (
+                  <div className="pt-2 border-t border-gray-200">
+                    <p className="text-sm text-gray-600">配件清单:</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {machine.delivery.accessories.map((item, index) => (
+                        <span key={index} className="px-2 py-1 bg-white rounded text-xs text-gray-700">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
                   </div>
-                )}
-                {machine.approval.approvedAt && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-600">验收时间</span>
-                    <span className="text-gray-700">{machine.approval.approvedAt}</span>
-                  </div>
-                )}
-                {machine.approval.comments && (
-                  <p className="text-sm text-gray-600 mt-2">验收意见: {machine.approval.comments}</p>
                 )}
               </div>
             </div>
@@ -220,54 +322,6 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
             </div>
           )}
 
-          {machine.delivery && (
-            <div className="bg-purple-50 rounded-xl p-4">
-              <h3 className="font-semibold text-gray-900 mb-3">交付记录</h3>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">交付日期</span>
-                  <span className="text-gray-700">{machine.delivery.deliveryDate}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="h-5 w-5 text-gray-400" />
-                  <span className="text-gray-700">{machine.delivery.address}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">签收人</span>
-                  <span className="text-gray-700">{machine.delivery.signer}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">保修卡</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    machine.delivery.warrantyCard ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {machine.delivery.warrantyCard ? '已提供' : '未提供'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-gray-600">发票</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    machine.delivery.invoice ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-                  }`}>
-                    {machine.delivery.invoice ? '已提供' : '未提供'}
-                  </span>
-                </div>
-                {machine.delivery.accessories.length > 0 && (
-                  <div className="pt-2 border-t border-gray-200">
-                    <p className="text-sm text-gray-600">配件清单:</p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {machine.delivery.accessories.map((item, index) => (
-                        <span key={index} className="px-2 py-1 bg-white rounded text-xs text-gray-700">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
           {machine.status === 'rejected' && (
             <div className="border border-red-200 bg-red-50 rounded-xl p-6">
               <h3 className="font-semibold text-gray-900 mb-4">验收驳回</h3>
@@ -282,6 +336,58 @@ export function ApprovalPanel({ machine, onApprove, onReject, onCompleteDelivery
                 <RotateCcw className="h-4 w-4" />
                 退回处理
               </button>
+            </div>
+          )}
+
+          {machine.approvalHistory.length > 0 && (
+            <div className="border border-gray-200 rounded-xl p-4">
+              <button
+                onClick={() => setShowApprovalHistory(!showApprovalHistory)}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 w-full"
+              >
+                {showApprovalHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <History className="h-4 w-4" />
+                <span className="font-medium">历史验收记录 ({machine.approvalHistory.length}条)</span>
+              </button>
+              
+              {showApprovalHistory && (
+                <div className="space-y-3">
+                  {[...machine.approvalHistory].reverse().map((approval, index) => (
+                    <div key={approval.id}>
+                      <div className="text-xs text-gray-400 mb-1">第{machine.approvalHistory.length - index}次验收</div>
+                      {renderApprovalRecord(approval, true)}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {machine.operations.length > 0 && (
+            <div className="border border-gray-200 rounded-xl p-4">
+              <button
+                onClick={() => setShowOperationHistory(!showOperationHistory)}
+                className="flex items-center gap-2 text-blue-600 hover:text-blue-700 mb-3 w-full"
+              >
+                {showOperationHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <Clock className="h-4 w-4" />
+                <span className="font-medium">操作轨迹 ({machine.operations.length}条)</span>
+              </button>
+              
+              {showOperationHistory && (
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {[...machine.operations].reverse().map(op => (
+                    <div key={op.id} className="flex items-start gap-2 p-2 bg-gray-50 rounded">
+                      <div className="mt-0.5">{getOperationIcon(op.type)}</div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium text-gray-700">{getOperationLabel(op.type)}</div>
+                        <div className="text-xs text-gray-500">{op.description}</div>
+                        <div className="text-xs text-gray-400">{op.operator} - {op.createdAt}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
