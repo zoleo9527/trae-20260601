@@ -57,7 +57,7 @@ export function TodoTaskPage() {
 
   const handleBatchComplete = () => {
     if (selectedItems.length > 0) {
-      markTaskBatchComplete(selectedItems);
+      markTaskBatchComplete(selectedItems, currentUserName);
       setSelectedItems([]);
     }
   };

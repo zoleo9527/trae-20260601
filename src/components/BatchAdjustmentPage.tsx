@@ -5,7 +5,7 @@ import { adjustReasons } from '../data/mockData';
 import { BatchAdjustment } from '../types';
 
 export function BatchAdjustmentPage() {
-  const { adjustments, skus, batches, addAdjustment, approveAdjustment, rejectAdjustment, completeAdjustment, batchApproveAdjustments, batchCompleteAdjustments, batchRejectAdjustments, currentRole } = useWorkbench();
+  const { adjustments, skus, batches, addAdjustment, approveAdjustment, rejectAdjustment, completeAdjustment, batchApproveAdjustments, batchCompleteAdjustments, batchRejectAdjustments, currentRole, currentUserName } = useWorkbench();
   const [showForm, setShowForm] = useState(false);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [filterStatus, setFilterStatus] = useState('');
@@ -51,7 +51,7 @@ export function BatchAdjustmentPage() {
       newBatchId: formData.newBatchId,
       adjustQuantity: parseInt(formData.adjustQuantity),
       reason: formData.reason,
-      applicant: currentRole === 'clerk' ? '张三' : '测试用户',
+      applicant: currentUserName,
       applyTime: now,
       createTime: now,
       status: 'pending',

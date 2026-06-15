@@ -19,8 +19,8 @@ interface WorkbenchContextType {
   completeAdjustment: (id: string) => void;
   handleAlert: (id: string, handler: string, result: string) => void;
   markNotificationRead: (id: string) => void;
-  markTaskBatchComplete: (taskIds: string[]) => void;
-  completeTask: (id: string) => void;
+  markTaskBatchComplete: (taskIds: string[], approver: string) => void;
+  completeTask: (id: string, approver?: string) => void;
   batchApproveAdjustments: (ids: string[], approver: string) => void;
   batchCompleteAdjustments: (ids: string[]) => void;
   batchRejectAdjustments: (ids: string[], approver: string, reason: string) => void;
@@ -75,11 +75,13 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const approveAdjustment = useCallback((id: string, approver: string) => {
-    setAdjustments(prev => prev.map(adj => 
-      adj.id === id ? { ...adj, status: 'approved', approver, approveTime: new Date().toLocaleString('zh-CN') } as BatchAdjustment : adj
+    const adj = adjustments.find(a => a.id === id);
+    if (!adj || adj.status !== 'pending') return;
+
+    setAdjustments(prev => prev.map(a => 
+      a.id === id ? { ...a, status: 'approved' as const, approver, approveTime: new Date().toLocaleString('zh-CN') } : a
     ));
 
-    const adjustment = adjustments.find(a => a.id === id);
     setNotifications(prev => [...prev, {
       id: generateId('NOT'),
       type: 'adjustment',
@@ -91,72 +93,40 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
       relatedId: id
     }]);
 
-    if (adjustment) {
-      setTasks(prev => [...prev, {
-        id: generateId('TSK'),
-        type: 'adjustment_audit',
-        title: `完成批号调整 ${id}`,
-        priority: 'high',
-        status: 'pending',
-        assignee: adjustment.applicant,
-        createTime: new Date().toLocaleString('zh-CN'),
-        dueTime: new Date(Date.now() + 1 * 60 * 60 * 1000).toLocaleString('zh-CN'),
-        relatedData: id
-      }]);
+    setTasks(prev => prev.map(t =>
+      t.relatedData === id && t.type === 'adjustment_audit' && t.status === 'pending'
+        ? { ...t, status: 'completed' as const } : t
+    ));
 
-      const sku = skus.find(s => s.id === adjustment.skuId);
-      const skuBatches = batches.filter(b => b.skuId === adjustment.skuId);
-      const newStock = skuBatches.reduce((sum, b) => sum + b.quantity, 0) - adjustment.adjustQuantity;
-      const needBuyerTask = sku && newStock < sku.safetyStock;
-      const relatedAlert = alerts.find(a => a.skuId === adjustment.skuId && a.status !== 'resolved');
+    setTasks(prev => [...prev, {
+      id: generateId('TSK'),
+      type: 'adjustment_audit',
+      title: `完成批号调整 ${id}`,
+      priority: 'high',
+      status: 'pending',
+      assignee: adj.applicant,
+      createTime: new Date().toLocaleString('zh-CN'),
+      dueTime: new Date(Date.now() + 1 * 60 * 60 * 1000).toLocaleString('zh-CN'),
+      relatedData: id
+    }]);
 
-      if (relatedAlert) {
-        const newAlertStock = relatedAlert.currentStock - adjustment.adjustQuantity;
-        const newLevel = sku && newAlertStock < sku.safetyStock * 0.5 ? 'red' as const :
-                        sku && newAlertStock < sku.safetyStock * 0.8 ? 'orange' as const :
-                        sku && newAlertStock < sku.safetyStock ? 'yellow' as const : 'resolved' as const;
+    const sku = skus.find(s => s.id === adj.skuId);
+    const skuBatches = batches.filter(b => b.skuId === adj.skuId);
+    const newStock = skuBatches.reduce((sum, b) => sum + b.quantity, 0) - adj.adjustQuantity;
+    const needBuyerTask = sku && newStock < sku.safetyStock;
+    const relatedAlert = alerts.find(a => a.skuId === adj.skuId && a.status !== 'resolved');
 
-        setAlerts(prev => prev.map(alt => 
-          alt.id === relatedAlert.id ? { ...alt, currentStock: newAlertStock, alertLevel: newLevel, relatedAdjustments: [...alt.relatedAdjustments, id] } as InventoryAlert : alt
-        ));
+    if (relatedAlert) {
+      const newAlertStock = relatedAlert.currentStock - adj.adjustQuantity;
+      const newLevel: 'red' | 'orange' | 'yellow' = sku && newAlertStock < sku.safetyStock * 0.5 ? 'red' as const :
+                      sku && newAlertStock < sku.safetyStock * 0.8 ? 'orange' as const : 'yellow' as const;
+      const shouldResolve = sku && newAlertStock >= sku.safetyStock;
 
-        if (needBuyerTask || relatedAlert) {
-          setTasks(prev => [...prev, {
-            id: generateId('TSK'),
-            type: 'alert_response',
-            title: `批号调整${id}已完成，请重新评估采购计划`,
-            priority: 'high',
-            status: 'pending',
-            assignee: '采购刘',
-            createTime: new Date().toLocaleString('zh-CN'),
-            dueTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toLocaleString('zh-CN'),
-            relatedData: adjustment.skuId
-          }]);
+      setAlerts(prev => prev.map(alt => 
+        alt.id === relatedAlert.id ? { ...alt, currentStock: newAlertStock, alertLevel: shouldResolve ? alt.alertLevel : newLevel, status: shouldResolve ? 'resolved' as const : alt.status, relatedAdjustments: [...alt.relatedAdjustments, id] } : alt
+      ));
 
-          setNotifications(prev => [...prev, {
-            id: generateId('NOT'),
-            type: 'alert',
-            title: '批号调整完成，请评估采购计划',
-            content: `批号调整${id}已完成，${sku?.name}库存已更新至${newAlertStock}，请重新评估采购计划`,
-            targetRole: 'buyer',
-            read: false,
-            createTime: new Date().toLocaleString('zh-CN'),
-            relatedId: relatedAlert.id
-          }]);
-        }
-      } else if (needBuyerTask) {
-        setAlerts(prev => [...prev, {
-          id: generateId('ALT'),
-          skuId: adjustment.skuId,
-          currentStock: newStock,
-          safetyStock: sku!.safetyStock,
-          alertLevel: newStock < sku!.safetyStock * 0.5 ? 'red' as const :
-                      newStock < sku!.safetyStock * 0.8 ? 'orange' as const : 'yellow' as const,
-          status: 'pending',
-          createTime: new Date().toLocaleString('zh-CN'),
-          relatedAdjustments: [id]
-        }]);
-
+      if (needBuyerTask || relatedAlert) {
         setTasks(prev => [...prev, {
           id: generateId('TSK'),
           type: 'alert_response',
@@ -166,26 +136,65 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
           assignee: '采购刘',
           createTime: new Date().toLocaleString('zh-CN'),
           dueTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toLocaleString('zh-CN'),
-          relatedData: adjustment.skuId
+          relatedData: relatedAlert.id
         }]);
 
         setNotifications(prev => [...prev, {
           id: generateId('NOT'),
           type: 'alert',
           title: '批号调整完成，请评估采购计划',
-          content: `批号调整${id}已完成，${sku?.name}库存已更新至${newStock}，请重新评估采购计划`,
+          content: `批号调整${id}已完成，${sku?.name}库存已更新至${newAlertStock}，请重新评估采购计划`,
           targetRole: 'buyer',
           read: false,
           createTime: new Date().toLocaleString('zh-CN'),
-          relatedId: adjustment.skuId
+          relatedId: relatedAlert.id
         }]);
       }
+    } else if (needBuyerTask) {
+      const newAlertId = generateId('ALT');
+      setAlerts(prev => [...prev, {
+        id: newAlertId,
+        skuId: adj.skuId,
+        currentStock: newStock,
+        safetyStock: sku!.safetyStock,
+        alertLevel: newStock < sku!.safetyStock * 0.5 ? 'red' as const :
+                    newStock < sku!.safetyStock * 0.8 ? 'orange' as const : 'yellow' as const,
+        status: 'pending',
+        createTime: new Date().toLocaleString('zh-CN'),
+        relatedAdjustments: [id]
+      }]);
+
+      setTasks(prev => [...prev, {
+        id: generateId('TSK'),
+        type: 'alert_response',
+        title: `批号调整${id}已完成，请重新评估采购计划`,
+        priority: 'high',
+        status: 'pending',
+        assignee: '采购刘',
+        createTime: new Date().toLocaleString('zh-CN'),
+        dueTime: new Date(Date.now() + 4 * 60 * 60 * 1000).toLocaleString('zh-CN'),
+        relatedData: newAlertId
+      }]);
+
+      setNotifications(prev => [...prev, {
+        id: generateId('NOT'),
+        type: 'alert',
+        title: '批号调整完成，请评估采购计划',
+        content: `批号调整${id}已完成，${sku?.name}库存已更新至${newStock}，请重新评估采购计划`,
+        targetRole: 'buyer',
+        read: false,
+        createTime: new Date().toLocaleString('zh-CN'),
+        relatedId: newAlertId
+      }]);
     }
   }, [adjustments, alerts, batches, skus]);
 
   const rejectAdjustment = useCallback((id: string, approver: string, reason: string) => {
-    setAdjustments(prev => prev.map(adj => 
-      adj.id === id ? { ...adj, status: 'rejected', approver, approveTime: new Date().toLocaleString('zh-CN'), rejectReason: reason } as BatchAdjustment : adj
+    const adj = adjustments.find(a => a.id === id);
+    if (!adj || adj.status !== 'pending') return;
+
+    setAdjustments(prev => prev.map(a => 
+      a.id === id ? { ...a, status: 'rejected' as const, approver, approveTime: new Date().toLocaleString('zh-CN'), rejectReason: reason } : a
     ));
 
     setNotifications(prev => [...prev, {
@@ -201,75 +210,74 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
 
     setTasks(prev => prev.map(task =>
       task.relatedData === id && task.type === 'adjustment_audit' && task.status === 'pending'
-        ? { ...task, status: 'completed' } as Task : task
+        ? { ...task, status: 'completed' as const } : task
     ));
-  }, []);
+  }, [adjustments]);
 
   const completeAdjustment = useCallback((id: string) => {
-    const adjustment = adjustments.find(a => a.id === id);
+    const adj = adjustments.find(a => a.id === id);
+    if (!adj || adj.status !== 'approved') return;
     
-    setAdjustments(prev => prev.map(adj => 
-      adj.id === id ? { ...adj, status: 'completed' } as BatchAdjustment : adj
+    setAdjustments(prev => prev.map(a => 
+      a.id === id ? { ...a, status: 'completed' as const } : a
     ));
 
-    if (adjustment) {
-      setBatches(prev => prev.map(batch => {
-        if (batch.id === adjustment.originalBatchId) {
-          return { ...batch, quantity: batch.quantity - adjustment.adjustQuantity };
-        }
-        if (batch.id === adjustment.newBatchId) {
-          return { ...batch, quantity: batch.quantity + adjustment.adjustQuantity };
-        }
-        return batch;
-      }));
+    setBatches(prev => prev.map(batch => {
+      if (batch.id === adj.originalBatchId) {
+        return { ...batch, quantity: batch.quantity - adj.adjustQuantity };
+      }
+      if (batch.id === adj.newBatchId) {
+        return { ...batch, quantity: batch.quantity + adj.adjustQuantity };
+      }
+      return batch;
+    }));
 
-      setTasks(prev => prev.map(task =>
-        task.relatedData === id && task.type === 'adjustment_audit'
-          ? { ...task, status: 'completed' } as Task : task
-      ));
+    setTasks(prev => prev.map(task =>
+      task.relatedData === id && task.type === 'adjustment_audit'
+        ? { ...task, status: 'completed' as const } : task
+    ));
 
-      const sku = skus.find(s => s.id === adjustment.skuId);
-      const skuBatches = batches.filter(b => b.skuId === adjustment.skuId);
-      const finalStock = skuBatches.reduce((sum, b) => sum + b.quantity, 0);
-      
-      setAlerts(prev => prev.map(alt => {
-        if (alt.skuId === adjustment.skuId) {
-          const newLevel = sku && finalStock < sku.safetyStock * 0.5 ? 'red' as const :
-                          sku && finalStock < sku.safetyStock * 0.8 ? 'orange' as const :
-                          sku && finalStock < sku.safetyStock ? 'yellow' as const : 'resolved' as const;
-          
-          if (newLevel === 'resolved') {
-            setNotifications(notifPrev => [...notifPrev, {
-              id: generateId('NOT'),
-              type: 'alert',
-              title: '库存预警已解除',
-              content: `批号调整${id}完成后，${sku?.name}库存已恢复至安全水位以上`,
-              targetRole: 'buyer',
-              read: false,
-              createTime: new Date().toLocaleString('zh-CN'),
-              relatedId: alt.id
-            }]);
-            setTasks(taskPrev => taskPrev.map(t =>
-              t.relatedData === alt.id && t.type === 'alert_response' && t.status === 'pending'
-                ? { ...t, status: 'completed' } as Task : t
-            ));
-            return { ...alt, status: 'resolved' as const, currentStock: finalStock, relatedAdjustments: [...alt.relatedAdjustments, id] } as InventoryAlert;
-          }
-          return { ...alt, currentStock: finalStock, alertLevel: newLevel, relatedAdjustments: [...alt.relatedAdjustments, id] } as InventoryAlert;
+    const sku = skus.find(s => s.id === adj.skuId);
+    const skuBatches = batches.filter(b => b.skuId === adj.skuId);
+    const finalStock = skuBatches.reduce((sum, b) => sum + b.quantity, 0);
+    
+    setAlerts(prev => prev.map(alt => {
+      if (alt.skuId === adj.skuId) {
+        const newLevel = sku && finalStock < sku.safetyStock * 0.5 ? 'red' as const :
+                        sku && finalStock < sku.safetyStock * 0.8 ? 'orange' as const :
+                        sku && finalStock < sku.safetyStock ? 'yellow' as const : 'resolved' as const;
+        
+        if (newLevel === 'resolved') {
+          setNotifications(notifPrev => [...notifPrev, {
+            id: generateId('NOT'),
+            type: 'alert',
+            title: '库存预警已解除',
+            content: `批号调整${id}完成后，${sku?.name}库存已恢复至安全水位以上`,
+            targetRole: 'buyer',
+            read: false,
+            createTime: new Date().toLocaleString('zh-CN'),
+            relatedId: alt.id
+          }]);
+          setTasks(taskPrev => taskPrev.map(t =>
+            t.relatedData === alt.id && t.type === 'alert_response' && t.status === 'pending'
+              ? { ...t, status: 'completed' as const } : t
+          ));
+          return { ...alt, status: 'resolved' as const, currentStock: finalStock, relatedAdjustments: [...alt.relatedAdjustments, id] };
         }
-        return alt;
-      }));
-    }
+        return { ...alt, currentStock: finalStock, alertLevel: newLevel, relatedAdjustments: [...alt.relatedAdjustments, id] };
+      }
+      return alt;
+    }));
   }, [adjustments, batches, skus]);
 
   const handleAlert = useCallback((id: string, handler: string, result: string) => {
     setAlerts(prev => prev.map(alt => 
-      alt.id === id ? { ...alt, status: result === 'resolved' ? 'resolved' as const : 'processing' as const, handler, handleTime: new Date().toLocaleString('zh-CN'), handleResult: result } as InventoryAlert : alt
+      alt.id === id ? { ...alt, status: result === 'resolved' ? 'resolved' as const : 'processing' as const, handler, handleTime: new Date().toLocaleString('zh-CN'), handleResult: result } : alt
     ));
 
     setTasks(prev => prev.map(task => 
       task.relatedData === id && task.type === 'alert_response'
-        ? { ...task, status: 'completed' } as Task : task
+        ? { ...task, status: 'completed' as const } : task
     ));
 
     if (result !== 'resolved') {
@@ -296,41 +304,55 @@ export function WorkbenchProvider({ children }: { children: ReactNode }) {
     ));
   }, []);
 
-  const completeTask = useCallback((id: string) => {
+  const completeTask = useCallback((id: string, approver?: string) => {
     const task = tasks.find(t => t.id === id);
-    setTasks(prev => prev.map(t => 
-      t.id === id ? { ...t, status: 'completed' } as Task : t
-    ));
+    if (!task || task.status === 'completed') return;
 
-    if (task && task.type === 'adjustment_audit' && task.title.includes('完成批号调整')) {
+    if (task.type === 'adjustment_audit' && task.title.includes('完成批号调整')) {
       completeAdjustment(task.relatedData);
+    } else if (task.type === 'adjustment_audit' && task.title.includes('审核') && approver) {
+      approveAdjustment(task.relatedData, approver);
     }
-  }, [tasks, completeAdjustment]);
+  }, [tasks, completeAdjustment, approveAdjustment]);
 
-  const markTaskBatchComplete = useCallback((taskIds: string[]) => {
+  const markTaskBatchComplete = useCallback((taskIds: string[], approver: string) => {
     taskIds.forEach(taskId => {
       const task = tasks.find(t => t.id === taskId);
       if (!task || task.status === 'completed') return;
 
       if (task.type === 'adjustment_audit' && task.title.includes('完成批号调整')) {
         completeAdjustment(task.relatedData);
+      } else if (task.type === 'adjustment_audit' && task.title.includes('审核')) {
+        approveAdjustment(task.relatedData, approver);
       } else if (task.type === 'alert_response') {
         handleAlert(task.relatedData, currentUserName, '批量处理');
       }
     });
-  }, [tasks, currentUserName, completeAdjustment, handleAlert]);
+  }, [tasks, currentUserName, completeAdjustment, approveAdjustment, handleAlert]);
 
   const batchApproveAdjustments = useCallback((ids: string[], approver: string) => {
-    ids.forEach(id => approveAdjustment(id, approver));
-  }, [approveAdjustment]);
+    const pendingIds = ids.filter(id => {
+      const adj = adjustments.find(a => a.id === id);
+      return adj && adj.status === 'pending';
+    });
+    pendingIds.forEach(id => approveAdjustment(id, approver));
+  }, [adjustments, approveAdjustment]);
 
   const batchCompleteAdjustments = useCallback((ids: string[]) => {
-    ids.forEach(id => completeAdjustment(id));
-  }, [completeAdjustment]);
+    const approvedIds = ids.filter(id => {
+      const adj = adjustments.find(a => a.id === id);
+      return adj && adj.status === 'approved';
+    });
+    approvedIds.forEach(id => completeAdjustment(id));
+  }, [adjustments, completeAdjustment]);
 
   const batchRejectAdjustments = useCallback((ids: string[], approver: string, reason: string) => {
-    ids.forEach(id => rejectAdjustment(id, approver, reason));
-  }, [rejectAdjustment]);
+    const pendingIds = ids.filter(id => {
+      const adj = adjustments.find(a => a.id === id);
+      return adj && adj.status === 'pending';
+    });
+    pendingIds.forEach(id => rejectAdjustment(id, approver, reason));
+  }, [adjustments, rejectAdjustment]);
 
   return (
     <WorkbenchContext.Provider value={{
