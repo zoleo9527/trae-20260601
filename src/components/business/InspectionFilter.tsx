@@ -3,7 +3,7 @@ import { useUserStore } from '@/store/useUserStore';
 import { SearchInput } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Filter, RotateCcw, SlidersHorizontal } from 'lucide-react';
-import { InspectionStatus } from '@/types';
+import { InspectionStatus, Inspection } from '@/types';
 import { equipmentTypes } from '@/data/equipments';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
@@ -18,6 +18,13 @@ const statusOptions: { value: InspectionStatus | 'all'; label: string }[] = [
   { value: 'pending_sign', label: '待司机签收' },
   { value: 'completed', label: '已完成' },
   { value: 'disputed', label: '有争议' },
+];
+
+const priorityOptions: { value: string; label: string }[] = [
+  { value: 'all', label: '全部优先级' },
+  { value: 'urgent', label: '紧急' },
+  { value: 'high', label: '高' },
+  { value: 'normal', label: '普通' },
 ];
 
 const quickFilters = [
@@ -40,11 +47,11 @@ export function InspectionFilter({ className }: InspectionFilterProps) {
   const handleQuickFilter = (key: string, statuses: InspectionStatus[]) => {
     setActiveQuickFilter(key);
     if (key === 'all') {
-      setFilters({ status: undefined, onlyMine: false });
+      setFilters({ status: undefined, onlyMine: false, priority: undefined, dateRange: undefined });
     } else if (key === 'todo') {
-      setFilters({ status: undefined, onlyMine: true });
+      setFilters({ status: undefined, onlyMine: true, priority: undefined, dateRange: undefined });
     } else {
-      setFilters({ status: statuses, onlyMine: false });
+      setFilters({ status: statuses, onlyMine: false, priority: undefined, dateRange: undefined });
     }
   };
 
@@ -67,12 +74,37 @@ export function InspectionFilter({ className }: InspectionFilterProps) {
     setFilters({ equipmentType: value === 'all' ? undefined : value });
   };
 
+  const handlePriorityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const value = e.target.value;
+    if (value === 'all') {
+      setFilters({ priority: undefined });
+    } else {
+      setFilters({ priority: [value as Inspection['priority']] });
+    }
+    setActiveQuickFilter('');
+  };
+
+  const handleDateStartChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const current = filters.dateRange || ['', ''];
+    setFilters({ dateRange: [value, current[1]] });
+    setActiveQuickFilter('');
+  };
+
+  const handleDateEndChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const current = filters.dateRange || ['', ''];
+    setFilters({ dateRange: [current[0], value] });
+    setActiveQuickFilter('');
+  };
+
   const handleReset = () => {
     setFilters({
       status: undefined,
       keyword: undefined,
       equipmentType: undefined,
       priority: undefined,
+      dateRange: undefined,
       onlyMine: false,
     });
     setActiveQuickFilter('all');
@@ -133,16 +165,23 @@ export function InspectionFilter({ className }: InspectionFilterProps) {
                 </option>
               ))}
             </Select>
-            <Select label="优先级">
-              <option value="all">全部优先级</option>
-              <option value="urgent">紧急</option>
-              <option value="high">高</option>
-              <option value="normal">普通</option>
+            <Select
+              label="优先级"
+              value={filters.priority?.[0] || 'all'}
+              onChange={handlePriorityChange}
+            >
+              {priorityOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </Select>
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1.5">开始日期</label>
               <input
                 type="date"
+                value={filters.dateRange?.[0] || ''}
+                onChange={handleDateStartChange}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -150,6 +189,8 @@ export function InspectionFilter({ className }: InspectionFilterProps) {
               <label className="block text-sm font-medium text-slate-700 mb-1.5">结束日期</label>
               <input
                 type="date"
+                value={filters.dateRange?.[1] || ''}
+                onChange={handleDateEndChange}
                 className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>

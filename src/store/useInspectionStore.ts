@@ -73,6 +73,20 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
       result = result.filter((i) => filters.priority!.includes(i.priority));
     }
 
+    if (filters.dateRange && filters.dateRange.length === 2) {
+      const [start, end] = filters.dateRange;
+      if (start) {
+        const startDate = new Date(start);
+        startDate.setHours(0, 0, 0, 0);
+        result = result.filter((i) => new Date(i.createdAt) >= startDate);
+      }
+      if (end) {
+        const endDate = new Date(end);
+        endDate.setHours(23, 59, 59, 999);
+        result = result.filter((i) => new Date(i.createdAt) <= endDate);
+      }
+    }
+
     return result.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   },
 

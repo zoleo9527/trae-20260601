@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -14,6 +14,8 @@ import {
   Send,
   FileText,
   ChevronRight,
+  ShieldAlert,
+  ArrowRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -36,7 +38,7 @@ export default function DriverSign() {
   const navigate = useNavigate();
   const { getInspectionById, getEquipmentById, getContractById, addSignature } =
     useInspectionStore();
-  const { currentUser } = useUserStore();
+  const { currentUser, currentRole } = useUserStore();
   const [signatureData, setSignatureData] = useState('');
   const [remark, setRemark] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,6 +47,26 @@ export default function DriverSign() {
   const inspection = getInspectionById(id || '');
   const equipment = inspection ? getEquipmentById(inspection.equipmentId) : undefined;
   const contract = inspection ? getContractById(inspection.contractId) : undefined;
+
+  const [blocked, setBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+
+  useEffect(() => {
+    if (!inspection) return;
+    if (inspection.status !== 'pending_sign') {
+      setBlocked(true);
+      if (inspection.status === 'completed') {
+        setBlockReason('该验机单已完成签收，无需重复签收');
+      } else if (inspection.status === 'disputed') {
+        setBlockReason('该验机单存在争议，暂无法签收');
+      } else {
+        setBlockReason(`该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，尚不可签收`);
+      }
+    } else if (currentRole !== 'driver') {
+      setBlocked(true);
+      setBlockReason('仅司机角色可执行签收操作');
+    }
+  }, [inspection, currentRole]);
 
   if (!inspection) {
     return (
@@ -56,6 +78,35 @@ export default function DriverSign() {
         >
           返回列表
         </button>
+      </div>
+    );
+  }
+
+  if (blocked) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-20">
+        <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-amber-100 flex items-center justify-center">
+          <ShieldAlert size={28} className="text-amber-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-800 mb-2">无法进入签收</h3>
+        <p className="text-sm text-slate-500 mb-6">{blockReason}</p>
+        <div className="flex items-center justify-center gap-3">
+          {inspection.status === 'completed' && inspection.signature && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/inspections/${inspection.id}/review`)}
+              rightIcon={<ArrowRight size={14} />}
+            >
+              查看签收记录
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={() => navigate(`/inspections/${inspection.id}`)}
+          >
+            返回验机详情
+          </Button>
+        </div>
       </div>
     );
   }

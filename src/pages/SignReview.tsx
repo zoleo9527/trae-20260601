@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -16,11 +17,14 @@ import {
   AlertTriangle,
   ChevronRight,
   ExternalLink,
+  ShieldAlert,
+  ArrowRight,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Timeline } from '@/components/ui/Timeline';
 import { useInspectionStore } from '@/store/useInspectionStore';
+import { statusMap } from '@/utils/status';
 import { formatDateTime, formatDate, formatMoney } from '@/utils/date';
 import { cn } from '@/lib/utils';
 
@@ -33,6 +37,23 @@ export default function SignReview() {
   const equipment = inspection ? getEquipmentById(inspection.equipmentId) : undefined;
   const contract = inspection ? getContractById(inspection.contractId) : undefined;
 
+  const [blocked, setBlocked] = useState(false);
+  const [blockReason, setBlockReason] = useState('');
+
+  useEffect(() => {
+    if (!inspection) return;
+    if (inspection.status !== 'completed' || !inspection.signature) {
+      setBlocked(true);
+      if (inspection.status === 'pending_sign') {
+        setBlockReason('该验机单尚待司机签收，签收完成后可查看回看');
+      } else if (inspection.status === 'completed' && !inspection.signature) {
+        setBlockReason('该验机单缺少签收记录，无法查看回看');
+      } else {
+        setBlockReason(`该验机单当前状态为「${statusMap[inspection.status]?.label || inspection.status}」，签收回看仅对已完成的单据开放`);
+      }
+    }
+  }, [inspection]);
+
   if (!inspection) {
     return (
       <div className="text-center py-16">
@@ -43,6 +64,35 @@ export default function SignReview() {
         >
           返回列表
         </button>
+      </div>
+    );
+  }
+
+  if (blocked) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-20">
+        <div className="w-16 h-16 mx-auto mb-5 rounded-full bg-amber-100 flex items-center justify-center">
+          <ShieldAlert size={28} className="text-amber-600" />
+        </div>
+        <h3 className="text-lg font-semibold text-slate-800 mb-2">无法查看签收回看</h3>
+        <p className="text-sm text-slate-500 mb-6">{blockReason}</p>
+        <div className="flex items-center justify-center gap-3">
+          {inspection.status === 'pending_sign' && (
+            <Button
+              variant="outline"
+              onClick={() => navigate(`/inspections/${inspection.id}/sign`)}
+              rightIcon={<ArrowRight size={14} />}
+            >
+              前往签收
+            </Button>
+          )}
+          <Button
+            variant="primary"
+            onClick={() => navigate(`/inspections/${inspection.id}`)}
+          >
+            返回验机详情
+          </Button>
+        </div>
       </div>
     );
   }
