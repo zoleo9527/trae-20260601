@@ -90,12 +90,48 @@ class WarrantyClaimController {
     }
   }
 
+  async assignTechnician(req: AuthRequest, res: Response) {
+    try {
+      const claim = await WarrantyClaimService.assignTechnician({
+        claimId: parseInt(req.params.id),
+        technicianId: req.user!.id,
+      });
+      res.json({
+        success: true,
+        data: {
+          ...claim.toJSON(),
+          statusDescription: ClaimStatusDescription[claim.status],
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   async technicianReview(req: AuthRequest, res: Response) {
     try {
       const claim = await WarrantyClaimService.technicianReview({
         claimId: parseInt(req.params.id),
         technicianId: req.user!.id,
         ...req.body,
+      });
+      res.json({
+        success: true,
+        data: {
+          ...claim.toJSON(),
+          statusDescription: ClaimStatusDescription[claim.status],
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
+  async assignManager(req: AuthRequest, res: Response) {
+    try {
+      const claim = await WarrantyClaimService.assignManager({
+        claimId: parseInt(req.params.id),
+        managerId: req.user!.id,
       });
       res.json({
         success: true,

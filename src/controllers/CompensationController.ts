@@ -71,6 +71,25 @@ class CompensationController {
     }
   }
 
+  async process(req: AuthRequest, res: Response) {
+    try {
+      const compensation = await CompensationService.processCompensation({
+        compensationId: parseInt(req.params.id),
+        processedBy: req.user!.id,
+      });
+      res.json({
+        success: true,
+        data: {
+          ...compensation.toJSON(),
+          statusDescription: CompensationStatusDescription[compensation.status],
+          typeDescription: CompensationTypeDescription[compensation.type],
+        },
+      });
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   async approve(req: AuthRequest, res: Response) {
     try {
       const compensation = await CompensationService.approveCompensation({

@@ -12,7 +12,9 @@ router.get('/:id', authenticate, WarrantyClaimController.getById);
 router.put('/:id', authenticate, requireRole([Role.FRONT_DESK, Role.ADMIN]), WarrantyClaimController.update);
 router.delete('/:id', authenticate, requireRole([Role.FRONT_DESK, Role.ADMIN]), WarrantyClaimController.delete);
 
+router.post('/:id/assign-technician', authenticate, requireRole([Role.TECHNICIAN, Role.ADMIN]), WarrantyClaimController.assignTechnician);
 router.post('/:id/technician-review', authenticate, requireRole([Role.TECHNICIAN, Role.ADMIN]), WarrantyClaimController.technicianReview);
+router.post('/:id/assign-manager', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), WarrantyClaimController.assignManager);
 router.post('/:id/manager-review', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), WarrantyClaimController.managerReview);
 router.post('/:id/start-compensation', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), WarrantyClaimController.startCompensation);
 router.post('/:id/complete', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), WarrantyClaimController.complete);

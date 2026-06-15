@@ -34,6 +34,16 @@ export interface ManagerReviewRequest {
   approve: boolean;
 }
 
+export interface AssignTechnicianRequest {
+  claimId: number;
+  technicianId: number;
+}
+
+export interface AssignManagerRequest {
+  claimId: number;
+  managerId: number;
+}
+
 export interface ClaimFilter {
   status?: ClaimStatus;
   storeId?: number;
@@ -126,14 +136,32 @@ class WarrantyClaimService {
     return claim;
   }
 
-  async technicianReview(data: TechnicianReviewRequest): Promise<WarrantyClaim> {
+  async assignTechnician(data: AssignTechnicianRequest): Promise<WarrantyClaim> {
     const claim = await WarrantyClaim.findByPk(data.claimId);
     if (!claim) {
       throw new Error('申诉不存在');
     }
 
     if (!ClaimStatusTransitions[claim.status].includes(ClaimStatus.TECHNICIAN_REVIEW)) {
-      throw new Error('当前状态不允许技师审核');
+      throw new Error('当前状态不允许领取技师审核任务');
+    }
+
+    await claim.update({
+      status: ClaimStatus.TECHNICIAN_REVIEW,
+      technicianId: data.technicianId,
+    });
+
+    return claim;
+  }
+
+  async technicianReview(data: TechnicianReviewRequest): Promise<WarrantyClaim> {
+    const claim = await WarrantyClaim.findByPk(data.claimId);
+    if (!claim) {
+      throw new Error('申诉不存在');
+    }
+
+    if (claim.status !== ClaimStatus.TECHNICIAN_REVIEW) {
+      throw new Error('请先领取技师审核任务');
     }
 
     const updateData: Record<string, any> = {
@@ -156,15 +184,32 @@ class WarrantyClaimService {
     return claim;
   }
 
+  async assignManager(data: AssignManagerRequest): Promise<WarrantyClaim> {
+    const claim = await WarrantyClaim.findByPk(data.claimId);
+    if (!claim) {
+      throw new Error('申诉不存在');
+    }
+
+    if (!ClaimStatusTransitions[claim.status].includes(ClaimStatus.MANAGER_REVIEW)) {
+      throw new Error('当前状态不允许领取店长审核任务');
+    }
+
+    await claim.update({
+      status: ClaimStatus.MANAGER_REVIEW,
+      managerId: data.managerId,
+    });
+
+    return claim;
+  }
+
   async managerReview(data: ManagerReviewRequest): Promise<WarrantyClaim> {
     const claim = await WarrantyClaim.findByPk(data.claimId);
     if (!claim) {
       throw new Error('申诉不存在');
     }
 
-    if (!ClaimStatusTransitions[claim.status].includes(ClaimStatus.APPROVED) &&
-        !ClaimStatusTransitions[claim.status].includes(ClaimStatus.REJECTED)) {
-      throw new Error('当前状态不允许店长审核');
+    if (claim.status !== ClaimStatus.MANAGER_REVIEW) {
+      throw new Error('请先领取店长审核任务');
     }
 
     const updateData: Record<string, any> = {

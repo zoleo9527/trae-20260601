@@ -17,9 +17,9 @@ export const CompensationStatusDescription: Record<CompensationStatus, string> =
 };
 
 export const CompensationStatusTransitions: Record<CompensationStatus, CompensationStatus[]> = {
-  [CompensationStatus.PENDING]: [CompensationStatus.PROCESSING, CompensationStatus.CANCELLED],
+  [CompensationStatus.PENDING]: [CompensationStatus.PROCESSING, CompensationStatus.APPROVED, CompensationStatus.CANCELLED],
   [CompensationStatus.PROCESSING]: [CompensationStatus.APPROVED, CompensationStatus.CANCELLED],
-  [CompensationStatus.APPROVED]: [CompensationStatus.PAID],
+  [CompensationStatus.APPROVED]: [CompensationStatus.PAID, CompensationStatus.PENDING],
   [CompensationStatus.PAID]: [CompensationStatus.COMPLETED],
   [CompensationStatus.COMPLETED]: [],
   [CompensationStatus.CANCELLED]: [CompensationStatus.PENDING]

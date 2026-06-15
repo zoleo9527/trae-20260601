@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import { sequelize } from './config/database';
-import { Store, User, Tire, WarrantyClaim, Compensation } from './models';
-import Role from './models/Role';
+import { Compensation, Store, Tire, User, WarrantyClaim } from './models';
 import ClaimStatus from './models/ClaimStatus';
 import CompensationStatus from './models/CompensationStatus';
+import Role from './models/Role';
 
 const createSampleData = async () => {
   await sequelize.sync({ force: true });
@@ -52,52 +52,67 @@ const createSampleData = async () => {
     phone: '13800138003',
   });
 
+  const today = new Date();
+  const nextYear = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
+
   const tire1 = await Tire.create({
     brand: '朝阳',
     model: 'RP76',
     size: '205/55R16',
-    serialNumber: 'CY2023010001',
-    productionDate: new Date('2023-01-15'),
-    installationDate: new Date('2023-03-01'),
+    serialNumber: 'CY2026010001',
+    productionDate: new Date(today.getFullYear() - 1, 0, 15),
+    installationDate: new Date(today.getFullYear() - 1, 2, 1),
     vehiclePlate: '京A12345',
     storeId: store.id,
-    warrantyEndDate: new Date('2025-03-01'),
+    warrantyEndDate: new Date(today.getFullYear() + 1, 2, 1),
   });
 
   const tire2 = await Tire.create({
     brand: '朝阳',
     model: 'RP58',
     size: '195/65R15',
-    serialNumber: 'CY2023020002',
-    productionDate: new Date('2023-02-20'),
-    installationDate: new Date('2023-04-15'),
+    serialNumber: 'CY2026020002',
+    productionDate: new Date(today.getFullYear() - 1, 1, 20),
+    installationDate: new Date(today.getFullYear() - 1, 3, 15),
     vehiclePlate: '京B67890',
     storeId: store.id,
-    warrantyEndDate: new Date('2025-04-15'),
+    warrantyEndDate: new Date(today.getFullYear() + 1, 3, 15),
   });
 
   const tire3 = await Tire.create({
     brand: '米其林',
     model: 'PRIMACY 4',
     size: '215/50R17',
-    serialNumber: 'ML2023030003',
-    productionDate: new Date('2023-03-10'),
-    installationDate: new Date('2023-05-01'),
+    serialNumber: 'ML2026030003',
+    productionDate: new Date(today.getFullYear() - 1, 2, 10),
+    installationDate: new Date(today.getFullYear() - 1, 4, 1),
     vehiclePlate: '京C11111',
     storeId: store.id,
-    warrantyEndDate: new Date('2025-05-01'),
+    warrantyEndDate: new Date(today.getFullYear() + 1, 4, 1),
   });
 
   const tire4 = await Tire.create({
     brand: '普利司通',
     model: 'TURANZA T005',
     size: '225/45R18',
-    serialNumber: 'BS2023040004',
-    productionDate: new Date('2023-04-05'),
-    installationDate: new Date('2023-06-15'),
+    serialNumber: 'BS2026040004',
+    productionDate: new Date(today.getFullYear() - 1, 3, 5),
+    installationDate: new Date(today.getFullYear() - 1, 5, 15),
     vehiclePlate: '京D22222',
     storeId: store.id,
-    warrantyEndDate: new Date('2025-06-15'),
+    warrantyEndDate: new Date(today.getFullYear() + 1, 5, 15),
+  });
+
+  const tire5 = await Tire.create({
+    brand: '马牌',
+    model: 'CC6',
+    size: '185/65R14',
+    serialNumber: 'CP2026050005',
+    productionDate: new Date(today.getFullYear(), 0, 10),
+    installationDate: new Date(today.getFullYear(), 1, 1),
+    vehiclePlate: '京E33333',
+    storeId: store.id,
+    warrantyEndDate: new Date(today.getFullYear() + 2, 1, 1),
   });
 
   const frontdesk = await User.findOne({ where: { username: 'frontdesk' } });
@@ -216,7 +231,7 @@ const createSampleData = async () => {
     technicianComment: '符合质保条件',
     managerComment: '已处理完成',
     isRisk: false,
-    resolvedAt: new Date('2024-01-15'),
+    resolvedAt: new Date(today.getFullYear(), today.getMonth() - 1, 15),
   });
 
   await Compensation.create({
@@ -228,7 +243,7 @@ const createSampleData = async () => {
     approvedBy: manager!.id,
     paidBy: manager!.id,
     approvalComment: '同意退款',
-    paymentDate: new Date('2024-01-15'),
+    paymentDate: new Date(today.getFullYear(), today.getMonth() - 1, 15),
   });
 
   await WarrantyClaim.create({

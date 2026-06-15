@@ -23,11 +23,11 @@ export const ClaimStatusDescription: Record<ClaimStatus, string> = {
 export const ClaimStatusTransitions: Record<ClaimStatus, ClaimStatus[]> = {
   [ClaimStatus.PENDING]: [ClaimStatus.TECHNICIAN_REVIEW, ClaimStatus.REJECTED],
   [ClaimStatus.TECHNICIAN_REVIEW]: [ClaimStatus.TECHNICIAN_APPROVED, ClaimStatus.REJECTED],
-  [ClaimStatus.TECHNICIAN_APPROVED]: [ClaimStatus.MANAGER_REVIEW],
+  [ClaimStatus.TECHNICIAN_APPROVED]: [ClaimStatus.MANAGER_REVIEW, ClaimStatus.REJECTED],
   [ClaimStatus.MANAGER_REVIEW]: [ClaimStatus.APPROVED, ClaimStatus.REJECTED],
   [ClaimStatus.APPROVED]: [ClaimStatus.COMPENSATION_PROCESSING],
   [ClaimStatus.REJECTED]: [ClaimStatus.PENDING],
-  [ClaimStatus.COMPENSATION_PROCESSING]: [ClaimStatus.COMPLETED],
+  [ClaimStatus.COMPENSATION_PROCESSING]: [ClaimStatus.COMPLETED, ClaimStatus.APPROVED],
   [ClaimStatus.COMPLETED]: []
 };
 

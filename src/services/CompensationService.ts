@@ -27,6 +27,11 @@ export interface PayCompensationRequest {
   paidBy: number;
 }
 
+export interface ProcessCompensationRequest {
+  compensationId: number;
+  processedBy: number;
+}
+
 class CompensationService {
   async createCompensation(data: CreateCompensationRequest): Promise<Compensation> {
     const claim = await WarrantyClaim.findByPk(data.claimId);
@@ -87,6 +92,20 @@ class CompensationService {
     }
 
     await compensation.update(data);
+    return compensation;
+  }
+
+  async processCompensation(data: ProcessCompensationRequest): Promise<Compensation> {
+    const compensation = await Compensation.findByPk(data.compensationId);
+    if (!compensation) {
+      throw new Error('补偿记录不存在');
+    }
+
+    if (!CompensationStatusTransitions[compensation.status].includes(CompensationStatus.PROCESSING)) {
+      throw new Error('当前状态不允许进入处理中');
+    }
+
+    await compensation.update({ status: CompensationStatus.PROCESSING });
     return compensation;
   }
 

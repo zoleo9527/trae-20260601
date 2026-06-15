@@ -10,6 +10,7 @@ router.get('/:id', authenticate, CompensationController.getById);
 router.get('/claim/:claimId', authenticate, CompensationController.getByClaimId);
 router.put('/:id', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), CompensationController.update);
 
+router.post('/:id/process', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), CompensationController.process);
 router.post('/:id/approve', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), CompensationController.approve);
 router.post('/:id/pay', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), CompensationController.pay);
 router.post('/:id/complete', authenticate, requireRole([Role.STORE_MANAGER, Role.ADMIN]), CompensationController.complete);
