@@ -3,61 +3,21 @@ import {
   IsString,
   IsNotEmpty,
   IsOptional,
-  IsObject,
   IsBoolean,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+import { CheckItemsDto } from './quality-check.dto';
 
 class QualityCheckDto {
-  @ApiProperty()
+  @ApiProperty({ description: '是否通过' })
   @IsBoolean()
   passed: boolean;
 
-  @ApiProperty()
+  @ApiProperty({ description: '质检备注' })
   @IsString()
   @IsNotEmpty()
   notes: string;
-}
-
-class CheckItemsDto {
-  @ApiProperty({ description: '屏幕显示' })
-  @IsBoolean()
-  screenWorks: boolean;
-
-  @ApiProperty({ description: '触摸功能' })
-  @IsBoolean()
-  touchWorks: boolean;
-
-  @ApiProperty({ description: '摄像头' })
-  @IsBoolean()
-  cameraWorks: boolean;
-
-  @ApiProperty({ description: '扬声器' })
-  @IsBoolean()
-  speakerWorks: boolean;
-
-  @ApiProperty({ description: '麦克风' })
-  @IsBoolean()
-  micWorks: boolean;
-
-  @ApiProperty({ description: '充电' })
-  @IsBoolean()
-  chargeWorks: boolean;
-
-  @ApiProperty({ description: '按键' })
-  @IsBoolean()
-  buttonWorks: boolean;
-
-  @ApiProperty({ description: 'WiFi' })
-  @IsBoolean()
-  wifiWorks: boolean;
-
-  @ApiProperty({ description: '指纹识别' })
-  @IsBoolean()
-  fingerprintWorks: boolean;
-
-  @ApiProperty({ description: '面容ID' })
-  @IsBoolean()
-  faceIdWorks: boolean;
 }
 
 export class SubmitDiagnosisDto {
@@ -74,16 +34,17 @@ export class SubmitDiagnosisDto {
 
 export class SubmitQualityCheckDto {
   @ApiProperty({ type: QualityCheckDto })
-  @IsObject()
+  @ValidateNested()
+  @Type(() => QualityCheckDto)
   qualityCheck: QualityCheckDto;
 
-  @ApiPropertyOptional({
-    description: '逐项检查结果（10项），不提供则拒绝并引导至新接口',
+  @ApiProperty({
+    description: '10项逐项检查结果（全部必填），缺少任何一项将返回校验错误',
     type: CheckItemsDto,
   })
-  @IsObject()
-  @IsOptional()
-  checkItems?: CheckItemsDto;
+  @ValidateNested()
+  @Type(() => CheckItemsDto)
+  checkItems: CheckItemsDto;
 
   @ApiPropertyOptional({ description: '不合格项说明' })
   @IsString()

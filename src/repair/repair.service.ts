@@ -232,7 +232,7 @@ export class RepairService {
     orderId: string,
     dto: {
       qualityCheck: { passed: boolean; notes: string };
-      checkItems?: any;
+      checkItems: any;
       failedItems?: string;
     },
     inspector: User,
@@ -245,13 +245,6 @@ export class RepairService {
       throw new BusinessException(
         ErrorCode.INTAKE_STATUS_INVALID,
         '只有质检中状态可提交质检记录',
-      );
-    }
-
-    if (!dto.checkItems) {
-      throw new BusinessException(
-        ErrorCode.VALIDATION_ERROR,
-        '旧质检接口必须提供 checkItems（10项逐项检查结果），否则无法创建真实结构化记录。请使用新接口 POST /repair/:orderId/quality-check 并附带 checkItems 字段',
       );
     }
 

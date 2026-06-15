@@ -3,40 +3,58 @@ import {
   IsBoolean,
   IsNotEmpty,
   IsString,
-  IsObject,
   IsOptional,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class CheckItemsDto {
+  @ApiProperty({ description: '屏幕显示', type: Boolean })
+  @IsBoolean({ message: 'screenWorks 必须为布尔值' })
+  screenWorks: boolean;
+
+  @ApiProperty({ description: '触摸功能', type: Boolean })
+  @IsBoolean({ message: 'touchWorks 必须为布尔值' })
+  touchWorks: boolean;
+
+  @ApiProperty({ description: '摄像头', type: Boolean })
+  @IsBoolean({ message: 'cameraWorks 必须为布尔值' })
+  cameraWorks: boolean;
+
+  @ApiProperty({ description: '扬声器', type: Boolean })
+  @IsBoolean({ message: 'speakerWorks 必须为布尔值' })
+  speakerWorks: boolean;
+
+  @ApiProperty({ description: '麦克风', type: Boolean })
+  @IsBoolean({ message: 'micWorks 必须为布尔值' })
+  micWorks: boolean;
+
+  @ApiProperty({ description: '充电', type: Boolean })
+  @IsBoolean({ message: 'chargeWorks 必须为布尔值' })
+  chargeWorks: boolean;
+
+  @ApiProperty({ description: '按键', type: Boolean })
+  @IsBoolean({ message: 'buttonWorks 必须为布尔值' })
+  buttonWorks: boolean;
+
+  @ApiProperty({ description: 'WiFi', type: Boolean })
+  @IsBoolean({ message: 'wifiWorks 必须为布尔值' })
+  wifiWorks: boolean;
+
+  @ApiProperty({ description: '指纹识别', type: Boolean })
+  @IsBoolean({ message: 'fingerprintWorks 必须为布尔值' })
+  fingerprintWorks: boolean;
+
+  @ApiProperty({ description: '面容ID', type: Boolean })
+  @IsBoolean({ message: 'faceIdWorks 必须为布尔值' })
+  faceIdWorks: boolean;
+}
 
 export class CreateQualityCheckDto {
-  @ApiProperty({
-    description: '检查项目',
-    type: 'object',
-    properties: {
-      screenWorks: { type: 'boolean' },
-      touchWorks: { type: 'boolean' },
-      cameraWorks: { type: 'boolean' },
-      speakerWorks: { type: 'boolean' },
-      micWorks: { type: 'boolean' },
-      chargeWorks: { type: 'boolean' },
-      buttonWorks: { type: 'boolean' },
-      wifiWorks: { type: 'boolean' },
-      fingerprintWorks: { type: 'boolean' },
-      faceIdWorks: { type: 'boolean' },
-    },
-  })
-  @IsObject()
-  checkItems: {
-    screenWorks: boolean;
-    touchWorks: boolean;
-    cameraWorks: boolean;
-    speakerWorks: boolean;
-    micWorks: boolean;
-    chargeWorks: boolean;
-    buttonWorks: boolean;
-    wifiWorks: boolean;
-    fingerprintWorks: boolean;
-    faceIdWorks: boolean;
-  };
+  @ApiProperty({ description: '10项逐项检查结果（全部必填）', type: CheckItemsDto })
+  @ValidateNested({ each: false })
+  @Type(() => CheckItemsDto)
+  checkItems: CheckItemsDto;
 
   @ApiProperty({ description: '是否通过' })
   @IsBoolean()
