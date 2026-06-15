@@ -14,6 +14,7 @@ import {
   Empty,
   Divider,
   Result,
+  Alert,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -189,78 +190,150 @@ export default function TicketDetailPage({ onUpdated }: { onUpdated: () => void 
       )}
 
       {ticket.partsApplications.length > 0 && (
-        <Card
-          title={
-            <Space>
-              <SettingOutlined />
-              配件申请回看（共 {ticket.partsApplications.length} 条）
-            </Space>
-          }
-          size="small"
-        >
-          <List
-            dataSource={ticket.partsApplications}
-            renderItem={(app) => (
-              <List.Item style={{ alignItems: 'flex-start', padding: '12px 0' }}>
-                <Card
-                  size="small"
-                  style={{ width: '100%' }}
-                  title={
-                    <Space>
-                      申请 #{app.id.slice(0, 8)}
-                      <Tag
-                        color={
-                          app.status === 'approved'
-                            ? 'green'
-                            : app.status === 'rejected'
-                            ? 'red'
-                            : 'warning'
-                        }
-                      >
-                        {app.status === 'approved'
-                          ? '已批准'
-                          : app.status === 'rejected'
-                          ? '已驳回'
-                          : '待审核'}
-                      </Tag>
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {app.appliedBy} 提交于 {app.appliedAt}
-                      </Text>
-                      {app.reviewBy && (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          · {app.reviewBy} 审核于 {app.reviewAt}
+        <>
+          {(() => {
+            const latest = ticket.partsApplications[ticket.partsApplications.length - 1];
+            if (latest.status === 'rejected') {
+              return (
+                <Alert
+                  type="error"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={
+                    <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                      <Text strong>最新配件申请被驳回</Text>
+                      <div>
+                        <Tag color="red">驳回意见</Tag>
+                        <Text>{latest.reviewRemark || '(无)'}</Text>
+                        <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>
+                          {latest.reviewBy} · {latest.reviewAt}
                         </Text>
-                      )}
+                      </div>
+                      <div>
+                        <Tag color="orange">携带备注</Tag>
+                        <Text type="warning" style={{ fontSize: 12 }}>
+                          {latest.diagnosisRemarkCarried || '(无)'}
+                        </Text>
+                      </div>
                     </Space>
                   }
-                  extra={
-                    app.reviewRemark ? (
-                      <Tag color={app.status === 'approved' ? 'green' : 'red'}>
-                        审核意见：{app.reviewRemark}
+                />
+              );
+            }
+            if (latest.status === 'pending') {
+              return (
+                <Alert
+                  type="warning"
+                  showIcon
+                  style={{ marginBottom: 16 }}
+                  message={
+                    <Space>
+                      <Text strong>配件申请待配件管理员审核</Text>
+                      <Tag>提交于 {latest.appliedAt}</Tag>
+                      <Tag color="orange">
+                        携带备注：{latest.diagnosisRemarkCarried?.slice(0, 40) || '(无)'}
+                        {latest.diagnosisRemarkCarried && latest.diagnosisRemarkCarried.length > 40 ? '…' : ''}
                       </Tag>
-                    ) : null
+                    </Space>
                   }
-                >
-                  <div style={{ marginBottom: 12 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      【诊断备注携带入申请】：
-                    </Text>
-                    <Text type="warning" style={{ fontSize: 12 }}>
-                      {app.diagnosisRemarkCarried || '(无)'}
-                    </Text>
-                  </div>
-                  <Table
-                    size="small"
-                    columns={partCols}
-                    dataSource={app.items}
-                    rowKey="id"
-                    pagination={false}
-                  />
-                </Card>
-              </List.Item>
-            )}
-          />
-        </Card>
+                />
+              );
+            }
+            return null;
+          })()}
+          <Card
+            title={
+              <Space>
+                <SettingOutlined />
+                配件申请回看（共 {ticket.partsApplications.length} 条）
+                {(() => {
+                  const latest = ticket.partsApplications[ticket.partsApplications.length - 1];
+                  return latest.status === 'rejected' ? (
+                    <Tag color="red">最新为已驳回，请工程师重提</Tag>
+                  ) : null;
+                })()}
+              </Space>
+            }
+            size="small"
+          >
+            <List
+              dataSource={[...ticket.partsApplications].reverse()}
+              renderItem={(app, idx) => {
+                const isLatestRejected =
+                  idx === 0 && app.status === 'rejected';
+                return (
+                  <List.Item
+                    style={{
+                      alignItems: 'flex-start',
+                      padding: '12px 0',
+                    }}
+                  >
+                    <Card
+                      size="small"
+                      style={{
+                        width: '100%',
+                        border: isLatestRejected ? '2px solid #ff4d4f' : undefined,
+                        boxShadow: isLatestRejected ? '0 0 0 2px rgba(255,77,79,0.08)' : undefined,
+                      }}
+                      title={
+                        <Space>
+                          {idx === 0 && <Tag color="blue">最新</Tag>}
+                          申请 #{app.id.slice(0, 8)}
+                          <Tag
+                            color={
+                              app.status === 'approved'
+                                ? 'green'
+                                : app.status === 'rejected'
+                                ? 'red'
+                                : 'warning'
+                            }
+                          >
+                            {app.status === 'approved'
+                              ? '已批准'
+                              : app.status === 'rejected'
+                              ? '已驳回'
+                              : '待审核'}
+                          </Tag>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {app.appliedBy} 提交于 {app.appliedAt}
+                          </Text>
+                          {app.reviewBy && (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              · {app.reviewBy} 审核于 {app.reviewAt}
+                            </Text>
+                          )}
+                        </Space>
+                      }
+                      extra={
+                        app.reviewRemark ? (
+                          <Tag color={app.status === 'approved' ? 'green' : 'red'}>
+                            审核意见：{app.reviewRemark}
+                          </Tag>
+                        ) : null
+                      }
+                    >
+                      <div style={{ marginBottom: 12 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
+                          【诊断备注携带入申请】：
+                        </Text>
+                        <Text type="warning" style={{ fontSize: 12 }}>
+                          {app.diagnosisRemarkCarried || '(无)'}
+                        </Text>
+                      </div>
+                      <Table
+                        size="small"
+                        columns={partCols}
+                        dataSource={app.items}
+                        rowKey="id"
+                        pagination={false}
+                      />
+                    </Card>
+                  </List.Item>
+                );
+              }}
+            />
+          </Card>
+        </>
       )}
 
       <Row gutter={16}>

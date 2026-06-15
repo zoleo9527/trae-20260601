@@ -29,6 +29,7 @@ import {
   CheckCircleOutlined,
   FileDoneOutlined,
   ToolOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
@@ -64,6 +65,13 @@ export default function EngineerPage({ role, onUpdated }: Props) {
       reason: '',
     },
   ]);
+  const [reapplySource, setReapplySource] = useState<{
+    rejectedApplicationId: string;
+    reviewRemark: string;
+    previousCarriedRemark: string;
+    previousApplicationRemark: string;
+    isReapply: boolean;
+  } | null>(null);
 
   const refresh = () => onUpdated();
 
@@ -131,10 +139,37 @@ export default function EngineerPage({ role, onUpdated }: Props) {
 
   const openPartsApply = (t: ServiceTicket) => {
     setCurrentTicket(t);
-    setPartsRows([
-      { id: uuidv4(), name: '', sku: '', quantity: 1, unit: '个', reason: '' },
-    ]);
     partsForm.resetFields();
+
+    const rejectedApps = t.partsApplications.filter((a) => a.status === 'rejected');
+    const latestRejected = rejectedApps.length > 0
+      ? rejectedApps[rejectedApps.length - 1]
+      : null;
+
+    if (latestRejected) {
+      setPartsRows(
+        latestRejected.items.map((it) => ({
+          ...it,
+          id: uuidv4(),
+        }))
+      );
+      setReapplySource({
+        rejectedApplicationId: latestRejected.id,
+        reviewRemark: latestRejected.reviewRemark || '',
+        previousCarriedRemark: latestRejected.diagnosisRemarkCarried || '',
+        previousApplicationRemark: '',
+        isReapply: true,
+      });
+      partsForm.setFieldsValue({
+        applicationRemark: '',
+      });
+    } else {
+      setPartsRows([
+        { id: uuidv4(), name: '', sku: '', quantity: 1, unit: '个', reason: '' },
+      ]);
+      setReapplySource(null);
+    }
+
     setPartsOpen(true);
   };
 
@@ -594,6 +629,34 @@ export default function EngineerPage({ role, onUpdated }: Props) {
           message="提交后将流转给配件管理员审核；驳回意见会回到工程师此处"
           style={{ marginBottom: 16 }}
         />
+        {reapplySource?.isReapply && (
+          <Alert
+            type="error"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={
+              <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                <Text strong>
+                  <CloseOutlined /> 上一次配件申请已被驳回，请按要求修改后重新提交
+                </Text>
+                {reapplySource.reviewRemark && (
+                  <div style={{ marginTop: 4 }}>
+                    <Tag color="red">管理员驳回意见</Tag>
+                    <Text>{reapplySource.reviewRemark}</Text>
+                  </div>
+                )}
+                {reapplySource.previousCarriedRemark && (
+                  <div>
+                    <Tag color="orange">上次携带备注（诊断+申请）</Tag>
+                    <Text type="warning" style={{ fontSize: 12 }}>
+                      {reapplySource.previousCarriedRemark}
+                    </Text>
+                  </div>
+                )}
+              </Space>
+            }
+          />
+        )}
         {currentTicket?.diagnosis?.remark && (
           <Card size="small" type="inner" title="自动带入的诊断备注" style={{ marginBottom: 12 }}>
             <Text type="warning">{currentTicket.diagnosis.remark}</Text>
