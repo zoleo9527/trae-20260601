@@ -1,4 +1,4 @@
-import DashboardShell from '../components/DashboardShell';
+import DashboardShell from '../../components/DashboardShell';
 import { requireRole } from '@/lib/auth';
 import { Role } from '@/lib/enums';
 import prisma from '@/lib/prisma';

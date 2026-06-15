@@ -1,8 +1,8 @@
-import DashboardShell from '../../components/DashboardShell';
+import DashboardShell from '../../../components/DashboardShell';
 import { requireRole } from '@/lib/auth';
 import { Role } from '@/lib/enums';
 import prisma from '@/lib/prisma';
-import EngineerOrderDetailClient from '../components/EngineerOrderDetailClient';
+import EngineerOrderDetailClient from '../../components/EngineerOrderDetailClient';
 import { notFound } from 'next/navigation';
 
 export default async function EngineerOrderDetailPage({ params }: { params: { id: string } }) {

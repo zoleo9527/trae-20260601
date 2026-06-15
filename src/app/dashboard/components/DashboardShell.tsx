@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { logoutAction } from './actions';
+import { logoutAction } from '../actions';
 import { Role } from '@/lib/enums';
 import { ROLE_LABELS } from '@/lib/status';
 

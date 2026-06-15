@@ -432,11 +432,11 @@ export default function OrderDetailClient({ order, engineers }: Props) {
                 </div>
               </div>
               <div>
-                <label className="label">指定工程师（可选）</label>
-                <select name="engineerId" className="select">
-                  <option value="">不指定（系统自动分配）</option>
+                <label className="label">上门工程师 *</label>
+                <select name="engineerId" className="select" required>
+                  {!order.assignedToId && <option value="">请选择工程师</option>}
                   {engineers.map((eng) => (
-                    <option key={eng.id} value={eng.id}>
+                    <option key={eng.id} value={eng.id} selected={eng.id === order.assignedToId}>
                       {eng.name}
                     </option>
                   ))}

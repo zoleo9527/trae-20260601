@@ -142,34 +142,71 @@ export async function scheduleAppointment(formData: FormData) {
   const order = await prisma.repairOrder.findUnique({ where: { id: orderId } });
   if (!order) return { error: '工单不存在' };
 
-  await prisma.$transaction([
+  const effectiveEngineerId = engineerId || order.assignedToId;
+
+  if (!effectiveEngineerId) {
+    return { error: '请指定工程师或先分配工程师' };
+  }
+
+  const engineer = await prisma.user.findUnique({ where: { id: effectiveEngineerId } });
+  if (!engineer || engineer.role !== Role.ENGINEER) {
+    return { error: '无效的工程师' };
+  }
+
+  const orderUpdateData: any = {
+    status: RepairStatus.APPOINTMENT_SCHEDULED,
+  };
+
+  if (!order.assignedToId) {
+    orderUpdateData.assignedToId = effectiveEngineerId;
+  }
+
+  const statusLogNote = order.assignedToId
+    ? `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`
+    : `预约上门并分配给工程师${engineer.name}：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`;
+
+  const txItems: any[] = [
     prisma.appointment.create({
       data: {
         repairOrderId: orderId,
         scheduledDate: new Date(scheduledDate),
         timeSlot,
         note,
-        engineerId: engineerId || order.assignedToId || undefined,
+        engineerId: effectiveEngineerId,
         createdById: user.id,
         status: AppointmentStatus.SCHEDULED,
       },
     }),
     prisma.repairOrder.update({
       where: { id: orderId },
-      data: {
-        status: RepairStatus.APPOINTMENT_SCHEDULED,
-      },
+      data: orderUpdateData,
     }),
     prisma.statusLog.create({
       data: {
         repairOrderId: orderId,
         fromStatus: order.status,
         toStatus: RepairStatus.APPOINTMENT_SCHEDULED,
-        note: `预约上门时间：${scheduledDate} ${timeSlot}${note ? ' - ' + note : ''}`,
+        note: statusLogNote,
         operatorId: user.id,
       },
     }),
-  ]);
+  ];
+
+  if (!order.assignedToId) {
+    txItems.push(
+      prisma.statusLog.create({
+        data: {
+          repairOrderId: orderId,
+          fromStatus: RepairStatus.APPOINTMENT_SCHEDULED,
+          toStatus: RepairStatus.ASSIGNED,
+          note: `同时分配给工程师${engineer.name}`,
+          operatorId: user.id,
+        },
+      })
+    );
+  }
+
+  await prisma.$transaction(txItems);
 
   return { success: true };
 }
