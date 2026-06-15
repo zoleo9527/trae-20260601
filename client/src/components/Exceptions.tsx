@@ -28,10 +28,6 @@ export function Exceptions({ exceptions, currentUser, onUpdate }: ExceptionsProp
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const canResolve = currentUser.role === 'maintenance_manager' || 
-    (currentUser.role === 'warehouse_manager' && (filteredExceptions.some(e => e.type === 'wrong_parts_delivery' || e.type === 'low_stock'))) ||
-    (currentUser.role === 'field_technician' && (filteredExceptions.some(e => e.type === 'equipment_down' || e.type === 'overdue_maintenance')));
-
   const canResolveException = (exc: Exception) => {
     if (currentUser.role === 'maintenance_manager') return true;
     if (currentUser.role === 'warehouse_manager' && (exc.type === 'wrong_parts_delivery' || exc.type === 'low_stock')) return true;

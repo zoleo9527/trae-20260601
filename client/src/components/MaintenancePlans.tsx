@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar, CheckCircle, AlertCircle, Clock, Search, Eye, X, Plus, AlertTriangle, Bell, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, Clock, Search, Eye, X, Plus, AlertTriangle, Bell, RefreshCw } from 'lucide-react';
 import { MaintenancePlan, Equipment, User, EquipmentChangeRecord } from '../types';
 import { maintenanceAPI, changeRecordsAPI } from '../api';
 
@@ -18,11 +18,18 @@ export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: Ma
   const [showCreate, setShowCreate] = useState(false);
   const [showChangeAlert, setShowChangeAlert] = useState(false);
   const [changeRecord, setChangeRecord] = useState<EquipmentChangeRecord | null>(null);
-  const [showAcknowledgedHistory, setShowAcknowledgedHistory] = useState(false);
-  const [newPlan, setNewPlan] = useState({
+  
+  const [newPlan, setNewPlan] = useState<{
+    equipmentId: string;
+    planName: string;
+    planType: 'regular' | 'emergency';
+    scheduledDate: string;
+    responsibleTechnician: string;
+    items: string[];
+  }>({
     equipmentId: '',
     planName: '',
-    planType: 'regular' as const,
+    planType: 'regular',
     scheduledDate: '',
     responsibleTechnician: '',
     items: [''],

@@ -14,6 +14,7 @@ export interface Equipment {
   responsibleTechnician: string;
   createdAt: string;
   updatedAt: string;
+  reason?: string;
 }
 
 export interface MaintenancePlan {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Package, Search, AlertTriangle, Plus, X, Minus, PlusCircle, AlertCircle } from 'lucide-react';
+import { Package, Search, AlertTriangle, X, Minus, PlusCircle, AlertCircle } from 'lucide-react';
 import { PartsInventory as PartsType, User } from '../types';
 import { partsAPI } from '../api';
 
@@ -146,7 +146,7 @@ export function PartsInventory({ parts, currentUser, onUpdate }: PartsInventoryP
                       </span>
                       <span className="text-gray-500 text-sm">{part.unit}</span>
                       {isLowStock(part) && (
-                        <AlertTriangle className="w-4 h-4 text-red-500" title="库存不足" />
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
                       )}
                     </div>
                   </td>

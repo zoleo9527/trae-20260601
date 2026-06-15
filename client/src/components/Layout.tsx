@@ -25,7 +25,7 @@ const allMenuItems = [
   { id: 'equipment', label: '设备档案', icon: Wrench, roles: ['maintenance_manager', 'field_technician'] },
   { id: 'maintenance', label: '保养计划', icon: ClipboardList, roles: ['maintenance_manager', 'field_technician'] },
   { id: 'parts', label: '配件库存', icon: Package, roles: ['maintenance_manager', 'warehouse_manager'] },
-  { id: 'logs', label: '操作日志', icon: FileText, roles: ['maintenance_manager'] },
+  { id: 'logs', label: '操作日志', icon: FileText, roles: ['maintenance_manager', 'field_technician', 'warehouse_manager'] },
   { id: 'exceptions', label: '异常处理', icon: AlertTriangle, roles: ['maintenance_manager', 'field_technician', 'warehouse_manager'] },
 ];
 

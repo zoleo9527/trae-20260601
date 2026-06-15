@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Edit, Trash2, AlertTriangle, Activity, Wrench, X, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Search, Edit, Trash2, AlertTriangle, Activity, Wrench, X, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { Equipment, User } from '../types';
 import { equipmentAPI } from '../api';
 
@@ -80,18 +80,6 @@ export function EquipmentList({ equipment, currentUser, onUpdate }: EquipmentLis
     running: { label: '运行中', color: 'text-green-600', bg: 'bg-green-100' },
     warning: { label: '预警', color: 'text-yellow-600', bg: 'bg-yellow-100' },
     down: { label: '停机', color: 'text-red-600', bg: 'bg-red-100' },
-  };
-
-  const fieldLabels: Record<string, string> = {
-    code: '设备编号',
-    model: '型号',
-    brand: '品牌',
-    customerName: '客户名称',
-    customerAddress: '客户地址',
-    location: '位置',
-    responsibleTechnician: '负责技师',
-    workingHours: '运行时长',
-    status: '状态',
   };
 
   return (
