@@ -10,7 +10,8 @@ import {
   CalendarOutlined,
   FileTextOutlined,
   AlertOutlined,
-  CustomerServiceOutlined
+  CustomerServiceOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
@@ -146,6 +147,18 @@ const MasterDispatch: React.FC = () => {
         </Tooltip>
       );
     }
+    if (order.partRequests.some(p => p.status === 'approved')) {
+      const approvedParts = order.partRequests.filter(p => p.status === 'approved');
+      const handler = approvedParts[0]?.currentHandler;
+      return (
+        <Tooltip title={`配件已批准，等待${handler || '师傅'}领取: ${approvedParts.map(p => p.partName).join(', ')}`}>
+          <Space style={{ color: '#52c41a' }}>
+            <CheckCircleOutlined />
+            <span>配件已批准{handler ? `(${handler})` : ''}</span>
+          </Space>
+        </Tooltip>
+      );
+    }
     return '-';
   };
 
@@ -270,10 +283,19 @@ const MasterDispatch: React.FC = () => {
     },
     {
       title: '售后处理人',
-      dataIndex: 'afterSaleHandler',
       key: 'afterSaleHandler',
       width: 120,
-      render: (handler: string) => handler || '-'
+      render: (_: unknown, record) => (
+        record.afterSale?.handler ? (
+          <Space>
+            <Avatar size="small" style={{ backgroundColor: '#722ed1' }}>
+              {record.afterSale.handler[0]}
+            </Avatar>
+            <span>{record.afterSale.handler}</span>
+            <Tag color="purple" style={{ fontSize: 10 }}>售后</Tag>
+          </Space>
+        ) : '-'
+      )
     },
     {
       title: '卡点说明',

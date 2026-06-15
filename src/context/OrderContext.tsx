@@ -175,8 +175,17 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     (partId: string) => {
       setOrders(prev =>
         prev.map(o => {
-          const hasApprovedPart = o.partRequests.some(p => p.id === partId && p.status === 'requested');
           const approvedPart = o.partRequests.find(p => p.id === partId);
+          const hasApprovedPart = approvedPart && approvedPart.status === 'requested';
+          const remainingPendingParts = o.partRequests.filter(p => p.status === 'requested' && p.id !== partId);
+          
+          const orderRemarks: string[] = [];
+          if (o.remark) orderRemarks.push(o.remark);
+          if (hasApprovedPart && approvedPart) {
+            orderRemarks.push(`配件【${approvedPart.partName}】已审批通过，等待${approvedPart.requester}领取`);
+          }
+          
+          const allPartsApproved = remainingPendingParts.length === 0 && o.partRequests.length > 0;
           
           return {
             ...o,
@@ -199,14 +208,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               }
               return p;
             }),
+            remark: orderRemarks.join('; ') || undefined,
+            status: allPartsApproved && o.status === 'delayed' ? 'in_progress' : o.status,
             statusHistory: hasApprovedPart ? [
               ...o.statusHistory,
               createStatusChange(
                 o.status,
-                o.status,
+                allPartsApproved && o.status === 'delayed' ? 'in_progress' : o.status,
                 '仓库管理员小张',
                 '仓库管理',
-                `配件【${approvedPart?.partName}】已审批通过，等待${approvedPart?.requester}领取`
+                `配件【${approvedPart?.partName}】已审批通过，${allPartsApproved ? '订单恢复进行中' : '等待' + approvedPart?.requester + '领取'}`
               )
             ] : o.statusHistory
           };
@@ -221,6 +232,15 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       setOrders(prev =>
         prev.map(o => {
           const approvedParts = o.partRequests.filter(p => partIds.includes(p.id) && p.status === 'requested');
+          const remainingPendingParts = o.partRequests.filter(p => p.status === 'requested' && !partIds.includes(p.id));
+          
+          const orderRemarks: string[] = [];
+          if (o.remark) orderRemarks.push(o.remark);
+          if (approvedParts.length > 0) {
+            orderRemarks.push(`批量审批通过 ${approvedParts.length} 个配件申请: ${approvedParts.map(p => p.partName).join(', ')}`);
+          }
+          
+          const allPartsApproved = remainingPendingParts.length === 0 && o.partRequests.length > 0;
           
           return {
             ...o,
@@ -243,14 +263,16 @@ export const OrderProvider: React.FC<{ children: ReactNode }> = ({ children }) =
               }
               return p;
             }),
+            remark: orderRemarks.join('; ') || undefined,
+            status: allPartsApproved && o.status === 'delayed' ? 'in_progress' : o.status,
             statusHistory: approvedParts.length > 0 ? [
               ...o.statusHistory,
               createStatusChange(
                 o.status,
-                o.status,
+                allPartsApproved && o.status === 'delayed' ? 'in_progress' : o.status,
                 '仓库管理员小张',
                 '仓库管理',
-                `批量审批通过 ${approvedParts.length} 个配件申请: ${approvedParts.map(p => p.partName).join(', ')}`
+                `批量审批通过 ${approvedParts.length} 个配件申请: ${approvedParts.map(p => p.partName).join(', ')}${allPartsApproved ? '，订单恢复进行中' : ''}`
               )
             ] : o.statusHistory
           };
