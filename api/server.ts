@@ -139,6 +139,51 @@ app.put('/api/orders/:id/expenses', (req, res) => {
   });
 });
 
+app.put('/api/orders/:id/expenses/confirm', (req, res) => {
+  const { id } = req.params;
+  dbOperations.getExpensesByOrderId(id, (err, expense) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else if (!expense) {
+      res.status(404).json({ error: '费用记录不存在' });
+    } else {
+      dbOperations.createOrUpdateExpenses(
+        { ...expense, orderId: id, status: 'confirmed', confirmedAt: new Date().toISOString() },
+        (err, updated) => {
+          if (err) {
+            res.status(500).json({ error: err.message });
+          } else {
+            res.json(updated);
+          }
+        }
+      );
+    }
+  });
+});
+
+app.put('/api/orders/:id/expenses/reject', (req, res) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+  dbOperations.getExpensesByOrderId(id, (err, expense) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else if (!expense) {
+      res.status(404).json({ error: '费用记录不存在' });
+    } else {
+      dbOperations.createOrUpdateExpenses(
+        { ...expense, orderId: id, status: 'rejected' },
+        (err, updated) => {
+          if (err) {
+            res.status(500).json({ error: err.message });
+          } else {
+            res.json({ ...updated, rejectReason: reason });
+          }
+        }
+      );
+    }
+  });
+});
+
 app.get('/api/orders/:id/logs', (req, res) => {
   const { id } = req.params;
   dbOperations.getAllLogsByOrderId(id, (err, logs) => {

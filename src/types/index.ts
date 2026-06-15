@@ -1,6 +1,6 @@
-export type OrderStatus = 'reserved' | 'transporting' | 'serving' | 'pending' | 'settling' | 'completed' | 'dispute';
+export type OrderStatus = 'reserved' | 'assigned' | 'transporting' | 'serving' | 'pending' | 'settling' | 'completed' | 'dispute';
 
-export type ExpenseStatus = 'pending' | 'approved' | 'rejected';
+export type ExpenseStatus = 'pending' | 'approved' | 'confirmed' | 'rejected';
 
 export interface Order {
   id: string;
@@ -61,7 +61,7 @@ export interface OperationLog {
 export interface Exception {
   id: string;
   orderId: string;
-  type: 'late' | 'damage' | 'dispute' | 'unconfirmed';
+  type: 'late' | 'damage' | 'dispute' | 'unconfirmed' | 'fee_dispute';
   message: string;
   severity: 'warning' | 'error' | 'critical';
   createdAt: string;

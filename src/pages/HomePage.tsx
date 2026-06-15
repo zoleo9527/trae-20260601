@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAppStore } from '../store';
 import OrderCard from '../components/OrderCard';
 import CreateOrderModal from '../components/CreateOrderModal';
-import { Search, Plus, Filter, RefreshCw, AlertTriangle, Clock, AlertCircle, Zap } from 'lucide-react';
+import { Search, Plus, Filter, RefreshCw, AlertTriangle, Clock, AlertCircle, Zap, FileText, History } from 'lucide-react';
 
 const statusFilters = [
   { value: '', label: '全部' },
@@ -23,8 +23,11 @@ export default function HomePage() {
   const loadOrders = useAppStore((state) => state.loadOrders);
   const addNotification = useAppStore((state) => state.addNotification);
   const user = useAppStore((state) => state.user);
+  const todos = useAppStore((state) => state.getTodosByRole());
+  const recentOrders = useAppStore((state) => state.recentOrders);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [alertOrders, setAlertOrders] = useState<string[]>([]);
+  const [activeView, setActiveView] = useState<'all' | 'todos' | 'recent'>('all');
 
   useEffect(() => {
     const checkAlerts = () => {
@@ -157,7 +160,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-4 mb-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <input
@@ -183,23 +186,74 @@ export default function HomePage() {
           </select>
         </div>
         <button
-          onClick={() => loadOrders()}
-          className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+          onClick={loadOrders}
+          className="flex items-center gap-2 px-4 py-2 border border-gray-200 hover:bg-gray-50 rounded-lg transition-colors"
         >
           <RefreshCw className="w-5 h-5" />
-          <span>刷新</span>
+          <span className="hidden sm:inline">刷新</span>
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-6 bg-gray-50 p-1 rounded-lg w-fit">
+        <button
+          onClick={() => setActiveView('all')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
+            activeView === 'all'
+              ? 'bg-white shadow-sm text-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>全部订单</span>
+        </button>
+        <button
+          onClick={() => setActiveView('todos')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
+            activeView === 'todos'
+              ? 'bg-white shadow-sm text-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          <AlertCircle className="w-4 h-4" />
+          <span>我的待办</span>
+          {todos.length > 0 && (
+            <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+              {todos.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveView('recent')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md font-medium transition-colors ${
+            activeView === 'recent'
+              ? 'bg-white shadow-sm text-blue-600'
+              : 'text-gray-600 hover:text-gray-800'
+          }`}
+        >
+          <History className="w-4 h-4" />
+          <span>最近打开</span>
         </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filteredOrders.map((order) => (
+        {activeView === 'all' && filteredOrders.map((order) => (
+          <OrderCard key={order.id} order={order} />
+        ))}
+        {activeView === 'todos' && todos.map((order) => (
+          <OrderCard key={order.id} order={order} />
+        ))}
+        {activeView === 'recent' && recentOrders.map((order) => (
           <OrderCard key={order.id} order={order} />
         ))}
       </div>
 
-      {filteredOrders.length === 0 && (
+      {((activeView === 'all' && filteredOrders.length === 0) ||
+        (activeView === 'todos' && todos.length === 0) ||
+        (activeView === 'recent' && recentOrders.length === 0)) && (
         <div className="text-center py-12">
-          <div className="text-gray-400">暂无符合条件的订单</div>
+          <div className="text-gray-400">
+            {activeView === 'todos' ? '暂无待办订单' : activeView === 'recent' ? '暂无最近打开的订单' : '暂无符合条件的订单'}
+          </div>
         </div>
       )}
 

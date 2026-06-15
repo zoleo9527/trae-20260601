@@ -2,6 +2,14 @@ import { create } from 'zustand';
 import type { Order, Addon, Damage, Expense, OperationLog, Exception, User, UserRole } from '../types';
 import localforage from 'localforage';
 
+interface PendingAction {
+  id: string;
+  type: 'create_order' | 'update_status' | 'assign_vehicle' | 'add_addon' | 'add_damage' | 'update_expenses' | 'confirm_expenses' | 'report_exception' | 'resolve_exception';
+  data: unknown;
+  timestamp: string;
+  orderId?: string;
+}
+
 interface AppState {
   user: User | null;
   orders: Order[];
@@ -16,6 +24,8 @@ interface AppState {
   searchTerm: string;
   filterStatus: string;
   notificationMessages: string[];
+  recentOrders: Order[];
+  pendingActions: PendingAction[];
 
   setUser: (user: User) => void;
   login: (role: UserRole) => void;
@@ -28,6 +38,8 @@ interface AppState {
   addAddon: (orderId: string, addonData: Omit<Addon, 'id' | 'orderId' | 'createdAt'>) => Promise<void>;
   addDamage: (orderId: string, damageData: Omit<Damage, 'id' | 'orderId' | 'createdAt'>) => Promise<void>;
   updateExpenses: (orderId: string, expenseData: Omit<Expense, 'id' | 'orderId'>) => Promise<void>;
+  confirmExpenses: (orderId: string) => Promise<void>;
+  rejectExpenses: (orderId: string, reason: string) => Promise<void>;
   recalculateExpenses: (orderId: string) => Promise<void>;
   addLog: (orderId: string, action: string, operator: string, details?: string) => Promise<void>;
   reportException: (exceptionData: Omit<Exception, 'id' | 'createdAt' | 'resolved' | 'resolvedAt'>) => Promise<void>;
@@ -40,6 +52,13 @@ interface AppState {
   checkOnlineStatus: () => void;
   syncLocalData: () => Promise<void>;
   loadFromLocalStorage: () => Promise<void>;
+  getTodosByRole: () => Order[];
+  addToRecentOrders: (order: Order) => void;
+  loadRecentOrders: () => Promise<void>;
+  addPendingAction: (action: Omit<PendingAction, 'id' | 'timestamp'>) => void;
+  removePendingAction: (actionId: string) => void;
+  savePendingActions: () => Promise<void>;
+  loadPendingActions: () => Promise<void>;
 }
 
 const API_BASE = 'http://localhost:3001/api';
@@ -58,6 +77,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   searchTerm: '',
   filterStatus: '',
   notificationMessages: [],
+  recentOrders: [],
+  pendingActions: [],
 
   setUser: (user) => {
     set({ user });
@@ -156,6 +177,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async createOrder(orderData) {
+    const order: Order = {
+      ...orderData,
+      id: `local_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    
     try {
       const response = await fetch(`${API_BASE}/orders`, {
         method: 'POST',
@@ -163,20 +191,18 @@ export const useAppStore = create<AppState>((set, get) => ({
         body: JSON.stringify(orderData),
       });
       if (response.ok) {
-        const order = await response.json();
-        set((state) => ({ orders: [order, ...state.orders] }));
-        get().addLog(order.id, '创建订单', get().user?.name || '系统', '订单已创建');
+        const savedOrder = await response.json();
+        set((state) => ({ orders: [savedOrder, ...state.orders.map((o) => (o.id === order.id ? savedOrder : o))] }));
+        get().addLog(savedOrder.id, '创建订单', get().user?.name || '系统', '订单已创建');
       }
     } catch {
-      const order: Order = {
-        ...orderData,
-        id: `local_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
       set((state) => ({ orders: [order, ...state.orders] }));
       await localforage.setItem('orders', get().orders);
-      await localforage.setItem(`pending_create_${order.id}`, order);
+      get().addPendingAction({
+        type: 'create_order',
+        data: order,
+        orderId: order.id,
+      });
       get().addNotification('订单已保存，将在联网后同步');
     }
   },
@@ -199,7 +225,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentOrder: state.currentOrder?.id === orderId ? { ...state.currentOrder, status, updatedAt: new Date().toISOString() } : state.currentOrder,
       }));
       await localforage.setItem('orders', get().orders);
-      await localforage.setItem(`pending_update_${orderId}`, { orderId, status });
+      get().addPendingAction({
+        type: 'update_status',
+        data: { orderId, status },
+        orderId,
+      });
       get().addNotification('状态已更新，将在联网后同步');
     }
   },
@@ -222,12 +252,23 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentOrder: state.currentOrder?.id === orderId ? { ...state.currentOrder, vehicleId, driverName, status: 'transporting', updatedAt: new Date().toISOString() } : state.currentOrder,
       }));
       await localforage.setItem('orders', get().orders);
-      await localforage.setItem(`pending_assign_${orderId}`, { orderId, vehicleId, driverName });
+      get().addPendingAction({
+        type: 'assign_vehicle',
+        data: { orderId, vehicleId, driverName },
+        orderId,
+      });
       get().addNotification('车辆已分配，将在联网后同步');
     }
   },
 
   async addAddon(orderId, addonData) {
+    const addon: Addon = {
+      ...addonData,
+      id: `local_${Date.now()}`,
+      orderId,
+      createdAt: new Date().toISOString(),
+    };
+    
     try {
       const response = await fetch(`${API_BASE}/orders/${orderId}/addons`, {
         method: 'POST',
@@ -235,26 +276,32 @@ export const useAppStore = create<AppState>((set, get) => ({
         body: JSON.stringify(addonData),
       });
       if (response.ok) {
-        const addon = await response.json();
-        set((state) => ({ addons: [addon, ...state.addons] }));
-        get().addLog(orderId, '添加加项', get().user?.name || '系统', `加项: ${addon.type}`);
+        const savedAddon = await response.json();
+        set((state) => ({ addons: [savedAddon, ...state.addons.map((a) => (a.id === addon.id ? savedAddon : a))] }));
+        get().addLog(orderId, '添加加项', get().user?.name || '系统', `加项: ${savedAddon.type}`);
         get().recalculateExpenses(orderId);
       }
     } catch {
-      const addon: Addon = {
-        ...addonData,
-        id: `local_${Date.now()}`,
-        orderId,
-        createdAt: new Date().toISOString(),
-      };
       set((state) => ({ addons: [addon, ...state.addons] }));
       await localforage.setItem(`addons_${orderId}`, get().addons);
-      await localforage.setItem(`pending_addon_${addon.id}`, addon);
+      get().addPendingAction({
+        type: 'add_addon',
+        data: addon,
+        orderId,
+      });
       get().addNotification('加项已保存，将在联网后同步');
+      get().recalculateExpenses(orderId);
     }
   },
 
   async addDamage(orderId, damageData) {
+    const damage: Damage = {
+      ...damageData,
+      id: `local_${Date.now()}`,
+      orderId,
+      createdAt: new Date().toISOString(),
+    };
+    
     try {
       const response = await fetch(`${API_BASE}/orders/${orderId}/damages`, {
         method: 'POST',
@@ -262,23 +309,22 @@ export const useAppStore = create<AppState>((set, get) => ({
         body: JSON.stringify(damageData),
       });
       if (response.ok) {
-        const damage = await response.json();
-        set((state) => ({ damages: [damage, ...state.damages] }));
-        get().addLog(orderId, '申报物损', get().user?.name || '系统', `物损: ${damage.description}`);
-        get().reportException({ orderId, type: 'damage', message: damage.description, severity: 'error' });
+        const savedDamage = await response.json();
+        set((state) => ({ damages: [savedDamage, ...state.damages.map((d) => (d.id === damage.id ? savedDamage : d))] }));
+        get().addLog(orderId, '申报物损', get().user?.name || '系统', `物损: ${savedDamage.description}`);
+        get().reportException({ orderId, type: 'damage', message: savedDamage.description, severity: 'error' });
         get().recalculateExpenses(orderId);
       }
     } catch {
-      const damage: Damage = {
-        ...damageData,
-        id: `local_${Date.now()}`,
-        orderId,
-        createdAt: new Date().toISOString(),
-      };
       set((state) => ({ damages: [damage, ...state.damages] }));
       await localforage.setItem(`damages_${orderId}`, get().damages);
-      await localforage.setItem(`pending_damage_${damage.id}`, damage);
+      get().addPendingAction({
+        type: 'add_damage',
+        data: damage,
+        orderId,
+      });
       get().addNotification('物损已保存，将在联网后同步');
+      get().recalculateExpenses(orderId);
     }
   },
 
@@ -301,18 +347,82 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async updateExpenses(orderId, expenseData) {
+    const { expenses } = get();
+    const newExpenses = { ...expenseData, orderId, id: expenses?.id || `exp_${orderId}` } as Expense;
+    
     try {
       await fetch(`${API_BASE}/orders/${orderId}/expenses`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(expenseData),
       });
-      set({ expenses: { ...expenseData, orderId, id: `exp_${orderId}` } as Expense });
-      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
     } catch {
-      set({ expenses: { ...expenseData, orderId, id: `exp_${orderId}` } as Expense });
+      set({ expenses: newExpenses });
+      await localforage.setItem(`expenses_${orderId}`, newExpenses);
+      get().addPendingAction({
+        type: 'update_expenses',
+        data: { orderId, expenseData },
+        orderId,
+      });
+    }
+  },
+
+  async confirmExpenses(orderId) {
+    try {
+      await fetch(`${API_BASE}/orders/${orderId}/expenses/confirm`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      set((state) => ({
+        expenses: state.expenses ? { ...state.expenses, status: 'confirmed', confirmedAt: new Date().toISOString() } : null,
+      }));
       await localforage.setItem(`expenses_${orderId}`, get().expenses);
-      await localforage.setItem(`pending_expense_${orderId}`, expenseData);
+      await get().updateOrderStatus(orderId, 'completed');
+      get().addLog(orderId, '费用确认', get().user?.name || '系统', '费用已确认');
+      get().addNotification('费用已确认');
+    } catch {
+      set((state) => ({
+        expenses: state.expenses ? { ...state.expenses, status: 'confirmed', confirmedAt: new Date().toISOString() } : null,
+      }));
+      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      get().addPendingAction({
+        type: 'confirm_expenses',
+        data: { orderId },
+        orderId,
+      });
+      get().addLog(orderId, '费用确认', get().user?.name || '系统', '费用已确认（待同步）');
+      get().addNotification('费用已确认，将在联网后同步');
+    }
+  },
+
+  async rejectExpenses(orderId, reason) {
+    try {
+      await fetch(`${API_BASE}/orders/${orderId}/expenses/reject`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      set((state) => ({
+        expenses: state.expenses ? { ...state.expenses, status: 'rejected' } : null,
+      }));
+      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      get().addLog(orderId, '费用退回', get().user?.name || '系统', `原因: ${reason}`);
+      get().reportException({ orderId, type: 'fee_dispute', message: `费用审核未通过: ${reason}`, severity: 'warning' });
+      get().addNotification('费用已退回');
+    } catch {
+      set((state) => ({
+        expenses: state.expenses ? { ...state.expenses, status: 'rejected' } : null,
+      }));
+      await localforage.setItem(`expenses_${orderId}`, get().expenses);
+      get().addPendingAction({
+        type: 'update_expenses',
+        data: { orderId, expenseData: { status: 'rejected' } },
+        orderId,
+      });
+      get().addLog(orderId, '费用退回', get().user?.name || '系统', `原因: ${reason}（待同步）`);
+      get().addNotification('费用已退回，将在联网后同步');
     }
   },
 
@@ -348,30 +458,29 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async reportException(exceptionData) {
+    const exception: Exception = {
+      ...exceptionData,
+      id: `exc_${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      resolved: false,
+    };
+    
     try {
       await fetch(`${API_BASE}/exceptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(exceptionData),
       });
-      const exception: Exception = {
-        ...exceptionData,
-        id: `exc_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        resolved: false,
-      };
       set((state) => ({ exceptions: [exception, ...state.exceptions] }));
       get().addNotification(`异常已上报: ${exception.message}`);
     } catch {
-      const exception: Exception = {
-        ...exceptionData,
-        id: `exc_${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        resolved: false,
-      };
       set((state) => ({ exceptions: [exception, ...state.exceptions] }));
       await localforage.setItem('exceptions', get().exceptions);
-      await localforage.setItem(`pending_exception_${exception.id}`, exception);
+      get().addPendingAction({
+        type: 'report_exception',
+        data: exceptionData,
+        orderId: exceptionData.orderId,
+      });
       get().addNotification('异常已保存，将在联网后同步');
     }
   },
@@ -389,7 +498,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         exceptions: state.exceptions.map((e) => (e.id === exceptionId ? { ...e, resolved: true, resolvedAt: new Date().toISOString() } : e)),
       }));
       await localforage.setItem('exceptions', get().exceptions);
-      await localforage.setItem(`pending_resolve_${exceptionId}`, true);
+      get().addPendingAction({
+        type: 'resolve_exception',
+        data: { exceptionId },
+      });
       get().addNotification('异常已标记为已处理');
     }
   },
@@ -435,43 +547,106 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   async syncLocalData() {
-    const keys = await localforage.keys();
-    const pendingKeys = keys.filter((k) => k.startsWith('pending_'));
+    const { pendingActions } = get();
+    const failedActions: PendingAction[] = [];
 
-    for (const key of pendingKeys) {
+    for (const action of pendingActions) {
       try {
-        const data = await localforage.getItem(key);
-        if (key.startsWith('pending_create_')) {
-          const order = data as Order;
-          await fetch(`${API_BASE}/orders`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(order),
-          });
-        } else if (key.startsWith('pending_update_')) {
-          const { orderId, status } = data as { orderId: string; status: Order['status'] };
-          await fetch(`${API_BASE}/orders/${orderId}/status`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
-          });
-        } else if (key.startsWith('pending_addon_')) {
-          const addon = data as Addon;
-          await fetch(`${API_BASE}/orders/${addon.orderId}/addons`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(addon),
-          });
+        switch (action.type) {
+          case 'create_order':
+            await fetch(`${API_BASE}/orders`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(action.data),
+            });
+            break;
+          case 'update_status': {
+            const { orderId, status } = action.data as { orderId: string; status: Order['status'] };
+            await fetch(`${API_BASE}/orders/${orderId}/status`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status }),
+            });
+            break;
+          }
+          case 'assign_vehicle': {
+            const { orderId, vehicleId, driverName } = action.data as { orderId: string; vehicleId: string; driverName: string };
+            await fetch(`${API_BASE}/orders/${orderId}/vehicle`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ vehicleId, driverName }),
+            });
+            break;
+          }
+          case 'add_addon': {
+            const addon = action.data as Addon;
+            await fetch(`${API_BASE}/orders/${addon.orderId}/addons`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(addon),
+            });
+            break;
+          }
+          case 'add_damage': {
+            const damage = action.data as Damage;
+            await fetch(`${API_BASE}/orders/${damage.orderId}/damages`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(damage),
+            });
+            break;
+          }
+          case 'update_expenses': {
+            const { orderId, expenseData } = action.data as { orderId: string; expenseData: Omit<Expense, 'id' | 'orderId'> };
+            await fetch(`${API_BASE}/orders/${orderId}/expenses`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(expenseData),
+            });
+            break;
+          }
+          case 'confirm_expenses': {
+            const { orderId } = action.data as { orderId: string };
+            await fetch(`${API_BASE}/orders/${orderId}/expenses/confirm`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+            });
+            break;
+          }
+          case 'report_exception': {
+            const exceptionData = action.data as Omit<Exception, 'id' | 'createdAt' | 'resolved' | 'resolvedAt'>;
+            await fetch(`${API_BASE}/exceptions`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(exceptionData),
+            });
+            break;
+          }
+          case 'resolve_exception': {
+            const { exceptionId } = action.data as { exceptionId: string };
+            await fetch(`${API_BASE}/exceptions/${exceptionId}/resolve`, {
+              method: 'PUT',
+            });
+            break;
+          }
         }
-        await localforage.removeItem(key);
       } catch {
-        continue;
+        failedActions.push(action);
       }
+    }
+
+    set({ pendingActions: failedActions });
+    await get().savePendingActions();
+
+    const keys = await localforage.keys();
+    const legacyPendingKeys = keys.filter((k) => k.startsWith('pending_') && !k.startsWith('pendingActions'));
+    for (const key of legacyPendingKeys) {
+      await localforage.removeItem(key);
     }
 
     await get().loadOrders();
     await get().loadExceptions();
-    get().addNotification('数据已同步');
+    get().addNotification(`数据已同步，${pendingActions.length - failedActions.length} 项已上传`);
   },
 
   async loadFromLocalStorage() {
@@ -480,6 +655,68 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ user });
       await get().loadOrders();
       await get().loadExceptions();
+    }
+    await get().loadRecentOrders();
+    await get().loadPendingActions();
+  },
+
+  getTodosByRole: () => {
+    const { user, orders } = get();
+    if (!user) return [];
+
+    const roleTodos: Record<UserRole, Order['status'][]> = {
+      dispatcher: ['reserved'],
+      teamLead: ['assigned', 'transporting'],
+      customerService: ['pending', 'completed'],
+    };
+
+    return orders.filter((order) => roleTodos[user.role].includes(order.status));
+  },
+
+  addToRecentOrders: (order) => {
+    set((state) => {
+      const existingIndex = state.recentOrders.findIndex((o) => o.id === order.id);
+      let newRecentOrders;
+      if (existingIndex >= 0) {
+        newRecentOrders = [order, ...state.recentOrders.filter((o) => o.id !== order.id)];
+      } else {
+        newRecentOrders = [order, ...state.recentOrders].slice(0, 10);
+      }
+      localforage.setItem('recentOrders', newRecentOrders);
+      return { recentOrders: newRecentOrders };
+    });
+  },
+
+  loadRecentOrders: async () => {
+    const stored = await localforage.getItem<Order[]>('recentOrders');
+    if (stored) {
+      set({ recentOrders: stored });
+    }
+  },
+
+  addPendingAction: (action) => {
+    const newAction: PendingAction = {
+      ...action,
+      id: `action_${Date.now()}`,
+      timestamp: new Date().toISOString(),
+    };
+    set((state) => ({ pendingActions: [...state.pendingActions, newAction] }));
+    get().savePendingActions();
+  },
+
+  removePendingAction: (actionId) => {
+    set((state) => ({ pendingActions: state.pendingActions.filter((a) => a.id !== actionId) }));
+    get().savePendingActions();
+  },
+
+  savePendingActions: async () => {
+    await localforage.setItem('pendingActions', get().pendingActions);
+  },
+
+  loadPendingActions: async () => {
+    const stored = await localforage.getItem<PendingAction[]>('pendingActions');
+    if (stored) {
+      set({ pendingActions: stored });
     }
   },
 }));

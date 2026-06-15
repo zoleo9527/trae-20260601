@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppStore } from '../store';
 import type { OrderStatus } from '../types';
-import { ArrowLeft, MapPin, Clock, Truck, Plus, AlertTriangle, CheckCircle, X, Camera, History, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Truck, Plus, AlertTriangle, CheckCircle, X, Camera, History, FileText, AlertCircle, ThumbsUp, ThumbsDown } from 'lucide-react';
 
 const addonTypes = [
   { type: '搬运钢琴', price: 300 },
@@ -23,8 +23,10 @@ export default function OrderDetailPage() {
   const assignVehicle = useAppStore((state) => state.assignVehicle);
   const addAddon = useAppStore((state) => state.addAddon);
   const addDamage = useAppStore((state) => state.addDamage);
-  const updateExpenses = useAppStore((state) => state.updateExpenses);
+  const confirmExpenses = useAppStore((state) => state.confirmExpenses);
+  const rejectExpenses = useAppStore((state) => state.rejectExpenses);
   const reportException = useAppStore((state) => state.reportException);
+  const addToRecentOrders = useAppStore((state) => state.addToRecentOrders);
   const currentOrder = useAppStore((state) => state.currentOrder);
   const addons = useAppStore((state) => state.addons);
   const damages = useAppStore((state) => state.damages);
@@ -41,12 +43,20 @@ export default function OrderDetailPage() {
   const [damageForm, setDamageForm] = useState({ description: '', value: 0, responsibility: '我方责任', photos: [] as string[] });
   const [assignForm, setAssignForm] = useState({ vehicleId: '', driverName: '' });
   const [exceptionForm, setExceptionForm] = useState({ type: 'late' as 'late' | 'damage' | 'dispute' | 'unconfirmed', message: '', severity: 'warning' as 'warning' | 'error' | 'critical' });
+  const [rejectReason, setRejectReason] = useState('');
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
   useEffect(() => {
     if (id) {
       loadOrderDetails(id);
     }
   }, [id, loadOrderDetails]);
+
+  useEffect(() => {
+    if (currentOrder) {
+      addToRecentOrders(currentOrder);
+    }
+  }, [currentOrder, addToRecentOrders]);
 
   if (!currentOrder) {
     return (
@@ -66,6 +76,7 @@ export default function OrderDetailPage() {
 
   const statusConfig: Record<OrderStatus, { label: string; color: string; bgColor: string }> = {
     reserved: { label: '已预约', color: 'text-gray-600', bgColor: 'bg-gray-100' },
+    assigned: { label: '已派车', color: 'text-blue-600', bgColor: 'bg-blue-50' },
     transporting: { label: '运输中', color: 'text-blue-600', bgColor: 'bg-blue-100' },
     serving: { label: '服务中', color: 'text-green-600', bgColor: 'bg-green-100' },
     pending: { label: '待确认', color: 'text-orange-600', bgColor: 'bg-orange-100' },
@@ -143,11 +154,16 @@ export default function OrderDetailPage() {
   };
 
   const handleConfirmExpense = async () => {
-    if (expenses) {
-      await updateExpenses(id!, { ...expenses, status: 'approved' as const, confirmedAt: new Date().toISOString() });
-      await updateOrderStatus(id!, 'settling');
-      setShowConfirmModal(false);
-    }
+    await confirmExpenses(id!);
+    setShowConfirmModal(false);
+  };
+
+  const handleRejectExpense = async () => {
+    if (!rejectReason.trim()) return;
+    await rejectExpenses(id!, rejectReason);
+    await updateOrderStatus(id!, 'serving');
+    setShowRejectModal(false);
+    setRejectReason('');
   };
 
   const handleReportException = async () => {
@@ -217,13 +233,22 @@ export default function OrderDetailPage() {
           </button>
         )}
         {canConfirmExpense && (
-          <button
-            onClick={() => setShowConfirmModal(true)}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            <CheckCircle className="w-4 h-4" />
-            <span>确认费用</span>
-          </button>
+          <>
+            <button
+              onClick={() => setShowConfirmModal(true)}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ThumbsUp className="w-4 h-4" />
+              <span>费用确认</span>
+            </button>
+            <button
+              onClick={() => setShowRejectModal(true)}
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+            >
+              <ThumbsDown className="w-4 h-4" />
+              <span>退回费用</span>
+            </button>
+          </>
         )}
         <button
           onClick={() => setShowExceptionModal(true)}
@@ -709,9 +734,49 @@ export default function OrderDetailPage() {
                 </button>
                 <button
                   onClick={handleConfirmExpense}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors"
+                  className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium transition-colors"
                 >
                   确认费用
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showRejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">退回费用</h2>
+              <button onClick={() => setShowRejectModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">退回原因</label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none resize-none"
+                  rows={4}
+                  placeholder="请输入退回原因，如：费用计算有误、加项未确认等"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowRejectModal(false)}
+                  className="flex-1 border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 rounded-lg font-medium transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleRejectExpense}
+                  disabled={!rejectReason.trim()}
+                  className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-medium transition-colors"
+                >
+                  确认退回
                 </button>
               </div>
             </div>
