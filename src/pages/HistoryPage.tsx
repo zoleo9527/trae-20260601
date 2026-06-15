@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useAppStore } from '../store';
 import type { OperationLog } from '../types';
 import { History, Search, User, Clock } from 'lucide-react';
@@ -6,34 +7,14 @@ export default function HistoryPage() {
   const orders = useAppStore((state) => state.orders);
   const searchTerm = useAppStore((state) => state.searchTerm);
   const filterStatus = useAppStore((state) => state.filterStatus);
+  const allLogs = useAppStore((state) => state.allLogs);
+  const loadAllLogs = useAppStore((state) => state.loadAllLogs);
 
-  const allLogs: OperationLog[] = [];
-  orders.forEach((order) => {
-    const orderLogs: OperationLog[] = [];
-    orderLogs.push({
-      id: `log_${order.id}_created`,
-      orderId: order.id,
-      action: '创建订单',
-      operator: '系统',
-      timestamp: order.createdAt,
-      details: `客户: ${order.customerName}, 费用: ¥${order.baseFee.toFixed(2)}`,
-    });
-    if (order.driverName) {
-      orderLogs.push({
-        id: `log_${order.id}_vehicle`,
-        orderId: order.id,
-        action: '分配车辆',
-        operator: '调度员',
-        timestamp: order.updatedAt,
-        details: `车辆: ${order.vehicleId}, 司机: ${order.driverName}`,
-      });
-    }
-    allLogs.push(...orderLogs);
-  });
+  useEffect(() => {
+    loadAllLogs();
+  }, [loadAllLogs]);
 
-  const sortedLogs = allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-
-  const filteredLogs = sortedLogs.filter((log) => {
+  const filteredLogs = allLogs.filter((log) => {
     const order = orders.find((o) => o.id === log.orderId);
     const matchesSearch =
       log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||

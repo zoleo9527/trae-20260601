@@ -47,6 +47,7 @@ export interface Expense {
   totalFee: number;
   status: ExpenseStatus;
   confirmedAt?: string;
+  rejectReason?: string;
 }
 
 export interface OperationLog {

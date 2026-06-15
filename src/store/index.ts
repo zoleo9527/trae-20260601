@@ -18,6 +18,7 @@ interface AppState {
   damages: Damage[];
   expenses: Expense | null;
   logs: OperationLog[];
+  allLogs: OperationLog[];
   exceptions: Exception[];
   isOnline: boolean;
   lastSyncTime: string;
@@ -45,6 +46,7 @@ interface AppState {
   reportException: (exceptionData: Omit<Exception, 'id' | 'createdAt' | 'resolved' | 'resolvedAt'>) => Promise<void>;
   resolveException: (exceptionId: string) => Promise<void>;
   loadExceptions: () => Promise<void>;
+  loadAllLogs: () => Promise<void>;
   setSearchTerm: (term: string) => void;
   setFilterStatus: (status: string) => void;
   addNotification: (message: string) => void;
@@ -71,6 +73,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   damages: [],
   expenses: null,
   logs: [],
+  allLogs: [],
   exceptions: [],
   isOnline: navigator.onLine,
   lastSyncTime: '',
@@ -225,6 +228,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         currentOrder: state.currentOrder?.id === orderId ? { ...state.currentOrder, status, updatedAt: new Date().toISOString() } : state.currentOrder,
       }));
       await localforage.setItem('orders', get().orders);
+      if (get().currentOrder?.id === orderId) {
+        await localforage.setItem(`order_${orderId}`, get().currentOrder);
+      }
       get().addPendingAction({
         type: 'update_status',
         data: { orderId, status },
@@ -555,6 +561,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
+  async loadAllLogs() {
+    try {
+      const response = await fetch(`${API_BASE}/logs`);
+      if (response.ok) {
+        const logs = await response.json();
+        set({ allLogs: logs });
+        localforage.setItem('allLogs', logs);
+      }
+    } catch {
+      const storedLogs = await localforage.getItem<OperationLog[]>('allLogs');
+      if (storedLogs) {
+        set({ allLogs: storedLogs });
+      }
+    }
+  },
+
   setSearchTerm: (term) => set({ searchTerm: term }),
   setFilterStatus: (status) => set({ filterStatus: status }),
 
@@ -709,8 +731,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const roleTodos: Record<UserRole, Order['status'][]> = {
       dispatcher: ['reserved'],
-      teamLead: ['assigned', 'transporting'],
-      customerService: ['pending', 'completed'],
+      teamLead: ['transporting', 'serving'],
+      customerService: ['pending', 'settling'],
     };
 
     return orders.filter((order) => roleTodos[user.role].includes(order.status));

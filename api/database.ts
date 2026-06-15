@@ -81,9 +81,19 @@ function initDatabase() {
       total_fee DECIMAL(10, 2) NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       confirmed_at DATETIME,
+      reject_reason TEXT,
       FOREIGN KEY (order_id) REFERENCES orders(id)
     )
   `);
+
+  db.run(`PRAGMA table_info(expenses)`, (err, rows: unknown[]) => {
+    if (!err && rows) {
+      const hasRejectReason = (rows as { name: string }[]).some((col) => col.name === 'reject_reason');
+      if (!hasRejectReason) {
+        db.run(`ALTER TABLE expenses ADD COLUMN reject_reason TEXT`);
+      }
+    }
+  });
 
   db.run(`
     CREATE TABLE IF NOT EXISTS logs (
@@ -600,6 +610,7 @@ export const dbOperations = {
             totalFee: parseFloat(r.total_fee as string),
             status: r.status as Expense['status'],
             confirmedAt: r.confirmed_at as string,
+            rejectReason: r.reject_reason as string,
           };
           callback(null, expense);
         }
@@ -617,7 +628,7 @@ export const dbOperations = {
         } else if (row) {
           const r = row as Record<string, unknown>;
           db.run(
-            'UPDATE expenses SET base_fee = ?, addon_fee = ?, damage_fee = ?, total_fee = ?, status = ?, confirmed_at = ? WHERE id = ?',
+            'UPDATE expenses SET base_fee = ?, addon_fee = ?, damage_fee = ?, total_fee = ?, status = ?, confirmed_at = ?, reject_reason = ? WHERE id = ?',
             [
               expenseData.baseFee,
               expenseData.addonFee,
@@ -625,6 +636,7 @@ export const dbOperations = {
               expenseData.totalFee,
               expenseData.status,
               expenseData.confirmedAt,
+              expenseData.rejectReason || null,
               r.id,
             ],
             (err) => {
@@ -638,8 +650,8 @@ export const dbOperations = {
         } else {
           const id = uuidv4();
           db.run(
-            `INSERT INTO expenses (id, order_id, base_fee, addon_fee, damage_fee, total_fee, status, confirmed_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO expenses (id, order_id, base_fee, addon_fee, damage_fee, total_fee, status, confirmed_at, reject_reason)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
               id,
               expenseData.orderId,
@@ -649,6 +661,7 @@ export const dbOperations = {
               expenseData.totalFee,
               expenseData.status,
               expenseData.confirmedAt,
+              expenseData.rejectReason || null,
             ],
             (err) => {
               if (err) {
@@ -667,6 +680,30 @@ export const dbOperations = {
     db.all(
       'SELECT * FROM logs WHERE order_id = ? ORDER BY timestamp DESC',
       [orderId],
+      (err, rows: unknown[]) => {
+        if (err) {
+          callback(err);
+        } else {
+          const logs = rows.map((row) => {
+            const r = row as Record<string, unknown>;
+            return {
+              id: r.id as string,
+              orderId: r.order_id as string,
+              action: r.action as string,
+              operator: r.operator as string,
+              timestamp: r.timestamp as string,
+              details: r.details as string,
+            };
+          });
+          callback(null, logs);
+        }
+      }
+    );
+  },
+
+  getAllLogs: (callback: (err: Error | null, logs?: OperationLog[]) => void) => {
+    db.all(
+      'SELECT * FROM logs ORDER BY timestamp DESC LIMIT 500',
       (err, rows: unknown[]) => {
         if (err) {
           callback(err);

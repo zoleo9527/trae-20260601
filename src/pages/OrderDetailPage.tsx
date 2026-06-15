@@ -121,7 +121,7 @@ export default function OrderDetailPage() {
   const handleAddonSubmit = async () => {
     if (!addonForm.type) return;
     const price = addonForm.type === '其他' ? addonForm.unitPrice : addonTypes.find(a => a.type === addonForm.type)?.price || 0;
-    await addAddon(id!, { type: addonForm.type, quantity: addonForm.quantity, unitPrice: price, description: addonForm.description, operatorId: user?.id || '' });
+    const addonResult = await addAddon(id!, { type: addonForm.type, quantity: addonForm.quantity, unitPrice: price, description: addonForm.description, operatorId: user?.id || '' });
     await updateOrderStatus(id!, 'pending');
     setShowAddonModal(false);
     setAddonForm({ type: '', quantity: 1, unitPrice: 0, description: '' });
@@ -491,12 +491,27 @@ export default function OrderDetailPage() {
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
               <h4 className="font-semibold text-gray-800 mb-3">费用状态</h4>
-              <div className={`px-3 py-2 rounded-full text-sm font-medium inline-block ${expenses?.status === 'approved' ? 'bg-green-100 text-green-600' : expenses?.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>
-                {expenses?.status === 'approved' ? '已确认' : expenses?.status === 'rejected' ? '已退回' : '待确认'}
+              <div className={`px-3 py-2 rounded-full text-sm font-medium inline-block ${
+                expenses?.status === 'confirmed' || expenses?.status === 'approved' 
+                  ? 'bg-green-100 text-green-600' 
+                  : expenses?.status === 'rejected' 
+                    ? 'bg-red-100 text-red-600' 
+                    : 'bg-orange-100 text-orange-600'
+              }`}>
+                {expenses?.status === 'confirmed' || expenses?.status === 'approved' 
+                  ? '已确认' 
+                  : expenses?.status === 'rejected' 
+                    ? '已退回' 
+                    : '待确认'}
               </div>
               {expenses?.confirmedAt && (
                 <div className="mt-3 text-sm text-gray-500">
                   确认时间: {formatDate(expenses.confirmedAt)}
+                </div>
+              )}
+              {expenses?.rejectReason && (
+                <div className="mt-3 text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                  <span className="font-medium">退回原因:</span> {expenses.rejectReason}
                 </div>
               )}
             </div>

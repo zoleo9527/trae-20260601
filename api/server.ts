@@ -171,12 +171,12 @@ app.put('/api/orders/:id/expenses/reject', (req, res) => {
       res.status(404).json({ error: '费用记录不存在' });
     } else {
       dbOperations.createOrUpdateExpenses(
-        { ...expense, orderId: id, status: 'rejected' },
+        { ...expense, orderId: id, status: 'rejected', rejectReason: reason },
         (err, updated) => {
           if (err) {
             res.status(500).json({ error: err.message });
           } else {
-            res.json({ ...updated, rejectReason: reason });
+            res.json(updated);
           }
         }
       );
@@ -191,6 +191,16 @@ app.get('/api/orders/:id/logs', (req, res) => {
       res.status(500).json({ error: err.message });
     } else {
       res.json(logs);
+    }
+  });
+});
+
+app.get('/api/logs', (_req, res) => {
+  dbOperations.getAllLogs((err, logs) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+    } else {
+      res.json(logs || []);
     }
   });
 });
