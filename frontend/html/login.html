@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标识制作厂管理系统 - 登录</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .login-container {
+            background: white;
+            padding: 2rem 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 400px;
+        }
+        
+        .login-container h1 {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 2rem;
+            font-size: 1.8rem;
+        }
+        
+        .login-container p {
+            text-align: center;
+            color: #666;
+            margin-bottom: 1.5rem;
+        }
+        
+        .demo-users {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .demo-users h3 {
+            font-size: 0.95rem;
+            color: #555;
+            margin-bottom: 0.75rem;
+        }
+        
+        .user-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            border: 1px solid #eee;
+        }
+        
+        .user-card:hover {
+            background-color: #f0f4f8;
+        }
+        
+        .user-card:last-child {
+            margin-bottom: 0;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+        
+        .avatar-admin { background-color: #e74c3c; }
+        .avatar-project { background-color: #3498db; }
+        .avatar-technician { background-color: #27ae60; }
+        .avatar-installer { background-color: #f39c12; }
+        
+        .user-details {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .user-name {
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        
+        .user-role {
+            font-size: 0.8rem;
+            color: #666;
+        }
+        
+        .quick-login {
+            padding: 0.5rem 1rem;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: background-color 0.2s;
+        }
+        
+        .quick-login:hover {
+            background-color: #2980b9;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0;
+            position: relative;
+        }
+        
+        .divider::before, .divider::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            width: 40%;
+            height: 1px;
+            background-color: #ddd;
+        }
+        
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+        
+        .divider span {
+            background: white;
+            padding: 0 1rem;
+            color: #999;
+            font-size: 0.85rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 0.875rem;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 0.5rem;
+        }
+        
+        .login-btn:hover {
+            background-color: #34495e;
+        }
+        
+        .error-message {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 0.75rem;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>标识制作厂管理系统</h1>
+        <p>现场勘测与方案报价管理</p>
+        
+        <div class="demo-users">
+            <h3>演示账号 - 快速登录</h3>
+            <div class="user-card" onclick="loginDemo('admin', 'admin123')">
+                <div class="user-info">
+                    <div class="user-avatar avatar-admin">A</div>
+                    <div class="user-details">
+                        <span class="user-name">admin</span>
+                        <span class="user-role">管理员</span>
+                    </div>
+                </div>
+                <button class="quick-login">登录</button>
+            </div>
+            <div class="user-card" onclick="loginDemo('project', 'project123')">
+                <div class="user-info">
+                    <div class="user-avatar avatar-project">P</div>
+                    <div class="user-details">
+                        <span class="user-name">project</span>
+                        <span class="user-role">项目专员</span>
+                    </div>
+                </div>
+                <button class="quick-login">登录</button>
+            </div>
+            <div class="user-card" onclick="loginDemo('technician', 'tech123')">
+                <div class="user-info">
+                    <div class="user-avatar avatar-technician">T</div>
+                    <div class="user-details">
+                        <span class="user-name">technician</span>
+                        <span class="user-role">制作师傅</span>
+                    </div>
+                </div>
+                <button class="quick-login">登录</button>
+            </div>
+            <div class="user-card" onclick="loginDemo('installer', 'install123')">
+                <div class="user-info">
+                    <div class="user-avatar avatar-installer">I</div>
+                    <div class="user-details">
+                        <span class="user-name">installer</span>
+                        <span class="user-role">安装负责人</span>
+                    </div>
+                </div>
+                <button class="quick-login">登录</button>
+            </div>
+        </div>
+        
+        <div class="divider"><span>或手动登录</span></div>
+        
+        <div class="error-message" id="error-message"></div>
+        
+        <form id="login-form">
+            <div class="form-group">
+                <label>用户名</label>
+                <input type="text" id="username" placeholder="请输入用户名" required>
+            </div>
+            <div class="form-group">
+                <label>密码</label>
+                <input type="password" id="password" placeholder="请输入密码" required>
+            </div>
+            <button type="submit" class="login-btn">登录系统</button>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000/api';
+
+        async function login(username, password) {
+            const response = await fetch(`${API_BASE}/token/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ username, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.token) {
+                localStorage.setItem('auth_token', data.token);
+                localStorage.setItem('username', username);
+                window.location.href = 'index.html';
+            } else {
+                document.getElementById('error-message').textContent = '用户名或密码错误';
+                document.getElementById('error-message').style.display = 'block';
+            }
+        }
+
+        function loginDemo(username, password) {
+            document.getElementById('username').value = username;
+            document.getElementById('password').value = password;
+            login(username, password);
+        }
+
+        document.getElementById('login-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            login(username, password);
+        });
+    </script>
+</body>
+</html>

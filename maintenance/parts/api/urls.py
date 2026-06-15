@@ -18,6 +18,7 @@ urlpatterns = [
     path('quotations/<int:pk>/approve/', views.ApproveQuotation.as_view({'post': 'create'}), name='quotation-approve'),
     path('quotations/<int:pk>/reject/', views.RejectQuotation.as_view({'post': 'create'}), name='quotation-reject'),
     path('quotations/<int:pk>/items/', views.QuotationItemList.as_view({'get': 'list', 'post': 'create'}), name='quotation-item-list'),
+    path('quotations/<int:pk>/history/', views.QuotationHistory.as_view({'get': 'list'}), name='quotation-history'),
     
     path('dashboard/todo/', views.DashboardTodo.as_view({'get': 'list'}), name='dashboard-todo'),
     path('dashboard/risk/', views.DashboardRisk.as_view({'get': 'list'}), name='dashboard-risk'),

@@ -176,6 +176,14 @@ class SurveyHistory(viewsets.ViewSet):
         serializer = HistoryRecordSerializer(history, many=True)
         return Response(serializer.data)
 
+class QuotationHistory(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+    
+    def list(self, request, pk=None):
+        history = HistoryRecord.objects.filter(quotation_id=pk)
+        serializer = HistoryRecordSerializer(history, many=True)
+        return Response(serializer.data)
+
 class QuotationList(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     
