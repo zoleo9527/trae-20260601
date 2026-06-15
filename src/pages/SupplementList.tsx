@@ -116,8 +116,8 @@ export default function SupplementList() {
     try {
       const res = await SupplementApi.exportList(query)
       message.success(`已生成导出文件：${res.fileName}，共 ${res.recordCount} 条记录`)
-    } catch (e) {
-      message.error('导出失败')
+    } catch (e: any) {
+      message.error(e?.message || '导出失败')
     }
   }
 
@@ -127,8 +127,8 @@ export default function SupplementList() {
       message.success('已提交设计师复核')
       setSubmitId(null)
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -137,8 +137,8 @@ export default function SupplementList() {
       await SupplementApi.startDesign(id, currentUser.id)
       message.success('已开始量房复核')
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -152,8 +152,8 @@ export default function SupplementList() {
       setConfirmId(null)
       confirmForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -165,8 +165,8 @@ export default function SupplementList() {
       setRejectId(null)
       rejectForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -175,8 +175,8 @@ export default function SupplementList() {
       await SupplementApi.startWarehouse(id, currentUser.id)
       message.success('已开始备货')
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -190,7 +190,7 @@ export default function SupplementList() {
       fetchData()
     } catch (e: any) {
       if (e?.errorFields) return
-      message.error('操作失败')
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -199,8 +199,8 @@ export default function SupplementList() {
       await SupplementApi.complete(id, currentUser.id, '客户签收确认')
       message.success('已完成')
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -217,8 +217,8 @@ export default function SupplementList() {
       setRescheduleId(null)
       rescheduleForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 

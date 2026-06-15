@@ -113,8 +113,8 @@ export default function ReturnList() {
     try {
       const res = await ReturnApi.exportList(query)
       message.success(`已生成导出文件：${res.fileName}，共 ${res.recordCount} 条记录`)
-    } catch {
-      message.error('导出失败')
+    } catch (e: any) {
+      message.error(e?.message || '导出失败')
     }
   }
 
@@ -129,8 +129,8 @@ export default function ReturnList() {
       setInspectId(null)
       inspectForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -146,8 +146,8 @@ export default function ReturnList() {
       setPassId(null)
       passForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -159,8 +159,8 @@ export default function ReturnList() {
       setRejectId(null)
       rejectForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -177,8 +177,8 @@ export default function ReturnList() {
       setRescheduleId(null)
       rescheduleForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -194,8 +194,8 @@ export default function ReturnList() {
       setRefundId(null)
       refundForm.resetFields()
       fetchData()
-    } catch {
-      message.error('操作失败')
+    } catch (e: any) {
+      message.error(e?.message || '操作失败')
     }
   }
 
@@ -230,7 +230,7 @@ export default function ReturnList() {
       setTimeout(() => navigate(`/returns/${created.id}`), 300)
     } catch (e: any) {
       if (e?.errorFields) return
-      message.error('创建失败')
+      message.error(e?.message || '创建失败')
     }
   }
 
