@@ -358,6 +358,9 @@ export class BatchProcessingService {
     const reminders: BatchOperationResult['reminders'] = [];
     const logs: BatchOperationResult['logs'] = [];
 
+    const logsCountBefore = workflowService['logs'].length;
+    const remindersCountBefore = workflowService['reminders'].length;
+
     for (const fileId of fileIds) {
       const file = workflowService.getFileById(fileId);
       if (!file) {
@@ -366,6 +369,9 @@ export class BatchProcessingService {
       }
 
       try {
+        const logsCountForFile = workflowService['logs'].length;
+        const remindersCountForFile = workflowService['reminders'].length;
+
         workflowService.completeArchive(
           file,
           archiveLocation,
@@ -384,33 +390,11 @@ export class BatchProcessingService {
           OperatorRole.ARCHIVE_KEEPER
         );
 
+        const newLogsCount = workflowService['logs'].length - logsCountForFile;
+        const newRemindersCount = workflowService['reminders'].length - remindersCountForFile;
+
         if (archiveResult) {
-          const log = {
-            id: uuidv4(),
-            fileId,
-            operatorRole,
-            operatorId,
-            operatorName,
-            action: ActionType.COMPLETE_ARCHIVE,
-            fromStatus: file.currentStatus,
-            toStatus: FileStatus.PENDING_COLLECTION,
-            reason: `${archiveReason} (批量处理，自动转移)`,
-            timestamp: new Date(),
-            responsibilityChainSnapshot: [...file.responsibilityChain]
-          };
-
-          workflowService['logs'].push(log);
-
           results.push({ fileId, success: true });
-          logs.push({
-            id: log.id,
-            action: ActionType.COMPLETE_ARCHIVE,
-            fileId,
-            operatorId,
-            operatorName,
-            operatorRole,
-            timestamp: log.timestamp
-          });
         } else {
           results.push({ fileId, success: false, error: '自动转移失败' });
         }
@@ -422,6 +406,33 @@ export class BatchProcessingService {
         });
       }
     }
+
+    const logsAdded = workflowService['logs'].slice(logsCountBefore);
+    const remindersAdded = workflowService['reminders'].slice(remindersCountBefore);
+
+    logsAdded.forEach(log => {
+      logs.push({
+        id: log.id,
+        action: log.action,
+        fileId: log.fileId,
+        operatorId: log.operatorId,
+        operatorName: log.operatorName,
+        operatorRole: log.operatorRole,
+        timestamp: log.timestamp
+      });
+    });
+
+    remindersAdded.forEach(reminder => {
+      reminders.push({
+        id: reminder.id,
+        type: reminder.type,
+        message: reminder.message,
+        recipientRole: reminder.recipientRole,
+        recipientId: reminder.recipientId,
+        recipientName: reminder.recipientName,
+        createdAt: reminder.createdAt
+      });
+    });
 
     return {
       success: results.every(r => r.success),

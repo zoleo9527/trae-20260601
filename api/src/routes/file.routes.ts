@@ -190,7 +190,8 @@ router.post(
         assignedTo,
         transferReason || '归档完成，转移至档案室等待领取',
         req.user!.id,
-        req.user!.name
+        req.user!.name,
+        req.user!.role
       );
 
       const history = workflowService.getFileHistory(fileId);
