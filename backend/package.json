@@ -1,0 +1,29 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "建材仓配管理系统后端API",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "tsc && node dist/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^6.0.1",
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.6.3"
+  }
+}
