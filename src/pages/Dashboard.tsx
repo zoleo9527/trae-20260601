@@ -45,7 +45,6 @@ const roleStatusFilters: Record<string, { key: OrderStatus | 'all'; label: strin
   '工程师': [
     { key: 'all', label: '全部', icon: <ClipboardList className="w-4 h-4" /> },
     { key: 'pending_work', label: '待施工', icon: <Wrench className="w-4 h-4" /> },
-    { key: 'working', label: '施工中', icon: <Wrench className="w-4 h-4" /> },
     { key: 'pending_charge', label: '待收费', icon: <CreditCard className="w-4 h-4" /> },
     { key: 'pending_receipt', label: '待回单', icon: <FileCheck className="w-4 h-4" /> },
     { key: 'pending_return', label: '待退回', icon: <Package className="w-4 h-4" /> },
@@ -65,7 +64,6 @@ export const Dashboard = () => {
     setSearchKeyword,
     setStatusFilter,
     getVisibleOrders,
-    isOrderVisible,
   } = useOrderStore();
 
   const cards = roleCards[currentRole] || [];
@@ -93,7 +91,6 @@ export const Dashboard = () => {
       return visibleOrders.filter(
         (o) =>
           o.status === 'pending_work' ||
-          o.status === 'working' ||
           o.status === 'pending_charge' ||
           o.status === 'pending_receipt' ||
           o.status === 'pending_return'
@@ -158,7 +155,7 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid gap-4 ${cards.length === 1 ? 'grid-cols-1' : cards.length <= 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
         {cards.map((item) => (
           <div
             key={item.key}
