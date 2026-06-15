@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseAuth } from "@/lib/auth";
-import { transitionOrderStatus } from "@/lib/order-flow";
+import { transitionOrderStatusInternal } from "@/lib/order-flow";
 import type { OrderStatus } from "@/types";
 
 // action: PAID | RETURNED
@@ -10,11 +10,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     const auth = parseAuth(req);
     const { action, reviewRemark } = await req.json();
 
-    const payment = await prisma.paymentRequest.findUnique({
+    const preCheck = await prisma.paymentRequest.findUnique({
       where: { id: params.id },
       include: { order: true },
     });
-    if (!payment) return NextResponse.json({ error: "打款申请不存在" }, { status: 404 });
+    if (!preCheck) return NextResponse.json({ error: "打款申请不存在" }, { status: 404 });
 
     let nextStatus: OrderStatus;
     let logAction: string;
@@ -34,18 +34,23 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       return NextResponse.json({ error: "无效 action" }, { status: 400 });
     }
 
-    await prisma.paymentRequest.update({ where: { id: params.id }, data });
+    const result = await prisma.$transaction(async (tx) => {
+      const payment = await tx.paymentRequest.update({ where: { id: params.id }, data });
 
-    await transitionOrderStatus(
-      payment.orderId,
-      auth,
-      nextStatus,
-      logAction,
-      reviewRemark || (action === "PAID" ? `已打款 ¥${payment.amount}` : undefined),
-      JSON.stringify({ paymentId: params.id })
-    );
+      await transitionOrderStatusInternal(
+        tx,
+        payment.orderId,
+        auth,
+        nextStatus,
+        logAction,
+        reviewRemark || (action === "PAID" ? `已打款 ¥${payment.amount}` : undefined),
+        JSON.stringify({ paymentId: params.id })
+      );
 
-    return NextResponse.json({ ok: true });
+      return { ok: true };
+    });
+
+    return NextResponse.json(result);
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }

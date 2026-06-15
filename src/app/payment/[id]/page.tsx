@@ -156,7 +156,7 @@ function PaymentInner() {
   const isDetecter = user?.role === "DETECTER";
   const canSubmit = (mode === "submit" || mode === "resubmit") && isDetecter;
   const canReview = mode === "review" && isFinance && payment && !payment.paidAt && !payment.reviewRemark;
-  const readonly = mode === "review" && (payment?.paidAt || payment?.reviewRemark);
+  const readonly = mode === "review" && (!isFinance || payment?.paidAt || payment?.reviewRemark);
 
   return (
     <div className="space-y-6 max-w-3xl mx-auto">

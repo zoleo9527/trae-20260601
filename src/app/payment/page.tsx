@@ -161,7 +161,7 @@ function PaymentListInner() {
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
             <tr>
-              {((tab === "requested" && isFinance) || (tab === "approved" && isDetecter) || (tab === "returned" && isDetecter)) && (
+              {((tab === "requested" && isFinance) || (tab === "approved" && isDetecter)) && (
                 <th className="px-4 py-3 w-10"></th>
               )}
               <th className="px-4 py-3 text-left font-medium">单号</th>
@@ -192,8 +192,7 @@ function PaymentListInner() {
                 const amount = o.finalPrice || o.detectPrice;
                 const showCheckbox =
                   (tab === "requested" && isFinance) ||
-                  (tab === "approved" && isDetecter) ||
-                  (tab === "returned" && isDetecter);
+                  (tab === "approved" && isDetecter);
                 return (
                   <tr key={o.id} className="border-t border-slate-100 hover:bg-slate-50/60">
                     {showCheckbox && (
