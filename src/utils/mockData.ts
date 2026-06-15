@@ -329,7 +329,7 @@ export const generateMockData = (): { orders: InstallationOrder[]; users: User[]
     { status: 'site_check_pending', daysFromNow: 0, assigneeIndex: 0, priority: 'normal' },
     { status: 'site_check_pending', daysFromNow: 0, assigneeIndex: 1, priority: 'urgent', hasChanges: true },
     { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 2, priority: 'normal', hasSiteCheck: true, siteCheckResult: 'passed' },
-    { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 0, priority: 'urgent', hasSiteCheck: true, siteCheckResult: 'passed', hasChanges: true, pendingRecheck: true },
+    { status: 'site_check_pending', daysFromNow: -1, assigneeIndex: 0, priority: 'urgent', hasSiteCheck: true, siteCheckResult: 'passed', hasChanges: true, pendingRecheck: true },
     { status: 'site_check_passed', daysFromNow: -1, assigneeIndex: 3, priority: 'vip', hasSiteCheck: true, siteCheckResult: 'passed' },
     { status: 'site_check_failed', daysFromNow: -2, assigneeIndex: 0, priority: 'normal', hasSiteCheck: true, siteCheckResult: 'failed' },
     { status: 'site_check_failed', daysFromNow: -1, assigneeIndex: 1, priority: 'urgent', hasSiteCheck: true, siteCheckResult: 'failed', hasChanges: true },

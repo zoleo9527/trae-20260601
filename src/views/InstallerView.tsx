@@ -130,7 +130,7 @@ const InstallerView: React.FC<InstallerViewProps> = ({ activeView, onViewChange 
                   onClick={() => handleOrderClick(order)}
                 />
                 <div className="absolute top-3 right-3 flex gap-2">
-                  {(order.status === 'assigned' || order.status === 'site_check_pending') && (
+                  {(order.status === 'assigned' || (order.status === 'site_check_pending' && !hasUnconfirmedAppointmentChanges(order))) && (
                     <button
                       className="quick-action-btn primary"
                       onClick={(e) => {
@@ -142,7 +142,7 @@ const InstallerView: React.FC<InstallerViewProps> = ({ activeView, onViewChange 
                       现场确认
                     </button>
                   )}
-                  {order.status === 'site_check_passed' && (
+                  {order.status === 'site_check_passed' && !hasUnconfirmedAppointmentChanges(order) && (
                     <button
                       className="quick-action-btn success"
                       onClick={(e) => {

@@ -255,6 +255,14 @@ export const useAppStore = create<AppState>()(
             ? order.appointmentVersion + 1
             : order.appointmentVersion;
 
+          const needsRecheck = hasApptChanges &&
+            order.siteChecks.length > 0 &&
+            ['site_check_passed', 'installation'].includes(order.status);
+
+          if (needsRecheck) {
+            get().addChangeLog(id, 'status', order.status, 'site_check_pending');
+          }
+
           for (const [key, value] of Object.entries(updates)) {
             if (key in order && (order as any)[key] !== value) {
               const oldVal = String((oldOrder as any)[key] || '');
@@ -273,6 +281,7 @@ export const useAppStore = create<AppState>()(
                     ...updates,
                     version: newVersion,
                     appointmentVersion: newAppointmentVersion,
+                    ...(needsRecheck ? { status: 'site_check_pending' as OrderStatus } : {}),
                     updatedAt: new Date().toISOString(),
                   }
                 : o
@@ -490,9 +499,9 @@ export const useAppStore = create<AppState>()(
     },
     {
       name: 'bathroom-installation-storage',
-      version: 3,
+      version: 4,
       migrate: (persistedState: any, version: number) => {
-        if (version < 3) {
+        if (version < 4) {
           const mockData = generateMockData();
           return {
             currentUser: mockData.users[0],
