@@ -11,13 +11,14 @@ import type { AdditionRecord, ExceptionHandle, AdditionHistoryItem } from '@/typ
 import { clsx } from 'clsx'
 
 export function Addition() {
-  const { additions, incompleteAdditions, loadAdditions } = useAppStore()
+  const { additions, incompleteAdditions, loadAdditions, users } = useAppStore()
   const { currentUser } = useUserStore()
   const [selectedAddition, setSelectedAddition] = useState<AdditionRecord | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [handles, setHandles] = useState<ExceptionHandle[]>([])
   const [action, setAction] = useState<string>('')
   const [reason, setReason] = useState<string>('')
+  const [transferTo, setTransferTo] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [searchText, setSearchText] = useState<string>('')
   
@@ -41,20 +42,32 @@ export function Addition() {
   const handleException = () => {
     if (!selectedAddition || !currentUser || !action || !reason) return
     
-    exceptionService.handleException({
+    const request: any = {
       targetType: 'addition',
       targetId: selectedAddition.id,
       action: action as any,
       reason,
-    }, currentUser.id, currentUser.name, currentUser.role)
+    }
+    
+    if (action === 'transfer' && transferTo) {
+      request.transferTo = transferTo
+    }
+    
+    exceptionService.handleException(request, currentUser.id, currentUser.name, currentUser.role)
     
     loadAdditions()
-    const updated = additionService.getAdditionById(selectedAddition.id)
+    
+    const additions = JSON.parse(localStorage.getItem('additions') || '[]')
+    const updated = additions.find((a: AdditionRecord) => a.id === selectedAddition.id)
     if (updated) {
       setSelectedAddition(updated)
+      const history = exceptionService.getHandlesByTarget('addition', updated.id)
+      setHandles(history)
     }
+    
     setAction('')
     setReason('')
+    setTransferTo('')
   }
   
   const getStatusBadge = (status: AdditionRecord['status']) => {
@@ -393,13 +406,27 @@ export function Addition() {
                     </>
                   )}
                   {selectedAddition.status === 'incomplete' && (
-                    <option value="confirm">重新提交</option>
-                  )}
-                  {(selectedAddition.status === 'rejected_by_housekeeper' || 
-                    selectedAddition.status === 'rejected_by_supervisor') && (
-                    <option value="confirm">重新提交</option>
+                    <>
+                      <option value="confirm">重新提交</option>
+                      <option value="transfer">转交处理人</option>
+                    </>
                   )}
                 </select>
+                
+                {action === 'transfer' && users && (
+                  <select
+                    value={transferTo}
+                    onChange={(e) => setTransferTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">选择转交对象</option>
+                    {users.filter(u => u.role === 'housekeeper' || u.role === 'quality_supervisor').map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'housekeeper' ? '家政员' : '质检主管'})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 
                 <textarea
                   value={reason}
@@ -411,7 +438,7 @@ export function Addition() {
                 
                 <button
                   onClick={handleException}
-                  disabled={!action || !reason}
+                  disabled={!action || !reason || (action === 'transfer' && !transferTo)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   提交处理

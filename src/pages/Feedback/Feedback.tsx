@@ -10,13 +10,14 @@ import type { ProcessFeedback, ExceptionHandle } from '@/types'
 import { clsx } from 'clsx'
 
 export function Feedback() {
-  const { feedbacks, stuckFeedbacks, loadFeedbacks } = useAppStore()
+  const { feedbacks, stuckFeedbacks, loadFeedbacks, users } = useAppStore()
   const { currentUser } = useUserStore()
   const [selectedFeedback, setSelectedFeedback] = useState<ProcessFeedback | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [handles, setHandles] = useState<ExceptionHandle[]>([])
   const [action, setAction] = useState<string>('')
   const [reason, setReason] = useState<string>('')
+  const [transferTo, setTransferTo] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<string>('')
   const [searchText, setSearchText] = useState<string>('')
   
@@ -40,18 +41,32 @@ export function Feedback() {
   const handleException = () => {
     if (!selectedFeedback || !currentUser || !action || !reason) return
     
-    exceptionService.handleException({
+    const request: any = {
       targetType: 'feedback',
       targetId: selectedFeedback.id,
       action: action as any,
       reason,
-    }, currentUser.id, currentUser.name, currentUser.role)
+    }
+    
+    if (action === 'transfer' && transferTo) {
+      request.transferTo = transferTo
+    }
+    
+    exceptionService.handleException(request, currentUser.id, currentUser.name, currentUser.role)
     
     loadFeedbacks()
-    setDrawerOpen(false)
-    setSelectedFeedback(null)
+    
+    const feedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]')
+    const updated = feedbacks.find((f: ProcessFeedback) => f.id === selectedFeedback.id)
+    if (updated) {
+      setSelectedFeedback(updated)
+      const history = exceptionService.getHandlesByTarget('feedback', updated.id)
+      setHandles(history)
+    }
+    
     setAction('')
     setReason('')
+    setTransferTo('')
   }
   
   const getStatusBadge = (status: ProcessFeedback['status']) => {
@@ -238,24 +253,23 @@ export function Feedback() {
               </div>
             </div>
             
-            {selectedFeedback.currentHandler && (
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-2">当前处理人</h3>
-                <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
-                  <img 
-                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFeedback.currentHandler.id}`}
-                    alt={selectedFeedback.currentHandler.name}
-                    className="w-10 h-10 rounded-full"
-                  />
-                  <div>
-                    <p className="font-medium">{selectedFeedback.currentHandler.name}</p>
-                    <p className="text-sm text-gray-500">
-                      {selectedFeedback.currentHandler.role === 'customer_service' ? '客服' : '质检主管'}
-                    </p>
-                  </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-2">当前处理人</h3>
+              <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
+                <img 
+                  src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedFeedback.currentHandler?.id || 'unassigned'}`}
+                  alt={selectedFeedback.currentHandler?.name || '待分配'}
+                  className="w-10 h-10 rounded-full"
+                />
+                <div>
+                  <p className="font-medium">{selectedFeedback.currentHandler?.name || '待分配'}</p>
+                  <p className="text-sm text-gray-500">
+                    {selectedFeedback.currentHandler?.role === 'customer_service' ? '客服' : 
+                     selectedFeedback.currentHandler?.role === 'quality_supervisor' ? '质检主管' : '待分配'}
+                  </p>
                 </div>
               </div>
-            )}
+            </div>
             
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">处理进度追踪</h3>
@@ -352,11 +366,42 @@ export function Feedback() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">选择处理方式</option>
-                  <option value="reject">驳回</option>
-                  <option value="supplement">补录信息</option>
-                  <option value="transfer">转交其他处理人</option>
-                  <option value="complete">完成处理</option>
+                  {selectedFeedback.status === 'stuck' && (
+                    <>
+                      <option value="transfer">转交其他处理人</option>
+                      <option value="complete">完成处理</option>
+                    </>
+                  )}
+                  {selectedFeedback.status === 'processing' && (
+                    <>
+                      <option value="reject">驳回</option>
+                      <option value="supplement">补录信息</option>
+                      <option value="transfer">转交其他处理人</option>
+                      <option value="complete">完成处理</option>
+                    </>
+                  )}
+                  {selectedFeedback.status === 'pending' && (
+                    <>
+                      <option value="reject">驳回</option>
+                      <option value="transfer">转交其他处理人</option>
+                    </>
+                  )}
                 </select>
+                
+                {action === 'transfer' && users && (
+                  <select
+                    value={transferTo}
+                    onChange={(e) => setTransferTo(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">选择转交对象</option>
+                    {users.filter(u => u.role === 'customer_service' || u.role === 'quality_supervisor').map(user => (
+                      <option key={user.id} value={user.id}>
+                        {user.name} ({user.role === 'customer_service' ? '客服' : '质检主管'})
+                      </option>
+                    ))}
+                  </select>
+                )}
                 
                 <textarea
                   value={reason}
@@ -368,7 +413,7 @@ export function Feedback() {
                 
                 <button
                   onClick={handleException}
-                  disabled={!action || !reason}
+                  disabled={!action || !reason || (action === 'transfer' && !transferTo)}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   提交处理
