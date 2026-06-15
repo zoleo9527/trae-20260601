@@ -1,0 +1,118 @@
+// Prisma schema for Digital Recycle Store - Bargaining Review & Payment Application
+// 核心状态机：收货入库 → 检测定价 → 议价复核 ↔ 议价通过/驳回 → 打款申请 → 打款完成/退回
+// SQLite 不支持原生 enum，使用 String + 应用层校验保证口径一致
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ======= 实体表 =======
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  name      String
+  role      String   // RECEIVER | DETECTER | FINANCE，应用层校验
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ordersAsReceiver  RecycleOrder[]   @relation("ReceiverOrders")
+  ordersAsDetecter  RecycleOrder[]   @relation("DetecterOrders")
+  paymentsAsFinance PaymentRequest[] @relation("FinancePayments")
+  bargains          BargainRecord[]  @relation("BargainOperator")
+  logs              OperationLog[]   @relation("LogOperator")
+}
+
+model RecycleOrder {
+  id            String      @id @default(cuid())
+  orderNo       String      @unique
+  customerName  String
+  customerPhone String
+  deviceType    String
+  deviceSn      String?
+  appearance    String
+  accessories   String?
+  initialPrice  Decimal?
+  detectPrice   Decimal?
+  finalPrice    Decimal?
+
+  status        String      @default("RECEIVED") // 全局 OrderStatus，应用层校验与流转
+  statusRemark  String?
+
+  receiverId    String
+  receiver      User        @relation("ReceiverOrders", fields: [receiverId], references: [id])
+  detecterId    String?
+  detecter      User?       @relation("DetecterOrders", fields: [detecterId], references: [id])
+
+  receivedAt    DateTime    @default(now())
+  detectedAt    DateTime?
+  closedAt      DateTime?
+
+  bargains      BargainRecord[]
+  payments      PaymentRequest[]
+  logs          OperationLog[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+// 议价复核记录 —— 解决"为什么变成这个状态说不清"的问题
+model BargainRecord {
+  id          String       @id @default(cuid())
+  orderId     String
+  order       RecycleOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  operatorId  String
+  operator    User         @relation("BargainOperator", fields: [operatorId], references: [id])
+
+  fromPrice   Decimal?
+  toPrice     Decimal
+  reason      String       // 必填
+  result      String
+  action      String       // SUBMIT_REVIEW / APPROVE / REJECT / ADJUST_AND_APPROVE
+
+  createdAt   DateTime     @default(now())
+}
+
+// 打款申请 —— 议价通过 → 打款申请，状态一旦转移即产生，无空窗
+model PaymentRequest {
+  id           String       @id @default(cuid())
+  orderId      String
+  order        RecycleOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  amount       Decimal
+  payeeName    String
+  payeeBank    String?
+  payeeAccount String
+
+  financeId    String?
+  finance      User?        @relation("FinancePayments", fields: [financeId], references: [id])
+
+  submitRemark String?
+  reviewRemark String?
+  paidAt       DateTime?
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+}
+
+// 操作日志 —— 全量追踪，解决责任不清
+model OperationLog {
+  id         String       @id @default(cuid())
+  orderId    String
+  order      RecycleOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  operatorId String
+  operator   User         @relation("LogOperator", fields: [operatorId], references: [id])
+
+  fromStatus String?
+  toStatus   String
+  action     String
+  remark     String?
+  detail     String?
+
+  createdAt  DateTime     @default(now())
+}
