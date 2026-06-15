@@ -26,6 +26,10 @@ interface WorkOrderStore {
   clearSelection: () => void;
   batchAssign: (ids: string[], technicianId: string, technicianName: string) => void;
   fetchParts: () => void;
+  addPart: (data: Omit<Part, 'id'>) => void;
+  updatePart: (id: string, data: Partial<Part>) => void;
+  deletePart: (id: string) => void;
+  isPartUsed: (partId: string) => boolean;
 }
 
 export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
@@ -228,5 +232,34 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
       get().assignTechnician(id, technicianId, technicianName);
     });
     get().clearSelection();
+  },
+
+  addPart: (data) => {
+    const newPart: Part = {
+      ...data,
+      id: `part${Date.now()}`,
+    };
+    set(state => ({ parts: [...state.parts, newPart] }));
+  },
+
+  updatePart: (id, data) => {
+    set(state => ({
+      parts: state.parts.map(part => 
+        part.id === id ? { ...part, ...data } : part
+      ),
+    }));
+  },
+
+  deletePart: (id) => {
+    set(state => ({
+      parts: state.parts.filter(part => part.id !== id),
+    }));
+  },
+
+  isPartUsed: (partId) => {
+    const { workorders } = get();
+    return workorders.some(workorder => 
+      workorder.parts.some(p => p.partId === partId)
+    );
   },
 }));
