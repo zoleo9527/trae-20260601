@@ -95,10 +95,7 @@ app.get('/api/orders/today/tasks', (req, res) => {
         result.urgent.push(order)
       }
 
-      if (
-        order.status !== 'completed' &&
-        order.status !== 'install_completed'
-      ) {
+      if (order.status !== 'completed') {
         result.pending.push(order)
       }
     }
@@ -108,10 +105,11 @@ app.get('/api/orders/today/tasks', (req, res) => {
     const priority = (o: Order) => {
       if (o.dimensionModified) return 0
       if (o.installTimeModified) return 1
-      if (o.status === 'pending_review') return 2
-      if (o.status === 'pending_receipt') return 3
-      if (o.status === 'pending_install') return 4
-      return 5
+      if (o.status === 'install_completed') return 2
+      if (o.status === 'pending_review') return 3
+      if (o.status === 'pending_receipt') return 4
+      if (o.status === 'pending_install') return 5
+      return 6
     }
     return priority(a) - priority(b)
   })
@@ -292,8 +290,9 @@ app.post('/api/orders/:id/complete-install', (req, res) => {
 
   order.status = 'install_completed'
   order.installTimeModified = false
+  order.currentHandler = 'receiver'
 
-  addHistory(order, operator, 'installer', '安装完成', note || '安装已完成，客户已确认')
+  addHistory(order, operator, 'installer', '安装完成', note || '安装已完成，客户已确认，请接单员完成订单归档')
 
   res.json({ success: true, data: order })
 })

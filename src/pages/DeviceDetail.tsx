@@ -280,6 +280,20 @@ export default function DeviceDetail({ currentUser }: Props) {
             {order.manuscriptReceived ? '修改稿件' : '接收稿件'}
           </Button>
         )
+      } else if (order.manuscriptReceived && order.status !== 'completed' && order.status !== 'install_completed') {
+        buttons.push(
+          <Button icon={<EditOutlined />} onClick={() => {
+            manuscriptForm.setFieldsValue({
+              width: order.originalDimension.width,
+              height: order.originalDimension.height,
+              unit: order.originalDimension.unit,
+              manuscriptContent: order.manuscriptContent || '',
+            })
+            setManuscriptModalVisible(true)
+          }}>
+            修改稿件
+          </Button>
+        )
       }
       if (order.status === 'install_completed') {
         buttons.push(
