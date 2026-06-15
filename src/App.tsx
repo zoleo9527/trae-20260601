@@ -5,7 +5,6 @@ import { Dashboard } from '@/pages/Dashboard';
 import { WorkOrderDetail } from '@/pages/WorkOrderDetail';
 import { WorkOrderCreate } from '@/pages/WorkOrderCreate';
 import { PartsManagement } from '@/pages/PartsManagement';
-import { SignoffCenter } from '@/pages/SignoffCenter';
 import { EquipmentArchive } from '@/pages/EquipmentArchive';
 
 function App() {
@@ -21,7 +20,6 @@ function App() {
               <Route path="/workorder/create" element={<WorkOrderCreate />} />
               <Route path="/workorder/:id" element={<WorkOrderDetail />} />
               <Route path="/parts" element={<PartsManagement />} />
-              <Route path="/signoff" element={<SignoffCenter />} />
               <Route path="/equipment" element={<EquipmentArchive />} />
             </Routes>
           </main>

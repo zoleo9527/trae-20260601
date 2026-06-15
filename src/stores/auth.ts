@@ -10,6 +10,7 @@ interface AuthStore {
   logout: () => void;
   getTechnicians: () => User[];
   getWarehouseUsers: () => User[];
+  switchRole: (role: 'manager' | 'technician' | 'warehouse') => void;
 }
 
 export const useAuthStore = create<AuthStore>((set) => ({
@@ -31,5 +32,12 @@ export const useAuthStore = create<AuthStore>((set) => ({
 
   getWarehouseUsers: () => {
     return mockUsers.filter(u => u.role === 'warehouse');
+  },
+
+  switchRole: (role) => {
+    const user = mockUsers.find(u => u.role === role);
+    if (user) {
+      set({ currentUser: user });
+    }
   },
 }));

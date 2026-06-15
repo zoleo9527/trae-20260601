@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Users, Package, CheckCircle, AlertCircle } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Users, Package, CheckCircle, AlertCircle, FileCheck } from 'lucide-react';
 import { useWorkOrderStore } from '@/stores/workorder';
 import { useAuthStore } from '@/stores/auth';
 import { WorkOrderCard } from '@/components/WorkOrder/WorkOrderCard';
@@ -17,10 +17,11 @@ const statusGroups: { status: WorkOrderStatus; label: string; color: string }[] 
 ];
 
 export function Dashboard() {
-  const { workorders, selectedIds, statusFilter, fetchWorkOrders, toggleSelect, selectAll, clearSelection, batchAssign } = useWorkOrderStore();
+  const { workorders, selectedIds, statusFilter, fetchWorkOrders, toggleSelect, selectAll, clearSelection, batchAssign, setStatusFilter } = useWorkOrderStore();
   const { getTechnicians, currentUser } = useAuthStore();
   const [showBatchAssign, setShowBatchAssign] = useState(false);
   const [selectedTechnician, setSelectedTechnician] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchWorkOrders();
@@ -44,11 +45,19 @@ export function Dashboard() {
     }
   };
 
+  const handleStatusFilter = (status: WorkOrderStatus | 'all') => {
+    setStatusFilter(status);
+  };
+
   const filteredWorkorders = statusFilter === 'all' 
     ? workorders 
     : workorders.filter(w => w.status === statusFilter);
 
   const canAssign = currentUser?.role === 'manager';
+
+  const handleCardClick = (workorderId: string) => {
+    navigate(`/workorder/${workorderId}`);
+  };
 
   return (
     <div className="p-6">
@@ -77,17 +86,21 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
+        <Link 
+          to="#" 
+          onClick={() => handleStatusFilter('signoff_pending')}
+          className="bg-white rounded-xl p-5 shadow-sm border border-slate-200 cursor-pointer hover:shadow-md transition-shadow"
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-slate-500">待签认</p>
               <p className="text-2xl font-bold text-slate-800 mt-1">{signoffPendingCount}</p>
             </div>
             <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center">
-              <Users size={24} className="text-indigo-600" />
+              <FileCheck size={24} className="text-indigo-600" />
             </div>
           </div>
-        </div>
+        </Link>
 
         <div className="bg-white rounded-xl p-5 shadow-sm border border-slate-200">
           <div className="flex items-center justify-between">
@@ -167,7 +180,7 @@ export function Dashboard() {
           {statusGroups.map((group) => (
             <button
               key={group.status}
-              onClick={() => {}}
+              onClick={() => handleStatusFilter(group.status)}
               className={`px-3 py-1 text-sm rounded-full transition-colors ${
                 statusFilter === group.status
                   ? `${group.color} text-white`
@@ -178,12 +191,12 @@ export function Dashboard() {
             </button>
           ))}
           <button
+            onClick={() => handleStatusFilter('all')}
             className={`px-3 py-1 text-sm rounded-full transition-colors ml-auto ${
               statusFilter === 'all'
                 ? 'bg-blue-600 text-white'
                 : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
-            onClick={() => {}}
           >
             全部 ({workorders.length})
           </button>
@@ -197,7 +210,7 @@ export function Dashboard() {
                 workorder={workorder}
                 selected={selectedIds.includes(workorder.id)}
                 onSelect={() => toggleSelect(workorder.id)}
-                onClick={() => {}}
+                onClick={() => handleCardClick(workorder.id)}
               />
             ))}
           </div>

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { WorkOrder, WorkOrderStatus, PartRequest, SignOffData } from '@/types';
-import { mockWorkOrders } from '@/data/mockData';
+import { mockWorkOrders, mockParts } from '@/data/mockData';
 
 interface WorkOrderStore {
   workorders: WorkOrder[];
@@ -73,15 +73,18 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
     const workorder = get().workorders.find(w => w.id === id);
     if (!workorder) return;
 
-    const newParts = parts.map((p, index) => ({
-      id: `wp${Date.now()}${index}`,
-      partId: p.partId,
-      partNo: '',
-      name: '',
-      specification: '',
-      quantity: p.quantity,
-      status: 'applied' as const,
-    }));
+    const newParts = parts.map((p, index) => {
+      const partInfo = mockParts.find(part => part.id === p.partId);
+      return {
+        id: `wp${Date.now()}${index}`,
+        partId: p.partId,
+        partNo: partInfo?.partNo || '',
+        name: partInfo?.name || '',
+        specification: partInfo?.specification || '',
+        quantity: p.quantity,
+        status: 'applied' as const,
+      };
+    });
 
     get().updateWorkOrder(id, { 
       parts: [...workorder.parts, ...newParts],
@@ -97,7 +100,12 @@ export const useWorkOrderStore = create<WorkOrderStore>((set, get) => ({
       p.partId === partId ? { ...p, status: 'issued' as const } : p
     );
 
-    get().updateWorkOrder(id, { parts: updatedParts });
+    const allIssued = updatedParts.every(p => p.status === 'issued');
+    
+    get().updateWorkOrder(id, { 
+      parts: updatedParts,
+      status: allIssued ? 'repairing' as WorkOrderStatus : workorder.status 
+    });
   },
 
   submitSignOff: (id, data) => {
