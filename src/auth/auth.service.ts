@@ -26,19 +26,31 @@ export class AuthService implements OnModuleInit {
         {
           username: 'reception',
           password: await bcrypt.hash('123456', salt),
-          name: '张前台',
+          name: '张接单',
           role: UserRole.RECEPTIONIST,
         },
         {
-          username: 'tech01',
+          username: 'designer',
           password: await bcrypt.hash('123456', salt),
-          name: '李师傅',
-          role: UserRole.TECHNICIAN,
+          name: '李设计',
+          role: UserRole.DESIGNER,
+        },
+        {
+          username: 'printer',
+          password: await bcrypt.hash('123456', salt),
+          name: '王喷绘',
+          role: UserRole.PRINT_OPERATOR,
+        },
+        {
+          username: 'installer',
+          password: await bcrypt.hash('123456', salt),
+          name: '赵安装',
+          role: UserRole.INSTALL_LEADER,
         },
         {
           username: 'manager',
           password: await bcrypt.hash('123456', salt),
-          name: '王店长',
+          name: '孙店长',
           role: UserRole.MANAGER,
         },
       ];

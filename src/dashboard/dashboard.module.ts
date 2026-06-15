@@ -2,13 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
-import { IntakeOrder } from '../intake/entities/intake-order.entity';
+import { PrintOrder } from '../print-order/entities/print-order.entity';
 import { OperationLog } from '../common/entities/operation-log.entity';
-import { PrivacyConsent } from '../privacy/entities/privacy-consent.entity';
 import { User } from '../auth/entities/user.entity';
+import { InstallationTask } from '../print-order/entities/installation-task.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([IntakeOrder, OperationLog, PrivacyConsent, User])],
+  imports: [TypeOrmModule.forFeature([PrintOrder, OperationLog, User, InstallationTask])],
   controllers: [DashboardController],
   providers: [DashboardService],
   exports: [DashboardService],

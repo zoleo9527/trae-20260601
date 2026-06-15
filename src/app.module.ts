@@ -1,41 +1,37 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
-import { IntakeModule } from './intake/intake.module';
-import { PrivacyModule } from './privacy/privacy.module';
-import { RepairModule } from './repair/repair.module';
+import { PrintOrderModule } from './print-order/print-order.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { CommonModule } from './common/common.module';
 import { User } from './auth/entities/user.entity';
-import { IntakeOrder } from './intake/entities/intake-order.entity';
-import { PrivacyConsent } from './privacy/entities/privacy-consent.entity';
 import { OperationLog } from './common/entities/operation-log.entity';
-import { PartRequest } from './repair/entities/part-request.entity';
-import { QualityCheckRecord } from './repair/entities/quality-check.entity';
-import { Attachment } from './repair/entities/attachment.entity';
+import { PrintOrder } from './print-order/entities/print-order.entity';
+import { InstallationAssignment } from './print-order/entities/installation-assignment.entity';
+import { PhotoReturn } from './print-order/entities/photo-return.entity';
+import { OrderNote } from './print-order/entities/order-note.entity';
+import { InstallationTask } from './print-order/entities/installation-task.entity';
 
 @Module({
   imports: [
     CommonModule,
     TypeOrmModule.forRoot({
       type: 'sqlite',
-      database: 'repair-shop.db',
+      database: 'print-shop.db',
       entities: [
         User,
-        IntakeOrder,
-        PrivacyConsent,
         OperationLog,
-        PartRequest,
-        QualityCheckRecord,
-        Attachment,
+        PrintOrder,
+        InstallationAssignment,
+        PhotoReturn,
+        OrderNote,
+        InstallationTask,
       ],
       synchronize: true,
       logging: false,
     }),
     AuthModule,
-    IntakeModule,
-    PrivacyModule,
-    RepairModule,
+    PrintOrderModule,
     DashboardModule,
   ],
 })
