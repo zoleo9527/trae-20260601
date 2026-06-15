@@ -347,12 +347,12 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
     if (!part) {
       throw new Error('备件不存在')
     }
-    if (part.quantity < params[4]) {
-      throw new Error(`库存不足：${part.name} 当前库存 ${part.quantity}，需要 ${params[4]}`)
+    if (part.quantity < params[3]) {
+      throw new Error(`库存不足：${part.name} 当前库存 ${part.quantity}，需要 ${params[3]}`)
     }
     
     spareParts = spareParts.map(p => 
-      p.id === params[2] ? { ...p, quantity: p.quantity - params[4] } : p
+      p.id === params[2] ? { ...p, quantity: p.quantity - params[3] } : p
     )
     
     const usage = {
@@ -361,10 +361,10 @@ function executeQuery(query: string, params: any[], returnAll: boolean): any {
       spare_part_id: params[2],
       spare_part_name: part.name,
       spare_part_sku: part.sku,
-      quantity: params[4],
-      used_by: params[5],
-      used_by_name: params[6],
-      used_at: params[7]
+      quantity: params[3],
+      used_by: params[4],
+      used_by_name: params[5],
+      used_at: params[6]
     }
     sparePartUsages.push(usage)
     return usage

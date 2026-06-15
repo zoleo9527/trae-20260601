@@ -5,7 +5,8 @@ import {
   CheckCircle,
   AlertTriangle,
   Shield,
-  FileText
+  FileText,
+  AlertCircle
 } from 'lucide-react'
 import { orderApi, warrantyApi } from '../api'
 import { useAppStore } from '../store'
@@ -13,6 +14,14 @@ import type { Order, CreateWarrantyRequest } from '../types'
 
 const warrantyTypes = ['厂家保修', '店铺保修', '付费维修', '客户自费']
 const responsibilityOptions = ['厂家负责', '店铺负责', '客户自理', '协商解决']
+
+const STATUS_FLOW = {
+  pending: ['inspection_pending'],
+  inspection_pending: ['warranty_pending'],
+  warranty_pending: ['repairing'],
+  repairing: ['completed'],
+  completed: []
+}
 
 export default function Warranty() {
   const { id } = useParams<{ id: string }>()
@@ -26,6 +35,7 @@ export default function Warranty() {
     responsibility: '厂家负责'
   })
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
   const currentUser = useAppStore(state => state.currentUser)
   const navigate = useNavigate()
 
@@ -46,13 +56,34 @@ export default function Warranty() {
   }, [id, currentUser])
 
   const handleSubmit = () => {
-    if (!id) return
+    if (!id || !order) return
+    
+    const allowedStatuses = STATUS_FLOW[order.status as keyof typeof STATUS_FLOW]
+    if (!allowedStatuses || !allowedStatuses.includes('repairing')) {
+      setError(`当前状态【${getStatusLabel(order.status)}】不允许确认保修，请先完成前置流程`)
+      return
+    }
+    
+    setError('')
     setSubmitting(true)
     warrantyApi.create(id, formData).then(() => {
       navigate(`/orders/${id}`)
+    }).catch((err: any) => {
+      setError(err.message || '提交失败，请重试')
     }).finally(() => {
       setSubmitting(false)
     })
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: '待接单',
+      inspection_pending: '待质检',
+      warranty_pending: '待保修确认',
+      repairing: '维修中',
+      completed: '已完成'
+    }
+    return labels[status] || status
   }
 
   if (loading) {
@@ -62,6 +93,8 @@ export default function Warranty() {
   if (!order) {
     return <div className="flex items-center justify-center h-64">工单不存在</div>
   }
+
+  const isStatusValid = order.status === 'warranty_pending'
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -75,10 +108,35 @@ export default function Warranty() {
         </button>
       </div>
 
+      {!isStatusValid && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-800">操作权限不足</p>
+              <p className="text-sm text-red-700 mt-1">
+                当前工单状态为【{getStatusLabel(order.status)}】，无法执行此操作。
+                请按照正确流程：接单 → 质检 → 保修 → 维修完成
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="bg-gradient-to-r from-orange-500 to-orange-700 px-6 py-4">
           <h2 className="text-xl font-semibold text-white">售后保修确认</h2>
           <p className="text-orange-100 text-sm mt-1">工单: {order.id} | 客户: {order.customer_name}</p>
+          <p className="text-orange-100 text-sm">当前状态: {getStatusLabel(order.status)}</p>
         </div>
 
         <div className="p-6 space-y-6">
@@ -111,7 +169,12 @@ export default function Warranty() {
                 </div>
               </div>
             ) : (
-              <p className="text-gray-400 text-sm">暂无质检报告，请先完成质检</p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-yellow-700 text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" />
+                  暂无质检报告，请先完成质检
+                </p>
+              </div>
             )}
           </div>
 
@@ -124,6 +187,7 @@ export default function Warranty() {
                 onChange={(e) => setFormData({ ...formData, manager_name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="请输入确认人姓名"
+                disabled={!isStatusValid}
               />
             </div>
           </div>
@@ -135,6 +199,7 @@ export default function Warranty() {
                 value={formData.warranty_type}
                 onChange={(e) => setFormData({ ...formData, warranty_type: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!isStatusValid}
               >
                 {warrantyTypes.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -149,6 +214,7 @@ export default function Warranty() {
                 onChange={(e) => setFormData({ ...formData, warranty_period: parseInt(e.target.value) || 0 })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 min="0"
+                disabled={!isStatusValid}
               />
             </div>
           </div>
@@ -159,6 +225,7 @@ export default function Warranty() {
               value={formData.responsibility}
               onChange={(e) => setFormData({ ...formData, responsibility: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!isStatusValid}
             >
               {responsibilityOptions.map(opt => (
                 <option key={opt} value={opt}>{opt}</option>
@@ -203,7 +270,7 @@ export default function Warranty() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || !formData.manager_name || !formData.warranty_period}
+              disabled={submitting || !formData.manager_name || !formData.warranty_period || !isStatusValid}
               className="flex items-center gap-2 px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-5 h-5" />

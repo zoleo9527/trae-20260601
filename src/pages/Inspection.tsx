@@ -5,7 +5,8 @@ import {
   Camera, 
   CheckCircle,
   AlertTriangle,
-  Trash2
+  Trash2,
+  AlertCircle
 } from 'lucide-react'
 import { orderApi, inspectionApi } from '../api'
 import { useAppStore } from '../store'
@@ -17,6 +18,14 @@ interface PhotoData {
   preview: string
   base64: string
   description: string
+}
+
+const STATUS_FLOW = {
+  pending: ['inspection_pending'],
+  inspection_pending: ['warranty_pending'],
+  warranty_pending: ['repairing'],
+  repairing: ['completed'],
+  completed: []
 }
 
 export default function Inspection() {
@@ -34,6 +43,7 @@ export default function Inspection() {
   })
   const [photos, setPhotos] = useState<PhotoData[]>([])
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
   const currentUser = useAppStore(state => state.currentUser)
   const navigate = useNavigate()
 
@@ -82,7 +92,15 @@ export default function Inspection() {
   }
 
   const handleSubmit = () => {
-    if (!id) return
+    if (!id || !order) return
+    
+    const allowedStatuses = STATUS_FLOW[order.status as keyof typeof STATUS_FLOW]
+    if (!allowedStatuses || !allowedStatuses.includes('warranty_pending')) {
+      setError(`当前状态【${getStatusLabel(order.status)}】不允许提交质检，请先完成前置流程`)
+      return
+    }
+    
+    setError('')
     setSubmitting(true)
     
     const photosData = photos.map(photo => ({
@@ -92,9 +110,22 @@ export default function Inspection() {
     
     inspectionApi.create(id, { ...formData, photos: photosData }).then(() => {
       navigate(`/orders/${id}`)
+    }).catch((err: any) => {
+      setError(err.message || '提交失败，请重试')
     }).finally(() => {
       setSubmitting(false)
     })
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      pending: '待接单',
+      inspection_pending: '待质检',
+      warranty_pending: '待保修确认',
+      repairing: '维修中',
+      completed: '已完成'
+    }
+    return labels[status] || status
   }
 
   if (loading) {
@@ -104,6 +135,8 @@ export default function Inspection() {
   if (!order) {
     return <div className="flex items-center justify-center h-64">工单不存在</div>
   }
+
+  const isStatusValid = order.status === 'inspection_pending'
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -117,10 +150,35 @@ export default function Inspection() {
         </button>
       </div>
 
+      {!isStatusValid && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-red-800">操作权限不足</p>
+              <p className="text-sm text-red-700 mt-1">
+                当前工单状态为【{getStatusLabel(order.status)}】，无法执行此操作。
+                请按照正确流程：接单 → 质检 → 保修 → 维修完成
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-red-700">{error}</p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4">
           <h2 className="text-xl font-semibold text-white">取机质检报告</h2>
           <p className="text-blue-100 text-sm mt-1">工单: {order.id} | 客户: {order.customer_name}</p>
+          <p className="text-blue-100 text-sm">当前状态: {getStatusLabel(order.status)}</p>
         </div>
 
         <div className="p-6 space-y-6">
@@ -133,6 +191,7 @@ export default function Inspection() {
                 onChange={(e) => setFormData({ ...formData, technician_name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="请输入质检人姓名"
+                disabled={!isStatusValid}
               />
             </div>
           </div>
@@ -150,6 +209,7 @@ export default function Inspection() {
                     <button
                       onClick={() => removePhoto(index)}
                       className="absolute top-1 right-1 w-6 h-6 bg-black/50 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                      disabled={!isStatusValid}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -160,13 +220,16 @@ export default function Inspection() {
                     onChange={(e) => updatePhotoDescription(index, e.target.value)}
                     className="w-full px-2 py-1 text-sm border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                     placeholder="照片说明"
+                    disabled={!isStatusValid}
                   />
                 </div>
               ))}
-              <label className="aspect-square bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:bg-gray-100 hover:border-blue-400 transition-colors">
-                <Camera className="w-8 h-8 text-gray-400 mb-2" />
-                <span className="text-xs text-gray-500">点击上传</span>
-                <input type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" />
+              <label className={`aspect-square border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors ${
+                isStatusValid ? 'bg-gray-50 border-gray-300 hover:bg-gray-100 hover:border-blue-400' : 'bg-gray-100 border-gray-200 cursor-not-allowed'
+              }`}>
+                <Camera className={`w-8 h-8 mb-2 ${isStatusValid ? 'text-gray-400' : 'text-gray-300'}`} />
+                <span className={`text-xs ${isStatusValid ? 'text-gray-500' : 'text-gray-400'}`}>点击上传</span>
+                <input type="file" multiple accept="image/*" onChange={handleImageUpload} className="hidden" disabled={!isStatusValid} />
               </label>
             </div>
             <p className="text-xs text-gray-400 mt-2">支持 JPG、PNG 格式，可多选，每张图片不超过 5MB</p>
@@ -179,6 +242,7 @@ export default function Inspection() {
                 value={formData.appearance_condition}
                 onChange={(e) => setFormData({ ...formData, appearance_condition: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!isStatusValid}
               >
                 {conditionOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -191,6 +255,7 @@ export default function Inspection() {
                 value={formData.screen_condition}
                 onChange={(e) => setFormData({ ...formData, screen_condition: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!isStatusValid}
               >
                 {conditionOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -203,6 +268,7 @@ export default function Inspection() {
                 value={formData.battery_condition}
                 onChange={(e) => setFormData({ ...formData, battery_condition: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                disabled={!isStatusValid}
               >
                 {conditionOptions.map(opt => (
                   <option key={opt} value={opt}>{opt}</option>
@@ -219,6 +285,7 @@ export default function Inspection() {
               onChange={(e) => setFormData({ ...formData, accessories: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="例如：原装充电器、数据线、耳机等"
+              disabled={!isStatusValid}
             />
           </div>
 
@@ -230,6 +297,7 @@ export default function Inspection() {
               rows={4}
               className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               placeholder="请详细描述检测结果、问题分析及维修建议..."
+              disabled={!isStatusValid}
             />
           </div>
 
@@ -256,7 +324,7 @@ export default function Inspection() {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={submitting || !formData.technician_name || !formData.description}
+              disabled={submitting || !formData.technician_name || !formData.description || !isStatusValid}
               className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-5 h-5" />
