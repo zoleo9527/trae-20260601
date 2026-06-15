@@ -47,6 +47,8 @@ function App() {
       setPartsInventory(pi);
       setLogs(lg);
       setExceptions(ex);
+      
+      await systemAPI.checkOverdue();
     } catch (error) {
       console.error('加载数据失败:', error);
     }
@@ -86,15 +88,15 @@ function App() {
           />
         );
       case 'equipment':
-        return <EquipmentList equipment={equipment} onUpdate={handleUpdate} />;
+        return <EquipmentList equipment={equipment} currentUser={currentUser} onUpdate={handleUpdate} />;
       case 'maintenance':
-        return <MaintenancePlans plans={maintenancePlans} equipment={equipment} onUpdate={handleUpdate} />;
+        return <MaintenancePlans plans={maintenancePlans} equipment={equipment} currentUser={currentUser} onUpdate={handleUpdate} />;
       case 'parts':
-        return <PartsInventory parts={partsInventory} onUpdate={handleUpdate} />;
+        return <PartsInventory parts={partsInventory} currentUser={currentUser} onUpdate={handleUpdate} />;
       case 'logs':
         return <OperationLogs logs={logs} />;
       case 'exceptions':
-        return <Exceptions exceptions={exceptions} onUpdate={handleUpdate} />;
+        return <Exceptions exceptions={exceptions} currentUser={currentUser} onUpdate={handleUpdate} />;
       default:
         return (
           <Dashboard 

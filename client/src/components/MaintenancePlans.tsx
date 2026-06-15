@@ -1,20 +1,23 @@
 import { useState } from 'react';
-import { Calendar, CheckCircle, AlertCircle, Clock, Search, Eye, X, Plus } from 'lucide-react';
-import { MaintenancePlan, Equipment } from '../types';
-import { maintenanceAPI } from '../api';
+import { Calendar, CheckCircle, AlertCircle, Clock, Search, Eye, X, Plus, AlertTriangle, Bell, RefreshCw } from 'lucide-react';
+import { MaintenancePlan, Equipment, User, EquipmentChangeRecord } from '../types';
+import { maintenanceAPI, changeRecordsAPI } from '../api';
 
 interface MaintenancePlansProps {
   plans: MaintenancePlan[];
   equipment: Equipment[];
+  currentUser: User;
   onUpdate: () => void;
 }
 
-export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlansProps) {
+export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: MaintenancePlansProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [showChangeAlert, setShowChangeAlert] = useState(false);
+  const [changeRecord, setChangeRecord] = useState<EquipmentChangeRecord | null>(null);
   const [newPlan, setNewPlan] = useState({
     equipmentId: '',
     planName: '',
@@ -33,8 +36,19 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
     return matchesSearch && matchesStatus;
   });
 
+  const plansWithChangeAlert = plans.filter(p => p.hasEquipmentChange && !p.equipmentChangeAcknowledged);
+
+  const canCreate = currentUser.role === 'maintenance_manager';
+  const canComplete = currentUser.role === 'field_technician' || currentUser.role === 'maintenance_manager';
+  const canAcknowledge = currentUser.role === 'field_technician' || currentUser.role === 'maintenance_manager';
+
   const handleComplete = async (planId: string) => {
-    await maintenanceAPI.update(planId, { status: 'completed' });
+    if (!canComplete) return;
+    await maintenanceAPI.update(planId, { 
+      status: 'completed',
+      operator: currentUser.name,
+      operatorRole: currentUser.role,
+    });
     onUpdate();
   };
 
@@ -43,7 +57,26 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
     setShowDetail(true);
   };
 
+  const handleAcknowledgeChange = async (plan: MaintenancePlan) => {
+    if (!canAcknowledge) return;
+    await maintenanceAPI.acknowledgeChange(plan.id, currentUser.name, currentUser.role);
+    setShowChangeAlert(false);
+    setSelectedPlan(null);
+    setChangeRecord(null);
+    onUpdate();
+  };
+
+  const handleViewChangeRecord = async (plan: MaintenancePlan) => {
+    if (plan.equipmentChangeRecordId) {
+      const record = await changeRecordsAPI.getEquipmentChangeRecordById(plan.equipmentChangeRecordId);
+      setChangeRecord(record);
+      setSelectedPlan(plan);
+      setShowChangeAlert(true);
+    }
+  };
+
   const handleCreate = async () => {
+    if (!canCreate) return;
     if (!newPlan.equipmentId || !newPlan.planName || !newPlan.scheduledDate) {
       alert('请填写完整信息');
       return;
@@ -62,6 +95,8 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
       status: 'pending',
       items: newPlan.items.map(item => ({ name: item, status: 'pending' })),
       responsibleTechnician: newPlan.responsibleTechnician,
+      operator: currentUser.name,
+      operatorRole: currentUser.role,
     });
     
     setShowCreate(false);
@@ -99,6 +134,17 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
     completed: { label: '已完成', color: 'text-green-600', bg: 'bg-green-100', icon: <CheckCircle className="w-3 h-3" /> },
   };
 
+  const fieldLabels: Record<string, string> = {
+    code: '设备编号',
+    model: '型号',
+    brand: '品牌',
+    customerName: '客户名称',
+    location: '位置',
+    responsibleTechnician: '负责技师',
+    workingHours: '运行时长',
+    status: '状态',
+  };
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -106,14 +152,55 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
           <h1 className="text-2xl font-bold text-gray-800">保养计划</h1>
           <p className="text-gray-500 mt-1">管理设备保养计划和执行进度</p>
         </div>
-        <button
-          onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
-        >
-          <Plus className="w-5 h-5" />
-          创建计划
-        </button>
+        <div className="flex items-center gap-2">
+          {plansWithChangeAlert.length > 0 && (
+            <button
+              onClick={() => handleViewChangeRecord(plansWithChangeAlert[0])}
+              className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 animate-pulse"
+            >
+              <Bell className="w-5 h-5" />
+              {plansWithChangeAlert.length} 条变更提醒
+            </button>
+          )}
+          {canCreate && (
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600"
+            >
+              <Plus className="w-5 h-5" />
+              创建计划
+            </button>
+          )}
+        </div>
       </div>
+
+      {plansWithChangeAlert.length > 0 && (
+        <div className="mb-4 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertTriangle className="w-5 h-5 text-orange-500" />
+            <span className="font-medium text-orange-700">设备档案变更提醒</span>
+          </div>
+          <p className="text-sm text-orange-600 mb-3">
+            以下保养计划关联的设备档案已被修改，请确认变更内容：
+          </p>
+          <div className="space-y-2">
+            {plansWithChangeAlert.map(plan => (
+              <div key={plan.id} className="flex items-center justify-between p-2 bg-white rounded">
+                <div>
+                  <span className="font-medium">{plan.planName}</span>
+                  <span className="text-sm text-gray-500 ml-2">({plan.equipmentCode})</span>
+                </div>
+                <button
+                  onClick={() => handleViewChangeRecord(plan)}
+                  className="text-sm text-primary-500 hover:text-primary-600"
+                >
+                  查看变更
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex items-center justify-between mb-4">
@@ -147,6 +234,7 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
             <div 
               key={plan.id} 
               className={`p-4 rounded-lg border ${
+                plan.hasEquipmentChange && !plan.equipmentChangeAcknowledged ? 'border-orange-300 bg-orange-50' :
                 plan.status === 'overdue' ? 'border-red-200 bg-red-50' : 
                 plan.status === 'pending' ? 'border-blue-200 bg-blue-50' :
                 'border-green-200 bg-green-50'
@@ -155,7 +243,15 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div>
-                    <h3 className="font-medium text-gray-800">{plan.planName}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-gray-800">{plan.planName}</h3>
+                      {plan.hasEquipmentChange && !plan.equipmentChangeAcknowledged && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-orange-100 text-orange-600">
+                          <Bell className="w-3 h-3" />
+                          变更提醒
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-gray-600">
                       {plan.equipmentCode} ({plan.equipmentModel}) - {plan.customerName}
                     </p>
@@ -184,7 +280,16 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
                     >
                       <Eye className="w-5 h-5" />
                     </button>
-                    {plan.status !== 'completed' && (
+                    {plan.hasEquipmentChange && !plan.equipmentChangeAcknowledged && canAcknowledge && (
+                      <button
+                        onClick={() => handleViewChangeRecord(plan)}
+                        className="text-orange-500 hover:text-orange-600"
+                        title="确认变更"
+                      >
+                        <RefreshCw className="w-5 h-5" />
+                      </button>
+                    )}
+                    {plan.status !== 'completed' && canComplete && (
                       <button
                         onClick={() => handleComplete(plan.id)}
                         className="px-3 py-1.5 bg-green-500 text-white text-sm rounded-lg hover:bg-green-600"
@@ -267,6 +372,14 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
                 <span className="text-gray-500">负责技师</span>
                 <span>{selectedPlan.responsibleTechnician}</span>
               </div>
+              {selectedPlan.hasEquipmentChange && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">设备变更</span>
+                  <span className={`text-xs px-2 py-0.5 rounded ${selectedPlan.equipmentChangeAcknowledged ? 'bg-green-100 text-green-600' : 'bg-orange-100 text-orange-600'}`}>
+                    {selectedPlan.equipmentChangeAcknowledged ? '已确认' : '待确认'}
+                  </span>
+                </div>
+              )}
               <div>
                 <span className="text-gray-500 block mb-2">保养项目</span>
                 <div className="space-y-2">
@@ -287,7 +400,85 @@ export function MaintenancePlans({ plans, equipment, onUpdate }: MaintenancePlan
         </div>
       )}
 
-      {showCreate && (
+      {showChangeAlert && changeRecord && selectedPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">设备档案变更提醒</h2>
+              <button
+                onClick={() => { setShowChangeAlert(false); setChangeRecord(null); setSelectedPlan(null); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-orange-50 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-5 h-5 text-orange-500" />
+                <span className="font-medium text-orange-700">设备档案已修改</span>
+              </div>
+              <p className="text-sm text-orange-600">
+                保养计划「{selectedPlan.planName}」关联的设备档案已被修改，请确认以下变更内容：
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">变更时间</span>
+                <span>{changeRecord.createdAt}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">操作人</span>
+                <span>{changeRecord.operator}</span>
+              </div>
+              {changeRecord.reason && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">修改原因</span>
+                  <span>{changeRecord.reason}</span>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-500 block mb-2 text-sm">变更内容</span>
+                <div className="space-y-2">
+                  {changeRecord.changes.map((change, index) => (
+                    <div key={index} className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-700">{fieldLabels[change.field] || change.field}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-red-500">{change.oldValue || '(空)'}</span>
+                          <span className="text-gray-400">→</span>
+                          <span className="text-green-500">{change.newValue || '(空)'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => { setShowChangeAlert(false); setChangeRecord(null); setSelectedPlan(null); }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                稍后确认
+              </button>
+              {canAcknowledge && (
+                <button
+                  onClick={() => handleAcknowledgeChange(selectedPlan)}
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  确认变更
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCreate && canCreate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-6">

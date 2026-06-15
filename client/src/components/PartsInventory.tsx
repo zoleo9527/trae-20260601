@@ -1,21 +1,29 @@
 import { useState } from 'react';
-import { Package, Search, AlertTriangle, Plus, X, Minus, PlusCircle } from 'lucide-react';
-import { PartsInventory as PartsType } from '../types';
+import { Package, Search, AlertTriangle, Plus, X, Minus, PlusCircle, AlertCircle } from 'lucide-react';
+import { PartsInventory as PartsType, User } from '../types';
 import { partsAPI } from '../api';
 
 interface PartsInventoryProps {
   parts: PartsType[];
+  currentUser: User;
   onUpdate: () => void;
 }
 
-export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
+export function PartsInventory({ parts, currentUser, onUpdate }: PartsInventoryProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showWrongDeliveryModal, setShowWrongDeliveryModal] = useState(false);
   const [selectedPart, setSelectedPart] = useState<PartsType | null>(null);
   const [issueForm, setIssueForm] = useState({
     quantity: 1,
     recipient: '',
     purpose: '',
+  });
+  const [wrongDeliveryForm, setWrongDeliveryForm] = useState({
+    expectedCode: '',
+    actualCode: '',
+    recipient: '',
+    destination: '',
   });
 
   const filteredParts = parts.filter(part => 
@@ -26,19 +34,47 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
 
   const isLowStock = (part: PartsType) => part.quantity <= part.minStock;
 
+  const canIssue = currentUser.role === 'warehouse_manager';
+  const canReportWrongDelivery = currentUser.role === 'warehouse_manager';
+
   const handleIssue = async () => {
     if (!selectedPart || issueForm.quantity <= 0) return;
     
-    await partsAPI.issue(selectedPart.id, issueForm.quantity, issueForm.recipient, issueForm.purpose);
+    await partsAPI.issue(selectedPart.id, issueForm.quantity, issueForm.recipient, issueForm.purpose, currentUser.name, currentUser.role);
     setShowIssueModal(false);
     setSelectedPart(null);
     setIssueForm({ quantity: 1, recipient: '', purpose: '' });
     onUpdate();
   };
 
+  const handleReportWrongDelivery = async () => {
+    if (!selectedPart || !wrongDeliveryForm.expectedCode || !wrongDeliveryForm.actualCode) return;
+    
+    await partsAPI.reportWrongDelivery(
+      selectedPart.id,
+      wrongDeliveryForm.expectedCode,
+      wrongDeliveryForm.actualCode,
+      wrongDeliveryForm.recipient,
+      wrongDeliveryForm.destination,
+      currentUser.name,
+      currentUser.role
+    );
+    setShowWrongDeliveryModal(false);
+    setSelectedPart(null);
+    setWrongDeliveryForm({ expectedCode: '', actualCode: '', recipient: '', destination: '' });
+    onUpdate();
+  };
+
   const openIssueModal = (part: PartsType) => {
+    if (!canIssue) return;
     setSelectedPart(part);
     setShowIssueModal(true);
+  };
+
+  const openWrongDeliveryModal = (part: PartsType) => {
+    if (!canReportWrongDelivery) return;
+    setSelectedPart(part);
+    setShowWrongDeliveryModal(true);
   };
 
   return (
@@ -47,6 +83,16 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">配件库存</h1>
           <p className="text-gray-500 mt-1">管理配件库存和发放记录</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className={`text-xs px-2 py-1 rounded ${
+            currentUser.role === 'warehouse_manager' ? 'bg-yellow-100 text-yellow-600' :
+            currentUser.role === 'maintenance_manager' ? 'bg-blue-100 text-blue-600' :
+            'bg-green-100 text-green-600'
+          }`}>
+            {currentUser.role === 'warehouse_manager' ? '仓管' : 
+             currentUser.role === 'maintenance_manager' ? '维保主管' : '现场技师'}
+          </span>
         </div>
       </div>
 
@@ -62,6 +108,15 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
               placeholder="搜索配件编号、名称..."
             />
           </div>
+          {canReportWrongDelivery && (
+            <button
+              onClick={() => { setSelectedPart(null); setShowWrongDeliveryModal(true); }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+            >
+              <AlertCircle className="w-5 h-5" />
+              错发登记
+            </button>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -99,14 +154,27 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
                   <td className="px-4 py-3 text-sm text-gray-700">{part.location}</td>
                   <td className="px-4 py-3 text-sm text-gray-700">¥{part.price}</td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => openIssueModal(part)}
-                      disabled={part.quantity === 0}
-                      className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Minus className="w-3 h-3" />
-                      发放
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {canIssue && (
+                        <button
+                          onClick={() => openIssueModal(part)}
+                          disabled={part.quantity === 0}
+                          className="flex items-center gap-1 px-3 py-1.5 bg-primary-500 text-white text-sm rounded-lg hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Minus className="w-3 h-3" />
+                          发放
+                        </button>
+                      )}
+                      {canReportWrongDelivery && (
+                        <button
+                          onClick={() => openWrongDeliveryModal(part)}
+                          className="text-red-500 hover:text-red-600"
+                          title="登记错发"
+                        >
+                          <AlertCircle className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -115,7 +183,7 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
         </div>
       </div>
 
-      {showIssueModal && selectedPart && (
+      {showIssueModal && selectedPart && canIssue && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
@@ -201,6 +269,98 @@ export function PartsInventory({ parts, onUpdate }: PartsInventoryProps) {
               >
                 <Minus className="w-4 h-4" />
                 确认发放
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWrongDeliveryModal && canReportWrongDelivery && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">配件错发登记</h2>
+              <button
+                onClick={() => { setShowWrongDeliveryModal(false); setSelectedPart(null); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-red-50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-5 h-5 text-red-500" />
+                <span className="font-medium text-red-700">错发登记</span>
+              </div>
+              <p className="text-sm text-red-600 mt-1">
+                登记配件发放错误，系统会自动创建异常记录并通知相关人员处理。
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {selectedPart && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">当前配件</label>
+                  <p className="text-gray-600">{selectedPart.name} ({selectedPart.code})</p>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">应发配件编号</label>
+                <input
+                  type="text"
+                  value={wrongDeliveryForm.expectedCode}
+                  onChange={(e) => setWrongDeliveryForm({ ...wrongDeliveryForm, expectedCode: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="如：JYL-002"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">实发配件编号</label>
+                <input
+                  type="text"
+                  value={wrongDeliveryForm.actualCode}
+                  onChange={(e) => setWrongDeliveryForm({ ...wrongDeliveryForm, actualCode: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="如：JYL-003"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">领取人</label>
+                <input
+                  type="text"
+                  value={wrongDeliveryForm.recipient}
+                  onChange={(e) => setWrongDeliveryForm({ ...wrongDeliveryForm, recipient: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="输入领取人姓名"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">发往目的地</label>
+                <input
+                  type="text"
+                  value={wrongDeliveryForm.destination}
+                  onChange={(e) => setWrongDeliveryForm({ ...wrongDeliveryForm, destination: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="如：广州唯品会仓储"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => { setShowWrongDeliveryModal(false); setSelectedPart(null); }}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={handleReportWrongDelivery}
+                disabled={!wrongDeliveryForm.expectedCode || !wrongDeliveryForm.actualCode}
+                className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+              >
+                <AlertCircle className="w-4 h-4" />
+                确认登记
               </button>
             </div>
           </div>
