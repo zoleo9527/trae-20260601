@@ -89,10 +89,6 @@ export default function handler(
         });
       }
 
-      const visibleRemarks = currentValuation.remarks
-        .filter((r) => r.isVisibleToCustomer)
-        .map((r) => r.id);
-
       const confirmation: CustomerConfirmation = {
         id: db.generateId(),
         orderId: order.id,
@@ -104,7 +100,7 @@ export default function handler(
         createdAt: now,
         confirmationMethod: payload.confirmationMethod || 'ON_SITE',
         expiredAt: payload.expiredAt,
-        seenValuationRemarks: visibleRemarks,
+        seenValuationRemarks: [],
       };
 
       let orderUpdates: any = {
@@ -117,6 +113,10 @@ export default function handler(
 
       const updatedOrder = db.updateOrder(order.id, orderUpdates);
 
+      const visibleRemarkCount = currentValuation.remarks.filter(
+        (r) => r.isVisibleToCustomer
+      ).length;
+
       db.addAuditLog({
         orderId: order.id,
         actorRole: role,
@@ -127,7 +127,8 @@ export default function handler(
           confirmationId: confirmation.id,
           valuationId: currentValuation.id,
           price: currentValuation.estimatedPrice,
-          visibleRemarks: visibleRemarks.length,
+          visibleRemarkCount,
+          seenRemarkCount: 0,
         },
         timestamp: now,
         idempotencyKey,
@@ -144,8 +145,8 @@ export default function handler(
         success: true,
         data: {
           confirmation,
-          visibleRemarks: currentValuation.remarks.filter((r) =>
-            visibleRemarks.includes(r.id)
+          visibleRemarks: currentValuation.remarks.filter(
+            (r) => r.isVisibleToCustomer
           ),
         },
       });
