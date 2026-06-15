@@ -130,10 +130,11 @@ def create_sample_requests():
     equipment2 = CustomerEquipment.objects.get(equipment_code='KOMATSU-002')
     equipment3 = CustomerEquipment.objects.get(equipment_code='FD30-001')
     
-    part1 = PartsInventory.objects.get(part_code='P004')
-    part2 = PartsInventory.objects.get(part_code='P006')
-    part3 = PartsInventory.objects.get(part_code='P001')
-    part4 = PartsInventory.objects.get(part_code='P002')
+    part_brake = PartsInventory.objects.get(part_code='P004')
+    part_seal = PartsInventory.objects.get(part_code='P006')
+    part_hydraulic_filter = PartsInventory.objects.get(part_code='P001')
+    part_air_filter = PartsInventory.objects.get(part_code='P002')
+    part_oil_filter = PartsInventory.objects.get(part_code='P003')
     
     sample_request1 = PartsRequest.objects.create(
         request_no=f"PR{datetime.now().strftime('%Y%m%d')}001",
@@ -151,8 +152,8 @@ def create_sample_requests():
         idempotency_key=generate_random_id(64)
     )
     
-    PartsRequestItem.objects.create(request=sample_request1, part=part1, requested_quantity=2, issued_quantity=2)
-    PartsRequestItem.objects.create(request=sample_request1, part=part2, requested_quantity=1, issued_quantity=1)
+    PartsRequestItem.objects.create(request=sample_request1, part=part_brake, requested_quantity=2, issued_quantity=2)
+    PartsRequestItem.objects.create(request=sample_request1, part=part_seal, requested_quantity=1, issued_quantity=1)
     
     PartsRequestNote.objects.create(request=sample_request1, author=technician, note_type='create', content='客户反馈叉车刹车失灵，已确认故障，需要紧急更换刹车片和油封', created_at=datetime(2024, 3, 10, 8, 35))
     PartsRequestNote.objects.create(request=sample_request1, author=manager, note_type='approve', content='紧急审批通过，仓库优先处理', created_at=datetime(2024, 3, 10, 8, 40))
@@ -170,8 +171,8 @@ def create_sample_requests():
         shipping_address='上海市闵行区物流园B区',
         remark='紧急配件，优先派送'
     )
-    OutboundItem.objects.create(outbound=outbound1, part=part1, quantity=2, batch_no='20240301', expiry_date=datetime(2026, 3, 1).date())
-    OutboundItem.objects.create(outbound=outbound1, part=part2, quantity=1, batch_no='20240215', expiry_date=datetime(2026, 2, 15).date())
+    OutboundItem.objects.create(outbound=outbound1, part=part_brake, quantity=2, batch_no='20240301', expiry_date=datetime(2026, 3, 1).date())
+    OutboundItem.objects.create(outbound=outbound1, part=part_seal, quantity=1, batch_no='20240215', expiry_date=datetime(2026, 2, 15).date())
     
     VerificationRecord.objects.create(
         request=sample_request1,
@@ -202,8 +203,8 @@ def create_sample_requests():
         idempotency_key=generate_random_id(64)
     )
     
-    PartsRequestItem.objects.create(request=sample_request2, part=part2, requested_quantity=2, issued_quantity=2)
-    PartsRequestItem.objects.create(request=sample_request2, part=part3, requested_quantity=1, issued_quantity=1)
+    PartsRequestItem.objects.create(request=sample_request2, part=part_seal, requested_quantity=2, issued_quantity=2)
+    PartsRequestItem.objects.create(request=sample_request2, part=part_hydraulic_filter, requested_quantity=1, issued_quantity=1)
     
     PartsRequestNote.objects.create(request=sample_request2, author=technician, note_type='create', content='杭州菜鸟基地叉车液压系统漏油，需要紧急处理', created_at=datetime(2024, 3, 11, 10, 5))
     PartsRequestNote.objects.create(request=sample_request2, author=manager, note_type='approve', content='审批通过，安排出库', created_at=datetime(2024, 3, 11, 10, 15))
@@ -220,8 +221,8 @@ def create_sample_requests():
         shipping_address='杭州市余杭区物流基地',
         remark=''
     )
-    OutboundItem.objects.create(outbound=outbound2, part=part2, quantity=2, batch_no='20240305', expiry_date=datetime(2026, 3, 5).date())
-    OutboundItem.objects.create(outbound=outbound2, part=part3, quantity=1, batch_no='20240220', expiry_date=datetime(2026, 2, 20).date())
+    OutboundItem.objects.create(outbound=outbound2, part=part_seal, quantity=2, batch_no='20240305', expiry_date=datetime(2026, 3, 5).date())
+    OutboundItem.objects.create(outbound=outbound2, part=part_hydraulic_filter, quantity=1, batch_no='20240220', expiry_date=datetime(2026, 2, 20).date())
     
     print(f"Created sample request 2: {sample_request2.request_no}")
     
@@ -237,9 +238,9 @@ def create_sample_requests():
         idempotency_key=generate_random_id(64)
     )
     
-    PartsRequestItem.objects.create(request=sample_request3, part=part3, requested_quantity=1, issued_quantity=0)
-    PartsRequestItem.objects.create(request=sample_request3, part=part4, requested_quantity=1, issued_quantity=0)
-    PartsRequestItem.objects.create(request=sample_request1, part=part1, requested_quantity=1, issued_quantity=0)
+    PartsRequestItem.objects.create(request=sample_request3, part=part_hydraulic_filter, requested_quantity=1, issued_quantity=0)
+    PartsRequestItem.objects.create(request=sample_request3, part=part_air_filter, requested_quantity=1, issued_quantity=0)
+    PartsRequestItem.objects.create(request=sample_request3, part=part_oil_filter, requested_quantity=1, issued_quantity=0)
     
     PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='create', content='上海顺丰FD30-001叉车季度保养申请', created_at=datetime(2024, 3, 12, 9, 0))
     PartsRequestNote.objects.create(request=sample_request3, author=technician, note_type='remark', content='客户希望本周五前完成保养', created_at=datetime(2024, 3, 12, 9, 5))

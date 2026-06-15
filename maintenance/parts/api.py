@@ -6,7 +6,7 @@ from .models import (
     User, PartsRequest, PartsRequestItem, PartsRequestNote,
     CustomerEquipment, PartsInventory, OutboundRecord, OutboundItem, VerificationRecord
 )
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 import hashlib
 import random
@@ -82,6 +82,49 @@ class PartsRequestNoteSchema(ModelSchema):
         return dict(PartsRequestNote.NOTE_TYPE_CHOICES).get(obj.note_type, obj.note_type)
 
 
+class OutboundItemSchema(ModelSchema):
+    part_code: str
+    part_name: str
+    
+    class Meta:
+        model = OutboundItem
+        fields = ['id', 'quantity', 'batch_no', 'expiry_date']
+    
+    @staticmethod
+    def resolve_part_code(obj):
+        return obj.part.part_code
+    
+    @staticmethod
+    def resolve_part_name(obj):
+        return obj.part.part_name
+
+
+class OutboundRecordSchema(ModelSchema):
+    operator_name: str
+    items: List[OutboundItemSchema] = []
+    
+    class Meta:
+        model = OutboundRecord
+        fields = ['id', 'outbound_no', 'outbound_date', 'carrier', 'tracking_no', 'shipping_address', 'remark']
+    
+    @staticmethod
+    def resolve_operator_name(obj):
+        return obj.operator.username
+
+
+class VerificationRecordSchema(ModelSchema):
+    operator_name: str
+    
+    class Meta:
+        model = VerificationRecord
+        fields = ['id', 'verification_no', 'verification_date', 'actual_used_quantities', 
+                  'remaining_parts', 'problem_description', 'is_qualified', 'signature']
+    
+    @staticmethod
+    def resolve_operator_name(obj):
+        return obj.operator.username
+
+
 class PartsRequestSchema(ModelSchema):
     equipment_code: str
     customer_name: str
@@ -93,6 +136,9 @@ class PartsRequestSchema(ModelSchema):
     priority_display: str
     items: List[PartsRequestItemSchema] = []
     notes: List[PartsRequestNoteSchema] = []
+    outbound_records: List[OutboundRecordSchema] = []
+    verification_records: List[VerificationRecordSchema] = []
+    last_note_content: Optional[str] = None
     
     class Meta:
         model = PartsRequest
@@ -130,6 +176,11 @@ class PartsRequestSchema(ModelSchema):
     @staticmethod
     def resolve_priority_display(obj):
         return dict(PartsRequest.PRIORITY_CHOICES).get(obj.priority, obj.priority)
+    
+    @staticmethod
+    def resolve_last_note_content(obj):
+        last_note = obj.notes.order_by('-created_at').first()
+        return last_note.content if last_note else None
 
 
 class CreateRequestItem(Schema):
@@ -149,8 +200,11 @@ class CreateRequestSchema(Schema):
 
 
 class ApproveRequestSchema(Schema):
-    approver_username: str
     remark: Optional[str] = ''
+
+
+class RejectRequestSchema(Schema):
+    remark: str
 
 
 class AssignRequestSchema(Schema):
@@ -159,13 +213,10 @@ class AssignRequestSchema(Schema):
 
 
 class WarehouseCheckSchema(Schema):
-    operator_username: str
-    items: List[dict]
     remark: Optional[str] = ''
 
 
 class ShipRequestSchema(Schema):
-    operator_username: str
     carrier: Optional[str] = ''
     tracking_no: Optional[str] = ''
     shipping_address: Optional[str] = ''
@@ -173,12 +224,12 @@ class ShipRequestSchema(Schema):
 
 
 class VerifyRequestSchema(Schema):
-    operator_username: str
-    actual_used_quantities: dict
+    actual_used_quantities: Dict[str, int]
     remaining_parts: Optional[str] = ''
     problem_description: Optional[str] = ''
     is_qualified: Optional[bool] = True
     signature: Optional[str] = ''
+    remark: Optional[str] = ''
 
 
 def generate_request_no():
@@ -202,7 +253,10 @@ def generate_verification_no():
 @api.post('/requests/', response=PartsRequestSchema)
 def create_request(request, data: CreateRequestSchema):
     if PartsRequest.objects.filter(idempotency_key=data.idempotency_key).exists():
-        return PartsRequest.objects.get(idempotency_key=data.idempotency_key)
+        return PartsRequest.objects.prefetch_related(
+            'items__part', 'notes__author', 'outbound_records__items__part', 
+            'verification_records__operator'
+        ).get(idempotency_key=data.idempotency_key)
     
     equipment = CustomerEquipment.objects.get(equipment_code=data.equipment_code)
     requester = request.auth
@@ -239,7 +293,10 @@ def create_request(request, data: CreateRequestSchema):
 
 @api.get('/requests/', response=List[PartsRequestSchema])
 def list_requests(request, status: Optional[str] = None):
-    queryset = PartsRequest.objects.prefetch_related('items__part', 'notes__author')
+    queryset = PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    )
     
     if status:
         queryset = queryset.filter(status=status)
@@ -249,66 +306,79 @@ def list_requests(request, status: Optional[str] = None):
 
 @api.get('/requests/{request_id}', response=PartsRequestSchema)
 def get_request(request, request_id: int):
-    parts_request = PartsRequest.objects.prefetch_related('items__part', 'notes__author').get(id=request_id)
+    parts_request = PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
     return parts_request
 
 
 @api.post('/requests/{request_id}/approve', response=PartsRequestSchema)
 def approve_request(request, request_id: int, data: ApproveRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法审核")
     
-    approver = User.objects.get(username=data.approver_username)
-    if approver.role not in ['manager', 'admin']:
+    if current_user.role not in ['manager', 'admin']:
         raise ValueError("只有维保主管或管理员可以审核")
     
     parts_request.status = 'approved'
-    parts_request.approver = approver
+    parts_request.approver = current_user
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=approver,
+        author=current_user,
         note_type='approve',
         content=f"审核通过。{data.remark}" if data.remark else "审核通过"
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.post('/requests/{request_id}/reject', response=PartsRequestSchema)
-def reject_request(request, request_id: int, data: ApproveRequestSchema):
+def reject_request(request, request_id: int, data: RejectRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法拒绝")
     
-    approver = User.objects.get(username=data.approver_username)
-    if approver.role not in ['manager', 'admin']:
+    if current_user.role not in ['manager', 'admin']:
         raise ValueError("只有维保主管或管理员可以审核")
     
     parts_request.status = 'rejected'
-    parts_request.approver = approver
+    parts_request.approver = current_user
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=approver,
+        author=current_user,
         note_type='reject',
         content=f"审核拒绝：{data.remark}"
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.post('/requests/{request_id}/assign', response=PartsRequestSchema)
 def assign_request(request, request_id: int, data: AssignRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'approved':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法分派")
+    
+    if current_user.role not in ['manager', 'admin']:
+        raise ValueError("只有维保主管或管理员可以分派")
     
     assignee = User.objects.get(username=data.assignee_username)
     if assignee.role not in ['technician', 'warehouse', 'admin']:
@@ -320,53 +390,59 @@ def assign_request(request, request_id: int, data: AssignRequestSchema):
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=request.auth,
+        author=current_user,
         note_type='assign',
         content=f"分派给{assignee.username}。{data.remark}" if data.remark else f"分派给{assignee.username}"
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.post('/requests/{request_id}/warehouse_check', response=PartsRequestSchema)
 def warehouse_check(request, request_id: int, data: WarehouseCheckSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'assigned':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法仓库确认")
     
-    operator = User.objects.get(username=data.operator_username)
-    if operator.role not in ['warehouse', 'admin']:
+    if current_user.role not in ['warehouse', 'admin']:
         raise ValueError("只有仓管或管理员可以进行仓库确认")
     
     parts_request.status = 'warehouse_pending'
-    parts_request.warehouse_operator = operator
+    parts_request.warehouse_operator = current_user
     parts_request.save()
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=operator,
+        author=current_user,
         note_type='warehouse_check',
         content=f"仓库确认完成。{data.remark}" if data.remark else "仓库确认完成"
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.post('/requests/{request_id}/ship', response=PartsRequestSchema)
 def ship_request(request, request_id: int, data: ShipRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'warehouse_pending':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法出库")
     
-    operator = User.objects.get(username=data.operator_username)
-    if operator.role not in ['warehouse', 'admin']:
+    if current_user.role not in ['warehouse', 'admin']:
         raise ValueError("只有仓管或管理员可以出库")
     
     outbound = OutboundRecord.objects.create(
         request=parts_request,
-        operator=operator,
+        operator=current_user,
         outbound_no=generate_outbound_no(),
         carrier=data.carrier,
         tracking_no=data.tracking_no,
@@ -392,28 +468,31 @@ def ship_request(request, request_id: int, data: ShipRequestSchema):
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=operator,
+        author=current_user,
         note_type='ship',
         content=f"已出库，运单号：{data.tracking_no}。{data.remark}" if data.remark else f"已出库，运单号：{data.tracking_no}"
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.post('/requests/{request_id}/verify', response=PartsRequestSchema)
 def verify_request(request, request_id: int, data: VerifyRequestSchema):
     parts_request = PartsRequest.objects.get(id=request_id)
+    current_user = request.auth
     
     if parts_request.status != 'shipped':
         raise ValueError(f"当前状态为{parts_request.get_status_display()}，无法核销")
     
-    operator = User.objects.get(username=data.operator_username)
-    if operator.role not in ['technician', 'manager', 'admin']:
+    if current_user.role not in ['technician', 'manager', 'admin']:
         raise ValueError("只有现场技师、维保主管或管理员可以核销")
     
     VerificationRecord.objects.create(
         request=parts_request,
-        operator=operator,
+        operator=current_user,
         verification_no=generate_verification_no(),
         actual_used_quantities=data.actual_used_quantities,
         remaining_parts=data.remaining_parts,
@@ -429,16 +508,19 @@ def verify_request(request, request_id: int, data: VerifyRequestSchema):
     if data.problem_description:
         content += f"，问题：{data.problem_description}"
     if data.remark:
-        content += f"。{data.remark}"
+        content += f"。备注：{data.remark}"
     
     PartsRequestNote.objects.create(
         request=parts_request,
-        author=operator,
+        author=current_user,
         note_type='verify',
         content=content
     )
     
-    return parts_request
+    return PartsRequest.objects.prefetch_related(
+        'items__part', 'notes__author', 'outbound_records__items__part', 
+        'verification_records__operator'
+    ).get(id=request_id)
 
 
 @api.get('/equipment/', response=List[CustomerEquipmentSchema])
