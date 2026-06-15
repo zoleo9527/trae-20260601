@@ -55,6 +55,8 @@ class ScheduleService {
     }
 
     const now = new Date().toISOString();
+    const oldStatus = project.status;
+    const oldStatusLabel = project.statusLabel;
     let schedule = this.getByProject(projectId);
 
     if (!schedule) {
@@ -100,12 +102,6 @@ class ScheduleService {
     schedule.confirmedAt = null;
     schedule.confirmRemark = null;
 
-    project.status = PROJECT_STATUS.PRODUCTION_PENDING;
-    project.statusLabel = PROJECT_STATUS_LABELS.PRODUCTION_PENDING;
-    project.currentHandler = project.projectManagerId;
-    project.currentHandlerName = project.projectManagerName;
-    project.updatedAt = now;
-
     const materialSummary = schedule.materialPlan.length > 0
       ? `${schedule.materialPlan.length}类物料`
       : '无物料计划';
@@ -121,9 +117,24 @@ class ScheduleService {
       type: 'SCHEDULE_SUBMIT',
       operator: operatorId,
       detail: `提交生产排单：生产周期${params.productionStartDate || '待定'}-${params.productionEndDate || '待定'}，安装周期${params.installStartDate || '待定'}-${params.installEndDate || '待定'}，共${materialSummary}、${taskSummary}、${installSummary}`,
-      fromStatus: project.status,
-      toStatus: project.status,
+      fromStatus: oldStatus,
+      toStatus: PROJECT_STATUS.PRODUCTION_PENDING,
       refId: schedule.id
+    });
+
+    project.status = PROJECT_STATUS.PRODUCTION_PENDING;
+    project.statusLabel = PROJECT_STATUS_LABELS.PRODUCTION_PENDING;
+    project.currentHandler = project.projectManagerId;
+    project.currentHandlerName = project.projectManagerName;
+    project.updatedAt = now;
+
+    RecordService.createRecord({
+      projectId,
+      type: 'STATUS_CHANGE',
+      operator: operatorId,
+      detail: `项目状态从「${oldStatusLabel}」变更为「${PROJECT_STATUS_LABELS.PRODUCTION_PENDING}」，当前处理人：${project.projectManagerName}(项目专员)`,
+      fromStatus: oldStatus,
+      toStatus: PROJECT_STATUS.PRODUCTION_PENDING
     });
 
     return schedule;
@@ -149,12 +160,25 @@ class ScheduleService {
     }
 
     const now = new Date().toISOString();
+    const oldStatus = project.status;
+    const oldStatusLabel = project.statusLabel;
+
     schedule.status = SCHEDULE_STATUS.CONFIRMED;
     schedule.statusLabel = SCHEDULE_STATUS_LABELS.CONFIRMED;
     schedule.confirmedBy = operatorId;
     schedule.confirmedByName = AuthService.getUser(operatorId).name;
     schedule.confirmedAt = now;
     schedule.confirmRemark = params.remark || '';
+
+    RecordService.createRecord({
+      projectId: schedule.projectId,
+      type: 'SCHEDULE_CONFIRM',
+      operator: operatorId,
+      detail: `确认生产排单：${params.remark || '无备注'}`,
+      fromStatus: oldStatus,
+      toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED,
+      refId: schedule.id
+    });
 
     project.status = PROJECT_STATUS.PRODUCTION_CONFIRMED;
     project.statusLabel = PROJECT_STATUS_LABELS.PRODUCTION_CONFIRMED;
@@ -164,20 +188,10 @@ class ScheduleService {
 
     RecordService.createRecord({
       projectId: schedule.projectId,
-      type: 'SCHEDULE_CONFIRM',
-      operator: operatorId,
-      detail: `确认生产排单：${params.remark || '无备注'}`,
-      fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
-      toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED,
-      refId: schedule.id
-    });
-
-    RecordService.createRecord({
-      projectId: schedule.projectId,
       type: 'STATUS_CHANGE',
       operator: operatorId,
-      detail: `项目状态从「${PROJECT_STATUS_LABELS.PRODUCTION_PENDING}」变更为「${PROJECT_STATUS_LABELS.PRODUCTION_CONFIRMED}」，当前处理人：${project.installLeaderName}(安装负责人)`,
-      fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
+      detail: `项目状态从「${oldStatusLabel}」变更为「${PROJECT_STATUS_LABELS.PRODUCTION_CONFIRMED}」，当前处理人：${project.installLeaderName}(安装负责人)`,
+      fromStatus: oldStatus,
       toStatus: PROJECT_STATUS.PRODUCTION_CONFIRMED
     });
 
@@ -210,8 +224,34 @@ class ScheduleService {
 
   static getDetail(scheduleId) {
     const schedule = this.requireSchedule(scheduleId);
-    const timeline = RecordService.listByProject(schedule.projectId)
-      .filter(r => r.type === 'SCHEDULE_SUBMIT' || r.type === 'SCHEDULE_CONFIRM' || r.refId === scheduleId);
+    const allRecords = RecordService.listByProject(schedule.projectId);
+
+    let submitIdx = -1;
+    let confirmIdx = -1;
+    allRecords.forEach((r, idx) => {
+      if (r.type === 'SCHEDULE_SUBMIT' && r.refId === scheduleId) {
+        submitIdx = idx;
+      }
+      if (r.type === 'SCHEDULE_CONFIRM' && r.refId === scheduleId) {
+        confirmIdx = idx;
+      }
+    });
+
+    const startIdx = submitIdx >= 0 ? submitIdx : 0;
+    const endIdx = confirmIdx >= 0 ? confirmIdx : allRecords.length - 1;
+    const timeline = allRecords.filter((r, idx) => {
+      if (r.type === 'SCHEDULE_SUBMIT' || r.type === 'SCHEDULE_CONFIRM') {
+        return r.refId === scheduleId;
+      }
+      if (r.type === 'STATUS_CHANGE') {
+        return idx >= startIdx && idx <= endIdx + 1;
+      }
+      if (r.type === 'REMARK_ADD') {
+        return idx >= startIdx && idx <= endIdx;
+      }
+      return false;
+    });
+
     return {
       ...schedule,
       auditTrail: RecordService._sortRecords(timeline, false)

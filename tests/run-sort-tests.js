@@ -102,6 +102,7 @@ async function runTests() {
   const statusDrawingConfirmed = records2.findIndex(r => r.action === '状态变更' && r.detail.includes('图纸已确认') && r.operator === '李刚');
   const statusProductionPending = records2.findIndex(r => r.action === '状态变更' && r.operator === '系统');
   const scheduleSubmit = records2.findIndex(r => r.action === '提交生产排单');
+  const statusHandoverPM = records2.findIndex(r => r.action === '状态变更' && r.detail.includes('项目专员') && r.operator === '李刚');
   const scheduleConfirm = records2.findIndex(r => r.action === '确认生产排单');
   const statusProductionConfirmed = records2.findIndex(r => r.action === '状态变更' && r.detail.includes('生产排单已确认'));
 
@@ -113,7 +114,8 @@ async function runTests() {
   assert(drawingConfirm < statusDrawingConfirmed, `[${drawingConfirm}]确认图纸 → [${statusDrawingConfirmed}]状态变更(图纸已确认)`);
   assert(statusDrawingConfirmed < statusProductionPending, `[${statusDrawingConfirmed}]图纸已确认 → [${statusProductionPending}]系统流转待生产`);
   assert(statusProductionPending < scheduleSubmit, `[${statusProductionPending}]待生产 → [${scheduleSubmit}]提交生产排单`);
-  assert(scheduleSubmit < scheduleConfirm, `[${scheduleSubmit}]提交排单 → [${scheduleConfirm}]确认排单`);
+  assert(scheduleSubmit < statusHandoverPM, `[${scheduleSubmit}]提交排单 → [${statusHandoverPM}]移交项目专员(交接留痕)`);
+  assert(statusHandoverPM < scheduleConfirm, `[${statusHandoverPM}]移交 → [${scheduleConfirm}]确认排单`);
   assert(scheduleConfirm < statusProductionConfirmed, `[${scheduleConfirm}]确认排单 → [${statusProductionConfirmed}]状态变更(排单已确认)`);
 
   console.log('    ✅ 完整链路顺序正确');
@@ -244,15 +246,26 @@ async function runTests() {
   console.log('    ✅ 所有关键节点顺序正确，无排序断点');
   console.log('');
 
-  console.log('  2.3 验证生产排单回看的 auditTrail 排序');
+  console.log('  2.3 验证生产排单回看的 auditTrail 排序和交接留痕');
   const scheduleDetail = await request('GET', `/api/schedules/${scheduleId}`, null, { 'X-User-Id': 'USER_001' });
   const auditTrail = scheduleDetail.data.data.auditTrail;
-  assert(auditTrail.length >= 2, `auditTrail 记录充足(${auditTrail.length}条)`);
+  assert(auditTrail.length >= 4, `auditTrail 记录充足(≥4条)，实际${auditTrail.length}条`);
 
   const auditActions = auditTrail.map(r => r.typeLabel);
+  const auditDetails = auditTrail.map(r => r.detail);
   console.log(`    排单回看 auditTrail 顺序: ${auditActions.join(' → ')}`);
   assert(auditActions[0] === '提交生产排单', '第一条是提交排单');
-  assert(auditActions[auditActions.length - 1] === '确认生产排单', '最后一条是确认排单');
+
+  const handoverPMIdx = auditDetails.findIndex(d => d.includes('项目专员'));
+  assert(handoverPMIdx !== -1 && handoverPMIdx > 0, `提交排单后有移交给项目专员的交接留痕（索引${handoverPMIdx}）`);
+
+  const confirmIdx = auditActions.indexOf('确认生产排单');
+  assert(confirmIdx !== -1 && confirmIdx > handoverPMIdx, `确认排单在移交项目专员之后（索引${confirmIdx}）`);
+
+  const handoverInstallIdx = auditDetails.findIndex(d => d.includes('安装负责人'));
+  assert(handoverInstallIdx !== -1 && handoverInstallIdx > confirmIdx, `确认排单后有移交给安装负责人的交接留痕（索引${handoverInstallIdx}）`);
+
+  console.log(`    ✅ 完整三方交接链路：提交排单 → 移交项目专员 → 确认排单 → 移交安装负责人`);
   console.log('');
 
   console.log('  2.4 验证确认图纸时已无 setTimeout 异步问题（记录全部生成）');

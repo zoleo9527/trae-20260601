@@ -556,6 +556,15 @@ function initializeData() {
     }),
     createInitRecord({
       projectId: 'PRJ_202606002',
+      type: RECORD_TYPES.STATUS_CHANGE,
+      operator: 'USER_002',
+      actionTime: '2026-06-11T11:00:00.000Z',
+      detail: '项目状态从「待生产排单」变更为「待生产排单」，当前处理人：王明(项目专员)',
+      fromStatus: PROJECT_STATUS.PRODUCTION_PENDING,
+      toStatus: PROJECT_STATUS.PRODUCTION_PENDING
+    }),
+    createInitRecord({
+      projectId: 'PRJ_202606002',
       type: RECORD_TYPES.SCHEDULE_CONFIRM,
       operator: 'USER_001',
       actionTime: '2026-06-12T16:45:00.000Z',

@@ -157,6 +157,19 @@ async function runTests() {
   assert(confirmedSchedule.materialPlan && confirmedSchedule.materialPlan.length > 0, '排单包含物料计划');
   assert(confirmedSchedule.productionTasks && confirmedSchedule.productionTasks.length > 0, '排单包含生产任务');
   assert(confirmedSchedule.installPlan && confirmedSchedule.installPlan.length > 0, '排单包含安装计划');
+
+  const scheduleDetail = await request('GET', `/api/schedules/${confirmedSchedule.id}`, null, { 'X-User-Id': 'USER_001' });
+  const auditTrail = scheduleDetail.data.data.auditTrail;
+  assert(auditTrail && auditTrail.length >= 4, `排单回看 auditTrail 记录充足(≥4条)，实际${auditTrail ? auditTrail.length : 0}条`);
+  const auditActions = auditTrail.map(r => r.typeLabel);
+  const auditDetails = auditTrail.map(r => r.detail);
+  assert(auditActions.includes('提交生产排单'), 'auditTrail 包含提交排单记录');
+  assert(auditActions.includes('确认生产排单'), 'auditTrail 包含确认排单记录');
+  const handoverPM = auditDetails.find(d => d.includes('项目专员'));
+  const handoverInstall = auditDetails.find(d => d.includes('安装负责人'));
+  assert(handoverPM !== undefined, 'auditTrail 包含制作师傅移交给项目专员的交接留痕');
+  assert(handoverInstall !== undefined, 'auditTrail 包含项目专员移交给安装负责人的交接留痕');
+  console.log('    排单回看 auditTrail: ' + auditActions.join(' → '));
   console.log('');
 
   console.log('  4.2 主链路完整流程测试：图纸确认 -> 生产排单 -> 排单确认');
@@ -237,20 +250,29 @@ async function runTests() {
   console.log('【五】操作留痕验证');
   const timeline = await request('GET', `/api/records/timeline/${testProjectId}`, null, { 'X-User-Id': 'USER_001' });
   assert(timeline.data.success, '获取时间线成功');
-  assert(timeline.data.data.length >= 6, `时间线记录充足(${timeline.data.data.length}条)`);
+  assert(timeline.data.data.length >= 10, `时间线记录充足(≥10条)，实际${timeline.data.data.length}条`);
 
   const operators = [...new Set(timeline.data.data.map(t => t.operator))];
   assert(operators.includes('王明'), '时间线有王明(项目专员)的操作记录');
   assert(operators.includes('李刚'), '时间线有李刚(制作师傅)的操作记录');
+  assert(operators.includes('张伟') || operators.includes('系统'), '时间线有系统或安装负责人的交接记录');
   assert(operators.includes('系统'), '时间线有系统自动流转记录');
 
   const actions = timeline.data.data.map(t => t.action);
   assert(actions.includes('创建项目'), '有创建项目记录');
+  assert(actions.includes('添加备注'), '有初始备注记录');
   assert(actions.includes('提交图纸确认'), '有提交图纸记录');
   assert(actions.includes('确认图纸'), '有确认图纸记录');
   assert(actions.includes('提交生产排单'), '有提交排单记录');
   assert(actions.includes('确认生产排单'), '有确认排单记录');
   assert(actions.includes('状态变更'), '有状态变更记录');
+
+  const statusChanges = timeline.data.data.filter(t => t.action === '状态变更');
+  const hasHandoverPM = statusChanges.some(t => t.detail.includes('项目专员'));
+  const hasHandoverInstall = statusChanges.some(t => t.detail.includes('安装负责人'));
+  assert(hasHandoverPM, '存在制作师傅移交给项目专员的交接留痕');
+  assert(hasHandoverInstall, '存在项目专员移交给安装负责人的交接留痕');
+  console.log(`    状态变更记录共${statusChanges.length}条：包含交接PM和交接Install ✓`);
 
   console.log('\n  📋 完整时间线:');
   timeline.data.data.forEach(t => {
