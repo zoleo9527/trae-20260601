@@ -148,9 +148,19 @@ export default function DraftList() {
                 <h4>可用操作</h4>
                 <ActionButtons
                   actions={workflow.getDraftAvailableActions(record.status)}
-                  onAction={(target, remark) =>
-                    workflow.transitionDraft(record.id, target as CustomerDraft['status'], remark)
-                  }
+                  onAction={(target, remark) => {
+                    if (target === 'size_issue' && remark) {
+                      return workflow.reportSizeIssue(record.id, remark);
+                    }
+                    if (target === 'color_issue' && remark) {
+                      return workflow.reportColorIssue(record.id, remark);
+                    }
+                    return workflow.transitionDraft(
+                      record.id,
+                      target as CustomerDraft['status'],
+                      remark
+                    );
+                  }}
                   entityType="draft"
                   entityId={record.id}
                 />

@@ -244,7 +244,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   updateDraftStatus: (draftId, targetStatus, remark) => {
-    const { currentUser, drafts, createAuditLog } = get();
+    const { currentUser, drafts, createAuditLog, exceptions, generateId } = get();
     const draft = drafts.find((d) => d.id === draftId);
     if (!draft) return false;
 
@@ -272,6 +272,49 @@ export const useAppStore = create<AppState>((set, get) => ({
           : d
       ),
     }));
+
+    if (
+      (targetStatus === 'size_issue' || targetStatus === 'color_issue') &&
+      remark
+    ) {
+      const type =
+        targetStatus === 'size_issue' ? 'size_error' : 'color_complaint';
+      const existing = exceptions.find(
+        (e) =>
+          (e.scheduleId === draftId || e.scheduleId === '') &&
+          e.type === type &&
+          e.status === 'pending'
+      );
+      if (!existing) {
+        const newException: ExceptionRecord = {
+          id: generateId('exception'),
+          scheduleId: draftId,
+          scheduleNo: draft.orderNo,
+          type,
+          description: remark,
+          status: 'pending',
+          reportedBy: currentUser.id,
+          reportedAt: dayjs().toISOString(),
+        };
+        set((state) => ({
+          exceptions: [newException, ...state.exceptions],
+        }));
+        createAuditLog(
+          'draft',
+          draftId,
+          'exception_create',
+          `${currentUser.name}上报异常：${
+            exceptionTypeMap[type] || type
+          } - ${remark}`,
+          undefined,
+          {
+            exceptionId: newException.id,
+            type,
+            description: remark,
+          }
+        );
+      }
+    }
 
     let action: AuditLog['action'] = 'draft_create';
     if (targetStatus === 'approved') action = 'draft_review';
