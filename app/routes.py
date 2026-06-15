@@ -1,9 +1,13 @@
 from datetime import datetime
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, render_template
 from app import db
 from app.models import Customer, Equipment, MaintenanceRecord, ServiceRecord, Technician, PartsRequest
 
 bp = Blueprint('api', __name__)
+
+@bp.route('/')
+def index():
+    return render_template('index.html')
 
 @bp.route('/api/customers', methods=['GET'])
 def get_customers():
@@ -81,6 +85,7 @@ def get_service_records():
     return jsonify([{
         'id': r.id,
         'customer_name': r.customer.name,
+        'equipment_id': r.equipment_id,
         'equipment_model': r.equipment.model,
         'equipment_serial': r.equipment.serial_number,
         'service_date': r.service_date.strftime('%Y-%m-%d %H:%M'),
@@ -176,6 +181,9 @@ def customer_sign(id):
 @bp.route('/api/parts_requests', methods=['POST'])
 def create_parts_request():
     data = request.json
+    service_record = ServiceRecord.query.get_or_404(data['service_record_id'])
+    if service_record.status != '诊断完成':
+        return jsonify({'error': '只有在诊断完成后才能提交配件申请'}), 400
     request_obj = PartsRequest(
         service_record_id=data['service_record_id'],
         parts_name=data['parts_name'],
@@ -206,6 +214,8 @@ def get_parts_requests():
 @bp.route('/api/parts_requests/<int:id>/approve', methods=['POST'])
 def approve_parts_request(id):
     request_obj = PartsRequest.query.get_or_404(id)
+    if request_obj.status != '待审核':
+        return jsonify({'error': '只能审核待审核状态的配件申请'}), 400
     data = request.json
     request_obj.status = '已审核'
     request_obj.approver_id = data.get('approver_id')
@@ -216,6 +226,8 @@ def approve_parts_request(id):
 @bp.route('/api/parts_requests/<int:id>/warehouse', methods=['POST'])
 def warehouse_process(id):
     request_obj = PartsRequest.query.get_or_404(id)
+    if request_obj.status != '已审核':
+        return jsonify({'error': '必须先经过维保主管审核才能进行仓库处理'}), 400
     data = request.json
     request_obj.warehouse_status = data.get('status', '已发货')
     request_obj.warehouse_handler = data.get('handler')

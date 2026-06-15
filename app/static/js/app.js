@@ -76,7 +76,7 @@ function renderRecentServices() {
             <td>${record.technician_name || '-'}</td>
             <td><span class="status-badge ${getStatusClass(record.status)}">${record.status}</span></td>
             <td>${record.fault_type || '-'}</td>
-            <td><button class="action-btn" onclick="viewServiceDetail(${record.id})">详情</button></td>
+            <td><button class="action-btn" onclick="viewEquipmentFromService(${record.equipment_id})">查看设备档案</button></td>
         </tr>
     `).join('');
 }
@@ -116,26 +116,34 @@ function showEquipmentDetail(id) {
             document.getElementById('eq-location').textContent = data.location;
             
             const maintenanceBody = document.getElementById('maintenance-history');
-            maintenanceBody.innerHTML = data.maintenance_records.map(m => `
-                <tr>
-                    <td>${m.maintenance_date}</td>
-                    <td>${m.type}</td>
-                    <td>${m.description}</td>
-                    <td>${m.technician}</td>
-                    <td>${m.next_maintenance_date || '-'}</td>
-                </tr>
-            `).join('');
+            if (data.maintenance_records.length > 0) {
+                maintenanceBody.innerHTML = data.maintenance_records.map(m => `
+                    <tr>
+                        <td>${m.maintenance_date}</td>
+                        <td>${m.type}</td>
+                        <td>${m.description}</td>
+                        <td>${m.technician}</td>
+                        <td>${m.next_maintenance_date || '-'}</td>
+                    </tr>
+                `).join('');
+            } else {
+                maintenanceBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">暂无保养记录</td></tr>';
+            }
             
             const serviceBody = document.getElementById('service-history');
-            serviceBody.innerHTML = data.service_records.map(s => `
-                <tr>
-                    <td>${s.service_date}</td>
-                    <td>${s.technician_name || '-'}</td>
-                    <td>${s.fault_type || '-'}</td>
-                    <td>${s.need_stop ? '是' : '否'}</td>
-                    <td>${s.status}</td>
-                </tr>
-            `).join('');
+            if (data.service_records.length > 0) {
+                serviceBody.innerHTML = data.service_records.map(s => `
+                    <tr>
+                        <td>${s.service_date}</td>
+                        <td>${s.technician_name || '-'}</td>
+                        <td>${s.fault_type || '-'}</td>
+                        <td>${s.need_stop ? '是' : '否'}</td>
+                        <td>${s.status}</td>
+                    </tr>
+                `).join('');
+            } else {
+                serviceBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">暂无服务记录</td></tr>';
+            }
             
             document.getElementById('equipment-list').style.display = 'none';
             document.getElementById('equipment-detail').style.display = 'block';
@@ -182,13 +190,22 @@ function renderServiceCards(records) {
             ${record.need_stop ? '<p style="color: #e74c3c;"><strong>⚠ 需要停机维修</strong></p>' : ''}
             
             <div class="actions">
+                <button class="action-btn secondary" onclick="viewEquipmentFromService(${record.equipment_id})">设备档案</button>
                 ${record.status === '待签到' ? `<button class="action-btn" onclick="showCheckinModal(${record.id})">签到</button>` : ''}
                 ${record.status === '已签到' ? `<button class="action-btn" onclick="showDiagnosisModal(${record.id})">诊断</button>` : ''}
                 ${record.status === '诊断完成' ? `<button class="action-btn" onclick="showSignModal(${record.id})">签收</button>` : ''}
-                ${record.status !== '待签到' ? `<button class="action-btn secondary" onclick="showPartsRequestModal(${record.id})">配件申请</button>` : ''}
+                ${record.status === '诊断完成' ? `<button class="action-btn secondary" onclick="showPartsRequestModal(${record.id})">配件申请</button>` : ''}
             </div>
         </div>
     `).join('');
+}
+
+function viewEquipmentFromService(equipmentId) {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="equipment"]').classList.add('active');
+    document.getElementById('equipment').classList.add('active');
+    showEquipmentDetail(equipmentId);
 }
 
 function filterServices() {
@@ -332,14 +349,25 @@ document.getElementById('parts-request-form').addEventListener('submit', async (
         quantity: parseInt(document.getElementById('parts-quantity').value)
     };
     
-    await fetch('/api/parts_requests', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    
-    closeModal('parts-request-modal');
-    loadData();
+    try {
+        const response = await fetch('/api/parts_requests', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.error || '提交失败');
+            return;
+        }
+        
+        closeModal('parts-request-modal');
+        loadData();
+    } catch (error) {
+        console.error('提交失败:', error);
+        alert('提交失败，请重试');
+    }
 });
 
 function renderPartsRequests(requests) {
@@ -361,7 +389,7 @@ function renderPartsRequests(requests) {
             
             <div class="actions" style="margin-top: 15px;">
                 ${req.status === '待审核' ? `<button class="action-btn" onclick="showApproveModal(${req.id})">审核通过</button>` : ''}
-                ${req.status === '已审核' && req.warehouse_status === '待处理' ? `<button class="action-btn secondary" onclick="showWarehouseModal(${req.id})">仓库处理</button>` : ''}
+                ${req.status === '已审核' ? `<button class="action-btn secondary" onclick="showWarehouseModal(${req.id})">仓库处理</button>` : ''}
             </div>
         </div>
     `).join('');
@@ -409,14 +437,25 @@ function showApproveModal(id) {
 }
 
 async function approvePartsRequest() {
-    await fetch(`/api/parts_requests/${currentPartsRequestId}/approve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ approver_id: 1 })
-    });
-    
-    closeModal('parts-approve-modal');
-    loadData();
+    try {
+        const response = await fetch(`/api/parts_requests/${currentPartsRequestId}/approve`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approver_id: 1 })
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.error || '审核失败');
+            return;
+        }
+        
+        closeModal('parts-approve-modal');
+        loadData();
+    } catch (error) {
+        console.error('审核失败:', error);
+        alert('审核失败，请重试');
+    }
 }
 
 function showWarehouseModal(id) {
@@ -438,14 +477,25 @@ async function processWarehouse() {
         handler: document.getElementById('warehouse-handler').value
     };
     
-    await fetch(`/api/parts_requests/${currentPartsRequestId}/warehouse`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    });
-    
-    closeModal('warehouse-modal');
-    loadData();
+    try {
+        const response = await fetch(`/api/parts_requests/${currentPartsRequestId}/warehouse`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            alert(error.error || '处理失败');
+            return;
+        }
+        
+        closeModal('warehouse-modal');
+        loadData();
+    } catch (error) {
+        console.error('处理失败:', error);
+        alert('处理失败，请重试');
+    }
 }
 
 function renderRecords() {
