@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>标识制作厂-安装验收与整改回访系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <style>
+        .sidebar { min-height: 100vh; background: linear-gradient(180deg, #1e3a5f 0%, #2d5a87 100%); }
+        .sidebar .nav-link { color: rgba(255,255,255,0.8); }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active { color: #fff; background: rgba(255,255,255,0.1); }
+        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; }
+        .status-pending { background: #f0ad4e; color: #fff; }
+        .status-rectifying { background: #d9534f; color: #fff; }
+        .status-pending-visit { background: #5bc0de; color: #fff; }
+        .status-completed { background: #5cb85c; color: #fff; }
+        .card-hover { transition: transform 0.2s, box-shadow 0.2s; }
+        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .photo-thumbnail { width: 80px; height: 80px; object-fit: cover; border-radius: 4px; }
+        .modal-lg { max-width: 900px; }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <nav class="col-md-2 d-none d-md-block sidebar">
+                <div class="sidebar-sticky pt-3">
+                    <h5 class="text-white px-3 pb-3">🏭 标识制作厂</h5>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" onclick="showSection('dashboard')">
+                                <i class="fa fa-dashboard mr-2"></i> 项目概览
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showSection('add-project')">
+                                <i class="fa fa-plus-circle mr-2"></i> 新建项目
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+            
+            <main role="main" class="col-md-10 ml-sm-auto px-4 py-4">
+                <div id="dashboard-section">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+                        <h1 class="h2">安装验收与整改回访</h1>
+                        <div class="btn-toolbar mb-2 mb-md-0">
+                            <div class="btn-group mr-2">
+                                <button class="btn btn-outline-primary" onclick="filterProjects('all')">全部</button>
+                                <button class="btn btn-outline-secondary" onclick="filterProjects('pending')">待验收</button>
+                                <button class="btn btn-outline-danger" onclick="filterProjects('rectifying')">整改中</button>
+                                <button class="btn btn-outline-info" onclick="filterProjects('pending_visit')">待回访</button>
+                                <button class="btn btn-outline-success" onclick="filterProjects('completed')">已完成</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="card bg-primary text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">总项目数</h5>
+                                    <p class="card-text display-4" id="total-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-warning text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">待验收</h5>
+                                    <p class="card-text display-4" id="pending-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-danger text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">整改中</h5>
+                                    <p class="card-text display-4" id="rectifying-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card bg-success text-white">
+                                <div class="card-body">
+                                    <h5 class="card-title">已完成</h5>
+                                    <p class="card-text display-4" id="completed-count">0</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <h3>项目列表</h3>
+                        <div id="project-list" class="row"></div>
+                    </div>
+                </div>
+                
+                <div id="add-project-section" style="display: none;">
+                    <h2>新建项目</h2>
+                    <form id="add-project-form" class="mt-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>项目名称</label>
+                                    <input type="text" class="form-control" id="project-name" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>客户名称</label>
+                                    <input type="text" class="form-control" id="project-customer" required>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>安装地址</label>
+                                    <input type="text" class="form-control" id="project-address" required>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label>安装日期</label>
+                                    <input type="date" class="form-control" id="project-date" required>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary mt-4">创建项目</button>
+                    </form>
+                </div>
+                
+                <div id="project-detail-section" style="display: none;">
+                    <button class="btn btn-secondary mb-4" onclick="goBack()">返回列表</button>
+                    <div id="project-detail-content"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <div class="modal fade" id="photo-modal" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-lg" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">查看照片</h5>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <img id="modal-photo" src="" class="img-fluid">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentProjects = [];
+        
+        function showSection(section) {
+            document.getElementById('dashboard-section').style.display = section === 'dashboard' ? 'block' : 'none';
+            document.getElementById('add-project-section').style.display = section === 'add-project' ? 'block' : 'none';
+            document.getElementById('project-detail-section').style.display = section === 'detail' ? 'block' : 'none';
+            
+            document.querySelectorAll('.sidebar .nav-link').forEach(link => link.classList.remove('active'));
+            if (section === 'dashboard') document.querySelector('.sidebar .nav-link:first-child').classList.add('active');
+            if (section === 'add-project') document.querySelector('.sidebar .nav-link:last-child').classList.add('active');
+            
+            if (section === 'dashboard') loadProjects();
+        }
+        
+        function goBack() {
+            showSection('dashboard');
+        }
+        
+        async function loadProjects(filter = 'all') {
+            const url = filter === 'all' ? '/api/projects' : `/api/projects?status=${filter}`;
+            const response = await fetch(url);
+            currentProjects = await response.json();
+            renderProjectList(currentProjects);
+            updateStats();
+        }
+        
+        function updateStats() {
+            const total = currentProjects.length;
+            const pending = currentProjects.filter(p => p.status === 'pending').length;
+            const rectifying = currentProjects.filter(p => p.status === 'rectifying').length;
+            const completed = currentProjects.filter(p => p.status === 'completed').length;
+            
+            document.getElementById('total-count').textContent = total;
+            document.getElementById('pending-count').textContent = pending;
+            document.getElementById('rectifying-count').textContent = rectifying;
+            document.getElementById('completed-count').textContent = completed;
+        }
+        
+        function renderProjectList(projects) {
+            const container = document.getElementById('project-list');
+            container.innerHTML = '';
+            
+            projects.forEach(project => {
+                const statusLabel = {
+                    'pending': { text: '待验收', class: 'status-pending' },
+                    'rectifying': { text: '整改中', class: 'status-rectifying' },
+                    'pending_visit': { text: '待回访', class: 'status-pending-visit' },
+                    'completed': { text: '已完成', class: 'status-completed' }
+                }[project.status] || { text: project.status, class: 'status-pending' };
+                
+                const card = document.createElement('div');
+                card.className = 'col-md-4 mb-4';
+                card.innerHTML = `
+                    <div class="card card-hover" onclick="showProjectDetail('${project.id}')">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h5 class="card-title">${project.name}</h5>
+                                <span class="status-badge ${statusLabel.class}">${statusLabel.text}</span>
+                            </div>
+                            <p class="card-text text-muted">${project.customer}</p>
+                            <p class="card-text text-sm">📍 ${project.address}</p>
+                            <p class="card-text text-sm text-secondary">安装日期: ${project.install_date}</p>
+                            <div class="mt-2">
+                                <span class="text-xs text-secondary">📷 ${project.install_photos.length} 张照片</span>
+                                ${project.customer_feedbacks.length > 0 ? `<span class="text-xs text-danger ml-2">💬 ${project.customer_feedbacks.length} 条意见</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            if (projects.length === 0) {
+                container.innerHTML = '<p class="text-center text-muted col-12">暂无项目</p>';
+            }
+        }
+        
+        function filterProjects(status) {
+            loadProjects(status);
+        }
+        
+        async function showProjectDetail(projectId) {
+            const response = await fetch(`/api/projects/${projectId}`);
+            const project = await response.json();
+            
+            document.getElementById('project-detail-content').innerHTML = `
+                <div class="row">
+                    <div class="col-md-8">
+                        <h2>${project.name}</h2>
+                        <p class="text-muted">${project.customer} | ${project.address}</p>
+                        <p class="text-secondary">安装日期: ${project.install_date}</p>
+                    </div>
+                    <div class="col-md-4 text-right">
+                        <span class="status-badge ${getBadgeClass(project.status)}">${getStatusText(project.status)}</span>
+                    </div>
+                </div>
+                
+                <div class="row mt-6">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h4>📷 验收照片</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="photo-upload-area" class="border border-dashed rounded p-4 mb-4" style="min-height: 120px;">
+                                    <input type="file" id="photo-upload" multiple accept="image/*" style="display:none;">
+                                    <button class="btn btn-outline-primary" onclick="document.getElementById('photo-upload').click()">上传验收照片</button>
+                                    <select id="photo-category" class="ml-2 form-control d-inline-block w-auto">
+                                        <option value="整体">整体</option>
+                                        <option value="细节">细节</option>
+                                        <option value="夜间效果">夜间效果</option>
+                                        <option value="安装细节">安装细节</option>
+                                    </select>
+                                </div>
+                                <div id="photos-grid" class="row"></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-white">
+                                <h4>📋 项目资料</h4>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label>原设计图</label>
+                                    <p>${project.design_drawing || '<span class="text-muted">未上传</span>'}</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label>现场测量报告</label>
+                                    <p>${project.measurements || '<span class="text-muted">未上传</span>'}</p>
+                                </div>
+                                <button class="btn btn-outline-info btn-sm">上传设计图/测量报告</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-warning text-white">
+                                <h4>💬 客户意见</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="feedbacks-list"></div>
+                                <form id="add-feedback-form" class="mt-3">
+                                    <div class="form-group">
+                                        <select class="form-control mb-2" id="feedback-type">
+                                            <option value="安装位置">安装位置偏差</option>
+                                            <option value="字体问题">字体版本不一致</option>
+                                            <option value="灯光问题">夜间亮度不足</option>
+                                            <option value="颜色问题">色差问题</option>
+                                            <option value="其他">其他问题</option>
+                                        </select>
+                                        <textarea class="form-control" id="feedback-content" rows="2" placeholder="请输入客户意见"></textarea>
+                                    </div>
+                                    <button type="submit" class="btn btn-warning btn-sm">记录意见</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-danger text-white">
+                                <h4>✅ 验收结论</h4>
+                            </div>
+                            <div class="card-body">
+                                <p id="inspection-conclusion">${project.inspection_conclusion || '<span class="text-muted">暂未提交验收结论</span>'}</p>
+                                <form id="inspection-form" class="mt-3">
+                                    <textarea class="form-control" id="conclusion-text" rows="3" placeholder="请输入验收结论（是否需要返工）"></textarea>
+                                    <button type="submit" class="btn btn-danger btn-sm mt-2">提交验收结论</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-secondary text-white">
+                                <h4>🔧 整改记录</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="rectifications-list"></div>
+                                <button class="btn btn-outline-secondary btn-sm mt-3" onclick="showAddRectificationModal('${project.id}')">添加整改记录</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-success text-white">
+                                <h4>📝 回访记录</h4>
+                            </div>
+                            <div class="card-body">
+                                <div id="visits-list"></div>
+                                <form id="add-visit-form" class="mt-3">
+                                    <select class="form-control mb-2" id="visit-result">
+                                        <option value="客户已验收通过">客户已验收通过</option>
+                                        <option value="需要进一步整改">需要进一步整改</option>
+                                        <option value="客户拒绝验收">客户拒绝验收</option>
+                                    </select>
+                                    <input type="text" class="form-control mb-2" id="visit-signature" placeholder="客户签认">
+                                    <textarea class="form-control" id="visit-remarks" rows="2" placeholder="回访备注"></textarea>
+                                    <button type="submit" class="btn btn-success btn-sm mt-2">记录回访</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            renderPhotos(project);
+            renderFeedbacks(project);
+            renderRectifications(project);
+            renderVisits(project);
+            
+            document.getElementById('photo-upload').addEventListener('change', (e) => handlePhotoUpload(projectId, e));
+            document.getElementById('add-feedback-form').addEventListener('submit', (e) => handleAddFeedback(e, projectId));
+            document.getElementById('inspection-form').addEventListener('submit', (e) => handleSubmitInspection(e, projectId));
+            document.getElementById('add-visit-form').addEventListener('submit', (e) => handleAddVisit(e, projectId));
+            
+            showSection('detail');
+        }
+        
+        function getBadgeClass(status) {
+            return {
+                'pending': 'status-pending',
+                'rectifying': 'status-rectifying',
+                'pending_visit': 'status-pending-visit',
+                'completed': 'status-completed'
+            }[status] || 'status-pending';
+        }
+        
+        function getStatusText(status) {
+            return {
+                'pending': '待验收',
+                'rectifying': '整改中',
+                'pending_visit': '待回访',
+                'completed': '已完成'
+            }[status] || status;
+        }
+        
+        function renderPhotos(project) {
+            const grid = document.getElementById('photos-grid');
+            if (project.install_photos.length === 0) {
+                grid.innerHTML = '<p class="text-muted text-center">暂无照片</p>';
+                return;
+            }
+            
+            grid.innerHTML = project.install_photos.map(photo => `
+                <div class="col-4 mb-2">
+                    <img src="/static/uploads/${photo.filename}" class="photo-thumbnail" onclick="showPhoto('/static/uploads/${photo.filename}')" style="cursor:pointer;">
+                    <p class="text-xs text-muted mt-1">${photo.category}</p>
+                </div>
+            `).join('');
+        }
+        
+        function renderFeedbacks(project) {
+            const list = document.getElementById('feedbacks-list');
+            if (project.customer_feedbacks.length === 0) {
+                list.innerHTML = '<p class="text-muted">暂无客户意见</p>';
+                return;
+            }
+            
+            list.innerHTML = project.customer_feedbacks.map(fb => `
+                <div class="alert alert-warning p-2 mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="font-weight-bold">${fb.issue_type}</span>
+                        <span class="text-xs text-muted">${fb.created_at}</span>
+                    </div>
+                    <p class="text-sm mt-1">${fb.content}</p>
+                </div>
+            `).join('');
+        }
+        
+        function renderRectifications(project) {
+            const list = document.getElementById('rectifications-list');
+            if (project.rectification_records.length === 0) {
+                list.innerHTML = '<p class="text-muted">暂无整改记录</p>';
+                return;
+            }
+            
+            list.innerHTML = project.rectification_records.map(rect => `
+                <div class="card mb-2">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between">
+                            <span>${rect.description}</span>
+                            <span class="status-badge ${getRectStatusClass(rect.status)}">${getRectStatusText(rect.status)}</span>
+                        </div>
+                        <div class="text-xs text-muted mt-1">
+                            责任人: ${rect.responsible} | 期限: ${rect.deadline}
+                        </div>
+                        ${rect.status !== 'completed' ? `
+                            <button class="btn btn-xs btn-success mt-2" onclick="updateRectification('${project.id}', '${rect.id}', 'completed')">标记完成</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function getRectStatusClass(status) {
+            return {
+                'pending': 'status-pending',
+                'in_progress': 'status-rectifying',
+                'completed': 'status-completed'
+            }[status] || 'status-pending';
+        }
+        
+        function getRectStatusText(status) {
+            return {
+                'pending': '待处理',
+                'in_progress': '进行中',
+                'completed': '已完成'
+            }[status] || status;
+        }
+        
+        function renderVisits(project) {
+            const list = document.getElementById('visits-list');
+            if (project.visit_records.length === 0) {
+                list.innerHTML = '<p class="text-muted">暂无回访记录</p>';
+                return;
+            }
+            
+            list.innerHTML = project.visit_records.map(visit => `
+                <div class="alert alert-success p-2 mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span class="font-weight-bold">${visit.result}</span>
+                        <span class="text-xs text-muted">${visit.visit_date}</span>
+                    </div>
+                    ${visit.customer_signature ? `<p class="text-sm mt-1">客户签认: ${visit.customer_signature}</p>` : ''}
+                    ${visit.remarks ? `<p class="text-xs text-muted">备注: ${visit.remarks}</p>` : ''}
+                </div>
+            `).join('');
+        }
+        
+        async function handlePhotoUpload(projectId, event) {
+            const files = event.target.files;
+            const category = document.getElementById('photo-category').value;
+            
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('category', category);
+                
+                await fetch(`/api/projects/${projectId}/photos`, {
+                    method: 'POST',
+                    body: formData
+                });
+            }
+            
+            await showProjectDetail(projectId);
+            event.target.value = '';
+        }
+        
+        async function handleAddFeedback(event, projectId) {
+            event.preventDefault();
+            const content = document.getElementById('feedback-content').value;
+            const issueType = document.getElementById('feedback-type').value;
+            
+            await fetch(`/api/projects/${projectId}/feedbacks`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `content=${encodeURIComponent(content)}&issue_type=${encodeURIComponent(issueType)}`
+            });
+            
+            await showProjectDetail(projectId);
+        }
+        
+        async function handleSubmitInspection(event, projectId) {
+            event.preventDefault();
+            const conclusion = document.getElementById('conclusion-text').value;
+            
+            await fetch(`/api/projects/${projectId}/inspection`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `conclusion=${encodeURIComponent(conclusion)}`
+            });
+            
+            await showProjectDetail(projectId);
+        }
+        
+        async function handleAddVisit(event, projectId) {
+            event.preventDefault();
+            const result = document.getElementById('visit-result').value;
+            const signature = document.getElementById('visit-signature').value;
+            const remarks = document.getElementById('visit-remarks').value;
+            
+            await fetch(`/api/projects/${projectId}/visits`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `result=${encodeURIComponent(result)}&signature=${encodeURIComponent(signature)}&remarks=${encodeURIComponent(remarks)}`
+            });
+            
+            await showProjectDetail(projectId);
+        }
+        
+        function showAddRectificationModal(projectId) {
+            const modal = document.createElement('div');
+            modal.className = 'modal fade show';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5>添加整改记录</h5>
+                            <button onclick="this.closest('.modal').remove()" class="close">&times;</button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label>整改内容</label>
+                                <textarea class="form-control" id="rect-description" rows="3"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>整改期限</label>
+                                <input type="date" class="form-control" id="rect-deadline">
+                            </div>
+                            <div class="form-group">
+                                <label>责任人</label>
+                                <input type="text" class="form-control" id="rect-responsible">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">取消</button>
+                            <button class="btn btn-primary" onclick="addRectification('${projectId}')">保存</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        
+        async function addRectification(projectId) {
+            const description = document.getElementById('rect-description').value;
+            const deadline = document.getElementById('rect-deadline').value;
+            const responsible = document.getElementById('rect-responsible').value;
+            
+            await fetch(`/api/projects/${projectId}/rectifications`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `description=${encodeURIComponent(description)}&deadline=${encodeURIComponent(deadline)}&responsible=${encodeURIComponent(responsible)}`
+            });
+            
+            document.querySelector('.modal').remove();
+            await showProjectDetail(projectId);
+        }
+        
+        async function updateRectification(projectId, rectId, status) {
+            await fetch(`/api/projects/${projectId}/rectifications/${rectId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `status=${encodeURIComponent(status)}`
+            });
+            
+            await showProjectDetail(projectId);
+        }
+        
+        function showPhoto(url) {
+            document.getElementById('modal-photo').src = url;
+            $('#photo-modal').modal('show');
+        }
+        
+        document.getElementById('add-project-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const project = {
+                id: 'P' + String(Date.now()).slice(-3),
+                name: document.getElementById('project-name').value,
+                customer: document.getElementById('project-customer').value,
+                address: document.getElementById('project-address').value,
+                install_date: document.getElementById('project-date').value,
+                status: 'pending'
+            };
+            
+            const response = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(project)
+            });
+            
+            if (response.ok) {
+                showSection('dashboard');
+            }
+        });
+        
+        loadProjects();
+    </script>
+</body>
+</html>
