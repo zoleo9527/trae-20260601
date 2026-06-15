@@ -2,7 +2,7 @@
 
 import AppShell from "@/components/app-shell";
 import { useAuth, authHeaders } from "@/components/auth-provider";
-import { fmtMoney } from "@/lib/constants";
+import { fmtMoney, fmtDate, ROLE_LABEL } from "@/lib/constants";
 import type { OrderStatus, Role } from "@/types";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -18,6 +18,23 @@ interface PayOrder {
   detectPrice: number | null;
   status: OrderStatus;
   bargains: { id: string; reason: string; result: string; toPrice: number }[];
+  payments: {
+    id: string;
+    amount: number;
+    payeeName: string;
+    payeeBank: string | null;
+    payeeAccount: string;
+    submitRemark: string | null;
+    reviewRemark: string | null;
+    paidAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+    finance: { id: string; name: string; role: string } | null;
+  }[];
+  resubmitCount: number;
+  latestHandler: { name: string; role: string } | null;
+  latestProcessTime: string | null;
+  returnReason: string | null;
 }
 
 // 此页有两种路由：
@@ -188,6 +205,50 @@ function PaymentInner() {
               <div className="text-xs text-rose-600 mt-1">
                 请根据上述原因修改收款信息后重新提交
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {order.payments && order.payments.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+          <div>
+            <div className="text-xs text-slate-400 mb-1">重提次数</div>
+            <div>
+              {order.resubmitCount > 0 ? (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">
+                  {order.resubmitCount} 次
+                </span>
+              ) : (
+                <span className="text-slate-500">首次申请</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">最近处理人</div>
+            <div>
+              {order.latestHandler ? (
+                <div>
+                  <div className="font-medium">{order.latestHandler.name}</div>
+                  <div className="text-xs text-slate-500">
+                    {ROLE_LABEL[order.latestHandler.role as Role]}
+                  </div>
+                </div>
+              ) : (
+                <span className="text-slate-400">—</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">最新处理时间</div>
+            <div className="font-mono text-slate-700">
+              {order.latestProcessTime ? fmtDate(order.latestProcessTime) : "—"}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs text-slate-400 mb-1">申请次数</div>
+            <div className="font-semibold text-slate-700">
+              共 {order.payments.length} 次
             </div>
           </div>
         </div>
@@ -431,6 +492,146 @@ function PaymentInner() {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {order.payments && order.payments.length > 0 && (
+        <div className="bg-white rounded-xl border border-slate-200 p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">打款申请历史</h3>
+            <div className="text-xs text-slate-500">
+              共 {order.payments.length} 次申请
+              {order.resubmitCount > 0 && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                  重提 {order.resubmitCount} 次
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {order.payments
+              .slice()
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+              .map((pay, idx) => {
+                const isLatest = idx === order.payments!.length - 1;
+                const status = pay.paidAt
+                  ? "已打款"
+                  : pay.reviewRemark
+                  ? "已退回"
+                  : "待处理";
+                const statusColor = pay.paidAt
+                  ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                  : pay.reviewRemark
+                  ? "bg-rose-100 text-rose-700 border-rose-200"
+                  : "bg-violet-100 text-violet-700 border-violet-200";
+                return (
+                  <div
+                    key={pay.id}
+                    className={`relative pl-6 pb-4 ${
+                      idx < order.payments!.length - 1 ? "border-l-2 border-slate-200" : ""
+                    }`}
+                  >
+                    <div
+                      className={`absolute left-[-9px] top-0 w-4 h-4 rounded-full border-2 ${
+                        isLatest
+                          ? "bg-brand-500 border-brand-500"
+                          : "bg-slate-200 border-slate-300"
+                      }`}
+                    />
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">
+                            第 {idx + 1} 次申请
+                          </span>
+                          {isLatest && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-brand-100 text-brand-700">
+                              当前
+                            </span>
+                          )}
+                          <span className={`text-xs px-2 py-0.5 rounded-full border ${statusColor}`}>
+                            {status}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 font-mono">
+                          提交时间：{fmtDate(pay.createdAt)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-sm bg-slate-50 rounded-lg p-3">
+                      <div>
+                        <div className="text-xs text-slate-400">收款人</div>
+                        <div className="font-medium">{pay.payeeName}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-slate-400">开户行</div>
+                        <div>{pay.payeeBank || "—"}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-slate-400">收款账号</div>
+                        <div className="font-mono">{pay.payeeAccount}</div>
+                      </div>
+                      {pay.submitRemark && (
+                        <div className="col-span-2">
+                          <div className="text-xs text-slate-400">申请备注</div>
+                          <div className="text-slate-600">{pay.submitRemark}</div>
+                        </div>
+                      )}
+                    </div>
+
+                    {pay.reviewRemark && (
+                      <div
+                        className={`mt-3 p-3 rounded-lg border ${
+                          pay.paidAt
+                            ? "bg-emerald-50 border-emerald-200"
+                            : "bg-rose-50 border-rose-200"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className={pay.paidAt ? "text-emerald-500" : "text-rose-500"}>
+                            {pay.paidAt ? "✓" : "⚠"}
+                          </div>
+                          <div className="flex-1">
+                            <div
+                              className={`text-sm font-medium ${
+                                pay.paidAt ? "text-emerald-800" : "text-rose-800"
+                              }`}
+                            >
+                              {pay.paidAt ? "财务确认打款" : "财务退回原因"}
+                            </div>
+                            <div
+                              className={`text-sm mt-1 ${
+                                pay.paidAt ? "text-emerald-700" : "text-rose-700"
+                              }`}
+                            >
+                              {pay.reviewRemark}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-2">
+                              处理人：
+                              <span className="font-medium">
+                                {pay.finance ? pay.finance.name : "—"}
+                              </span>
+                              {pay.finance && (
+                                <span className="text-slate-400 ml-1">
+                                  ({ROLE_LABEL[pay.finance.role as Role]})
+                                </span>
+                              )}
+                              <span className="mx-2">·</span>
+                              处理时间：
+                              <span className="font-mono">
+                                {fmtDate(pay.paidAt || pay.updatedAt)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
         </div>
       )}
     </div>

@@ -25,7 +25,37 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
       },
     });
     if (!order) return NextResponse.json({ error: "not found" }, { status: 404 });
-    return NextResponse.json(order);
+
+    const payments = order.payments || [];
+    const lastPay = payments[0];
+    const resubmitCount = Math.max(0, payments.length - 1);
+
+    let latestHandler: { name: string; role: string } | null = null;
+    let latestProcessTime: string | null = null;
+    let returnReason: string | null = null;
+
+    if (lastPay) {
+      if (lastPay.paidAt || lastPay.reviewRemark) {
+        latestHandler = lastPay.finance ? { name: lastPay.finance.name, role: lastPay.finance.role } : null;
+        latestProcessTime = (lastPay.paidAt || lastPay.updatedAt).toISOString();
+      } else {
+        latestHandler = order.detecter ? { name: order.detecter.name, role: order.detecter.role } : null;
+        latestProcessTime = lastPay.createdAt.toISOString();
+      }
+      if (order.status === "PAYMENT_RETURNED" && lastPay.reviewRemark) {
+        returnReason = lastPay.reviewRemark;
+      }
+    }
+
+    const enriched = {
+      ...order,
+      resubmitCount,
+      latestHandler,
+      latestProcessTime,
+      returnReason,
+    };
+
+    return NextResponse.json(enriched);
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 400 });
   }

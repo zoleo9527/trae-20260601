@@ -28,10 +28,46 @@ export async function GET(req: NextRequest) {
         receiver: { select: { id: true, name: true, role: true } },
         detecter: { select: { id: true, name: true, role: true } },
         bargains: { orderBy: { createdAt: "desc" }, take: 1 },
-        payments: { orderBy: { createdAt: "desc" }, take: 1 },
+        payments: {
+          orderBy: { createdAt: "desc" },
+          include: { finance: { select: { id: true, name: true, role: true } } },
+        },
       },
     });
-    return NextResponse.json({ orders, auth });
+
+    const enriched = orders.map((o) => {
+      const payments = o.payments || [];
+      const lastPay = payments[0];
+      const resubmitCount = Math.max(0, payments.length - 1);
+
+      let latestHandler: { name: string; role: string } | null = null;
+      let latestProcessTime: string | null = null;
+      let returnReason: string | null = null;
+
+      if (lastPay) {
+        if (lastPay.paidAt || lastPay.reviewRemark) {
+          latestHandler = lastPay.finance ? { name: lastPay.finance.name, role: lastPay.finance.role } : null;
+          latestProcessTime = (lastPay.paidAt || lastPay.updatedAt).toISOString();
+        } else {
+          latestHandler = o.detecter ? { name: o.detecter.name, role: o.detecter.role } : null;
+          latestProcessTime = lastPay.createdAt.toISOString();
+        }
+        if (o.status === "PAYMENT_RETURNED" && lastPay.reviewRemark) {
+          returnReason = lastPay.reviewRemark;
+        }
+      }
+
+      return {
+        ...o,
+        payments: payments.slice(0, 1),
+        resubmitCount,
+        latestHandler,
+        latestProcessTime,
+        returnReason,
+      };
+    });
+
+    return NextResponse.json({ orders: enriched, auth });
   } catch (e) {
     return NextResponse.json({ error: (e as Error).message }, { status: 401 });
   }

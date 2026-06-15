@@ -3,7 +3,7 @@
 import AppShell from "@/components/app-shell";
 import { useAuth, authHeaders } from "@/components/auth-provider";
 import { StatusBadge } from "@/components/status-badge";
-import { fmtDate, fmtMoney, STATUS_LABEL } from "@/lib/constants";
+import { fmtDate, fmtMoney, STATUS_LABEL, ROLE_LABEL } from "@/lib/constants";
 import type { OrderStatus, Role } from "@/types";
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -19,6 +19,10 @@ interface PayOrder {
   statusRemark: string | null;
   bargains: any[];
   payments: { id: string; amount: number; payeeName: string; createdAt: string; paidAt: string | null; reviewRemark: string | null }[];
+  resubmitCount: number;
+  latestHandler: { name: string; role: string } | null;
+  latestProcessTime: string | null;
+  returnReason: string | null;
 }
 
 function PaymentListInner() {
@@ -168,7 +172,9 @@ function PaymentListInner() {
               <th className="px-4 py-3 text-left font-medium">设备 / 客户</th>
               <th className="px-4 py-3 text-right font-medium">打款金额</th>
               <th className="px-4 py-3 text-left font-medium">收款人</th>
-              <th className="px-4 py-3 text-left font-medium">申请时间</th>
+              <th className="px-4 py-3 text-left font-medium">重提次数</th>
+              <th className="px-4 py-3 text-left font-medium">最近处理人</th>
+              <th className="px-4 py-3 text-left font-medium">最新处理时间</th>
               <th className="px-4 py-3 text-left font-medium">状态</th>
               <th className="px-4 py-3"></th>
             </tr>
@@ -176,13 +182,13 @@ function PaymentListInner() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
                   加载中...
                 </td>
               </tr>
             ) : orders.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
+                <td colSpan={10} className="px-4 py-12 text-center text-slate-400">
                   暂无数据
                 </td>
               </tr>
@@ -213,6 +219,11 @@ function PaymentListInner() {
                     <td className="px-4 py-3">
                       <div>{o.deviceType}</div>
                       <div className="text-xs text-slate-400">{o.customerName}</div>
+                      {o.returnReason && (
+                        <div className="text-xs text-rose-600 mt-1" title={o.returnReason}>
+                          退回：{o.returnReason.length > 15 ? o.returnReason.slice(0, 15) + "..." : o.returnReason}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right font-mono font-semibold text-brand-700">
                       {fmtMoney(amount)}
@@ -222,8 +233,27 @@ function PaymentListInner() {
                         <span className="text-slate-400">待提交</span>
                       )}
                     </td>
+                    <td className="px-4 py-3 text-xs">
+                      {o.resubmitCount > 0 ? (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+                          {o.resubmitCount} 次
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">首次</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {o.latestHandler ? (
+                        <div>
+                          <div className="font-medium">{o.latestHandler.name}</div>
+                          <div className="text-slate-400">{ROLE_LABEL[o.latestHandler.role as Role]}</div>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-xs text-slate-500 font-mono">
-                      {pay ? fmtDate(pay.createdAt) : "—"}
+                      {o.latestProcessTime ? fmtDate(o.latestProcessTime) : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={o.status} />

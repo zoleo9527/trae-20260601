@@ -42,6 +42,7 @@ async function main() {
     remark: string;
     bargain?: { reason: string; result: string; action: string };
     payment?: { bank: string; account: string; paid?: boolean; review?: string };
+    paymentHistory?: { bank: string; account: string; review: string; dateOffset?: number }[];
   };
 
   const orders: SeedRow[] = [
@@ -151,6 +152,34 @@ async function main() {
         review: "账号位数不正确，请核对后重新提交",
       },
     },
+    {
+      orderNo: "RC20260615-008",
+      customerName: "孙先生",
+      customerPhone: "13800000008",
+      deviceType: "Sony A7M4 相机",
+      deviceSn: "4052880",
+      appearance: "9成新，快门次数 8500",
+      accessories: "机身、电池×2、充电器、原包装",
+      initialPrice: 12500,
+      detectPrice: 11800,
+      status: "PAYMENT_RETURNED",
+      remark: "第2次退回，需修改收款人姓名",
+      bargain: { reason: "议价通过", result: "确认价格 ¥11800", action: "APPROVE" },
+      payment: {
+        bank: "招商银行",
+        account: "6225****8899",
+        paid: false,
+        review: "收款人姓名与身份证不符，请修改后重提",
+      },
+      paymentHistory: [
+        {
+          bank: "工商银行",
+          account: "6222****1234",
+          review: "账号不存在，请核对",
+          dateOffset: 2,
+        },
+      ],
+    },
   ];
 
   for (const o of orders) {
@@ -219,6 +248,29 @@ async function main() {
     }
 
     if (o.payment) {
+      if (o.paymentHistory && o.paymentHistory.length > 0) {
+        for (let i = 0; i < o.paymentHistory.length; i++) {
+          const hist = o.paymentHistory[i];
+          const baseTime = new Date();
+          baseTime.setHours(baseTime.getHours() - (hist.dateOffset || 1) * 24);
+          const createdAt = new Date(baseTime.getTime() - i * 3600000);
+          const updatedAt = new Date(createdAt.getTime() + 1800000);
+          await prisma.paymentRequest.create({
+            data: {
+              orderId: order.id,
+              amount: o.detectPrice || o.initialPrice,
+              payeeName: o.customerName,
+              payeeBank: hist.bank,
+              payeeAccount: hist.account,
+              financeId: finance.id,
+              submitRemark: `第 ${i + 1} 次提交打款`,
+              reviewRemark: hist.review,
+              createdAt,
+              updatedAt,
+            },
+          });
+        }
+      }
       await prisma.paymentRequest.create({
         data: {
           orderId: order.id,
@@ -227,7 +279,9 @@ async function main() {
           payeeBank: o.payment.bank,
           payeeAccount: o.payment.account,
           financeId: o.payment.paid || o.payment.review ? finance.id : null,
-          submitRemark: "议价通过，申请打款",
+          submitRemark: o.paymentHistory
+            ? `第 ${o.paymentHistory.length + 1} 次提交打款`
+            : "议价通过，申请打款",
           reviewRemark: o.payment.review || null,
           paidAt: o.payment.paid ? new Date() : null,
         },
