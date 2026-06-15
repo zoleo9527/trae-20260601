@@ -2,6 +2,7 @@ import { Compensation, WarrantyClaim, User, Tire } from '../models';
 import CompensationStatus, { CompensationStatusTransitions } from '../models/CompensationStatus';
 import ClaimStatus from '../models/ClaimStatus';
 import { CompensationType } from '../models/Compensation';
+import { sequelize } from '../config/database';
 
 export interface CreateCompensationRequest {
   claimId: number;
@@ -40,7 +41,7 @@ class CompensationService {
     }
 
     if (claim.status !== ClaimStatus.APPROVED && claim.status !== ClaimStatus.COMPENSATION_PROCESSING) {
-      throw new Error('申诉未批准，无法创建补偿');
+      throw new Error('申诉未进入补偿处理阶段，无法创建补偿');
     }
 
     const existingCompensation = await Compensation.findOne({ where: { claimId: data.claimId } });
@@ -48,10 +49,24 @@ class CompensationService {
       throw new Error('该申诉已存在补偿记录');
     }
 
-    return await Compensation.create({
-      ...data,
-      status: CompensationStatus.PENDING,
-    });
+    const transaction = await sequelize.transaction();
+    
+    try {
+      const compensation = await Compensation.create({
+        ...data,
+        status: CompensationStatus.PENDING,
+      }, { transaction });
+
+      if (claim.status === ClaimStatus.APPROVED) {
+        await claim.update({ status: ClaimStatus.COMPENSATION_PROCESSING }, { transaction });
+      }
+
+      await transaction.commit();
+      return compensation;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 
   async getCompensationById(id: number): Promise<Compensation | null> {
@@ -124,11 +139,6 @@ class CompensationService {
       approvedBy: data.approvedBy,
       approvalComment: data.comment,
     });
-
-    const claim = await WarrantyClaim.findByPk(compensation.claimId);
-    if (claim && claim.status === ClaimStatus.APPROVED) {
-      await claim.update({ status: ClaimStatus.COMPENSATION_PROCESSING });
-    }
 
     return compensation;
   }

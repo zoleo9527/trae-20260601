@@ -238,18 +238,6 @@ class WarrantyClaimService {
     }
 
     await claim.update({ status: ClaimStatus.COMPENSATION_PROCESSING });
-
-    const existingCompensation = await Compensation.findOne({ where: { claimId } });
-    if (!existingCompensation) {
-      await Compensation.create({
-        claimId,
-        type: 'REFUND',
-        amount: 0,
-        description: '待处理补偿',
-        status: CompensationStatus.PENDING,
-      });
-    }
-
     return claim;
   }
 
