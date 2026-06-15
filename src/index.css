@@ -1,0 +1,97 @@
+@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: #2C2C2C;
+  background-color: #f6f6f6;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #f6f6f6 0%, #e7e7e7 100%);
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center px-5 py-2.5 border-2 border-ochre-800 bg-ochre-800 text-white font-mono text-sm uppercase tracking-wider transition-all duration-150 hover:bg-ochre-700 hover:border-ochre-700 active:shadow-press active:translate-y-px;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center px-5 py-2.5 border-2 border-carbon-800 bg-white text-carbon-800 font-mono text-sm uppercase tracking-wider transition-all duration-150 hover:bg-carbon-50 active:shadow-press active:translate-y-px;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center px-5 py-2.5 border-2 border-red-700 bg-red-700 text-white font-mono text-sm uppercase tracking-wider transition-all duration-150 hover:bg-red-600 hover:border-red-600 active:shadow-press active:translate-y-px;
+  }
+
+  .btn-gold {
+    @apply inline-flex items-center justify-center px-5 py-2.5 border-2 border-brass-600 bg-brass-600 text-white font-mono text-sm uppercase tracking-wider transition-all duration-150 hover:bg-brass-500 hover:border-brass-500 active:shadow-press active:translate-y-px;
+  }
+
+  .card {
+    @apply bg-white border-2 border-carbon-200 shadow-card transition-shadow duration-200 hover:shadow-card-hover;
+  }
+
+  .card-accent {
+    @apply bg-white border-l-4 border-ochre-800 border border-carbon-200 shadow-card;
+  }
+
+  .input-field {
+    @apply w-full px-3 py-2 border-2 border-carbon-300 bg-white font-mono text-sm text-carbon-800 placeholder-carbon-400 focus:border-ochre-700 focus:ring-0 focus:outline-none transition-colors;
+  }
+
+  .label-text {
+    @apply block font-mono text-xs uppercase tracking-wider text-carbon-500 mb-1.5;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center px-3 py-1 font-mono text-xs uppercase tracking-wider border-2;
+  }
+
+  .section-title {
+    @apply font-display text-2xl tracking-wider text-carbon-800 border-b-2 border-carbon-300 pb-2 mb-4;
+  }
+
+  .table-header {
+    @apply font-mono text-xs uppercase tracking-wider text-carbon-500 text-left py-3 px-4 border-b-2 border-carbon-200 bg-carbon-50;
+  }
+
+  .table-cell {
+    @apply py-3 px-4 border-b border-carbon-100 font-mono text-sm text-carbon-700;
+  }
+
+  .grain-bg {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #e7e7e7;
+}
+::-webkit-scrollbar-thumb {
+  background: #888888;
+  border: 1px solid #e7e7e7;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6d6d6d;
+}
