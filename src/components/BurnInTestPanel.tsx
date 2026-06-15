@@ -1,24 +1,40 @@
 import { useState } from 'react';
-import { Play, RotateCcw, Cpu, Thermometer, HardDrive, Activity, History, Clock, User, ChevronDown, ChevronUp } from 'lucide-react';
-import type { Machine, BurnInTest } from '@/types';
+import { Play, Check, X, SkipForward, RotateCcw, Cpu, Thermometer, HardDrive, Activity, History, Clock, User, ChevronDown, ChevronUp } from 'lucide-react';
+import type { Machine, BurnInTest, TestItem } from '@/types';
 import { testItemStatusLabels, testItemStatusColors, formatDuration, statusLabels, statusColors } from '@/utils/helpers';
 
 interface BurnInTestPanelProps {
   machine: Machine;
   onStartTest: (machineId: string, operator: string) => void;
+  onUpdateTestItem: (machineId: string, itemId: string, update: Partial<TestItem>) => void;
   onReturnToPending: (machineId: string, operator: string, reason: string) => void;
 }
 
-export function BurnInTestPanel({ machine, onStartTest, onReturnToPending }: BurnInTestPanelProps) {
+export function BurnInTestPanel({ machine, onStartTest, onUpdateTestItem, onReturnToPending }: BurnInTestPanelProps) {
   const [operator, setOperator] = useState('');
   const [returnReason, setReturnReason] = useState('');
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showHistoryCollapsed, setShowHistoryCollapsed] = useState(true);
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [editResult, setEditResult] = useState('');
+  const [editRemarks, setEditRemarks] = useState('');
 
   const handleStartTest = () => {
     if (operator.trim()) {
       onStartTest(machine.id, operator.trim());
     }
+  };
+
+  const handleTestItemAction = (itemId: string, action: 'pass' | 'fail' | 'skip') => {
+    const status: TestItem['status'] = action === 'pass' ? 'passed' : action === 'fail' ? 'failed' : 'skipped';
+    onUpdateTestItem(machine.id, itemId, { status, tester: operator });
+  };
+
+  const handleEditItem = (itemId: string, result: string, remarks: string) => {
+    onUpdateTestItem(machine.id, itemId, { result, remarks });
+    setEditingItem(null);
+    setEditResult('');
+    setEditRemarks('');
   };
 
   const handleReturn = () => {
@@ -105,19 +121,80 @@ export function BurnInTestPanel({ machine, onStartTest, onReturnToPending }: Bur
         <h4 className="font-medium text-gray-900 mb-3">测试项目</h4>
         <div className="space-y-2">
           {test.items.map(item => (
-            <div 
-              key={item.id} 
-              className={`rounded-lg p-3 ${item.status === 'failed' ? 'bg-red-50' : 'bg-gray-50'}`}
-            >
-              <div className="flex items-center justify-between mb-1">
+            <div key={item.id} className={`rounded-lg p-3 ${item.status === 'failed' ? 'bg-red-50' : 'bg-gray-50'}`}>
+              <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700">{item.name}</span>
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${testItemStatusColors[item.status]}`}>
                   {testItemStatusLabels[item.status]}
                 </span>
               </div>
               {item.description && <p className="text-xs text-gray-500">{item.description}</p>}
-              {item.result && <p className="text-xs text-gray-500 mt-1">结果: {item.result}</p>}
-              {item.remarks && <p className="text-xs text-gray-500">备注: {item.remarks}</p>}
+              
+              {editingItem === item.id ? (
+                <div className="mt-2 space-y-2">
+                  <input
+                    type="text"
+                    value={editResult}
+                    onChange={(e) => setEditResult(e.target.value)}
+                    placeholder="测试结果"
+                    className="input text-sm"
+                  />
+                  <textarea
+                    value={editRemarks}
+                    onChange={(e) => setEditRemarks(e.target.value)}
+                    placeholder="备注说明"
+                    className="text-area h-16 text-sm"
+                  />
+                  <div className="flex gap-2">
+                    <button onClick={() => handleEditItem(item.id, editResult, editRemarks)} className="btn btn-sm btn-primary">保存</button>
+                    <button onClick={() => setEditingItem(null)} className="btn btn-sm btn-secondary">取消</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {item.result && <p className="text-xs text-gray-500 mt-1">结果: {item.result}</p>}
+                  {item.remarks && <p className="text-xs text-gray-500">备注: {item.remarks}</p>}
+                </>
+              )}
+
+              {!isHistory && machine.status === 'testing' && item.status === 'pending' && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleTestItemAction(item.id, 'pass')}
+                    className="btn btn-sm btn-success flex items-center gap-1"
+                  >
+                    <Check className="h-3 w-3" />
+                    通过
+                  </button>
+                  <button
+                    onClick={() => handleTestItemAction(item.id, 'fail')}
+                    className="btn btn-sm btn-danger flex items-center gap-1"
+                  >
+                    <X className="h-3 w-3" />
+                    失败
+                  </button>
+                  <button
+                    onClick={() => handleTestItemAction(item.id, 'skip')}
+                    className="btn btn-sm btn-secondary flex items-center gap-1"
+                  >
+                    <SkipForward className="h-3 w-3" />
+                    跳过
+                  </button>
+                </div>
+              )}
+
+              {!isHistory && machine.status === 'testing' && item.status !== 'pending' && (
+                <button
+                  onClick={() => {
+                    setEditingItem(item.id);
+                    setEditResult(item.result || '');
+                    setEditRemarks(item.remarks || '');
+                  }}
+                  className="btn btn-sm btn-secondary mt-2"
+                >
+                  编辑
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -173,6 +250,15 @@ export function BurnInTestPanel({ machine, onStartTest, onReturnToPending }: Bur
               <Play className="h-4 w-4" />
               开始测试
             </button>
+          </div>
+        </div>
+      )}
+
+      {machine.status === 'testing' && machine.burnInTest && (
+        <div className="bg-blue-50 rounded-xl p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-gray-700">测试进行中</span>
+            <span className="text-sm text-gray-500">请处理各项测试项目</span>
           </div>
         </div>
       )}

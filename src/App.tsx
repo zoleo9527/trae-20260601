@@ -4,19 +4,23 @@ import { Dashboard } from '@/components/Dashboard';
 import { MachineList } from '@/components/MachineList';
 import { BurnInTestPanel } from '@/components/BurnInTestPanel';
 import { ApprovalPanel } from '@/components/ApprovalPanel';
+import { ReRecordingPanel } from '@/components/ReRecordingPanel';
 import { ExceptionPanel } from '@/components/ExceptionPanel';
 import { ExportPanel } from '@/components/ExportPanel';
-import type { Machine, ExportTask, DashboardStats } from '@/types';
+import type { Machine, ExportTask, DashboardStats, TestItem } from '@/types';
 import {
   getMachines,
   getStats,
   startBurnInTest,
+  updateTestItem,
   addException,
   resolveException,
   approveMachine,
   rejectMachine,
   returnToTesting,
   completeDelivery,
+  completeReRecording,
+  completeReview,
   getExportTasks,
   createExportTask,
   completeExportTask,
@@ -87,6 +91,21 @@ function App() {
     saveAndRefresh(newMachines);
   };
 
+  const handleUpdateTestItem = (machineId: string, itemId: string, update: Partial<TestItem>) => {
+    const newMachines = updateTestItem(machineId, itemId, update);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleCompleteReRecording = (machineId: string, operator: string, reRecordInfo: string) => {
+    const newMachines = completeReRecording(machineId, operator, reRecordInfo);
+    saveAndRefresh(newMachines);
+  };
+
+  const handleCompleteReview = (machineId: string, operator: string, reviewResult: 'approve' | 'reject', comments: string) => {
+    const newMachines = completeReview(machineId, operator, reviewResult, comments);
+    saveAndRefresh(newMachines);
+  };
+
   const handleAddException = (machineId: string, exception: Parameters<typeof addException>[1]) => {
     const newMachines = addException(machineId, exception);
     saveAndRefresh(newMachines);
@@ -152,10 +171,17 @@ function App() {
             </div>
             <div className="lg:col-span-2">
               {selectedMachine ? (
-                activeTab === 'testing' ? (
+                selectedMachine.status === 're_recording' || selectedMachine.status === 'pending_review' ? (
+                  <ReRecordingPanel
+                    machine={selectedMachine}
+                    onCompleteReRecording={handleCompleteReRecording}
+                    onCompleteReview={handleCompleteReview}
+                  />
+                ) : activeTab === 'testing' ? (
                   <BurnInTestPanel
                     machine={selectedMachine}
                     onStartTest={handleStartTest}
+                    onUpdateTestItem={handleUpdateTestItem}
                     onReturnToPending={handleReturnToTesting}
                   />
                 ) : (
