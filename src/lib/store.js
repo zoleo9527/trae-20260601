@@ -268,6 +268,26 @@ export const currentUser = writable({
 
 export const selectedOrderId = writable(null);
 
+export const addTimelineEntry = (items, itemId, action, operator, remark = '') => {
+  return items.map(item => {
+    if (item.id === itemId) {
+      return {
+        ...item,
+        timeline: [
+          ...(item.timeline || []),
+          {
+            time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+            action,
+            operator,
+            remark
+          }
+        ]
+      };
+    }
+    return item;
+  });
+};
+
 export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false, feedbackList = null, changeReason = '') => {
   let prevSchedule = null;
   

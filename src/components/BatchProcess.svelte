@@ -1,14 +1,16 @@
 <script>
-  import { orders, deliverySchedules, installationFeedbacks } from '$lib/store';
+  import { orders, deliverySchedules, installationFeedbacks, addTimelineEntry, currentUser } from '$lib/store';
   import { writable } from 'svelte/store';
   
   let orderList = [];
   let scheduleList = [];
   let feedbackList = [];
+  let user = {};
   
   orders.subscribe(o => orderList = o);
   deliverySchedules.subscribe(s => scheduleList = s);
   installationFeedbacks.subscribe(f => feedbackList = f);
+  currentUser.subscribe(u => user = u);
   
   const selectedOrders = writable([]);
   const selectedSchedules = writable([]);
@@ -117,6 +119,12 @@
   };
   
   const batchConfirmSchedules = () => {
+    localSelectedSchedules.forEach(scheduleId => {
+      const schedule = scheduleList.find(s => s.id === scheduleId);
+      if (schedule && schedule.status === 'pending') {
+        deliverySchedules.update(items => addTimelineEntry(items, scheduleId, '批量确认排期', user.name, '批量操作确认排期'));
+      }
+    });
     deliverySchedules.update(items => 
       items.map(item => 
         localSelectedSchedules.includes(item.id) && item.status === 'pending' 
@@ -129,6 +137,12 @@
   
   const batchCompleteFeedbacks = () => {
     const today = new Date().toISOString().split('T')[0];
+    localSelectedFeedbacks.forEach(feedbackId => {
+      const feedback = feedbackList.find(f => f.id === feedbackId);
+      if (feedback && feedback.status !== 'completed') {
+        installationFeedbacks.update(items => addTimelineEntry(items, feedbackId, '批量完成铺贴', user.name, '批量操作完成铺贴，客户验收合格'));
+      }
+    });
     installationFeedbacks.update(items => 
       items.map(item => 
         localSelectedFeedbacks.includes(item.id) && item.status !== 'completed'

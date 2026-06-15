@@ -1,5 +1,5 @@
 <script>
-  import { deliverySchedules, orders, installationFeedbacks, updateDeliverySchedule } from '$lib/store';
+  import { deliverySchedules, orders, installationFeedbacks, updateDeliverySchedule, addTimelineEntry } from '$lib/store';
   import { currentUser } from '$lib/store';
   
   let scheduleList = [];
@@ -67,6 +67,7 @@
   };
   
   const handleConfirm = (scheduleId) => {
+    deliverySchedules.update(items => addTimelineEntry(items, scheduleId, '确认排期', user.name, '排期已确认'));
     updateDeliverySchedule(scheduleId, { status: 'scheduled' }, false, feedbackList);
   };
   
@@ -74,6 +75,7 @@
     const now = new Date();
     const date = now.toISOString().split('T')[0];
     const time = now.toTimeString().slice(0, 5);
+    deliverySchedules.update(items => addTimelineEntry(items, scheduleId, '确认送达', user.name, `实际送达时间: ${date} ${time}`));
     updateDeliverySchedule(scheduleId, { 
       status: 'completed',
       actualDate: date,
