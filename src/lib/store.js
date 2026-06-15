@@ -225,8 +225,7 @@ const sampleInstallationFeedbacks = [
         title: '送货排期变更',
         description: '原排期6月17日因仓库盘点调整至6月18日',
         responsibility: '施工师傅',
-        createdAt: '2026-06-14 09:00',
-        handled: false
+        createdAt: '2026-06-14 09:00'
       }
     ],
     customerSignature: false,
@@ -299,8 +298,7 @@ export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false,
         title: '送货排期变更',
         description: `原排期${prevSchedule.scheduledDate || '未安排'}变更为${updates.scheduledDate}${changeReason ? '，原因：' + changeReason : ''}`,
         responsibility: '施工师傅',
-        createdAt: timeStr,
-        handled: false
+        createdAt: timeStr
       };
       
       installationFeedbacks.update(items => 
@@ -320,16 +318,27 @@ export const updateDeliverySchedule = (scheduleId, updates, dateChanged = false,
 
 export const handleAlert = (feedbackId, alertId) => {
   installationFeedbacks.update(items => 
-    items.map(item => 
-      item.id === feedbackId
-        ? {
+    items.map(item => {
+      if (item.id === feedbackId) {
+        const alertToHandle = (item.alerts || []).find(alert => alert.id === alertId);
+        
+        if (alertToHandle) {
+          const newTimelineEntry = {
+            time: new Date().toISOString().replace('T', ' ').substr(0, 19),
+            action: '预警已处理',
+            operator: '系统',
+            remark: `${alertToHandle.title}: ${alertToHandle.description}`
+          };
+          
+          return {
             ...item,
-            alerts: (item.alerts || []).map(alert => 
-              alert.id === alertId ? { ...alert, handled: true } : alert
-            )
-          }
-        : item
-    )
+            timeline: [...item.timeline, newTimelineEntry],
+            alerts: (item.alerts || []).filter(alert => alert.id !== alertId)
+          };
+        }
+      }
+      return item;
+    })
   );
 };
 

@@ -54,7 +54,7 @@
   };
   
   const getPendingAlerts = (feedback) => {
-    return (feedback.alerts || []).filter(alert => !alert.handled);
+    return feedback.alerts || [];
   };
   
   const handleSelectFeedback = (feedback) => {
@@ -239,26 +239,20 @@
             <div class="info-section alert-section">
               <h4>责任预警</h4>
               {#each selectedFeedback.alerts as alert}
-                <div class="alert-item" class={alert.handled ? 'handled' : ''}>
+                <div class="alert-item">
                   <div class="alert-header">
                     <span class="alert-icon">🔔</span>
                     <span class="alert-title">{alert.title}</span>
-                    {#if alert.handled}
-                      <span class="alert-status handled-tag">已处理</span>
-                    {:else}
-                      <span class="alert-status pending-tag">待处理</span>
-                    {/if}
+                    <span class="alert-status pending-tag">待处理</span>
                   </div>
                   <p class="alert-desc">{alert.description}</p>
                   <div class="alert-meta">
                     <span class="alert-responsibility">责任人: {alert.responsibility}</span>
                     <span class="alert-date">{alert.createdAt}</span>
                   </div>
-                  {#if !alert.handled}
-                    <button class="btn btn-sm btn-primary" on:click={() => handleAlertClick(selectedFeedback.id, alert.id)}>
-                      标记为已处理
-                    </button>
-                  {/if}
+                  <button class="btn btn-sm btn-primary" on:click={() => handleAlertClick(selectedFeedback.id, alert.id)}>
+                    标记为已处理
+                  </button>
                 </div>
               {/each}
             </div>
@@ -687,11 +681,6 @@
     border: 1px solid #ffe0b2;
   }
   
-  .alert-item.handled {
-    opacity: 0.6;
-    border-color: #e0e0e0;
-  }
-  
   .alert-header {
     display: flex;
     align-items: center;
@@ -719,11 +708,6 @@
   .pending-tag {
     background-color: #fff8e1;
     color: #ff9800;
-  }
-  
-  .handled-tag {
-    background-color: #e8f5e9;
-    color: #4caf50;
   }
   
   .alert-desc {
