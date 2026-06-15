@@ -4,6 +4,8 @@ const daysAgo = (d) => new Date(now.getTime() - d * 86400000).toISOString();
 const hoursLater = (h) => new Date(now.getTime() + h * 3600000).toISOString();
 const daysLater = (d) => new Date(now.getTime() + d * 86400000).toISOString();
 
+export const DATA_VERSION = '2026-06-15-v1';
+
 export const users = {
   receptionist: { id: 'R001', name: '张接单', role: 'receptionist', avatar: '👩' },
   designer: { id: 'D001', name: '李设计', role: 'designer', avatar: '👨‍🎨' },

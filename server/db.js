@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { sampleOrders, users } from './sampleData.js';
+import { sampleOrders, users, DATA_VERSION } from './sampleData.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,18 +15,30 @@ function loadData() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
+      if (data.dataVersion !== DATA_VERSION || !data.orders || !Array.isArray(data.orders)) {
+        console.log('[db] data.json 版本不匹配或数据损坏，使用初始样例重置');
+        resetData();
+        return;
+      }
+      const order1001 = data.orders.find(o => o.id === 'AD260615-1001');
+      if (!order1001 || order1001.status === 'completed') {
+        console.log('[db] 检测到AD260615-1001为完成状态或缺失，使用初始样例重置');
+        resetData();
+        return;
+      }
       orders = data.orders || [];
       orderIdCounter = data.orderIdCounter || 1000;
     } else {
       resetData();
     }
   } catch (e) {
+    console.log('[db] 加载数据失败，使用初始样例重置:', e.message);
     resetData();
   }
 }
 
 function saveData() {
-  fs.writeFileSync(DATA_FILE, JSON.stringify({ orders, orderIdCounter }, null, 2));
+  fs.writeFileSync(DATA_FILE, JSON.stringify({ orders, orderIdCounter, dataVersion: DATA_VERSION }, null, 2));
 }
 
 function generateOrderNo() {
