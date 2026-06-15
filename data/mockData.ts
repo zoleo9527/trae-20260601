@@ -1,4 +1,4 @@
-import type { Appointment, User, TodoItem } from './types'
+import type { Appointment, User, TodoItem, Role } from './types'
 
 export const mockUsers: User[] = [
   { id: 'u1', name: '张调度', role: 'dispatcher', phone: '13800138001' },
@@ -55,6 +55,10 @@ export const mockAppointments: Appointment[] = [
         description: '客户临时增加3个纸箱，需要额外收费',
         amount: 300,
         status: 'processing',
+        responsibleRole: 'dispatcher',
+        dueTime: '2024-01-16 16:00',
+        isOverdue: false,
+        timeNote: '需客户确认后方可继续',
         createdAt: '2024-01-16 14:30:00',
         handledBy: '张调度',
         resolution: '等待客户确认'
@@ -111,6 +115,10 @@ export const mockAppointments: Appointment[] = [
         description: '展示柜边角轻微磕碰',
         photos: ['damage1.jpg', 'damage2.jpg'],
         status: 'resolved',
+        responsibleRole: 'team_leader',
+        dueTime: '2024-01-14 18:00',
+        isOverdue: false,
+        timeNote: '已与客户协商解决',
         createdAt: '2024-01-14 11:30:00',
         handledBy: '李组长',
         handledAt: '2024-01-14 12:00:00',
@@ -144,6 +152,10 @@ export const mockAppointments: Appointment[] = [
         type: 'delay',
         description: '车辆因交通拥堵预计迟到30分钟',
         status: 'pending',
+        responsibleRole: 'dispatcher',
+        dueTime: '2024-01-16 15:30',
+        isOverdue: true,
+        timeNote: '已通知客户迟到情况',
         createdAt: '2024-01-16 14:45:00'
       }
     ],
@@ -177,22 +189,31 @@ export const getTodosByRole = (role: string): TodoItem[] => {
   const todos: Record<string, TodoItem[]> = {
     dispatcher: [
       { id: 't1', type: 'appointment', title: '确认BJ20240115001预约', description: '陈先生的搬家预约待确认', priority: 'high', dueTime: '2024-01-16 09:00', appointmentId: 'a1' },
-      { id: 't2', type: 'exception', title: '处理BJ20240115002临时加价', description: '客户临时增加物品需确认加价', priority: 'high', appointmentId: 'a2', exceptionId: 'e1' },
+      { id: 't2', type: 'exception', title: '处理BJ20240115002临时加价', description: '客户临时增加物品需确认加价', priority: 'high', dueTime: '2024-01-16 16:00', isOverdue: false, responsibleRole: 'dispatcher', appointmentId: 'a2', exceptionId: 'e1' },
       { id: 't3', type: 'appointment', title: '安排BJ20240115003跨城搬家车辆', description: '天津搬家需提前规划', priority: 'medium', dueTime: '2024-01-17 08:00', appointmentId: 'a3' },
-      { id: 't4', type: 'exception', title: '处理BJ20240115005车辆迟到', description: '通知客户车辆延误情况', priority: 'high', appointmentId: 'a5', exceptionId: 'e3' }
+      { id: 't4', type: 'exception', title: '处理BJ20240115005车辆迟到', description: '通知客户车辆延误情况', priority: 'high', dueTime: '2024-01-16 15:30', isOverdue: true, responsibleRole: 'dispatcher', appointmentId: 'a5', exceptionId: 'e3' }
     ],
     team_leader: [
       { id: 't5', type: 'appointment', title: '准备BJ20240115001搬运材料', description: '检查气泡膜、包装材料是否充足', priority: 'high', dueTime: '2024-01-16 08:30', appointmentId: 'a1' },
-      { id: 't6', type: 'exception', title: '处理BJ20240115002临时加价', description: '现场确认增加的物品数量', priority: 'high', appointmentId: 'a2', exceptionId: 'e1' },
+      { id: 't6', type: 'exception', title: '处理BJ20240115002临时加价', description: '现场确认增加的物品数量', priority: 'high', dueTime: '2024-01-16 16:00', isOverdue: false, responsibleRole: 'dispatcher', appointmentId: 'a2', exceptionId: 'e1' },
       { id: 't7', type: 'appointment', title: 'BJ20240115003特殊物品搬运', description: '鱼缸和钢琴需专业处理', priority: 'medium', dueTime: '2024-01-17 07:30', appointmentId: 'a3' },
       { id: 't8', type: 'task', title: '整理BJ20240114004破损报告', description: '提交展示柜破损处理报告', priority: 'medium' }
     ],
     customer_service: [
       { id: 't9', type: 'appointment', title: '回访BJ20240114004客户', description: '确认服务满意度和破损处理结果', priority: 'medium', appointmentId: 'a4' },
-      { id: 't10', type: 'exception', title: '跟进BJ20240115005迟到通知', description: '向客户致歉并说明情况', priority: 'high', appointmentId: 'a5', exceptionId: 'e3' },
+      { id: 't10', type: 'exception', title: '跟进BJ20240115005迟到通知', description: '向客户致歉并说明情况', priority: 'high', dueTime: '2024-01-16 15:30', isOverdue: true, responsibleRole: 'dispatcher', appointmentId: 'a5', exceptionId: 'e3' },
       { id: 't11', type: 'task', title: '处理BJ20240115006退款', description: '已取消订单的退款处理', priority: 'medium', appointmentId: 'a6' },
       { id: 't12', type: 'appointment', title: '确认BJ20240115001特殊要求', description: '与客户确认电视包装问题', priority: 'medium', appointmentId: 'a1' }
     ]
   }
   return todos[role] || []
+}
+
+export const getRoleName = (role: Role): string => {
+  const names: Record<Role, string> = {
+    dispatcher: '调度员',
+    team_leader: '搬运组长',
+    customer_service: '客服'
+  }
+  return names[role] || ''
 }

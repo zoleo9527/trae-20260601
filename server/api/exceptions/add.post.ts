@@ -10,11 +10,29 @@ export default defineEventHandler(async (event) => {
     })
   }
   
-  const success = addExceptionToAppointment(body.appointmentId, {
+  const exceptionData: any = {
     type: body.type,
     description: body.description,
     amount: body.amount
-  })
+  }
+  
+  if (body.responsibleRole) {
+    exceptionData.responsibleRole = body.responsibleRole
+  }
+  
+  if (body.dueTime) {
+    exceptionData.dueTime = body.dueTime
+  }
+  
+  if (body.isOverdue) {
+    exceptionData.isOverdue = body.isOverdue
+  }
+  
+  if (body.timeNote) {
+    exceptionData.timeNote = body.timeNote
+  }
+  
+  const success = addExceptionToAppointment(body.appointmentId, exceptionData)
   
   if (!success) {
     throw createError({

@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue'
-import type { Appointment, ExceptionRecord, ExceptionType } from '~/data/types'
+import type { Appointment, ExceptionRecord, ExceptionType, Role } from '~/data/types'
 
 const appointments = ref<Appointment[]>([])
 const loading = ref(false)
@@ -146,6 +146,29 @@ export function useAppointments() {
     }
   }
 
+  const updateException = async (
+    appointmentId: string, 
+    exceptionId: string, 
+    updates: { 
+      responsibleRole?: Role
+      dueTime?: string
+      isOverdue?: boolean
+      timeNote?: string
+    }
+  ) => {
+    try {
+      await $fetch('/api/exceptions/update', {
+        method: 'POST',
+        body: { appointmentId, exceptionId, ...updates }
+      })
+      await fetchAppointments()
+      return true
+    } catch (error) {
+      console.error('Failed to update exception:', error)
+      return false
+    }
+  }
+
   const getPendingExceptions = (type?: ExceptionType) => {
     let result: ExceptionRecord[] = []
     appointments.value.forEach(a => {
@@ -179,6 +202,14 @@ export function useAppointments() {
     return result
   }
 
+  const getOverdueExceptions = () => {
+    let result: ExceptionRecord[] = []
+    appointments.value.forEach(a => {
+      result.push(...a.exceptions.filter(e => e.isOverdue === true && e.status !== 'resolved'))
+    })
+    return result
+  }
+
   return {
     appointments,
     loading,
@@ -197,8 +228,10 @@ export function useAppointments() {
     addException,
     startProcessingException,
     resolveException,
+    updateException,
     getPendingExceptions,
     getProcessingExceptions,
-    getAllExceptions
+    getAllExceptions,
+    getOverdueExceptions
   }
 }

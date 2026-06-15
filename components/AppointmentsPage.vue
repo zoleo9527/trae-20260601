@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
+import { getRoleName } from '~/data/mockData'
 import type { Appointment } from '~/data/types'
 
 const props = defineProps<{
@@ -304,17 +305,32 @@ const formatAddress = (addr: any) => {
           
           <div v-if="selectedAppointment.exceptions.length > 0" style="margin-bottom: 20px;">
             <h3 style="margin-bottom: 12px;">异常记录</h3>
-            <div v-for="exception in selectedAppointment.exceptions" :key="exception.id" style="background-color: #fff7e6; padding: 12px; border-radius: 8px; margin-bottom: 8px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                <span class="badge badge-price-change">{{ exception.type === 'price_increase' ? '临时加价' : exception.type === 'damage' ? '物品破损' : '车辆迟到' }}</span>
-                <span :class="['badge', exception.status === 'resolved' ? 'badge-completed' : exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
-                  {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
-                </span>
+            <div v-for="exception in selectedAppointment.exceptions" :key="exception.id" 
+              :style="{
+                backgroundColor: exception.isOverdue ? '#fff2f0' : '#fff7e6', 
+                padding: '12px', 
+                borderRadius: '8px', 
+                marginBottom: '8px',
+                borderLeft: exception.status === 'resolved' ? '4px solid #52c41a' : exception.isOverdue ? '4px solid #f5222d' : '4px solid #faad14'
+              }">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <span class="badge badge-price-change">{{ exception.type === 'price_increase' ? '临时加价' : exception.type === 'damage' ? '物品破损' : '车辆迟到' }}</span>
+                  <span :class="['badge', exception.status === 'resolved' ? 'badge-completed' : exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
+                    {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
+                  </span>
+                  <span v-if="exception.isOverdue" class="badge" style="background-color: #fff2f0; color: #f5222d;">⚠️ 逾期</span>
+                </div>
               </div>
-              <div>{{ exception.description }}</div>
-              <div v-if="exception.amount" style="font-size: 12px; color: #f5222d; margin-top: 4px;">金额: ¥{{ exception.amount }}</div>
-              <div v-if="exception.resolution" style="font-size: 12px; color: #52c41a; margin-top: 4px;">处理结果: {{ exception.resolution }}</div>
-              <div v-if="exception.handledBy" style="font-size: 12px; color: #999; margin-top: 4px;">处理人: {{ exception.handledBy }} | {{ exception.handledAt }}</div>
+              <div style="margin-bottom: 8px;">{{ exception.description }}</div>
+              <div v-if="exception.amount" style="font-size: 12px; color: #f5222d; margin-bottom: 4px;">金额: ¥{{ exception.amount }}</div>
+              <div style="display: flex; gap: 16px; font-size: 12px; color: #666; margin-bottom: 4px;">
+                <span v-if="exception.responsibleRole">责任角色: {{ getRoleName(exception.responsibleRole) }}</span>
+                <span v-if="exception.dueTime">截止时间: {{ exception.dueTime }}</span>
+              </div>
+              <div v-if="exception.timeNote" style="font-size: 12px; color: #4080ff; margin-bottom: 4px;">时效备注: {{ exception.timeNote }}</div>
+              <div v-if="exception.resolution" style="font-size: 12px; color: #52c41a; margin-bottom: 4px;">处理结果: {{ exception.resolution }}</div>
+              <div v-if="exception.handledBy" style="font-size: 12px; color: #999;">处理人: {{ exception.handledBy }} | {{ exception.handledAt }}</div>
             </div>
           </div>
           

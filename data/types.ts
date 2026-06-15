@@ -40,6 +40,10 @@ export interface ExceptionRecord {
   photos?: string[]
   status: ExceptionStatus
   createdAt: string
+  responsibleRole?: Role
+  dueTime?: string
+  isOverdue?: boolean
+  timeNote?: string
   handledBy?: string
   handledAt?: string
   resolution?: string
@@ -79,6 +83,8 @@ export interface TodoItem {
   description: string
   priority: 'high' | 'medium' | 'low'
   dueTime?: string
+  isOverdue?: boolean
+  responsibleRole?: Role
   appointmentId?: string
   exceptionId?: string
 }

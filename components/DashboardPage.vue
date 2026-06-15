@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useAuth } from '~/composables/useAuth'
 import { useAppointments } from '~/composables/useAppointments'
-import { getTodosByRole } from '~/data/mockData'
+import { getTodosByRole, getRoleName } from '~/data/mockData'
 import type { TodoItem } from '~/data/types'
 
 const emit = defineEmits<{
@@ -10,7 +10,7 @@ const emit = defineEmits<{
 }>()
 
 const { currentRole, roleName } = useAuth()
-const { fetchAppointments, pendingAppointments, getPendingExceptions } = useAppointments()
+const { fetchAppointments, pendingAppointments, getPendingExceptions, getOverdueExceptions } = useAppointments()
 
 onMounted(() => {
   fetchAppointments()
@@ -28,6 +28,7 @@ const lowPriorityTodos = computed(() => todos.value.filter(t => t.priority === '
 const stats = computed(() => ({
   pending: pendingAppointments.value.length,
   exceptions: getPendingExceptions().length,
+  overdue: getOverdueExceptions().length,
   today: todos.value.filter(t => t.dueTime?.startsWith('2024-01-16') || false).length
 }))
 
@@ -73,6 +74,10 @@ const handleTodoClick = (todo: TodoItem) => {
           <div style="font-size: 32px; font-weight: 600; color: #f5222d;">{{ stats.exceptions }}</div>
           <div style="font-size: 14px; color: #999; margin-top: 4px;">待处理异常</div>
         </div>
+        <div style="flex: 1; text-align: center; padding: 16px; background-color: #fff7e6; border-radius: 8px; border: 1px solid #faad14;">
+          <div style="font-size: 32px; font-weight: 600; color: #faad14;">{{ stats.overdue }}</div>
+          <div style="font-size: 14px; color: #faad14; margin-top: 4px;">已逾期</div>
+        </div>
         <div style="flex: 1; text-align: center; padding: 16px; background-color: #f5f7fa; border-radius: 8px;">
           <div style="font-size: 32px; font-weight: 600; color: #52c41a;">{{ stats.today }}</div>
           <div style="font-size: 14px; color: #999; margin-top: 4px;">今日待办</div>
@@ -89,11 +94,20 @@ const handleTodoClick = (todo: TodoItem) => {
         :key="todo.id"
         class="todo-item"
         @click="handleTodoClick(todo)"
+        :style="{ borderLeft: todo.isOverdue ? '4px solid #f5222d' : 'none' }"
       >
         <div class="todo-title" style="display: flex; align-items: center; gap: 8px;">
           <span>{{ typeIcons[todo.type] }}</span>
           {{ todo.title }}
           <span 
+            v-if="todo.isOverdue"
+            class="badge"
+            style="background-color: #fff2f0; color: #f5222d;"
+          >
+            ⚠️ 逾期
+          </span>
+          <span 
+            v-else
             class="badge" 
             :style="{ backgroundColor: '#fff2f0', color: '#f5222d' }"
           >
@@ -103,6 +117,7 @@ const handleTodoClick = (todo: TodoItem) => {
         <div class="todo-meta">
           <span>{{ todo.description }}</span>
           <span v-if="todo.dueTime">截止: {{ todo.dueTime }}</span>
+          <span v-if="todo.responsibleRole" style="color: #4080ff;">责任: {{ getRoleName(todo.responsibleRole) }}</span>
         </div>
       </div>
     </div>
@@ -116,11 +131,20 @@ const handleTodoClick = (todo: TodoItem) => {
         :key="todo.id"
         class="todo-item"
         @click="handleTodoClick(todo)"
+        :style="{ borderLeft: todo.isOverdue ? '4px solid #faad14' : 'none' }"
       >
         <div class="todo-title" style="display: flex; align-items: center; gap: 8px;">
           <span>{{ typeIcons[todo.type] }}</span>
           {{ todo.title }}
           <span 
+            v-if="todo.isOverdue"
+            class="badge"
+            style="background-color: #fff7e6; color: #faad14;"
+          >
+            ⚠️ 逾期
+          </span>
+          <span 
+            v-else
             class="badge" 
             :style="{ backgroundColor: '#fff7e6', color: '#d48806' }"
           >
@@ -130,6 +154,7 @@ const handleTodoClick = (todo: TodoItem) => {
         <div class="todo-meta">
           <span>{{ todo.description }}</span>
           <span v-if="todo.dueTime">截止: {{ todo.dueTime }}</span>
+          <span v-if="todo.responsibleRole" style="color: #4080ff;">责任: {{ getRoleName(todo.responsibleRole) }}</span>
         </div>
       </div>
     </div>
@@ -157,6 +182,7 @@ const handleTodoClick = (todo: TodoItem) => {
         <div class="todo-meta">
           <span>{{ todo.description }}</span>
           <span v-if="todo.dueTime">截止: {{ todo.dueTime }}</span>
+          <span v-if="todo.responsibleRole" style="color: #4080ff;">责任: {{ getRoleName(todo.responsibleRole) }}</span>
         </div>
       </div>
     </div>

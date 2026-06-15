@@ -2,7 +2,8 @@
 import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useAppointments } from '~/composables/useAppointments'
 import { useAuth } from '~/composables/useAuth'
-import type { ExceptionRecord, ExceptionType } from '~/data/types'
+import { getRoleName } from '~/data/mockData'
+import type { ExceptionRecord, ExceptionType, Role } from '~/data/types'
 
 const props = defineProps<{
   highlightId?: string
@@ -16,6 +17,7 @@ const {
   addException,
   startProcessingException,
   resolveException,
+  updateException,
   getAppointmentById
 } = useAppointments()
 
@@ -24,14 +26,25 @@ const { currentUser } = useAuth()
 const activeTab = ref<'all' | 'price_increase' | 'damage' | 'delay'>('all')
 const showAddException = ref(false)
 const showResolveModal = ref(false)
+const showEditModal = ref(false)
 const selectedException = ref<ExceptionRecord | null>(null)
 const resolution = ref('')
+
+const editForm = ref({
+  responsibleRole: '' as Role | '',
+  dueTime: '',
+  isOverdue: false,
+  timeNote: ''
+})
 
 const newException = ref({
   appointmentId: '',
   type: 'price_increase' as ExceptionType,
   description: '',
-  amount: 0
+  amount: 0,
+  responsibleRole: '' as Role | '',
+  dueTime: '',
+  timeNote: ''
 })
 
 const allExceptions = computed(() => {
@@ -93,6 +106,12 @@ const typeIcons: Record<string, string> = {
   delay: '⏰'
 }
 
+const roleOptions = [
+  { value: 'dispatcher', label: '调度员' },
+  { value: 'team_leader', label: '搬运组长' },
+  { value: 'customer_service', label: '客服' }
+]
+
 const getAppointment = (appointmentId: string) => {
   return getAppointmentById(appointmentId)
 }
@@ -110,7 +129,10 @@ const handleAddException = async () => {
       appointmentId: '',
       type: 'price_increase',
       description: '',
-      amount: 0
+      amount: 0,
+      responsibleRole: '',
+      dueTime: '',
+      timeNote: ''
     }
   }
 }
@@ -132,6 +154,34 @@ const handleResolve = async () => {
 const handleStartProcessing = async (exception: ExceptionRecord) => {
   if (currentUser.value) {
     await startProcessingException(exception.appointmentId, exception.id, currentUser.value.name)
+  }
+}
+
+const openEditModal = (exception: ExceptionRecord) => {
+  selectedException.value = exception
+  editForm.value = {
+    responsibleRole: exception.responsibleRole || '',
+    dueTime: exception.dueTime || '',
+    isOverdue: exception.isOverdue || false,
+    timeNote: exception.timeNote || ''
+  }
+  showEditModal.value = true
+}
+
+const handleUpdateException = async () => {
+  if (selectedException.value) {
+    await updateException(
+      selectedException.value.appointmentId,
+      selectedException.value.id,
+      {
+        responsibleRole: editForm.value.responsibleRole as Role || undefined,
+        dueTime: editForm.value.dueTime || undefined,
+        isOverdue: editForm.value.isOverdue,
+        timeNote: editForm.value.timeNote || undefined
+      }
+    )
+    showEditModal.value = false
+    selectedException.value = null
   }
 }
 </script>
@@ -187,7 +237,7 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
           :key="exception.id"
           class="card"
           :style="{ 
-            borderLeft: exception.status === 'processing' ? '4px solid #faad14' : exception.status === 'resolved' ? '4px solid #52c41a' : '4px solid #f5222d',
+            borderLeft: exception.status === 'processing' ? '4px solid #faad14' : exception.status === 'resolved' ? '4px solid #52c41a' : exception.isOverdue ? '4px solid #f5222d' : '4px solid #faad14',
             marginBottom: 0,
             backgroundColor: exception.id === highlightId || exception.appointmentId === highlightId ? '#e6f7ff' : ''
           }"
@@ -197,9 +247,12 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
               <span style="font-size: 20px;">{{ typeIcons[exception.type] }}</span>
               <span class="badge badge-price-change">{{ typeLabels[exception.type] }}</span>
             </div>
-            <span :class="['badge', exception.status === 'resolved' ? 'badge-completed' : exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
-              {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
-            </span>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <span v-if="exception.isOverdue" class="badge" style="background-color: #fff2f0; color: #f5222d;">⚠️ 逾期</span>
+              <span :class="['badge', exception.status === 'resolved' ? 'badge-completed' : exception.status === 'processing' ? 'badge-warning' : 'badge-pending']">
+                {{ exception.status === 'resolved' ? '已解决' : exception.status === 'processing' ? '处理中' : '待处理' }}
+              </span>
+            </div>
           </div>
           
           <div style="margin-bottom: 12px;">
@@ -213,12 +266,21 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
             加价金额: ¥{{ exception.amount.toLocaleString() }}
           </div>
           
+          <div style="display: flex; gap: 16px; font-size: 12px; color: #666; margin-bottom: 8px;">
+            <span v-if="exception.responsibleRole">责任: {{ getRoleName(exception.responsibleRole) }}</span>
+            <span v-if="exception.dueTime">截止: {{ exception.dueTime }}</span>
+          </div>
+          
+          <div v-if="exception.timeNote" style="font-size: 12px; color: #4080ff; margin-bottom: 8px;">
+            时效备注: {{ exception.timeNote }}
+          </div>
+          
           <div style="display: flex; justify-content: space-between; align-items: center; color: #999; font-size: 12px;">
-            <span>创建时间: {{ exception.createdAt }}</span>
+            <span>创建: {{ exception.createdAt }}</span>
             <span v-if="exception.handledBy">处理人: {{ exception.handledBy }}</span>
           </div>
           
-          <div style="margin-top: 12px; display: flex; gap: 8px;">
+          <div style="margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap;">
             <button 
               v-if="exception.status === 'pending'"
               class="btn btn-warning"
@@ -228,11 +290,19 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
               开始处理
             </button>
             <button 
+              v-if="exception.status !== 'resolved'"
+              class="btn btn-secondary"
+              style="flex: 1;"
+              @click="openEditModal(exception)"
+            >
+              编辑
+            </button>
+            <button 
               class="btn btn-success"
               style="flex: 1;"
               @click="selectedException = exception; resolution = exception.resolution || ''; showResolveModal = true"
             >
-              {{ exception.status === 'resolved' ? '查看处理结果' : '完成处理' }}
+              {{ exception.status === 'resolved' ? '查看结果' : '完成处理' }}
             </button>
           </div>
           
@@ -288,10 +358,75 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
             <label>加价金额</label>
             <input type="number" v-model.number="newException.amount" placeholder="输入加价金额" />
           </div>
+          
+          <div class="form-group">
+            <label>责任角色</label>
+            <select v-model="newException.responsibleRole">
+              <option value="">请选择责任角色</option>
+              <option v-for="role in roleOptions" :key="role.value" :value="role.value">
+                {{ role.label }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>截止时间</label>
+            <input type="datetime-local" v-model="newException.dueTime" />
+          </div>
+          
+          <div class="form-group">
+            <label>时效备注</label>
+            <textarea v-model="newException.timeNote" placeholder="请输入时效备注"></textarea>
+          </div>
         </div>
         <div class="drawer-footer">
           <button class="btn btn-secondary" @click="showAddException = false">取消</button>
           <button class="btn btn-primary" @click="handleAddException">确认添加</button>
+        </div>
+      </div>
+    </div>
+    
+    <div v-if="showEditModal && selectedException" class="drawer-mask" @click.self="showEditModal = false">
+      <div class="drawer-content">
+        <div class="drawer-header">
+          <div class="drawer-title">编辑异常 - {{ typeLabels[selectedException.type] }}</div>
+          <div class="drawer-close" @click="showEditModal = false">✕</div>
+        </div>
+        <div class="drawer-body">
+          <div style="background-color: #f5f7fa; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+            <div>{{ selectedException.description }}</div>
+          </div>
+          
+          <div class="form-group">
+            <label>责任角色</label>
+            <select v-model="editForm.responsibleRole">
+              <option value="">请选择责任角色</option>
+              <option v-for="role in roleOptions" :key="role.value" :value="role.value">
+                {{ role.label }}
+              </option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>截止时间</label>
+            <input type="datetime-local" v-model="editForm.dueTime" />
+          </div>
+          
+          <div class="form-group">
+            <label>
+              <input type="checkbox" v-model="editForm.isOverdue" style="margin-right: 8px;" />
+              标记为逾期
+            </label>
+          </div>
+          
+          <div class="form-group">
+            <label>时效备注</label>
+            <textarea v-model="editForm.timeNote" placeholder="请输入时效备注，如：已通知客户、需协调等"></textarea>
+          </div>
+        </div>
+        <div class="drawer-footer">
+          <button class="btn btn-secondary" @click="showEditModal = false">取消</button>
+          <button class="btn btn-primary" @click="handleUpdateException">保存修改</button>
         </div>
       </div>
     </div>
@@ -307,6 +442,15 @@ const handleStartProcessing = async (exception: ExceptionRecord) => {
             <div style="font-weight: 500; margin-bottom: 8px;">{{ typeIcons[selectedException.type] }} {{ typeLabels[selectedException.type] }}</div>
             <div>{{ selectedException.description }}</div>
             <div v-if="selectedException.amount" style="color: #f5222d; margin-top: 4px;">金额: ¥{{ selectedException.amount }}</div>
+          </div>
+          
+          <div style="background-color: #f5f7fa; padding: 12px; border-radius: 8px; margin-bottom: 20px;">
+            <div style="font-size: 12px; color: #999; margin-bottom: 8px;">责任与时效</div>
+            <div style="display: flex; gap: 16px; font-size: 14px;">
+              <span v-if="selectedException.responsibleRole">责任: {{ getRoleName(selectedException.responsibleRole) }}</span>
+              <span v-if="selectedException.dueTime">截止: {{ selectedException.dueTime }}</span>
+            </div>
+            <div v-if="selectedException.timeNote" style="margin-top: 8px; color: #4080ff;">备注: {{ selectedException.timeNote }}</div>
           </div>
           
           <div class="form-group">
