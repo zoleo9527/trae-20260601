@@ -9,6 +9,8 @@ interface OperationLogsProps {
 export function OperationLogs({ logs }: OperationLogsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
+  const [filterEquipmentCode, setFilterEquipmentCode] = useState('');
+  const [filterAction, setFilterAction] = useState('all');
 
   const filteredLogs = logs.filter(log => {
     const matchesSearch = 
@@ -16,7 +18,11 @@ export function OperationLogs({ logs }: OperationLogsProps) {
       log.targetName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       log.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesRole = filterRole === 'all' || log.role === filterRole;
-    return matchesSearch && matchesRole;
+    const matchesEquipmentCode = !filterEquipmentCode || 
+      log.targetName.toLowerCase().includes(filterEquipmentCode.toLowerCase()) ||
+      log.description.toLowerCase().includes(filterEquipmentCode.toLowerCase());
+    const matchesAction = filterAction === 'all' || log.action === filterAction;
+    return matchesSearch && matchesRole && matchesEquipmentCode && matchesAction;
   });
 
   const roleLabels: Record<string, { label: string; color: string; bg: string }> = {
@@ -79,7 +85,7 @@ export function OperationLogs({ logs }: OperationLogsProps) {
               placeholder="搜索操作人、目标名称..."
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-gray-500" />
             <select
               value={filterRole}
@@ -91,6 +97,35 @@ export function OperationLogs({ logs }: OperationLogsProps) {
               <option value="field_technician">现场技师</option>
               <option value="warehouse_manager">仓库管理员</option>
               <option value="system">系统</option>
+            </select>
+            <input
+              type="text"
+              value={filterEquipmentCode}
+              onChange={(e) => setFilterEquipmentCode(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              placeholder="设备编号"
+            />
+            <select
+              value={filterAction}
+              onChange={(e) => setFilterAction(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">全部操作</option>
+              <option value="create_equipment">创建设备档案</option>
+              <option value="update_equipment">更新设备档案</option>
+              <option value="delete_equipment">删除设备档案</option>
+              <option value="create_maintenance_plan">创建保养计划</option>
+              <option value="update_maintenance_plan">更新保养计划</option>
+              <option value="complete_maintenance">完成保养计划</option>
+              <option value="issue_parts">发放配件</option>
+              <option value="wrong_delivery">配件错发</option>
+              <option value="report_equipment_down">上报设备停机</option>
+              <option value="complete_repair">设备维修完成</option>
+              <option value="report_wrong_delivery">登记配件错发</option>
+              <option value="resolve_wrong_delivery">处理配件错发</option>
+              <option value="acknowledge_equipment_change">确认设备档案变更</option>
+              <option value="detect_overdue">检测到保养逾期</option>
+              <option value="resolve_exception">处理异常</option>
             </select>
           </div>
         </div>

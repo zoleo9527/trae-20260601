@@ -54,7 +54,7 @@ export const maintenanceAPI = {
     const response = await api.get<MaintenancePlan>(`/maintenance-plans/${id}`);
     return response.data;
   },
-  create: async (data: Omit<MaintenancePlan, 'id' | 'createdAt' | 'updatedAt' | 'hasEquipmentChange' | 'equipmentChangeRecordId' | 'equipmentChangeAcknowledged'> & { operator?: string; operatorRole?: string }) => {
+  create: async (data: Omit<MaintenancePlan, 'id' | 'createdAt' | 'updatedAt' | 'hasEquipmentChange' | 'equipmentChangeRecordId' | 'equipmentChangeAcknowledged' | 'equipmentChangeAcknowledgedAt'> & { operator?: string; operatorRole?: string }) => {
     const response = await api.post<MaintenancePlan>('/maintenance-plans', data);
     return response.data;
   },

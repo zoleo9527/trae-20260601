@@ -18,6 +18,7 @@ export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: Ma
   const [showCreate, setShowCreate] = useState(false);
   const [showChangeAlert, setShowChangeAlert] = useState(false);
   const [changeRecord, setChangeRecord] = useState<EquipmentChangeRecord | null>(null);
+  const [changeFilter, setChangeFilter] = useState<'all' | 'unacknowledged' | 'acknowledged'>('all');
   
   const [newPlan, setNewPlan] = useState<{
     equipmentId: string;
@@ -41,7 +42,11 @@ export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: Ma
       plan.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       plan.planName.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || plan.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesChange = 
+      changeFilter === 'all' ||
+      (changeFilter === 'unacknowledged' && plan.hasEquipmentChange && !plan.equipmentChangeAcknowledged) ||
+      (changeFilter === 'acknowledged' && plan.hasEquipmentChange && plan.equipmentChangeAcknowledged);
+    return matchesSearch && matchesStatus && matchesChange;
   });
 
   const plansWithChangeAlert = plans.filter(p => p.hasEquipmentChange && !p.equipmentChangeAcknowledged);
@@ -234,6 +239,16 @@ export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: Ma
               <option value="overdue">已逾期</option>
               <option value="completed">已完成</option>
             </select>
+            <span className="text-sm text-gray-600">变更:</span>
+            <select
+              value={changeFilter}
+              onChange={(e) => setChangeFilter(e.target.value as 'all' | 'unacknowledged' | 'acknowledged')}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">全部</option>
+              <option value="unacknowledged">待确认变更</option>
+              <option value="acknowledged">已确认变更</option>
+            </select>
           </div>
         </div>
 
@@ -263,6 +278,11 @@ export function MaintenancePlans({ plans, equipment, currentUser, onUpdate }: Ma
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-600">
                           <CheckCircle className="w-3 h-3" />
                           已确认变更
+                        </span>
+                      )}
+                      {plan.hasEquipmentChange && plan.equipmentChangeAcknowledged && plan.equipmentChangeAcknowledgedAt && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
+                          {plan.equipmentChangeAcknowledgedAt}
                         </span>
                       )}
                     </div>

@@ -33,6 +33,7 @@ export interface MaintenancePlan {
   hasEquipmentChange: boolean;
   equipmentChangeRecordId: string | null;
   equipmentChangeAcknowledged: boolean;
+  equipmentChangeAcknowledgedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

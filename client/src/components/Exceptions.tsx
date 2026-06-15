@@ -13,6 +13,8 @@ export function Exceptions({ exceptions, currentUser, onUpdate }: ExceptionsProp
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  const [filterEquipmentCode, setFilterEquipmentCode] = useState('');
+  const [filterRole, setFilterRole] = useState('all');
   const [selectedException, setSelectedException] = useState<Exception | null>(null);
   const [showDrawer, setShowDrawer] = useState(false);
   const [resolution, setResolution] = useState('');
@@ -25,7 +27,15 @@ export function Exceptions({ exceptions, currentUser, onUpdate }: ExceptionsProp
       (exc.customerName && exc.customerName.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus = filterStatus === 'all' || exc.status === filterStatus;
     const matchesType = filterType === 'all' || exc.type === filterType;
-    return matchesSearch && matchesStatus && matchesType;
+    const matchesEquipmentCode = !filterEquipmentCode || 
+      (exc.equipmentCode && exc.equipmentCode.toLowerCase().includes(filterEquipmentCode.toLowerCase()));
+    const matchesRole = filterRole === 'all' || 
+      (exc.type === 'overdue_maintenance' && ['maintenance_manager', 'field_technician'].includes(filterRole)) ||
+      (exc.type === 'wrong_parts_delivery' && ['maintenance_manager', 'warehouse_manager'].includes(filterRole)) ||
+      (exc.type === 'equipment_down' && ['maintenance_manager', 'field_technician'].includes(filterRole)) ||
+      (exc.type === 'low_stock' && ['maintenance_manager', 'warehouse_manager'].includes(filterRole)) ||
+      (exc.type === 'equipment_change' && ['maintenance_manager', 'field_technician'].includes(filterRole));
+    return matchesSearch && matchesStatus && matchesType && matchesEquipmentCode && matchesRole;
   });
 
   const canResolveException = (exc: Exception) => {
@@ -204,7 +214,7 @@ export function Exceptions({ exceptions, currentUser, onUpdate }: ExceptionsProp
               placeholder="搜索异常标题、设备编号..."
             />
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Filter className="w-4 h-4 text-gray-500" />
             <select
               value={filterStatus}
@@ -226,6 +236,23 @@ export function Exceptions({ exceptions, currentUser, onUpdate }: ExceptionsProp
               <option value="equipment_down">设备停机</option>
               <option value="low_stock">库存不足</option>
               <option value="equipment_change">设备变更</option>
+            </select>
+            <input
+              type="text"
+              value={filterEquipmentCode}
+              onChange={(e) => setFilterEquipmentCode(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              placeholder="设备编号"
+            />
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">全部角色</option>
+              <option value="maintenance_manager">维保主管</option>
+              <option value="field_technician">现场技师</option>
+              <option value="warehouse_manager">仓库管理员</option>
             </select>
           </div>
         </div>
