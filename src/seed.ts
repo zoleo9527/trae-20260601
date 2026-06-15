@@ -53,7 +53,6 @@ const createSampleData = async () => {
   });
 
   const today = new Date();
-  const oneYearLater = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
   const twoYearsLater = new Date(today.getFullYear() + 2, today.getMonth(), today.getDate());
 
   const tire1 = await Tire.create({
@@ -128,6 +127,18 @@ const createSampleData = async () => {
     warrantyEndDate: twoYearsLater,
   });
 
+  const tire7 = await Tire.create({
+    brand: '固特异',
+    model: 'EAGLE F1',
+    size: '245/40R20',
+    serialNumber: 'GY2026070007',
+    productionDate: new Date(today.getFullYear(), 4, 1),
+    installationDate: new Date(today.getFullYear(), 5, 1),
+    vehiclePlate: '京G55555',
+    storeId: store.id,
+    warrantyEndDate: twoYearsLater,
+  });
+
   await WarrantyClaim.create({
     tireId: tire1.id,
     customerName: '张三',
@@ -191,7 +202,7 @@ const createSampleData = async () => {
     isRisk: false,
   });
 
-  const claim6 = await WarrantyClaim.create({
+  await WarrantyClaim.create({
     tireId: tire6.id,
     customerName: '周八',
     customerPhone: '13900139006',
@@ -206,16 +217,8 @@ const createSampleData = async () => {
     isRisk: false,
   });
 
-  const comp1 = await Compensation.create({
-    claimId: claim6.id,
-    type: 'REPLACEMENT',
-    amount: 850.00,
-    description: '更换全新朝阳RP76轮胎一条',
-    status: CompensationStatus.PENDING,
-  });
-
   const claim7 = await WarrantyClaim.create({
-    tireId: tire1.id,
+    tireId: tire7.id,
     customerName: '吴九',
     customerPhone: '13900139007',
     issueDescription: '轮胎鼓包，要求退款',
@@ -229,18 +232,16 @@ const createSampleData = async () => {
     isRisk: false,
   });
 
-  const comp2 = await Compensation.create({
+  await Compensation.create({
     claimId: claim7.id,
     type: 'REFUND',
     amount: 650.00,
     description: '全额退款',
-    status: CompensationStatus.APPROVED,
-    approvedBy: manager.id,
-    approvalComment: '同意退款',
+    status: CompensationStatus.PENDING,
   });
 
   const claim8 = await WarrantyClaim.create({
-    tireId: tire2.id,
+    tireId: tire1.id,
     customerName: '郑十',
     customerPhone: '13900139008',
     issueDescription: '轮胎安装后发现生产日期被篡改',
@@ -254,9 +255,61 @@ const createSampleData = async () => {
   });
 
   const claim9 = await WarrantyClaim.create({
-    tireId: tire3.id,
+    tireId: tire2.id,
     customerName: '钱十一',
     customerPhone: '13900139009',
+    issueDescription: '轮胎异常磨损，已批准补偿',
+    status: ClaimStatus.COMPENSATION_PROCESSING,
+    storeId: store.id,
+    createdBy: frontdesk.id,
+    technicianId: technician.id,
+    managerId: manager.id,
+    technicianComment: '符合质保条件',
+    managerComment: '同意补偿方案',
+    isRisk: false,
+  });
+
+  await Compensation.create({
+    claimId: claim9.id,
+    type: 'REPLACEMENT',
+    amount: 850.00,
+    description: '更换全新轮胎一条',
+    status: CompensationStatus.APPROVED,
+    approvedBy: manager.id,
+    approvalComment: '同意更换',
+  });
+
+  const claim10 = await WarrantyClaim.create({
+    tireId: tire3.id,
+    customerName: '刘十二',
+    customerPhone: '13900139010',
+    issueDescription: '轮胎爆胎，已完成支付',
+    status: ClaimStatus.COMPENSATION_PROCESSING,
+    storeId: store.id,
+    createdBy: frontdesk.id,
+    technicianId: technician.id,
+    managerId: manager.id,
+    technicianComment: '符合质保条件',
+    managerComment: '已支付补偿',
+    isRisk: false,
+  });
+
+  await Compensation.create({
+    claimId: claim10.id,
+    type: 'REFUND',
+    amount: 900.00,
+    description: '爆胎事故赔偿',
+    status: CompensationStatus.PAID,
+    approvedBy: manager.id,
+    paidBy: manager.id,
+    approvalComment: '同意赔偿',
+    paymentDate: new Date(today.getFullYear(), today.getMonth() - 1, 10),
+  });
+
+  const claim11 = await WarrantyClaim.create({
+    tireId: tire4.id,
+    customerName: '陈十三',
+    customerPhone: '13900139011',
     issueDescription: '轮胎鼓包，已完成补偿',
     status: ClaimStatus.COMPLETED,
     storeId: store.id,
@@ -270,7 +323,7 @@ const createSampleData = async () => {
   });
 
   await Compensation.create({
-    claimId: claim9.id,
+    claimId: claim11.id,
     type: 'REFUND',
     amount: 700.00,
     description: '全额退款已完成',
@@ -293,9 +346,15 @@ const createSampleData = async () => {
   console.log('  TECHNICIAN_REVIEW: 1条（技师已领取，待审核）');
   console.log('  TECHNICIAN_APPROVED: 1条（技师审核通过，等待店长领取）');
   console.log('  MANAGER_REVIEW: 1条（店长已领取，待审核）');
-  console.log('  APPROVED: 1条（店长批准，待创建补偿）');
-  console.log('  COMPENSATION_PROCESSING: 1条（补偿处理中）');
+  console.log('  APPROVED: 1条（店长批准，待启动补偿）');
+  console.log('  COMPENSATION_PROCESSING: 3条（补偿处理中，含PENDING/APPROVED/PAID）');
   console.log('  REJECTED: 1条（已拒绝）');
+  console.log('  COMPLETED: 1条（已完成，补偿已完成）');
+  console.log('');
+  console.log('补偿记录状态分布：');
+  console.log('  PENDING: 1条（待审核）');
+  console.log('  APPROVED: 1条（已批准）');
+  console.log('  PAID: 1条（已支付）');
   console.log('  COMPLETED: 1条（已完成）');
 };
 
