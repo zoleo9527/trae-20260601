@@ -1,4 +1,4 @@
-import { Appeal, Evidence, AuditLog, User, AppealSummary } from '../../types';
+import { Appeal, Evidence, AuditLog, User, AppealSummary, AppealStatus } from '../../types';
 
 export const mockUsers: User[] = [
   { id: 'u1', name: '王收货', role: 'receiver', phone: '13800138001' },
@@ -355,7 +355,7 @@ export const getUsersByRole = (role: string): User[] => {
 
 export const getSummary = (): AppealSummary => {
   const today = new Date().toISOString().split('T')[0];
-  const pendingStatuses: Appeal['status'][] = ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'];
+  const pendingStatuses: AppealStatus[] = ['pending_receipt', 'pending_inspection', 'pending_finance', 'pending_confirmation'];
   
   const todayPending = appeals.filter(a => 
     a.createdAt.startsWith(today) && pendingStatuses.includes(a.status)
