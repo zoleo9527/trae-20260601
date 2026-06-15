@@ -29,21 +29,37 @@ const STATUS_FILTERS: Array<{ value: string; label: string }> = [
 
 export default function OrderList() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuthStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const initialStatus = searchParams.get('status') || '';
-  const initialResp = searchParams.get('responsibility') || '';
-  const defaultFilter: StatusFilter | 'UNCLOSED' = useMemo(() => {
-    if (initialResp === 'unclosed') return 'UNCLOSED';
-    if (initialStatus) return initialStatus as StatusFilter;
-    return user ? (ROLE_DEFAULT_ENTRY[user.role].statusFilter as StatusFilter | 'UNCLOSED') : 'ALL';
-  }, [initialStatus, initialResp, user]);
+  const statusParam = searchParams.get('status') || '';
+  const respParam = searchParams.get('responsibility') || '';
+  const keywordParam = searchParams.get('q') || '';
+  const [keyword, setKeyword] = useState(keywordParam);
 
-  const [filter, setFilter] = useState<StatusFilter | 'UNCLOSED'>(defaultFilter);
-  const [keyword, setKeyword] = useState('');
+  const hasExplicitFilter = statusParam !== '' || respParam !== '';
+
+  const activeFilter: StatusFilter | 'UNCLOSED' = useMemo(() => {
+    if (respParam === 'unclosed') return 'UNCLOSED';
+    if (statusParam) return statusParam as StatusFilter;
+    if (user) return ROLE_DEFAULT_ENTRY[user.role].statusFilter as StatusFilter;
+    return 'ALL';
+  }, [statusParam, respParam, user]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (!hasExplicitFilter) {
+      const defaultStatus = ROLE_DEFAULT_ENTRY[user.role].statusFilter;
+      const params: Record<string, string> = {};
+      if (defaultStatus !== 'ALL') params.status = defaultStatus as string;
+      setSearchParams(params, { replace: true });
+    }
+  }, [user, navigate, hasExplicitFilter, setSearchParams]);
 
   useEffect(() => {
     if (!user) {
@@ -61,8 +77,19 @@ export default function OrderList() {
   }, [user, navigate]);
 
   useEffect(() => {
-    setFilter(defaultFilter);
-  }, [defaultFilter]);
+    const t = setTimeout(() => {
+      if (keyword !== keywordParam) {
+        const params = new URLSearchParams(searchParams);
+        if (keyword) {
+          params.set('q', keyword);
+        } else {
+          params.delete('q');
+        }
+        setSearchParams(params, { replace: true });
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [keyword, keywordParam, searchParams, setSearchParams]);
 
   const quickFilters: QuickFilter[] = useMemo(() => {
     const base: QuickFilter[] = [
@@ -77,30 +104,41 @@ export default function OrderList() {
     return base;
   }, []);
 
+  const setFilterToUrl = (key: StatusFilter | 'UNCLOSED') => {
+    const params = new URLSearchParams();
+    if (key === 'UNCLOSED') {
+      params.set('responsibility', 'unclosed');
+    } else if (key !== 'ALL') {
+      params.set('status', key as string);
+    }
+    if (keywordParam) params.set('q', keywordParam);
+    setSearchParams(params, { replace: true });
+  };
+
   const filtered = useMemo(() => {
     const byFilter = orders.filter((o) => {
-      const f = quickFilters.find((q) => q.key === filter);
+      const f = quickFilters.find((q) => q.key === activeFilter);
       return f ? f.match(o) : true;
     });
-    if (!keyword) return byFilter;
-    const kw = keyword.toLowerCase();
+    if (!keywordParam) return byFilter;
+    const kw = keywordParam.toLowerCase();
     return byFilter.filter(
       (o) =>
         o.orderNo.toLowerCase().includes(kw) ||
-        o.customerName.includes(keyword) ||
+        o.customerName.includes(keywordParam) ||
         o.vehiclePlate.toLowerCase().includes(kw),
     );
-  }, [orders, filter, keyword, quickFilters]);
+  }, [orders, activeFilter, keywordParam, quickFilters]);
 
   const quickFiltersWithCount = useMemo(() => {
     return quickFilters.map((q) => ({ ...q, count: orders.filter(q.match).length }));
   }, [orders, quickFilters]);
 
   const currentFilterLabel = useMemo(() => {
-    if (filter === 'ALL') return '全部工单';
-    if (filter === 'UNCLOSED') return '责任未闭环';
-    return STATUS_LABEL[filter as keyof typeof STATUS_LABEL] || '全部';
-  }, [filter]);
+    if (activeFilter === 'ALL') return '全部工单';
+    if (activeFilter === 'UNCLOSED') return '责任未闭环';
+    return STATUS_LABEL[activeFilter as keyof typeof STATUS_LABEL] || '全部';
+  }, [activeFilter]);
 
   return (
     <div className="space-y-6">
@@ -122,11 +160,11 @@ export default function OrderList() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
         {quickFiltersWithCount.map((q, idx) => {
           const Icon = q.icon;
-          const active = filter === q.key;
+          const active = activeFilter === q.key;
           return (
             <button
               key={q.key}
-              onClick={() => setFilter(q.key)}
+              onClick={() => setFilterToUrl(q.key)}
               className={`card p-4 text-left flex items-start gap-3 transition-all hover:-translate-y-0.5 group ${
                 active ? 'ring-2 ring-ochre-700 border-ochre-700' : ''
               }`}
@@ -184,11 +222,12 @@ export default function OrderList() {
           <Filter size={16} strokeWidth={2} className="text-carbon-500" />
           <div className="flex flex-wrap gap-2">
             {STATUS_FILTERS.map((f) => {
-              const active = (filter === 'ALL' && f.value === '') || filter === f.value;
+              const btnFilter: StatusFilter = (f.value || 'ALL') as StatusFilter;
+              const active = activeFilter === btnFilter;
               return (
                 <button
                   key={f.value || 'all'}
-                  onClick={() => setFilter((f.value || 'ALL') as StatusFilter)}
+                  onClick={() => setFilterToUrl(btnFilter)}
                   className={`px-3 py-1.5 font-mono text-xs uppercase tracking-wider border-2 transition-colors ${
                     active
                       ? 'bg-ochre-800 border-ochre-800 text-white'
@@ -200,9 +239,9 @@ export default function OrderList() {
               );
             })}
             <button
-              onClick={() => setFilter('UNCLOSED')}
+              onClick={() => setFilterToUrl('UNCLOSED')}
               className={`px-3 py-1.5 font-mono text-xs uppercase tracking-wider border-2 transition-colors ${
-                filter === 'UNCLOSED'
+                activeFilter === 'UNCLOSED'
                   ? 'bg-red-700 border-red-700 text-white'
                   : 'bg-white border-red-300 text-red-700 hover:border-red-500'
               }`}

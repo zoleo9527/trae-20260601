@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import {
   LayoutDashboard,
@@ -51,10 +51,11 @@ function RoleBadge() {
 function Sidebar() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const roleNavItems: Record<UserRole, Array<{ path: string; label: string; icon: typeof User; highlight?: boolean; badge?: string; primary?: boolean }>> = {
     RECEPTION: [
-      { path: '/orders', label: '全部工单', icon: ClipboardList, primary: true, badge: '默认' },
+      { path: '/orders?status=ALL', label: '全部工单', icon: ClipboardList, primary: true, badge: '默认' },
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
     ],
     TECHNICIAN: [
@@ -62,14 +63,14 @@ function Sidebar() {
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
       { path: '/orders?status=IN_SELECTION', label: '选型中', icon: Wrench },
       { path: '/orders?status=QUOTE_REJECTED', label: '驳回重选', icon: AlertTriangle },
-      { path: '/orders', label: '全部工单', icon: ClipboardList },
+      { path: '/orders?status=ALL', label: '全部工单', icon: ClipboardList },
     ],
     MANAGER: [
       { path: ROLE_DEFAULT_ENTRY.MANAGER.path, label: '待审核报价', icon: ShieldAlert, primary: true, badge: '默认' },
       { path: '/dashboard', label: '工作台', icon: LayoutDashboard },
       { path: '/orders?status=QUOTE_REJECTED', label: '已驳回', icon: AlertTriangle },
       { path: '/orders?status=QUOTE_CONFIRMED', label: '已确认', icon: ClipboardList },
-      { path: '/orders', label: '全部工单', icon: ClipboardList },
+      { path: '/orders?status=ALL', label: '全部工单', icon: ClipboardList },
     ],
   };
 
@@ -100,32 +101,46 @@ function Sidebar() {
       </div>
 
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map(({ path, label, icon: Icon, primary, badge }) => (
-          <NavLink
-            key={path}
-            to={path}
-            end={path === '/orders'}
-            className={({ isActive }) =>
-              `flex items-center justify-between gap-3 px-4 py-3 font-mono text-sm uppercase tracking-wider border-2 transition-colors ${
-                isActive
-                  ? 'bg-ochre-800 border-ochre-600 text-white'
-                  : primary
-                  ? 'border-ochre-900/40 bg-carbon-800/50 text-ochre-300 hover:bg-carbon-800 hover:text-white hover:border-ochre-700'
-                  : 'border-transparent text-carbon-300 hover:bg-carbon-800 hover:text-white'
-              }`
-            }
-          >
-            <span className="flex items-center gap-3">
-              <Icon size={18} strokeWidth={2} />
-              {label}
-            </span>
-            {badge && (
-              <span className="px-2 py-0.5 bg-ochre-700 text-white font-mono text-[10px] uppercase tracking-wider animate-pulse-slow">
-                {badge}
+        {navItems.map(({ path, label, icon: Icon, primary, badge }) => {
+          const [, searchStr = ''] = path.split('?');
+          return (
+            <NavLink
+              key={path}
+              to={path}
+              className={({ isActive }) => {
+                let active = isActive;
+                if (isActive && searchStr) {
+                  const locParams = new URLSearchParams(location.search);
+                  const targetParams = new URLSearchParams(searchStr);
+                  let match = true;
+                  for (const [k, v] of targetParams.entries()) {
+                    if (locParams.get(k) !== v) { match = false; break; }
+                  }
+                  active = match;
+                } else if (isActive && !searchStr && location.search) {
+                  active = false;
+                }
+                return `flex items-center justify-between gap-3 px-4 py-3 font-mono text-sm uppercase tracking-wider border-2 transition-colors ${
+                  active
+                    ? 'bg-ochre-800 border-ochre-600 text-white'
+                    : primary
+                    ? 'border-ochre-900/40 bg-carbon-800/50 text-ochre-300 hover:bg-carbon-800 hover:text-white hover:border-ochre-700'
+                    : 'border-transparent text-carbon-300 hover:bg-carbon-800 hover:text-white'
+                }`;
+              }}
+            >
+              <span className="flex items-center gap-3">
+                <Icon size={18} strokeWidth={2} />
+                {label}
               </span>
-            )}
-          </NavLink>
-        ))}
+              {badge && (
+                <span className="px-2 py-0.5 bg-ochre-700 text-white font-mono text-[10px] uppercase tracking-wider animate-pulse-slow">
+                  {badge}
+                </span>
+              )}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-carbon-700">

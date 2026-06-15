@@ -80,8 +80,9 @@ export default function OrderDetail() {
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/orders')}
+            onClick={() => navigate(-1)}
             className="w-10 h-10 border-2 border-carbon-300 flex items-center justify-center hover:border-ochre-700 hover:text-ochre-800 transition-colors"
+            title="返回列表（保留筛选）"
           >
             <ArrowLeft size={18} strokeWidth={2} />
           </button>

@@ -283,7 +283,7 @@ export default function Dashboard() {
       };
     }
     return {
-      primary: { label: '工单管理', icon: ClipboardList, color: '#B8860B', to: '/orders' },
+      primary: { label: '工单管理', icon: ClipboardList, color: '#B8860B', to: '/orders?status=ALL' },
       secondary: { label: '查看报价确认', icon: CircleDollarSign, color: '#8B2500', to: '/orders?status=QUOTE_CONFIRMED' },
     };
   })();
@@ -322,7 +322,7 @@ export default function Dashboard() {
       value: user.role === 'TECHNICIAN' ? countByStatus.PENDING_SELECTION : user.role === 'MANAGER' ? countByStatus.PENDING_QUOTE : data?.pendingCount ?? 0,
       icon: user.role === 'TECHNICIAN' ? Wrench : user.role === 'MANAGER' ? ShieldAlert : ClipboardList,
       color: user.role === 'TECHNICIAN' ? '#8B2500' : user.role === 'MANAGER' ? '#2C2C2C' : '#B8860B',
-      to: user.role === 'TECHNICIAN' ? '/orders?status=PENDING_SELECTION' : user.role === 'MANAGER' ? '/orders?status=PENDING_QUOTE' : '/orders',
+      to: user.role === 'TECHNICIAN' ? '/orders?status=PENDING_SELECTION' : user.role === 'MANAGER' ? '/orders?status=PENDING_QUOTE' : '/orders?status=ALL',
       urgent: (user.role === 'TECHNICIAN' && countByStatus.PENDING_SELECTION > 0) || (user.role === 'MANAGER' && countByStatus.PENDING_QUOTE > 0),
     },
     {
