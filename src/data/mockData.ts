@@ -198,14 +198,14 @@ export const mockOrders: Order[] = [
     order_date: '2024-01-18',
     status: 'installing',
     install_status: 'in_progress',
-    total_price: 12895,
+    total_price: 14095,
     paid_amount: 10000,
     created_by: '王销售',
     created_at: '2024-01-18 14:00:00',
     config_items: [
       { id: 'ci007', order_id: 'ORD-20240118-002', part_id: 'p002', part_name: 'Intel Core i7-14700KF', spec: '20核28线程', quantity: 1, unit_price: 2499, total_price: 2499 },
       { id: 'ci008', order_id: 'ORD-20240118-002', part_id: 'p004', part_name: '金士顿FURY Beast DDR5 32GB', spec: 'DDR5-5600', quantity: 2, unit_price: 699, total_price: 1398 },
-      { id: 'ci009', order_id: 'ORD-20240118-002', part_id: 'p014', part_name: 'AMD RX 7800 XT', spec: '16GB GDDR6', quantity: 1, unit_price: 3299, total_price: 3299 },
+      { id: 'ci009', order_id: 'ORD-20240118-002', part_id: 'p006', part_name: 'NVIDIA RTX 4070 SUPER', spec: '12GB GDDR6X', quantity: 1, unit_price: 4499, total_price: 4499 },
       { id: 'ci010', order_id: 'ORD-20240118-002', part_id: 'p008', part_name: '华硕ROG STRIX B760-A', spec: 'B760芯片组 WiFi', quantity: 1, unit_price: 1299, total_price: 1299 },
       { id: 'ci011', order_id: 'ORD-20240118-002', part_id: 'p010', part_name: '海韵FOCUS GX-850', spec: '850W', quantity: 1, unit_price: 899, total_price: 899 },
       { id: 'ci012', order_id: 'ORD-20240118-002', part_id: 'p012', part_name: '三星990 PRO 2TB', spec: 'NVMe M.2', quantity: 1, unit_price: 1199, total_price: 1199 }

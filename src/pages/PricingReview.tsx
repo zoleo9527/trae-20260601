@@ -27,10 +27,25 @@ export default function PricingReview() {
   const configTotal = order.config_items.reduce((sum, item) => sum + item.total_price, 0);
   const modifyTotal = order.modify_records.reduce((sum, record) => sum + record.price_diff, 0);
   const installedTotal = order.installed_parts.reduce((sum, part) => sum + part.total_price, 0);
-  const installedDiff = installedTotal - configTotal;
-  const finalTotal = configTotal + modifyTotal + installedDiff;
+
+  const modifiedPartIds = new Set(order.modify_records.map(r => r.part_id));
+  
+  const effectiveInstalledDiff = order.installed_parts.reduce((diff, part) => {
+    if (modifiedPartIds.has(part.part_id)) {
+      return diff;
+    }
+    const configItem = order.config_items.find(
+      item => item.part_id === part.part_id || item.part_name === part.part_name
+    );
+    if (configItem) {
+      return diff + (part.total_price - configItem.total_price);
+    }
+    return diff + part.total_price;
+  }, 0);
+
+  const finalTotal = configTotal + modifyTotal + effectiveInstalledDiff;
   const remainingAmount = finalTotal - order.paid_amount;
-  const hasPendingDiff = remainingAmount > 0 || installedDiff !== 0;
+  const hasPendingDiff = remainingAmount > 0 || effectiveInstalledDiff !== 0;
 
   const handleConfirmPayment = () => {
     if (confirmAmount > 0) {
@@ -55,16 +70,16 @@ export default function PricingReview() {
           </div>
         </div>
 
-        <div className={`bg-white rounded-xl p-4 shadow-sm ${installedDiff !== 0 ? (installedDiff > 0 ? 'ring-2 ring-green-300' : 'ring-2 ring-red-300') : ''}`}>
+        <div className={`bg-white rounded-xl p-4 shadow-sm ${effectiveInstalledDiff !== 0 ? (effectiveInstalledDiff > 0 ? 'ring-2 ring-green-300' : 'ring-2 ring-red-300') : ''}`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 text-sm">实装差价</p>
-              <p className={`text-xl font-bold ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {installedDiff >= 0 ? '+' : ''}¥{installedDiff.toLocaleString()}
+              <p className={`text-xl font-bold ${effectiveInstalledDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {effectiveInstalledDiff >= 0 ? '+' : ''}¥{effectiveInstalledDiff.toLocaleString()}
               </p>
             </div>
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${installedDiff >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-              <Package className={`w-5 h-5 ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${effectiveInstalledDiff >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+              <Package className={`w-5 h-5 ${effectiveInstalledDiff >= 0 ? 'text-green-600' : 'text-red-600'}`} />
             </div>
           </div>
         </div>
@@ -179,7 +194,7 @@ export default function PricingReview() {
                 );
               })
             )}
-            <div className={`p-4 flex items-center justify-between ${installedDiff !== 0 ? (installedDiff > 0 ? 'bg-green-50' : 'bg-red-50') : 'bg-gray-50'}`}>
+            <div className={`p-4 flex items-center justify-between ${(installedTotal - configTotal) !== 0 ? ((installedTotal - configTotal) > 0 ? 'bg-green-50' : 'bg-red-50') : 'bg-gray-50'}`}>
               <span className="font-semibold text-gray-700">实装总价</span>
               <span className="text-lg font-bold text-gray-900">¥{installedTotal.toLocaleString()}</span>
             </div>
@@ -227,7 +242,7 @@ export default function PricingReview() {
         </div>
       </div>
 
-      {(installedDiff !== 0 || order.installed_parts.length > 0) && (
+      {(effectiveInstalledDiff !== 0 || order.installed_parts.length > 0) && (
         <div className="bg-white rounded-xl shadow-sm border-l-4 border-cyan-500">
           <div className="p-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-800 flex items-center gap-2">
@@ -236,7 +251,7 @@ export default function PricingReview() {
             </h3>
           </div>
           <div className="p-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div className="text-center p-4 bg-gray-50 rounded-lg">
                 <p className="text-sm text-gray-500">原单总价</p>
                 <p className="text-xl font-bold text-gray-900">¥{configTotal.toLocaleString()}</p>
@@ -245,13 +260,22 @@ export default function PricingReview() {
                 <p className="text-sm text-gray-500">实装总价</p>
                 <p className="text-xl font-bold text-gray-900">¥{installedTotal.toLocaleString()}</p>
               </div>
-              <div className={`text-center p-4 rounded-lg ${installedDiff >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
-                <p className="text-sm text-gray-500">价格差异</p>
-                <p className={`text-xl font-bold ${installedDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {installedDiff >= 0 ? '+' : ''}¥{installedDiff.toLocaleString()}
+              <div className={`text-center p-4 rounded-lg ${(installedTotal - configTotal) >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                <p className="text-sm text-gray-500">原始差异</p>
+                <p className={`text-xl font-bold ${(installedTotal - configTotal) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {(installedTotal - configTotal) >= 0 ? '+' : ''}¥{(installedTotal - configTotal).toLocaleString()}
+                </p>
+              </div>
+              <div className={`text-center p-4 rounded-lg ${effectiveInstalledDiff >= 0 ? 'bg-green-50' : 'bg-red-50'}`}>
+                <p className="text-sm text-gray-500">有效差额</p>
+                <p className={`text-xl font-bold ${effectiveInstalledDiff >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {effectiveInstalledDiff >= 0 ? '+' : ''}¥{effectiveInstalledDiff.toLocaleString()}
                 </p>
               </div>
             </div>
+            <p className="text-xs text-gray-500 mt-4 text-center">
+              有效差额 = 实装差价 - 已被改配记录覆盖的部分（避免重复计费）
+            </p>
           </div>
         </div>
       )}

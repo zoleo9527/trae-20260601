@@ -128,17 +128,56 @@ export default function OrderDetail() {
             </h3>
             <div className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <span className="text-gray-500">订单总金额</span>
-                <span className="text-lg font-bold text-gray-900">¥{order.total_price.toLocaleString()}</span>
+                <span className="text-gray-500">配置原价</span>
+                <span className="text-lg font-bold text-gray-900">¥{order.config_items.reduce((s, i) => s + i.total_price, 0).toLocaleString()}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-500">改配差价</span>
+                <span className={`text-lg font-bold ${order.modify_records.reduce((s, r) => s + r.price_diff, 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {order.modify_records.reduce((s, r) => s + r.price_diff, 0) >= 0 ? '+' : ''}¥{order.modify_records.reduce((s, r) => s + r.price_diff, 0).toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-500">实装差额</span>
+                <span className={`text-lg font-bold ${(() => {
+                  const modifiedPartIds = new Set(order.modify_records.map(r => r.part_id));
+                  const diff = order.installed_parts.reduce((d, part) => {
+                    if (modifiedPartIds.has(part.part_id)) return d;
+                    const configItem = order.config_items.find(i => i.part_id === part.part_id || i.part_name === part.part_name);
+                    return d + (configItem ? (part.total_price - configItem.total_price) : part.total_price);
+                  }, 0);
+                  return diff >= 0;
+                })() ? 'text-green-600' : 'text-red-600'}`}>
+                  {(() => {
+                    const modifiedPartIds = new Set(order.modify_records.map(r => r.part_id));
+                    const diff = order.installed_parts.reduce((d, part) => {
+                      if (modifiedPartIds.has(part.part_id)) return d;
+                      const configItem = order.config_items.find(i => i.part_id === part.part_id || i.part_name === part.part_name);
+                      return d + (configItem ? (part.total_price - configItem.total_price) : part.total_price);
+                    }, 0);
+                    return diff >= 0 ? '+' : '';
+                  })()}¥{(() => {
+                    const modifiedPartIds = new Set(order.modify_records.map(r => r.part_id));
+                    return order.installed_parts.reduce((d, part) => {
+                      if (modifiedPartIds.has(part.part_id)) return d;
+                      const configItem = order.config_items.find(i => i.part_id === part.part_id || i.part_name === part.part_name);
+                      return d + (configItem ? (part.total_price - configItem.total_price) : part.total_price);
+                    }, 0);
+                  })().toLocaleString()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <span className="text-gray-700 font-semibold">最终总价</span>
+                <span className="text-xl font-bold text-gray-900">¥{order.total_price.toLocaleString()}</span>
               </div>
               <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <span className="text-gray-500">已付金额</span>
                 <span className="text-lg font-bold text-green-600">¥{order.paid_amount.toLocaleString()}</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
-                <span className="text-orange-600">待补金额</span>
-                <span className="text-lg font-bold text-orange-600">
-                  ¥{(order.total_price - order.paid_amount).toLocaleString()}
+              <div className={`flex items-center justify-between p-3 rounded-lg ${(order.total_price - order.paid_amount) > 0 ? 'bg-orange-50' : 'bg-green-50'}`}>
+                <span className={`${(order.total_price - order.paid_amount) > 0 ? 'text-orange-600' : 'text-green-600'}`}>待补金额</span>
+                <span className={`text-lg font-bold ${(order.total_price - order.paid_amount) > 0 ? 'text-orange-600' : 'text-green-600'}`}>
+                  {(order.total_price - order.paid_amount) > 0 ? '待补 ' : '已付清 '}¥{(order.total_price - order.paid_amount).toLocaleString()}
                 </span>
               </div>
             </div>
