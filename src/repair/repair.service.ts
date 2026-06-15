@@ -230,7 +230,11 @@ export class RepairService {
 
   async submitQualityCheck(
     orderId: string,
-    dto: { qualityCheck: { passed: boolean; notes: string } },
+    dto: {
+      qualityCheck: { passed: boolean; notes: string };
+      checkItems?: any;
+      failedItems?: string;
+    },
     inspector: User,
   ) {
     const order = await this.intakeRepo.findOne({ where: { id: orderId } });
@@ -244,26 +248,20 @@ export class RepairService {
       );
     }
 
+    if (!dto.checkItems) {
+      throw new BusinessException(
+        ErrorCode.VALIDATION_ERROR,
+        '旧质检接口必须提供 checkItems（10项逐项检查结果），否则无法创建真实结构化记录。请使用新接口 POST /repair/:orderId/quality-check 并附带 checkItems 字段',
+      );
+    }
+
     return this.evidenceService.createQualityCheck(
       orderId,
       {
-        checkItems: {
-          screenWorks: true,
-          touchWorks: true,
-          cameraWorks: true,
-          speakerWorks: true,
-          micWorks: true,
-          chargeWorks: true,
-          buttonWorks: true,
-          wifiWorks: true,
-          fingerprintWorks: true,
-          faceIdWorks: true,
-        },
+        checkItems: dto.checkItems,
         passed: dto.qualityCheck.passed,
         notes: dto.qualityCheck.notes,
-        failedItems: dto.qualityCheck.passed
-          ? undefined
-          : '通过旧质检接口提交，具体不合格项待补充',
+        failedItems: dto.failedItems,
       },
       inspector,
     );

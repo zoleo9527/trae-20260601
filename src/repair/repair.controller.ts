@@ -96,8 +96,9 @@ export class RepairController {
   @Roles(UserRole.RECEPTIONIST, UserRole.MANAGER)
   @ApiParam({ name: 'id', description: '工单ID' })
   @ApiOperation({
-    summary: '质检（已复用结构化记录）',
-    description: '自动创建结构化质检记录(QualityCheckRecord)，推荐直接用 POST /repair/:orderId/quality-check 提供逐项检查',
+    summary: '质检（必须附带 checkItems）',
+    description:
+      '必须提供 checkItems（10项逐项检查结果），否则返回 4001 错误。推荐使用新接口 POST /repair/:orderId/quality-check',
   })
   async qualityCheck(
     @Param('id') id: string,

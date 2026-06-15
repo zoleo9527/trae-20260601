@@ -17,11 +17,9 @@ def req(method, path, token=None, body=None):
 def check(name, cond, detail=""):
     global PASS, FAIL
     if cond:
-        PASS += 1
-        print(f"  ✅ {name}")
+        PASS += 1; print(f"  ✅ {name}")
     else:
-        FAIL += 1
-        print(f"  ❌ {name} {detail}")
+        FAIL += 1; print(f"  ❌ {name} {detail}")
 
 RT = req("POST", "/auth/login", body={"username":"reception","password":"123456"})["data"]["accessToken"]
 TT = req("POST", "/auth/login", body={"username":"tech01","password":"123456"})["data"]["accessToken"]
@@ -34,78 +32,120 @@ def new_order(name, phone):
     req("POST", f"/repair/{oid}/claim", TT)
     return oid
 
+# ── 场景1: 旧接口不传 checkItems → 拒绝 ──
 print("="*60)
-print("1. 旧申请备件接口→自动创建结构化 PartRequest")
+print("1. 旧质检接口不传 checkItems → 拒绝(4001)")
 print("="*60)
-OID = new_order("旧备件测试", "13800000011")
-r = req("PATCH", f"/repair/{OID}/request-parts", TT, {"notes":"需要iPhone 15屏幕"})
-check("接口成功 code=0", r["code"]==0, f"code={r['code']}")
-if r["code"]==0:
-    check("返回 PartRequest(有partName/status)", r["data"].get("partName") and r["data"].get("status"))
-    check("partName 含备注内容", "屏幕" in (r["data"].get("partName") or ""))
-    check("状态=pending", r["data"]["status"]=="pending")
-    PRID = r["data"]["id"]
-    ev = req("GET", f"/repair/{OID}/evidence", MT)
-    check("证据链含1条备件", len(ev["data"]["partRequests"])==1, f"={len(ev['data']['partRequests'])}")
-
-print("\n" + "="*60)
-print("2. 旧备件到货接口→下单+确认到货(结构化)")
-print("="*60)
-r = req("PATCH", f"/repair/{OID}/parts-arrived", RT)
-check("到货成功 code=0", r["code"]==0, f"code={r['code']}")
-if r["code"]==0:
-    check("备件状态=arrived", r["data"]["status"]=="arrived")
-    detail = req("GET", f"/intake/{OID}", RT)
-    check("工单自动回 repairing", detail["data"]["status"]=="repairing", f"={detail['data']['status']}")
-
-print("\n" + "="*60)
-print("3. 旧质检接口→创建结构化 QualityCheckRecord")
-print("="*60)
+OID = new_order("无checkItems", "13800000001")
+req("PATCH", f"/repair/{OID}/diagnosis", TT, {"diagnosisResult":"诊断结果"})
+req("POST", f"/repair/{OID}/part-request", TT, {"partName":"屏幕","quantity":1,"estimatedCost":100,"reason":"碎"})
+pr_list = req("GET", f"/repair/{OID}/part-requests", MT)["data"]
+req("PATCH", f"/repair/part-request/{pr_list[0]['id']}/order", RT)
+req("PATCH", f"/repair/part-request/{pr_list[0]['id']}/arrive", RT, {"arrivalNotes":"到"})
 req("PATCH", f"/repair/{OID}/submit-quality", TT, {"repairNotes":"修完了"})
-r = req("PATCH", f"/repair/{OID}/quality-check", RT, {"qualityCheck":{"passed":True,"notes":"通过旧接口质检"}})
-check("质检成功 code=0", r["code"]==0, f"code={r['code']} msg={r.get('message')}")
+
+r = req("PATCH", f"/repair/{OID}/quality-check", RT, {"qualityCheck":{"passed":True,"notes":"全过"}})
+check("不传checkItems被拒绝 code!=0", r["code"]!=0, f"code={r['code']}")
+check("错误码=4001", r["code"]==4001, f"code={r['code']}")
+check("提示引导新接口", "POST /repair/:orderId/quality-check" in r.get("message",""), f"msg={r.get('message')}")
+
+detail = req("GET", f"/intake/{OID}", RT)
+check("工单仍停在 quality_check", detail["data"]["status"]=="quality_check", f"status={detail['data']['status']}")
+
+# ── 场景2: 旧接口传 checkItems（全通过）→ 真实写入 ──
+print("\n" + "="*60)
+print("2. 旧质检接口传 checkItems（全通过）→ 真实写入")
+print("="*60)
+r = req("PATCH", f"/repair/{OID}/quality-check", RT, {
+    "qualityCheck":{"passed":True,"notes":"全通过"},
+    "checkItems":{"screenWorks":True,"touchWorks":True,"cameraWorks":True,"speakerWorks":True,"micWorks":True,"chargeWorks":True,"buttonWorks":True,"wifiWorks":True,"fingerprintWorks":True,"faceIdWorks":True}
+})
+check("成功 code=0", r["code"]==0, f"code={r['code']}")
 if r["code"]==0:
-    check("返回含 checkRound", "checkRound" in r["data"])
+    ci = r["data"].get("checkItems", {})
     check("checkRound=1", r["data"]["checkRound"]==1)
     check("passed=True", r["data"]["passed"]==True)
+    check("screenWorks=True(真实)", ci.get("screenWorks")==True, f"ci={ci}")
+    check("touchWorks=True(真实)", ci.get("touchWorks")==True)
+    check("cameraWorks=True(真实)", ci.get("cameraWorks")==True)
+
     ev = req("GET", f"/repair/{OID}/evidence", MT)
-    check("证据链含1条质检", len(ev["data"]["qualityChecks"])==1)
+    qc = ev["data"]["qualityChecks"][0]
+    ci2 = qc.get("checkItems", {})
+    check("证据链 screenWorks=True", ci2.get("screenWorks")==True, f"ci2={ci2}")
+    check("证据链 touchWorks=True", ci2.get("touchWorks")==True)
+
     detail = req("GET", f"/intake/{OID}", RT)
-    check("工单状态=ready", detail["data"]["status"]=="ready", f"={detail['data']['status']}")
+    check("工单→ready", detail["data"]["status"]=="ready")
 
+# ── 场景3: 旧接口传 checkItems（有失败项）→ 真实写入 ──
 print("\n" + "="*60)
-print("4. 证据接口查不存在工单→返回明确错误码")
+print("3. 旧质检接口传 checkItems（有失败项）→ 真实写入")
 print("="*60)
-FAKE = "00000000-0000-0000-0000-000000000000"
-for p in ["/repair/:id/evidence", "/repair/:id/part-requests", "/repair/:id/quality-checks", "/repair/:id/attachments"]:
-    path = p.replace(":id", FAKE)
-    r = req("GET", path, MT)
-    check(f"{p} 返回错误 code!=0", r["code"]!=0, f"code={r['code']}")
-    check(f"{p} 错误码=2001(工单不存在)", r["code"]==2001, f"code={r['code']}")
+OID2 = new_order("质检不通过", "13800000002")
+req("PATCH", f"/repair/{OID2}/diagnosis", TT, {"diagnosisResult":"诊断"})
+req("POST", f"/repair/{OID2}/part-request", TT, {"partName":"电池","quantity":1,"estimatedCost":100,"reason":"老化"})
+pr_list2 = req("GET", f"/repair/{OID2}/part-requests", MT)["data"]
+req("PATCH", f"/repair/part-request/{pr_list2[0]['id']}/order", RT)
+req("PATCH", f"/repair/part-request/{pr_list2[0]['id']}/arrive", RT, {"arrivalNotes":"到"})
+req("PATCH", f"/repair/{OID2}/submit-quality", TT, {"repairNotes":"换完电池"})
 
+r = req("PATCH", f"/repair/{OID2}/quality-check", RT, {
+    "qualityCheck":{"passed":False,"notes":"WiFi和触摸异常"},
+    "checkItems":{"screenWorks":True,"touchWorks":False,"cameraWorks":True,"speakerWorks":True,"micWorks":True,"chargeWorks":True,"buttonWorks":True,"wifiWorks":False,"fingerprintWorks":True,"faceIdWorks":True},
+    "failedItems":"触摸失灵,WiFi无法连接"
+})
+check("质检不通过 code=0", r["code"]==0, f"code={r['code']}")
+if r["code"]==0:
+    ci = r["data"].get("checkItems", {})
+    check("passed=False", r["data"]["passed"]==False)
+    check("touchWorks=False(真实)", ci.get("touchWorks")==False, f"ci={ci}")
+    check("wifiWorks=False(真实)", ci.get("wifiWorks")==False)
+    check("screenWorks=True(真实)", ci.get("screenWorks")==True)
+    check("failedItems已写入", r["data"].get("failedItems")=="触摸失灵,WiFi无法连接")
+
+    ev = req("GET", f"/repair/{OID2}/evidence", MT)
+    qc = ev["data"]["qualityChecks"][0]
+    ci2 = qc.get("checkItems", {})
+    check("证据链 touchWorks=False", ci2.get("touchWorks")==False)
+    check("证据链 wifiWorks=False", ci2.get("wifiWorks")==False)
+
+    detail = req("GET", f"/intake/{OID2}", RT)
+    check("工单退回 repairing", detail["data"]["status"]=="repairing")
+
+# ── 场景4: 第二轮质检 ──
 print("\n" + "="*60)
-print("5. 结构化完整流程→证据链完整回看")
+print("4. 第二轮质检→checkRound=2")
 print("="*60)
-OID3 = new_order("完整流程", "13800000033")
-req("PATCH", f"/repair/{OID3}/diagnosis", TT, {"diagnosisResult":"主板短路"})
-req("POST", f"/repair/{OID3}/part-request", TT, {"partName":"iPhone 15 主板","partInfo":{"partNo":"MB-15-001"},"quantity":1,"estimatedCost":2000,"reason":"主板短路"})
-pr_list = req("GET", f"/repair/{OID3}/part-requests", MT)["data"]
-req("PATCH", f"/repair/part-request/{pr_list[0]['id']}/order", RT)
-req("PATCH", f"/repair/part-request/{pr_list[0]['id']}/arrive", RT, {"arrivalNotes":"到了"})
-req("POST", f"/repair/{OID3}/attachments", TT, {"type":"repair_before","fileName":"b.jpg","mimeType":"image/jpeg","fileSize":1000,"fileUrl":"https://x.com/b.jpg"})
-req("POST", f"/repair/{OID3}/attachments", TT, {"type":"repair_after","fileName":"a.jpg","mimeType":"image/jpeg","fileSize":900,"fileUrl":"https://x.com/a.jpg"})
-req("PATCH", f"/repair/{OID3}/submit-quality", TT, {"repairNotes":"换板完成"})
-req("POST", f"/repair/{OID3}/quality-check", RT, {"checkItems":{"screenWorks":True,"touchWorks":True,"cameraWorks":True,"speakerWorks":True,"micWorks":True,"chargeWorks":True,"buttonWorks":True,"wifiWorks":True,"fingerprintWorks":True,"faceIdWorks":True},"passed":True,"notes":"全过"})
+req("PATCH", f"/repair/{OID2}/submit-quality", TT, {"repairNotes":"修复WiFi和触摸"})
+r = req("PATCH", f"/repair/{OID2}/quality-check", RT, {
+    "qualityCheck":{"passed":True,"notes":"二次全通过"},
+    "checkItems":{"screenWorks":True,"touchWorks":True,"cameraWorks":True,"speakerWorks":True,"micWorks":True,"chargeWorks":True,"buttonWorks":True,"wifiWorks":True,"fingerprintWorks":True,"faceIdWorks":True}
+})
+check("第二轮成功", r["code"]==0)
+if r["code"]==0:
+    check("checkRound=2", r["data"]["checkRound"]==2)
+    ev = req("GET", f"/repair/{OID2}/evidence", MT)
+    check("证据链共2条质检", len(ev["data"]["qualityChecks"])==2)
 
-ev = req("GET", f"/repair/{OID3}/evidence", MT)["data"]
-check("备件=1", len(ev["partRequests"])==1)
-check("质检=1", len(ev["qualityChecks"])==1)
-check("附件=2", len(ev["attachments"])==2)
-check("备件 arrived", ev["partRequests"][0]["status"]=="arrived")
-check("质检 passed", ev["qualityChecks"][0]["passed"]==True)
-detail = req("GET", f"/intake/{OID3}", RT)
-check("工单详情含 evidence", "evidence" in detail["data"])
-check("工单 ready", detail["data"]["status"]=="ready")
+# ── 场景5: 新接口仍正常 ──
+print("\n" + "="*60)
+print("5. 新结构化接口 POST /repair/:orderId/quality-check")
+print("="*60)
+OID3 = new_order("新接口", "13800000003")
+req("PATCH", f"/repair/{OID3}/diagnosis", TT, {"diagnosisResult":"修"})
+req("PATCH", f"/repair/{OID3}/submit-quality", TT, {"repairNotes":"完"})
+r = req("POST", f"/repair/{OID3}/quality-check", RT, {
+    "checkItems":{"screenWorks":True,"touchWorks":True,"cameraWorks":False,"speakerWorks":True,"micWorks":True,"chargeWorks":True,"buttonWorks":True,"wifiWorks":True,"fingerprintWorks":True,"faceIdWorks":True},
+    "passed":False,"notes":"摄像头异常","failedItems":"摄像头拍照黑屏"
+})
+check("新接口不通过 code=0", r["code"]==0)
+if r["code"]==0:
+    ci = r["data"].get("checkItems", {})
+    check("cameraWorks=False(真实)", ci.get("cameraWorks")==False, f"ci={ci}")
+    check("failedItems=摄像头拍照黑屏", r["data"].get("failedItems")=="摄像头拍照黑屏")
+    detail = req("GET", f"/intake/{OID3}", RT)
+    check("工单退回 repairing", detail["data"]["status"]=="repairing")
 
 print(f"\n结果: {PASS} 通过 / {FAIL} 失败")
 sys.exit(1 if FAIL else 0)
