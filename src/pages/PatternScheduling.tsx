@@ -38,6 +38,28 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
     return reminders.length > 0 ? reminders[0].reminder_time : null;
   };
 
+  const getUrgencyLevel = (task: typeof patternTasks[0]) => {
+    const hasReject = getLatestRejectReason(task.id) !== null;
+    const hasReminder = getLatestReminderTime(task.id) !== null;
+    const isInProgress = task.status === 'in_progress';
+    const isRejected = task.status === 'rejected';
+    
+    if (isRejected && hasReject) return 5;
+    if (isInProgress && hasReject) return 4;
+    if (isRejected) return 3;
+    if (isInProgress && hasReminder) return 2;
+    if (hasReminder) return 1;
+    return 0;
+  };
+
+  const myPendingCount = patternTasks.filter(t => 
+    t.assignee_id === currentUser.id && t.status === 'in_progress'
+  ).length;
+
+  const myRejectedCount = patternTasks.filter(t => 
+    t.assignee_id === currentUser.id && t.status === 'rejected'
+  ).length;
+
   const filteredTasks = patternTasks.filter(task => {
     const matchesSearch = task.customer_name.includes(searchTerm) ||
       task.task_name.includes(searchTerm) ||
@@ -52,6 +74,10 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
     }
     
     return matchesSearch && matchesStatus && matchesQuickFilter;
+  }).sort((a, b) => {
+    const urgencyA = getUrgencyLevel(a);
+    const urgencyB = getUrgencyLevel(b);
+    return urgencyB - urgencyA;
   });
 
   const toggleSelect = (id: string) => {
@@ -172,6 +198,11 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
                 >
                   <Clock8 className="w-4 h-4 mr-1" />
                   我的待处理
+                  <span className={`ml-1.5 px-2 py-0.5 text-xs rounded-full ${
+                    myPendingCount > 0 ? 'bg-blue-100 text-blue-700' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {myPendingCount}
+                  </span>
                 </button>
                 <button
                   onClick={() => setQuickFilter('my_rejected')}
@@ -181,6 +212,11 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
                 >
                   <AlertTriangle className="w-4 h-4 mr-1" />
                   我的已退回
+                  <span className={`ml-1.5 px-2 py-0.5 text-xs rounded-full ${
+                    myRejectedCount > 0 ? 'bg-red-100 text-red-700' : 'bg-gray-200 text-gray-500'
+                  }`}>
+                    {myRejectedCount}
+                  </span>
                 </button>
               </div>
             </div>
