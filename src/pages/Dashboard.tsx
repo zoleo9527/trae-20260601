@@ -3,8 +3,8 @@ import { useAppStore } from '../store/useStore';
 import { statusLabels } from '../data/mockData';
 
 export default function Dashboard() {
-  const { getAllRequestsWithDetails, differences } = useAppStore();
-  const requests = getAllRequestsWithDetails();
+  const { stockRequests, differences } = useAppStore();
+  const requests = stockRequests;
   
   const stats = {
     total: requests.length,

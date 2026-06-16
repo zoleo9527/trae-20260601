@@ -4,12 +4,12 @@ import { useAppStore } from '../store/useStore';
 import { statusLabels, differenceTypeLabels, differenceStatusLabels } from '../data/mockData';
 
 export default function StoreFeedbackPage() {
-  const { getAllRequestsWithDetails, stores } = useAppStore();
+  const { stockRequests, stores } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [storeFilter, setStoreFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  const requests = getAllRequestsWithDetails();
+  const requests = stockRequests;
 
   const filteredRequests = requests.filter(request => {
     const matchesSearch = request.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

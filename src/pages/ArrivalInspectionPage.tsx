@@ -5,7 +5,7 @@ import { statusLabels } from '../data/mockData';
 import { StockRequest } from '../types';
 
 export default function ArrivalInspectionPage() {
-  const { getAllRequestsWithDetails, addInspection, addDifference, currentUser } = useAppStore();
+  const { stockRequests, addInspection, addDifference, currentUser } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRequest, setSelectedRequest] = useState<StockRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -16,7 +16,7 @@ export default function ArrivalInspectionPage() {
   const [differenceType, setDifferenceType] = useState<string>('');
   const [differenceDesc, setDifferenceDesc] = useState('');
 
-  const requests = getAllRequestsWithDetails();
+  const requests = stockRequests;
   const deliverableRequests = requests.filter(r => r.status === 'delivered' && !r.inspection);
 
   const filteredRequests = deliverableRequests.filter(request => 
@@ -24,7 +24,7 @@ export default function ArrivalInspectionPage() {
     request.store.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleInspection = () => {
+  const handleInspection = async () => {
     if (!selectedRequest) return;
     
     const request = requests.find(r => r.id === selectedRequest.id);
@@ -35,24 +35,25 @@ export default function ArrivalInspectionPage() {
       actualSpec === request.product.spec &&
       actualQty === request.requestQty.toString();
 
-    addInspection({
-      requestId: selectedRequest.id,
-      actualQty: Number(actualQty),
-      actualSpec: actualSpec || request.product.spec,
-      temperature: request.product.isCold ? parseFloat(temperature) || null : null,
-      isNormal,
-      inspectorId: currentUser.id,
-    });
-
-    if (hasDifference && differenceType && differenceDesc) {
-      const inspection = { id: Date.now() };
-      addDifference({
-        inspectionId: inspection.id,
-        type: differenceType as any,
-        description: differenceDesc,
-        status: 'pending',
-        handlerId: null,
+    try {
+      const createdInspection = await addInspection({
+        requestId: selectedRequest.id,
+        actualQty: Number(actualQty),
+        actualSpec: actualSpec || request.product.spec,
+        temperature: request.product.isCold ? parseFloat(temperature) || null : null,
+        isNormal,
+        inspectorId: currentUser.id,
       });
+
+      if (hasDifference && differenceType && differenceDesc && createdInspection) {
+        await addDifference({
+          inspectionId: createdInspection.id,
+          type: differenceType as any,
+          description: differenceDesc,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to complete inspection:', err);
     }
 
     setShowModal(false);

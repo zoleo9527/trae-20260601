@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { Store, User, Product, StockRequest, Inspection, Difference, RequestWithDetails } from '../types';
 import { api } from '../api';
+import { Difference, Inspection, Product, RequestWithDetails, StockRequest, Store, User } from '../types';
 
 interface AppState {
   stores: Store[];
@@ -16,7 +16,7 @@ interface AppState {
   loadData: () => Promise<void>;
   addStockRequest: (request: Omit<StockRequest, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'supervisorComment' | 'confirmedQty'>) => Promise<void>;
   updateRequestStatus: (id: number, status: StockRequest['status'], comment?: string, confirmedQty?: number) => Promise<void>;
-  addInspection: (inspection: Omit<Inspection, 'id' | 'inspectedAt'>) => Promise<void>;
+  addInspection: (inspection: Omit<Inspection, 'id' | 'inspectedAt'>) => Promise<Inspection>;
   addDifference: (difference: Omit<Difference, 'id' | 'processedAt' | 'status' | 'handlerId' | 'processingResult'>) => Promise<void>;
   updateDifferenceStatus: (id: number, status: Difference['status'], processingResult?: string, handlerId?: number) => Promise<void>;
 }
@@ -89,7 +89,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addInspection: async (inspection) => {
     try {
-      await api.inspections.create({
+      const createdInspection = await api.inspections.create({
         requestId: inspection.requestId,
         actualQty: inspection.actualQty,
         actualSpec: inspection.actualSpec,
@@ -98,9 +98,11 @@ export const useAppStore = create<AppState>((set, get) => ({
         inspectorId: inspection.inspectorId,
       });
       await get().loadData();
+      return createdInspection;
     } catch (err) {
       set({ error: '创建验收记录失败' });
       console.error('Failed to create inspection:', err);
+      throw err;
     }
   },
 
