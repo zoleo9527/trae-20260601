@@ -23,7 +23,7 @@ interface Store {
   completePrepareSoupBase: (id: string, additionalStock?: number) => Promise<void>;
   updateSoupBase: (id: string, data: Partial<SoupBase>) => Promise<void>;
 
-  reportSoldOut: (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  reportSoldOut: (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt' | 'history'>) => Promise<void>;
   confirmSoldOut: (id: string) => Promise<void>;
   resolveSoldOut: (id: string) => Promise<void>;
   updateSoldOut: (id: string, data: Partial<Pick<SoldOut, 'notes' | 'refundReason' | 'supplementNotes'>>) => Promise<void>;

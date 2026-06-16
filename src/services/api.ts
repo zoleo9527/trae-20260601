@@ -10,6 +10,13 @@ const createHeaders = () => ({
   'actorRole': currentUser.role,
 });
 
+const parseOrders = (orders: any[]): Order[] => {
+  return orders.map(order => ({
+    ...order,
+    dishes: typeof order.dishes === 'string' ? JSON.parse(order.dishes) : order.dishes,
+  }));
+};
+
 export const userApi = {
   getAll: async (): Promise<User[]> => {
     const res = await fetch(`${BASE_URL}/users`);
@@ -83,7 +90,7 @@ export const soldOutApi = {
     const res = await fetch(`${BASE_URL}/soldOuts/${id}`);
     return res.json();
   },
-  create: async (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt'>): Promise<SoldOut> => {
+  create: async (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt' | 'history'>): Promise<SoldOut> => {
     const res = await fetch(`${BASE_URL}/soldOuts`, {
       method: 'POST',
       headers: createHeaders(),
@@ -129,55 +136,90 @@ export const orderApi = {
     if (isGroupBuy !== undefined) params.push(`isGroupBuy=${isGroupBuy}`);
     if (params.length) url += `?${params.join('&')}`;
     const res = await fetch(url);
-    return res.json();
+    const data = await res.json();
+    return parseOrders(data);
   },
   getById: async (id: string): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}`);
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      dishes: typeof data.dishes === 'string' ? JSON.parse(data.dishes) : data.dishes,
+    };
   },
   create: async (data: Omit<Order, 'id' | 'status' | 'paidAmount' | 'groupBuyVerified' | 'createdAt' | 'updatedAt' | 'servedAt' | 'completedAt'>): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders`, {
       method: 'POST',
       headers: createHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        dishes: JSON.stringify(data.dishes),
+      }),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   update: async (id: string, data: Partial<Order>): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}`, {
       method: 'PUT',
       headers: createHeaders(),
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        ...data,
+        dishes: data.dishes ? JSON.stringify(data.dishes) : undefined,
+      }),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   verify: async (id: string): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}/verify`, {
       method: 'POST',
       headers: createHeaders(),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   confirm: async (id: string): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}/confirm`, {
       method: 'POST',
       headers: createHeaders(),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   serve: async (id: string): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}/serve`, {
       method: 'POST',
       headers: createHeaders(),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   complete: async (id: string): Promise<Order> => {
     const res = await fetch(`${BASE_URL}/orders/${id}/complete`, {
       method: 'POST',
       headers: createHeaders(),
     });
-    return res.json();
+    const result = await res.json();
+    return {
+      ...result,
+      dishes: typeof result.dishes === 'string' ? JSON.parse(result.dishes) : result.dishes,
+    };
   },
   delete: async (id: string): Promise<void> => {
     await fetch(`${BASE_URL}/orders/${id}`, {
@@ -196,11 +238,19 @@ export const auditLogApi = {
     if (actor) params.push(`actor=${actor}`);
     if (params.length) url += `?${params.join('&')}`;
     const res = await fetch(url);
-    return res.json();
+    const data = await res.json();
+    return data.map((log: any) => ({
+      ...log,
+      details: typeof log.details === 'string' ? JSON.parse(log.details) : log.details,
+    }));
   },
   getById: async (id: string): Promise<AuditLog> => {
     const res = await fetch(`${BASE_URL}/auditLogs/${id}`);
-    return res.json();
+    const data = await res.json();
+    return {
+      ...data,
+      details: typeof data.details === 'string' ? JSON.parse(data.details) : data.details,
+    };
   },
 };
 
@@ -208,7 +258,7 @@ export const todoItemApi = {
   getAll: async (assigneeRole?: string, completed?: boolean): Promise<TodoItem[]> => {
     let url = `${BASE_URL}/todoItems`;
     const params: string[] = [];
-    if (assigneeRole) params.push(`assigneeRole=${assigneeRole}`);
+    if (assigneeRole) params.push(`assigneeRole=${encodeURIComponent(assigneeRole)}`);
     if (completed !== undefined) params.push(`completed=${completed}`);
     if (params.length) url += `?${params.join('&')}`;
     const res = await fetch(url);

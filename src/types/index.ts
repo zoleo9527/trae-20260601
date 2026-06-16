@@ -14,6 +14,8 @@ export interface User {
   role: Role;
   phone: string;
   avatar?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SoupBase {
@@ -30,9 +32,11 @@ export interface SoupBase {
   notes: string;
   lastPreparedAt?: string;
   prepareCount: number;
+  refundReason?: string;
+  supplementNotes?: string;
 }
 
-export interface SoldOutItem {
+export interface SoldOut {
   id: string;
   itemName: string;
   category: 'soupBase' | 'dish' | 'drink';
@@ -44,10 +48,16 @@ export interface SoldOutItem {
   resolvedAt?: string;
   history: SoldOutHistory[];
   notes: string;
+  refundReason?: string;
+  supplementNotes?: string;
+  relatedSoupBaseId?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface SoldOutHistory {
-  id: string;
+  id?: string;
+  soldOutId?: string;
   action: 'reported' | 'confirmed' | 'resolved' | 'updated';
   actor: string;
   timestamp: string;
@@ -59,7 +69,8 @@ export interface Order {
   tableNumber: string;
   customerName: string;
   phone?: string;
-  soupBase: string;
+  soupBaseId: string;
+  soupBaseName: string;
   soupBaseType: SoupBase['type'];
   dishes: OrderDish[];
   totalAmount: number;
@@ -74,14 +85,14 @@ export interface Order {
   servedAt?: string;
   completedAt?: string;
   notes: string;
+  refundReason?: string;
+  supplementNotes?: string;
 }
 
 export interface OrderDish {
-  id: string;
   name: string;
   quantity: number;
-  price: number;
-  status: 'pending' | 'cooked' | 'served';
+  price?: number;
 }
 
 export interface AuditLog {
@@ -106,7 +117,7 @@ export interface TodoItem {
   assignee: string;
   assigneeRole: Role;
   priority: 'high' | 'medium' | 'low';
-  createdAt: string;
+  createdAt?: string;
   completed: boolean;
   completedAt?: string;
 }

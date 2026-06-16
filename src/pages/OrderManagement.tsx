@@ -4,7 +4,7 @@ import { useStore } from '@/store/store';
 import type { Order } from '@/types';
 
 export const OrderManagement = () => {
-  const { orders, verifyGroupBuy, updateOrderStatus } = useStore();
+  const { orders, verifyGroupBuy, confirmOrder, serveOrder, completeOrder } = useStore();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | Order['status']>('all');
@@ -44,22 +44,8 @@ export const OrderManagement = () => {
     });
   };
 
-  const getDishStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return 'bg-gray-100 text-gray-600';
-      case 'cooked': return 'bg-yellow-100 text-yellow-700';
-      case 'served': return 'bg-green-100 text-green-700';
-    }
-    return 'bg-gray-100 text-gray-600';
-  };
-
-  const getDishStatusLabel = (status: string) => {
-    switch (status) {
-      case 'pending': return '待做';
-      case 'cooked': return '已做好';
-      case 'served': return '已上菜';
-    }
-    return status;
+  const getTotalPrice = (dishes: Order['dishes']) => {
+    return dishes.reduce((sum, dish) => sum + (dish.price || 0) * dish.quantity, 0);
   };
 
   return (
@@ -134,7 +120,7 @@ export const OrderManagement = () => {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.soupBase}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.soupBaseName}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.dishes.length}</td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="font-semibold text-gray-800">¥{order.totalAmount}</span>
@@ -214,7 +200,7 @@ export const OrderManagement = () => {
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600">锅底类型</p>
-                  <p className="font-medium text-gray-800">{selectedOrder.soupBase}</p>
+                  <p className="font-medium text-gray-800">{selectedOrder.soupBaseName}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-600">订单金额</p>
@@ -249,15 +235,12 @@ export const OrderManagement = () => {
               <div>
                 <p className="text-sm font-medium text-gray-700 mb-3">菜品明细</p>
                 <div className="space-y-2">
-                  {selectedOrder.dishes.map((dish) => (
-                    <div key={dish.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  {selectedOrder.dishes.map((dish, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <p className="font-medium text-gray-800">{dish.name}</p>
-                        <p className="text-sm text-gray-500">x{dish.quantity} · ¥{dish.price * dish.quantity}</p>
+                        <p className="text-sm text-gray-500">x{dish.quantity} · ¥{(dish.price || 0) * dish.quantity}</p>
                       </div>
-                      <span className={`px-2 py-1 rounded-full text-xs ${getDishStatusColor(dish.status)}`}>
-                        {getDishStatusLabel(dish.status)}
-                      </span>
                     </div>
                   ))}
                 </div>
@@ -267,6 +250,20 @@ export const OrderManagement = () => {
                 <div>
                   <p className="text-sm text-gray-600 mb-2">备注</p>
                   <p className="text-gray-800 bg-gray-50 rounded-lg p-3">{selectedOrder.notes}</p>
+                </div>
+              )}
+
+              {selectedOrder.refundReason && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">退回原因</p>
+                  <p className="text-orange-600 bg-orange-50 rounded-lg p-3">{selectedOrder.refundReason}</p>
+                </div>
+              )}
+
+              {selectedOrder.supplementNotes && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">补充备注</p>
+                  <p className="text-blue-600 bg-blue-50 rounded-lg p-3">{selectedOrder.supplementNotes}</p>
                 </div>
               )}
 
@@ -286,7 +283,7 @@ export const OrderManagement = () => {
               <div className="flex gap-2 pt-4 border-t border-gray-100">
                 {selectedOrder.status === 'pending' && (
                   <button
-                    onClick={() => { updateOrderStatus(selectedOrder.id, 'confirmed'); setShowDetailModal(false); }}
+                    onClick={() => { confirmOrder(selectedOrder.id); setShowDetailModal(false); }}
                     className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
                   >
                     确认订单
@@ -294,7 +291,7 @@ export const OrderManagement = () => {
                 )}
                 {selectedOrder.status === 'confirmed' && (
                   <button
-                    onClick={() => { updateOrderStatus(selectedOrder.id, 'served'); setShowDetailModal(false); }}
+                    onClick={() => { serveOrder(selectedOrder.id); setShowDetailModal(false); }}
                     className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 transition-colors"
                   >
                     标记上菜
@@ -302,7 +299,7 @@ export const OrderManagement = () => {
                 )}
                 {selectedOrder.status === 'served' && (
                   <button
-                    onClick={() => { updateOrderStatus(selectedOrder.id, 'completed'); setShowDetailModal(false); }}
+                    onClick={() => { completeOrder(selectedOrder.id); setShowDetailModal(false); }}
                     className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors"
                   >
                     完成订单
@@ -310,7 +307,7 @@ export const OrderManagement = () => {
                 )}
                 {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
                   <button
-                    onClick={() => { updateOrderStatus(selectedOrder.id, 'cancelled'); setShowDetailModal(false); }}
+                    onClick={() => setShowDetailModal(false)}
                     className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
                   >
                     取消

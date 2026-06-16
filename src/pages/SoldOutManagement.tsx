@@ -1,35 +1,35 @@
 import { useState } from 'react';
 import { Plus, CheckCircle, XCircle, Clock, User, AlertTriangle } from 'lucide-react';
 import { useStore } from '@/store/store';
-import type { SoldOutItem } from '@/types';
+import type { SoldOut } from '@/types';
 
 export const SoldOutManagement = () => {
-  const { soldOutItems, confirmSoldOut, resolveSoldOut, createSoldOut } = useStore();
-  const [selectedItem, setSelectedItem] = useState<SoldOutItem | null>(null);
+  const { soldOuts, confirmSoldOut, resolveSoldOut, reportSoldOut } = useStore();
+  const [selectedItem, setSelectedItem] = useState<SoldOut | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newSoldOut, setNewSoldOut] = useState({
     itemName: '',
-    category: 'dish' as SoldOutItem['category'],
+    category: 'dish' as SoldOut['category'],
     reason: '',
     notes: '',
   });
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'resolved'>('all');
 
-  const filteredItems = soldOutItems.filter(item => {
+  const filteredItems = soldOuts.filter(item => {
     if (filterStatus === 'all') return true;
     return item.status === filterStatus;
   });
 
-  const getStatusColor = (status: SoldOutItem['status']) => {
+  const getStatusColor = (status: SoldOut['status']) => {
     return status === 'active' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700';
   };
 
-  const getStatusLabel = (status: SoldOutItem['status']) => {
+  const getStatusLabel = (status: SoldOut['status']) => {
     return status === 'active' ? '沽清中' : '已解决';
   };
 
-  const getCategoryLabel = (category: SoldOutItem['category']) => {
+  const getCategoryLabel = (category: SoldOut['category']) => {
     switch (category) {
       case 'soupBase': return '锅底';
       case 'dish': return '菜品';
@@ -37,7 +37,7 @@ export const SoldOutManagement = () => {
     }
   };
 
-  const getCategoryColor = (category: SoldOutItem['category']) => {
+  const getCategoryColor = (category: SoldOut['category']) => {
     switch (category) {
       case 'soupBase': return 'bg-orange-100 text-orange-700';
       case 'dish': return 'bg-blue-100 text-blue-700';
@@ -66,12 +66,11 @@ export const SoldOutManagement = () => {
 
   const handleCreate = () => {
     if (newSoldOut.itemName && newSoldOut.reason) {
-      createSoldOut({
+      reportSoldOut({
         itemName: newSoldOut.itemName,
         category: newSoldOut.category,
         reason: newSoldOut.reason,
         notes: newSoldOut.notes,
-        reportedBy: '李主管',
       });
       setShowCreateModal(false);
       setNewSoldOut({ itemName: '', category: 'dish', reason: '', notes: '' });
@@ -156,6 +155,20 @@ export const SoldOutManagement = () => {
                 </div>
               )}
 
+              {item.refundReason && (
+                <div className="flex items-start gap-2 mt-2">
+                  <span className="text-gray-500 text-sm">退回原因：</span>
+                  <span className="text-orange-600 text-sm flex-1">{item.refundReason}</span>
+                </div>
+              )}
+
+              {item.supplementNotes && (
+                <div className="flex items-start gap-2 mt-2">
+                  <span className="text-gray-500 text-sm">补充备注：</span>
+                  <span className="text-blue-600 text-sm flex-1">{item.supplementNotes}</span>
+                </div>
+              )}
+
               {item.status === 'active' && (
                 <div className="mt-4 pt-4 border-t border-gray-100">
                   <div className="flex gap-2">
@@ -226,16 +239,30 @@ export const SoldOutManagement = () => {
                 <p className="text-gray-800 bg-gray-50 rounded-lg p-3">{selectedItem.reason}</p>
               </div>
 
+              {selectedItem.refundReason && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">退回原因</p>
+                  <p className="text-orange-600 bg-orange-50 rounded-lg p-3">{selectedItem.refundReason}</p>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm text-gray-600 mb-2">备注信息</p>
                 <p className="text-gray-800 bg-gray-50 rounded-lg p-3">{selectedItem.notes || '无'}</p>
               </div>
 
+              {selectedItem.supplementNotes && (
+                <div>
+                  <p className="text-sm text-gray-600 mb-2">补充备注</p>
+                  <p className="text-blue-600 bg-blue-50 rounded-lg p-3">{selectedItem.supplementNotes}</p>
+                </div>
+              )}
+
               <div>
                 <p className="text-sm text-gray-600 mb-3">处理历史</p>
                 <div className="space-y-2">
-                  {selectedItem.history.map((record) => (
-                    <div key={record.id} className="flex items-center gap-3">
+                  {selectedItem.history.map((record, index) => (
+                    <div key={record.id || index} className="flex items-center gap-3">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
                         record.action === 'reported' ? 'bg-red-100' :
                         record.action === 'confirmed' ? 'bg-yellow-100' :
@@ -302,7 +329,7 @@ export const SoldOutManagement = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">类别</label>
                 <select
                   value={newSoldOut.category}
-                  onChange={(e) => setNewSoldOut({ ...newSoldOut, category: e.target.value as SoldOutItem['category'] })}
+                  onChange={(e) => setNewSoldOut({ ...newSoldOut, category: e.target.value as SoldOut['category'] })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 >
                   <option value="dish">菜品</option>
