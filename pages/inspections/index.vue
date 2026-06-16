@@ -20,8 +20,8 @@ const filteredInspections = computed(() => {
       inspection.inspector.toLowerCase().includes(searchQuery.value.toLowerCase())
     
     const matchesStatus = statusFilter.value === 'all' || inspection.status === statusFilter.value
-    const store = store.stores.find(s => s.id === inspection.storeId)
-    const matchesRegion = regionFilter.value === 'all' || store?.region === regionFilter.value
+    const storeInfo = store.stores.find(s => s.id === inspection.storeId)
+    const matchesRegion = regionFilter.value === 'all' || storeInfo?.region === regionFilter.value
     
     return matchesSearch && matchesStatus && matchesRegion
   })

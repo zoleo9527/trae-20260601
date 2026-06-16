@@ -69,6 +69,16 @@ export interface WarningRecord {
   createdAt: string
   resolvedAt?: string
   handledBy?: string
+  handlingHistory: WarningHistory[]
+}
+
+export interface WarningHistory {
+  id: string
+  action: string
+  operator: string
+  operatorRole: string
+  time: string
+  comment?: string
 }
 
 export interface DailyReport {
@@ -92,6 +102,7 @@ export interface PurchaseRequest {
   requester: string
   createdAt: string
   updatedAt: string
+  approvalHistory: ApprovalHistory[]
 }
 
 export interface PurchaseItem {
@@ -100,6 +111,15 @@ export interface PurchaseItem {
   quantity: number
   unit: string
   estimatedCost: number
+}
+
+export interface ApprovalHistory {
+  id: string
+  action: string
+  operator: string
+  operatorRole: string
+  time: string
+  comment?: string
 }
 
 export interface BadReview {
@@ -300,6 +320,7 @@ export const useInspectionStore = defineStore('inspection', () => {
       severity: 'high',
       status: 'active',
       createdAt: '2026-06-16T08:00:00',
+      handlingHistory: [],
     },
     {
       id: 'w2',
@@ -311,6 +332,7 @@ export const useInspectionStore = defineStore('inspection', () => {
       severity: 'high',
       status: 'active',
       createdAt: '2026-06-16T09:30:00',
+      handlingHistory: [],
     },
     {
       id: 'w3',
@@ -322,6 +344,7 @@ export const useInspectionStore = defineStore('inspection', () => {
       severity: 'medium',
       status: 'active',
       createdAt: '2026-06-16T10:00:00',
+      handlingHistory: [],
     },
     {
       id: 'w4',
@@ -335,6 +358,10 @@ export const useInspectionStore = defineStore('inspection', () => {
       createdAt: '2026-06-15T07:00:00',
       resolvedAt: '2026-06-15T14:00:00',
       handledBy: '采购部',
+      handlingHistory: [
+        { id: 'wh1', action: '开始处理', operator: '采购专员', operatorRole: '采购', time: '2026-06-15T09:00:00' },
+        { id: 'wh2', action: '已补货', operator: '采购专员', operatorRole: '采购', time: '2026-06-15T14:00:00', comment: '已安排供应商紧急补货' },
+      ],
     },
     {
       id: 'w5',
@@ -346,6 +373,7 @@ export const useInspectionStore = defineStore('inspection', () => {
       severity: 'low',
       status: 'active',
       createdAt: '2026-06-16T11:00:00',
+      handlingHistory: [],
     },
   ])
 
@@ -368,6 +396,10 @@ export const useInspectionStore = defineStore('inspection', () => {
       requester: '张经理',
       createdAt: '2026-06-16T09:00:00',
       updatedAt: '2026-06-16T10:30:00',
+      approvalHistory: [
+        { id: 'ah1', action: '提交申请', operator: '张经理', operatorRole: '店长', time: '2026-06-16T09:00:00' },
+        { id: 'ah2', action: '批准申请', operator: '采购专员', operatorRole: '采购', time: '2026-06-16T10:30:00' },
+      ],
     },
     {
       id: 'p2',
@@ -381,6 +413,9 @@ export const useInspectionStore = defineStore('inspection', () => {
       requester: '陈经理',
       createdAt: '2026-06-16T11:00:00',
       updatedAt: '2026-06-16T11:00:00',
+      approvalHistory: [
+        { id: 'ah3', action: '提交申请', operator: '陈经理', operatorRole: '店长', time: '2026-06-16T11:00:00' },
+      ],
     },
   ])
 
@@ -457,23 +492,97 @@ export const useInspectionStore = defineStore('inspection', () => {
         completed: '完成整改',
         verified: '验收通过',
       }
+      const currentOperator = currentRole.value === 'store_manager' ? '店长' : 
+                             currentRole.value === 'regional_supervisor' ? '督导' : '采购'
+      const currentOperatorRole = currentRole.value === 'store_manager' ? '店长' : 
+                                  currentRole.value === 'regional_supervisor' ? '区域督导' : '采购'
       task.history.push({
         id: `h${Date.now()}`,
         action: actionMap[status],
-        operator: currentRole.value === 'store_manager' ? '店长' : currentRole.value === 'regional_supervisor' ? '督导' : '采购',
-        operatorRole: currentRole.value === 'store_manager' ? '店长' : currentRole.value === 'regional_supervisor' ? '区域督导' : '采购',
+        operator: currentOperator,
+        operatorRole: currentOperatorRole,
         time: new Date().toISOString(),
         comment,
       })
     }
   }
 
-  function resolveWarning(id: string, handledBy: string) {
+  function resolveWarning(id: string, handledBy: string, comment?: string) {
     const warning = warnings.value.find(w => w.id === id)
     if (warning) {
       warning.status = 'resolved'
       warning.resolvedAt = new Date().toISOString()
       warning.handledBy = handledBy
+      const currentOperator = currentRole.value === 'store_manager' ? '店长' : 
+                             currentRole.value === 'regional_supervisor' ? '督导' : '采购'
+      const currentOperatorRole = currentRole.value === 'store_manager' ? '店长' : 
+                                  currentRole.value === 'regional_supervisor' ? '区域督导' : '采购'
+      warning.handlingHistory.push({
+        id: `wh${Date.now()}`,
+        action: '已处理',
+        operator: currentOperator,
+        operatorRole: currentOperatorRole,
+        time: new Date().toISOString(),
+        comment,
+      })
+    }
+  }
+
+  function handleWarning(id: string, action: string, comment?: string) {
+    const warning = warnings.value.find(w => w.id === id)
+    if (warning) {
+      const currentOperator = currentRole.value === 'store_manager' ? '店长' : 
+                             currentRole.value === 'regional_supervisor' ? '督导' : '采购'
+      const currentOperatorRole = currentRole.value === 'store_manager' ? '店长' : 
+                                  currentRole.value === 'regional_supervisor' ? '区域督导' : '采购'
+      warning.handlingHistory.push({
+        id: `wh${Date.now()}`,
+        action,
+        operator: currentOperator,
+        operatorRole: currentOperatorRole,
+        time: new Date().toISOString(),
+        comment,
+      })
+    }
+  }
+
+  function approvePurchaseRequest(id: string, comment?: string) {
+    const request = purchaseRequests.value.find(p => p.id === id)
+    if (request) {
+      request.status = 'approved'
+      request.updatedAt = new Date().toISOString()
+      request.approvalHistory.push({
+        id: `ah${Date.now()}`,
+        action: '批准申请',
+        operator: '采购专员',
+        operatorRole: '采购',
+        time: new Date().toISOString(),
+        comment,
+      })
+    }
+  }
+
+  function rejectPurchaseRequest(id: string, comment?: string) {
+    const request = purchaseRequests.value.find(p => p.id === id)
+    if (request) {
+      request.status = 'rejected'
+      request.updatedAt = new Date().toISOString()
+      request.approvalHistory.push({
+        id: `ah${Date.now()}`,
+        action: '拒绝申请',
+        operator: '采购专员',
+        operatorRole: '采购',
+        time: new Date().toISOString(),
+        comment,
+      })
+    }
+  }
+
+  function respondToReview(id: string, response: string) {
+    const review = badReviews.value.find(r => r.id === id)
+    if (review) {
+      review.response = response
+      review.respondedAt = new Date().toISOString()
     }
   }
 
@@ -504,5 +613,9 @@ export const useInspectionStore = defineStore('inspection', () => {
     addRectificationTask,
     updateTaskStatus,
     resolveWarning,
+    handleWarning,
+    approvePurchaseRequest,
+    rejectPurchaseRequest,
+    respondToReview,
   }
 })

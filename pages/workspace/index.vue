@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useInspectionStore } from '~/stores/inspection'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const store = useInspectionStore()
 
@@ -89,6 +89,42 @@ const getWarningSeverityColor = (severity: string) => {
     low: 'border-gray-200 bg-gray-50'
   }
   return colors[severity] || 'border-gray-200'
+}
+
+const formatTime = (time: string) => {
+  return new Date(time).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const handleApprovePurchase = (id: string) => {
+  store.approvePurchaseRequest(id)
+}
+
+const handleRejectPurchase = (id: string) => {
+  store.rejectPurchaseRequest(id)
+}
+
+const handleResolveWarning = (id: string) => {
+  store.resolveWarning(id, '采购部')
+}
+
+const handleStartWarning = (id: string) => {
+  store.handleWarning(id, '开始处理')
+}
+
+const showBadReviewModal = ref<string | null>(null)
+const reviewResponse = ref('')
+
+const handleRespondToReview = (id: string) => {
+  if (reviewResponse.value.trim()) {
+    store.respondToReview(id, reviewResponse.value)
+    showBadReviewModal.value = null
+    reviewResponse.value = ''
+  }
 }
 </script>
 
@@ -252,6 +288,55 @@ const getWarningSeverityColor = (severity: string) => {
                   <p class="text-sm text-gray-500 mt-1 line-clamp-2">{{ warning.description }}</p>
                 </div>
               </div>
+              <div v-if="warning.handlingHistory.length > 0" class="mt-3 pt-3 border-t border-gray-200">
+                <p class="text-xs text-gray-500">处理历史:</p>
+                <div class="mt-1 space-y-1">
+                  <p
+                    v-for="history in warning.handlingHistory.slice(-2)"
+                    :key="history.id"
+                    class="text-xs text-gray-600"
+                  >
+                    {{ formatTime(history.time) }} - {{ history.operator }}: {{ history.action }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-semibold text-gray-900">外卖差评</h2>
+            <a href="/inspections/reviews" class="text-sm text-primary-600 hover:text-primary-700">查看全部</a>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="review in store.badReviews.slice(0, 4)"
+              :key="review.id"
+              class="p-4 rounded-lg border border-gray-100"
+            >
+              <div class="flex items-start justify-between mb-2">
+                <div class="flex items-center space-x-2">
+                  <span class="font-medium text-gray-900">{{ review.storeName }}</span>
+                  <span class="text-sm text-gray-400">{{ review.platform }}</span>
+                </div>
+                <div class="flex items-center space-x-0.5">
+                  <span v-for="i in 5" :key="i" class="text-sm">
+                    {{ i <= review.rating ? '⭐' : '☆' }}
+                  </span>
+                </div>
+              </div>
+              <p class="text-sm text-gray-600">{{ review.content }}</p>
+              <div v-if="review.response" class="mt-2 p-2 bg-success-50 rounded text-sm text-success-700">
+                💬 {{ review.response }}
+              </div>
+              <button
+                v-else
+                @click="showBadReviewModal = review.id"
+                class="mt-2 text-sm text-primary-600 hover:text-primary-700"
+              >
+                回复差评
+              </button>
             </div>
           </div>
         </div>
@@ -336,6 +421,18 @@ const getWarningSeverityColor = (severity: string) => {
                   <div class="flex-1">
                     <h3 class="font-medium text-gray-900">{{ warning.title }}</h3>
                     <p class="text-sm text-gray-600 mt-1">{{ warning.description }}</p>
+                  </div>
+                </div>
+                <div v-if="warning.handlingHistory.length > 0" class="mt-3 pt-3 border-t border-gray-200">
+                  <p class="text-xs text-gray-500">处理历史:</p>
+                  <div class="mt-1 space-y-1">
+                    <p
+                      v-for="history in warning.handlingHistory.slice(-2)"
+                      :key="history.id"
+                      class="text-xs text-gray-600"
+                    >
+                      {{ formatTime(history.time) }} - {{ history.operator }}: {{ history.action }}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -430,8 +527,18 @@ const getWarningSeverityColor = (severity: string) => {
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-gray-500">申请人: {{ request.requester }}</span>
                   <div class="flex space-x-2">
-                    <button class="px-3 py-1 text-sm font-medium bg-success-100 text-success-600 rounded-lg hover:bg-success-200 transition-colors">批准</button>
-                    <button class="px-3 py-1 text-sm font-medium bg-danger-100 text-danger-600 rounded-lg hover:bg-danger-200 transition-colors">拒绝</button>
+                    <button
+                      @click="handleApprovePurchase(request.id)"
+                      class="px-3 py-1 text-sm font-medium bg-success-100 text-success-600 rounded-lg hover:bg-success-200 transition-colors"
+                    >
+                      批准
+                    </button>
+                    <button
+                      @click="handleRejectPurchase(request.id)"
+                      class="px-3 py-1 text-sm font-medium bg-danger-100 text-danger-600 rounded-lg hover:bg-danger-200 transition-colors"
+                    >
+                      拒绝
+                    </button>
                   </div>
                 </div>
               </div>
@@ -462,9 +569,32 @@ const getWarningSeverityColor = (severity: string) => {
                     <h3 class="font-medium text-gray-900">{{ warning.storeName }}</h3>
                     <p class="text-sm text-gray-600 mt-1">{{ warning.description }}</p>
                   </div>
-                  <button class="px-3 py-1 text-sm font-medium bg-primary-100 text-primary-600 rounded-lg hover:bg-primary-200 transition-colors">
-                    处理
-                  </button>
+                  <div class="flex space-x-2">
+                    <button
+                      @click="handleStartWarning(warning.id)"
+                      class="px-3 py-1 text-sm font-medium bg-primary-100 text-primary-600 rounded-lg hover:bg-primary-200 transition-colors"
+                    >
+                      处理中
+                    </button>
+                    <button
+                      @click="handleResolveWarning(warning.id)"
+                      class="px-3 py-1 text-sm font-medium bg-success-100 text-success-600 rounded-lg hover:bg-success-200 transition-colors"
+                    >
+                      已补货
+                    </button>
+                  </div>
+                </div>
+                <div v-if="warning.handlingHistory.length > 0" class="mt-3 pt-3 border-t border-gray-200">
+                  <p class="text-xs text-gray-500">处理历史:</p>
+                  <div class="mt-1 space-y-1">
+                    <p
+                      v-for="history in warning.handlingHistory.slice(-2)"
+                      :key="history.id"
+                      class="text-xs text-gray-600"
+                    >
+                      {{ formatTime(history.time) }} - {{ history.operator }}: {{ history.action }}
+                    </p>
+                  </div>
                 </div>
               </div>
               <div v-if="store.activeWarnings.filter(w => w.type === 'stock_shortage').length === 0" class="text-center py-8 text-gray-400">
@@ -493,10 +623,11 @@ const getWarningSeverityColor = (severity: string) => {
                     'px-2 py-0.5 rounded text-xs font-medium',
                     request.status === 'pending' ? 'bg-gray-100 text-gray-600' :
                     request.status === 'approved' ? 'bg-success-100 text-success-600' :
+                    request.status === 'rejected' ? 'bg-danger-100 text-danger-600' :
                     'bg-primary-100 text-primary-600'
                   ]"
                 >
-                  {{ request.status === 'pending' ? '待审批' : request.status === 'approved' ? '已批准' : '已完成' }}
+                  {{ request.status === 'pending' ? '待审批' : request.status === 'approved' ? '已批准' : request.status === 'rejected' ? '已拒绝' : '已完成' }}
                 </span>
               </div>
               <div class="space-y-1">
@@ -509,11 +640,62 @@ const getWarningSeverityColor = (severity: string) => {
                   <span class="text-gray-500">{{ item.quantity }}{{ item.unit }}</span>
                 </div>
               </div>
-              <p class="text-xs text-gray-400 mt-2">申请时间: {{ new Date(request.createdAt).toLocaleDateString() }}</p>
+              <div v-if="request.approvalHistory.length > 0" class="mt-2 pt-2 border-t border-gray-100">
+                <p class="text-xs text-gray-500">审批历史:</p>
+                <div class="mt-1">
+                  <p
+                    v-for="history in request.approvalHistory.slice(-2)"
+                    :key="history.id"
+                    class="text-xs text-gray-600"
+                  >
+                    {{ formatTime(history.time) }} - {{ history.operator }}: {{ history.action }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </main>
+
+    <Teleport to="body">
+      <div
+        v-if="showBadReviewModal"
+        class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+        @click.self="showBadReviewModal = null"
+      >
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-md">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">回复差评</h3>
+          </div>
+          <div class="px-6 py-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">回复内容</label>
+              <textarea
+                v-model="reviewResponse"
+                rows="4"
+                placeholder="请输入回复内容..."
+                class="w-full px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+              ></textarea>
+            </div>
+          </div>
+          <div class="px-6 py-4 border-t border-gray-200 flex justify-end space-x-3">
+            <button
+              @click="showBadReviewModal = null"
+              class="px-4 py-2 text-gray-600 font-medium hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              取消
+            </button>
+            <button
+              @click="handleRespondToReview(showBadReviewModal)"
+              :disabled="!reviewResponse.trim()"
+              class="px-4 py-2 bg-primary-500 text-white font-medium rounded-lg hover:bg-primary-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              发送回复
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
