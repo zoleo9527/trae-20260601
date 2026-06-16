@@ -819,7 +819,8 @@ def get_pending_list(request):
         notifications = Notification.objects.filter(
             staff=request.auth,
             type='reminder',
-            is_read=False
+            is_read=False,
+            reservation__date=today
         ).select_related('reservation__table').order_by('-created_at')
         
         items = []
@@ -829,7 +830,7 @@ def get_pending_list(request):
             last_reject = get_last_reject_info(reservation) if reservation else None
             
             items.append({
-                "id": n.id,
+                "id": reservation.id if reservation else n.id,
                 "type": n.type,
                 "type_display": n.get_type_display(),
                 "customer_name": reservation.customer_name if reservation else None,
@@ -843,7 +844,6 @@ def get_pending_list(request):
                 "status_display": reservation.get_status_display() if reservation else None,
                 "last_reject_info": last_reject,
                 "message": n.message,
-                "created_at": n.created_at,
                 "reservation_id": reservation.id if reservation else None
             })
         
