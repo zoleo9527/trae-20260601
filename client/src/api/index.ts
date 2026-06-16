@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError, AxiosInstance } from 'axios';
 import type { 
   ReturnExchangeRequest, 
   ReissueTracking, 
@@ -10,255 +10,228 @@ import type {
   ReturnItem,
 } from '../types';
 
-const api = axios.create({
+const api: AxiosInstance = axios.create({
   baseURL: '/api',
   timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
 });
 
-api.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    console.error('API Error:', error);
-    return Promise.reject(error.response?.data || error.message);
+type RetryConfig = {
+  retries?: number;
+  retryDelay?: number;
+  retryOn?: number[];
+};
+
+const defaultRetryConfig: Required<RetryConfig> = {
+  retries: 3,
+  retryDelay: 1000,
+  retryOn: [500, 502, 503, 504],
+};
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+async function requestWithRetry<T>(
+  requestFn: () => Promise<T>,
+  config: RetryConfig = {}
+): Promise<T> {
+  const { retries, retryDelay, retryOn } = { ...defaultRetryConfig, ...config };
+  
+  let lastError: any;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await requestFn();
+    } catch (error: any) {
+      lastError = error;
+      
+      if (attempt === retries) break;
+      
+      const status = error.response?.status || (error.message?.includes('Network') ? 'NETWORK_ERROR' : null);
+      const shouldRetry = retryOn.includes(status as any) || status === 'NETWORK_ERROR';
+      
+      if (!shouldRetry) break;
+      
+      console.log('请求失败，' + (retryDelay / 1000) + 's 后重试 (' + (attempt + 1) + '/' + retries + ')...');
+      await sleep(retryDelay);
+    }
   }
-);
+  
+  if (lastError.response?.data?.error) {
+    throw new Error(lastError.response.data.error);
+  }
+  if (lastError.message?.includes('timeout')) {
+    throw new Error('请求超时，请稍后重试');
+  }
+  if (lastError.message?.includes('Network') || !lastError.response) {
+    throw new Error('服务暂时不可用，请检查后端服务是否启动');
+  }
+  throw lastError;
+}
+
+type HealthListener = (isHealthy: boolean) => void;
+let healthCheckInterval: NodeJS.Timeout | null = null;
+let lastHealthStatus = true;
+const healthListeners: HealthListener[] = [];
+
+export function addHealthListener(listener: HealthListener) {
+  healthListeners.push(listener);
+  if (!healthCheckInterval) {
+    startHealthCheck();
+  }
+  return () => {
+    const idx = healthListeners.indexOf(listener);
+    if (idx > -1) healthListeners.splice(idx, 1);
+    if (healthListeners.length === 0 && healthCheckInterval) {
+      clearInterval(healthCheckInterval);
+      healthCheckInterval = null;
+    }
+  };
+}
+
+function startHealthCheck() {
+  healthCheckInterval = setInterval(async () => {
+    try {
+      const res = await fetch('/api/health', { cache: 'no-store' });
+      const healthy = res.ok;
+      if (healthy !== lastHealthStatus) {
+        lastHealthStatus = healthy;
+        healthListeners.forEach(l => l(healthy));
+      }
+    } catch {
+      if (lastHealthStatus !== false) {
+        lastHealthStatus = false;
+        healthListeners.forEach(l => l(false));
+      }
+    }
+  }, 5000);
+}
+
+export function isServiceHealthy() {
+  return lastHealthStatus;
+}
+
+function createRequestWrapper(instance: AxiosInstance) {
+  return {
+    get: <T>(url: string, config?: any) => 
+      requestWithRetry<T>(() => instance.get<T>(url, config).then(r => r.data)),
+    post: <T>(url: string, data?: any, config?: any) => 
+      requestWithRetry<T>(() => instance.post<T>(url, data, config).then(r => r.data)),
+    put: <T>(url: string, data?: any, config?: any) => 
+      requestWithRetry<T>(() => instance.put<T>(url, data, config).then(r => r.data)),
+    delete: <T>(url: string, config?: any) => 
+      requestWithRetry<T>(() => instance.delete<T>(url, config).then(r => r.data)),
+  };
+}
+
+const request = createRequestWrapper(api);
 
 export const returnsApi = {
-  getList: (params?: {
-    status?: string;
-    type?: string;
-    keyword?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<PaginatedResult<ReturnExchangeRequest>> => {
-    return api.get('/returns', { params });
+  getList: (params?: any): Promise<PaginatedResult<ReturnExchangeRequest>> => {
+    return request.get('/returns', { params });
   },
-
   getDetail: (id: string): Promise<ReturnExchangeRequest> => {
-    return api.get(`/returns/${id}`);
+    return request.get('/returns/' + id);
   },
-
-  create: (data: {
-    order_id: string;
-    type: string;
-    reason?: string;
-    reason_category?: string;
-    applicant: string;
-    applicant_role: string;
-    remarks?: string;
-    items: Array<{
-      product_name: string;
-      product_code?: string;
-      quantity: number;
-      unit?: string;
-      warehouse_location?: string;
-    }>;
-  }): Promise<ReturnExchangeRequest> => {
-    return api.post('/returns', data);
-  },
-
-  submit: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    remark?: string;
-  }): Promise<ReturnExchangeRequest> => {
-    return api.put(`/returns/${id}/submit`, data);
-  },
-
-  warehouseConfirm: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    items?: ReturnItem[];
-    remark?: string;
-  }): Promise<ReturnExchangeRequest> => {
-    return api.put(`/returns/${id}/warehouse-confirm`, data);
-  },
-
-  cancel: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    reason?: string;
-  }): Promise<ReturnExchangeRequest> => {
-    return api.put(`/returns/${id}/cancel`, data);
-  },
-
-  complete: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    remark?: string;
-  }) => {
-    return api.put(`/returns/${id}/complete`, data);
-  },
-
-  batchWarehouseConfirm: (data: {
-    ids: string[];
-    operator: string;
-    operator_role: string;
-    remark?: string;
-  }): Promise<{ success: boolean; count: number; message: string }> => {
-    return api.post('/returns/batch-warehouse-confirm', data);
-  },
-
-  batchCancel: (data: {
-    ids: string[];
-    operator: string;
-    operator_role: string;
-    reason?: string;
-  }): Promise<{ success: boolean; count: number; message: string }> => {
-    return api.post('/returns/batch-cancel', data);
-  },
-
   getLogs: (id: string): Promise<OperationLog[]> => {
-    return api.get(`/returns/${id}/logs`);
+    return request.get('/returns/' + id + '/logs');
+  },
+  create: (data: any): Promise<ReturnExchangeRequest> => {
+    return request.post('/returns', data);
+  },
+  submit: (id: string, data: any): Promise<ReturnExchangeRequest> => {
+    return request.put('/returns/' + id + '/submit', data);
+  },
+  warehouseConfirm: (id: string, data: any): Promise<ReturnExchangeRequest> => {
+    return request.put('/returns/' + id + '/warehouse-confirm', data);
+  },
+  cancel: (id: string, data: any): Promise<ReturnExchangeRequest> => {
+    return request.put('/returns/' + id + '/cancel', data);
+  },
+  complete: (id: string, data: any) => {
+    return request.put('/returns/' + id + '/complete', data);
+  },
+  batchWarehouseConfirm: (data: any): Promise<{ success: boolean; count: number; message: string }> => {
+    return request.put('/returns/batch-warehouse-confirm', data);
+  },
+  batchCancel: (data: any): Promise<{ success: boolean; count: number; message: string }> => {
+    return request.put('/returns/batch-cancel', data);
   },
 };
 
 export const reissueApi = {
-  getList: (params?: {
-    status?: string;
-    keyword?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<PaginatedResult<ReissueTracking>> => {
-    return api.get('/reissue', { params });
+  getList: (params?: any): Promise<PaginatedResult<ReissueTracking>> => {
+    return request.get('/reissue', { params });
   },
-
   getDetail: (id: string): Promise<ReissueTracking> => {
-    return api.get(`/reissue/${id}`);
+    return request.get('/reissue/' + id);
   },
-
-  create: (data: {
-    request_id: string;
-    handler: string;
-    handler_role: string;
-    items: Array<{
-      product_name: string;
-      product_code?: string;
-      quantity: number;
-      unit?: string;
-      warehouse_location?: string;
-    }>;
-    driver_name?: string;
-    vehicle_no?: string;
-    estimated_delivery_date?: string;
-    remarks?: string;
-  }): Promise<ReissueTracking> => {
-    return api.post('/reissue', data);
+  getLogs: (id: string): Promise<OperationLog[]> => {
+    return request.get('/reissue/' + id + '/logs');
   },
-
-  startPicking: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    warehouse_location?: string;
-    remark?: string;
-  }): Promise<ReissueTracking> => {
-    return api.put(`/reissue/${id}/picking`, data);
+  create: (data: any): Promise<ReissueTracking> => {
+    return request.post('/reissue', data);
   },
-
-  ship: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    driver_name?: string;
-    vehicle_no?: string;
-    remark?: string;
-  }): Promise<ReissueTracking> => {
-    return api.put(`/reissue/${id}/ship`, data);
+  startPicking: (id: string, data: any): Promise<ReissueTracking> => {
+    return request.put('/reissue/' + id + '/picking', data);
   },
-
-  outForDelivery: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    remark?: string;
-  }): Promise<ReissueTracking> => {
-    return api.put(`/reissue/${id}/out-for-delivery`, data);
+  ship: (id: string, data: any): Promise<ReissueTracking> => {
+    return request.put('/reissue/' + id + '/ship', data);
   },
-
-  deliver: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    signer_name?: string;
-    remark?: string;
-  }): Promise<ReissueTracking> => {
-    return api.put(`/reissue/${id}/deliver`, data);
+  outForDelivery: (id: string, data: any): Promise<ReissueTracking> => {
+    return request.put('/reissue/' + id + '/out-for-delivery', data);
   },
-
-  cancel: (id: string, data: {
-    operator: string;
-    operator_role: string;
-    reason?: string;
-  }): Promise<ReissueTracking> => {
-    return api.put(`/reissue/${id}/cancel`, data);
+  deliver: (id: string, data: any): Promise<ReissueTracking> => {
+    return request.put('/reissue/' + id + '/deliver', data);
   },
-
+  cancel: (id: string, data: any): Promise<ReissueTracking> => {
+    return request.put('/reissue/' + id + '/cancel', data);
+  },
   getByRequestId: (requestId: string): Promise<ReissueTracking[]> => {
-    return api.get(`/reissue/request/${requestId}`);
+    return request.get('/reissue/request/' + requestId);
   },
 };
 
 export const ordersApi = {
-  getList: (params?: {
-    status?: string;
-    keyword?: string;
-    page?: number;
-    pageSize?: number;
-  }): Promise<PaginatedResult<SalesOrder>> => {
-    return api.get('/orders', { params });
+  getList: (params?: any): Promise<PaginatedResult<SalesOrder>> => {
+    return request.get('/orders', { params });
   },
-
   getDetail: (id: string): Promise<SalesOrder> => {
-    return api.get(`/orders/${id}`);
+    return request.get('/orders/' + id);
   },
-
   getReceipts: (id: string): Promise<any[]> => {
-    return api.get(`/orders/${id}/receipts`);
+    return request.get('/orders/' + id + '/receipts');
   },
 };
 
 export const warehouseApi = {
   getLocations: (): Promise<WarehouseLocation[]> => {
-    return api.get('/warehouse/locations');
+    return request.get('/warehouse/locations');
   },
-
   getLocation: (id: string): Promise<WarehouseLocation> => {
-    return api.get(`/warehouse/locations/${id}`);
+    return request.get('/warehouse/locations/' + id);
   },
-
   getInventory: (): Promise<any[]> => {
-    return api.get('/warehouse/inventory');
+    return request.get('/warehouse/inventory');
   },
 };
 
 export const attachmentsApi = {
   getByRequestId: (requestId: string): Promise<Attachment[]> => {
-    return api.get(`/attachments/request/${requestId}`);
+    return request.get('/attachments/request/' + requestId);
   },
-
   getByReissueId: (reissueId: string): Promise<Attachment[]> => {
-    return api.get(`/attachments/reissue/${reissueId}`);
+    return request.get('/attachments/reissue/' + reissueId);
   },
-
-  addToRequest: (requestId: string, data: {
-    file_name: string;
-    file_type?: string;
-    file_size?: number;
-    placeholder?: boolean;
-    uploaded_by?: string;
-  }): Promise<Attachment> => {
-    return api.post(`/attachments/request/${requestId}`, data);
+  addToRequest: (requestId: string, data: any): Promise<Attachment> => {
+    return request.post('/attachments/request/' + requestId, data);
   },
-
-  addToReissue: (reissueId: string, data: {
-    file_name: string;
-    file_type?: string;
-    file_size?: number;
-    placeholder?: boolean;
-    uploaded_by?: string;
-  }): Promise<Attachment> => {
-    return api.post(`/attachments/reissue/${reissueId}`, data);
+  addToReissue: (reissueId: string, data: any): Promise<Attachment> => {
+    return request.post('/attachments/reissue/' + reissueId, data);
   },
-
   delete: (id: string): Promise<{ success: boolean }> => {
-    return api.delete(`/attachments/${id}`);
+    return request.delete('/attachments/' + id);
   },
 };
 

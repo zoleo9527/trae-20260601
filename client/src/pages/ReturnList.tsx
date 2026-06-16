@@ -30,6 +30,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../store/appStore';
+import { addHealthListener } from '../api';
 import { 
   REQUEST_STATUS_MAP, 
   REQUEST_TYPE_MAP, 
@@ -54,6 +55,8 @@ export default function ReturnList() {
     batchWarehouseConfirm,
     batchCancel,
     currentUser,
+    serviceHealthy,
+    setServiceHealthy,
   } = useAppStore();
 
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -65,6 +68,11 @@ export default function ReturnList() {
 
   const [createModalVisible, setCreateModalVisible] = useState(false);
   const [createForm] = Form.useForm();
+
+  useEffect(() => {
+    const removeListener = addHealthListener(setServiceHealthy);
+    return removeListener;
+  }, [setServiceHealthy]);
 
   useEffect(() => {
     fetchReturnList({ status, type, keyword, page, pageSize });
@@ -99,7 +107,7 @@ export default function ReturnList() {
       message.success(`成功确认 ${selectedRowKeys.length} 条申请`);
       setSelectedRowKeys([]);
     } catch (error: any) {
-      message.error(error.error || '操作失败');
+      message.error(error.message || '操作失败');
     }
   };
 
@@ -121,7 +129,7 @@ export default function ReturnList() {
           message.success(`成功取消 ${selectedRowKeys.length} 条申请`);
           setSelectedRowKeys([]);
         } catch (error: any) {
-          message.error(error.error || '操作失败');
+          message.error(error.message || '操作失败');
         }
       },
     });
@@ -303,7 +311,17 @@ export default function ReturnList() {
           </Space>
         </div>
 
-        {error && (
+        {!serviceHealthy && (
+          <Alert
+            type="warning"
+            message="后端服务暂时不可用"
+            description="正在尝试自动重连，服务恢复后将自动刷新数据..."
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {error && serviceHealthy && (
           <Alert
             type="error"
             message="服务暂时不可用"
@@ -440,7 +458,7 @@ function CreateReturnForm({ form, onSuccess }: {
       });
       onSuccess();
     } catch (error: any) {
-      message.error(error.error || '创建失败');
+      message.error(error.message || '创建失败');
     }
   };
 

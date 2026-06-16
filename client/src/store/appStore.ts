@@ -20,10 +20,14 @@ interface AppState {
 
   returnList: PaginatedResult<ReturnExchangeRequest> | null;
   returnDetail: ReturnExchangeRequest | null;
+  returnDetailId: string | null;
+  returnListParams: any;
   loadingReturns: boolean;
   
   reissueList: PaginatedResult<ReissueTracking> | null;
   reissueDetail: ReissueTracking | null;
+  reissueDetailId: string | null;
+  reissueListParams: any;
   loadingReissues: boolean;
 
   orderList: PaginatedResult<SalesOrder> | null;
@@ -35,6 +39,10 @@ interface AppState {
 
   error: string | null;
   setError: (error: string | null) => void;
+
+  serviceHealthy: boolean;
+  setServiceHealthy: (healthy: boolean) => void;
+  refreshPageData: () => void;
 
   fetchReturnList: (params?: any) => Promise<void>;
   fetchReturnDetail: (id: string) => Promise<void>;
@@ -79,10 +87,14 @@ const useAppStore = create<AppState>((set, get) => ({
 
   returnList: null,
   returnDetail: null,
+  returnDetailId: null,
+  returnListParams: { page: 1, pageSize: 10 },
   loadingReturns: false,
 
   reissueList: null,
   reissueDetail: null,
+  reissueDetailId: null,
+  reissueListParams: { page: 1, pageSize: 10 },
   loadingReissues: false,
 
   orderList: null,
@@ -95,53 +107,85 @@ const useAppStore = create<AppState>((set, get) => ({
   error: null,
   setError: (error) => set({ error }),
 
+  serviceHealthy: true,
+
+  setServiceHealthy: (healthy) => {
+    const oldState = get();
+    if (oldState.serviceHealthy !== healthy) {
+      set({ serviceHealthy: healthy });
+      if (healthy) {
+        console.log('服务恢复，自动刷新数据...');
+        get().refreshPageData();
+      }
+    }
+  },
+
+  refreshPageData: () => {
+    const { 
+      fetchReturnList, returnListParams,
+      fetchReissueList, reissueListParams,
+      returnDetailId, fetchReturnDetail,
+      reissueDetailId, fetchReissueDetail,
+    } = get();
+    
+    fetchReturnList(returnListParams);
+    fetchReissueList(reissueListParams);
+    
+    if (returnDetailId) fetchReturnDetail(returnDetailId);
+    if (reissueDetailId) fetchReissueDetail(reissueDetailId);
+    
+    set({ error: null });
+  },
+
   fetchReturnList: async (params) => {
-    set({ loadingReturns: true, error: null });
+    const currentParams = params || get().returnListParams;
+    set({ loadingReturns: true, error: null, returnListParams: currentParams });
     try {
-      const data = await returnsApi.getList(params);
+      const data = await returnsApi.getList(currentParams);
       set({ returnList: data, loadingReturns: false });
     } catch (error: any) {
-      set({ loadingReturns: false, error: error.error || error.message || '加载失败' });
+      set({ loadingReturns: false, error: error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchReturnDetail: async (id) => {
-    set({ loadingReturns: true, error: null });
+    set({ loadingReturns: true, error: null, returnDetailId: id });
     try {
       const data = await returnsApi.getDetail(id);
       set({ returnDetail: data, loadingReturns: false });
     } catch (error: any) {
-      set({ loadingReturns: false, error: error.error || error.message || '加载失败' });
+      set({ loadingReturns: false, error: error.message || '加载失败' });
       throw error;
     }
   },
 
-  clearReturnDetail: () => set({ returnDetail: null }),
+  clearReturnDetail: () => set({ returnDetail: null, returnDetailId: null }),
 
   fetchReissueList: async (params) => {
-    set({ loadingReissues: true, error: null });
+    const currentParams = params || get().reissueListParams;
+    set({ loadingReissues: true, error: null, reissueListParams: currentParams });
     try {
-      const data = await reissueApi.getList(params);
+      const data = await reissueApi.getList(currentParams);
       set({ reissueList: data, loadingReissues: false });
     } catch (error: any) {
-      set({ loadingReissues: false, error: error.error || error.message || '加载失败' });
+      set({ loadingReissues: false, error: error.message || '加载失败' });
       throw error;
     }
   },
 
   fetchReissueDetail: async (id) => {
-    set({ loadingReissues: true, error: null });
+    set({ loadingReissues: true, error: null, reissueDetailId: id });
     try {
       const data = await reissueApi.getDetail(id);
       set({ reissueDetail: data, loadingReissues: false });
     } catch (error: any) {
-      set({ loadingReissues: false, error: error.error || error.message || '加载失败' });
+      set({ loadingReissues: false, error: error.message || '加载失败' });
       throw error;
     }
   },
 
-  clearReissueDetail: () => set({ reissueDetail: null }),
+  clearReissueDetail: () => set({ reissueDetail: null, reissueDetailId: null }),
 
   fetchOrderList: async (params) => {
     set({ loadingOrders: true, error: null });
@@ -149,7 +193,7 @@ const useAppStore = create<AppState>((set, get) => ({
       const data = await ordersApi.getList(params);
       set({ orderList: data, loadingOrders: false });
     } catch (error: any) {
-      set({ loadingOrders: false, error: error.error || error.message || '加载失败' });
+      set({ loadingOrders: false, error: error.message || '加载失败' });
       throw error;
     }
   },
@@ -160,7 +204,7 @@ const useAppStore = create<AppState>((set, get) => ({
       const data = await ordersApi.getDetail(id);
       set({ orderDetail: data, loadingOrders: false });
     } catch (error: any) {
-      set({ loadingOrders: false, error: error.error || error.message || '加载失败' });
+      set({ loadingOrders: false, error: error.message || '加载失败' });
       throw error;
     }
   },
@@ -171,13 +215,15 @@ const useAppStore = create<AppState>((set, get) => ({
       const data = await warehouseApi.getLocations();
       set({ warehouseLocations: data, loadingLocations: false });
     } catch (error: any) {
-      set({ loadingLocations: false, error: error.error || error.message || '加载失败' });
+      set({ loadingLocations: false, error: error.message || '加载失败' });
       throw error;
     }
   },
 
   createReturnRequest: async (data) => {
     const result = await returnsApi.create(data);
+    const { fetchReturnList, returnListParams } = get();
+    fetchReturnList(returnListParams);
     return result;
   },
 
@@ -201,9 +247,10 @@ const useAppStore = create<AppState>((set, get) => ({
 
   completeReturnRequest: async (id, data) => {
     await returnsApi.complete(id, data);
-    const { fetchReturnDetail, fetchReturnList } = get();
+    const { fetchReturnDetail, fetchReturnList, returnListParams } = get();
     fetchReturnDetail(id);
-    fetchReturnList();
+    fetchReturnList(returnListParams);
+    set({ error: null });
   },
 
   batchWarehouseConfirm: async (data) => {
@@ -251,7 +298,7 @@ const useAppStore = create<AppState>((set, get) => ({
 
   startPicking: async (id, data) => {
     await reissueApi.startPicking(id, data);
-    const { fetchReissueDetail, fetchReturnDetail } = get();
+    const { fetchReissueDetail } = get();
     fetchReissueDetail(id);
   },
 
@@ -287,6 +334,9 @@ const useAppStore = create<AppState>((set, get) => ({
 
   deleteAttachment: async (id) => {
     await attachmentsApi.delete(id);
+    const { returnDetailId, fetchReturnDetail, reissueDetailId, fetchReissueDetail } = get();
+    if (returnDetailId) fetchReturnDetail(returnDetailId);
+    if (reissueDetailId) fetchReissueDetail(reissueDetailId);
   },
 }));
 

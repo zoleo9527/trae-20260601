@@ -20,6 +20,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import useAppStore from '../store/appStore';
+import { addHealthListener } from '../api';
 import { 
   REISSUE_STATUS_MAP, 
   REQUEST_TYPE_MAP,
@@ -39,12 +40,19 @@ export default function ReissueList() {
     loadingReissues, 
     error,
     fetchReissueList,
+    serviceHealthy,
+    setServiceHealthy,
   } = useAppStore();
 
   const [status, setStatus] = useState<string | undefined>();
   const [keyword, setKeyword] = useState<string>('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+
+  useEffect(() => {
+    const removeListener = addHealthListener(setServiceHealthy);
+    return removeListener;
+  }, [setServiceHealthy]);
 
   useEffect(() => {
     fetchReissueList({ status, keyword, page, pageSize });
@@ -200,7 +208,17 @@ export default function ReissueList() {
           </Space>
         </div>
 
-        {error && (
+        {!serviceHealthy && (
+          <Alert
+            type="warning"
+            message="后端服务暂时不可用"
+            description="正在尝试自动重连，服务恢复后将自动刷新数据..."
+            showIcon
+            style={{ marginBottom: 16 }}
+          />
+        )}
+
+        {error && serviceHealthy && (
           <Alert
             type="error"
             message="服务暂时不可用"

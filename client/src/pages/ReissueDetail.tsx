@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAppStore from '../store/appStore';
+import { addHealthListener } from '../api';
 import { 
   REISSUE_STATUS_MAP, 
   REQUEST_STATUS_MAP,
@@ -61,6 +62,8 @@ export default function ReissueDetail() {
     deliverReissue,
     cancelReissue,
     currentUser,
+    serviceHealthy,
+    setServiceHealthy,
   } = useAppStore();
 
   const [pickingModalVisible, setPickingModalVisible] = useState(false);
@@ -73,6 +76,11 @@ export default function ReissueDetail() {
   const [outForm] = Form.useForm();
   const [deliverForm] = Form.useForm();
   const [cancelForm] = Form.useForm();
+
+  useEffect(() => {
+    const removeListener = addHealthListener(setServiceHealthy);
+    return removeListener;
+  }, [setServiceHealthy]);
 
   useEffect(() => {
     if (id) {
@@ -203,7 +211,16 @@ export default function ReissueDetail() {
       message.success('签收完成');
       setDeliverModalVisible(false);
     } catch (error: any) {
-      message.error(error.error || '操作失败');
+      try {
+        await fetchReissueDetail(id);
+        const detail = useAppStore.getState().reissueDetail;
+        if (detail?.status === 'delivered') {
+          message.success('签收完成');
+          setDeliverModalVisible(false);
+          return;
+        }
+      } catch {}
+      message.error(error.message || '操作失败');
     }
   };
 
@@ -218,7 +235,16 @@ export default function ReissueDetail() {
       message.success('已取消');
       setCancelModalVisible(false);
     } catch (error: any) {
-      message.error(error.error || '操作失败');
+      try {
+        await fetchReissueDetail(id);
+        const detail = useAppStore.getState().reissueDetail;
+        if (detail?.status === 'cancelled') {
+          message.success('已取消');
+          setCancelModalVisible(false);
+          return;
+        }
+      } catch {}
+      message.error(error.message || '操作失败');
     }
   };
 
@@ -231,7 +257,17 @@ export default function ReissueDetail() {
 
   return (
     <div>
-      {error && reissueDetail && (
+      {!serviceHealthy && (
+        <Alert
+          type="warning"
+          message="后端服务暂时不可用"
+          description="正在尝试自动重连，服务恢复后将自动刷新数据..."
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {error && serviceHealthy && reissueDetail && (
         <Alert
           type="warning"
           message={error}

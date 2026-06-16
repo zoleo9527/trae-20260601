@@ -39,6 +39,7 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import useAppStore from '../store/appStore';
+import { addHealthListener } from '../api';
 import { 
   REQUEST_STATUS_MAP, 
   REQUEST_TYPE_MAP, 
@@ -75,6 +76,8 @@ export default function ReturnDetail() {
     deleteAttachment,
     fetchWarehouseLocations,
     warehouseLocations,
+    serviceHealthy,
+    setServiceHealthy,
   } = useAppStore();
 
   const [submitModalVisible, setSubmitModalVisible] = useState(false);
@@ -89,6 +92,11 @@ export default function ReturnDetail() {
   const [completeForm] = Form.useForm();
   const [completeModalVisible, setCompleteModalVisible] = useState(false);
   const [attachForm] = Form.useForm();
+
+  useEffect(() => {
+    const removeListener = addHealthListener(setServiceHealthy);
+    return removeListener;
+  }, [setServiceHealthy]);
 
   useEffect(() => {
     if (id) {
@@ -272,7 +280,16 @@ export default function ReturnDetail() {
       message.success('退货完成');
       setCompleteModalVisible(false);
     } catch (error: any) {
-      message.error(error.error || '操作失败');
+      try {
+        await fetchReturnDetail(id);
+        const detail = useAppStore.getState().returnDetail;
+        if (detail?.status === 'completed') {
+          message.success('退货完成');
+          setCompleteModalVisible(false);
+          return;
+        }
+      } catch {}
+      message.error(error.message || '操作失败');
     }
   };
 
@@ -290,7 +307,18 @@ export default function ReturnDetail() {
       setAttachModalVisible(false);
       attachForm.resetFields();
     } catch (error: any) {
-      message.error(error.error || '添加失败');
+      try {
+        const oldCount = useAppStore.getState().returnDetail?.attachments?.length || 0;
+        await fetchReturnDetail(id);
+        const newCount = useAppStore.getState().returnDetail?.attachments?.length || 0;
+        if (newCount > oldCount) {
+          message.success('附件添加成功');
+          setAttachModalVisible(false);
+          attachForm.resetFields();
+          return;
+        }
+      } catch {}
+      message.error(error.message || '添加失败');
     }
   };
 
@@ -312,7 +340,17 @@ export default function ReturnDetail() {
 
   return (
     <div>
-      {error && returnDetail && (
+      {!serviceHealthy && (
+        <Alert
+          type="warning"
+          message="后端服务暂时不可用"
+          description="正在尝试自动重连，服务恢复后将自动刷新数据..."
+          showIcon
+          style={{ marginBottom: 16 }}
+        />
+      )}
+
+      {error && serviceHealthy && returnDetail && (
         <Alert
           type="warning"
           message={error}
@@ -554,7 +592,17 @@ export default function ReturnDetail() {
                               message.success('删除成功');
                               if (id) fetchReturnDetail(id);
                             } catch (error: any) {
-                              message.error(error.error || '删除失败');
+                              try {
+                                const oldAttachments = useAppStore.getState().returnDetail?.attachments || [];
+                                if (id) await fetchReturnDetail(id);
+                                const newAttachments = useAppStore.getState().returnDetail?.attachments || [];
+                                const stillExists = newAttachments.some((a) => a.id === item.id);
+                                if (!stillExists) {
+                                  message.success('删除成功');
+                                  return;
+                                }
+                              } catch {}
+                              message.error(error.message || '删除失败');
                             }
                           }}
                           okText="确认"
