@@ -38,13 +38,13 @@ export default function DeliveryStatusPage() {
     
     switch (actionType) {
       case 'approve':
-        updateRequestStatus(selectedRequest.id, 'approved', comment, confirmedQty ? Number(confirmedQty) : undefined);
+        updateRequestStatus(selectedRequest.id, 'approved', comment);
         break;
       case 'reject':
         updateRequestStatus(selectedRequest.id, 'rejected', comment);
         break;
       case 'deliver':
-        updateRequestStatus(selectedRequest.id, 'delivering');
+        updateRequestStatus(selectedRequest.id, 'delivering', undefined, confirmedQty ? Number(confirmedQty) : selectedRequest.requestQty);
         break;
       case 'confirm':
         updateRequestStatus(selectedRequest.id, 'delivered');
@@ -62,7 +62,7 @@ export default function DeliveryStatusPage() {
     setActionType(action);
     setShowModal(true);
     setComment('');
-    setConfirmedQty(request.requestQty.toString());
+    setConfirmedQty(request.confirmedQty?.toString() || request.requestQty.toString());
   };
 
   return (
@@ -271,10 +271,10 @@ export default function DeliveryStatusPage() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               {actionType === 'approve' && '审核通过'}
               {actionType === 'reject' && '驳回申请'}
-              {actionType === 'deliver' && '开始配货'}
+              {actionType === 'deliver' && '确认配货数量'}
               {actionType === 'confirm' && '确认发货'}
             </h3>
-            {(actionType === 'approve') && (
+            {(actionType === 'deliver') && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">可配数量</label>
                 <div className="flex items-center">
@@ -288,15 +288,16 @@ export default function DeliveryStatusPage() {
                   />
                   <span className="ml-2 text-gray-500">{stockRequests.find(r => r.id === selectedRequest.id)?.product.unit}</span>
                 </div>
+                <p className="text-xs text-gray-400 mt-1">申领数量: {selectedRequest.requestQty} {stockRequests.find(r => r.id === selectedRequest.id)?.product.unit}</p>
               </div>
             )}
             {(actionType === 'approve' || actionType === 'reject') && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">审核意见</label>
                 <textarea
                   value={comment}
                   onChange={(e) => setComment(e.target.value)}
-                  placeholder={actionType === 'reject' ? '请说明驳回原因...' : '请输入审核意见...'}
+                  placeholder={actionType === 'reject' ? '请说明驳回原因...' : '请输入审核意见（如影响营业评估）...'}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   rows={3}
                 />
@@ -317,7 +318,7 @@ export default function DeliveryStatusPage() {
                     : 'bg-primary-600 hover:bg-primary-700'
                 }`}
               >
-                确认
+                {actionType === 'deliver' ? '确认配货' : '确认'}
               </button>
             </div>
           </div>

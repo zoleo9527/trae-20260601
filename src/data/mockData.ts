@@ -164,9 +164,9 @@ export const reasonOptions = [
 
 export const statusLabels: Record<string, string> = {
   pending: '待审核',
-  approved: '已审核',
+  approved: '已审核（待配货）',
   rejected: '已驳回',
-  delivering: '配货中',
+  delivering: '配货中（已确认数量）',
   delivered: '已发货',
   inspected: '已验收',
 };
