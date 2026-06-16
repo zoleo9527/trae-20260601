@@ -703,48 +703,15 @@ async function saveStyleConfirmation() {
     }
 }
 
-async function viewStyleConfirmation(id) {
+async function approveStyleConfirmation(id) {
+    const styleId = id || currentStyleConfirmationId;
     try {
-        const styleConfirmation = await window.api.getStyleConfirmation(id);
-        currentStyleConfirmationId = id;
-        
-        document.getElementById('styleDetailCustomerName').textContent = styleConfirmation.customer_name || '-';
-        document.getElementById('styleDetailName').textContent = styleConfirmation.style_name;
-        document.getElementById('styleDetailType').textContent = styleConfirmation.style_type || '-';
-        
-        const statusBadge = getStatusBadge(styleConfirmation.approval_status);
-        document.getElementById('styleDetailStatus').innerHTML = statusBadge.outerHTML;
-        
-        document.getElementById('styleDetailDescription').textContent = 
-            styleConfirmation.design_description || '-';
-        document.getElementById('styleDetailCreatedBy').textContent = 
-            styleConfirmation.created_by_name || '-';
-        document.getElementById('styleDetailApprovedBy').textContent = 
-            styleConfirmation.approved_by_name || '-';
-        
-        await window.api.addRecentItem({
-            item_type: 'style_confirmation',
-            item_id: id,
-            item_title: `${styleConfirmation.customer_name} - ${styleConfirmation.style_name}`,
-            accessed_by: 1
-        });
-        
-        document.getElementById('styleDetailModal').classList.add('active');
-    } catch (error) {
-        console.error('加载款式确认详情失败:', error);
-    }
-}
-
-async function approveStyleConfirmation() {
-    try {
-        await window.api.updateStyleConfirmation(currentStyleConfirmationId, {
+        await window.api.updateStyleConfirmation(styleId, {
             approval_status: 'approved',
             approved_by: 1
         });
         
-        closeModal('styleDetailModal');
         await refreshAppointmentDetail();
-        loadStyleConfirmations();
         loadDashboard();
     } catch (error) {
         console.error('批准款式确认失败:', error);
@@ -752,16 +719,15 @@ async function approveStyleConfirmation() {
     }
 }
 
-async function rejectStyleConfirmation() {
+async function rejectStyleConfirmation(id) {
+    const styleId = id || currentStyleConfirmationId;
     try {
-        await window.api.updateStyleConfirmation(currentStyleConfirmationId, {
+        await window.api.updateStyleConfirmation(styleId, {
             approval_status: 'rejected',
             approved_by: 1
         });
         
-        closeModal('styleDetailModal');
         await refreshAppointmentDetail();
-        loadStyleConfirmations();
         loadDashboard();
     } catch (error) {
         console.error('拒绝款式确认失败:', error);
@@ -822,7 +788,6 @@ async function quickApprove(id) {
             approved_by: 1
         });
         
-        loadStyleConfirmations();
         loadDashboard();
     } catch (error) {
         console.error('批准款式确认失败:', error);
@@ -836,7 +801,6 @@ async function quickReject(id) {
             approved_by: 1
         });
         
-        loadStyleConfirmations();
         loadDashboard();
     } catch (error) {
         console.error('拒绝款式确认失败:', error);
@@ -895,7 +859,13 @@ async function openRecentItem(type, id) {
     if (type === 'appointment') {
         await viewAppointment(id);
     } else if (type === 'style_confirmation') {
-        await viewStyleConfirmation(id);
+        const styleConfirmation = await window.api.getStyleConfirmation(id);
+        if (styleConfirmation && styleConfirmation.appointment_id) {
+            await viewAppointment(styleConfirmation.appointment_id);
+            setTimeout(() => {
+                document.querySelector('.tab-btn[data-tab="styles"]').click();
+            }, 100);
+        }
     }
 }
 
@@ -1328,9 +1298,7 @@ async function approveStyleConfirmation() {
             priority: 'high'
         });
         
-        closeModal('styleDetailModal');
         await refreshAppointmentDetail();
-        loadStyleConfirmations();
         loadDashboard();
     } catch (error) {
         console.error('批准款式确认失败:', error);

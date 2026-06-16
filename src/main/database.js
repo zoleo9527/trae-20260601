@@ -20,8 +20,8 @@ class AppDatabase {
     this.db = new Database(dbPath);
     this.db.pragma('journal_mode = WAL');
     
-    this.initializeTables();
     this.migrateDatabase();
+    this.initializeTables();
     this.initializeSampleData();
   }
 
@@ -845,6 +845,15 @@ class AppDatabase {
   }
 
   addOperationHistory(data) {
+    let operatorName = data.operator_name;
+    
+    if (!operatorName && data.operator_id) {
+      const employee = this.db.prepare('SELECT name FROM employees WHERE id = ?').get(data.operator_id);
+      operatorName = employee ? employee.name : '未知';
+    } else if (!operatorName) {
+      operatorName = '系统';
+    }
+    
     this.db.prepare(`
       INSERT INTO operation_history 
       (operation_type, entity_type, entity_id, description, operator_id, operator_name, old_data, new_data)
@@ -855,7 +864,7 @@ class AppDatabase {
       data.entity_id,
       data.description,
       data.operator_id,
-      data.operator_name,
+      operatorName,
       data.old_data,
       data.new_data
     );
