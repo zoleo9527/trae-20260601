@@ -1,0 +1,16 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary-color: #F59E0B;
+  --earth-color: #92400E;
+  --success-color: #10B981;
+  --danger-color: #EF4444;
+}
+
+body {
+  font-family: 'Source Han Sans CN', 'Noto Sans CJK SC', system-ui, -apple-system, sans-serif;
+  background-color: #FEF3C7;
+  color: #78350F;
+}
