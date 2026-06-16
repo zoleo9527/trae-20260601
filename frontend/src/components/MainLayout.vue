@@ -12,11 +12,7 @@
       <el-menu :default-active="activeMenu" mode="vertical" background-color="#2c3e50" text-color="#fff" active-text-color="#409eff">
         <el-menu-item index="measure" @click="activeMenu = 'measure'">
           <el-icon><Layout /></el-icon>
-          <span>客户量尺</span>
-        </el-menu-item>
-        <el-menu-item index="quote" @click="activeMenu = 'quote'">
-          <el-icon><FileText /></el-icon>
-          <span>报价确认</span>
+          <span>业务接力</span>
         </el-menu-item>
         <el-menu-item index="logs" @click="activeMenu = 'logs'">
           <el-icon><Document /></el-icon>
@@ -31,7 +27,6 @@
     
     <main class="main-content">
       <MeasureList v-if="activeMenu === 'measure'" :user="user" @refresh="handleRefresh" />
-      <QuoteList v-else-if="activeMenu === 'quote'" :user="user" @refresh="handleRefresh" />
       <LogList v-else-if="activeMenu === 'logs'" />
     </main>
     
@@ -42,7 +37,6 @@
 <script setup>
 import { ref } from 'vue'
 import MeasureList from './MeasureList.vue'
-import QuoteList from './QuoteList.vue'
 import LogList from './LogList.vue'
 import ResetModal from './ResetModal.vue'
 

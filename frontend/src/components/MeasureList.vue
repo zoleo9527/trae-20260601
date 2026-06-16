@@ -1,7 +1,7 @@
 <template>
   <div class="measure-list">
     <div class="header-bar">
-      <h3>客户量尺管理</h3>
+      <h3>业务接力</h3>
       <div class="actions">
         <el-button type="primary" @click="showAddModal = true" v-if="canAdd">
           <el-icon><Plus /></el-icon>
@@ -35,30 +35,40 @@
       <el-table-column prop="curtain_type" label="窗帘类型" width="100" />
       <el-table-column prop="status" label="状态" width="100">
         <template #default="scope">
-          <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
+          <div class="status-cell">
+            <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
+            <el-tag v-if="scope.row.is_urgent" type="danger" size="small" class="urgent-tag">
+              <el-icon><Bell /></el-icon>
+              已催{{ scope.row.urgent_count }}次
+            </el-tag>
+          </div>
         </template>
       </el-table-column>
       <el-table-column prop="created_at" label="创建时间" width="150" />
       <el-table-column prop="notes" label="备注" min-width="150" />
-      <el-table-column label="操作" width="200">
+      <el-table-column label="操作" width="250">
         <template #default="scope">
           <el-button size="small" @click="viewMeasure(scope.row)">查看</el-button>
           <el-button size="small" type="primary" v-if="canEdit(scope.row)" @click="editMeasure(scope.row)">编辑</el-button>
           <el-button size="small" type="danger" v-if="canReject(scope.row)" @click="openRejectModal(scope.row)">驳回</el-button>
           <el-button size="small" type="success" v-if="canResubmit(scope.row)" @click="resubmitMeasure(scope.row)">重新提交</el-button>
-          <el-button size="small" type="warning" v-if="canQuote(scope.row)" @click="createQuote(scope.row)">创建报价</el-button>
+          <el-button size="small" type="warning" @click="urgentMeasure(scope.row)" v-if="canUrgent(scope.row)">
+            <el-icon><Bell /></el-icon>
+            {{ scope.row.is_urgent ? '再次催单' : '催单' }}
+          </el-button>
         </template>
       </el-table-column>
     </el-table>
     
     <MeasureModal v-if="showAddModal || showEditModal" :measure="editingMeasure" :is-edit="showEditModal" @close="closeModal" @success="loadMeasures" />
-    <MeasureDetail v-if="showDetailModal" :measure="viewingMeasure" :quote="viewingQuote" @close="showDetailModal = false" />
+    <MeasureDetail v-if="showDetailModal" :measure="viewingMeasure" :quote="viewingQuote" :user="props.user" @close="showDetailModal = false" @success="loadMeasures" />
     <RejectModal v-if="showRejectModal" :title="'驳回量尺单'" :target-id="rejectTargetId" :type="'measure'" @close="showRejectModal = false" @success="loadMeasures" />
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { Bell } from '@element-plus/icons-vue'
 import axios from 'axios'
 import MeasureModal from './MeasureModal.vue'
 import MeasureDetail from './MeasureDetail.vue'
@@ -71,7 +81,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['refresh'])
+const emit = defineEmits(['refresh'])
 
 const measures = ref([])
 const statusFilter = ref('')
@@ -139,6 +149,11 @@ const canQuote = (row) => {
          row.status === '待报价'
 }
 
+const canUrgent = (row) => {
+  return (props.user.role === '导购' || props.user.role === '管理员') && 
+         (row.status === '待报价' || row.status === '已报价' || row.status === '待确认' || row.status === '待补材料')
+}
+
 const loadMeasures = async () => {
   try {
     const response = await axios.get('/api/measures')
@@ -188,6 +203,21 @@ const resubmitMeasure = async (measure) => {
 const createQuote = (measure) => {
   viewingMeasure.value = measure
   showDetailModal.value = true
+}
+
+const urgentMeasure = async (measure) => {
+  try {
+    await axios.post(`/api/measures/${measure.id}/urgent`)
+    loadMeasures()
+    alert('催单成功')
+  } catch (error) {
+    alert('操作失败: ' + (error.response?.data?.detail || error.message))
+  }
+}
+
+const handleDetailSuccess = () => {
+  loadMeasures()
+  emit('refresh')
 }
 
 onMounted(() => {
@@ -248,5 +278,15 @@ onMounted(() => {
 .stat-label {
   font-size: 14px;
   color: #666;
+}
+
+.status-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.urgent-tag {
+  margin-top: 4px;
 }
 </style>

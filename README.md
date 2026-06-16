@@ -1,122 +1,57 @@
-# 窗帘门店-客户量尺与报价确认系统
+# React + TypeScript + Vite
 
-## 项目简介
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-本系统旨在替代窗帘门店旧台账、现场记录和沟通截图中反复确认的部分，实现导购、量尺师、安装师傅的接力工作流程。
+Currently, two official plugins are available:
 
-## 技术栈
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-- **前端**: Vue 3 + Element Plus + Vite
-- **后端**: FastAPI + Python
-- **数据存储**: 内存存储（模拟数据）
+## Expanding the ESLint configuration
 
-## 启动方式
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-### 后端启动
-
-```bash
-cd backend
-pip install -r requirements.txt
-cd src
-python main.py
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
 
-后端服务将运行在 http://localhost:8000
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-### 前端启动
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-```bash
-cd frontend
-npm install
-npm run dev
+export default tseslint.config({
+  extends: [
+    // other configs...
+    // Enable lint rules for React
+    reactX.configs['recommended-typescript'],
+    // Enable lint rules for React DOM
+    reactDom.configs.recommended,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
-
-前端服务将运行在 http://localhost:5173
-
-## 登录信息
-
-系统支持以下角色登录：
-
-| 用户名 | 密码 | 角色 | 权限 |
-|--------|------|------|------|
-| 导购 | 123456 | 导购 | 创建、编辑量尺单，重新提交已驳回量尺 |
-| 量尺师 | 123456 | 量尺师 | 驳回量尺、创建报价、补充材料 |
-| 安装师傅 | 123456 | 安装师傅 | 确认报价、驳回报价、完成安装 |
-| 管理员 | 123456 | 管理员 | 所有权限 |
-
-## 数据重置
-
-点击左侧菜单的「数据重置」选项，可将系统数据恢复到初始状态。
-
-## 功能说明
-
-### 客户量尺管理
-- 新增量尺单（导购）
-- 编辑量尺单（导购）
-- 驳回量尺单（量尺师）
-- 重新提交量尺单（导购）
-- 创建报价（量尺师）
-
-### 报价确认管理
-- 确认报价（安装师傅）
-- 驳回报价（安装师傅）
-- 补充材料（量尺师）
-- 完成安装（安装师傅）
-
-### 状态流转
-```
-待报价 → 已报价/已驳回 → 待确认/待补材料 → 已确认 → 已完成
-              ↑                    ↑
-              └── 重新提交 ←───────┘
-```
-
-### 操作日志
-记录所有操作记录，包括：
-- 创建量尺
-- 修改量尺
-- 驳回量尺
-- 重新提交量尺
-- 创建报价
-- 确认报价
-- 驳回报价
-- 补充材料
-- 完成安装
-
-## 模拟能力说明
-
-以下能力目前为模拟实现：
-
-1. **数据存储**: 使用内存存储，重启服务后数据会恢复到初始状态
-2. **权限验证**: 基于角色的权限控制为模拟实现，实际生产环境应增加更严格的认证机制
-3. **用户管理**: 用户列表为硬编码，实际应接入数据库
-4. **文件上传**: 暂未实现图片、附件上传功能
-5. **消息通知**: 暂未实现消息推送、邮件通知等功能
-
-## API 接口
-
-### 认证接口
-- POST `/api/login` - 用户登录
-
-### 量尺接口
-- GET `/api/measures` - 获取量尺列表
-- GET `/api/measures/{id}` - 获取量尺详情
-- POST `/api/measures` - 创建量尺
-- PUT `/api/measures/{id}` - 更新量尺
-- POST `/api/measures/{id}/reject` - 驳回量尺
-- POST `/api/measures/{id}/resubmit` - 重新提交量尺
-
-### 报价接口
-- GET `/api/quotes` - 获取报价列表
-- GET `/api/quotes/{id}` - 获取报价详情
-- GET `/api/measures/{id}/quote` - 获取量尺对应的报价
-- POST `/api/quotes` - 创建报价
-- POST `/api/quotes/{id}/confirm` - 确认报价
-- POST `/api/quotes/{id}/reject` - 驳回报价
-- POST `/api/quotes/{id}/supplement` - 补充材料
-- POST `/api/quotes/{id}/complete` - 完成安装
-
-### 日志接口
-- GET `/api/logs` - 获取操作日志
-
-### 数据重置
-- POST `/api/reset` - 重置数据
