@@ -695,3 +695,206 @@ def get_dashboard(request):
             "role": role_name,
             "role_display": request.auth.role.get_name_display()
         }
+
+class PendingItemSchema(Schema):
+    id: int
+    type: str
+    type_display: str
+    customer_name: str
+    customer_phone: str
+    table_number: str
+    table_type: str
+    date: date
+    time_slot: str
+    guest_count: int
+    status: str
+    status_display: str
+    last_reject_info: LastRejectInfoSchema = None
+
+class ReminderItemSchema(Schema):
+    id: int
+    type: str
+    type_display: str
+    message: str
+    created_at: datetime
+    reservation_id: int = None
+    customer_name: str = None
+
+class PendingListResponse(Schema):
+    items: list
+    role: str
+    role_display: str
+
+@api.get("/pending-list", response=PendingListResponse, auth=AuthBearer())
+def get_pending_list(request):
+    role_name = request.auth.role.name
+    today = date.today()
+    
+    if role_name == 'boss':
+        pending_reservations = Reservation.objects.filter(
+            status='pending'
+        ).select_related('table').order_by('-created_at')
+        
+        pending_menus = Reservation.objects.filter(
+            status__in=['menu_submitted', 'menu_resubmitted']
+        ).select_related('table').order_by('-created_at')
+        
+        items = []
+        
+        for r in pending_reservations:
+            last_reject = get_last_reject_info(r)
+            items.append({
+                "id": r.id,
+                "type": "pending_reservation",
+                "type_display": "待确认预订",
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "table_number": r.table.table_number,
+                "table_type": r.table.get_table_type_display(),
+                "date": r.date,
+                "time_slot": r.time_slot,
+                "guest_count": r.guest_count,
+                "status": r.status,
+                "status_display": r.get_status_display(),
+                "last_reject_info": last_reject
+            })
+        
+        for r in pending_menus:
+            last_reject = get_last_reject_info(r)
+            items.append({
+                "id": r.id,
+                "type": "pending_menu",
+                "type_display": "待确认菜单",
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "table_number": r.table.table_number,
+                "table_type": r.table.get_table_type_display(),
+                "date": r.date,
+                "time_slot": r.time_slot,
+                "guest_count": r.guest_count,
+                "status": r.status,
+                "status_display": r.get_status_display(),
+                "last_reject_info": last_reject
+            })
+        
+        items.sort(key=lambda x: x["date"], reverse=True)
+        
+        return {
+            "items": items,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }
+    
+    elif role_name == 'chef':
+        pending_menus = Reservation.objects.filter(
+            status__in=['menu_submitted', 'menu_resubmitted']
+        ).select_related('table').order_by('-created_at')
+        
+        items = []
+        for r in pending_menus:
+            last_reject = get_last_reject_info(r)
+            items.append({
+                "id": r.id,
+                "type": "pending_menu",
+                "type_display": "待确认菜单",
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "table_number": r.table.table_number,
+                "table_type": r.table.get_table_type_display(),
+                "date": r.date,
+                "time_slot": r.time_slot,
+                "guest_count": r.guest_count,
+                "status": r.status,
+                "status_display": r.get_status_display(),
+                "last_reject_info": last_reject
+            })
+        
+        return {
+            "items": items,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }
+    
+    elif role_name == 'housekeeper':
+        today_reservations = Reservation.objects.filter(
+            date=today,
+            status__in=['confirmed', 'menu_submitted', 'menu_rejected', 'menu_resubmitted', 'menu_confirmed']
+        ).select_related('table').order_by('time_slot')
+        
+        notifications = Notification.objects.filter(
+            staff=request.auth,
+            is_read=False
+        ).order_by('-created_at')
+        
+        items = []
+        
+        for r in today_reservations:
+            items.append({
+                "id": r.id,
+                "type": "today_reservation",
+                "type_display": "今日预订",
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "table_number": r.table.table_number,
+                "table_type": r.table.get_table_type_display(),
+                "date": r.date,
+                "time_slot": r.time_slot,
+                "guest_count": r.guest_count,
+                "status": r.status,
+                "status_display": r.get_status_display(),
+                "last_reject_info": None
+            })
+        
+        for n in notifications:
+            items.append({
+                "id": n.id,
+                "type": n.type,
+                "type_display": n.get_type_display(),
+                "message": n.message,
+                "created_at": n.created_at,
+                "reservation_id": n.reservation.id if n.reservation else None,
+                "customer_name": n.reservation.customer_name if n.reservation else None
+            })
+        
+        return {
+            "items": items,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }
+    
+    elif role_name == 'waiter':
+        rejected_menus = Reservation.objects.filter(
+            status='menu_rejected'
+        ).select_related('table').order_by('-updated_at')
+        
+        items = []
+        for r in rejected_menus:
+            last_reject = get_last_reject_info(r)
+            items.append({
+                "id": r.id,
+                "type": "rejected_menu",
+                "type_display": "菜单驳回待补录",
+                "customer_name": r.customer_name,
+                "customer_phone": r.customer_phone,
+                "table_number": r.table.table_number,
+                "table_type": r.table.get_table_type_display(),
+                "date": r.date,
+                "time_slot": r.time_slot,
+                "guest_count": r.guest_count,
+                "status": r.status,
+                "status_display": r.get_status_display(),
+                "last_reject_info": last_reject
+            })
+        
+        return {
+            "items": items,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }
+    
+    else:
+        return {
+            "items": [],
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }
