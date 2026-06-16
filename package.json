@@ -1,0 +1,42 @@
+{
+  "name": "clothing-customization-manager",
+  "version": "1.0.0",
+  "description": "服装定制店-量体预约与款式确认管理系统",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "sqlite",
+    "customization",
+    "clothing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.2.2",
+    "electron-log": "^5.0.1"
+  },
+  "build": {
+    "appId": "com.customization.manager",
+    "productName": "服装定制管理系统",
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "category": "public.app-category.business"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  }
+}
