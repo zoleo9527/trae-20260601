@@ -1,10 +1,18 @@
 package com.example.tailor.service;
 
+import com.example.tailor.dto.response.NotificationRecordDTO;
 import com.example.tailor.entity.NotificationRecord;
 import com.example.tailor.repository.NotificationRecordRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 public class NotificationService {
@@ -82,5 +90,77 @@ public class NotificationService {
         record.setTriggerTime(LocalDateTime.now());
 
         notificationRecordRepository.save(record);
+    }
+
+    public Page<NotificationRecordDTO> queryNotifications(String targetRole, String status, Integer page, Integer size) {
+        Pageable pageable = PageRequest.of(
+                page != null ? page : 0,
+                size != null ? size : 10,
+                Sort.by(Sort.Direction.DESC, "triggerTime")
+        );
+
+        Page<NotificationRecord> pageResult;
+        if (targetRole != null && !targetRole.isEmpty() && status != null && !status.isEmpty()) {
+            pageResult = notificationRecordRepository.findByTargetRoleAndStatus(targetRole, status, pageable);
+        } else if (targetRole != null && !targetRole.isEmpty()) {
+            pageResult = notificationRecordRepository.findByTargetRole(targetRole, pageable);
+        } else if (status != null && !status.isEmpty()) {
+            pageResult = notificationRecordRepository.findByStatus(status, pageable);
+        } else {
+            pageResult = notificationRecordRepository.findAll(pageable);
+        }
+
+        return pageResult.map(this::convertToDTO);
+    }
+
+    public NotificationRecordDTO getNotificationById(Long id) {
+        NotificationRecord record = notificationRecordRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("通知记录不存在：" + id));
+        return convertToDTO(record);
+    }
+
+    @Transactional
+    public NotificationRecordDTO markAsRead(Long id) {
+        NotificationRecord record = notificationRecordRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("通知记录不存在：" + id));
+        record.setStatus("READ");
+        record.setReadTime(LocalDateTime.now());
+        NotificationRecord saved = notificationRecordRepository.save(record);
+        return convertToDTO(saved);
+    }
+
+    @Transactional
+    public void markAllAsRead(String targetRole) {
+        List<NotificationRecord> records = notificationRecordRepository.findByTargetRoleAndStatus(targetRole, "PENDING");
+        records.forEach(record -> {
+            record.setStatus("READ");
+            record.setReadTime(LocalDateTime.now());
+        });
+        notificationRecordRepository.saveAll(records);
+    }
+
+    public Long countUnread(String targetRole) {
+        return notificationRecordRepository.countByTargetRoleAndStatus(targetRole, "PENDING");
+    }
+
+    private NotificationRecordDTO convertToDTO(NotificationRecord record) {
+        NotificationRecordDTO dto = new NotificationRecordDTO();
+        dto.setId(record.getId());
+        dto.setNotificationType(record.getNotificationType());
+        dto.setTargetRole(record.getTargetRole());
+        dto.setTargetUserId(record.getTargetUserId());
+        dto.setTargetUserName(record.getTargetUserName());
+        dto.setStatus(record.getStatus());
+        dto.setRelatedOrderId(record.getRelatedOrderId());
+        dto.setRelatedOrderNo(record.getRelatedOrderNo());
+        dto.setRelatedFeedbackId(record.getRelatedFeedbackId());
+        dto.setRelatedFeedbackNo(record.getRelatedFeedbackNo());
+        dto.setRelatedModificationId(record.getRelatedModificationId());
+        dto.setRelatedModificationNo(record.getRelatedModificationNo());
+        dto.setContent(record.getContent());
+        dto.setTriggerTime(record.getTriggerTime());
+        dto.setReadTime(record.getReadTime());
+        dto.setCreatedAt(record.getCreatedAt());
+        return dto;
     }
 }

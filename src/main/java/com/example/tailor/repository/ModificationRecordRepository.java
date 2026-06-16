@@ -16,7 +16,9 @@ public interface ModificationRecordRepository extends JpaRepository<Modification
     Page<ModificationRecord> findByFeedbackId(Long feedbackId, Pageable pageable);
     Page<ModificationRecord> findByOrderId(Long orderId, Pageable pageable);
     Page<ModificationRecord> findByStatus(ModificationStatus status, Pageable pageable);
+    List<ModificationRecord> findByStatus(ModificationStatus status);
     Page<ModificationRecord> findByResponsibleRole(String responsibleRole, Pageable pageable);
     Page<ModificationRecord> findByAssigneeId(Long assigneeId, Pageable pageable);
     List<ModificationRecord> findByFeedbackId(Long feedbackId);
+    List<ModificationRecord> findByResponsibleRoleAndStatus(String responsibleRole, ModificationStatus status);
 }

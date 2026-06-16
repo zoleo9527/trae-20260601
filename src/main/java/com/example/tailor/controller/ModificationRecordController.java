@@ -4,6 +4,7 @@ import com.example.tailor.dto.request.CreateModificationRequest;
 import com.example.tailor.dto.request.ModificationQueryRequest;
 import com.example.tailor.dto.request.UpdateModificationRequest;
 import com.example.tailor.dto.response.ApiResponse;
+import com.example.tailor.dto.response.ModificationDetailDTO;
 import com.example.tailor.dto.response.ModificationRecordDTO;
 import com.example.tailor.dto.response.PageResponse;
 import com.example.tailor.service.ModificationRecordService;
@@ -41,11 +42,27 @@ public class ModificationRecordController {
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
+    @GetMapping("/{id}/detail")
+    @Operation(summary = "查询修改记录详情", description = "根据ID查询修改记录详情，包含关联的试衣反馈、量体数据和面料信息")
+    public ResponseEntity<ApiResponse<ModificationDetailDTO>> getModificationDetailById(
+            @Parameter(description = "修改记录ID") @PathVariable Long id) {
+        ModificationDetailDTO result = modificationRecordService.getModificationDetailById(id);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
     @GetMapping("/no/{modificationNo}")
     @Operation(summary = "根据修改单号查询", description = "根据修改单号查询修改记录详情")
     public ResponseEntity<ApiResponse<ModificationRecordDTO>> getModificationByNo(
             @Parameter(description = "修改单号") @PathVariable String modificationNo) {
         ModificationRecordDTO result = modificationRecordService.getModificationByNo(modificationNo);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/no/{modificationNo}/detail")
+    @Operation(summary = "根据修改单号查询详情", description = "根据修改单号查询修改记录详情，包含关联的试衣反馈、量体数据和面料信息")
+    public ResponseEntity<ApiResponse<ModificationDetailDTO>> getModificationDetailByNo(
+            @Parameter(description = "修改单号") @PathVariable String modificationNo) {
+        ModificationDetailDTO result = modificationRecordService.getModificationDetailByNo(modificationNo);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 
@@ -77,6 +94,28 @@ public class ModificationRecordController {
         request.setPage(page);
         request.setSize(size);
         PageResponse<ModificationRecordDTO> result = modificationRecordService.queryModifications(request);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
+    @GetMapping("/query/detail")
+    @Operation(summary = "分页查询修改记录详情", description = "支持按反馈ID、订单ID、状态、责任角色、处理人等条件筛选，返回包含关联信息的详情")
+    public ResponseEntity<ApiResponse<PageResponse<ModificationDetailDTO>>> queryModificationDetails(
+            @Parameter(description = "反馈ID") @RequestParam(required = false) Long feedbackId,
+            @Parameter(description = "订单ID") @RequestParam(required = false) Long orderId,
+            @Parameter(description = "状态") @RequestParam(required = false) String status,
+            @Parameter(description = "责任角色") @RequestParam(required = false) String responsibleRole,
+            @Parameter(description = "处理人ID") @RequestParam(required = false) Long assigneeId,
+            @Parameter(description = "页码") @RequestParam(defaultValue = "0") Integer page,
+            @Parameter(description = "每页大小") @RequestParam(defaultValue = "10") Integer size) {
+        ModificationQueryRequest request = new ModificationQueryRequest();
+        request.setFeedbackId(feedbackId);
+        request.setOrderId(orderId);
+        request.setStatus(status);
+        request.setResponsibleRole(responsibleRole);
+        request.setAssigneeId(assigneeId);
+        request.setPage(page);
+        request.setSize(size);
+        PageResponse<ModificationDetailDTO> result = modificationRecordService.queryModificationDetails(request);
         return ResponseEntity.ok(ApiResponse.success(result));
     }
 }

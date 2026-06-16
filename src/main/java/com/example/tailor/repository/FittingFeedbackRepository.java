@@ -16,6 +16,7 @@ public interface FittingFeedbackRepository extends JpaRepository<FittingFeedback
     Optional<FittingFeedback> findByFeedbackNo(String feedbackNo);
     Page<FittingFeedback> findByOrderId(Long orderId, Pageable pageable);
     Page<FittingFeedback> findByStatus(FeedbackStatus status, Pageable pageable);
+    List<FittingFeedback> findByStatus(FeedbackStatus status);
     Page<FittingFeedback> findByCustomerId(Long customerId, Pageable pageable);
     Page<FittingFeedback> findByFittingDateBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
     Page<FittingFeedback> findByOrderOrderNoContaining(String orderNo, Pageable pageable);

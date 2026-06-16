@@ -12,4 +12,7 @@ public interface NotificationRecordRepository extends JpaRepository<Notification
     Page<NotificationRecord> findByTargetUserId(Long targetUserId, Pageable pageable);
     Page<NotificationRecord> findByRelatedOrderId(Long orderId, Pageable pageable);
     Page<NotificationRecord> findByStatus(String status, Pageable pageable);
+    Page<NotificationRecord> findByTargetRoleAndStatus(String targetRole, String status, Pageable pageable);
+    java.util.List<NotificationRecord> findByTargetRoleAndStatus(String targetRole, String status);
+    Long countByTargetRoleAndStatus(String targetRole, String status);
 }
