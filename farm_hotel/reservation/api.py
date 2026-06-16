@@ -816,44 +816,35 @@ def get_pending_list(request):
         }
     
     elif role_name == 'housekeeper':
-        today_reservations = Reservation.objects.filter(
-            date=today,
-            status__in=['confirmed', 'menu_submitted', 'menu_rejected', 'menu_resubmitted', 'menu_confirmed']
-        ).select_related('table').order_by('time_slot')
-        
         notifications = Notification.objects.filter(
             staff=request.auth,
+            type='reminder',
             is_read=False
-        ).order_by('-created_at')
+        ).select_related('reservation__table').order_by('-created_at')
         
         items = []
         
-        for r in today_reservations:
-            items.append({
-                "id": r.id,
-                "type": "today_reservation",
-                "type_display": "今日预订",
-                "customer_name": r.customer_name,
-                "customer_phone": r.customer_phone,
-                "table_number": r.table.table_number,
-                "table_type": r.table.get_table_type_display(),
-                "date": r.date,
-                "time_slot": r.time_slot,
-                "guest_count": r.guest_count,
-                "status": r.status,
-                "status_display": r.get_status_display(),
-                "last_reject_info": None
-            })
-        
         for n in notifications:
+            reservation = n.reservation
+            last_reject = get_last_reject_info(reservation) if reservation else None
+            
             items.append({
                 "id": n.id,
                 "type": n.type,
                 "type_display": n.get_type_display(),
+                "customer_name": reservation.customer_name if reservation else None,
+                "customer_phone": reservation.customer_phone if reservation else None,
+                "table_number": reservation.table.table_number if reservation and reservation.table else None,
+                "table_type": reservation.table.get_table_type_display() if reservation and reservation.table else None,
+                "date": reservation.date if reservation else None,
+                "time_slot": reservation.time_slot if reservation else None,
+                "guest_count": reservation.guest_count if reservation else None,
+                "status": reservation.status if reservation else None,
+                "status_display": reservation.get_status_display() if reservation else None,
+                "last_reject_info": last_reject,
                 "message": n.message,
                 "created_at": n.created_at,
-                "reservation_id": n.reservation.id if n.reservation else None,
-                "customer_name": n.reservation.customer_name if n.reservation else None
+                "reservation_id": reservation.id if reservation else None
             })
         
         return {
