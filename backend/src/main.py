@@ -218,12 +218,13 @@ def generate_mock_data():
             measure_id="m004",
             unit_price=95.0,
             quantity=9.2,
-            total_price=874.0,
+            total_price=974.0,
             discount=0,
-            final_price=874.0,
+            final_price=974.0,
             notes="静音轨道需要额外采购",
             status="待补材料",
             supplementary_materials="静音轨道2.5米",
+            additional_cost=100.0,
             created_at=datetime(2024, 1, 12, 14, 0),
             created_by="量尺师"
         ),
@@ -427,11 +428,12 @@ async def update_quote(quote_id: str, quote_data: QuoteCreate):
         updated_at=datetime.now(),
         updated_by="量尺师",
         rejected_reason=quotes_db[index].rejected_reason,
-        supplementary_materials=quotes_db[index].supplementary_materials
+        supplementary_materials=quotes_db[index].supplementary_materials,
+        additional_cost=quotes_db[index].additional_cost
     )
     
     customer = next((m for m in measures_db if m.id == quote_data.measure_id), None)
-    add_log("修改报价", quote_id, "报价单", "量尺师", f"修改客户{customer.customer_name}的报价，金额{quote_data.final_price}元")
+    add_log("修改报价", quote_id, "报价单", "量尺师", f"修改客户{customer.customer_name}的报价，金额{quote_data.final_price}元，额外费用{quotes_db[index].additional_cost}元")
     return quotes_db[index]
 
 @app.get("/api/measures/{measure_id}/quote", response_model=Optional[Quote])
