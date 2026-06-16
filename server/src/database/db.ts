@@ -69,5 +69,18 @@ export const initDatabase = () => {
         FOREIGN KEY (verifiedBy) REFERENCES users(name)
       )
     `)
+
+    db.run(`
+      CREATE TABLE IF NOT EXISTS followups (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        complaintId TEXT NOT NULL,
+        followupBy TEXT NOT NULL,
+        followupResult TEXT NOT NULL CHECK(followupResult IN ('resolved', 'pending')),
+        followupNote TEXT NOT NULL,
+        followupAt TEXT NOT NULL,
+        FOREIGN KEY (complaintId) REFERENCES complaints(id),
+        FOREIGN KEY (followupBy) REFERENCES users(name)
+      )
+    `)
   })
 }

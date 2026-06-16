@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronUp, Check, X, Phone, Edit, Gift, FileCheck } from 'lucide-react';
+import { ChevronDown, ChevronUp, X, Phone, Edit, Gift, FileCheck } from 'lucide-react';
 import type { Complaint } from '../types';
 import { complaintTypeMap, complaintStatusMap, compensateTypeMap } from '../data/mockData';
 
@@ -7,7 +7,6 @@ interface ComplaintTableProps {
   complaints: Complaint[];
   title: string;
   statusFilter: string;
-  onUpdateStatus: (id: string, status: string) => void;
   onAddCompensation?: (complaint: Complaint) => void;
   onVerifyCompensation?: (compensationId: string, verifiedBy: string) => void;
   onAddFollowup?: (complaint: Complaint) => void;
@@ -17,7 +16,6 @@ export function ComplaintTable({
   complaints, 
   title, 
   statusFilter, 
-  onUpdateStatus,
   onAddCompensation,
   onVerifyCompensation,
   onAddFollowup
@@ -165,7 +163,7 @@ export function ComplaintTable({
                         )}
                       </div>
 
-                      {!complaint.compensate.verifiedBy && (
+                      {!complaint.compensate.verifiedBy && !complaint.compensate.isAbnormal && (
                         <div className="mt-4 flex items-center space-x-3">
                           <input
                             type="text"
@@ -175,7 +173,7 @@ export function ComplaintTable({
                             className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-purple-500"
                           />
                           <button
-                            onClick={() => handleVerify(complaint.compensate.id)}
+                            onClick={() => handleVerify(complaint.compensate!.id)}
                             disabled={!verifyBy}
                             className="flex items-center space-x-1 px-4 py-2 bg-green-600 hover:bg-green-500 disabled:bg-slate-600 disabled:cursor-not-allowed rounded-lg text-sm text-white transition-colors"
                           >
@@ -184,6 +182,32 @@ export function ComplaintTable({
                           </button>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {complaint.followup && (
+                    <div className="mt-4 p-4 bg-slate-700/50 rounded-lg">
+                      <h3 className="text-sm font-medium text-white mb-3">回访记录</h3>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div>
+                          <p className="text-xs text-gray-400">回访人</p>
+                          <p className="text-white">{complaint.followup.followupBy}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">回访结果</p>
+                          <p className={`${complaint.followup.followupResult === 'resolved' ? 'text-green-400' : 'text-yellow-400'}`}>
+                            {complaint.followup.followupResult === 'resolved' ? '已解决' : '待跟进'}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-xs text-gray-400">回访内容</p>
+                          <p className="text-white">{complaint.followup.followupNote}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-400">回访时间</p>
+                          <p className="text-white">{complaint.followup.followupAt}</p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -197,18 +221,9 @@ export function ComplaintTable({
                         <span>添加补偿</span>
                       </button>
                     )}
-                    {complaint.status === 'pending' && (
+                    {complaint.status === 'compensated' && !complaint.compensate?.isAbnormal && (
                       <button
-                        onClick={(e) => { e.stopPropagation(); onUpdateStatus(complaint.id, 'compensated'); }}
-                        className="flex items-center space-x-1 px-4 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-sm text-white transition-colors"
-                      >
-                        <Check className="h-4 w-4"/>
-                        <span>确认处理</span>
-                      </button>
-                    )}
-                    {complaint.status === 'compensated' && (
-                      <button
-                        onClick={(e) => { e.stopPropagation(); onUpdateStatus(complaint.id, 'followup'); }}
+                        onClick={(e) => { e.stopPropagation(); onAddFollowup?.(complaint); }}
                         className="flex items-center space-x-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded-lg text-sm text-white transition-colors"
                       >
                         <Phone className="h-4 w-4"/>

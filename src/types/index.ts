@@ -17,6 +17,7 @@ export interface Complaint {
   managerName: string
   tableArea: string
   compensate?: Compensation
+  followup?: Followup
 }
 
 export interface Compensation {
@@ -31,6 +32,13 @@ export interface Compensation {
   verifiedAt?: string
   isAbnormal: boolean
   abnormalReason?: string
+}
+
+export interface Followup {
+  followupBy: string
+  followupResult: 'resolved' | 'pending'
+  followupNote: string
+  followupAt: string
 }
 
 export interface Table {

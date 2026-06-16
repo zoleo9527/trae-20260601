@@ -1,6 +1,6 @@
 import express from 'express'
 import { db } from '../database/db'
-import type { Complaint, Compensation, ComplaintStatus } from '../types'
+import type { Complaint, Compensation, Followup, ComplaintStatus } from '../types'
 
 export const complaintRouter = express.Router()
 
@@ -13,9 +13,11 @@ complaintRouter.get('/', (req, res) => {
            comp.description as comp_description, comp.authorizedBy as comp_authorizedBy,
            comp.authorizedAt as comp_authorizedAt, comp.verifiedBy as comp_verifiedBy,
            comp.verifiedAt as comp_verifiedAt, comp.isAbnormal as comp_isAbnormal,
-           comp.abnormalReason as comp_abnormalReason
+           comp.abnormalReason as comp_abnormalReason,
+           f.followupBy, f.followupResult, f.followupNote, f.followupAt
     FROM complaints c
     LEFT JOIN compensations comp ON c.id = comp.complaintId
+    LEFT JOIN followups f ON c.id = f.complaintId
   `
   
   if (status) {
@@ -27,7 +29,7 @@ complaintRouter.get('/', (req, res) => {
       return res.status(500).json({ error: err.message })
     }
     
-    const complaints: (Complaint & { compensate?: Compensation })[] = rows.map((row: any) => {
+    const complaints: (Complaint & { compensate?: Compensation; followup?: Followup })[] = rows.map((row: any) => {
       const complaint: Complaint = {
         id: row.id,
         tableNumber: row.tableNumber,
@@ -58,6 +60,15 @@ complaintRouter.get('/', (req, res) => {
         }
       }
 
+      if (row.followupBy) {
+        complaint.followup = {
+          followupBy: row.followupBy,
+          followupResult: row.followupResult,
+          followupNote: row.followupNote,
+          followupAt: row.followupAt
+        }
+      }
+
       return complaint
     })
 
@@ -74,9 +85,11 @@ complaintRouter.get('/:id', (req, res) => {
            comp.description as comp_description, comp.authorizedBy as comp_authorizedBy,
            comp.authorizedAt as comp_authorizedAt, comp.verifiedBy as comp_verifiedBy,
            comp.verifiedAt as comp_verifiedAt, comp.isAbnormal as comp_isAbnormal,
-           comp.abnormalReason as comp_abnormalReason
+           comp.abnormalReason as comp_abnormalReason,
+           f.followupBy, f.followupResult, f.followupNote, f.followupAt
     FROM complaints c
     LEFT JOIN compensations comp ON c.id = comp.complaintId
+    LEFT JOIN followups f ON c.id = f.complaintId
     WHERE c.id = ?
   `
 
@@ -89,7 +102,7 @@ complaintRouter.get('/:id', (req, res) => {
       return res.status(404).json({ error: '投诉记录不存在' })
     }
 
-    const complaint: Complaint & { compensate?: Compensation } = {
+    const complaint: Complaint & { compensate?: Compensation; followup?: Followup } = {
       id: row.id,
       tableNumber: row.tableNumber,
       customerName: row.customerName,
@@ -116,6 +129,15 @@ complaintRouter.get('/:id', (req, res) => {
         verifiedAt: row.comp_verifiedAt || undefined,
         isAbnormal: row.comp_isAbnormal === 1,
         abnormalReason: row.comp_abnormalReason || undefined
+      }
+    }
+
+    if (row.followupBy) {
+      complaint.followup = {
+        followupBy: row.followupBy,
+        followupResult: row.followupResult,
+        followupNote: row.followupNote,
+        followupAt: row.followupAt
       }
     }
 
@@ -171,6 +193,42 @@ complaintRouter.put('/:id/status', (req, res) => {
     }
 
     res.json({ id, status, updatedAt: now })
+  })
+})
+
+complaintRouter.put('/:id/followup', (req, res) => {
+  const { id } = req.params
+  const { followupBy, followupResult, followupNote } = req.body
+  
+  const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+
+  db.run(`
+    INSERT OR REPLACE INTO followups (complaintId, followupBy, followupResult, followupNote, followupAt)
+    VALUES (?, ?, ?, ?, ?)
+  `, [id, followupBy, followupResult, followupNote, now], function(err) {
+    if (err) {
+      return res.status(500).json({ error: err.message })
+    }
+
+    const newStatus = followupResult === 'resolved' ? 'resolved' : 'followup'
+    
+    db.run('UPDATE complaints SET status = ?, updatedAt = ? WHERE id = ?', [newStatus, now, id], function(err) {
+      if (err) {
+        return res.status(500).json({ error: err.message })
+      }
+
+      res.json({ 
+        id, 
+        status: newStatus, 
+        updatedAt: now,
+        followup: {
+          followupBy,
+          followupResult,
+          followupNote,
+          followupAt: now
+        }
+      })
+    })
   })
 })
 

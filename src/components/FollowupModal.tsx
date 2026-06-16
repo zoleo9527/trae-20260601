@@ -4,7 +4,11 @@ import type { Complaint } from '../types';
 
 interface FollowupModalProps {
   complaint: Complaint;
-  onSubmit: (complaintId: string, followupNote: string) => void;
+  onSubmit: (complaintId: string, followupData: {
+    followupBy: string;
+    followupResult: 'resolved' | 'pending';
+    followupNote: string;
+  }) => void;
   onClose: () => void;
 }
 
@@ -17,7 +21,11 @@ export function FollowupModal({ complaint, onSubmit, onClose }: FollowupModalPro
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(complaint.id, formData.followupNote);
+    onSubmit(complaint.id, {
+      followupBy: formData.followupBy,
+      followupResult: formData.followupResult,
+      followupNote: formData.followupNote
+    });
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {

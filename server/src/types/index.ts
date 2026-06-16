@@ -32,6 +32,13 @@ export interface Compensation {
   abnormalReason?: string
 }
 
+export interface Followup {
+  followupBy: string
+  followupResult: 'resolved' | 'pending'
+  followupNote: string
+  followupAt: string
+}
+
 export interface Table {
   id: string
   number: string

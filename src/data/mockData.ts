@@ -113,6 +113,12 @@ export const mockComplaints: Complaint[] = [
       verifiedBy: '陈吧台',
       verifiedAt: '2024-01-14 21:35:00',
       isAbnormal: false
+    },
+    followup: {
+      followupBy: '刘客服',
+      followupResult: 'resolved',
+      followupNote: '客人表示满意，问题已解决，感谢理解',
+      followupAt: '2024-01-14 23:00:00'
     }
   },
   {

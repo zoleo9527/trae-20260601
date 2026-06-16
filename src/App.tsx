@@ -8,34 +8,34 @@ import { SoupBaseManagement } from '@/pages/SoupBaseManagement';
 import { TodoManagement } from '@/pages/TodoManagement';
 import { useStore } from '@/store/store';
 import { useEffect, useState } from 'react';
-const API_BASE = 'http://localhost:3001/api'
+const API_BASE = 'http://localhost:3001/api';
 
 function App() {
-  const [complaints, setComplaints] = useState<Complaint[]>([])
-  const [showComplaintForm, setShowComplaintForm] = useState(false)
-  const [showCompensationModal, setShowCompensationModal] = useState(false)
-  const [showFollowupModal, setShowFollowupModal] = useState(false)
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
-  const [activeTab, setActiveTab] = useState<'pending' | 'compensated' | 'followup' | 'abnormal'>('pending')
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [showComplaintForm, setShowComplaintForm] = useState(false);
+  const [showCompensationModal, setShowCompensationModal] = useState(false);
+  const [showFollowupModal, setShowFollowupModal] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [activeTab, setActiveTab] = useState<'pending' | 'compensated' | 'followup' | 'abnormal'>('pending');
 
   useEffect(() => {
-    fetchComplaints()
-  }, [])
+    fetchComplaints();
+  }, []);
 
   const fetchComplaints = async () => {
     try {
-      const response = await fetch(`${API_BASE}/complaints`)
+      const response = await fetch(`${API_BASE}/complaints`);
       if (response.ok) {
-        const data = await response.json()
-        setComplaints(data)
+        const data = await response.json();
+        setComplaints(data);
       } else {
-        throw new Error('API response not ok')
+        throw new Error('API response not ok');
       }
     } catch (error) {
-      console.error('获取投诉列表失败，使用本地数据:', error)
-      setComplaints(mockComplaints)
+      console.error('获取投诉列表失败，使用本地数据:', error);
+      setComplaints(mockComplaints);
     }
-  }
+  };
 
   const handleAddComplaint = async (complaintData: Omit<Complaint, 'id' | 'status' | 'createdAt' | 'updatedAt'>) => {
     try {
@@ -43,65 +43,47 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(complaintData)
-      })
+      });
       if (response.ok) {
-        fetchComplaints()
-        setShowComplaintForm(false)
+        fetchComplaints();
+        setShowComplaintForm(false);
       }
     } catch (error) {
-      console.error('添加投诉失败:', error)
+      console.error('添加投诉失败:', error);
       const newComplaint: Complaint = {
         ...complaintData,
         id: `C${Date.now()}`,
         status: 'pending',
         createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
         updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      }
-      setComplaints(prev => [newComplaint, ...prev])
-      setShowComplaintForm(false)
+      };
+      setComplaints(prev => [newComplaint, ...prev]);
+      setShowComplaintForm(false);
     }
-  }
-
-  const handleUpdateStatus = async (id: string, newStatus: string) => {
-    try {
-      const response = await fetch(`${API_BASE}/complaints/${id}/status`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      })
-      if (response.ok) {
-        fetchComplaints()
-      }
-    } catch (error) {
-      console.error('更新状态失败:', error)
-      setComplaints(prev => prev.map(c => 
-        c.id === id ? { ...c, status: newStatus as Complaint['status'], updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19) } : c
-      ))
-    }
-  }
+  };
 
   const handleAddCompensation = async (compensationData: {
-    complaintId: string
-    type: 'drinks' | 'discount' | 'free_entry' | 'storage'
-    amount: number
-    description: string
-    authorizedBy: string
-    isAbnormal: boolean
-    abnormalReason?: string
+    complaintId: string;
+    type: 'drinks' | 'discount' | 'free_entry' | 'storage';
+    amount: number;
+    description: string;
+    authorizedBy: string;
+    isAbnormal: boolean;
+    abnormalReason?: string;
   }) => {
     try {
       const response = await fetch(`${API_BASE}/compensations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(compensationData)
-      })
+      });
       if (response.ok) {
-        fetchComplaints()
-        setShowCompensationModal(false)
-        setSelectedComplaint(null)
+        fetchComplaints();
+        setShowCompensationModal(false);
+        setSelectedComplaint(null);
       }
     } catch (error) {
-      console.error('添加补偿失败:', error)
+      console.error('添加补偿失败:', error);
       setComplaints(prev => prev.map(c => {
         if (c.id === compensationData.complaintId) {
           return {
@@ -119,14 +101,14 @@ function App() {
               isAbnormal: compensationData.isAbnormal,
               abnormalReason: compensationData.abnormalReason
             }
-          }
+          };
         }
-        return c
-      }))
-      setShowCompensationModal(false)
-      setSelectedComplaint(null)
+        return c;
+      }));
+      setShowCompensationModal(false);
+      setSelectedComplaint(null);
     }
-  }
+  };
 
   const handleVerifyCompensation = async (compensationId: string, verifiedBy: string) => {
     try {
@@ -134,12 +116,12 @@ function App() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ verifiedBy })
-      })
+      });
       if (response.ok) {
-        fetchComplaints()
+        fetchComplaints();
       }
     } catch (error) {
-      console.error('核销失败:', error)
+      console.error('核销失败:', error);
       setComplaints(prev => prev.map(c => {
         if (c.compensate?.id === compensationId) {
           return {
@@ -149,46 +131,65 @@ function App() {
               verifiedBy,
               verifiedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
             }
-          }
+          };
         }
-        return c
-      }))
+        return c;
+      }));
     }
-  }
+  };
 
-  const handleAddFollowup = async (complaintId: string, followupNote: string) => {
+  const handleAddFollowup = async (complaintId: string, followupData: {
+    followupBy: string;
+    followupResult: 'resolved' | 'pending';
+    followupNote: string;
+  }) => {
     try {
-      await fetch(`${API_BASE}/complaints/${complaintId}/status`, {
+      const response = await fetch(`${API_BASE}/complaints/${complaintId}/followup`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'resolved' })
-      })
-      fetchComplaints()
-      setShowFollowupModal(false)
-      setSelectedComplaint(null)
+        body: JSON.stringify(followupData)
+      });
+      if (response.ok) {
+        fetchComplaints();
+        setShowFollowupModal(false);
+        setSelectedComplaint(null);
+      }
     } catch (error) {
-      console.error('记录回访失败:', error)
-      setComplaints(prev => prev.map(c => 
-        c.id === complaintId ? { ...c, status: 'resolved' as Complaint['status'], updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19) } : c
-      ))
-      setShowFollowupModal(false)
-      setSelectedComplaint(null)
+      console.error('记录回访失败:', error);
+      setComplaints(prev => prev.map(c => {
+        if (c.id === complaintId) {
+          return {
+            ...c,
+            status: followupData.followupResult === 'resolved' ? 'resolved' : 'followup',
+            updatedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            followup: {
+              followupBy: followupData.followupBy,
+              followupResult: followupData.followupResult,
+              followupNote: followupData.followupNote,
+              followupAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            }
+          };
+        }
+        return c;
+      }));
+      setShowFollowupModal(false);
+      setSelectedComplaint(null);
     }
-  }
+  };
 
-  const pendingCount = complaints.filter(c => c.status === 'pending').length
-  const compensatedCount = complaints.filter(c => c.status === 'compensated').length
-  const followupCount = complaints.filter(c => c.status === 'followup').length
-  const abnormalCount = complaints.filter(c => c.compensate?.isAbnormal).length
+  const pendingCount = complaints.filter(c => c.status === 'pending').length;
+  const compensatedCount = complaints.filter(c => c.status === 'compensated').length;
+  const followupCount = complaints.filter(c => c.status === 'followup').length;
+  const abnormalCount = complaints.filter(c => c.compensate?.isAbnormal).length;
 
-  const abnormalComplaints = complaints.filter(c => c.compensate?.isAbnormal)
+  const abnormalComplaints = complaints.filter(c => c.compensate?.isAbnormal);
 
   const tabs = [
     { key: 'pending' as const, label: '当晚待处理', count: pendingCount },
     { key: 'compensated' as const, label: '已补偿', count: compensatedCount },
     { key: 'followup' as const, label: '待回访', count: followupCount },
     { key: 'abnormal' as const, label: '异常核销', count: abnormalCount },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-slate-900">
@@ -237,15 +238,14 @@ function App() {
             complaints={abnormalComplaints}
             title="异常核销"
             statusFilter="all"
-            onUpdateStatus={handleUpdateStatus}
-            onAddCompensation={(complaint) => {
-              setSelectedComplaint(complaint)
-              setShowCompensationModal(true)
+            onAddCompensation={(complaint: Complaint) => {
+              setSelectedComplaint(complaint);
+              setShowCompensationModal(true);
             }}
             onVerifyCompensation={handleVerifyCompensation}
-            onAddFollowup={(complaint) => {
-              setSelectedComplaint(complaint)
-              setShowFollowupModal(true)
+            onAddFollowup={(complaint: Complaint) => {
+              setSelectedComplaint(complaint);
+              setShowFollowupModal(true);
             }}
           />
         ) : (
@@ -253,15 +253,14 @@ function App() {
             complaints={complaints}
             title={tabs.find(t => t.key === activeTab)?.label || ''}
             statusFilter={activeTab}
-            onUpdateStatus={handleUpdateStatus}
-            onAddCompensation={(complaint) => {
-              setSelectedComplaint(complaint)
-              setShowCompensationModal(true)
+            onAddCompensation={(complaint: Complaint) => {
+              setSelectedComplaint(complaint);
+              setShowCompensationModal(true);
             }}
             onVerifyCompensation={handleVerifyCompensation}
-            onAddFollowup={(complaint) => {
-              setSelectedComplaint(complaint)
-              setShowFollowupModal(true)
+            onAddFollowup={(complaint: Complaint) => {
+              setSelectedComplaint(complaint);
+              setShowFollowupModal(true);
             }}
           />
         )}
@@ -279,8 +278,8 @@ function App() {
           complaint={selectedComplaint}
           onSubmit={handleAddCompensation}
           onClose={() => {
-            setShowCompensationModal(false)
-            setSelectedComplaint(null)
+            setShowCompensationModal(false);
+            setSelectedComplaint(null);
           }}
         />
       )}
@@ -290,13 +289,13 @@ function App() {
           complaint={selectedComplaint}
           onSubmit={handleAddFollowup}
           onClose={() => {
-            setShowFollowupModal(false)
-            setSelectedComplaint(null)
+            setShowFollowupModal(false);
+            setSelectedComplaint(null);
           }}
         />
       )}
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
