@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Thermometer, Package, AlertTriangle, Check, Plus, X } from 'lucide-react';
+import { Search, Thermometer, Package, AlertTriangle, Check, X } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { statusLabels } from '../data/mockData';
 import { StockRequest } from '../types';
@@ -31,9 +31,9 @@ export default function ArrivalInspectionPage() {
     if (!request) return;
 
     const isNormal = !hasDifference && 
-      (!request.product.isCold || (temperature && parseFloat(temperature) >= 0 && parseFloat(temperature) <= 10)) &&
+      (!request.product.isCold || (temperature !== '' && parseFloat(temperature) >= 0 && parseFloat(temperature) <= 10)) &&
       actualSpec === request.product.spec &&
-      actualQty === request.requestQty.toString();
+      Number(actualQty) === request.requestQty;
 
     try {
       const createdInspection = await addInspection({

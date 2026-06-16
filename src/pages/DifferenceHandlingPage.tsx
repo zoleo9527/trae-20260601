@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Search, Filter, AlertTriangle, Check, Clock, Package, FileText } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Check, Clock, Package } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
-import { differenceTypeLabels, differenceStatusLabels, statusLabels } from '../data/mockData';
+import { differenceTypeLabels, differenceStatusLabels } from '../data/mockData';
 import { Difference } from '../types';
 
 export default function DifferenceHandlingPage() {
