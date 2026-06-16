@@ -83,6 +83,8 @@ class DashboardResponse(BaseModel):
     visits_needing_attention: List[DashboardVisitItem]
     my_pending_returns: List[DashboardReturnItem]
     my_pending_visits: List[DashboardVisitItem]
+    returns_by_role: dict
+    visits_by_role: dict
     statistics: dict
 
 
@@ -99,8 +101,6 @@ def get_dashboard(request):
 
     returns = ReturnExchange.objects.select_related(
         'member', 'assigned_to', 'assigned_to__user'
-    ).filter(
-        created_at__date=today
     ).exclude(status__in=['completed', 'rejected'])
 
     visits = VisitRecord.objects.select_related(
@@ -110,118 +110,120 @@ def get_dashboard(request):
         status__in=['pending', 'in_progress']
     )
 
+    all_returns_list = []
     stuck_returns_count = 0
-    stuck_returns_list = []
+    returns_by_role_data = {
+        'clerk': [],
+        'manager': [],
+        'purchaser': [],
+    }
+
     for ret in returns:
         stuck_info = ret.get_stuck_info()
+        item = {
+            'id': ret.id,
+            'return_number': ret.return_number,
+            'member_name': ret.member.name,
+            'type': ret.get_type_display(),
+            'status': ret.get_status_display(),
+            'reason_category': ret.get_reason_category_display(),
+            'assigned_to_name': ret.assigned_to.user.get_full_name() if ret.assigned_to else None,
+            'current_handler_role': ret.get_current_expected_handler(),
+            'stuck_info': stuck_info,
+            'created_at': ret.created_at,
+            'days_pending': (timezone.now() - ret.created_at).days,
+        }
+        all_returns_list.append(item)
+
         if stuck_info and stuck_info.get('is_stuck'):
             stuck_returns_count += 1
-            stuck_returns_list.append({
-                'id': ret.id,
-                'return_number': ret.return_number,
-                'member_name': ret.member.name,
-                'type': ret.get_type_display(),
-                'status': ret.get_status_display(),
-                'reason_category': ret.get_reason_category_display(),
-                'assigned_to_name': ret.assigned_to.user.get_full_name() if ret.assigned_to else None,
-                'current_handler_role': ret.get_current_expected_handler(),
-                'stuck_info': stuck_info,
-                'created_at': ret.created_at,
-                'days_pending': stuck_info.get('days', 0),
-            })
 
+        handler_role = ret.get_current_expected_handler()
+        if handler_role in returns_by_role_data:
+            returns_by_role_data[handler_role].append(item)
+
+    all_visits_list = []
     stuck_visits_count = 0
-    stuck_visits_list = []
+    visits_by_role_data = {
+        'clerk': [],
+        'manager': [],
+        'purchaser': [],
+    }
+
     for visit in visits:
         stuck_info = visit.get_stuck_info()
+        days_overdue = None
+        if stuck_info and stuck_info.get('is_stuck'):
+            days_overdue = stuck_info.get('days_overdue', 0)
+
+        item = {
+            'id': visit.id,
+            'visit_number': visit.visit_number,
+            'member_name': visit.member.name,
+            'type': visit.get_type_display(),
+            'priority': visit.get_priority_display(),
+            'status': visit.get_status_display(),
+            'purpose': visit.purpose,
+            'assigned_to_name': visit.assigned_to.user.get_full_name() if visit.assigned_to else None,
+            'scheduled_date': visit.scheduled_date,
+            'scheduled_time': visit.scheduled_time,
+            'stuck_info': stuck_info,
+            'days_overdue': days_overdue,
+        }
+        all_visits_list.append(item)
+
         if stuck_info and stuck_info.get('is_stuck'):
             stuck_visits_count += 1
-            stuck_visits_list.append({
-                'id': visit.id,
-                'visit_number': visit.visit_number,
-                'member_name': visit.member.name,
-                'type': visit.get_type_display(),
-                'priority': visit.get_priority_display(),
-                'status': visit.get_status_display(),
-                'purpose': visit.purpose,
-                'assigned_to_name': visit.assigned_to.user.get_full_name() if visit.assigned_to else None,
-                'scheduled_date': visit.scheduled_date,
-                'scheduled_time': visit.scheduled_time,
-                'stuck_info': stuck_info,
-                'days_overdue': stuck_info.get('days_overdue', 0),
-            })
 
-    returns_needing_attention = stuck_returns_list[:10]
-    visits_needing_attention = stuck_visits_list[:10]
+        if visit.assigned_to:
+            role = visit.assigned_to.role
+            if role in visits_by_role_data:
+                visits_by_role_data[role].append(item)
+
+    returns_needing_attention = sorted(
+        [r for r in all_returns_list if r['stuck_info'] and r['stuck_info'].get('is_stuck')],
+        key=lambda x: x['days_pending'],
+        reverse=True
+    )[:10]
+
+    visits_needing_attention = sorted(
+        [v for v in all_visits_list if v['stuck_info'] and v['stuck_info'].get('is_stuck')],
+        key=lambda x: x['days_overdue'] or 0,
+        reverse=True
+    )[:10]
 
     my_returns = []
     my_visits = []
+    current_employee = None
     if hasattr(request, 'user') and request.user.is_authenticated:
         try:
-            employee = request.user.employee_profile
+            current_employee = request.user.employee_profile
             my_returns = [
-                {
-                    'id': ret.id,
-                    'return_number': ret.return_number,
-                    'member_name': ret.member.name,
-                    'type': ret.get_type_display(),
-                    'status': ret.get_status_display(),
-                    'reason_category': ret.get_reason_category_display(),
-                    'assigned_to_name': ret.assigned_to.user.get_full_name() if ret.assigned_to else None,
-                    'current_handler_role': ret.get_current_expected_handler(),
-                    'stuck_info': ret.get_stuck_info(),
-                    'created_at': ret.created_at,
-                    'days_pending': (timezone.now() - ret.created_at).days,
-                }
-                for ret in returns.filter(assigned_to=employee)[:5]
-            ]
+                item for item in all_returns_list
+                if item['assigned_to_name'] == current_employee.user.get_full_name()
+            ][:5]
             my_visits = [
-                {
-                    'id': visit.id,
-                    'visit_number': visit.visit_number,
-                    'member_name': visit.member.name,
-                    'type': visit.get_type_display(),
-                    'priority': visit.get_priority_display(),
-                    'status': visit.get_status_display(),
-                    'purpose': visit.purpose,
-                    'assigned_to_name': visit.assigned_to.user.get_full_name() if visit.assigned_to else None,
-                    'scheduled_date': visit.scheduled_date,
-                    'scheduled_time': visit.scheduled_time,
-                    'stuck_info': visit.get_stuck_info(),
-                    'days_overdue': (timezone.now().date() - visit.scheduled_date).days if visit.scheduled_date < timezone.now().date() else 0,
-                }
-                for visit in visits.filter(assigned_to=employee)[:5]
-            ]
+                item for item in all_visits_list
+                if item['assigned_to_name'] == current_employee.user.get_full_name()
+            ][:5]
         except Employee.DoesNotExist:
             pass
 
     stats = {
-        'today_returns_total': returns.count(),
-        'today_returns_completed': ReturnExchange.objects.filter(
-            created_at__date=today, status='completed'
+        'total_returns_pending': returns.count(),
+        'total_visits_pending': visits.count(),
+        'today_returns_created': ReturnExchange.objects.filter(
+            created_at__date=today
         ).count(),
-        'today_visits_total': visits.count() + VisitRecord.objects.filter(
-            scheduled_date=today, status='completed'
+        'today_returns_completed': ReturnExchange.objects.filter(
+            completed_at__date=today, status='completed'
+        ).count(),
+        'today_visits_scheduled': VisitRecord.objects.filter(
+            scheduled_date=today
         ).count(),
         'today_visits_completed': VisitRecord.objects.filter(
             completed_date=today, status='completed'
         ).count(),
-        'stuck_returns_by_role': {
-            'clerk': ReturnExchange.objects.filter(
-                created_at__date=today,
-                status__in=['pending', 'clerk_reviewing']
-            ).exclude(
-                status__in=['completed', 'rejected']
-            ).count(),
-            'manager': ReturnExchange.objects.filter(
-                created_at__date=today,
-                status='manager_reviewing'
-            ).count(),
-            'purchaser': ReturnExchange.objects.filter(
-                created_at__date=today,
-                status='purchaser_handling'
-            ).count(),
-        }
     }
 
     return {
@@ -233,6 +235,34 @@ def get_dashboard(request):
         'visits_needing_attention': visits_needing_attention,
         'my_pending_returns': my_returns,
         'my_pending_visits': my_visits,
+        'returns_by_role': {
+            'clerk': {
+                'count': len(returns_by_role_data['clerk']),
+                'items': returns_by_role_data['clerk'][:5],
+            },
+            'manager': {
+                'count': len(returns_by_role_data['manager']),
+                'items': returns_by_role_data['manager'][:5],
+            },
+            'purchaser': {
+                'count': len(returns_by_role_data['purchaser']),
+                'items': returns_by_role_data['purchaser'][:5],
+            },
+        },
+        'visits_by_role': {
+            'clerk': {
+                'count': len(visits_by_role_data['clerk']),
+                'items': visits_by_role_data['clerk'][:5],
+            },
+            'manager': {
+                'count': len(visits_by_role_data['manager']),
+                'items': visits_by_role_data['manager'][:5],
+            },
+            'purchaser': {
+                'count': len(visits_by_role_data['purchaser']),
+                'items': visits_by_role_data['purchaser'][:5],
+            },
+        },
         'statistics': stats,
     }
 
@@ -299,13 +329,15 @@ def list_returns(
             'reason_detail': ret.reason_detail,
             'original_product': {
                 'id': ret.original_product.id,
-                'name': ret.original_product.name,
                 'product_code': ret.original_product.product_code,
+                'name': ret.original_product.name,
+                'price': float(ret.original_product.price),
             } if ret.original_product else None,
             'exchange_product': {
                 'id': ret.exchange_product.id,
-                'name': ret.exchange_product.name,
                 'product_code': ret.exchange_product.product_code,
+                'name': ret.exchange_product.name,
+                'price': float(ret.exchange_product.price),
             } if ret.exchange_product else None,
             'quantity': ret.quantity,
             'assigned_to': {
@@ -313,11 +345,8 @@ def list_returns(
                 'name': ret.assigned_to.user.get_full_name(),
                 'role': ret.assigned_to.get_role_display(),
             } if ret.assigned_to else None,
-            'current_handler_role': ret.get_current_expected_handler(),
             'stuck_info': stuck_info,
-            'amount_refunded': float(ret.amount_refunded),
             'created_at': ret.created_at,
-            'updated_at': ret.updated_at,
         })
 
     return {'returns': returns, 'count': queryset.count()}
@@ -494,12 +523,19 @@ def update_return(request, return_id: int, data: ReturnExchangeUpdateSchema):
             'stuck_reason': ret.stuck_reason,
         }
 
+        user = None
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                user = request.user.employee_profile
+            except Employee.DoesNotExist:
+                pass
+
         AuditLog.objects.create(
             action='status_change' if data.status else 'update',
             entity_type='return_exchange',
             entity_id=str(ret.id),
             entity_name=ret.return_number,
-            user=getattr(request, 'user', None),
+            user=user,
             old_value=old_values,
             new_value=new_values,
             description=f'更新退换货单 {ret.return_number}',
@@ -735,12 +771,19 @@ def update_visit(request, visit_id: int, data: VisitRecordUpdateSchema):
 
         visit.save()
 
+        user = None
+        if hasattr(request, 'user') and request.user.is_authenticated:
+            try:
+                user = request.user.employee_profile
+            except Employee.DoesNotExist:
+                pass
+
         AuditLog.objects.create(
             action='status_change' if data.status else 'update',
             entity_type='visit_record',
             entity_id=str(visit.id),
             entity_name=visit.visit_number,
-            user=getattr(request, 'user', None),
+            user=user,
             old_value={'status': old_status},
             new_value={'status': visit.status},
             description=f'更新客户回访 {visit.visit_number}',
@@ -867,11 +910,18 @@ def export_audit_logs(
     wb.save(output)
     output.seek(0)
 
+    user = None
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        try:
+            user = request.user.employee_profile
+        except Employee.DoesNotExist:
+            pass
+
     AuditLog.objects.create(
         action='export',
         entity_type='audit_logs',
         entity_id='batch',
-        user=getattr(request, 'user', None),
+        user=user,
         description=f'导出审计日志，数量: {queryset.count()}',
     )
 
@@ -939,11 +989,18 @@ def export_returns(
     wb.save(output)
     output.seek(0)
 
+    user = None
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        try:
+            user = request.user.employee_profile
+        except Employee.DoesNotExist:
+            pass
+
     AuditLog.objects.create(
         action='export',
         entity_type='return_exchange',
         entity_id='batch',
-        user=getattr(request, 'user', None),
+        user=user,
         description=f'导出退换货记录，数量: {queryset.count()}',
     )
 
@@ -1012,11 +1069,18 @@ def export_visits(
     wb.save(output)
     output.seek(0)
 
+    user = None
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        try:
+            user = request.user.employee_profile
+        except Employee.DoesNotExist:
+            pass
+
     AuditLog.objects.create(
         action='export',
         entity_type='visit_record',
         entity_id='batch',
-        user=getattr(request, 'user', None),
+        user=user,
         description=f'导出客户回访记录，数量: {queryset.count()}',
     )
 

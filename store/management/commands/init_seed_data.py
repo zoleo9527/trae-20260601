@@ -80,6 +80,7 @@ class Command(BaseCommand):
             if created:
                 user.set_password('password123')
                 user.save()
+                self.stdout.write(f"  ✓ 创建用户: {emp_data['username']}")
 
             employee, created = Employee.objects.get_or_create(
                 employee_id=emp_data['employee_id'],
@@ -221,7 +222,7 @@ class Command(BaseCommand):
                     supplier=f"{product.brand}官方供应商",
                     cost=prod_data['cost'],
                 )
-                self.stdout.write(f"    → 批号: {batch.batch_number}")
+                self.stdout.write(f"    → 创建批号: {batch.batch_number}")
 
     def create_members(self):
         """创建会员"""
@@ -319,7 +320,6 @@ class Command(BaseCommand):
                 'assigned_to': self.clerk,
                 'current_handler_role': 'clerk',
                 'stuck_reason': '等待店员确认奶粉质量问题',
-                'created_at': timezone.now() - timedelta(days=4),
             },
             {
                 'return_number': 'RE202406150002',
@@ -333,7 +333,6 @@ class Command(BaseCommand):
                 'assigned_to': self.clerk,
                 'current_handler_role': 'manager',
                 'stuck_reason': '等待店长审批换货申请',
-                'created_at': timezone.now() - timedelta(days=5),
             },
             {
                 'return_number': 'RE202406150003',
@@ -348,7 +347,6 @@ class Command(BaseCommand):
                 'assigned_to': self.manager,
                 'current_handler_role': 'purchaser',
                 'stuck_reason': '采购正在与供应商协调退款事宜',
-                'created_at': timezone.now() - timedelta(days=6),
             },
             {
                 'return_number': 'RE202406160001',
@@ -364,11 +362,11 @@ class Command(BaseCommand):
                 'current_handler_role': 'clerk',
                 'amount_refunded': 298.00,
                 'completed_at': timezone.now() - timedelta(days=1),
-                'created_at': timezone.now() - timedelta(days=2),
             },
         ]
 
         for return_data in returns_data:
+            completed_at = return_data.pop('completed_at', None)
             ret, created = ReturnExchange.objects.get_or_create(
                 return_number=return_data['return_number'],
                 defaults=return_data
@@ -378,8 +376,8 @@ class Command(BaseCommand):
                 status_display = ret.get_status_display()
                 self.stdout.write(f"  ✓ 创建退换货: {ret.return_number} - {status_display}")
 
-                if ret.status == 'completed':
-                    ret.completed_at = return_data.get('completed_at')
+                if completed_at:
+                    ret.completed_at = completed_at
                     ret.save()
 
         self.stdout.write(f"  总计创建 {len(returns_data)} 条退换货记录")
@@ -440,7 +438,7 @@ class Command(BaseCommand):
                 'purpose': '宝宝即将满周岁，推荐周岁庆典活动',
                 'priority': 'high',
                 'status': 'pending',
-                'assigned_to': self.manager,
+                'assigned_to': self.clerk,
                 'scheduled_date': timezone.now().date(),
                 'stuck_reason': '',
             },
