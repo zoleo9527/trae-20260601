@@ -29,21 +29,20 @@
       <button class="nav-btn" data-tab="orders">订单列表</button>
       <button class="nav-btn" data-tab="add-dish">加菜处理</button>
       <button class="nav-btn" data-tab="return-dish">退菜处理</button>
-      <button class="nav-btn" data-tab="production">后厨出品</button>
-      <button class="nav-btn" data-tab="abnormal">异常单</button>
+      <button class="nav-btn" data-tab="handle">出品与落账</button>
     </nav>
 
     <main class="main-content">
       <div id="recentTab" class="tab-content active">
         <div class="section-header">
-          <h2>最近打开的订单</h2>
+          <h2>最近操作记录</h2>
           <div class="filter-bar">
             <input type="text" id="recentSearch" placeholder="搜索桌号或单号..." class="search-input">
             <select id="recentFilter">
-              <option value="all">全部状态</option>
-              <option value="pending">待处理</option>
-              <option value="processing">处理中</option>
-              <option value="completed">已完成</option>
+              <option value="all">全部角色</option>
+              <option value="cashier">收银</option>
+              <option value="front">前厅</option>
+              <option value="kitchen">后厨</option>
             </select>
           </div>
         </div>
@@ -60,8 +59,8 @@
               <option value="pending">待处理</option>
               <option value="processing">处理中</option>
               <option value="completed">已完成</option>
+              <option value="unsettled">待落账</option>
             </select>
-            <button class="btn btn-primary" onclick="exportOrders()">导出订单</button>
           </div>
         </div>
         <div class="dense-table-container">
@@ -71,7 +70,7 @@
                 <th>单号</th>
                 <th>桌号</th>
                 <th>人数</th>
-                <th>状态</th>
+                <th>状态/结算</th>
                 <th>下单时间</th>
                 <th>金额</th>
                 <th>操作</th>
@@ -85,15 +84,14 @@
       <div id="addDishTab" class="tab-content">
         <div class="section-header">
           <h2>加菜处理</h2>
-          <div class="filter-bar">
-            <input type="text" id="addDishSearch" placeholder="搜索桌号..." class="search-input">
-          </div>
         </div>
-        <div class="add-dish-container">
-          <div class="add-dish-form">
+        <div class="two-column-layout">
+          <div class="order-list" id="addDishOrders"></div>
+          <div class="dish-form" id="addDishForm" style="display:none;">
+            <input type="hidden" id="currentOrderId">
             <div class="form-row">
               <label>桌号</label>
-              <input type="text" id="addTableNo" placeholder="请输入桌号" required>
+              <input type="text" id="addTableNo" readonly>
             </div>
             <div class="form-row">
               <label>菜品</label>
@@ -118,11 +116,10 @@
               <label>备注</label>
               <textarea id="addRemark" placeholder="备注信息"></textarea>
             </div>
-            <button class="btn btn-primary" onclick="submitAddDish()">确认加菜</button>
-          </div>
-          <div class="add-dish-list">
-            <h3>待确认加菜</h3>
-            <div id="pendingAddList"></div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="resetAddDishForm()">取消</button>
+              <button class="btn btn-primary" onclick="submitAddDish()">确认加菜</button>
+            </div>
           </div>
         </div>
       </div>
@@ -130,20 +127,19 @@
       <div id="returnDishTab" class="tab-content">
         <div class="section-header">
           <h2>退菜处理</h2>
-          <div class="filter-bar">
-            <input type="text" id="returnDishSearch" placeholder="搜索桌号..." class="search-input">
-          </div>
         </div>
-        <div class="return-dish-container">
-          <div class="return-dish-form">
+        <div class="two-column-layout">
+          <div class="order-list" id="returnDishOrders"></div>
+          <div class="dish-form" id="returnDishForm" style="display:none;">
+            <input type="hidden" id="returnOrderId">
             <div class="form-row">
               <label>桌号</label>
-              <input type="text" id="returnTableNo" placeholder="请输入桌号" required>
+              <input type="text" id="returnTableNo" readonly>
             </div>
             <div class="form-row">
               <label>已点菜品</label>
               <select id="returnDishSelect" required>
-                <option value="">请先选择桌号</option>
+                <option value="">请选择菜品</option>
               </select>
             </div>
             <div class="form-row">
@@ -154,8 +150,8 @@
               <label>原因</label>
               <select id="returnReason" required>
                 <option value="">请选择退菜原因</option>
-                <option value="no-material">材料不足</option>
-                <option value="timeout">超时未上</option>
+                <option value="no-material">缺材料</option>
+                <option value="timeout">超时</option>
                 <option value="quality">菜品质量</option>
                 <option value="customer">顾客原因</option>
                 <option value="order-error">点单错误</option>
@@ -174,77 +170,47 @@
               <label>备注</label>
               <textarea id="returnRemark" placeholder="备注信息"></textarea>
             </div>
-            <button class="btn btn-primary" onclick="submitReturnDish()">确认退菜</button>
-          </div>
-          <div class="return-dish-list">
-            <h3>待处理退菜</h3>
-            <div id="pendingReturnList"></div>
-          </div>
-        </div>
-      </div>
-
-      <div id="productionTab" class="tab-content">
-        <div class="section-header">
-          <h2>后厨出品</h2>
-          <div class="filter-bar">
-            <input type="text" id="productionSearch" placeholder="搜索桌号或菜品..." class="search-input">
-            <select id="productionFilter">
-              <option value="all">全部状态</option>
-              <option value="pending">待出品</option>
-              <option value="cooking">烹饪中</option>
-              <option value="ready">已出菜</option>
-            </select>
-          </div>
-        </div>
-        <div class="production-board">
-          <div class="production-column">
-            <h3>待出品</h3>
-            <div class="production-items" id="pendingProduction"></div>
-          </div>
-          <div class="production-column">
-            <h3>烹饪中</h3>
-            <div class="production-items" id="cookingProduction"></div>
-          </div>
-          <div class="production-column">
-            <h3>已出菜</h3>
-            <div class="production-items" id="readyProduction"></div>
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="resetReturnDishForm()">取消</button>
+              <button class="btn btn-primary" onclick="submitReturnDish()">确认退菜</button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div id="abnormalTab" class="tab-content">
+      <div id="handleTab" class="tab-content">
         <div class="section-header">
-          <h2>异常单处理</h2>
-          <div class="filter-bar">
-            <input type="text" id="abnormalSearch" placeholder="搜索桌号或单号..." class="search-input">
-            <select id="abnormalFilter">
-              <option value="all">全部类型</option>
-              <option value="no-material">缺材料</option>
-              <option value="timeout">超时</option>
-              <option value="review-fail">复核不通过</option>
-            </select>
+          <h2>出品与落账</h2>
+        </div>
+        <div class="three-column-layout">
+          <div class="handle-column">
+            <h3>⚠️ 异常待处理</h3>
+            <div class="handle-items" id="abnormalItems"></div>
+          </div>
+          <div class="handle-column">
+            <h3>🔥 制作中</h3>
+            <div class="handle-items" id="cookingItems"></div>
+          </div>
+          <div class="handle-column">
+            <h3>💰 待落账</h3>
+            <div class="handle-items" id="settleItems"></div>
           </div>
         </div>
-        <div class="abnormal-list" id="abnormalList"></div>
       </div>
     </main>
 
     <div class="modal-overlay" id="modalOverlay" style="display: none;">
-      <div class="modal">
+      <div class="modal modal-large">
         <div class="modal-header">
           <h3 id="modalTitle">详情</h3>
           <button class="modal-close" onclick="closeModal()">×</button>
         </div>
         <div class="modal-body" id="modalBody"></div>
-        <div class="modal-footer">
-          <button class="btn btn-secondary" onclick="closeModal()">关闭</button>
-        </div>
       </div>
     </div>
   </div>
 
   <script src="js/neutralino.js"></script>
-  <script src="js/data.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

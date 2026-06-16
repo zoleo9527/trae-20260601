@@ -76,7 +76,6 @@ body {
   cursor: pointer;
   border-bottom: 3px solid transparent;
   transition: all 0.2s;
-  position: relative;
 }
 
 .nav-btn:hover {
@@ -87,18 +86,6 @@ body {
 .nav-btn.active {
   color: #c41e3a;
   border-bottom-color: #c41e3a;
-}
-
-.nav-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 8px;
-  height: 8px;
-  background: #c41e3a;
-  border-radius: 50%;
 }
 
 .main-content {
@@ -140,7 +127,6 @@ body {
   border-radius: 6px;
   font-size: 14px;
   width: 200px;
-  transition: border-color 0.2s;
 }
 
 .search-input:focus {
@@ -244,6 +230,7 @@ body {
   justify-content: space-between;
   font-size: 12px;
   color: #666;
+  margin-bottom: 6px;
 }
 
 .recent-card-items {
@@ -290,30 +277,61 @@ body {
   background-color: #f8f9fa;
 }
 
-.dense-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.order-actions {
-  display: flex;
-  gap: 8px;
-}
-
 .order-actions button {
   padding: 4px 10px;
   font-size: 12px;
   border-radius: 4px;
+  margin-right: 4px;
 }
 
-.add-dish-container,
-.return-dish-container {
+.two-column-layout {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 20px;
 }
 
-.add-dish-form,
-.return-dish-form {
+.order-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.order-card {
+  background: white;
+  border-radius: 8px;
+  padding: 14px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 4px solid #007bff;
+}
+
+.order-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  transform: translateY(-2px);
+}
+
+.order-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.order-card-table {
+  font-size: 18px;
+  font-weight: 600;
+  color: #c41e3a;
+}
+
+.order-card-items {
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.dish-form {
   background: white;
   border-radius: 8px;
   padding: 20px;
@@ -340,7 +358,6 @@ body {
   border: 1px solid #ced4da;
   border-radius: 6px;
   font-size: 14px;
-  transition: border-color 0.2s;
 }
 
 .form-row input:focus,
@@ -355,69 +372,27 @@ body {
   min-height: 60px;
 }
 
-.add-dish-list,
-.return-dish-list {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-}
-
-.add-dish-list h3,
-.return-dish-list h3 {
-  font-size: 14px;
-  margin-bottom: 12px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e9ecef;
-}
-
-.add-item,
-.return-item {
-  background: #f8f9fa;
-  border-radius: 6px;
-  padding: 12px;
-  margin-bottom: 10px;
-}
-
-.add-item-header,
-.return-item-header {
+.form-actions {
   display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 20px;
 }
 
-.add-item-table,
-.return-item-table {
-  font-weight: 600;
-  color: #c41e3a;
-}
-
-.add-item-dish,
-.return-item-dish {
-  font-size: 13px;
-  margin-bottom: 4px;
-}
-
-.add-item-info,
-.return-item-info {
-  font-size: 12px;
-  color: #666;
-}
-
-.production-board {
+.three-column-layout {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 16px;
 }
 
-.production-column {
+.handle-column {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   overflow: hidden;
 }
 
-.production-column h3 {
+.handle-column h3 {
   padding: 12px 16px;
   font-size: 14px;
   font-weight: 600;
@@ -425,65 +400,18 @@ body {
   border-bottom: 1px solid #e9ecef;
 }
 
-.production-items {
+.handle-items {
   padding: 12px;
   max-height: 500px;
   overflow-y: auto;
 }
 
-.production-item {
+.abnormal-card {
   background: #f8f9fa;
   border-radius: 6px;
   padding: 12px;
   margin-bottom: 10px;
-  border-left: 4px solid #c41e3a;
-}
-
-.production-item-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.production-item-table {
-  font-weight: 600;
-  color: #c41e3a;
-}
-
-.production-item-dish {
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-
-.production-item-time {
-  font-size: 12px;
-  color: #666;
-}
-
-.production-item-actions {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
-}
-
-.production-item-actions button {
-  padding: 4px 10px;
-  font-size: 12px;
-  border-radius: 4px;
-}
-
-.abnormal-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
-}
-
-.abnormal-card {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  border-left: 4px solid #dc3545;
+  border-left: 4px solid #ffc107;
 }
 
 .abnormal-card.no-material {
@@ -502,7 +430,13 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.abnormal-card-table {
+  font-size: 16px;
+  font-weight: 600;
+  color: #c41e3a;
 }
 
 .abnormal-card-type {
@@ -526,19 +460,14 @@ body {
   color: #495057;
 }
 
-.abnormal-card-table {
-  font-size: 18px;
-  font-weight: 600;
-  color: #c41e3a;
-}
-
 .abnormal-card-content {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .abnormal-card-dish {
   font-size: 14px;
-  margin-bottom: 6px;
+  font-weight: 500;
+  margin-bottom: 4px;
 }
 
 .abnormal-card-reason {
@@ -549,10 +478,12 @@ body {
 .abnormal-card-actions {
   display: flex;
   gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .abnormal-card-actions button {
-  padding: 6px 12px;
+  padding: 4px 10px;
   font-size: 12px;
   border-radius: 4px;
 }
@@ -574,9 +505,13 @@ body {
   background: white;
   border-radius: 8px;
   width: 90%;
-  max-width: 600px;
+  max-width: 500px;
   max-height: 80vh;
   overflow: hidden;
+}
+
+.modal-large {
+  max-width: 700px;
 }
 
 .modal-header {
@@ -608,16 +543,8 @@ body {
   overflow-y: auto;
 }
 
-.modal-footer {
-  padding: 16px 20px;
-  border-top: 1px solid #e9ecef;
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
 .dish-list {
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 .dish-item {
@@ -645,17 +572,12 @@ body {
     flex-shrink: 0;
   }
   
-  .add-dish-container,
-  .return-dish-container {
+  .two-column-layout,
+  .three-column-layout {
     grid-template-columns: 1fr;
   }
   
-  .production-board {
-    grid-template-columns: 1fr;
-  }
-  
-  .recent-list,
-  .abnormal-list {
+  .recent-list {
     grid-template-columns: 1fr;
   }
 }
