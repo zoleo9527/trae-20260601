@@ -25,7 +25,7 @@ const pickupStatusOptions: { value: PickupStatusType; label: string }[] = [
 ];
 
 export function FilterBar() {
-  const { statusFilter, productFilter, pickupStatusFilter, searchQuery, setStatusFilter, setProductFilter, setPickupStatusFilter, setSearchQuery } = useOrderStore();
+  const { statusFilter, productFilter, pickupStatusFilter, searchQuery, setStatusFilter, setProductFilter, setPickupStatusFilter, setSearchQuery, setFollowUpFilter } = useOrderStore();
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -48,7 +48,10 @@ export function FilterBar() {
             <Filter className="w-4 h-4 text-gray-400" />
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as StatusType)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusType);
+                setFollowUpFilter('all');
+              }}
               className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
             >
               {statusOptions.map((option) => (
@@ -61,7 +64,10 @@ export function FilterBar() {
           
           <select
             value={productFilter}
-            onChange={(e) => setProductFilter(e.target.value as ProductType)}
+            onChange={(e) => {
+              setProductFilter(e.target.value as ProductType);
+              setFollowUpFilter('all');
+            }}
             className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
           >
             {productOptions.map((option) => (
@@ -75,7 +81,10 @@ export function FilterBar() {
             <Calendar className="w-4 h-4 text-gray-400" />
             <select
               value={pickupStatusFilter}
-              onChange={(e) => setPickupStatusFilter(e.target.value as PickupStatusType)}
+              onChange={(e) => {
+                setPickupStatusFilter(e.target.value as PickupStatusType);
+                setFollowUpFilter('all');
+              }}
               className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
             >
               {pickupStatusOptions.map((option) => (

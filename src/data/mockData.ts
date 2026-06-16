@@ -89,6 +89,20 @@ export const mockOrders: Order[] = [
     newPickupDate: '2024-02-22',
     delayReason: '家中有事，申请延期取件',
   },
+  {
+    id: 'ORD-2024-008',
+    customerName: '黄女士',
+    productType: 'wedding-dress',
+    status: 'completed',
+    createdAt: '2024-01-06',
+    expectedDelivery: '2024-02-06',
+    assignee: '陈版师',
+    priority: 'high',
+    pickupStatus: 'delayed',
+    originalPickupDate: '2024-02-06',
+    newPickupDate: '2024-02-25',
+    delayReason: '婚礼延期，需要推迟取件',
+  },
 ];
 
 export const mockMeasurements: Measurement[] = [

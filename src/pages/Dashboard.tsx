@@ -11,20 +11,22 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onSelectOrder }: DashboardProps) {
-  const { setOrders, orders, setPickupStatusFilter, setStatusFilter, setProductFilter, setSearchQuery } = useOrderStore();
+  const { setOrders, orders, setPickupStatusFilter, setStatusFilter, setProductFilter, setSearchQuery, setFollowUpFilter } = useOrderStore();
   const [loading, setLoading] = useState(true);
   const [followUpCounts, setFollowUpCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const loadOrders = async () => {
       setLoading(true);
-      const data = await getOrders();
+      const [data, records] = await Promise.all([
+        getOrders(),
+        getFollowUpRecordsByOrderId('')
+      ]);
       setOrders(data);
       
       const counts: Record<string, number> = {};
       for (const order of data) {
-        const records = await getFollowUpRecordsByOrderId(order.id);
-        counts[order.id] = records.length;
+        counts[order.id] = records.filter(r => r.orderId === order.id).length;
       }
       setFollowUpCounts(counts);
       setLoading(false);
@@ -34,16 +36,15 @@ export function Dashboard({ onSelectOrder }: DashboardProps) {
 
   const handleFilterDelayed = () => {
     setPickupStatusFilter('delayed' as PickupStatusType);
+    setFollowUpFilter('all');
     setStatusFilter('all');
     setProductFilter('all');
     setSearchQuery('');
   };
 
   const handleFilterPendingFollowUp = () => {
-    const pendingOrders = orders.filter(o => o.pickupStatus === 'delayed' && (followUpCounts[o.id] || 0) === 0);
-    if (pendingOrders.length > 0) {
-      setPickupStatusFilter('delayed' as PickupStatusType);
-    }
+    setPickupStatusFilter('delayed' as PickupStatusType);
+    setFollowUpFilter('pending');
     setStatusFilter('all');
     setProductFilter('all');
     setSearchQuery('');
