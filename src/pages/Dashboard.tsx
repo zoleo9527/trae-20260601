@@ -1,17 +1,23 @@
 import { AlertTriangle, Soup, ClipboardList, Gift, CheckCircle } from 'lucide-react';
 import { StatsCard } from '@/components/common/StatsCard';
-import { useStats, useRoleTodos } from '@/store/selectors';
 import { useStore } from '@/store/store';
 import type { TodoItem } from '@/types';
 
 export const Dashboard = () => {
-  const stats = useStats();
-  const todos = useRoleTodos();
-  const { selectedRole, completeTodo } = useStore();
-  
-  const pendingTodos = todos.filter(t => !t.completed).slice(0, 5);
+  const { todoItems, soupBases, soldOuts, orders, currentUser, completeTodo } = useStore();
 
-  const formatTime = (timestamp: string) => {
+  const pendingTodos = todoItems.filter(t => !t.completed).slice(0, 5);
+
+  const stats = {
+    pendingTodos: todoItems.filter(t => !t.completed).length,
+    lowStockCount: soupBases.filter(s => s.stock <= s.minStock).length,
+    activeSoldOut: soldOuts.filter(s => s.status === 'active').length,
+    pendingOrders: orders.filter(o => o.status === 'pending' || o.status === 'confirmed').length,
+    pendingGroupBuy: orders.filter(o => o.isGroupBuy && !o.groupBuyVerified).length,
+  };
+
+  const formatTime = (timestamp?: string) => {
+    if (!timestamp) return '-';
     return new Date(timestamp).toLocaleString('zh-CN', {
       month: 'short',
       day: 'numeric',
@@ -55,7 +61,7 @@ export const Dashboard = () => {
     },
   };
 
-  const currentRoleStats = roleStats[selectedRole];
+  const currentRoleStats = roleStats[currentUser.role];
 
   return (
     <div className="p-6">

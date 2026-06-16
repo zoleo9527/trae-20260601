@@ -1,17 +1,12 @@
 import { Flame, Bell, Settings } from 'lucide-react';
 import { useStore } from '@/store/store';
-import { seedUsers } from '@/data/seedData';
 import type { Role } from '@/types';
 
 export const Header = () => {
-  const { currentUser, setCurrentUser, selectedRole, setSelectedRole } = useStore();
+  const { users, currentUser, setCurrentUser, switchRole } = useStore();
 
   const handleRoleChange = (role: Role) => {
-    setSelectedRole(role);
-    const user = seedUsers.find(u => u.role === role);
-    if (user) {
-      setCurrentUser(user);
-    }
+    switchRole(role);
   };
 
   return (
@@ -35,7 +30,7 @@ export const Header = () => {
                   key={role}
                   onClick={() => handleRoleChange(role)}
                   className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    selectedRole === role
+                    currentUser.role === role
                       ? 'bg-white text-primary-700'
                       : 'text-white/80 hover:bg-white/10'
                   }`}
@@ -55,11 +50,11 @@ export const Header = () => {
               </button>
               <div className="flex items-center gap-2 pl-3 border-l border-white/20">
                 <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-lg">
-                  {currentUser?.avatar || '👤'}
+                  {currentUser.name.charAt(0)}
                 </div>
                 <div className="text-sm">
-                  <p className="font-medium">{currentUser?.name || '未登录'}</p>
-                  <p className="text-xs text-primary-200">{currentUser?.role}</p>
+                  <p className="font-medium">{currentUser.name}</p>
+                  <p className="text-xs text-primary-200">{currentUser.role}</p>
                 </div>
               </div>
             </div>

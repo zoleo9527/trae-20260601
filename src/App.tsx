@@ -1,6 +1,5 @@
 import { Header } from '@/components/layout/Header';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { seedUsers } from '@/data/seedData';
 import { AuditLog } from '@/pages/AuditLog';
 import { Dashboard } from '@/pages/Dashboard';
 import { OrderManagement } from '@/pages/OrderManagement';
@@ -21,15 +20,19 @@ const pages: Record<string, React.ComponentType> = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { loadData, setCurrentUser, selectedRole } = useStore();
+  const { fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems } = useStore();
 
   useEffect(() => {
-    loadData();
-    const user = seedUsers.find(u => u.role === selectedRole);
-    if (user) {
-      setCurrentUser(user);
-    }
-  }, [loadData, setCurrentUser, selectedRole]);
+    const loadAllData = async () => {
+      await fetchUsers();
+      await fetchSoupBases();
+      await fetchSoldOuts();
+      await fetchOrders();
+      await fetchAuditLogs();
+      await fetchTodoItems();
+    };
+    loadAllData();
+  }, [fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems]);
 
   const PageComponent = pages[activeTab] || Dashboard;
 

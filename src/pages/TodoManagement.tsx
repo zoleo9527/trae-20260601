@@ -1,13 +1,12 @@
 import { CheckCircle, Clock, Soup, AlertTriangle, ClipboardList, Filter } from 'lucide-react';
-import { useRoleTodos } from '@/store/selectors';
 import { useStore } from '@/store/store';
 import type { TodoItem } from '@/types';
 
 export const TodoManagement = () => {
-  const todos = useRoleTodos();
-  const { selectedRole, completeTodo } = useStore();
+  const { todoItems, currentUser, completeTodo } = useStore();
 
-  const formatTime = (timestamp: string) => {
+  const formatTime = (timestamp?: string) => {
+    if (!timestamp) return '-';
     return new Date(timestamp).toLocaleString('zh-CN', {
       month: 'short',
       day: 'numeric',
@@ -56,19 +55,19 @@ export const TodoManagement = () => {
     }
   };
 
-  const pendingTodos = todos.filter(t => !t.completed);
-  const completedTodos = todos.filter(t => t.completed);
+  const pendingTodos = todoItems.filter(t => !t.completed);
+  const completedTodos = todoItems.filter(t => t.completed);
 
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">待办事项</h2>
-          <p className="text-gray-500 mt-1">{selectedRole}的任务清单</p>
+          <p className="text-gray-500 mt-1">{currentUser.role}的任务清单</p>
         </div>
         <div className="flex items-center gap-2 text-sm text-gray-500">
           <Filter className="h-4 w-4" />
-          <span>已筛选: {selectedRole}</span>
+          <span>已筛选: {currentUser.role}</span>
         </div>
       </div>
 
@@ -147,7 +146,7 @@ export const TodoManagement = () => {
                       </div>
                       <p className="font-medium text-gray-600 line-through mb-1">{todo.title}</p>
                       <p className="text-sm text-gray-500">
-                        完成于 {formatTime(todo.completedAt || '')}
+                        完成于 {formatTime(todo.completedAt)}
                       </p>
                     </div>
                   </div>
@@ -158,7 +157,7 @@ export const TodoManagement = () => {
         </div>
       )}
 
-      {todos.length === 0 && (
+      {todoItems.length === 0 && (
         <div className="text-center py-16">
           <CheckCircle className="h-16 w-16 mx-auto text-gray-300 mb-4" />
           <h3 className="text-xl font-semibold text-gray-600 mb-2">暂无待办事项</h3>

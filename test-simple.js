@@ -121,11 +121,36 @@ app.post('/api/soupBases/:id/complete', (req, res) => {
       so.status = 'resolved';
       so.resolvedBy = req.headers.actor;
       so.resolvedAt = new Date();
-      so.history.push({ action: 'resolved', actor: req.headers.actor, description: `解决${so.itemName}沽清`, timestamp: new Date() });
+      so.history.push({ 
+        action: 'resolved', 
+        actor: req.headers.actor, 
+        description: `解决${so.itemName}沽清（责任人：${req.headers.actor}），退回原因：${so.refundReason || '无'}，补充备注：${so.supplementNotes || '无'}`, 
+        timestamp: new Date() 
+      });
       
       auditLogs.push({
         action: 'resolve', targetType: 'soldOut', targetId: so.id, targetName: so.itemName,
-        actor: req.headers.actor, actorRole: req.headers.actorRole, details: JSON.stringify({}), timestamp: new Date()
+        actor: req.headers.actor, actorRole: req.headers.actorRole, 
+        details: JSON.stringify({ 
+          refundReason: so.refundReason, 
+          supplementNotes: so.supplementNotes,
+          resolvedBy: req.headers.actor 
+        }), 
+        timestamp: new Date()
+      });
+      
+      ['前厅经理', '后厨主管', '收银'].forEach(role => {
+        todoItems.push({
+          id: `t${Date.now()}-${role}`,
+          title: `确认${so.itemName}已恢复供应`,
+          type: 'soldOut',
+          targetId: so.id,
+          targetName: so.itemName,
+          assignee: role === '前厅经理' ? '王经理' : role === '后厨主管' ? '李主管' : '张收银',
+          assigneeRole: role,
+          priority: 'low',
+          completed: false
+        });
       });
     }
   });
@@ -261,7 +286,7 @@ app.post('/api/orders/:id/verify', (req, res) => {
   
   auditLogs.push({
     action: 'confirm', targetType: 'order', targetId: order.id, targetName: `${order.tableNumber}订单`,
-    actor: req.headers.actor, actorRole: req.headers.actorRole, details: JSON.stringify({ groupBuyVerified: true }), timestamp: new Date()
+    actor: req.headers.actor, actorRole: req.headers.actorRole, details: JSON.stringify({ groupBuyVerified: true, groupBuyCode: order.groupBuyCode }), timestamp: new Date()
   });
   
   todoItems.forEach(t => {
