@@ -2,6 +2,7 @@ import express from 'express';
 import { queueService } from '../services/queueService';
 import { logService } from '../services/logService';
 import { userService } from '../services/userService';
+import { assignmentService } from '../services/assignmentService';
 
 const router = express.Router();
 
@@ -29,12 +30,21 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { customerName, phone, partySize, submittedBy } = req.body;
+    
+    const user = userService.getUserById(submittedBy);
+    if (!user) {
+      return res.status(401).json({ message: '用户不存在' });
+    }
+    
+    if (user.role !== 'manager' && user.role !== 'admin') {
+      return res.status(403).json({ message: '仅前厅经理可创建排号' });
+    }
+
     const queue = queueService.createQueue(customerName, phone, partySize, submittedBy);
 
-    const user = userService.getUserById(submittedBy);
     logService.createLog(
       submittedBy,
-      user?.name || '',
+      user.name,
       '创建排号',
       '排号',
       queue.id,
@@ -50,23 +60,41 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   try {
     const { status, operatedBy } = req.body;
+    const user = userService.getUserById(operatedBy);
+    
+    if (!user) {
+      return res.status(401).json({ message: '用户不存在' });
+    }
+
+    if (status === 'completed') {
+      if (user.role !== 'cashier' && user.role !== 'admin') {
+        return res.status(403).json({ message: '仅收银员可完成结账' });
+      }
+    }
+
+    if (status === 'cancelled') {
+      if (user.role !== 'manager' && user.role !== 'admin') {
+        return res.status(403).json({ message: '仅前厅经理可取消排号' });
+      }
+    }
+
     const queue = queueService.updateQueueStatus(req.params.id, status);
 
     if (!queue) {
       return res.status(404).json({ message: '排号不存在' });
     }
 
-    const user = userService.getUserById(operatedBy);
     const statusMap: Record<string, string> = {
       waiting: '等待中',
       seated: '已入座',
       completed: '已完成',
       cancelled: '已取消',
     };
+    
     logService.createLog(
       operatedBy,
-      user?.name || '',
-      '更新排号状态',
+      user.name,
+      status === 'completed' ? '完成结账' : '更新排号状态',
       '排号',
       queue.id,
       `状态: ${statusMap[status]}`
@@ -81,17 +109,28 @@ router.put('/:id', (req, res) => {
 router.post('/:id/assign', (req, res) => {
   try {
     const { tableId, assignedBy } = req.body;
+    const user = userService.getUserById(assignedBy);
+    
+    if (!user) {
+      return res.status(401).json({ message: '用户不存在' });
+    }
+
+    if (user.role !== 'chef' && user.role !== 'admin') {
+      return res.status(403).json({ message: '仅后厨主管可确认桌台分配' });
+    }
+
     const queue = queueService.assignTable(req.params.id, tableId);
 
     if (!queue) {
       return res.status(404).json({ message: '排号不存在' });
     }
 
-    const user = userService.getUserById(assignedBy);
+    assignmentService.createAssignment(req.params.id, tableId, assignedBy);
+
     logService.createLog(
       assignedBy,
-      user?.name || '',
-      '分配桌台',
+      user.name,
+      '确认桌台分配',
       '排号',
       queue.id,
       `桌台: ${queue.assignedTableName}`

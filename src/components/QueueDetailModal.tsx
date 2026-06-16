@@ -116,13 +116,16 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
       });
     });
 
+    const completeLog = queueLogs.find(l => l.action === '完成结账');
+    const cancelLog = queueLogs.find(l => l.action.includes('取消'));
+    
     if (queue.status === 'completed') {
       events.push({
         id: `complete-${queue.id}`,
         type: 'complete',
         title: '完成结账',
-        description: '桌台已释放',
-        operatorName: '-',
+        description: completeLog?.details || '桌台已释放',
+        operatorName: completeLog?.userName || user?.name || '-',
         timestamp: queue.updatedAt,
         icon: <CreditCard className="w-4 h-4" />,
         bgColor: 'bg-green-100',
@@ -135,8 +138,8 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
         id: `cancel-${queue.id}`,
         type: 'cancel',
         title: '取消排号',
-        description: '顾客取消等位',
-        operatorName: '-',
+        description: cancelLog?.details || '顾客取消等位',
+        operatorName: cancelLog?.userName || user?.name || '-',
         timestamp: queue.updatedAt,
         icon: <XCircle className="w-4 h-4" />,
         bgColor: 'bg-red-100',
@@ -205,8 +208,10 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
       updateQueue(updatedQueue);
       
       if (status === 'completed' && queue.assignedTableId) {
-        const table = await tableApi.updateTable(queue.assignedTableId, 'cleaning', undefined, undefined, undefined, user.id);
-        updateTableState(table);
+        const table = await tableApi.getTableById(queue.assignedTableId);
+        if (table) {
+          updateTableState(table);
+        }
       }
       
       loadTimelineData();

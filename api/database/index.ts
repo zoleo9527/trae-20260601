@@ -135,6 +135,15 @@ class MemoryDatabase {
     if (!queue) return null;
     queue.status = status;
     queue.updatedAt = new Date().toISOString();
+    
+    if (status === 'completed' && queue.assignedTableId) {
+      const table = this.tables.get(queue.assignedTableId);
+      if (table) {
+        table.status = 'available';
+        this.tables.set(queue.assignedTableId, table);
+      }
+    }
+    
     this.queues.set(id, queue);
     return queue;
   }

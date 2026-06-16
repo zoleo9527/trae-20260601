@@ -75,13 +75,15 @@ export const QueueList: React.FC<QueueListProps> = ({ queues, onSelectQueue }) =
             <h2 className="text-lg font-bold text-gray-800">等位排号</h2>
             <p className="text-sm text-gray-500">当前等待人数: {waitingQueues.length}</p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="text-sm font-medium">新增排号</span>
-          </button>
+          {(user?.role === 'manager' || user?.role === 'admin') && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="text-sm font-medium">新增排号</span>
+            </button>
+          )}
         </div>
         <div className="flex items-center space-x-2 text-xs text-gray-500">
           <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">
