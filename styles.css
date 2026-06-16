@@ -385,6 +385,12 @@ body {
   gap: 16px;
 }
 
+.four-column-layout {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
 .handle-column {
   background: white;
   border-radius: 8px;
@@ -573,7 +579,8 @@ body {
   }
   
   .two-column-layout,
-  .three-column-layout {
+  .three-column-layout,
+  .four-column-layout {
     grid-template-columns: 1fr;
   }
   

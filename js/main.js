@@ -37,6 +37,8 @@ function generateOrders() {
         { dishId: 7, name: '藕片', quantity: 1, price: 22 },
         { dishId: 10, name: '金针菇', quantity: 1, price: 20 }
       ],
+      addItems: [],
+      returnItems: [],
       timeline: [
         { time: '2024-01-15 11:20:35', role: 'cashier', action: '创建订单', detail: 'A01桌，4人', operator: '收银员-小王' },
         { time: '2024-01-15 11:21:00', role: 'kitchen', action: '接单制作', detail: '全部菜品', operator: '后厨-李师傅' }
@@ -46,7 +48,8 @@ function generateOrders() {
         4: { status: 'ready', cookConfirm: '2024-01-15 11:30:00', cookOperator: '李师傅' },
         7: { status: 'cooking', cookStart: '2024-01-15 11:35:00', cookOperator: '王厨师' },
         10: { status: 'abnormal', abnormalType: 'no-material', abnormalReason: '金针菇库存不足', abnormalTime: '2024-01-15 11:25:00' }
-      }
+      },
+      visitHistory: []
     },
     {
       id: 'DD20240115002',
@@ -54,21 +57,25 @@ function generateOrders() {
       people: 6,
       status: 'processing',
       createTime: '2024-01-15 11:35:20',
-      totalAmount: 456,
+      totalAmount: 363,
       cashierSettled: false,
       items: [
         { dishId: 2, name: '鲜切羊肉', quantity: 2, price: 58 },
-        { dishId: 3, name: '虾滑', quantity: 1, price: 48 },
-        { dishId: 5, name: '黄喉', quantity: 1, price: 45 },
         { dishId: 8, name: '土豆片', quantity: 2, price: 18 },
         { dishId: 11, name: '香菇', quantity: 1, price: 22 }
+      ],
+      addItems: [],
+      returnItems: [
+        { dishId: 3, name: '虾滑', quantity: 1, price: 48, reason: 'timeout', responsible: 'kitchen', returnTime: '2024-01-15 11:55:00' },
+        { dishId: 5, name: '黄喉', quantity: 1, price: 45, reason: 'timeout', responsible: 'kitchen', returnTime: '2024-01-15 12:00:00' }
       ],
       timeline: [
         { time: '2024-01-15 11:35:20', role: 'cashier', action: '创建订单', detail: 'A02桌，6人', operator: '收银员-小王' },
         { time: '2024-01-15 11:36:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-张厨师' },
         { time: '2024-01-15 11:55:00', role: 'front', action: '退菜', detail: '虾滑1份-超时', operator: '前厅-经理陈', responsible: 'kitchen' },
         { time: '2024-01-15 12:00:00', role: 'front', action: '退菜', detail: '黄喉1份-超时', operator: '前厅-经理陈', responsible: 'kitchen' },
-        { time: '2024-01-15 12:05:00', role: 'kitchen', action: '责任确认', detail: '高峰期出菜延迟，厨房承担', operator: '后厨-李师傅', conclusion: '厨房责任-免单处理' }
+        { time: '2024-01-15 12:05:00', role: 'kitchen', action: '责任确认', detail: '高峰期出菜延迟，厨房承担', operator: '后厨-李师傅', conclusion: '厨房责任-免单处理' },
+        { time: '2024-01-15 12:10:00', role: 'kitchen', action: '完单确认', detail: '剩余菜品已出，等待结算', operator: '后厨-张厨师' }
       ],
       dishStatus: {
         2: { status: 'ready', cookConfirm: '2024-01-15 11:42:00', cookOperator: '张厨师' },
@@ -76,7 +83,11 @@ function generateOrders() {
         5: { status: 'return', returnTime: '2024-01-15 12:00:00', returnReason: 'timeout', responsible: 'kitchen' },
         8: { status: 'ready', cookConfirm: '2024-01-15 11:50:00', cookOperator: '张厨师' },
         11: { status: 'ready', cookConfirm: '2024-01-15 11:55:00', cookOperator: '张厨师' }
-      }
+      },
+      visitHistory: [
+        { time: '2024-01-15 11:55:00', visitor: '前厅-经理陈', action: '查看退菜' },
+        { time: '2024-01-15 12:05:00', visitor: '后厨-李师傅', action: '处理异常' }
+      ]
     },
     {
       id: 'DD20240115003',
@@ -88,19 +99,27 @@ function generateOrders() {
       cashierSettled: false,
       items: [
         { dishId: 1, name: '招牌肥牛', quantity: 1, price: 68 },
-        { dishId: 6, name: '鸭肠', quantity: 1, price: 38 },
         { dishId: 9, name: '菠菜', quantity: 1, price: 16 }
+      ],
+      addItems: [],
+      returnItems: [
+        { dishId: 6, name: '鸭肠', quantity: 1, price: 38, reason: 'no-material', responsible: 'kitchen', returnTime: '2024-01-15 11:48:00' }
       ],
       timeline: [
         { time: '2024-01-15 11:45:10', role: 'cashier', action: '创建订单', detail: 'B01桌，2人', operator: '收银员-小李' },
         { time: '2024-01-15 11:46:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-王厨师' },
-        { time: '2024-01-15 11:48:00', role: 'kitchen', action: '异常-缺材料', detail: '鸭肠缺货，无法制作', operator: '后厨-王厨师' }
+        { time: '2024-01-15 11:48:00', role: 'kitchen', action: '异常-缺材料', detail: '鸭肠缺货，无法制作', operator: '后厨-王厨师' },
+        { time: '2024-01-15 11:50:00', role: 'front', action: '顾客确认', detail: '同意取消鸭肠', operator: '前厅-小林' }
       ],
       dishStatus: {
         1: { status: 'cooking', cookStart: '2024-01-15 11:46:30', cookOperator: '王厨师' },
-        6: { status: 'abnormal', abnormalType: 'no-material', abnormalReason: '鸭肠库存不足', abnormalTime: '2024-01-15 11:48:00' },
+        6: { status: 'abnormal', abnormalType: 'no-material', abnormalReason: '鸭肠库存不足', abnormalTime: '2024-01-15 11:48:00', responsible: 'kitchen' },
         9: { status: 'ready', cookConfirm: '2024-01-15 11:50:00', cookOperator: '王厨师' }
-      }
+      },
+      visitHistory: [
+        { time: '2024-01-15 11:48:00', visitor: '后厨-王厨师', action: '报告异常' },
+        { time: '2024-01-15 11:50:00', visitor: '前厅-小林', action: '与顾客沟通' }
+      ]
     },
     {
       id: 'DD20240115004',
@@ -117,13 +136,18 @@ function generateOrders() {
         { dishId: 2, name: '鲜切羊肉', quantity: 2, price: 58 },
         { dishId: 4, name: '毛肚', quantity: 2, price: 58 },
         { dishId: 7, name: '藕片', quantity: 2, price: 22 },
-        { dishId: 14, name: '粉条', quantity: 2, price: 16 }
+        { dishId: 14, name: '粉条', quantity: 2, price: 16 },
+        { dishId: 17, name: '鱼丸', quantity: 1, price: 32 }
       ],
+      addItems: [
+        { dishId: 17, name: '鱼丸', quantity: 1, price: 32, reason: 'customer', addTime: '2024-01-15 11:20:00' }
+      ],
+      returnItems: [],
       timeline: [
         { time: '2024-01-15 10:50:00', role: 'cashier', action: '创建订单', detail: 'B02桌，8人', operator: '收银员-小王' },
         { time: '2024-01-15 10:51:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-李师傅' },
         { time: '2024-01-15 11:20:00', role: 'front', action: '加菜', detail: '鱼丸1份-顾客要求', operator: '前厅-小林' },
-        { time: '2024-01-15 11:21:00', role: 'kitchen', action: '加菜确认', detail: '鱼丸已加入制作', operator: '后厨-李师傅' },
+        { time: '2024-01-15 11:21:00', role: 'kitchen', action: '加菜接单', detail: '鱼丸已加入制作', operator: '后厨-李师傅' },
         { time: '2024-01-15 11:25:00', role: 'kitchen', action: '出菜完成', detail: '全部菜品已出', operator: '后厨-李师傅' },
         { time: '2024-01-15 12:30:00', role: 'cashier', action: '落账结算', detail: '含加菜32元，实收612元', operator: '收银员-小王' }
       ],
@@ -132,8 +156,14 @@ function generateOrders() {
         2: { status: 'ready', cookConfirm: '2024-01-15 11:10:00', cookOperator: '李师傅' },
         4: { status: 'ready', cookConfirm: '2024-01-15 11:15:00', cookOperator: '李师傅' },
         7: { status: 'ready', cookConfirm: '2024-01-15 11:20:00', cookOperator: '李师傅' },
-        14: { status: 'ready', cookConfirm: '2024-01-15 11:22:00', cookOperator: '李师傅' }
-      }
+        14: { status: 'ready', cookConfirm: '2024-01-15 11:22:00', cookOperator: '李师傅' },
+        17: { status: 'ready', cookConfirm: '2024-01-15 11:25:00', cookOperator: '李师傅', isAdd: true }
+      },
+      visitHistory: [
+        { time: '2024-01-15 11:20:00', visitor: '前厅-小林', action: '添加菜品' },
+        { time: '2024-01-15 11:21:00', visitor: '后厨-李师傅', action: '接单加菜' },
+        { time: '2024-01-15 12:30:00', visitor: '收银员-小王', action: '结算账单' }
+      ]
     },
     {
       id: 'DD20240115005',
@@ -151,6 +181,8 @@ function generateOrders() {
         { dishId: 7, name: '藕片', quantity: 1, price: 22 },
         { dishId: 12, name: '豆腐', quantity: 1, price: 15 }
       ],
+      addItems: [],
+      returnItems: [],
       timeline: [
         { time: '2024-01-15 10:00:00', role: 'cashier', action: '创建订单', detail: 'C01桌，3人', operator: '收银员-小李' },
         { time: '2024-01-15 10:01:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-王厨师' },
@@ -162,7 +194,8 @@ function generateOrders() {
         3: { status: 'ready', cookConfirm: '2024-01-15 10:12:00', cookOperator: '王厨师' },
         7: { status: 'ready', cookConfirm: '2024-01-15 10:14:00', cookOperator: '王厨师' },
         12: { status: 'ready', cookConfirm: '2024-01-15 10:15:00', cookOperator: '王厨师' }
-      }
+      },
+      visitHistory: []
     },
     {
       id: 'DD20240115006',
@@ -178,42 +211,33 @@ function generateOrders() {
         { dishId: 10, name: '金针菇', quantity: 1, price: 20 },
         { dishId: 13, name: '鸭血', quantity: 1, price: 18 }
       ],
+      addItems: [],
+      returnItems: [
+        { dishId: 8, name: '土豆片', quantity: 1, price: 18, reason: 'review-fail', responsible: 'kitchen', returnTime: '2024-01-15 11:25:00' }
+      ],
       timeline: [
         { time: '2024-01-15 11:05:30', role: 'cashier', action: '创建订单', detail: 'C02桌，5人', operator: '收银员-小王' },
         { time: '2024-01-15 11:06:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-张厨师' },
-        { time: '2024-01-15 11:25:00', role: 'kitchen', action: '异常-复核不通过', detail: '土豆片1份与订单不符', operator: '后厨-张厨师' },
+        { time: '2024-01-15 11:25:00', role: 'kitchen', action: '异常-复核不通过', detail: '土豆片与订单不符', operator: '后厨-张厨师' },
         { time: '2024-01-15 11:30:00', role: 'kitchen', action: '责任确认', detail: '厨房操作失误，重新制作', operator: '后厨-李师傅', conclusion: '厨房责任-免单处理' }
       ],
       dishStatus: {
         2: { status: 'ready', cookConfirm: '2024-01-15 11:15:00', cookOperator: '张厨师' },
         5: { status: 'ready', cookConfirm: '2024-01-15 11:20:00', cookOperator: '张厨师' },
+        8: { status: 'abnormal', abnormalType: 'review-fail', abnormalReason: '菜品与订单不符', abnormalTime: '2024-01-15 11:25:00', responsible: 'kitchen' },
         10: { status: 'cooking', cookStart: '2024-01-15 11:30:00', cookOperator: '李师傅' },
         13: { status: 'pending' }
-      }
+      },
+      visitHistory: [
+        { time: '2024-01-15 11:25:00', visitor: '后厨-张厨师', action: '发现异常' },
+        { time: '2024-01-15 11:30:00', visitor: '后厨-李师傅', action: '处理异常' }
+      ]
     }
   ];
 }
 
-function getRecentOrders() {
-  const recent = [];
-  orders.forEach(order => {
-    order.timeline.forEach(t => {
-      recent.push({
-        orderId: order.id,
-        tableNo: order.tableNo,
-        time: t.time,
-        action: t.action,
-        role: t.role,
-        detail: t.detail,
-        operator: t.operator
-      });
-    });
-  });
-  recent.sort((a, b) => new Date(b.time) - new Date(a.time));
-  return recent.slice(0, 15);
-}
-
 let orders = generateOrders();
+let visitHistory = [];
 
 const statusMap = {
   pending: '待处理',
@@ -235,8 +259,38 @@ const reasonMap = {
   'no-material': '缺材料',
   timeout: '超时',
   quality: '菜品质量',
+  'order-error': '点单错误',
   'review-fail': '复核不通过'
 };
+
+function addVisitRecord(orderId, action) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  const role = document.getElementById('roleSelect').value;
+  const operator = role === 'front' ? '前厅-经理陈' : (role === 'kitchen' ? '后厨-李师傅' : '收银员-小王');
+  const now = new Date().toLocaleString('zh-CN');
+  
+  order.visitHistory.push({
+    time: now,
+    visitor: operator,
+    action: action
+  });
+  
+  visitHistory.push({
+    orderId: order.id,
+    tableNo: order.tableNo,
+    time: now,
+    visitor: operator,
+    action: action,
+    visitorRole: role
+  });
+  
+  visitHistory.sort((a, b) => new Date(b.time) - new Date(a.time));
+  visitHistory = visitHistory.slice(0, 20);
+  
+  renderRecentList();
+}
 
 function updateTime() {
   const now = new Date();
@@ -314,10 +368,26 @@ function renderRecentList() {
   const search = document.getElementById('recentSearch').value.toLowerCase();
   const filter = document.getElementById('recentFilter').value;
   
-  let recent = getRecentOrders();
+  let recent = [...visitHistory];
+  
+  if (visitHistory.length === 0) {
+    orders.forEach(order => {
+      order.visitHistory.forEach(v => {
+        recent.push({
+          orderId: order.id,
+          tableNo: order.tableNo,
+          ...v,
+          visitorRole: v.visitor.includes('前厅') ? 'front' : (v.visitor.includes('后厨') ? 'kitchen' : 'cashier')
+        });
+      });
+    });
+  }
+  
+  recent.sort((a, b) => new Date(b.time) - new Date(a.time));
+  recent = recent.slice(0, 15);
   
   if (filter !== 'all') {
-    recent = recent.filter(r => r.role === filter);
+    recent = recent.filter(r => r.visitorRole === filter);
   }
   
   if (search) {
@@ -329,11 +399,11 @@ function renderRecentList() {
   }
   
   const container = document.getElementById('recentList');
-  container.innerHTML = recent.map(item => `
+  container.innerHTML = recent.length ? recent.map(item => `
     <div class="recent-card" onclick="showOrderDetail('${item.orderId}')">
       <div class="recent-card-header">
         <span class="recent-card-table">${item.tableNo}</span>
-        <span class="recent-card-status status-${item.role === 'cashier' ? 'completed' : (item.role === 'front' ? 'processing' : 'pending')}">${roleMap[item.role]}</span>
+        <span class="recent-card-status status-${item.visitorRole === 'cashier' ? 'completed' : (item.visitorRole === 'front' ? 'processing' : 'pending')}">${item.visitorRole === 'cashier' ? '收银' : (item.visitorRole === 'front' ? '前厅' : '后厨')}</span>
       </div>
       <div class="recent-card-info">
         <span>${item.orderId}</span>
@@ -342,14 +412,11 @@ function renderRecentList() {
       <div class="recent-card-items">
         <div class="recent-card-item">
           <span>${item.action}</span>
-          <span>${item.operator || ''}</span>
-        </div>
-        <div class="recent-card-item" style="font-size: 12px; color: #666;">
-          ${item.detail}
+          <span>${item.visitor || ''}</span>
         </div>
       </div>
     </div>
-  `).join('');
+  `).join('') : '<p style="text-align:center;color:#999;padding:40px;">暂无访问记录</p>';
 }
 
 function renderOrdersTable() {
@@ -375,7 +442,10 @@ function renderOrdersTable() {
   }
   
   const tbody = document.getElementById('ordersTableBody');
-  tbody.innerHTML = filtered.map(order => `
+  tbody.innerHTML = filtered.map(order => {
+    const hasAdd = order.addItems.length > 0;
+    const hasReturn = order.returnItems.length > 0;
+    return `
     <tr>
       <td>${order.id}</td>
       <td>${order.tableNo}</td>
@@ -383,6 +453,8 @@ function renderOrdersTable() {
       <td>
         <span class="recent-card-status status-${order.status}">${statusMap[order.status]}</span>
         ${order.cashierSettled ? '<span style="margin-left:4px;font-size:11px;color:#28a745;">✓已落账</span>' : '<span style="margin-left:4px;font-size:11px;color:#dc3545;">待落账</span>'}
+        ${hasAdd ? '<span style="margin-left:4px;font-size:11px;color:#007bff;">+加菜</span>' : ''}
+        ${hasReturn ? '<span style="margin-left:4px;font-size:11px;color:#dc3545;">-退菜</span>' : ''}
       </td>
       <td>${order.createTime}</td>
       <td>¥${order.totalAmount}</td>
@@ -391,7 +463,8 @@ function renderOrdersTable() {
         ${!order.cashierSettled && order.status === 'completed' ? `<button class="btn btn-secondary" onclick="settleOrder('${order.id}')">落账</button>` : ''}
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function renderAddDish() {
@@ -407,6 +480,7 @@ function renderAddDish() {
       <div class="order-card-items">
         ${order.items.slice(0, 4).map(item => `<span>${item.name}×${item.quantity}</span>`).join(', ')}
         ${order.items.length > 4 ? '...' : ''}
+        ${order.addItems.length > 0 ? `<br><span style="color:#007bff;">+${order.addItems.length}项加菜</span>` : ''}
       </div>
     </div>
   `).join('');
@@ -423,6 +497,8 @@ function renderAddDish() {
 function showAddDishForm(orderId) {
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
+  
+  addVisitRecord(orderId, '添加菜品');
   
   document.getElementById('currentOrderId').value = orderId;
   document.getElementById('addTableNo').value = order.tableNo;
@@ -463,14 +539,28 @@ function submitAddDish() {
   const role = document.getElementById('roleSelect').value;
   const operator = role === 'front' ? '前厅-经理陈' : '收银员-小王';
   
-  order.items.push({
+  const existingItem = order.items.find(i => i.dishId === dishId);
+  if (existingItem) {
+    existingItem.quantity += quantity;
+  } else {
+    order.items.push({
+      dishId,
+      name: dish.name,
+      quantity,
+      price: dish.price
+    });
+  }
+  
+  order.addItems.push({
     dishId,
     name: dish.name,
     quantity,
-    price: dish.price
+    price: dish.price,
+    reason,
+    addTime: now
   });
   
-  order.dishStatus[dishId] = { status: 'pending', addTime: now };
+  order.dishStatus[dishId] = { status: 'pending', addTime: now, isAdd: true };
   order.totalAmount += dish.price * quantity;
   
   order.timeline.push({
@@ -515,6 +605,7 @@ function renderReturnDish() {
           return `<span>${statusText}${item.name}×${item.quantity}</span>`;
         }).join('<br>')}
       </div>
+      ${order.returnItems.length > 0 ? `<div style="color:#dc3545;font-size:12px;margin-top:8px;">已退${order.returnItems.length}项</div>` : ''}
     </div>
   `).join('');
 }
@@ -523,6 +614,8 @@ function showReturnDishForm(orderId) {
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
   
+  addVisitRecord(orderId, '处理退菜');
+  
   document.getElementById('returnOrderId').value = orderId;
   document.getElementById('returnTableNo').value = order.tableNo;
   
@@ -530,7 +623,7 @@ function showReturnDishForm(orderId) {
   select.innerHTML = '<option value="">请选择菜品</option>';
   order.items.forEach(item => {
     const status = order.dishStatus[item.dishId];
-    if (status?.status !== 'return') {
+    if (status?.status !== 'return' && status?.status !== 'abnormal') {
       const option = document.createElement('option');
       option.value = item.dishId;
       option.textContent = `${item.name} x${item.quantity}`;
@@ -566,12 +659,25 @@ function submitReturnDish() {
   const role = document.getElementById('roleSelect').value;
   const operator = role === 'front' ? '前厅-经理陈' : '收银员-小王';
   
+  order.returnItems.push({
+    dishId,
+    name: dish.name,
+    quantity,
+    price: dish.price,
+    reason,
+    responsible,
+    returnTime: now
+  });
+  
   order.dishStatus[dishId] = {
     status: reason === 'no-material' || reason === 'timeout' || reason === 'review-fail' ? 'abnormal' : 'return',
     returnTime: now,
     returnReason: reason,
     returnQuantity: quantity,
-    responsible: responsible
+    responsible: responsible,
+    abnormalType: reason,
+    abnormalReason: remark || (reason === 'no-material' ? '材料不足' : (reason === 'timeout' ? '超时未上' : '复核不通过')),
+    abnormalTime: now
   };
   
   order.totalAmount -= dish.price * quantity;
@@ -604,14 +710,37 @@ function resetReturnDishForm() {
 }
 
 function renderHandle() {
+  const role = document.getElementById('roleSelect').value;
+  
+  const pendingAdd = [];
   const abnormalItems = [];
+  const cookingItems = [];
+  const readyToServe = [];
+  const readyToSettle = [];
   
   orders.forEach(order => {
+    order.addItems.forEach(addItem => {
+      const status = order.dishStatus[addItem.dishId];
+      if (status?.status === 'pending' && status.isAdd) {
+        pendingAdd.push({
+          orderId: order.id,
+          tableNo: order.tableNo,
+          dishId: addItem.dishId,
+          dishName: addItem.name,
+          quantity: addItem.quantity,
+          price: addItem.price,
+          reason: addItem.reason,
+          addTime: addItem.addTime,
+          order: order
+        });
+      }
+    });
+    
     Object.keys(order.dishStatus).forEach(dishId => {
       const status = order.dishStatus[dishId];
-      if (status?.status === 'abnormal' || status?.status === 'cooking') {
-        const dish = order.items.find(i => i.dishId === parseInt(dishId));
-        if (dish) {
+      const dish = order.items.find(i => i.dishId === parseInt(dishId));
+      if (dish) {
+        if (status?.status === 'abnormal') {
           abnormalItems.push({
             orderId: order.id,
             tableNo: order.tableNo,
@@ -621,15 +750,57 @@ function renderHandle() {
             status: status,
             order: order
           });
+        } else if (status?.status === 'cooking') {
+          cookingItems.push({
+            orderId: order.id,
+            tableNo: order.tableNo,
+            dishId: parseInt(dishId),
+            dishName: dish.name,
+            quantity: dish.quantity,
+            status: status,
+            order: order
+          });
+        } else if (status?.status === 'ready') {
+          if (!order.cashierSettled && order.status !== 'completed') {
+            readyToServe.push({
+              orderId: order.id,
+              tableNo: order.tableNo,
+              dishId: parseInt(dishId),
+              dishName: dish.name,
+              quantity: dish.quantity,
+              status: status,
+              order: order
+            });
+          }
         }
       }
     });
+    
+    if (!order.cashierSettled && order.status === 'completed') {
+      readyToSettle.push(order);
+    }
   });
   
-  const pending = abnormalItems.filter(i => i.status.status === 'abnormal');
-  const cooking = abnormalItems.filter(i => i.status.status === 'cooking');
+  document.getElementById('pendingAddItems').innerHTML = pendingAdd.length ? pendingAdd.map(item => `
+    <div class="abnormal-card">
+      <div class="abnormal-card-header">
+        <span class="abnormal-card-table">${item.tableNo}</span>
+        <span class="recent-card-status status-processing">待接单</span>
+      </div>
+      <div class="abnormal-card-content">
+        <div class="abnormal-card-dish">${item.dishName} ×${item.quantity}</div>
+        <div style="font-size:12px;color:#666;margin-top:4px;">
+          加菜原因: ${reasonMap[item.reason]}<br>
+          时间: ${item.addTime}
+        </div>
+      </div>
+      <div class="abnormal-card-actions">
+        <button class="btn btn-primary" onclick="acceptAddItem('${item.orderId}', ${item.dishId})">接单制作</button>
+      </div>
+    </div>
+  `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无待接单加菜</p>';
   
-  document.getElementById('abnormalItems').innerHTML = pending.length ? pending.map(item => `
+  document.getElementById('abnormalItems').innerHTML = abnormalItems.length ? abnormalItems.map(item => `
     <div class="abnormal-card ${item.status.abnormalType}">
       <div class="abnormal-card-header">
         <span class="abnormal-card-table">${item.tableNo}</span>
@@ -650,7 +821,7 @@ function renderHandle() {
     </div>
   `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无异常待处理</p>';
   
-  document.getElementById('cookingItems').innerHTML = cooking.length ? cooking.map(item => `
+  document.getElementById('cookingItems').innerHTML = cookingItems.length ? cookingItems.map(item => `
     <div class="abnormal-card">
       <div class="abnormal-card-header">
         <span class="abnormal-card-table">${item.tableNo}</span>
@@ -669,8 +840,7 @@ function renderHandle() {
     </div>
   `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无制作中菜品</p>';
   
-  const unsettledOrders = orders.filter(o => !o.cashierSettled && o.status === 'completed');
-  document.getElementById('settleItems').innerHTML = unsettledOrders.length ? unsettledOrders.map(order => `
+  document.getElementById('settleItems').innerHTML = readyToSettle.length ? readyToSettle.map(order => `
     <div class="order-card" style="border-left-color:#28a745;">
       <div class="order-card-header">
         <span class="order-card-table">${order.tableNo}</span>
@@ -678,10 +848,38 @@ function renderHandle() {
       </div>
       <div class="order-card-items">
         ${order.items.length}个菜品
+        ${order.returnItems.length > 0 ? `<br><span style="color:#dc3545;">-${order.returnItems.length}项退菜</span>` : ''}
+        ${order.addItems.length > 0 ? `<br><span style="color:#007bff;">+${order.addItems.length}项加菜</span>` : ''}
       </div>
       <button class="btn btn-primary" style="margin-top:10px;" onclick="settleOrder('${order.id}')">确认落账</button>
     </div>
   `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无待落账订单</p>';
+}
+
+function acceptAddItem(orderId, dishId) {
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return;
+  
+  const now = new Date().toLocaleString('zh-CN');
+  
+  order.dishStatus[dishId] = {
+    ...order.dishStatus[dishId],
+    status: 'cooking',
+    cookStart: now,
+    cookOperator: '李师傅'
+  };
+  
+  order.timeline.push({
+    time: now,
+    role: 'kitchen',
+    action: '加菜接单',
+    detail: `${order.items.find(i => i.dishId === dishId)?.name}已加入制作`,
+    operator: '后厨-李师傅'
+  });
+  
+  alert('已接单加菜');
+  renderHandle();
+  renderRecentList();
 }
 
 function confirmResponsibility(orderId, dishId) {
@@ -694,6 +892,8 @@ function confirmResponsibility(orderId, dishId) {
   const status = order.dishStatus[dishId];
   const now = new Date().toLocaleString('zh-CN');
   
+  const conclusion = status.responsible === 'kitchen' ? '厨房责任-免单处理' : (status.responsible === 'front' ? '前厅责任-正常结算' : '双方协商处理');
+  
   order.timeline.push({
     time: now,
     role: 'kitchen',
@@ -701,7 +901,7 @@ function confirmResponsibility(orderId, dishId) {
     detail: `${dish.name} - ${status.abnormalReason || reasonMap[status.returnReason]}`,
     operator: '后厨-李师傅',
     responsible: status.responsible,
-    conclusion: status.responsible === 'kitchen' ? '厨房责任-免单处理' : (status.responsible === 'front' ? '前厅责任-正常结算' : '双方协商处理')
+    conclusion: conclusion
   });
   
   order.dishStatus[dishId] = {
@@ -711,7 +911,7 @@ function confirmResponsibility(orderId, dishId) {
     cookOperator: '李师傅'
   };
   
-  alert(`已确认责任，开始制作: ${dish.name}`);
+  alert(`已确认责任: ${conclusion}`);
   renderHandle();
   renderRecentList();
 }
@@ -740,14 +940,18 @@ function finishCooking(orderId, dishId) {
     operator: order.dishStatus[dishId].cookOperator
   });
   
-  const allReady = order.items.every(item => order.dishStatus[item.dishId]?.status === 'ready');
+  const allReady = order.items.every(item => {
+    const itemStatus = order.dishStatus[item.dishId];
+    return itemStatus?.status === 'ready' || itemStatus?.status === 'return';
+  });
+  
   if (allReady) {
     order.status = 'completed';
     order.timeline.push({
       time: now,
       role: 'kitchen',
-      action: '订单完成',
-      detail: '全部菜品已出',
+      action: '完单确认',
+      detail: '全部菜品已出，等待结算',
       operator: '后厨-李师傅'
     });
   }
@@ -782,6 +986,8 @@ function settleOrder(orderId) {
 }
 
 function showOrderDetail(orderId) {
+  addVisitRecord(orderId, '查看详情');
+  
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
   
@@ -799,6 +1005,34 @@ function showOrderDetail(orderId) {
         <div><strong>总金额:</strong> ¥${order.totalAmount}</div>
       </div>
     </div>
+    
+    ${order.addItems.length > 0 ? `
+    <div style="margin-bottom:16px;">
+      <h4 style="margin-bottom:8px;">➕ 加菜记录</h4>
+      <div class="dish-list" style="background:#e7f3ff;padding:10px;border-radius:6px;">
+        ${order.addItems.map(item => `
+          <div class="dish-item">
+            <span>${item.name} ×${item.quantity} - ¥${item.price * item.quantity}</span>
+            <span style="font-size:12px;color:#666;">${reasonMap[item.reason]}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
+    
+    ${order.returnItems.length > 0 ? `
+    <div style="margin-bottom:16px;">
+      <h4 style="margin-bottom:8px;">➖ 退菜记录</h4>
+      <div class="dish-list" style="background:#fef2f2;padding:10px;border-radius:6px;">
+        ${order.returnItems.map(item => `
+          <div class="dish-item">
+            <span>${item.name} ×${item.quantity} - ¥${item.price * item.quantity}</span>
+            <span style="font-size:12px;color:#dc3545;">${reasonMap[item.reason]}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
     
     <div style="margin-bottom:16px;">
       <h4 style="margin-bottom:8px;">菜品状态</h4>
