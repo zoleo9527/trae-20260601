@@ -58,6 +58,7 @@ class Quote(QuoteCreate):
     updated_by: Optional[str] = None
     rejected_reason: Optional[str] = None
     supplementary_materials: Optional[str] = None
+    additional_cost: float = 0
 
 class OperationLog(BaseModel):
     id: str
@@ -508,6 +509,7 @@ async def supplement_materials(quote_id: str, request: SupplementRequest):
     
     quote.status = "待补材料"
     quote.supplementary_materials = request.materials
+    quote.additional_cost = request.additional_cost
     quote.updated_at = datetime.now()
     quote.updated_by = "量尺师"
     

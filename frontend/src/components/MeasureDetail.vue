@@ -73,6 +73,7 @@
           <div class="info-item"><span class="label">数量：</span>{{ quote.quantity }} 米</div>
           <div class="info-item"><span class="label">总价：</span>{{ quote.total_price }} 元</div>
           <div class="info-item"><span class="label">折扣：</span>{{ quote.discount || 0 }}</div>
+          <div class="info-item"><span class="label">额外费用：</span><span class="cost">¥{{ quote.additional_cost || 0 }}</span></div>
           <div class="info-item"><span class="label">最终价格：</span><span class="price">¥{{ quote.final_price }}</span></div>
           <div class="info-item"><span class="label">报价备注：</span>{{ quote.notes || '-' }}</div>
           <div class="info-item"><span class="label">待补材料：</span>{{ quote.supplementary_materials || '-' }}</div>
@@ -84,7 +85,7 @@
           <p class="reject-reason">{{ quote.rejected_reason }}</p>
         </div>
         
-        <div v-if="canEditQuote && quote.status === '待确认'" class="edit-quote-section">
+        <div v-if="canEditQuote" class="edit-quote-section">
           <h4>修改报价</h4>
           <el-form :model="editQuoteForm" label-width="100px">
             <div class="quote-grid">
@@ -102,6 +103,10 @@
               </el-form-item>
             </div>
           </el-form>
+          <div v-if="quote.rejected_reason" class="reject-hint">
+            <span class="hint-label">原驳回原因：</span>
+            <span class="hint-content">{{ quote.rejected_reason }}</span>
+          </div>
         </div>
         
         <div v-if="showSupplementForm" class="supplement-section">
@@ -127,7 +132,7 @@
       
       <el-button type="danger" v-if="canRejectQuote && quote && quote.status === '待确认'" @click="openRejectModal">驳回报价</el-button>
       
-      <el-button type="primary" v-if="canEditQuote && quote && quote.status === '待确认'" @click="updateQuote">保存修改</el-button>
+      <el-button type="primary" v-if="canEditQuote && quote" @click="updateQuote">保存修改</el-button>
       
       <el-button type="warning" v-if="canSupplement && quote && quote.status === '待确认'" @click="showSupplementForm = !showSupplementForm">
         {{ showSupplementForm ? '取消补料' : '补材料' }}
@@ -212,7 +217,8 @@ const canRejectQuote = computed(() => {
 })
 
 const canEditQuote = computed(() => {
-  return props.user && (props.user.role === '量尺师' || props.user.role === '管理员')
+  return props.user && (props.user.role === '量尺师' || props.user.role === '管理员') && 
+         props.quote && (props.quote.status === '待确认' || props.quote.status === '已驳回')
 })
 
 const canSupplement = computed(() => {
@@ -457,6 +463,12 @@ const resubmitQuote = async () => {
   font-size: 16px;
 }
 
+.info-item .cost {
+  font-weight: bold;
+  color: #f39c12;
+  font-size: 14px;
+}
+
 .notes-content {
   font-size: 14px;
   color: #666;
@@ -559,5 +571,22 @@ const resubmitQuote = async () => {
   margin-top: 15px;
   padding-top: 15px;
   border-top: 1px dashed #ddd;
+}
+
+.reject-hint {
+  margin-top: 15px;
+  padding: 10px 15px;
+  background: #fff5f5;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.reject-hint .hint-label {
+  color: #e74c3c;
+  font-weight: 500;
+}
+
+.reject-hint .hint-content {
+  color: #e74c3c;
 }
 </style>

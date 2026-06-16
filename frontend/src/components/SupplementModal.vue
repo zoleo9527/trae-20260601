@@ -4,6 +4,9 @@
       <el-form-item label="待补材料">
         <el-textarea v-model="form.materials" placeholder="请输入需要补充的材料" rows="3" />
       </el-form-item>
+      <el-form-item label="额外费用(元)">
+        <el-input v-model.number="form.additional_cost" placeholder="材料额外费用" />
+      </el-form-item>
     </el-form>
     
     <template #footer>
@@ -27,7 +30,8 @@ const props = defineProps({
 const emit = defineEmits(['close', 'success'])
 
 const form = reactive({
-  materials: ''
+  materials: '',
+  additional_cost: 0
 })
 
 const submitSupplement = async () => {
@@ -37,7 +41,10 @@ const submitSupplement = async () => {
   }
   
   try {
-    await axios.post(`/api/quotes/${props.quote.id}/supplement`, { materials: form.materials })
+    await axios.post(`/api/quotes/${props.quote.id}/supplement`, {
+      materials: form.materials,
+      additional_cost: form.additional_cost || 0
+    })
     emit('success')
     emit('close')
   } catch (error) {
