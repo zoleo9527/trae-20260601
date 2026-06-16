@@ -1,0 +1,55 @@
+export enum ErrorCode {
+  SUCCESS = 0,
+  UNKNOWN_ERROR = 10000,
+  VALIDATION_ERROR = 10001,
+  UNAUTHORIZED = 10002,
+  FORBIDDEN = 10003,
+  NOT_FOUND = 10004,
+  DUPLICATE_RECORD = 10005,
+  
+  REVIEW_NOT_FOUND = 20001,
+  REVIEW_STATUS_INVALID = 20002,
+  REVIEW_ALREADY_RESOLVED = 20003,
+  REVIEW_HAS_COMPENSATION = 20004,
+  
+  COMPENSATION_NOT_FOUND = 30001,
+  COMPENSATION_STATUS_INVALID = 30002,
+  COMPENSATION_ALREADY_APPROVED = 30003,
+  COMPENSATION_ALREADY_REJECTED = 30004,
+  COMPENSATION_ALREADY_COMPLETED = 30005,
+  
+  STORE_NOT_FOUND = 40001,
+  STORE_INACTIVE = 40002,
+  
+  AUDIT_LOG_ERROR = 50001,
+  
+  DATABASE_ERROR = 90001,
+}
+
+export const ErrorMessage: Record<ErrorCode, string> = {
+  [ErrorCode.SUCCESS]: "操作成功",
+  [ErrorCode.UNKNOWN_ERROR]: "未知错误",
+  [ErrorCode.VALIDATION_ERROR]: "参数校验失败",
+  [ErrorCode.UNAUTHORIZED]: "未授权访问",
+  [ErrorCode.FORBIDDEN]: "禁止访问",
+  [ErrorCode.NOT_FOUND]: "资源不存在",
+  [ErrorCode.DUPLICATE_RECORD]: "重复记录",
+  
+  [ErrorCode.REVIEW_NOT_FOUND]: "差评记录不存在",
+  [ErrorCode.REVIEW_STATUS_INVALID]: "差评状态无效",
+  [ErrorCode.REVIEW_ALREADY_RESOLVED]: "差评已解决",
+  [ErrorCode.REVIEW_HAS_COMPENSATION]: "差评已有补偿记录",
+  
+  [ErrorCode.COMPENSATION_NOT_FOUND]: "补偿记录不存在",
+  [ErrorCode.COMPENSATION_STATUS_INVALID]: "补偿状态无效",
+  [ErrorCode.COMPENSATION_ALREADY_APPROVED]: "补偿已审核通过",
+  [ErrorCode.COMPENSATION_ALREADY_REJECTED]: "补偿已被拒绝",
+  [ErrorCode.COMPENSATION_ALREADY_COMPLETED]: "补偿已完成",
+  
+  [ErrorCode.STORE_NOT_FOUND]: "门店不存在",
+  [ErrorCode.STORE_INACTIVE]: "门店已停用",
+  
+  [ErrorCode.AUDIT_LOG_ERROR]: "审计日志记录失败",
+  
+  [ErrorCode.DATABASE_ERROR]: "数据库操作失败",
+};
