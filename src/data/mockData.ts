@@ -1,4 +1,4 @@
-import type { Order, Measurement, FittingRecord, Adjustment } from '@/types';
+import type { Order, Measurement, FittingRecord, Adjustment, FollowUpRecord } from '@/types';
 
 export const mockOrders: Order[] = [
   {
@@ -10,6 +10,8 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-15',
     assignee: '李版师',
     priority: 'high',
+    pickupStatus: 'scheduled',
+    originalPickupDate: '2024-02-15',
   },
   {
     id: 'ORD-2024-002',
@@ -20,6 +22,8 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-10',
     assignee: '陈版师',
     priority: 'high',
+    pickupStatus: 'scheduled',
+    originalPickupDate: '2024-02-10',
   },
   {
     id: 'ORD-2024-003',
@@ -30,6 +34,8 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-18',
     assignee: '张量体师',
     priority: 'medium',
+    pickupStatus: 'scheduled',
+    originalPickupDate: '2024-02-18',
   },
   {
     id: 'ORD-2024-004',
@@ -40,6 +46,8 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-20',
     assignee: '李客服',
     priority: 'low',
+    pickupStatus: 'scheduled',
+    originalPickupDate: '2024-02-20',
   },
   {
     id: 'ORD-2024-005',
@@ -50,6 +58,8 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-05',
     assignee: '王版师',
     priority: 'medium',
+    pickupStatus: 'picked-up',
+    originalPickupDate: '2024-02-05',
   },
   {
     id: 'ORD-2024-006',
@@ -60,6 +70,24 @@ export const mockOrders: Order[] = [
     expectedDelivery: '2024-02-12',
     assignee: '吴量体师',
     priority: 'high',
+    pickupStatus: 'delayed',
+    originalPickupDate: '2024-02-12',
+    newPickupDate: '2024-02-18',
+    delayReason: '客户出差在外，无法按时取件',
+  },
+  {
+    id: 'ORD-2024-007',
+    customerName: '郑先生',
+    productType: 'suit',
+    status: 'completed',
+    createdAt: '2024-01-08',
+    expectedDelivery: '2024-02-08',
+    assignee: '李版师',
+    priority: 'medium',
+    pickupStatus: 'delayed',
+    originalPickupDate: '2024-02-08',
+    newPickupDate: '2024-02-22',
+    delayReason: '家中有事，申请延期取件',
   },
 ];
 
@@ -230,6 +258,41 @@ export const mockAdjustments: Adjustment[] = [
   },
 ];
 
+export const mockFollowUpRecords: FollowUpRecord[] = [
+  {
+    id: 'FU-001',
+    orderId: 'ORD-2024-006',
+    followUpDate: '2024-02-10',
+    follower: '李客服',
+    note: '客户来电说明出差情况，无法按时取件，申请延期',
+    action: '已确认延期申请，新取件时间定为2024-02-18',
+  },
+  {
+    id: 'FU-002',
+    orderId: 'ORD-2024-006',
+    followUpDate: '2024-02-11',
+    follower: '李客服',
+    note: '再次致电确认取件时间，客户确认2月18日下午3点取件',
+    action: '已记录取件时间，届时提前一天再次提醒',
+  },
+  {
+    id: 'FU-003',
+    orderId: 'ORD-2024-007',
+    followUpDate: '2024-02-06',
+    follower: '王客服',
+    note: '客户微信联系，家中突发急事，希望延期取件',
+    action: '同意延期申请，约定新取件时间为2024-02-22',
+  },
+  {
+    id: 'FU-004',
+    orderId: 'ORD-2024-007',
+    followUpDate: '2024-02-08',
+    follower: '王客服',
+    note: '发送短信确认延期信息，客户已回复确认',
+    action: '取件时间已更新至系统，等待客户取件',
+  },
+];
+
 export const getOrders = (): Promise<Order[]> => {
   return new Promise((resolve) => setTimeout(() => resolve(mockOrders), 500));
 };
@@ -255,6 +318,12 @@ export const getFittingRecordsByOrderId = (orderId: string): Promise<FittingReco
 export const getAdjustmentsByOrderId = (orderId: string): Promise<Adjustment[]> => {
   return new Promise((resolve) => 
     setTimeout(() => resolve(mockAdjustments.filter(a => a.orderId === orderId)), 500)
+  );
+};
+
+export const getFollowUpRecordsByOrderId = (orderId: string): Promise<FollowUpRecord[]> => {
+  return new Promise((resolve) => 
+    setTimeout(() => resolve(mockFollowUpRecords.filter(f => f.orderId === orderId)), 500)
   );
 };
 

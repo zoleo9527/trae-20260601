@@ -7,6 +7,19 @@ export interface Order {
   expectedDelivery: string;
   assignee: string;
   priority: 'low' | 'medium' | 'high';
+  pickupStatus: 'scheduled' | 'delayed' | 'picked-up';
+  originalPickupDate: string;
+  newPickupDate?: string;
+  delayReason?: string;
+}
+
+export interface FollowUpRecord {
+  id: string;
+  orderId: string;
+  followUpDate: string;
+  follower: string;
+  note: string;
+  action: string;
 }
 
 export interface Measurement {
@@ -46,3 +59,4 @@ export interface Adjustment {
 
 export type StatusType = 'all' | Order['status'];
 export type ProductType = 'all' | Order['productType'];
+export type PickupStatusType = 'all' | Order['pickupStatus'];

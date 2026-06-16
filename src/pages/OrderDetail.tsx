@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Clock, User, Calendar, Tag } from 'lucide-react';
-import { MeasurementSheet } from '@/components/OrderDetail/MeasurementSheet';
-import { FittingTimeline } from '@/components/OrderDetail/FittingTimeline';
 import { AdjustmentPanel } from '@/components/OrderDetail/AdjustmentPanel';
+import { FittingTimeline } from '@/components/OrderDetail/FittingTimeline';
+import { FollowUpPanel } from '@/components/OrderDetail/FollowUpPanel';
+import { MeasurementSheet } from '@/components/OrderDetail/MeasurementSheet';
+import { getAdjustmentsByOrderId, getFittingRecordsByOrderId, getFollowUpRecordsByOrderId, getMeasurementsByOrderId, getOrderById, updateAdjustmentStatus } from '@/data/mockData';
 import { useOrderStore } from '@/store/orderStore';
-import { getOrderById, getMeasurementsByOrderId, getFittingRecordsByOrderId, getAdjustmentsByOrderId, updateAdjustmentStatus } from '@/data/mockData';
-import { Loader2 } from 'lucide-react';
 import type { Adjustment } from '@/types';
+import { ArrowLeft, Calendar, Clock, Loader2, Phone, Tag, User } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 interface OrderDetailProps {
   orderId: string;
@@ -27,18 +27,19 @@ const productConfig = {
 };
 
 export function OrderDetail({ orderId, onBack }: OrderDetailProps) {
-  const { setSelectedOrder, selectedOrder, setMeasurements, measurements, setFittingRecords, fittingRecords, setAdjustments, adjustments } = useOrderStore();
+  const { setSelectedOrder, selectedOrder, setMeasurements, measurements, setFittingRecords, fittingRecords, setAdjustments, adjustments, setFollowUpRecords, followUpRecords } = useOrderStore();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'measurements' | 'fitting' | 'adjustments'>('measurements');
+  const [activeTab, setActiveTab] = useState<'measurements' | 'fitting' | 'adjustments' | 'follow-up'>('measurements');
 
   useEffect(() => {
     const loadOrderData = async () => {
       setLoading(true);
-      const [order, measurementList, fittingList, adjustmentList] = await Promise.all([
+      const [order, measurementList, fittingList, adjustmentList, followUpList] = await Promise.all([
         getOrderById(orderId),
         getMeasurementsByOrderId(orderId),
         getFittingRecordsByOrderId(orderId),
         getAdjustmentsByOrderId(orderId),
+        getFollowUpRecordsByOrderId(orderId),
       ]);
       
       if (order) {
@@ -47,11 +48,12 @@ export function OrderDetail({ orderId, onBack }: OrderDetailProps) {
       setMeasurements(measurementList);
       setFittingRecords(fittingList);
       setAdjustments(adjustmentList);
+      setFollowUpRecords(followUpList);
       setLoading(false);
     };
     
     loadOrderData();
-  }, [orderId, setSelectedOrder, setMeasurements, setFittingRecords, setAdjustments]);
+  }, [orderId, setSelectedOrder, setMeasurements, setFittingRecords, setAdjustments, setFollowUpRecords]);
 
   const handleUpdateStatus = async (adjustmentId: string, status: Adjustment['status']) => {
     await updateAdjustmentStatus(adjustmentId, status);
@@ -170,6 +172,17 @@ export function OrderDetail({ orderId, onBack }: OrderDetailProps) {
           >
             售后调整
           </button>
+          <button
+            onClick={() => setActiveTab('follow-up')}
+            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors flex items-center justify-center gap-1 ${
+              activeTab === 'follow-up'
+                ? 'text-navy-900 border-b-2 border-navy-600 bg-navy-50'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            <Phone className="w-4 h-4" />
+            客服跟进
+          </button>
         </div>
 
         <div className="p-6">
@@ -188,6 +201,13 @@ export function OrderDetail({ orderId, onBack }: OrderDetailProps) {
             <AdjustmentPanel 
               adjustments={adjustments} 
               onUpdateStatus={handleUpdateStatus}
+            />
+          )}
+          
+          {activeTab === 'follow-up' && (
+            <FollowUpPanel 
+              order={selectedOrder} 
+              records={followUpRecords} 
             />
           )}
         </div>

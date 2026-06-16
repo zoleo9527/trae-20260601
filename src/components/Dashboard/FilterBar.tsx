@@ -1,6 +1,6 @@
-import { Search, Filter } from 'lucide-react';
+import { Search, Filter, Calendar } from 'lucide-react';
 import { useOrderStore } from '@/store/orderStore';
-import type { StatusType, ProductType } from '@/types';
+import type { StatusType, ProductType, PickupStatusType } from '@/types';
 
 const statusOptions: { value: StatusType; label: string }[] = [
   { value: 'all', label: '全部状态' },
@@ -17,8 +17,15 @@ const productOptions: { value: ProductType; label: string }[] = [
   { value: 'custom', label: '定制' },
 ];
 
+const pickupStatusOptions: { value: PickupStatusType; label: string }[] = [
+  { value: 'all', label: '全部取件状态' },
+  { value: 'scheduled', label: '正常取件' },
+  { value: 'delayed', label: '延期取件' },
+  { value: 'picked-up', label: '已取件' },
+];
+
 export function FilterBar() {
-  const { statusFilter, productFilter, searchQuery, setStatusFilter, setProductFilter, setSearchQuery } = useOrderStore();
+  const { statusFilter, productFilter, pickupStatusFilter, searchQuery, setStatusFilter, setProductFilter, setPickupStatusFilter, setSearchQuery } = useOrderStore();
 
   return (
     <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -36,7 +43,7 @@ export function FilterBar() {
           </div>
         </div>
         
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <div className="flex items-center gap-2">
             <Filter className="w-4 h-4 text-gray-400" />
             <select
@@ -63,6 +70,21 @@ export function FilterBar() {
               </option>
             ))}
           </select>
+          
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-gray-400" />
+            <select
+              value={pickupStatusFilter}
+              onChange={(e) => setPickupStatusFilter(e.target.value as PickupStatusType)}
+              className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gold-500"
+            >
+              {pickupStatusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
     </div>

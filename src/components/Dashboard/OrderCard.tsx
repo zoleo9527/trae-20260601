@@ -1,4 +1,4 @@
-import { Clock, User, Tag, AlertCircle } from 'lucide-react';
+import { Clock, User, Tag, AlertCircle, Calendar, AlertTriangle } from 'lucide-react';
 import type { Order } from '@/types';
 
 interface OrderCardProps {
@@ -25,16 +25,35 @@ const priorityConfig = {
   high: { label: '高', color: 'bg-red-200' },
 };
 
+const pickupStatusConfig = {
+  scheduled: { label: '正常取件', color: 'bg-mint-100 text-mint-700', icon: Calendar },
+  delayed: { label: '延期取件', color: 'bg-coral-100 text-coral-700', icon: AlertTriangle },
+  'picked-up': { label: '已取件', color: 'bg-navy-100 text-navy-700', icon: Clock },
+};
+
 export function OrderCard({ order, onClick }: OrderCardProps) {
   const status = statusConfig[order.status];
   const product = productConfig[order.productType];
   const priority = priorityConfig[order.priority];
+  const pickupStatus = pickupStatusConfig[order.pickupStatus];
+  const PickupIcon = pickupStatus.icon;
 
   return (
     <div
       onClick={onClick}
-      className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border border-gray-100 overflow-hidden group"
+      className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer border overflow-hidden group ${
+        order.pickupStatus === 'delayed' ? 'border-coral-200 ring-1 ring-coral-100' : 'border-gray-100'
+      }`}
     >
+      {order.pickupStatus === 'delayed' && (
+        <div className="bg-coral-50 px-4 py-2 border-b border-coral-100 flex items-center gap-2">
+          <AlertTriangle className="w-4 h-4 text-coral-600" />
+          <span className="text-sm font-medium text-coral-700">延期取件</span>
+          {order.delayReason && (
+            <span className="text-xs text-coral-500 truncate">{order.delayReason}</span>
+          )}
+        </div>
+      )}
       <div className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -66,6 +85,13 @@ export function OrderCard({ order, onClick }: OrderCardProps) {
           <div className="flex items-center gap-2 text-gray-600">
             <Clock className="w-4 h-4" />
             <span>预计交付: {order.expectedDelivery}</span>
+          </div>
+          <div className={`flex items-center gap-2 text-sm ${pickupStatus.color}`}>
+            <PickupIcon className="w-4 h-4" />
+            <span>{pickupStatus.label}</span>
+            {order.pickupStatus === 'delayed' && order.newPickupDate && (
+              <span className="text-xs">新时间: {order.newPickupDate}</span>
+            )}
           </div>
         </div>
         
