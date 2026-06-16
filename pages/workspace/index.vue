@@ -122,6 +122,13 @@ const reviewResponse = ref('')
 const handleRespondToReview = (id: string) => {
   if (reviewResponse.value.trim()) {
     store.respondToReview(id, reviewResponse.value)
+    const review = store.badReviews.find(r => r.id === id)
+    if (review) {
+      const relatedWarning = store.warnings.find(w => w.type === 'bad_review' && w.storeId === review.storeId)
+      if (relatedWarning) {
+        store.handleWarning(relatedWarning.id, `已回复差评: ${reviewResponse.value.slice(0, 20)}...`)
+      }
+    }
     showBadReviewModal.value = null
     reviewResponse.value = ''
   }
