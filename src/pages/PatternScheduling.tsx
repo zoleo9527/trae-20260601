@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Filter, Check, X, Play, RefreshCw, User, Clock, MessageSquare, Eye } from 'lucide-react';
+import { Search, Filter, Check, X, Play, RefreshCw, User, Clock, MessageSquare, Eye, AlertTriangle, Clock8 } from 'lucide-react';
 import { useStore } from '../store';
 import { PATTERN_STATUS_MAP, PatternStatus, UserRole } from '../types';
 import { formatDate, formatDateTime } from '../utils/helpers';
@@ -9,10 +9,13 @@ interface PatternSchedulingProps {
   onViewOrder: (orderId: string) => void;
 }
 
+type QuickFilterType = 'all' | 'my_pending' | 'my_rejected';
+
 const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) => {
-  const { patternTasks, users, assignPatternTask, updatePatternStatus, addReminder, getPatternHistory, getReminders } = useStore();
+  const { patternTasks, users, currentUser, assignPatternTask, updatePatternStatus, addReminder, getPatternHistory, getReminders } = useStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<PatternStatus | 'all'>('all');
+  const [quickFilter, setQuickFilter] = useState<QuickFilterType>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [assignModal, setAssignModal] = useState<string | null>(null);
   const [selectedAssignee, setSelectedAssignee] = useState<string>('');
@@ -24,12 +27,31 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
 
   const patternMakers = users.filter(u => u.role === 'pattern_maker');
 
+  const getLatestRejectReason = (taskId: string) => {
+    const history = getPatternHistory(taskId);
+    const rejectRecords = history.filter(h => h.status_to === 'rejected');
+    return rejectRecords.length > 0 ? rejectRecords[0].remark : null;
+  };
+
+  const getLatestReminderTime = (taskId: string) => {
+    const reminders = getReminders(taskId, 'pattern');
+    return reminders.length > 0 ? reminders[0].reminder_time : null;
+  };
+
   const filteredTasks = patternTasks.filter(task => {
     const matchesSearch = task.customer_name.includes(searchTerm) ||
       task.task_name.includes(searchTerm) ||
       task.order_id.includes(searchTerm);
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    
+    let matchesQuickFilter = true;
+    if (quickFilter === 'my_pending') {
+      matchesQuickFilter = task.assignee_id === currentUser.id && task.status === 'in_progress';
+    } else if (quickFilter === 'my_rejected') {
+      matchesQuickFilter = task.assignee_id === currentUser.id && task.status === 'rejected';
+    }
+    
+    return matchesSearch && matchesStatus && matchesQuickFilter;
   });
 
   const toggleSelect = (id: string) => {
@@ -131,7 +153,37 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
       <div className="bg-white rounded-xl shadow-sm">
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-800">打版排期管理</h3>
+            <div className="flex items-center space-x-4">
+              <h3 className="font-semibold text-gray-800">打版排期管理</h3>
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setQuickFilter('all')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    quickFilter === 'all' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  全部
+                </button>
+                <button
+                  onClick={() => setQuickFilter('my_pending')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center ${
+                    quickFilter === 'my_pending' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <Clock8 className="w-4 h-4 mr-1" />
+                  我的待处理
+                </button>
+                <button
+                  onClick={() => setQuickFilter('my_rejected')}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center ${
+                    quickFilter === 'my_rejected' ? 'bg-white shadow-sm text-red-600' : 'text-gray-600 hover:text-gray-800'
+                  }`}
+                >
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  我的已退回
+                </button>
+              </div>
+            </div>
             <div className="flex items-center space-x-4">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -231,8 +283,8 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">状态</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">责任人</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">排期日期</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">创建时间</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">备注</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近退回原因</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">最近催单时间</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -273,11 +325,35 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{formatDate(task.scheduled_date)}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{formatDateTime(task.created_at)}</td>
                     <td className="px-6 py-4 max-w-xs">
-                      <p className="text-sm text-gray-500 truncate" title={task.remark}>
-                        {task.remark || '-'}
-                      </p>
+                      {(() => {
+                        const rejectReason = getLatestRejectReason(task.id);
+                        if (rejectReason) {
+                          return (
+                            <div className="flex items-center">
+                              <AlertTriangle className="w-4 h-4 mr-1 text-red-500" />
+                              <p className="text-sm text-red-600 truncate" title={rejectReason}>
+                                {rejectReason}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return <span className="text-sm text-gray-400">-</span>;
+                      })()}
+                    </td>
+                    <td className="px-6 py-4">
+                      {(() => {
+                        const latestReminder = getLatestReminderTime(task.id);
+                        if (latestReminder) {
+                          return (
+                            <div className="flex items-center">
+                              <Clock8 className="w-4 h-4 mr-1 text-yellow-500" />
+                              <span className="text-sm text-yellow-700">{formatDateTime(latestReminder)}</span>
+                            </div>
+                          );
+                        }
+                        return <span className="text-sm text-gray-400">-</span>;
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
@@ -508,6 +584,39 @@ const PatternScheduling: React.FC<PatternSchedulingProps> = ({ onViewOrder }) =>
                     <p className="text-sm text-gray-500">创建时间</p>
                     <p className="font-medium text-gray-800 mt-1">{formatDateTime(task.created_at)}</p>
                   </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  {(() => {
+                    const rejectReason = getLatestRejectReason(task.id);
+                    if (rejectReason) {
+                      return (
+                        <div className="bg-red-50 rounded-lg p-3">
+                          <p className="text-sm text-red-600 flex items-center">
+                            <AlertTriangle className="w-4 h-4 mr-2" />
+                            最近退回原因
+                          </p>
+                          <p className="text-sm text-red-700 mt-1">{rejectReason}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                  {(() => {
+                    const latestReminder = getLatestReminderTime(task.id);
+                    if (latestReminder) {
+                      return (
+                        <div className="bg-yellow-50 rounded-lg p-3">
+                          <p className="text-sm text-yellow-600 flex items-center">
+                            <Clock8 className="w-4 h-4 mr-2" />
+                            最近催单时间
+                          </p>
+                          <p className="text-sm text-yellow-700 mt-1">{formatDateTime(latestReminder)}</p>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 
                 {task.remark && (
