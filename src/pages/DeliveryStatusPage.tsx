@@ -1,21 +1,20 @@
 import { useState } from 'react';
-import { Search, Filter, Eye, Check, X, Truck, Calendar, Package } from 'lucide-react';
+import { Search, Filter, Eye, Check, X, Truck, Calendar, Package, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { statusLabels } from '../data/mockData';
 import { StockRequest } from '../types';
 
 export default function DeliveryStatusPage() {
-  const { getAllRequestsWithDetails, updateRequestStatus, currentUser, users } = useAppStore();
+  const { stockRequests, updateRequestStatus, currentUser, users } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedRequest, setSelectedRequest] = useState<StockRequest | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [comment, setComment] = useState('');
+  const [confirmedQty, setConfirmedQty] = useState('');
   const [actionType, setActionType] = useState<'approve' | 'reject' | 'deliver' | 'confirm'>('approve');
 
-  const requests = getAllRequestsWithDetails();
-
-  const filteredRequests = requests.filter(request => {
+  const filteredRequests = stockRequests.filter(request => {
     const matchesSearch = request.product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          request.store.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || request.status === statusFilter;
@@ -39,7 +38,7 @@ export default function DeliveryStatusPage() {
     
     switch (actionType) {
       case 'approve':
-        updateRequestStatus(selectedRequest.id, 'approved', comment);
+        updateRequestStatus(selectedRequest.id, 'approved', comment, confirmedQty ? Number(confirmedQty) : undefined);
         break;
       case 'reject':
         updateRequestStatus(selectedRequest.id, 'rejected', comment);
@@ -55,6 +54,7 @@ export default function DeliveryStatusPage() {
     setShowModal(false);
     setSelectedRequest(null);
     setComment('');
+    setConfirmedQty('');
   };
 
   const openModal = (request: StockRequest, action: 'approve' | 'reject' | 'deliver' | 'confirm') => {
@@ -62,6 +62,7 @@ export default function DeliveryStatusPage() {
     setActionType(action);
     setShowModal(true);
     setComment('');
+    setConfirmedQty(request.requestQty.toString());
   };
 
   return (
@@ -109,8 +110,9 @@ export default function DeliveryStatusPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">申领单号</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">门店</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">商品</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">原因</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">申领数量</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">可配数量</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">影响营业</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">期望日期</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
@@ -128,7 +130,22 @@ export default function DeliveryStatusPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600">{request.requestQty} {request.product.unit}</td>
-                  <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{request.reason}</td>
+                  <td className="px-6 py-4 text-gray-600">
+                    {request.confirmedQty !== null ? (
+                      <span className="font-medium text-green-600">{request.confirmedQty} {request.product.unit}</span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {request.affectsBusiness ? (
+                      <span className="flex items-center text-orange-600">
+                        <AlertCircle className="w-4 h-4 mr-1" /> 是
+                      </span>
+                    ) : (
+                      <span className="text-gray-400">否</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center text-gray-600">
                       <Calendar className="w-4 h-4 mr-1" />
@@ -201,19 +218,27 @@ export default function DeliveryStatusPage() {
             <div className="space-y-3 mb-4">
               <div className="flex justify-between">
                 <span className="text-gray-500">门店</span>
-                <span className="font-medium">{requests.find(r => r.id === selectedRequest.id)?.store.name}</span>
+                <span className="font-medium">{stockRequests.find(r => r.id === selectedRequest.id)?.store.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">商品</span>
-                <span className="font-medium">{requests.find(r => r.id === selectedRequest.id)?.product.name}</span>
+                <span className="font-medium">{stockRequests.find(r => r.id === selectedRequest.id)?.product.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">规格</span>
-                <span>{requests.find(r => r.id === selectedRequest.id)?.product.spec}</span>
+                <span>{stockRequests.find(r => r.id === selectedRequest.id)?.product.spec}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">申领数量</span>
-                <span>{selectedRequest.requestQty} {requests.find(r => r.id === selectedRequest.id)?.product.unit}</span>
+                <span>{selectedRequest.requestQty} {stockRequests.find(r => r.id === selectedRequest.id)?.product.unit}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">可配数量</span>
+                <span>{selectedRequest.confirmedQty ?? '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">影响营业</span>
+                <span>{selectedRequest.affectsBusiness ? '是' : '否'}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-500">缺货原因</span>
@@ -249,6 +274,22 @@ export default function DeliveryStatusPage() {
               {actionType === 'deliver' && '开始配货'}
               {actionType === 'confirm' && '确认发货'}
             </h3>
+            {(actionType === 'approve') && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">可配数量</label>
+                <div className="flex items-center">
+                  <input
+                    type="number"
+                    min="0"
+                    max={selectedRequest.requestQty}
+                    value={confirmedQty}
+                    onChange={(e) => setConfirmedQty(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
+                  />
+                  <span className="ml-2 text-gray-500">{stockRequests.find(r => r.id === selectedRequest.id)?.product.unit}</span>
+                </div>
+              </div>
+            )}
             {(actionType === 'approve' || actionType === 'reject') && (
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>

@@ -1,21 +1,20 @@
 import { useState } from 'react';
-import { Search, Filter, AlertTriangle, Check, Clock, Package } from 'lucide-react';
+import { Search, Filter, AlertTriangle, Check, Clock, Package, FileText } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { differenceTypeLabels, differenceStatusLabels, statusLabels } from '../data/mockData';
 import { Difference } from '../types';
 
 export default function DifferenceHandlingPage() {
-  const { getAllRequestsWithDetails, differences, updateDifferenceStatus, currentUser } = useAppStore();
+  const { stockRequests, differences, updateDifferenceStatus, currentUser, users } = useAppStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [selectedDifference, setSelectedDifference] = useState<Difference | null>(null);
   const [showModal, setShowModal] = useState(false);
-
-  const requests = getAllRequestsWithDetails();
+  const [processingResult, setProcessingResult] = useState('');
 
   const getRequestForInspection = (inspectionId: number) => {
-    return requests.find(r => r.inspection?.id === inspectionId);
+    return stockRequests.find(r => r.inspection?.id === inspectionId);
   };
 
   const filteredDifferences = differences.filter(diff => {
@@ -45,16 +44,18 @@ export default function DifferenceHandlingPage() {
 
   const handleResolve = () => {
     if (!selectedDifference) return;
-    updateDifferenceStatus(selectedDifference.id, 'resolved');
+    updateDifferenceStatus(selectedDifference.id, 'resolved', processingResult, currentUser.id);
     setShowModal(false);
     setSelectedDifference(null);
+    setProcessingResult('');
   };
 
   const handleProcessing = () => {
     if (!selectedDifference) return;
-    updateDifferenceStatus(selectedDifference.id, 'processing');
+    updateDifferenceStatus(selectedDifference.id, 'processing', undefined, currentUser.id);
     setShowModal(false);
     setSelectedDifference(null);
+    setProcessingResult('');
   };
 
   const stats = {
@@ -172,6 +173,7 @@ export default function DifferenceHandlingPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">差异类型</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">描述</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">处理结果</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
               </tr>
             </thead>
@@ -200,6 +202,18 @@ export default function DifferenceHandlingPage() {
                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[diff.status]}`}>
                         {differenceStatusLabels[diff.status]}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {diff.processingResult ? (
+                        <div className="max-w-xs">
+                          <p className="text-sm text-green-600 truncate">{diff.processingResult}</p>
+                          {diff.handlerId && (
+                            <p className="text-xs text-gray-400 mt-1">处理人: {users.find(u => u.id === diff.handlerId)?.name}</p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">-</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
@@ -278,6 +292,16 @@ export default function DifferenceHandlingPage() {
                 <span className="text-gray-500">问题描述</span>
                 <p className="mt-1 text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedDifference.description}</p>
               </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">处理结果</label>
+                <textarea
+                  value={processingResult}
+                  onChange={(e) => setProcessingResult(e.target.value)}
+                  placeholder="请描述处理结果..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  rows={3}
+                />
+              </div>
             </div>
             <div className="flex justify-end space-x-3">
               <button
@@ -323,6 +347,15 @@ export default function DifferenceHandlingPage() {
                 <span className="text-gray-500">问题描述</span>
                 <p className="mt-1 text-gray-700 bg-gray-50 p-3 rounded-lg">{selectedDifference.description}</p>
               </div>
+              {selectedDifference.processingResult && (
+                <div>
+                  <span className="text-gray-500">处理结果</span>
+                  <p className="mt-1 text-green-600 bg-green-50 p-3 rounded-lg">{selectedDifference.processingResult}</p>
+                  {selectedDifference.handlerId && (
+                    <p className="text-sm text-gray-500 mt-2">处理人: {users.find(u => u.id === selectedDifference.handlerId)?.name}</p>
+                  )}
+                </div>
+              )}
             </div>
             <button
               onClick={() => setSelectedDifference(null)}

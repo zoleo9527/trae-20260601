@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Package, MapPin, Calendar, FileText } from 'lucide-react';
+import { Plus, Search, Package, MapPin, Calendar, FileText, AlertCircle } from 'lucide-react';
 import { useAppStore } from '../store/useStore';
 import { reasonOptions } from '../data/mockData';
 
@@ -13,6 +13,7 @@ export default function StockRequestPage() {
   const [reason, setReason] = useState('');
   const [otherReason, setOtherReason] = useState('');
   const [expectedDate, setExpectedDate] = useState('');
+  const [affectsBusiness, setAffectsBusiness] = useState(false);
 
   const filteredProducts = products.filter(
     p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -29,10 +30,8 @@ export default function StockRequestPage() {
       productId: Number(selectedProduct),
       requestQty: Number(requestQty),
       reason: reason === '其他' ? otherReason : reason,
-      status: 'pending',
+      affectsBusiness,
       expectedDate,
-      supervisorComment: null,
-      confirmedQty: null,
     });
 
     setShowForm(false);
@@ -41,6 +40,7 @@ export default function StockRequestPage() {
     setReason('');
     setOtherReason('');
     setExpectedDate('');
+    setAffectsBusiness(false);
   };
 
   const product = products.find(p => p.id === Number(selectedProduct));
@@ -139,6 +139,20 @@ export default function StockRequestPage() {
                   />
                 </div>
               </div>
+            </div>
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="affects-business"
+                checked={affectsBusiness}
+                onChange={(e) => setAffectsBusiness(e.target.checked)}
+                className="w-4 h-4 text-primary-600 border-gray-300 rounded"
+              />
+              <label htmlFor="affects-business" className="ml-2 flex items-center text-sm font-medium text-gray-700">
+                <AlertCircle className="w-4 h-4 mr-1 text-orange-500" />
+                影响营业
+              </label>
+              <p className="ml-2 text-sm text-gray-500">勾选此项将优先处理</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">缺货原因</label>
