@@ -683,13 +683,17 @@ function submitReturnDish() {
     abnormalTime: now
   };
   
-  order.totalAmount -= dish.price * quantity;
+  if (responsible === 'kitchen' || responsible === 'both') {
+    order.totalAmount -= dish.price * quantity;
+  }
+  
+  const amountChange = responsible === 'kitchen' || responsible === 'both' ? ` | 扣减¥${dish.price * quantity}` : '';
   
   order.timeline.push({
     time: now,
     role: role,
     action: '退菜',
-    detail: `${dish.name}×${quantity} - ${reasonMap[reason]} | 责任方:${responsible === 'front' ? '前厅' : (responsible === 'kitchen' ? '后厨' : '双方')}`,
+    detail: `${dish.name}×${quantity} - ${reasonMap[reason]} | 责任方:${responsible === 'front' ? '前厅' : (responsible === 'kitchen' ? '后厨' : '双方')}${amountChange}`,
     operator: operator,
     responsible: responsible
   });
@@ -930,9 +934,10 @@ function confirmResponsibility(orderId, dishId) {
   
   order.dishStatus[dishId] = {
     ...status,
-    status: 'cooking',
-    cookStart: now,
-    cookOperator: '李师傅'
+    confirmed: true,
+    confirmTime: now,
+    confirmOperator: '李师傅',
+    conclusion: conclusion
   };
   
   alert(`已确认责任: ${conclusion}`);
@@ -966,7 +971,10 @@ function finishCooking(orderId, dishId) {
   
   const allReady = order.items.every(item => {
     const itemStatus = order.dishStatus[item.dishId];
-    return itemStatus?.status === 'ready' || itemStatus?.status === 'return' || itemStatus?.status === 'abnormal';
+    if (itemStatus?.status === 'abnormal') {
+      return itemStatus?.confirmed === true;
+    }
+    return itemStatus?.status === 'ready' || itemStatus?.status === 'return';
   });
   
   const hasAbnormal = order.items.some(item => {
@@ -974,12 +982,17 @@ function finishCooking(orderId, dishId) {
     return itemStatus?.status === 'abnormal';
   });
   
+  const hasUnconfirmedAbnormal = order.items.some(item => {
+    const itemStatus = order.dishStatus[item.dishId];
+    return itemStatus?.status === 'abnormal' && itemStatus?.confirmed !== true;
+  });
+  
   const hasCooking = order.items.some(item => {
     const itemStatus = order.dishStatus[item.dishId];
     return itemStatus?.status === 'cooking';
   });
   
-  if (allReady && !hasCooking) {
+  if (allReady && !hasCooking && !hasUnconfirmedAbnormal) {
     order.status = 'completed';
     
     let detail = '全部菜品已出，等待结算';
@@ -1087,6 +1100,7 @@ function showOrderDetail(orderId) {
           <div class="dish-item">
             <span>${item.name} ×${item.quantity} - ¥${item.price * item.quantity}</span>
             <span style="font-size:12px;color:#dc3545;">${reasonMap[item.reason]}</span>
+            <span style="font-size:12px;color:#666;">责任方: ${item.responsible === 'kitchen' ? '后厨' : (item.responsible === 'front' ? '前厅' : '双方')}</span>
           </div>
         `).join('')}
       </div>
