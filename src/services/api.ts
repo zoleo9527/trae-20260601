@@ -1,386 +1,240 @@
-import type { User, SoupBase, SoldOutItem, Order, AuditLog, TodoItem, SoldOutHistory } from '@/types';
-import { seedUsers, seedSoupBases, seedSoldOutItems, seedOrders, seedAuditLogs, seedTodos } from '@/data/seedData';
+import type { User, SoupBase, SoldOut, Order, AuditLog, TodoItem } from '../types';
 
-let users: User[] = [...seedUsers];
-let soupBases: SoupBase[] = [...seedSoupBases];
-let soldOutItems: SoldOutItem[] = [...seedSoldOutItems];
-let orders: Order[] = [...seedOrders];
-let auditLogs: AuditLog[] = [...seedAuditLogs];
-let todos: TodoItem[] = [...seedTodos];
+const BASE_URL = 'http://localhost:3001/api';
 
-const generateId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+const currentUser = { name: '李主管', role: '后厨主管' as const };
 
-const formatTimestamp = () => new Date().toISOString();
+const createHeaders = () => ({
+  'Content-Type': 'application/json',
+  'actor': currentUser.name,
+  'actorRole': currentUser.role,
+});
 
 export const userApi = {
-  getAll: (): Promise<User[]> => Promise.resolve(users),
-  getById: (id: string): Promise<User | undefined> => Promise.resolve(users.find(u => u.id === id)),
-  getByRole: (role: User['role']): Promise<User[]> => Promise.resolve(users.filter(u => u.role === role)),
-  login: (phone: string): Promise<User | null> => {
-    const user = users.find(u => u.phone === phone);
-    return Promise.resolve(user || null);
+  getAll: async (): Promise<User[]> => {
+    const res = await fetch(`${BASE_URL}/users`);
+    return res.json();
+  },
+  getById: async (id: string): Promise<User> => {
+    const res = await fetch(`${BASE_URL}/users/${id}`);
+    return res.json();
+  },
+  getByRole: async (role: string): Promise<User[]> => {
+    const res = await fetch(`${BASE_URL}/users/role/${role}`);
+    return res.json();
   },
 };
 
 export const soupBaseApi = {
-  getAll: (): Promise<SoupBase[]> => Promise.resolve(soupBases),
-  getById: (id: string): Promise<SoupBase | undefined> => Promise.resolve(soupBases.find(s => s.id === id)),
-  create: async (data: Omit<SoupBase, 'id' | 'createdAt' | 'updatedAt' | 'prepareCount'>): Promise<SoupBase> => {
-    const now = formatTimestamp();
-    const newItem: SoupBase = {
-      ...data,
-      id: generateId(),
-      createdAt: now,
-      updatedAt: now,
-      prepareCount: 0,
-    };
-    soupBases.push(newItem);
-    await auditLogApi.create({
-      action: 'create',
-      targetType: 'soupBase',
-      targetId: newItem.id,
-      targetName: newItem.name,
-      actor: '李主管',
-      actorRole: '后厨主管',
-      details: data,
+  getAll: async (): Promise<SoupBase[]> => {
+    const res = await fetch(`${BASE_URL}/soupBases`);
+    return res.json();
+  },
+  getById: async (id: string): Promise<SoupBase> => {
+    const res = await fetch(`${BASE_URL}/soupBases/${id}`);
+    return res.json();
+  },
+  create: async (data: Omit<SoupBase, 'id' | 'createdAt' | 'updatedAt'>): Promise<SoupBase> => {
+    const res = await fetch(`${BASE_URL}/soupBases`, {
+      method: 'POST',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    return newItem;
+    return res.json();
   },
-  update: async (id: string, data: Partial<Omit<SoupBase, 'id' | 'createdAt'>>): Promise<SoupBase | undefined> => {
-    const index = soupBases.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const previousStock = soupBases[index].stock;
-    const updated = { ...soupBases[index], ...data, updatedAt: formatTimestamp() };
-    soupBases[index] = updated;
-    
-    await auditLogApi.create({
-      action: 'update',
-      targetType: 'soupBase',
-      targetId: id,
-      targetName: updated.name,
-      actor: '李主管',
-      actorRole: '后厨主管',
-      details: { ...data, previousStock },
+  update: async (id: string, data: Partial<SoupBase>): Promise<SoupBase> => {
+    const res = await fetch(`${BASE_URL}/soupBases/${id}`, {
+      method: 'PUT',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    return updated;
+    return res.json();
   },
-  prepare: async (id: string): Promise<SoupBase | undefined> => {
-    const index = soupBases.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const now = formatTimestamp();
-    soupBases[index] = {
-      ...soupBases[index],
-      status: 'preparing',
-      updatedAt: now,
-    };
-    return soupBases[index];
-  },
-  completePrepare: async (id: string, quantity: number): Promise<SoupBase | undefined> => {
-    const index = soupBases.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const now = formatTimestamp();
-    soupBases[index] = {
-      ...soupBases[index],
-      stock: soupBases[index].stock + quantity,
-      status: 'ready',
-      lastPreparedAt: now,
-      updatedAt: now,
-      prepareCount: soupBases[index].prepareCount + 1,
-    };
-    
-    await auditLogApi.create({
-      action: 'update',
-      targetType: 'soupBase',
-      targetId: id,
-      targetName: soupBases[index].name,
-      actor: '李主管',
-      actorRole: '后厨主管',
-      details: { preparedQuantity: quantity, newStock: soupBases[index].stock },
+  prepare: async (id: string): Promise<SoupBase> => {
+    const res = await fetch(`${BASE_URL}/soupBases/${id}/prepare`, {
+      method: 'POST',
+      headers: createHeaders(),
     });
-    return soupBases[index];
+    return res.json();
   },
-  getLowStock: (): Promise<SoupBase[]> => {
-    return Promise.resolve(soupBases.filter(s => s.stock <= s.minStock));
+  complete: async (id: string, additionalStock?: number): Promise<SoupBase> => {
+    const res = await fetch(`${BASE_URL}/soupBases/${id}/complete`, {
+      method: 'POST',
+      headers: createHeaders(),
+      body: JSON.stringify({ additionalStock }),
+    });
+    return res.json();
+  },
+  delete: async (id: string): Promise<void> => {
+    await fetch(`${BASE_URL}/soupBases/${id}`, {
+      method: 'DELETE',
+      headers: createHeaders(),
+    });
   },
 };
 
 export const soldOutApi = {
-  getAll: (status?: SoldOutItem['status']): Promise<SoldOutItem[]> => {
-    if (status) {
-      return Promise.resolve(soldOutItems.filter(s => s.status === status));
-    }
-    return Promise.resolve(soldOutItems);
+  getAll: async (status?: string): Promise<SoldOut[]> => {
+    const url = status ? `${BASE_URL}/soldOuts?status=${status}` : `${BASE_URL}/soldOuts`;
+    const res = await fetch(url);
+    return res.json();
   },
-  getById: (id: string): Promise<SoldOutItem | undefined> => {
-    return Promise.resolve(soldOutItems.find(s => s.id === id));
+  getById: async (id: string): Promise<SoldOut> => {
+    const res = await fetch(`${BASE_URL}/soldOuts/${id}`);
+    return res.json();
   },
-  create: async (data: Omit<SoldOutItem, 'id' | 'status' | 'history' | 'reportedAt'>): Promise<SoldOutItem> => {
-    const now = formatTimestamp();
-    const history: SoldOutHistory[] = [{
-      id: generateId(),
-      action: 'reported',
-      actor: data.reportedBy,
-      timestamp: now,
-      description: `报告${data.itemName}沽清`,
-    }];
-    
-    const newItem: SoldOutItem = {
-      ...data,
-      id: generateId(),
-      status: 'active',
-      history,
-      reportedAt: now,
-    };
-    soldOutItems.push(newItem);
-    
-    await auditLogApi.create({
-      action: 'create',
-      targetType: 'soldOut',
-      targetId: newItem.id,
-      targetName: newItem.itemName,
-      actor: data.reportedBy,
-      actorRole: '后厨主管',
-      details: { reason: data.reason },
+  create: async (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt'>): Promise<SoldOut> => {
+    const res = await fetch(`${BASE_URL}/soldOuts`, {
+      method: 'POST',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    
-    await todoApi.create({
-      title: `确认${data.itemName}沽清通知`,
-      type: 'soldOut',
-      targetId: newItem.id,
-      targetName: newItem.itemName,
-      assignee: '张经理',
-      assigneeRole: '前厅经理',
-      priority: 'medium',
-    });
-    
-    return newItem;
+    return res.json();
   },
-  confirm: async (id: string, actor: string, actorRole: User['role']): Promise<SoldOutItem | undefined> => {
-    const index = soldOutItems.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const history: SoldOutHistory = {
-      id: generateId(),
-      action: 'confirmed',
-      actor,
-      timestamp: formatTimestamp(),
-      description: '确认沽清通知已发送',
-    };
-    
-    soldOutItems[index] = {
-      ...soldOutItems[index],
-      history: [...soldOutItems[index].history, history],
-    };
-    
-    await auditLogApi.create({
-      action: 'confirm',
-      targetType: 'soldOut',
-      targetId: id,
-      targetName: soldOutItems[index].itemName,
-      actor,
-      actorRole,
-      details: { confirmed: true },
+  update: async (id: string, data: Partial<Pick<SoldOut, 'notes' | 'refundReason' | 'supplementNotes'>>): Promise<SoldOut> => {
+    const res = await fetch(`${BASE_URL}/soldOuts/${id}`, {
+      method: 'PUT',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    
-    return soldOutItems[index];
+    return res.json();
   },
-  resolve: async (id: string, resolvedBy: string, notes?: string): Promise<SoldOutItem | undefined> => {
-    const index = soldOutItems.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const now = formatTimestamp();
-    const history: SoldOutHistory = {
-      id: generateId(),
-      action: 'resolved',
-      actor: resolvedBy,
-      timestamp: now,
-      description: `${soldOutItems[index].itemName}已补货`,
-    };
-    
-    soldOutItems[index] = {
-      ...soldOutItems[index],
-      status: 'resolved',
-      resolvedBy,
-      resolvedAt: now,
-      history: [...soldOutItems[index].history, history],
-      notes: notes || soldOutItems[index].notes,
-    };
-    
-    await auditLogApi.create({
-      action: 'resolve',
-      targetType: 'soldOut',
-      targetId: id,
-      targetName: soldOutItems[index].itemName,
-      actor: resolvedBy,
-      actorRole: '后厨主管',
-      details: { resolvedBy, notes },
+  confirm: async (id: string): Promise<SoldOut> => {
+    const res = await fetch(`${BASE_URL}/soldOuts/${id}/confirm`, {
+      method: 'POST',
+      headers: createHeaders(),
     });
-    
-    return soldOutItems[index];
+    return res.json();
   },
-  updateNotes: async (id: string, notes: string): Promise<SoldOutItem | undefined> => {
-    const index = soldOutItems.findIndex(s => s.id === id);
-    if (index === -1) return undefined;
-    
-    const history: SoldOutHistory = {
-      id: generateId(),
-      action: 'updated',
-      actor: '李主管',
-      timestamp: formatTimestamp(),
-      description: '更新备注信息',
-    };
-    
-    soldOutItems[index] = {
-      ...soldOutItems[index],
-      notes,
-      history: [...soldOutItems[index].history, history],
-    };
-    
-    return soldOutItems[index];
+  resolve: async (id: string): Promise<SoldOut> => {
+    const res = await fetch(`${BASE_URL}/soldOuts/${id}/resolve`, {
+      method: 'POST',
+      headers: createHeaders(),
+    });
+    return res.json();
+  },
+  delete: async (id: string): Promise<void> => {
+    await fetch(`${BASE_URL}/soldOuts/${id}`, {
+      method: 'DELETE',
+      headers: createHeaders(),
+    });
   },
 };
 
 export const orderApi = {
-  getAll: (status?: Order['status']): Promise<Order[]> => {
-    if (status) {
-      return Promise.resolve(orders.filter(o => o.status === status));
-    }
-    return Promise.resolve(orders);
+  getAll: async (status?: string, isGroupBuy?: boolean): Promise<Order[]> => {
+    let url = `${BASE_URL}/orders`;
+    const params: string[] = [];
+    if (status) params.push(`status=${status}`);
+    if (isGroupBuy !== undefined) params.push(`isGroupBuy=${isGroupBuy}`);
+    if (params.length) url += `?${params.join('&')}`;
+    const res = await fetch(url);
+    return res.json();
   },
-  getById: (id: string): Promise<Order | undefined> => Promise.resolve(orders.find(o => o.id === id)),
-  create: async (data: Omit<Order, 'id' | 'createdAt'>): Promise<Order> => {
-    const now = formatTimestamp();
-    const newOrder: Order = {
-      ...data,
-      id: generateId(),
-      createdAt: now,
-    };
-    orders.push(newOrder);
-    
-    await auditLogApi.create({
-      action: 'create',
-      targetType: 'order',
-      targetId: newOrder.id,
-      targetName: `${newOrder.tableNumber}桌订单`,
-      actor: data.createdBy,
-      actorRole: '前厅经理',
-      details: { isGroupBuy: data.isGroupBuy },
-    });
-    
-    if (data.isGroupBuy && !data.groupBuyVerified) {
-      await todoApi.create({
-        title: `核销团购券 ${data.groupBuyCode}`,
-        type: 'order',
-        targetId: newOrder.id,
-        targetName: `${newOrder.tableNumber}桌订单`,
-        assignee: '王收银',
-        assigneeRole: '收银',
-        priority: 'medium',
-      });
-    }
-    
-    return newOrder;
+  getById: async (id: string): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}`);
+    return res.json();
   },
-  verifyGroupBuy: async (id: string): Promise<Order | undefined> => {
-    const index = orders.findIndex(o => o.id === id);
-    if (index === -1) return undefined;
-    
-    orders[index] = {
-      ...orders[index],
-      groupBuyVerified: true,
-      status: 'confirmed',
-    };
-    
-    await auditLogApi.create({
-      action: 'confirm',
-      targetType: 'order',
-      targetId: id,
-      targetName: orders[index].tableNumber + '桌订单',
-      actor: '王收银',
-      actorRole: '收银',
-      details: { groupBuyVerified: true },
+  create: async (data: Omit<Order, 'id' | 'status' | 'paidAmount' | 'groupBuyVerified' | 'createdAt' | 'updatedAt' | 'servedAt' | 'completedAt'>): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders`, {
+      method: 'POST',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    
-    return orders[index];
+    return res.json();
   },
-  updateStatus: async (id: string, status: Order['status']): Promise<Order | undefined> => {
-    const index = orders.findIndex(o => o.id === id);
-    if (index === -1) return undefined;
-    
-    const now = formatTimestamp();
-    const updates: Partial<Order> = { status, updatedAt: now };
-    
-    if (status === 'served') updates.servedAt = now;
-    if (status === 'completed') updates.completedAt = now;
-    
-    orders[index] = { ...orders[index], ...updates };
-    
-    await auditLogApi.create({
-      action: 'update',
-      targetType: 'order',
-      targetId: id,
-      targetName: orders[index].tableNumber + '桌订单',
-      actor: '张经理',
-      actorRole: '前厅经理',
-      details: { status },
+  update: async (id: string, data: Partial<Order>): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}`, {
+      method: 'PUT',
+      headers: createHeaders(),
+      body: JSON.stringify(data),
     });
-    
-    return orders[index];
+    return res.json();
+  },
+  verify: async (id: string): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}/verify`, {
+      method: 'POST',
+      headers: createHeaders(),
+    });
+    return res.json();
+  },
+  confirm: async (id: string): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}/confirm`, {
+      method: 'POST',
+      headers: createHeaders(),
+    });
+    return res.json();
+  },
+  serve: async (id: string): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}/serve`, {
+      method: 'POST',
+      headers: createHeaders(),
+    });
+    return res.json();
+  },
+  complete: async (id: string): Promise<Order> => {
+    const res = await fetch(`${BASE_URL}/orders/${id}/complete`, {
+      method: 'POST',
+      headers: createHeaders(),
+    });
+    return res.json();
+  },
+  delete: async (id: string): Promise<void> => {
+    await fetch(`${BASE_URL}/orders/${id}`, {
+      method: 'DELETE',
+      headers: createHeaders(),
+    });
   },
 };
 
 export const auditLogApi = {
-  getAll: (): Promise<AuditLog[]> => Promise.resolve(auditLogs),
-  getByTargetType: (type: AuditLog['targetType']): Promise<AuditLog[]> => {
-    return Promise.resolve(auditLogs.filter(a => a.targetType === type));
+  getAll: async (action?: string, targetType?: string, actor?: string): Promise<AuditLog[]> => {
+    let url = `${BASE_URL}/auditLogs`;
+    const params: string[] = [];
+    if (action) params.push(`action=${action}`);
+    if (targetType) params.push(`targetType=${targetType}`);
+    if (actor) params.push(`actor=${actor}`);
+    if (params.length) url += `?${params.join('&')}`;
+    const res = await fetch(url);
+    return res.json();
   },
-  getByActor: (actor: string): Promise<AuditLog[]> => {
-    return Promise.resolve(auditLogs.filter(a => a.actor === actor));
-  },
-  create: async (data: Omit<AuditLog, 'id' | 'timestamp'>): Promise<AuditLog> => {
-    const newLog: AuditLog = {
-      ...data,
-      id: generateId(),
-      timestamp: formatTimestamp(),
-    };
-    auditLogs.push(newLog);
-    return newLog;
+  getById: async (id: string): Promise<AuditLog> => {
+    const res = await fetch(`${BASE_URL}/auditLogs/${id}`);
+    return res.json();
   },
 };
 
-export const todoApi = {
-  getAll: (): Promise<TodoItem[]> => Promise.resolve(todos),
-  getByAssignee: (assignee: string): Promise<TodoItem[]> => {
-    return Promise.resolve(todos.filter(t => t.assignee === assignee));
+export const todoItemApi = {
+  getAll: async (assigneeRole?: string, completed?: boolean): Promise<TodoItem[]> => {
+    let url = `${BASE_URL}/todoItems`;
+    const params: string[] = [];
+    if (assigneeRole) params.push(`assigneeRole=${assigneeRole}`);
+    if (completed !== undefined) params.push(`completed=${completed}`);
+    if (params.length) url += `?${params.join('&')}`;
+    const res = await fetch(url);
+    return res.json();
   },
-  getByRole: (role: User['role']): Promise<TodoItem[]> => {
-    return Promise.resolve(todos.filter(t => t.assigneeRole === role));
+  getById: async (id: string): Promise<TodoItem> => {
+    const res = await fetch(`${BASE_URL}/todoItems/${id}`);
+    return res.json();
   },
-  getPending: (): Promise<TodoItem[]> => {
-    return Promise.resolve(todos.filter(t => !t.completed));
+  complete: async (id: string): Promise<TodoItem> => {
+    const res = await fetch(`${BASE_URL}/todoItems/${id}/complete`, {
+      method: 'PUT',
+      headers: createHeaders(),
+    });
+    return res.json();
   },
-  create: async (data: Omit<TodoItem, 'id' | 'createdAt' | 'completed'>): Promise<TodoItem> => {
-    const newTodo: TodoItem = {
-      ...data,
-      id: generateId(),
-      createdAt: formatTimestamp(),
-      completed: false,
-    };
-    todos.push(newTodo);
-    return newTodo;
+  delete: async (id: string): Promise<void> => {
+    await fetch(`${BASE_URL}/todoItems/${id}`, {
+      method: 'DELETE',
+      headers: createHeaders(),
+    });
   },
-  complete: async (id: string): Promise<TodoItem | undefined> => {
-    const index = todos.findIndex(t => t.id === id);
-    if (index === -1) return undefined;
-    
-    todos[index] = {
-      ...todos[index],
-      completed: true,
-      completedAt: formatTimestamp(),
-    };
-    return todos[index];
-  },
+};
+
+export const getCurrentUser = () => currentUser;
+
+export const setCurrentUser = (user: { name: string; role: string }) => {
+  Object.assign(currentUser, user);
 };

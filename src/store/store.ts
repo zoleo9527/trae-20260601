@@ -1,89 +1,103 @@
 import { create } from 'zustand';
-import type { User, SoupBase, SoldOutItem, Order, AuditLog, TodoItem, Role } from '@/types';
-import { soupBaseApi, soldOutApi, orderApi, auditLogApi, todoApi } from '@/services/api';
+import type { User, SoupBase, SoldOut, Order, AuditLog, TodoItem, Role } from '../types';
+import { userApi, soupBaseApi, soldOutApi, orderApi, auditLogApi, todoItemApi, getCurrentUser, setCurrentUser } from '../services/api';
 
-interface AppState {
-  currentUser: User | null;
+interface Store {
+  users: User[];
   soupBases: SoupBase[];
-  soldOutItems: SoldOutItem[];
+  soldOuts: SoldOut[];
   orders: Order[];
   auditLogs: AuditLog[];
-  todos: TodoItem[];
-  selectedRole: Role;
+  todoItems: TodoItem[];
+  currentUser: { name: string; role: Role };
   loading: boolean;
 
-  setCurrentUser: (user: User | null) => void;
-  setSelectedRole: (role: Role) => void;
-  loadData: () => Promise<void>;
-
+  fetchUsers: () => Promise<void>;
   fetchSoupBases: () => Promise<void>;
-  fetchSoldOutItems: () => Promise<void>;
-  fetchOrders: () => Promise<void>;
+  fetchSoldOuts: (status?: string) => Promise<void>;
+  fetchOrders: (status?: string, isGroupBuy?: boolean) => Promise<void>;
   fetchAuditLogs: () => Promise<void>;
-  fetchTodos: () => Promise<void>;
+  fetchTodoItems: (role?: string) => Promise<void>;
 
-  updateSoupBase: (id: string, data: Partial<Omit<SoupBase, 'id' | 'createdAt'>>) => Promise<void>;
-  prepareSoupBase: (id: string) => Promise<void>;
-  completePrepareSoupBase: (id: string, quantity: number) => Promise<void>;
+  startPrepareSoupBase: (id: string) => Promise<void>;
+  completePrepareSoupBase: (id: string, additionalStock?: number) => Promise<void>;
+  updateSoupBase: (id: string, data: Partial<SoupBase>) => Promise<void>;
 
-  createSoldOut: (data: Omit<SoldOutItem, 'id' | 'status' | 'history' | 'reportedAt'>) => Promise<void>;
+  reportSoldOut: (data: Omit<SoldOut, 'id' | 'status' | 'reportedAt' | 'resolvedAt' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   confirmSoldOut: (id: string) => Promise<void>;
-  resolveSoldOut: (id: string, notes?: string) => Promise<void>;
+  resolveSoldOut: (id: string) => Promise<void>;
+  updateSoldOut: (id: string, data: Partial<Pick<SoldOut, 'notes' | 'refundReason' | 'supplementNotes'>>) => Promise<void>;
 
+  createOrder: (data: Omit<Order, 'id' | 'status' | 'paidAmount' | 'groupBuyVerified' | 'createdAt' | 'updatedAt' | 'servedAt' | 'completedAt'>) => Promise<void>;
   verifyGroupBuy: (id: string) => Promise<void>;
-  updateOrderStatus: (id: string, status: Order['status']) => Promise<void>;
+  confirmOrder: (id: string) => Promise<void>;
+  serveOrder: (id: string) => Promise<void>;
+  completeOrder: (id: string) => Promise<void>;
 
   completeTodo: (id: string) => Promise<void>;
+
+  switchRole: (role: Role) => void;
+  setCurrentUser: (user: { name: string; role: Role }) => void;
 }
 
-export const useStore = create<AppState>((set, get) => ({
-  currentUser: null,
+export const useStore = create<Store>((set, get) => ({
+  users: [],
   soupBases: [],
-  soldOutItems: [],
+  soldOuts: [],
   orders: [],
   auditLogs: [],
-  todos: [],
-  selectedRole: '前厅经理',
+  todoItems: [],
+  currentUser: getCurrentUser(),
   loading: false,
 
-  setCurrentUser: (user) => set({ currentUser: user }),
-  setSelectedRole: (role) => set({ selectedRole: role }),
-
-  loadData: async () => {
+  fetchUsers: async () => {
     set({ loading: true });
-    await Promise.all([
-      get().fetchSoupBases(),
-      get().fetchSoldOutItems(),
-      get().fetchOrders(),
-      get().fetchAuditLogs(),
-      get().fetchTodos(),
-    ]);
-    set({ loading: false });
+    const users = await userApi.getAll();
+    set({ users, loading: false });
   },
 
   fetchSoupBases: async () => {
-    const data = await soupBaseApi.getAll();
-    set({ soupBases: data });
+    set({ loading: true });
+    const soupBases = await soupBaseApi.getAll();
+    set({ soupBases, loading: false });
   },
 
-  fetchSoldOutItems: async () => {
-    const data = await soldOutApi.getAll();
-    set({ soldOutItems: data });
+  fetchSoldOuts: async (status) => {
+    set({ loading: true });
+    const soldOuts = await soldOutApi.getAll(status);
+    set({ soldOuts, loading: false });
   },
 
-  fetchOrders: async () => {
-    const data = await orderApi.getAll();
-    set({ orders: data });
+  fetchOrders: async (status, isGroupBuy) => {
+    set({ loading: true });
+    const orders = await orderApi.getAll(status, isGroupBuy);
+    set({ orders, loading: false });
   },
 
   fetchAuditLogs: async () => {
-    const data = await auditLogApi.getAll();
-    set({ auditLogs: data });
+    set({ loading: true });
+    const logs = await auditLogApi.getAll();
+    set({ auditLogs: logs, loading: false });
   },
 
-  fetchTodos: async () => {
-    const data = await todoApi.getAll();
-    set({ todos: data });
+  fetchTodoItems: async (role) => {
+    set({ loading: true });
+    const todos = await todoItemApi.getAll(role);
+    set({ todoItems: todos, loading: false });
+  },
+
+  startPrepareSoupBase: async (id) => {
+    await soupBaseApi.prepare(id);
+    await get().fetchSoupBases();
+    await get().fetchTodoItems(get().currentUser.role);
+  },
+
+  completePrepareSoupBase: async (id, additionalStock) => {
+    await soupBaseApi.complete(id, additionalStock);
+    await get().fetchSoupBases();
+    await get().fetchSoldOuts();
+    await get().fetchTodoItems(get().currentUser.role);
+    await get().fetchAuditLogs();
   },
 
   updateSoupBase: async (id, data) => {
@@ -91,60 +105,83 @@ export const useStore = create<AppState>((set, get) => ({
     await get().fetchSoupBases();
   },
 
-  prepareSoupBase: async (id) => {
-    await soupBaseApi.prepare(id);
-    await get().fetchSoupBases();
-  },
-
-  completePrepareSoupBase: async (id, quantity) => {
-    await soupBaseApi.completePrepare(id, quantity);
-    await get().fetchSoupBases();
-    await get().fetchTodos();
-  },
-
-  createSoldOut: async (data) => {
+  reportSoldOut: async (data) => {
     await soldOutApi.create(data);
-    await get().fetchSoldOutItems();
-    await get().fetchTodos();
+    await get().fetchSoldOuts();
+    await get().fetchTodoItems(get().currentUser.role);
+    await get().fetchAuditLogs();
   },
 
   confirmSoldOut: async (id) => {
-    const { currentUser } = get();
-    if (!currentUser) return;
-    await soldOutApi.confirm(id, currentUser.name, currentUser.role);
-    await get().fetchSoldOutItems();
-    await get().fetchTodos();
+    await soldOutApi.confirm(id);
+    await get().fetchSoldOuts();
+    await get().fetchAuditLogs();
   },
 
-  resolveSoldOut: async (id, notes) => {
-    const { currentUser } = get();
-    if (!currentUser) return;
-    await soldOutApi.resolve(id, currentUser.name, notes);
-    await get().fetchSoldOutItems();
+  resolveSoldOut: async (id) => {
+    await soldOutApi.resolve(id);
+    await get().fetchSoldOuts();
+    await get().fetchSoupBases();
+    await get().fetchTodoItems(get().currentUser.role);
+    await get().fetchAuditLogs();
+  },
+
+  updateSoldOut: async (id, data) => {
+    await soldOutApi.update(id, data);
+    await get().fetchSoldOuts();
+  },
+
+  createOrder: async (data) => {
+    await orderApi.create(data);
+    await get().fetchOrders();
+    await get().fetchTodoItems(get().currentUser.role);
+    await get().fetchAuditLogs();
   },
 
   verifyGroupBuy: async (id) => {
-    await orderApi.verifyGroupBuy(id);
+    await orderApi.verify(id);
     await get().fetchOrders();
-    await get().fetchTodos();
+    await get().fetchTodoItems(get().currentUser.role);
+    await get().fetchAuditLogs();
   },
 
-  updateOrderStatus: async (id, status) => {
-    await orderApi.updateStatus(id, status);
+  confirmOrder: async (id) => {
+    await orderApi.confirm(id);
     await get().fetchOrders();
+    await get().fetchAuditLogs();
+  },
+
+  serveOrder: async (id) => {
+    await orderApi.serve(id);
+    await get().fetchOrders();
+    await get().fetchAuditLogs();
+  },
+
+  completeOrder: async (id) => {
+    await orderApi.complete(id);
+    await get().fetchOrders();
+    await get().fetchSoupBases();
+    await get().fetchAuditLogs();
   },
 
   completeTodo: async (id) => {
-    await todoApi.complete(id);
-    await get().fetchTodos();
+    await todoItemApi.complete(id);
+    await get().fetchTodoItems(get().currentUser.role);
+  },
+
+  switchRole: (role) => {
+    const users = get().users;
+    const user = users.find(u => u.role === role);
+    if (user) {
+      setCurrentUser({ name: user.name, role: user.role });
+      set({ currentUser: { name: user.name, role: user.role } });
+      get().fetchTodoItems(role);
+    }
+  },
+
+  setCurrentUser: (user) => {
+    setCurrentUser(user);
+    set({ currentUser: user });
+    get().fetchTodoItems(user.role);
   },
 }));
-
-export const useCurrentUser = () => useStore((state) => state.currentUser);
-export const useSelectedRole = () => useStore((state) => state.selectedRole);
-export const useSoupBases = () => useStore((state) => state.soupBases);
-export const useSoldOutItems = () => useStore((state) => state.soldOutItems);
-export const useOrders = () => useStore((state) => state.orders);
-export const useAuditLogs = () => useStore((state) => state.auditLogs);
-export const useTodos = () => useStore((state) => state.todos);
-export const useLoading = () => useStore((state) => state.loading);
