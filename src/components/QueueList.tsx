@@ -16,6 +16,20 @@ const statusConfig: Record<Queue['status'], { label: string; color: string; bgCo
   cancelled: { label: '已取消', color: 'text-red-600', bgColor: 'bg-red-100' },
 };
 
+const roleLabels: Record<string, string> = {
+  manager: '前厅经理',
+  chef: '后厨主管',
+  cashier: '收银员',
+  admin: '管理员',
+};
+
+const rolePermissions: Record<string, string> = {
+  manager: '可创建排号、取消排号',
+  chef: '可确认桌台分配',
+  cashier: '可完成结账释放桌台',
+  admin: '所有权限',
+};
+
 export const QueueList: React.FC<QueueListProps> = ({ queues, onSelectQueue }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [customerName, setCustomerName] = useState('');
@@ -55,18 +69,26 @@ export const QueueList: React.FC<QueueListProps> = ({ queues, onSelectQueue }) =
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-bold text-gray-800">等位排号</h2>
-          <p className="text-sm text-gray-500">当前等待人数: {waitingQueues.length}</p>
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-2">
+          <div>
+            <h2 className="text-lg font-bold text-gray-800">等位排号</h2>
+            <p className="text-sm text-gray-500">当前等待人数: {waitingQueues.length}</p>
+          </div>
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            <span className="text-sm font-medium">新增排号</span>
+          </button>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="text-sm font-medium">新增排号</span>
-        </button>
+        <div className="flex items-center space-x-2 text-xs text-gray-500">
+          <span className="px-2 py-1 bg-blue-50 text-blue-600 rounded">
+            {roleLabels[user?.role || 'admin']}
+          </span>
+          <span>{rolePermissions[user?.role || 'admin']}</span>
+        </div>
       </div>
 
       <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { User, Queue, Table, SystemLog } from '../types';
+import { User, Queue, Table, SystemLog, Assignment } from '../types';
 
 const API_BASE_URL = '/api';
 
@@ -63,6 +63,20 @@ export const tableApi = {
   },
   deleteTable: async (id: string): Promise<void> => {
     await api.delete(`/tables/${id}`);
+  },
+};
+
+export const assignmentApi = {
+  getAssignments: async (queueId?: string, tableId?: string): Promise<Assignment[]> => {
+    const params: Record<string, string> = {};
+    if (queueId) params.queueId = queueId;
+    if (tableId) params.tableId = tableId;
+    const response = await api.get('/assignments', { params });
+    return response.data;
+  },
+  createAssignment: async (queueId: string, tableId: string, assignedBy: string, assignedByName: string): Promise<Assignment> => {
+    const response = await api.post('/assignments', { queueId, tableId, assignedBy, assignedByName });
+    return response.data;
   },
 };
 

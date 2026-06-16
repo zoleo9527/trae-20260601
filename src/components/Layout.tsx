@@ -1,5 +1,5 @@
 import React from 'react';
-import { Flame, Users, Utensils, FileText, LogOut, Home } from 'lucide-react';
+import { Flame, Users, Utensils, FileText, LogOut, Home, ClipboardList } from 'lucide-react';
 import { useStore } from '../store';
 import { User } from '../types';
 
@@ -12,6 +12,7 @@ interface LayoutProps {
 const navItems = [
   { id: 'home', label: '首页', icon: Home },
   { id: 'tables', label: '桌台管理', icon: Utensils },
+  { id: 'assignments', label: '分配回看', icon: ClipboardList },
   { id: 'logs', label: '系统日志', icon: FileText },
 ];
 
