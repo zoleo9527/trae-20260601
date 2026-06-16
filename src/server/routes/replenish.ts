@@ -193,7 +193,7 @@ router.put('/:id/cancel', (req, res) => {
       return res.status(400).json({ error: '已完成的补货单不能取消' });
     }
 
-    const order = row as { dish_name: string; store_name: string; region: string; submitter_id: string; submitter_name: string };
+    const order = row as { dish_name: string; store_name: string; region: string; submitter_id: string; submitter_name: string; out_of_stock_id: string };
 
     db.run(
       'UPDATE replenish_orders SET status = ?, cancel_reason = ? WHERE id = ?',
@@ -202,6 +202,10 @@ router.put('/:id/cancel', (req, res) => {
         if (err) {
           res.status(500).json({ error: err.message });
         } else {
+          db.run(
+            'UPDATE out_of_stock_records SET status = ?, replenish_order_id = ? WHERE id = ?',
+            ['approved', null, order.out_of_stock_id]
+          );
           db.run(
             'INSERT INTO operation_logs (id, type, target_id, action, operator_id, operator_name, operator_role, store_name, region, detail, operation_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
             [generateId(), 'replenish', req.params.id, '取消补货单', order.submitter_id, order.submitter_name, '区域督导', '区域督导', order.region, `取消${order.store_name}${order.dish_name}补货单，原因：${cancelReason}`, cancelTime]

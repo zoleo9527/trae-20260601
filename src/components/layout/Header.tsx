@@ -1,4 +1,4 @@
-import { Home, ListChecks, Scissors, Users } from 'lucide-react';
+import { Home, ListChecks, Scissors, Users, FileText } from 'lucide-react';
 import type { User } from '@/types';
 
 interface HeaderProps {

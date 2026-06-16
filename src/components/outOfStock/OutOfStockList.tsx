@@ -132,7 +132,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
 
   const canCreate = currentUser.role === 'manager';
 
-  const managerStores = stores.filter(s => currentUser.storeName === s.name);
+  const managerStores = stores.filter(s => currentUser.store_name === s.name || currentUser.storeName === s.name);
   const availableStores = currentUser.role === 'manager' ? managerStores : stores;
 
   return (

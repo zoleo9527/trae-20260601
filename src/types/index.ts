@@ -2,8 +2,9 @@ export interface User {
   id: string;
   name: string;
   role: 'manager' | 'supervisor' | 'purchaser';
-  storeName: string;
+  store_name: string;
   region?: string;
+  storeName?: string;
 }
 
 export interface Dish {
@@ -13,7 +14,8 @@ export interface Dish {
   unit: string;
   price: number;
   stock: number;
-  safetyStock: number;
+  safety_stock: number;
+  safetyStock?: number;
 }
 
 export type OutOfStockStatus = 'pending' | 'approved' | 'rejected' | 'replenished' | 'closed';
@@ -22,18 +24,31 @@ export type ReplenishStatus = 'pending' | 'confirmed' | 'in_progress' | 'complet
 
 export interface OutOfStockRecord {
   id: string;
-  dishId: string;
-  dishName: string;
-  storeId: string;
-  storeName: string;
+  dish_id: string;
+  dish_name: string;
+  store_id: string;
+  store_name: string;
   region: string;
   quantity: number;
   reason: string;
   remark: string;
   status: OutOfStockStatus;
-  submitterId: string;
-  submitterName: string;
-  submitTime: string;
+  submitter_id: string;
+  submitter_name: string;
+  submit_time: string;
+  approver_id?: string;
+  approver_name?: string;
+  approve_time?: string;
+  reject_reason?: string;
+  replenish_order_id?: string;
+  close_time?: string;
+  dishId?: string;
+  dishName?: string;
+  storeId?: string;
+  storeName?: string;
+  submitterId?: string;
+  submitterName?: string;
+  submitTime?: string;
   approverId?: string;
   approverName?: string;
   approveTime?: string;
@@ -44,19 +59,34 @@ export interface OutOfStockRecord {
 
 export interface ReplenishOrder {
   id: string;
-  outOfStockId: string;
-  dishId: string;
-  dishName: string;
-  storeId: string;
-  storeName: string;
+  out_of_stock_id: string;
+  dish_id: string;
+  dish_name: string;
+  store_id: string;
+  store_name: string;
   region: string;
-  requestedQuantity: number;
-  actualQuantity: number;
+  requested_quantity: number;
+  actual_quantity: number;
   status: ReplenishStatus;
   remark: string;
-  submitterId: string;
-  submitterName: string;
-  submitTime: string;
+  submitter_id: string;
+  submitter_name: string;
+  submit_time: string;
+  confirmer_id?: string;
+  confirmer_name?: string;
+  confirm_time?: string;
+  completion_time?: string;
+  cancel_reason?: string;
+  outOfStockId?: string;
+  dishId?: string;
+  dishName?: string;
+  storeId?: string;
+  storeName?: string;
+  requestedQuantity?: number;
+  actualQuantity?: number;
+  submitterId?: string;
+  submitterName?: string;
+  submitTime?: string;
   confirmerId?: string;
   confirmerName?: string;
   confirmTime?: string;
@@ -67,15 +97,21 @@ export interface ReplenishOrder {
 export interface OperationLog {
   id: string;
   type: 'out_of_stock' | 'replenish';
-  targetId: string;
+  target_id: string;
   action: string;
-  operatorId: string;
-  operatorName: string;
-  operatorRole: string;
-  storeName: string;
+  operator_id: string;
+  operator_name: string;
+  operator_role: string;
+  store_name: string;
   region: string;
   detail: string;
-  operationTime: string;
+  operation_time: string;
+  targetId?: string;
+  operatorId?: string;
+  operatorName?: string;
+  operatorRole?: string;
+  storeName?: string;
+  operationTime?: string;
 }
 
 export interface OutOfStockQueryParams {
