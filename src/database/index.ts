@@ -6,10 +6,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const dbPath = join(__dirname, '../../data/bar_operations.db');
-export const db = new Database(dbPath);
+const db = new Database(dbPath);
 
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
+
+export { db };
 
 export function initializeDatabase() {
   db.exec(`

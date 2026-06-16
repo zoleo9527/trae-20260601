@@ -1,9 +1,9 @@
-import { Router } from 'express';
-import { z } from 'zod';
-import { reservationService, beverageStorageService, singerScheduleService } from '../services/index.js';
-import type { StaffRole } from '../models/types.js';
+import { Router, type Express } from 'express';
+import { z, ZodError } from 'zod';
+import { reservationService } from '../services/index.js';
+import type { StaffRole, MinimumConsumptionStatus } from '../models/types.js';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 const CreateReservationSchema = z.object({
   customerName: z.string().min(1),
@@ -42,8 +42,8 @@ router.post('/', async (req, res) => {
     const result = await reservationService.createReservation(data, staffId, staffRole);
     res.status(201).json(result);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: '参数验证失败', details: error.errors });
+    if (error instanceof ZodError) {
+      return res.status(400).json({ error: '参数验证失败', details: (error as ZodError).errors });
     }
     console.error('Error creating reservation:', error);
     res.status(500).json({ error: '创建预约失败' });
@@ -112,14 +112,33 @@ router.post('/:id/process', async (req, res) => {
 router.get('/:id/minimum-consumption', async (req, res) => {
   try {
     const details = reservationService.getReservationDetails(req.params.id);
+    const reservation = details.reservation;
+    
+    const validStatusTransitions: Record<string, string[]> = {
+      pending: ['confirmed', 'rejected'],
+      confirmed: ['modified', 'rejected'],
+      rejected: ['pending', 'confirmed'],
+      modified: ['confirmed', 'rejected']
+    };
+
+    const currentMinConsStatus = reservation.minimumConsumptionStatus as string;
+
     res.json({
-      reservationId: details.reservation.id,
-      customerName: details.reservation.customerName,
-      tableNumber: details.reservation.tableNumber,
-      minimumConsumptionAmount: details.reservation.minimumConsumptionAmount,
-      minimumConsumptionStatus: details.reservation.minimumConsumptionStatus,
-      internalNotes: details.reservation.internalNotes,
-      statusHistory: details.statusHistory.filter(h => h.entityType === 'minimum_consumption')
+      reservationId: reservation.id,
+      customerName: reservation.customerName,
+      tableNumber: reservation.tableNumber,
+      reservationDate: reservation.reservationDate,
+      reservationTime: reservation.reservationTime,
+      partySize: reservation.partySize,
+      minimumConsumptionAmount: reservation.minimumConsumptionAmount,
+      minimumConsumptionStatus: reservation.minimumConsumptionStatus,
+      internalNotes: reservation.internalNotes,
+      currentStatus: reservation.status,
+      statusHistory: details.minimumConsumptionHistory,
+      allowedTransitions: currentMinConsStatus 
+        ? validStatusTransitions[currentMinConsStatus] || []
+        : ['confirmed', 'rejected'],
+      notes: reservation.notes
     });
   } catch (error: any) {
     if (error.message === '预约不存在') {
@@ -138,6 +157,29 @@ router.put('/:id/minimum-consumption', async (req, res) => {
 
     if (!staffId || !staffRole) {
       return res.status(401).json({ error: '缺少员工信息' });
+    }
+
+    const details = reservationService.getReservationDetails(req.params.id);
+    const currentStatus = details.reservation.minimumConsumptionStatus;
+
+    const validStatusTransitions: Record<string, string[]> = {
+      pending: ['confirmed', 'rejected'],
+      confirmed: ['modified', 'rejected'],
+      rejected: ['pending', 'confirmed'],
+      modified: ['confirmed', 'rejected']
+    };
+
+    const allowedTransitions = currentStatus 
+      ? validStatusTransitions[currentStatus] || []
+      : ['confirmed', 'rejected'];
+
+    if (!allowedTransitions.includes(status)) {
+      return res.status(400).json({
+        error: '无效的状态转换',
+        currentStatus,
+        allowedTransitions,
+        attemptedStatus: status
+      });
     }
 
     const result = await reservationService.updateMinimumConsumption(

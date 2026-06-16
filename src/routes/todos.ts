@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { todoService, beverageStorageService } from '../services/index.js';
+import { todoService } from '../services/index.js';
 import type { StaffRole } from '../models/types.js';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.get('/', async (req, res) => {
   try {
@@ -14,7 +14,29 @@ router.get('/', async (req, res) => {
     }
 
     const todos = todoService.getTodosByRole(role, status);
-    res.json(todos);
+    
+    const enrichedTodos = await Promise.all(todos.map(async (todo) => {
+      if (todo.entityType === 'beverage_storage') {
+        const { BeverageStorageRepository, ReservationRepository } = await import('../repositories/index.js');
+        const beverageRepo = new BeverageStorageRepository();
+        const reservationRepo = new ReservationRepository();
+        
+        const beverage = beverageRepo.findById(todo.entityId);
+        let reservation = null;
+        if (beverage) {
+          reservation = reservationRepo.findById(beverage.reservationId);
+        }
+        
+        return {
+          ...todo,
+          relatedEntity: beverage,
+          relatedReservation: reservation
+        };
+      }
+      return todo;
+    }));
+
+    res.json(enrichedTodos);
   } catch (error) {
     console.error('Error fetching todos:', error);
     res.status(500).json({ error: '获取待办列表失败' });
@@ -24,7 +46,31 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const details = todoService.getTodoDetails(req.params.id);
-    res.json(details);
+    const { BeverageStorageRepository, ReservationRepository } = await import('../repositories/index.js');
+    
+    const beverageRepo = new BeverageStorageRepository();
+    const reservationRepo = new ReservationRepository();
+    
+    if (details.todo.entityType === 'beverage_storage') {
+      const beverage = beverageRepo.findById(details.todo.entityId);
+      let reservation = null;
+      if (beverage) {
+        reservation = reservationRepo.findById(beverage.reservationId);
+      }
+      res.json({
+        ...details,
+        relatedEntity: beverage,
+        relatedReservation: reservation
+      });
+    } else if (details.todo.entityType === 'reservation' || details.todo.entityType === 'minimum_consumption') {
+      const reservation = reservationRepo.findById(details.todo.entityId);
+      res.json({
+        ...details,
+        relatedReservation: reservation
+      });
+    } else {
+      res.json(details);
+    }
   } catch (error: any) {
     if (error.message === '待办事项不存在') {
       return res.status(404).json({ error: '待办事项不存在' });

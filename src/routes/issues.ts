@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { IssueDetectionRepository } from '../repositories/index.js';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 const issueRepo = new IssueDetectionRepository();
 
 router.get('/', async (req, res) => {

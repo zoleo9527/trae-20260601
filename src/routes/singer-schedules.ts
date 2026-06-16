@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { singerScheduleService } from '../services/index.js';
 
-const router = Router();
+const router: ReturnType<typeof Router> = Router();
 
 router.post('/', async (req, res) => {
   try {

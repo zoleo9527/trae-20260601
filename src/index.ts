@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { type Express } from 'express';
 import { initializeDatabase } from './database/index.js';
 import reservationsRouter from './routes/reservations.js';
 import todosRouter from './routes/todos.js';
@@ -8,7 +8,7 @@ import issuesRouter from './routes/issues.js';
 
 initializeDatabase();
 
-const app = express();
+const app: Express = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json());

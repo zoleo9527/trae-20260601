@@ -36,30 +36,45 @@ export interface IssueCheckResult {
 
 export class ReservationService {
   async createReservation(data: any, staffId: string, staffRole: StaffRole) {
-    const reservationDate = data.reservationDate.split('T')[0];
+    const reservationDateStr = typeof data.reservationDate === 'string' 
+      ? data.reservationDate.split('T')[0] 
+      : data.reservationDate.toISOString().split('T')[0];
     
     const duplicateCheck = this.checkDuplicateReservations(
       data.customerPhone, 
-      reservationDate, 
+      reservationDateStr, 
       data.tableNumber,
       data.reservationTime
     );
-    
-    if (duplicateCheck.hasDuplicate) {
-      await this.createIssueDetection(
-        'pending',  // temporary id
-        'duplicate_reservation',
-        duplicateCheck.message || '检测到重复预约',
-        duplicateCheck.conflictType === 'phone' ? 'warning' : 'error'
-      );
-    }
 
     const reservation = reservationRepo.create({
       ...data,
+      reservationDate: typeof data.reservationDate === 'string' 
+        ? new Date(data.reservationDate) 
+        : data.reservationDate,
       status: 'pending',
       minimumConsumptionStatus: 'pending',
       reservationStaffId: staffId
     });
+
+    if (duplicateCheck.hasDuplicate) {
+      await issueRepo.create({
+        reservationId: reservation.id,
+        issueType: 'duplicate_reservation',
+        severity: duplicateCheck.conflictType === 'phone' ? 'warning' : 'error',
+        description: duplicateCheck.message || '检测到重复预约',
+        resolved: false
+      });
+
+      await this.createTodoForRole(
+        'reservation',
+        reservation.id,
+        'manager',
+        `⚠️ 重复预约警告: ${data.customerName}`,
+        duplicateCheck.message || '检测到与现有预约重复',
+        'high'
+      );
+    }
 
     await this.recordStatusChange(
       'reservation',
@@ -80,25 +95,6 @@ export class ReservationService {
       `客户: ${data.customerName}\n电话: ${data.customerPhone}\n人数: ${data.partySize}\n备注: ${data.notes || ''}`,
       data.priority || 'medium'
     );
-
-    if (duplicateCheck.hasDuplicate) {
-      await issueRepo.create({
-        reservationId: reservation.id,
-        issueType: 'duplicate_reservation',
-        severity: duplicateCheck.conflictType === 'phone' ? 'warning' : 'error',
-        description: duplicateCheck.message || '检测到重复预约',
-        resolved: false
-      });
-
-      await this.createTodoForRole(
-        'reservation',
-        reservation.id,
-        'manager',
-        `⚠️ 重复预约警告: ${data.customerName}`,
-        duplicateCheck.message || '检测到与现有预约重复',
-        'high'
-      );
-    }
 
     return {
       reservation,
@@ -373,16 +369,32 @@ export class ReservationService {
     }
 
     const beverages = beverageRepo.findByReservationId(reservationId);
-    const statusHistory = historyRepo.findByEntity('reservation', reservationId);
+    const reservationHistory = historyRepo.findByEntity('reservation', reservationId);
+    const minConsumptionHistory = historyRepo.findByEntity('minimum_consumption', reservationId);
+    const allStatusHistory = [...reservationHistory, ...minConsumptionHistory].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
     const issues = issueRepo.findByReservationId(reservationId);
-    const todos = todoRepo.findByEntity('reservation', reservationId);
+    
+    const reservationTodos = todoRepo.findByEntity('reservation', reservationId);
+    const minConsumptionTodos = todoRepo.findByEntity('minimum_consumption', reservationId);
+    
+    const beverageTodos = beverages.flatMap(beverage => 
+      todoRepo.findByEntity('beverage_storage', beverage.id)
+    );
+    
+    const allTodos = [...reservationTodos, ...minConsumptionTodos, ...beverageTodos].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     return {
       reservation,
       beverages,
-      statusHistory,
+      statusHistory: allStatusHistory,
+      reservationHistory,
+      minimumConsumptionHistory: minConsumptionHistory,
       issues,
-      todos
+      todos: allTodos
     };
   }
 
@@ -430,8 +442,12 @@ export class TodoService {
 
 export class SingerScheduleService {
   async createSchedule(data: any, managerId: string) {
+    const performanceDateStr = typeof data.performanceDate === 'string' 
+      ? data.performanceDate.split('T')[0] 
+      : data.performanceDate.toISOString().split('T')[0];
+    
     const conflictCheck = singerRepo.findConflicts(
-      data.performanceDate.split('T')[0],
+      performanceDateStr,
       data.startTime,
       data.endTime
     );
@@ -442,6 +458,9 @@ export class SingerScheduleService {
 
     const schedule = singerRepo.create({
       ...data,
+      performanceDate: typeof data.performanceDate === 'string' 
+        ? new Date(data.performanceDate) 
+        : data.performanceDate,
       status: 'scheduled',
       managerId
     });
@@ -530,6 +549,9 @@ export class BeverageStorageService {
   async createStorage(data: any, barStaffId: string) {
     const storage = beverageRepo.create({
       ...data,
+      storageDate: typeof data.storageDate === 'string' 
+        ? new Date(data.storageDate) 
+        : data.storageDate,
       status: 'stored',
       barStaffId
     });
@@ -544,6 +566,19 @@ export class BeverageStorageService {
       notes: data.notes,
       timestamp: new Date()
     });
+
+    const reservation = reservationRepo.findById(storage.reservationId);
+    if (reservation) {
+      await todoRepo.create({
+        entityType: 'beverage_storage',
+        entityId: storage.id,
+        assigneeRole: 'bar_staff',
+        title: `寄存记录已创建: ${storage.beverageName}`,
+        description: `预约: ${reservation.customerName} (${reservation.tableNumber})\n数量: ${storage.quantity}\n备注: ${data.notes || ''}`,
+        priority: 'low',
+        status: 'pending'
+      });
+    }
 
     return storage;
   }
