@@ -64,12 +64,12 @@ export class CompensationController {
 
   async processCompensation(req: Request, res: Response) {
     const { id } = req.params;
-    const { paymentTransactionId } = req.body;
+    const { paymentTransactionId, processor, processorName } = req.body;
     const operatorRole = (req.headers["x-operator-role"] as AuditOperatorRole) || AuditOperatorRole.SYSTEM;
     const operatorName = req.headers["x-operator-name"] as string || "system";
     const ipAddress = req.ip || "127.0.0.1";
 
-    const result = await this.compensationService.processCompensation(id, paymentTransactionId, operatorRole, operatorName, ipAddress);
+    const result = await this.compensationService.processCompensation(id, paymentTransactionId, processor, processorName, operatorRole, operatorName, ipAddress);
     res.status(result.code === 0 ? 200 : 400).json(result);
   }
 

@@ -243,7 +243,7 @@ export class CompensationService {
     }
   }
 
-  async processCompensation(id: string, paymentTransactionId: string, operatorRole: AuditOperatorRole, operatorName: string, ipAddress: string): Promise<{ code: ErrorCode; message: string; data?: Compensation }> {
+  async processCompensation(id: string, paymentTransactionId: string, processor: CompensationApprover, processorName: string, operatorRole: AuditOperatorRole, operatorName: string, ipAddress: string): Promise<{ code: ErrorCode; message: string; data?: Compensation }> {
     const compensation = await this.compensationRepository.findOne({
       where: { id },
       relations: ["review"],
@@ -261,15 +261,29 @@ export class CompensationService {
       return { code: ErrorCode.COMPENSATION_ALREADY_COMPLETED, message: ErrorMessage[ErrorCode.COMPENSATION_ALREADY_COMPLETED] };
     }
 
-    const beforeData = { status: compensation.status, paymentTransactionId: compensation.paymentTransactionId };
+    const beforeData = { 
+      status: compensation.status, 
+      paymentTransactionId: compensation.paymentTransactionId,
+      processedBy: compensation.processedBy,
+      processorName: compensation.processorName 
+    };
 
     compensation.status = CompensationStatus.PROCESSED;
     compensation.paymentTransactionId = paymentTransactionId;
+    compensation.processedBy = processor;
+    compensation.processorName = processorName;
+    compensation.processedAt = new Date();
 
     try {
       const updatedCompensation = await this.compensationRepository.save(compensation);
 
-      const afterData = { status: updatedCompensation.status, paymentTransactionId: updatedCompensation.paymentTransactionId };
+      const afterData = { 
+        status: updatedCompensation.status, 
+        paymentTransactionId: updatedCompensation.paymentTransactionId,
+        processedBy: updatedCompensation.processedBy,
+        processorName: updatedCompensation.processorName,
+        processedAt: updatedCompensation.processedAt
+      };
 
       await this.auditService.createLog(
         AuditModule.COMPENSATION,
@@ -279,7 +293,7 @@ export class CompensationService {
         operatorName,
         beforeData,
         afterData,
-        `处理补偿支付，交易ID: ${paymentTransactionId}`,
+        `处理补偿支付，交易ID: ${paymentTransactionId}，处理人: ${processorName}`,
         ipAddress
       );
 

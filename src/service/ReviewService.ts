@@ -2,7 +2,7 @@ import { Repository } from "typeorm";
 import { AppDataSource } from "../data-source";
 import { Review, ReviewStatus, ReviewSource, ReviewLevel, ReviewType, HandlerRole } from "../entity/Review";
 import { Store } from "../entity/Store";
-import { Compensation } from "../entity/Compensation";
+import { Compensation, CompensationStatus } from "../entity/Compensation";
 import { AuditService } from "./AuditService";
 import { AuditModule, AuditAction, AuditOperatorRole } from "../entity/AuditLog";
 import { ErrorCode, ErrorMessage } from "../error/ErrorCode";
@@ -29,6 +29,7 @@ export interface UpdateReviewRequest {
 
 export interface ReviewQuery {
   storeCode?: string;
+  region?: string;
   status?: ReviewStatus;
   level?: ReviewLevel;
   type?: ReviewType;
@@ -127,6 +128,9 @@ export class ReviewService {
       if (query.storeCode) {
         queryBuilder.andWhere("store.storeCode = :storeCode", { storeCode: query.storeCode });
       }
+      if (query.region) {
+        queryBuilder.andWhere("store.region = :region", { region: query.region });
+      }
       if (query.status) {
         queryBuilder.andWhere("review.status = :status", { status: query.status });
       }
@@ -164,6 +168,10 @@ export class ReviewService {
       return { code: ErrorCode.REVIEW_NOT_FOUND, message: ErrorMessage[ErrorCode.REVIEW_NOT_FOUND] };
     }
 
+    if (review.status === ReviewStatus.CLOSED) {
+      return { code: ErrorCode.REVIEW_ALREADY_RESOLVED, message: ErrorMessage[ErrorCode.REVIEW_ALREADY_RESOLVED] };
+    }
+
     const beforeData = {
       status: review.status,
       currentHandler: review.currentHandler,
@@ -173,12 +181,8 @@ export class ReviewService {
     };
 
     if (request.status !== undefined) {
-      if (review.status === ReviewStatus.CLOSED) {
-        return { code: ErrorCode.REVIEW_ALREADY_RESOLVED, message: ErrorMessage[ErrorCode.REVIEW_ALREADY_RESOLVED] };
-      }
-
       if (request.status === ReviewStatus.RESOLVED || request.status === ReviewStatus.CLOSED) {
-        const pendingCompensations = review.compensations?.filter(c => c.status === "pending");
+        const pendingCompensations = review.compensations?.filter(c => c.status === CompensationStatus.PENDING);
         if (pendingCompensations && pendingCompensations.length > 0) {
           return { code: ErrorCode.COMPENSATION_STATUS_INVALID, message: "存在待审核的补偿申请，无法关闭差评" };
         }

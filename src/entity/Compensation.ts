@@ -20,6 +20,7 @@ export enum CompensationType {
 export enum CompensationApprover {
   STORE_MANAGER = "store_manager",
   REGION_SUPERVISOR = "region_supervisor",
+  PURCHASING = "purchasing",
   FINANCE = "finance"
 }
 
@@ -43,11 +44,23 @@ export class Compensation {
   @Column({ type: "text", nullable: true })
   rejectReason: string;
 
+  @Column({ type: "text", nullable: true })
+  pendingReason: string;
+
+  @Column({ type: "text", nullable: true })
+  internalNotes: string;
+
   @Column({ type: "enum", enum: CompensationApprover, nullable: true })
   approvedBy: CompensationApprover | null;
 
   @Column({ nullable: true })
   approverName: string;
+
+  @Column({ type: "enum", enum: CompensationApprover, nullable: true })
+  processedBy: CompensationApprover | null;
+
+  @Column({ nullable: true })
+  processorName: string;
 
   @Column({ nullable: true })
   paymentTransactionId: string;
@@ -66,6 +79,9 @@ export class Compensation {
 
   @Column({ nullable: true })
   approvedAt: Date;
+
+  @Column({ nullable: true })
+  processedAt: Date;
 
   @Column({ nullable: true })
   completedAt: Date;

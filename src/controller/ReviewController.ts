@@ -28,6 +28,7 @@ export class ReviewController {
   async getReviews(req: Request, res: Response) {
     const query: ReviewQuery = {
       storeCode: req.query.storeCode as string,
+      region: req.query.region as string,
       status: (req.query.status as ReviewStatus) || undefined,
       level: (req.query.level as ReviewLevel) || undefined,
       type: (req.query.type as ReviewType) || undefined,

@@ -89,10 +89,11 @@ export class StoreService {
   async getStores(region?: string): Promise<{ code: ErrorCode; message: string; data?: Store[] }> {
     try {
       const queryBuilder = this.storeRepository.createQueryBuilder("store");
+      queryBuilder.where("store.isActive = :isActive", { isActive: true });
       if (region) {
-        queryBuilder.where("store.region = :region", { region });
+        queryBuilder.andWhere("store.region = :region", { region });
       }
-      const stores = await queryBuilder.where("store.isActive = :isActive", { isActive: true }).orderBy("store.storeName").getMany();
+      const stores = await queryBuilder.orderBy("store.storeName").getMany();
       return { code: ErrorCode.SUCCESS, message: ErrorMessage[ErrorCode.SUCCESS], data: stores };
     } catch (error) {
       console.error("Failed to get stores:", error);

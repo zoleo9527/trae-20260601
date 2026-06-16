@@ -22,6 +22,7 @@ export enum AuditOperatorRole {
   STORE_MANAGER = "store_manager",
   REGION_SUPERVISOR = "region_supervisor",
   PURCHASING = "purchasing",
+  FINANCE = "finance",
   ADMIN = "admin",
   SYSTEM = "system"
 }
