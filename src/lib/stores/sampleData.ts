@@ -123,10 +123,15 @@ function createAlertsWithRelatedIds() {
   const allBookings = bookings.getAll();
   const allProcurements = procurements.getAll();
   const allAccommodations = accommodations.getAll();
+  const allAlerts = alerts.getAll();
   
-  if (allBookings.length > 0 && !alerts.getById('alert-booking-1')) {
+  function hasAlertFor(type: string, relatedId: string) {
+    return allAlerts.some(a => a.type === type && a.related_id === relatedId);
+  }
+  
+  if (allBookings.length > 0) {
     const pendingBooking = allBookings.find(b => b.status === 'pending');
-    if (pendingBooking) {
+    if (pendingBooking && !hasAlertFor('booking', pendingBooking.id)) {
       alerts.add({
         title: '预订待确认',
         description: `${pendingBooking.customer_name} 的预订等待确认，包间：${pendingBooking.room_number}`,
@@ -138,9 +143,9 @@ function createAlertsWithRelatedIds() {
     }
   }
   
-  if (allProcurements.length > 0 && !alerts.getById('alert-procurement-1')) {
+  if (allProcurements.length > 0) {
     const pendingProc = allProcurements.find(p => p.status === 'pending');
-    if (pendingProc) {
+    if (pendingProc && !hasAlertFor('procurement', pendingProc.id)) {
       alerts.add({
         title: '采购申请待审批',
         description: `${pendingProc.applicant} 提交的采购申请（${pendingProc.items.length}项食材）等待审批`,
@@ -152,7 +157,7 @@ function createAlertsWithRelatedIds() {
     }
     
     const purchasingProc = allProcurements.find(p => p.status === 'purchasing');
-    if (purchasingProc) {
+    if (purchasingProc && !hasAlertFor('procurement', purchasingProc.id)) {
       alerts.add({
         title: '采购进行中',
         description: `采购单正在执行，包含${purchasingProc.items.length}项食材`,
@@ -164,9 +169,9 @@ function createAlertsWithRelatedIds() {
     }
   }
   
-  if (allAccommodations.length > 0 && !alerts.getById('alert-accommodation-1')) {
+  if (allAccommodations.length > 0) {
     const checkedInAcc = allAccommodations.find(a => a.status === 'checked_in');
-    if (checkedInAcc) {
+    if (checkedInAcc && !hasAlertFor('accommodation', checkedInAcc.id)) {
       alerts.add({
         title: '客房入住提醒',
         description: `${checkedInAcc.guest_name} 已入住 ${checkedInAcc.room_number}`,
@@ -178,13 +183,15 @@ function createAlertsWithRelatedIds() {
     }
   }
   
-  if (!alerts.getById('alert-inventory-1')) {
+  const lowInventoryItems = inventory.getAll().filter(i => i.current_quantity <= i.warning_threshold);
+  if (lowInventoryItems.length > 0 && !allAlerts.some(a => a.type === 'inventory' && a.status === 'active')) {
+    const firstLowItem = lowInventoryItems[0];
     alerts.add({
       title: '库存不足预警',
-      description: '土鸡库存仅剩5斤，低于预警阈值10斤',
+      description: `${firstLowItem.ingredient_name}库存仅剩${firstLowItem.current_quantity}${firstLowItem.unit}，低于预警阈值${firstLowItem.warning_threshold}${firstLowItem.unit}`,
       severity: 'high',
       type: 'inventory',
-      related_id: '',
+      related_id: firstLowItem.id,
       status: 'active'
     });
   }
