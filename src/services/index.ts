@@ -47,13 +47,9 @@ export function normalizeDate(date: string | Date | undefined): string | undefin
 
 export class ReservationService {
   async createReservation(data: any, staffId: string, staffRole: StaffRole) {
-    const reservationDateStr = typeof data.reservationDate === 'string' 
-      ? data.reservationDate.split('T')[0] 
-      : data.reservationDate.toISOString().split('T')[0];
-    
     const duplicateCheck = this.checkDuplicateReservations(
       data.customerPhone, 
-      reservationDateStr, 
+      data.reservationDate, 
       data.tableNumber,
       data.reservationTime
     );
@@ -457,12 +453,8 @@ export class TodoService {
 
 export class SingerScheduleService {
   async createSchedule(data: any, managerId: string) {
-    const performanceDateStr = typeof data.performanceDate === 'string' 
-      ? data.performanceDate.split('T')[0] 
-      : data.performanceDate.toISOString().split('T')[0];
-    
     const conflictCheck = singerRepo.findConflicts(
-      performanceDateStr,
+      data.performanceDate,
       data.startTime,
       data.endTime
     );
@@ -500,14 +492,14 @@ export class SingerScheduleService {
       throw new Error('排班记录不存在');
     }
 
-    const normalizedNewDate = normalizeDate(newDate)!;
-    const conflictCheck = singerRepo.findConflicts(normalizedNewDate, newStartTime, newEndTime, scheduleId);
+    const conflictCheck = singerRepo.findConflicts(newDate, newStartTime, newEndTime, scheduleId);
     if (conflictCheck.length > 0) {
       throw new Error(`演出时间冲突: ${conflictCheck.length}条排班与此时间段重叠`);
     }
 
     const originalDate = schedule.performanceDate;
     const originalDateStr = normalizeDate(originalDate)!;
+    const normalizedNewDate = normalizeDate(newDate)!;
 
     const updated = singerRepo.update(scheduleId, {
       performanceDate: new Date(normalizedNewDate),

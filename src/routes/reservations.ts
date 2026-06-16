@@ -1,6 +1,6 @@
 import { Router, type Express } from 'express';
 import { z, ZodError } from 'zod';
-import { reservationService, normalizeDate } from '../services/index.js';
+import { reservationService } from '../services/index.js';
 import type { StaffRole, MinimumConsumptionStatus } from '../models/types.js';
 
 const router: ReturnType<typeof Router> = Router();
@@ -55,7 +55,7 @@ router.get('/', async (req, res) => {
     const { status, date, role } = req.query;
     const reservations = reservationService.getReservationsByFilters({
       status: status as string,
-      date: normalizeDate(date as string),
+      date: date as string,
       role: role as StaffRole
     });
     res.json(reservations);
@@ -211,7 +211,7 @@ router.get('/:id/check-duplicate', async (req, res) => {
     const { phone, date, table, time, excludeId } = req.query;
     const result = reservationService.checkDuplicateReservations(
       phone as string,
-      normalizeDate(date as string) || '',
+      date as string,
       table as string,
       time as string,
       excludeId as string

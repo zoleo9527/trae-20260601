@@ -51,7 +51,7 @@ export class ReservationRepository {
     }
     if (filters?.date) {
       query += ' AND reservation_date = ?';
-      params.push(filters.date);
+      params.push(this.formatDate(filters.date));
     }
     if (filters?.tableNumber) {
       query += ' AND table_number = ?';
@@ -72,7 +72,7 @@ export class ReservationRepository {
       AND reservation_date = ?
       AND status NOT IN ('cancelled', 'completed')
     `;
-    const params: any[] = [customerPhone, reservationDate];
+    const params: any[] = [customerPhone, this.formatDate(reservationDate)];
 
     if (excludeId) {
       query += ' AND id != ?';
@@ -92,7 +92,7 @@ export class ReservationRepository {
       AND reservation_time = ?
       AND status NOT IN ('cancelled', 'completed')
     `;
-    const params: any[] = [tableNumber, reservationDate, reservationTime];
+    const params: any[] = [tableNumber, this.formatDate(reservationDate), reservationTime];
 
     if (excludeId) {
       query += ' AND id != ?';
@@ -311,7 +311,7 @@ export class SingerScheduleRepository {
 
   findByDate(date: string): SingerSchedule[] {
     const stmt = db.prepare('SELECT * FROM singer_schedules WHERE performance_date = ?');
-    const rows = stmt.all(date) as any[];
+    const rows = stmt.all(this.formatDate(date)!) as any[];
     return rows.map(row => this.mapRowToSingerSchedule(row));
   }
 
@@ -326,7 +326,7 @@ export class SingerScheduleRepository {
       )
       AND status NOT IN ('cancelled')
     `;
-    const params: any[] = [date, startTime, startTime, endTime, endTime, startTime, endTime];
+    const params: any[] = [this.formatDate(date)!, startTime, startTime, endTime, endTime, startTime, endTime];
 
     if (excludeId) {
       query += ' AND id != ?';

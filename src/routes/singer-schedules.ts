@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { singerScheduleService, normalizeDate } from '../services/index.js';
+import { singerScheduleService } from '../services/index.js';
 
 const router: ReturnType<typeof Router> = Router();
 
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 
     const { SingerScheduleRepository } = await import('../repositories/index.js');
     const repo = new SingerScheduleRepository();
-    const schedules = repo.findByDate(normalizeDate(date as string)!);
+    const schedules = repo.findByDate(date as string);
     res.json(schedules);
   } catch (error) {
     console.error('Error fetching singer schedules:', error);
@@ -49,7 +49,7 @@ router.post('/:id/reschedule', async (req, res) => {
 
     const result = await singerScheduleService.reschedule(
       req.params.id,
-      normalizeDate(newDate)!,
+      newDate,
       newStartTime,
       newEndTime,
       managerId,
@@ -79,7 +79,7 @@ router.get('/check-conflicts', async (req, res) => {
     const { SingerScheduleRepository } = await import('../repositories/index.js');
     const repo = new SingerScheduleRepository();
     const conflicts = repo.findConflicts(
-      normalizeDate(date as string)!,
+      date as string,
       startTime as string,
       endTime as string,
       excludeId as string
