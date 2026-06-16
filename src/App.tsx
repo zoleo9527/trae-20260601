@@ -20,7 +20,7 @@ const pages: Record<string, React.ComponentType> = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems } = useStore();
+  const { fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems, currentUser } = useStore();
 
   useEffect(() => {
     const loadAllData = async () => {
@@ -29,10 +29,10 @@ export default function App() {
       await fetchSoldOuts();
       await fetchOrders();
       await fetchAuditLogs();
-      await fetchTodoItems();
+      await fetchTodoItems(currentUser.role);
     };
     loadAllData();
-  }, [fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems]);
+  }, [fetchUsers, fetchSoupBases, fetchSoldOuts, fetchOrders, fetchAuditLogs, fetchTodoItems, currentUser.role]);
 
   const PageComponent = pages[activeTab] || Dashboard;
 

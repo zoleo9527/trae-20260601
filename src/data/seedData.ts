@@ -1,4 +1,4 @@
-import type { User, SoupBase, SoldOutItem, Order, AuditLog, TodoItem, SoldOutHistory } from '@/types';
+import type { User, SoupBase, SoldOut, Order, AuditLog, TodoItem } from '@/types';
 
 export const seedUsers: User[] = [
   { id: 'u1', name: '张经理', role: '前厅经理', phone: '13800138001', avatar: '👨‍💼' },
@@ -22,6 +22,8 @@ export const seedSoupBases: SoupBase[] = [
     notes: '招牌锅底，需提前30分钟准备',
     lastPreparedAt: '2024-01-15T08:30:00Z',
     prepareCount: 28,
+    refundReason: '',
+    supplementNotes: '',
   },
   {
     id: 'sb2',
@@ -36,6 +38,8 @@ export const seedSoupBases: SoupBase[] = [
     updatedAt: '2024-01-15T10:30:00Z',
     notes: '番茄缺货，正在补货中',
     prepareCount: 15,
+    refundReason: '',
+    supplementNotes: '已通知仓库补货',
   },
   {
     id: 'sb3',
@@ -51,6 +55,8 @@ export const seedSoupBases: SoupBase[] = [
     notes: '清淡口味，适合老人小孩',
     lastPreparedAt: '2024-01-15T08:00:00Z',
     prepareCount: 22,
+    refundReason: '',
+    supplementNotes: '',
   },
   {
     id: 'sb4',
@@ -65,6 +71,8 @@ export const seedSoupBases: SoupBase[] = [
     updatedAt: '2024-01-15T11:00:00Z',
     notes: '库存不足，急需准备',
     prepareCount: 18,
+    refundReason: '',
+    supplementNotes: '',
   },
   {
     id: 'sb5',
@@ -80,25 +88,12 @@ export const seedSoupBases: SoupBase[] = [
     notes: '麻辣+菌汤组合',
     lastPreparedAt: '2024-01-15T08:45:00Z',
     prepareCount: 35,
+    refundReason: '',
+    supplementNotes: '',
   },
 ];
 
-const soldOutHistories: Record<string, SoldOutHistory[]> = {
-  so1: [
-    { id: 'h1', action: 'reported', actor: '李主管', timestamp: '2024-01-15T10:15:00Z', description: '报告麻辣牛肉沽清' },
-    { id: 'h2', action: 'confirmed', actor: '张经理', timestamp: '2024-01-15T10:20:00Z', description: '确认沽清通知已发送' },
-  ],
-  so2: [
-    { id: 'h3', action: 'reported', actor: '李主管', timestamp: '2024-01-15T11:00:00Z', description: '报告鲜虾滑沽清' },
-    { id: 'h4', action: 'confirmed', actor: '张经理', timestamp: '2024-01-15T11:05:00Z', description: '确认沽清' },
-    { id: 'h5', action: 'resolved', actor: '李主管', timestamp: '2024-01-15T14:30:00Z', description: '鲜虾滑已补货' },
-  ],
-  so3: [
-    { id: 'h6', action: 'reported', actor: '李主管', timestamp: '2024-01-15T14:00:00Z', description: '报告毛肚沽清，供应商延迟送货' },
-  ],
-};
-
-export const seedSoldOutItems: SoldOutItem[] = [
+export const seedSoldOuts: SoldOut[] = [
   {
     id: 'so1',
     itemName: '麻辣牛肉',
@@ -107,8 +102,13 @@ export const seedSoldOutItems: SoldOutItem[] = [
     status: 'active',
     reportedBy: '李主管',
     reportedAt: '2024-01-15T10:15:00Z',
-    history: soldOutHistories.so1,
     notes: '预计下午3点到货',
+    refundReason: '',
+    supplementNotes: '',
+    history: [
+      { id: 'h1', action: 'reported', actor: '李主管', timestamp: '2024-01-15T10:15:00Z', description: '报告麻辣牛肉沽清' },
+      { id: 'h2', action: 'confirmed', actor: '张经理', timestamp: '2024-01-15T10:20:00Z', description: '确认沽清通知已发送' },
+    ],
   },
   {
     id: 'so2',
@@ -120,8 +120,14 @@ export const seedSoldOutItems: SoldOutItem[] = [
     resolvedBy: '李主管',
     reportedAt: '2024-01-15T11:00:00Z',
     resolvedAt: '2024-01-15T14:30:00Z',
-    history: soldOutHistories.so2,
     notes: '已从隔壁店调货',
+    refundReason: '',
+    supplementNotes: '',
+    history: [
+      { id: 'h3', action: 'reported', actor: '李主管', timestamp: '2024-01-15T11:00:00Z', description: '报告鲜虾滑沽清' },
+      { id: 'h4', action: 'confirmed', actor: '张经理', timestamp: '2024-01-15T11:05:00Z', description: '确认沽清' },
+      { id: 'h5', action: 'resolved', actor: '李主管', timestamp: '2024-01-15T14:30:00Z', description: '鲜虾滑已补货' },
+    ],
   },
   {
     id: 'so3',
@@ -131,8 +137,12 @@ export const seedSoldOutItems: SoldOutItem[] = [
     status: 'active',
     reportedBy: '李主管',
     reportedAt: '2024-01-15T14:00:00Z',
-    history: soldOutHistories.so3,
     notes: '预计明日上午到货',
+    refundReason: '',
+    supplementNotes: '',
+    history: [
+      { id: 'h6', action: 'reported', actor: '李主管', timestamp: '2024-01-15T14:00:00Z', description: '报告毛肚沽清，供应商延迟送货' },
+    ],
   },
 ];
 
@@ -142,13 +152,10 @@ export const seedOrders: Order[] = [
     tableNumber: 'A01',
     customerName: '王先生',
     phone: '13900139001',
-    soupBase: '麻辣红汤锅底',
+    soupBaseId: 'sb1',
+    soupBaseName: '麻辣红汤锅底',
     soupBaseType: 'spicy',
-    dishes: [
-      { id: 'd1', name: '肥牛卷', quantity: 2, price: 48, status: 'served' },
-      { id: 'd2', name: '虾滑', quantity: 1, price: 38, status: 'cooked' },
-      { id: 'd3', name: '土豆片', quantity: 1, price: 12, status: 'pending' },
-    ],
+    dishes: JSON.stringify([{ name: '肥牛卷', quantity: 2, price: 48 }, { name: '虾滑', quantity: 1, price: 38 }, { name: '土豆片', quantity: 1, price: 12 }]),
     totalAmount: 146,
     paidAmount: 146,
     status: 'served',
@@ -159,18 +166,18 @@ export const seedOrders: Order[] = [
     createdAt: '2024-01-15T11:30:00Z',
     servedAt: '2024-01-15T11:45:00Z',
     notes: '微辣，少盐',
+    refundReason: '',
+    supplementNotes: '',
   },
   {
     id: 'o2',
     tableNumber: 'B03',
     customerName: '李女士',
     phone: '13900139002',
-    soupBase: '番茄养生锅底',
+    soupBaseId: 'sb2',
+    soupBaseName: '番茄养生锅底',
     soupBaseType: 'tomato',
-    dishes: [
-      { id: 'd4', name: '番茄牛腩', quantity: 1, price: 58, status: 'pending' },
-      { id: 'd5', name: '金针菇', quantity: 1, price: 10, status: 'pending' },
-    ],
+    dishes: JSON.stringify([{ name: '番茄牛腩', quantity: 1, price: 58 }, { name: '金针菇', quantity: 1, price: 10 }]),
     totalAmount: 88,
     paidAmount: 0,
     status: 'pending',
@@ -180,27 +187,31 @@ export const seedOrders: Order[] = [
     createdBy: '张经理',
     createdAt: '2024-01-15T14:00:00Z',
     notes: '团购券未核销',
+    refundReason: '',
+    supplementNotes: '',
   },
   {
     id: 'o3',
     tableNumber: 'C05',
     customerName: '赵先生',
-    soupBase: '菌汤锅底',
+    phone: '',
+    soupBaseId: 'sb3',
+    soupBaseName: '菌汤锅底',
     soupBaseType: 'mild',
-    dishes: [
-      { id: 'd6', name: '菌菇拼盘', quantity: 1, price: 36, status: 'served' },
-      { id: 'd7', name: '豆腐', quantity: 1, price: 8, status: 'served' },
-    ],
+    dishes: JSON.stringify([{ name: '菌菇拼盘', quantity: 1, price: 36 }, { name: '豆腐', quantity: 1, price: 8 }]),
     totalAmount: 64,
     paidAmount: 64,
     status: 'completed',
     isGroupBuy: false,
+    groupBuyCode: null,
     groupBuyVerified: false,
     createdBy: '王收银',
     createdAt: '2024-01-15T12:00:00Z',
     servedAt: '2024-01-15T12:15:00Z',
     completedAt: '2024-01-15T13:30:00Z',
     notes: '',
+    refundReason: '',
+    supplementNotes: '',
   },
 ];
 
@@ -214,8 +225,7 @@ export const seedAuditLogs: AuditLog[] = [
     actor: '李主管',
     actorRole: '后厨主管',
     timestamp: '2024-01-15T10:30:00Z',
-    details: { stock: 8, previousStock: 12 },
-    ipAddress: '192.168.1.100',
+    details: JSON.stringify({ stock: 8, previousStock: 12 }),
   },
   {
     id: 'al2',
@@ -226,8 +236,7 @@ export const seedAuditLogs: AuditLog[] = [
     actor: '李主管',
     actorRole: '后厨主管',
     timestamp: '2024-01-15T10:15:00Z',
-    details: { reason: '供应商送货延迟' },
-    ipAddress: '192.168.1.101',
+    details: JSON.stringify({ reason: '供应商送货延迟' }),
   },
   {
     id: 'al3',
@@ -238,8 +247,7 @@ export const seedAuditLogs: AuditLog[] = [
     actor: '王收银',
     actorRole: '收银',
     timestamp: '2024-01-15T11:35:00Z',
-    details: { groupBuyVerified: true },
-    ipAddress: '192.168.1.102',
+    details: JSON.stringify({ groupBuyVerified: true, groupBuyCode: 'GB20240115001' }),
   },
   {
     id: 'al4',
@@ -250,8 +258,7 @@ export const seedAuditLogs: AuditLog[] = [
     actor: '李主管',
     actorRole: '后厨主管',
     timestamp: '2024-01-15T14:30:00Z',
-    details: { resolvedBy: '李主管' },
-    ipAddress: '192.168.1.101',
+    details: JSON.stringify({ resolvedBy: '李主管' }),
   },
 ];
 

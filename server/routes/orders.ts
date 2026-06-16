@@ -59,7 +59,7 @@ router.post('/', async (req, res) => {
     targetName: `${order.tableNumber}订单`,
     actor: actor as string,
     actorRole: actorRole as string,
-    details: JSON.stringify({ isGroupBuy, totalAmount }),
+    details: JSON.stringify({ isGroupBuy, totalAmount, groupBuyCode }),
   });
 
   if (isGroupBuy) {
@@ -160,7 +160,7 @@ router.post('/:id/verify', async (req, res) => {
     targetName: `${order.tableNumber}订单`,
     actor: actor as string,
     actorRole: actorRole as string,
-    details: JSON.stringify({ groupBuyVerified: true }),
+    details: JSON.stringify({ groupBuyVerified: true, groupBuyCode: order.groupBuyCode }),
   });
 
   await TodoItem.update(

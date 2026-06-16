@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { SoupBase, AuditLog, TodoItem, SoldOut } from '../models';
+import { SoupBase, AuditLog, TodoItem, SoldOut, SoldOutHistory } from '../models';
 
 const router = Router();
 
@@ -152,10 +152,57 @@ router.post('/:id/complete', async (req, res) => {
     details: JSON.stringify({ status: 'ready', addedStock: additionalStock }),
   });
 
-  await SoldOut.update(
-    { status: 'resolved', resolvedBy: actor, resolvedAt: new Date() },
-    { where: { relatedSoupBaseId: soupBase.id, status: 'active' } }
-  );
+  const relatedSoldOuts = await SoldOut.findAll({
+    where: { relatedSoupBaseId: soupBase.id, status: 'active' },
+    include: [{ model: SoldOutHistory, as: 'history' }],
+  });
+
+  for (const soldOut of relatedSoldOuts) {
+    await soldOut.update({
+      status: 'resolved',
+      resolvedBy: actor as string,
+      resolvedAt: new Date(),
+    });
+
+    await SoldOutHistory.create({
+      soldOutId: soldOut.id,
+      action: 'resolved',
+      actor: actor as string,
+      description: `解决${soldOut.itemName}沽清（责任人：${actor}），退回原因：${soldOut.refundReason || '无'}，补充备注：${soldOut.supplementNotes || '无'}`,
+    });
+
+    await AuditLog.create({
+      action: 'resolve',
+      targetType: 'soldOut',
+      targetId: soldOut.id,
+      targetName: soldOut.itemName,
+      actor: actor as string,
+      actorRole: actorRole as string,
+      details: JSON.stringify({
+        refundReason: soldOut.refundReason,
+        supplementNotes: soldOut.supplementNotes,
+        resolvedBy: actor,
+      }),
+    });
+
+    const roleAssignees: Record<string, string> = {
+      '前厅经理': '王经理',
+      '后厨主管': '李主管',
+      '收银': '张收银',
+    };
+
+    for (const [role, assignee] of Object.entries(roleAssignees)) {
+      await TodoItem.create({
+        title: `确认${soldOut.itemName}已恢复供应`,
+        type: 'soldOut',
+        targetId: soldOut.id,
+        targetName: soldOut.itemName,
+        assignee,
+        assigneeRole: role,
+        priority: 'low',
+      });
+    }
+  }
 
   await TodoItem.update(
     { completed: true, completedAt: new Date() },
