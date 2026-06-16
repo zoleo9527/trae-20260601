@@ -4,9 +4,10 @@ import { Package } from 'lucide-react';
 
 interface OrderListProps {
   onSelectOrder: (orderId: string) => void;
+  followUpCounts?: Record<string, number>;
 }
 
-export function OrderList({ onSelectOrder }: OrderListProps) {
+export function OrderList({ onSelectOrder, followUpCounts = {} }: OrderListProps) {
   const { filteredOrders, orders } = useOrderStore();
   const ordersToShow = filteredOrders();
 
@@ -38,6 +39,7 @@ export function OrderList({ onSelectOrder }: OrderListProps) {
         <OrderCard
           key={order.id}
           order={order}
+          followUpCount={followUpCounts[order.id] || 0}
           onClick={() => onSelectOrder(order.id)}
         />
       ))}

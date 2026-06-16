@@ -1,8 +1,9 @@
-import { Clock, User, Tag, AlertCircle, Calendar, AlertTriangle } from 'lucide-react';
+import { Clock, User, Tag, AlertCircle, Calendar, AlertTriangle, Phone, Clock4 } from 'lucide-react';
 import type { Order } from '@/types';
 
 interface OrderCardProps {
   order: Order;
+  followUpCount?: number;
   onClick: () => void;
 }
 
@@ -31,12 +32,13 @@ const pickupStatusConfig = {
   'picked-up': { label: '已取件', color: 'bg-navy-100 text-navy-700', icon: Clock },
 };
 
-export function OrderCard({ order, onClick }: OrderCardProps) {
+export function OrderCard({ order, followUpCount = 0, onClick }: OrderCardProps) {
   const status = statusConfig[order.status];
   const product = productConfig[order.productType];
   const priority = priorityConfig[order.priority];
   const pickupStatus = pickupStatusConfig[order.pickupStatus];
   const PickupIcon = pickupStatus.icon;
+  const isPendingFollowUp = order.pickupStatus === 'delayed' && followUpCount === 0;
 
   return (
     <div
@@ -46,11 +48,26 @@ export function OrderCard({ order, onClick }: OrderCardProps) {
       }`}
     >
       {order.pickupStatus === 'delayed' && (
-        <div className="bg-coral-50 px-4 py-2 border-b border-coral-100 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4 text-coral-600" />
-          <span className="text-sm font-medium text-coral-700">延期取件</span>
+        <div className="bg-gradient-to-r from-coral-50 to-orange-50 px-4 py-3 border-b border-coral-100">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-coral-600" />
+              <span className="text-sm font-semibold text-coral-700">延期取件</span>
+              {isPendingFollowUp && (
+                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs font-medium">
+                  待跟进
+                </span>
+              )}
+            </div>
+            {order.newPickupDate && (
+              <div className="flex items-center gap-1 text-coral-600">
+                <Clock4 className="w-4 h-4" />
+                <span className="text-sm font-medium">{order.newPickupDate}</span>
+              </div>
+            )}
+          </div>
           {order.delayReason && (
-            <span className="text-xs text-coral-500 truncate">{order.delayReason}</span>
+            <p className="text-xs text-coral-500">{order.delayReason}</p>
           )}
         </div>
       )}
@@ -89,10 +106,17 @@ export function OrderCard({ order, onClick }: OrderCardProps) {
           <div className={`flex items-center gap-2 text-sm ${pickupStatus.color}`}>
             <PickupIcon className="w-4 h-4" />
             <span>{pickupStatus.label}</span>
-            {order.pickupStatus === 'delayed' && order.newPickupDate && (
-              <span className="text-xs">新时间: {order.newPickupDate}</span>
-            )}
           </div>
+          {order.pickupStatus === 'delayed' && (
+            <div className={`flex items-center gap-2 text-sm ${
+              isPendingFollowUp ? 'text-amber-600 bg-amber-50 p-2 rounded-lg' : 'text-gray-500'
+            }`}>
+              <Phone className="w-4 h-4" />
+              <span className="text-xs">
+                {isPendingFollowUp ? '⚠️ 需要客服跟进' : `已跟进 ${followUpCount} 次`}
+              </span>
+            </div>
+          )}
         </div>
         
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
