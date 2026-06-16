@@ -1,0 +1,257 @@
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { fetchWineStorage, updateWineStorage, type WineStorage } from '$lib/api';
+  import { currentUser, fetchCurrentUser } from '$lib/store';
+  import { Wine, ArrowLeft, Save, Package } from 'lucide-svelte';
+
+  export let params;
+
+  let wine: WineStorage | null = null;
+  let customer_name = '';
+  let phone = '';
+  let wine_name = '';
+  let quantity = 1;
+  let bottle_size = 'standard';
+  let storage_location = 'cellar';
+  let notes = '';
+  let error = '';
+  let success = false;
+
+  const bottleSizes = [
+    { value: 'standard', label: '标准瓶 (750ml)' },
+    { value: 'magnum', label: '大瓶 (1.5L)' },
+    { value: 'jeroboam', label: '杰罗波安 (3L)' },
+    { value: 'split', label: '小瓶 (187ml)' },
+    { value: 'other', label: '其他' }
+  ];
+
+  const storageLocations = [
+    { value: 'cellar', label: '酒窖' },
+    { value: 'bar', label: '吧台' },
+    { value: 'vip', label: 'VIP区' },
+    { value: 'locker', label: '储物柜' }
+  ];
+
+  onMount(async () => {
+    await fetchCurrentUser();
+    if ($currentUser && params.id) {
+      const wines = await fetchWineStorage();
+      wine = wines.find(w => w.id === parseInt(params.id));
+      if (wine) {
+        customer_name = wine.customer_name;
+        phone = wine.phone;
+        wine_name = wine.wine_name;
+        quantity = wine.quantity;
+        bottle_size = wine.bottle_size;
+        storage_location = wine.storage_location;
+        notes = wine.notes || '';
+      }
+    }
+  });
+
+  async function handleSubmit() {
+    error = '';
+    success = false;
+
+    if (!customer_name || !phone || !wine_name) {
+      error = '请填写必填项';
+      return;
+    }
+
+    try {
+      await updateWineStorage(parseInt(params.id), {
+        customer_name,
+        phone,
+        wine_name,
+        quantity,
+        bottle_size,
+        storage_location,
+        notes
+      });
+      success = true;
+    } catch (e) {
+      error = '保存失败，请重试';
+    }
+  }
+</script>
+
+{#if !$currentUser}
+  <div class="min-h-screen flex items-center justify-center">
+    <p class="text-gray-500">请先登录</p>
+  </div>
+{:else if !wine}
+  <div class="min-h-screen flex items-center justify-center">
+    <p class="text-gray-500">寄存记录不存在</p>
+  </div>
+{:else}
+  <div class="min-h-screen bg-gray-100">
+    <nav class="bg-white shadow-md">
+      <div class="max-w-7xl mx-auto px-4">
+        <div class="flex items-center justify-between h-16">
+          <div class="flex items-center space-x-3">
+            <a href="/" class="flex items-center space-x-3">
+              <div class="w-10 h-10 bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg flex items-center justify-center">
+                <Wine class="w-6 h-6 text-white" />
+              </div>
+              <span class="text-xl font-bold text-gray-800">酒吧运营系统</span>
+            </a>
+          </div>
+
+          <div class="flex items-center space-x-6">
+            <a href="/guests" class="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>
+              </svg>
+              <span>嘉宾名单</span>
+            </a>
+            <a href="/performances" class="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <span>演出排班</span>
+            </a>
+            <a href="/reservations" class="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+              </svg>
+              <span>订台记录</span>
+            </a>
+            <a href="/wine-storage" class="flex items-center space-x-2 text-purple-600 font-medium">
+              <Wine class="w-5 h-5" />
+              <span>酒水寄存</span>
+            </a>
+            <a href="/logs" class="flex items-center space-x-2 text-gray-600 hover:text-purple-600 transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+              </svg>
+              <span>操作日志</span>
+            </a>
+            <a href="/logout" class="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+              </svg>
+              <span>{$currentUser.username}</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </nav>
+
+    <main class="max-w-3xl mx-auto px-4 py-8">
+      <div class="flex items-center space-x-4 mb-6">
+        <a href="/wine-storage" class="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors">
+          <ArrowLeft class="w-5 h-5" />
+          <span>返回</span>
+        </a>
+        <div>
+          <h1 class="text-2xl font-bold text-gray-800">编辑寄存记录</h1>
+          <p class="text-gray-500 mt-1">修改客户寄存的酒水信息</p>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-xl shadow-sm p-6">
+        {#if success}
+          <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-700">
+            保存成功！
+          </div>
+        {/if}
+
+        {#if error}
+          <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            {error}
+          </div>
+        {/if}
+
+        <form on:submit|preventDefault={handleSubmit} class="space-y-6">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">客户姓名 <span class="text-red-500">*</span></label>
+              <input
+                bind:value={customer_name}
+                type="text"
+                placeholder="请输入客户姓名"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">联系电话 <span class="text-red-500">*</span></label>
+              <input
+                bind:value={phone}
+                type="tel"
+                placeholder="请输入联系电话"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">酒名 <span class="text-red-500">*</span></label>
+            <input
+              bind:value={wine_name}
+              type="text"
+              placeholder="请输入酒名"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+            />
+          </div>
+
+          <div class="grid grid-cols-3 gap-6">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">数量（瓶）</label>
+              <input
+                bind:value={quantity}
+                type="number"
+                min="1"
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">规格</label>
+              <select
+                bind:value={bottle_size}
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+              >
+                {#each bottleSizes as option}
+                  <option value={option.value}>{option.label}</option>
+                {/each}
+              </select>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-2">存放位置</label>
+              <select
+                bind:value={storage_location}
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
+              >
+                {#each storageLocations as option}
+                  <option value={option.value}>{option.label}</option>
+                {/each}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">备注</label>
+            <textarea
+              bind:value={notes}
+              rows="3"
+              placeholder="请输入备注信息"
+              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors resize-none"
+            ></textarea>
+          </div>
+
+          <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
+            <a href="/wine-storage" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+              取消
+            </a>
+            <button
+              type="submit"
+              class="flex items-center space-x-2 px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Save class="w-4 h-4" />
+              <span>保存</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+{/if}
