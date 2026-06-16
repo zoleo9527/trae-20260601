@@ -69,7 +69,8 @@ public class RoleTodoService {
                         Role.MEASURER.name(), ModificationStatus.PENDING);
                 modifications.addAll(modificationRecordRepository.findByResponsibleRoleAndStatus(
                         Role.MEASURER.name(), ModificationStatus.IN_PROGRESS));
-                modifications.addAll(modificationRecordRepository.findByStatus(ModificationStatus.COMPLETED));
+                modifications.addAll(modificationRecordRepository.findByResponsibleRoleAndStatus(
+                        Role.PATTERN_MAKER.name(), ModificationStatus.COMPLETED));
                 break;
             case PATTERN_MAKER:
                 modifications = modificationRecordRepository.findByResponsibleRoleAndStatus(
