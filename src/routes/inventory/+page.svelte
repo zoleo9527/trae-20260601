@@ -3,7 +3,9 @@
   import Badge from '$lib/components/common/Badge.svelte';
   import Button from '$lib/components/common/Button.svelte';
   import { inventory, lowInventory, inventoryEstimates } from '$lib/stores/inventory';
+  import { procurements } from '$lib/stores/procurements';
   import { formatDate } from '$lib/storage';
+  import { PROCUREMENT_STATUS_LABELS } from '$lib/constants';
   
   let editingId = '';
   let editQuantity = 0;
@@ -24,6 +26,29 @@
   function cancelEdit() {
     editingId = '';
     editQuantity = 0;
+  }
+  
+  function getRelatedProcurements(ingredientName: string) {
+    const allProc = $procurements;
+    return allProc
+      .filter(proc => proc.items.some(item => item.ingredient_name === ingredientName))
+      .sort((a, b) => new Date(b.apply_time).getTime() - new Date(a.apply_time).getTime())
+      .slice(0, 2);
+  }
+  
+  function getProcurementStatusVariant(status: string) {
+    switch (status) {
+      case 'completed':
+        return 'success';
+      case 'rejected':
+        return 'danger';
+      case 'pending':
+        return 'warning';
+      case 'purchasing':
+        return 'info';
+      default:
+        return 'primary';
+    }
   }
 </script>
 
@@ -70,12 +95,14 @@
             <th>当前库存</th>
             <th>预警阈值</th>
             <th>状态</th>
+            <th>最近采购</th>
             <th>最后更新</th>
             <th>操作</th>
           </tr>
         </thead>
         <tbody>
           {#each $inventory as item}
+            {@const relatedProcs = getRelatedProcurements(item.ingredient_name)}
             <tr class:row-warning={item.current_quantity <= item.warning_threshold}>
               <td class="item-name">{item.ingredient_name}</td>
               <td class="item-quantity">
@@ -98,6 +125,25 @@
                   <Badge variant="success" size="sm">充足</Badge>
                 {/if}
               </td>
+              <td class="procurement-cell">
+                {#if relatedProcs.length > 0}
+                  {#each relatedProcs as proc}
+                    <div class="procurement-item">
+                      <a href="/procurement/{proc.id}" class="procurement-link">
+                        {PROCUREMENT_STATUS_LABELS[proc.status]}
+                      </a>
+                      <Badge variant={getProcurementStatusVariant(proc.status)} size="sm">
+                        {proc.status === 'completed' ? '已完成' : 
+                         proc.status === 'rejected' ? '已拒绝' :
+                         proc.status === 'pending' ? '待审批' :
+                         proc.status === 'purchasing' ? '采购中' : '收货'}
+                      </Badge>
+                    </div>
+                  {/each}
+                {:else}
+                  <span class="no-procurement">暂无采购</span>
+                {/if}
+              </td>
               <td class="time">{formatDate(item.last_updated)}</td>
               <td class="actions">
                 {#if editingId === item.id}
@@ -116,6 +162,8 @@
     <Card title="采购建议">
       <div class="suggestions-list">
         {#each $inventoryEstimates as estimate}
+          {@const relatedProcs = getRelatedProcurements(estimate.ingredient_name)}
+          {@const activeProc = relatedProcs.find(p => ['pending', 'approved', 'purchasing'].includes(p.status))}
           <div class="suggestion-item">
             <div class="suggestion-header">
               <span class="suggestion-name">{estimate.ingredient_name}</span>
@@ -127,9 +175,20 @@
               </div>
               <div class="suggestion-reason">{estimate.reason}</div>
             </div>
-            <a href="/procurement/new" class="suggestion-action">
-              去采购 →
-            </a>
+            {#if activeProc}
+              <div class="active-procurement">
+                <a href="/procurement/{activeProc.id}" class="active-proc-link">
+                  已有采购进行中 →
+                </a>
+                <Badge variant={getProcurementStatusVariant(activeProc.status)} size="sm">
+                  {PROCUREMENT_STATUS_LABELS[activeProc.status]}
+                </Badge>
+              </div>
+            {:else}
+              <a href="/procurement/new?ingredient={encodeURIComponent(estimate.ingredient_name)}&quantity={estimate.estimated_consumption}" class="suggestion-action">
+                创建采购单 →
+              </a>
+            {/if}
           </div>
         {:else}
           <div class="empty-suggestions">
@@ -231,6 +290,39 @@
     border-bottom: 1px solid #FEF3C7;
     color: #92400E;
   }
+  
+  .procurement-cell {
+    max-width: 150px;
+  }
+  
+  .procurement-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .procurement-item:last-child {
+    margin-bottom: 0;
+  }
+  
+  .procurement-link {
+    color: #92400E;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  
+  .procurement-link:hover {
+    color: #78350F;
+  }
+  
+  .no-procurement {
+    font-size: 0.75rem;
+    color: #B45309;
+    font-style: italic;
+  }
 
   .row-warning {
     background-color: #FEE2E2;
@@ -317,6 +409,28 @@
   
   .suggestion-action:hover {
     color: #78350F;
+  }
+  
+  .active-procurement {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background-color: #DBEAFE;
+    border-radius: 0.25rem;
+    margin-top: 0.25rem;
+  }
+  
+  .active-proc-link {
+    color: #1E40AF;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  
+  .active-proc-link:hover {
+    color: #1E3A8A;
   }
 
   .suggestion-header {

@@ -4,11 +4,26 @@
   import { procurements } from '$lib/stores/procurements';
   import { USERS } from '$lib/constants';
   import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
   
   let applicant = USERS.KITCHEN;
   let items: Array<{ ingredient_name: string; quantity: number; unit: string; note: string }> = [
     { ingredient_name: '', quantity: 1, unit: '斤', note: '' }
   ];
+  
+  page.subscribe(($page) => {
+    const ingredient = $page.url.searchParams.get('ingredient');
+    const quantity = $page.url.searchParams.get('quantity');
+    
+    if (ingredient) {
+      items = [{
+        ingredient_name: ingredient,
+        quantity: quantity ? parseFloat(quantity) : 1,
+        unit: '斤',
+        note: ''
+      }];
+    }
+  });
   
   function addItem() {
     items = [...items, { ingredient_name: '', quantity: 1, unit: '斤', note: '' }];

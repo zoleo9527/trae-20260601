@@ -4,8 +4,11 @@
   import Button from '$lib/components/common/Button.svelte';
   import Timeline from '$lib/components/common/Timeline.svelte';
   import { alerts, activeAlerts, resolvedAlerts } from '$lib/stores/alerts';
+  import { procurements } from '$lib/stores/procurements';
+  import { bookings } from '$lib/stores/bookings';
+  import { accommodations } from '$lib/stores/accommodations';
   import { formatDate } from '$lib/storage';
-  import { ALERT_SEVERITY_LABELS, ALERT_TYPE_LABELS, USERS } from '$lib/constants';
+  import { ALERT_SEVERITY_LABELS, ALERT_TYPE_LABELS, USERS, PROCUREMENT_STATUS_LABELS } from '$lib/constants';
   
   let severityFilter = '';
   let typeFilter = '';
@@ -32,6 +35,63 @@
     selectedAlert = null;
     handler = USERS.BOSS;
     action = '';
+  }
+  
+  function getRelatedLink(alert: any) {
+    if (!alert.related_id) return null;
+    
+    switch (alert.type) {
+      case 'procurement':
+        return `/procurement/${alert.related_id}`;
+      case 'booking':
+        return `/bookings/${alert.related_id}`;
+      case 'accommodation':
+        return `/accommodation/${alert.related_id}`;
+      default:
+        return null;
+    }
+  }
+  
+  function getRelatedEntity(alert: any) {
+    if (!alert.related_id) return null;
+    
+    switch (alert.type) {
+      case 'procurement': {
+        const proc = procurements.getById(alert.related_id);
+        return proc ? {
+          label: `采购单（${proc.items.length}项）`,
+          status: PROCUREMENT_STATUS_LABELS[proc.status],
+          statusVariant: proc.status === 'completed' ? 'success' : 
+                         proc.status === 'rejected' ? 'danger' : 
+                         proc.status === 'pending' ? 'warning' : 'primary'
+        } : null;
+      }
+      case 'booking': {
+        const booking = bookings.getById(alert.related_id);
+        return booking ? {
+          label: `${booking.customer_name}的预订`,
+          status: '',
+          statusVariant: 'info'
+        } : null;
+      }
+      case 'accommodation': {
+        const acc = accommodations.getById(alert.related_id);
+        return acc ? {
+          label: `${acc.guest_name}入住${acc.room_number}`,
+          status: '',
+          statusVariant: 'info'
+        } : null;
+      }
+      default:
+        return null;
+    }
+  }
+  
+  function getLastHandler(alert: any) {
+    if (alert.handlers && alert.handlers.length > 0) {
+      return alert.handlers[alert.handlers.length - 1];
+    }
+    return null;
   }
 </script>
 
@@ -97,6 +157,9 @@
     
     <div class="alerts-list">
       {#each filteredAlerts as alert}
+        {@const relatedEntity = getRelatedEntity(alert)}
+        {@const relatedLink = getRelatedLink(alert)}
+        {@const lastHandler = getLastHandler(alert)}
         <div 
           class="alert-item"
           class:alert-active={alert.status === 'active'}
@@ -112,14 +175,18 @@
                 {ALERT_SEVERITY_LABELS[alert.severity]}
               </Badge>
               <Badge variant="secondary" size="sm">{ALERT_TYPE_LABELS[alert.type]}</Badge>
-              {#if alert.type === 'inventory'}
+              {#if relatedLink && relatedEntity}
+                <a href={relatedLink} class="alert-link related-link">
+                  {relatedEntity.label}
+                  {#if relatedEntity.status}
+                    <Badge variant={relatedEntity.statusVariant} size="sm">{relatedEntity.status}</Badge>
+                  {/if}
+                  →
+                </a>
+              {:else if alert.type === 'inventory'}
                 <a href="/inventory" class="alert-link">查看库存 →</a>
-              {:else if alert.type === 'procurement'}
-                <a href="/procurement" class="alert-link">查看采购 →</a>
-              {:else if alert.type === 'booking'}
-                <a href="/bookings" class="alert-link">查看预订 →</a>
-              {:else if alert.type === 'accommodation'}
-                <a href="/accommodation" class="alert-link">查看住宿 →</a>
+              {:else}
+                <span class="alert-link">无关联记录</span>
               {/if}
             </div>
             <span class="alert-time">{formatDate(alert.created_at)}</span>
@@ -128,16 +195,25 @@
             <h4 class="alert-title">{alert.title}</h4>
             <p class="alert-description">{alert.description}</p>
           </div>
-          {#if alert.status === 'active'}
-            <Button variant="outline" size="sm" on:click={() => selectedAlert = alert}>
-              处理异常
-            </Button>
-          {:else}
-            <div class="alert-resolution">
-              <span class="resolution-handler">处理人：{alert.handlers[alert.handlers.length - 1]?.handler}</span>
-              <span class="resolution-action">{alert.handlers[alert.handlers.length - 1]?.action}</span>
+          <div class="alert-footer">
+            {#if lastHandler}
+              <div class="alert-handler">
+                <span class="handler-label">最近处理：</span>
+                <span class="handler-name">{lastHandler.handler}</span>
+                <span class="handler-action">- {lastHandler.action}</span>
+                <span class="handler-time">{formatDate(lastHandler.created_at)}</span>
+              </div>
+            {/if}
+            <div class="alert-actions">
+              {#if alert.status === 'active'}
+                <Button variant="outline" size="sm" on:click={() => selectedAlert = alert}>
+                  处理异常
+                </Button>
+              {:else}
+                <Badge variant="success" size="sm">已处理</Badge>
+              {/if}
             </div>
-          {/if}
+          </div>
         </div>
       {:else}
         <div class="empty-list">暂无异常记录</div>
@@ -324,6 +400,19 @@
   .alert-link:hover {
     color: #78350F;
   }
+  
+  .related-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background-color: white;
+    border-radius: 0.25rem;
+  }
+  
+  .related-link:hover {
+    background-color: #FEF3C7;
+  }
 
   .alert-time {
     font-size: 0.75rem;
@@ -345,6 +434,46 @@
     font-size: 0.875rem;
     color: #92400E;
     margin: 0;
+  }
+  
+  .alert-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed #FDE68A;
+  }
+  
+  .alert-handler {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    flex-wrap: wrap;
+  }
+  
+  .handler-label {
+    color: #92400E;
+  }
+  
+  .handler-name {
+    font-weight: 600;
+    color: #78350F;
+  }
+  
+  .handler-action {
+    color: #B45309;
+  }
+  
+  .handler-time {
+    color: #92400E;
+    font-size: 0.7rem;
+  }
+  
+  .alert-actions {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .alert-resolution {
