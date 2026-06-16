@@ -42,6 +42,14 @@
 <div class="alerts-page">
   <div class="page-header">
     <h2 class="page-title">异常提醒中心</h2>
+    <div class="quick-links">
+      <Button variant="outline" size="sm" href="/inventory">
+        查看库存
+      </Button>
+      <Button variant="outline" size="sm" href="/procurement">
+        查看采购
+      </Button>
+    </div>
   </div>
   
   <div class="stats-grid">
@@ -93,7 +101,6 @@
           class="alert-item"
           class:alert-active={alert.status === 'active'}
           class:alert-resolved={alert.status === 'resolved'}
-          on:click={() => selectedAlert = alert}
         >
           <div class="alert-header">
             <div class="alert-info">
@@ -105,6 +112,15 @@
                 {ALERT_SEVERITY_LABELS[alert.severity]}
               </Badge>
               <Badge variant="secondary" size="sm">{ALERT_TYPE_LABELS[alert.type]}</Badge>
+              {#if alert.type === 'inventory'}
+                <a href="/inventory" class="alert-link">查看库存 →</a>
+              {:else if alert.type === 'procurement'}
+                <a href="/procurement" class="alert-link">查看采购 →</a>
+              {:else if alert.type === 'booking'}
+                <a href="/bookings" class="alert-link">查看预订 →</a>
+              {:else if alert.type === 'accommodation'}
+                <a href="/accommodation" class="alert-link">查看住宿 →</a>
+              {/if}
             </div>
             <span class="alert-time">{formatDate(alert.created_at)}</span>
           </div>
@@ -112,7 +128,11 @@
             <h4 class="alert-title">{alert.title}</h4>
             <p class="alert-description">{alert.description}</p>
           </div>
-          {#if alert.status === 'resolved'}
+          {#if alert.status === 'active'}
+            <Button variant="outline" size="sm" on:click={() => selectedAlert = alert}>
+              处理异常
+            </Button>
+          {:else}
             <div class="alert-resolution">
               <span class="resolution-handler">处理人：{alert.handlers[alert.handlers.length - 1]?.handler}</span>
               <span class="resolution-action">{alert.handlers[alert.handlers.length - 1]?.action}</span>
@@ -172,6 +192,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+  }
+  
+  .quick-links {
+    display: flex;
+    gap: 0.5rem;
   }
 
   .page-title {
@@ -284,6 +309,20 @@
   .alert-info {
     display: flex;
     gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  
+  .alert-link {
+    color: #92400E;
+    text-decoration: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  
+  .alert-link:hover {
+    color: #78350F;
   }
 
   .alert-time {

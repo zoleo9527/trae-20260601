@@ -34,6 +34,9 @@
 <div class="inventory-page">
   <div class="page-header">
     <h2 class="page-title">库存预估管理</h2>
+    <Button variant="primary" href="/procurement/new">
+      新建采购申请
+    </Button>
   </div>
   
   <div class="stats-grid">
@@ -124,6 +127,9 @@
               </div>
               <div class="suggestion-reason">{estimate.reason}</div>
             </div>
+            <a href="/procurement/new" class="suggestion-action">
+              去采购 →
+            </a>
           </div>
         {:else}
           <div class="empty-suggestions">
@@ -299,6 +305,18 @@
     padding: 0.75rem;
     background-color: #FED7AA;
     border-radius: 0.5rem;
+  }
+  
+  .suggestion-action {
+    color: #92400E;
+    text-decoration: none;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+  
+  .suggestion-action:hover {
+    color: #78350F;
   }
 
   .suggestion-header {

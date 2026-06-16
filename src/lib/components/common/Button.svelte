@@ -1,23 +1,50 @@
 <script lang="ts">
+  import { goto } from '$app/navigation';
+  
   export let variant: 'primary' | 'secondary' | 'success' | 'danger' | 'outline' = 'primary';
   export let size: 'sm' | 'md' | 'lg' = 'md';
   export let disabled = false;
   export let loading = false;
   export let fullWidth = false;
+  export let href: string = '';
+  export let type: 'button' | 'submit' | 'reset' = 'button';
+  
+  function handleClick(event: MouseEvent) {
+    if (href) {
+      event.preventDefault();
+      goto(href);
+    }
+  }
 </script>
 
-<button
-  class="btn btn-{variant} btn-{size}"
-  class:btn-full-width={fullWidth}
-  class:btn-disabled={disabled || loading}
-  disabled={disabled || loading}
-  on:click
->
-  {#if loading}
-    <span class="spinner"></span>
-  {/if}
-  <slot />
-</button>
+{#if href}
+  <a
+    {href}
+    class="btn btn-{variant} btn-{size}"
+    class:btn-full-width={fullWidth}
+    class:btn-disabled={disabled || loading}
+    on:click={handleClick}
+  >
+    {#if loading}
+      <span class="spinner"></span>
+    {/if}
+    <slot />
+  </a>
+{:else}
+  <button
+    {type}
+    class="btn btn-{variant} btn-{size}"
+    class:btn-full-width={fullWidth}
+    class:btn-disabled={disabled || loading}
+    disabled={disabled || loading}
+    on:click
+  >
+    {#if loading}
+      <span class="spinner"></span>
+    {/if}
+    <slot />
+  </button>
+{/if}
 
 <style>
   .btn {
@@ -30,6 +57,11 @@
     transition: all 0.2s;
     cursor: pointer;
     border: 2px solid transparent;
+    text-decoration: none;
+  }
+  
+  a.btn {
+    display: inline-flex;
   }
 
   .btn-sm {

@@ -124,7 +124,7 @@
       <Card title="异常提醒" subtitle="需要立即处理的问题">
         <div class="alert-list">
           {#each $highSeverityAlerts.slice(0, 3) as alert}
-            <a href="/alerts/{alert.id}" class="alert-item">
+            <a href="/alerts" class="alert-item">
               <div class="alert-icon alert-icon-{alert.severity}">⚠️</div>
               <div class="alert-content">
                 <div class="alert-title">{alert.title}</div>
@@ -141,13 +141,11 @@
           {/if}
         </div>
         
-        {#if $activeAlerts.length > 3}
-          <div slot="footer" class="alert-footer">
-            <a href="/alerts" class="alert-link">
-              查看全部 {$activeAlerts.length} 条异常 →
-            </a>
-          </div>
-        {/if}
+        <div slot="footer" class="alert-footer">
+          <a href="/alerts" class="alert-link">
+            { $activeAlerts.length > 0 ? `查看全部 ${$activeAlerts.length} 条异常 →` : '查看异常中心 →' }
+          </a>
+        </div>
       </Card>
       
       <Card title="快捷操作" subtitle="快速创建新记录">
@@ -187,14 +185,14 @@
     <Card title="库存预警" subtitle="库存不足的食材">
       <div class="inventory-list">
         {#each $lowInventory.slice(0, 5) as item}
-          <div class="inventory-item">
+          <a href="/inventory" class="inventory-item">
             <div class="inventory-name">{item.ingredient_name}</div>
             <div class="inventory-quantity">
               <span class="inventory-current">{item.current_quantity}{item.unit}</span>
               <span class="inventory-threshold">预警：{item.warning_threshold}{item.unit}</span>
             </div>
             <Badge variant="danger" size="sm">不足</Badge>
-          </div>
+          </a>
         {/each}
         
         {#if $lowInventory.length === 0}
@@ -204,13 +202,11 @@
         {/if}
       </div>
       
-      {#if $lowInventory.length > 5}
-        <div slot="footer" class="inventory-footer">
-          <a href="/inventory" class="inventory-link">
-            查看全部库存 →
-          </a>
-        </div>
-      {/if}
+      <div slot="footer" class="inventory-footer">
+        <a href="/inventory" class="inventory-link">
+          { $lowInventory.length > 0 ? '查看全部库存和采购建议 →' : '查看库存预估 →' }
+        </a>
+      </div>
     </Card>
   </div>
 </div>
@@ -523,6 +519,14 @@
     padding: 0.5rem;
     background-color: #FEE2E2;
     border-radius: 0.5rem;
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.2s;
+  }
+  
+  .inventory-item:hover {
+    background-color: #FECACA;
+    transform: translateX(4px);
   }
 
   .inventory-name {
