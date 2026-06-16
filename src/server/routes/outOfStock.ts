@@ -85,7 +85,7 @@ router.post('/', (req, res) => {
           'INSERT INTO operation_logs (id, type, target_id, action, operator_id, operator_name, operator_role, store_name, region, detail, operation_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [generateId(), 'out_of_stock', id, '提交售罄申请', submitterId, submitterName, '店长', storeName, region, `菜品：${dishName}，数量：${quantity}份，原因：${reason}，备注：${remark || ''}`', submitTime]
         );
-        res.status(201).json({ id, dishId, dishName, storeId, storeName, region, quantity, reason, remark, status: 'pending', submitterId, submitterName, submitTime });
+        res.status(201).json({ id, dish_id: dishId, dish_name: dishName, store_id: storeId, store_name: storeName, region, quantity, reason, remark, status: 'pending', submitter_id: submitterId, submitter_name: submitterName, submit_time: submitTime });
       }
     }
   );

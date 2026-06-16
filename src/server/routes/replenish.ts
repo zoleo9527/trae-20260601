@@ -89,7 +89,7 @@ router.post('/', (req, res) => {
           'INSERT INTO operation_logs (id, type, target_id, action, operator_id, operator_name, operator_role, store_name, region, detail, operation_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           [generateId(), 'replenish', id, '创建临时补货单', submitterId, submitterName, '区域督导', '区域督导', region, `为${storeName}创建${dishName}补货单，数量：${requestedQuantity}，备注：${remark || ''}`, submitTime]
         );
-        res.status(201).json({ id, outOfStockId, dishId, dishName, storeId, storeName, region, requestedQuantity, actualQuantity: requestedQuantity, status: 'pending', remark, submitterId, submitterName, submitTime });
+        res.status(201).json({ id, out_of_stock_id: outOfStockId, dish_id: dishId, dish_name: dishName, store_id: storeId, store_name: storeName, region, requested_quantity: requestedQuantity, actual_quantity: requestedQuantity, status: 'pending', remark, submitter_id: submitterId, submitter_name: submitterName, submit_time: submitTime });
       }
     }
   );

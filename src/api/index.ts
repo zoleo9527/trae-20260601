@@ -147,7 +147,7 @@ export const storesApi = {
 };
 
 export const dishesApi = {
-  list: async (): Promise<{ id: string; name: string; category: string; unit: string; price: number; stock: number; safetyStock: number }[]> => {
+  list: async (): Promise<{ id: string; name: string; category: string; unit: string; price: number; stock: number; safety_stock: number }[]> => {
     const response = await fetch(`${BASE_URL}/dishes`);
     return response.json();
   },
