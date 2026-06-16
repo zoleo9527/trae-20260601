@@ -46,7 +46,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
 
   const loadAvailableRecords = async () => {
     const records = await outOfStockApi.list({ status: 'approved' });
-    const filtered = records.filter(r => !r.replenish_order_id && !r.replenishOrderId);
+    const filtered = records.filter(r => !r.replenish_order_id);
     setAvailableRecords(filtered);
   };
 
@@ -58,10 +58,10 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
     
     await replenishApi.create({
       outOfStockId: record.id,
-      dishId: record.dish_id || record.dishId,
-      dishName: record.dish_name || record.dishName,
-      storeId: record.store_id || record.storeId,
-      storeName: record.store_name || record.storeName,
+      dishId: record.dish_id,
+      dishName: record.dish_name,
+      storeId: record.store_id,
+      storeName: record.store_name,
       region: record.region,
       requestedQuantity: Number(formData.requestedQuantity),
       remark: formData.remark || record.remark || '',
@@ -174,18 +174,18 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
                   return (
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{order.dish_name || order.dishName}</div>
+                        <div className="font-medium text-gray-900">{order.dish_name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.store_name || order.storeName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.requested_quantity || order.requestedQuantity}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.store_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.requested_quantity}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[order.status].color}`}>
                           <StatusIcon className="w-3 h-3 mr-1" />
                           {statusConfig[order.status].label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.submitter_name || order.submitterName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{order.submit_time || order.submitTime}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{order.submitter_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{order.submit_time}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
                           <button
@@ -262,7 +262,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
               <option value="">请选择售罄记录</option>
               {availableRecords.map((record) => (
                 <option key={record.id} value={record.id}>
-                  {record.dish_name || record.dishName} - {record.store_name || record.storeName} ({record.quantity}份)
+                  {record.dish_name} - {record.store_name} ({record.quantity}份)
                 </option>
               ))}
             </select>
@@ -308,7 +308,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
         {selectedOrder && (
           <div className="space-y-4">
             <div className="border-b pb-4">
-              <h3 className="text-lg font-semibold text-gray-800">{selectedOrder.dish_name || selectedOrder.dishName}</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{selectedOrder.dish_name}</h3>
               <div className="flex items-center mt-2">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[selectedOrder.status].color}`}>
                   {statusConfig[selectedOrder.status].label}
@@ -318,7 +318,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">门店：</span>
-                <span className="text-gray-800">{selectedOrder.store_name || selectedOrder.storeName}</span>
+                <span className="text-gray-800">{selectedOrder.store_name}</span>
               </div>
               <div>
                 <span className="text-gray-500">区域：</span>
@@ -326,52 +326,52 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
               </div>
               <div>
                 <span className="text-gray-500">申请数量：</span>
-                <span className="text-gray-800">{selectedOrder.requested_quantity || selectedOrder.requestedQuantity}</span>
+                <span className="text-gray-800">{selectedOrder.requested_quantity}</span>
               </div>
               <div>
                 <span className="text-gray-500">实际数量：</span>
-                <span className="text-gray-800">{selectedOrder.actual_quantity || selectedOrder.actualQuantity}</span>
+                <span className="text-gray-800">{selectedOrder.actual_quantity}</span>
               </div>
               <div>
                 <span className="text-gray-500">创建人：</span>
-                <span className="text-gray-800">{selectedOrder.submitter_name || selectedOrder.submitterName}</span>
+                <span className="text-gray-800">{selectedOrder.submitter_name}</span>
               </div>
               <div>
                 <span className="text-gray-500">创建时间：</span>
-                <span className="text-gray-800">{selectedOrder.submit_time || selectedOrder.submitTime}</span>
+                <span className="text-gray-800">{selectedOrder.submit_time}</span>
               </div>
-              {(selectedOrder.confirmer_name || selectedOrder.confirmerName) && (
+              {selectedOrder.confirmer_name && (
                 <>
                   <div>
                     <span className="text-gray-500">确认人：</span>
-                    <span className="text-gray-800">{selectedOrder.confirmer_name || selectedOrder.confirmerName}</span>
+                    <span className="text-gray-800">{selectedOrder.confirmer_name}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">确认时间：</span>
-                    <span className="text-gray-800">{selectedOrder.confirm_time || selectedOrder.confirmTime}</span>
+                    <span className="text-gray-800">{selectedOrder.confirm_time}</span>
                   </div>
                 </>
               )}
-              {(selectedOrder.completion_time || selectedOrder.completionTime) && (
+              {selectedOrder.completion_time && (
                 <div className="col-span-2">
                   <span className="text-gray-500">完成时间：</span>
-                  <span className="text-gray-800">{selectedOrder.completion_time || selectedOrder.completionTime}</span>
+                  <span className="text-gray-800">{selectedOrder.completion_time}</span>
                 </div>
               )}
             </div>
-            {(selectedOrder.remark) && (
+            {selectedOrder.remark && (
               <div>
                 <span className="text-gray-500 block mb-1">备注说明：</span>
                 <p className="text-gray-800 bg-gray-50 p-3 rounded-lg">{selectedOrder.remark}</p>
               </div>
             )}
-            {(selectedOrder.cancel_reason || selectedOrder.cancelReason) && (
+            {selectedOrder.cancel_reason && (
               <div className="bg-red-50 p-3 rounded-lg">
                 <span className="text-red-600 block mb-1 flex items-center">
                   <AlertCircle className="w-4 h-4 mr-1" />
                   取消原因
                 </span>
-                <p className="text-red-800">{selectedOrder.cancel_reason || selectedOrder.cancelReason}</p>
+                <p className="text-red-800">{selectedOrder.cancel_reason}</p>
               </div>
             )}
           </div>
@@ -381,7 +381,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
       <Modal isOpen={showCancelModal} onClose={() => setShowCancelModal(false)} title="取消补货单">
         {selectedOrder && (
           <div className="space-y-4">
-            <p className="text-gray-600">确定要取消 <strong>{selectedOrder.dish_name || selectedOrder.dishName}</strong> 的补货单吗？</p>
+            <p className="text-gray-600">确定要取消 <strong>{selectedOrder.dish_name}</strong> 的补货单吗？</p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">取消原因 *</label>
               <textarea
@@ -429,11 +429,11 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">菜品名称</span>
-                    <span className="text-gray-800">{selectedOrder.dish_name || selectedOrder.dishName}</span>
+                    <span className="text-gray-800">{selectedOrder.dish_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">门店</span>
-                    <span className="text-gray-800">{selectedOrder.store_name || selectedOrder.storeName}</span>
+                    <span className="text-gray-800">{selectedOrder.store_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">状态</span>
@@ -450,7 +450,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
                     <AlertCircle className="w-4 h-4 mr-2" />
                     取消原因
                   </h3>
-                  <p className="text-red-700 text-sm">{selectedOrder.cancel_reason || selectedOrder.cancelReason}</p>
+                  <p className="text-red-700 text-sm">{selectedOrder.cancel_reason}</p>
                 </div>
               )}
 
@@ -473,30 +473,30 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">创建补货单</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.submit_time || selectedOrder.submitTime}</p>
-                      <p className="text-sm text-gray-500">{selectedOrder.submitter_name || selectedOrder.submitterName}</p>
+                      <p className="text-sm text-gray-500">{selectedOrder.submit_time}</p>
+                      <p className="text-sm text-gray-500">{selectedOrder.submitter_name}</p>
                     </div>
                   </div>
-                  {(selectedOrder.confirm_time || selectedOrder.confirmTime) && (
+                  {selectedOrder.confirm_time && (
                     <div className="flex items-start space-x-3">
                       <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
                         <Check className="w-4 h-4 text-white" />
                       </div>
                       <div>
                         <p className="font-medium text-gray-800">确认补货单</p>
-                        <p className="text-sm text-gray-500">{selectedOrder.confirm_time || selectedOrder.confirmTime}</p>
-                        <p className="text-sm text-gray-500">{selectedOrder.confirmer_name || selectedOrder.confirmerName}</p>
+                        <p className="text-sm text-gray-500">{selectedOrder.confirm_time}</p>
+                        <p className="text-sm text-gray-500">{selectedOrder.confirmer_name}</p>
                       </div>
                     </div>
                   )}
-                  {(selectedOrder.completion_time || selectedOrder.completionTime) && (
+                  {selectedOrder.completion_time && (
                     <div className="flex items-start space-x-3">
                       <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
                         <Check className="w-4 h-4 text-white" />
                       </div>
                       <div>
                         <p className="font-medium text-gray-800">完成补货</p>
-                        <p className="text-sm text-gray-500">{selectedOrder.completion_time || selectedOrder.completionTime}</p>
+                        <p className="text-sm text-gray-500">{selectedOrder.completion_time}</p>
                       </div>
                     </div>
                   )}
@@ -507,7 +507,7 @@ export default function ReplenishList({ currentUser }: ReplenishListProps) {
                       </div>
                       <div>
                         <p className="font-medium text-gray-800">取消补货单</p>
-                        <p className="text-sm text-gray-500">{selectedOrder.submitter_name || selectedOrder.submitterName}</p>
+                        <p className="text-sm text-gray-500">{selectedOrder.submitter_name}</p>
                       </div>
                     </div>
                   )}

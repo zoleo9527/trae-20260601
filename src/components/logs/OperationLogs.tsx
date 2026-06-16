@@ -57,15 +57,15 @@ export default function OperationLogs() {
                     <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                       <div className="flex items-center space-x-1">
                         <User className="w-4 h-4" />
-                        <span>{log.operator_name || log.operatorName} ({log.operator_role || log.operatorRole})</span>
+                        <span>{log.operator_name} ({log.operator_role})</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <MapPin className="w-4 h-4" />
-                        <span>{log.region} - {log.store_name || log.storeName}</span>
+                        <span>{log.region} - {log.store_name}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <Clock className="w-4 h-4" />
-                        <span>{log.operation_time || log.operationTime}</span>
+                        <span>{log.operation_time}</span>
                       </div>
                     </div>
                   </div>

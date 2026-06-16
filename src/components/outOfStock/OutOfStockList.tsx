@@ -28,7 +28,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
   const [selectedRecord, setSelectedRecord] = useState<OutOfStockRecord | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [stores, setStores] = useState<{ id: string; name: string; region: string }[]>([]);
-  const [dishes, setDishes] = useState<{ id: string; name: string; category: string; unit: string; stock: number }[]>([]);
+  const [dishes, setDishes] = useState<{ id: string; name: string; category: string; unit: string; stock: number; safety_stock: number }[]>([]);
   const [formData, setFormData] = useState({
     dishId: '',
     storeId: '',
@@ -132,7 +132,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
 
   const canCreate = currentUser.role === 'manager';
 
-  const managerStores = stores.filter(s => currentUser.store_name === s.name || currentUser.storeName === s.name);
+  const managerStores = stores.filter(s => (currentUser.store_name === s.name) || (currentUser.storeName === s.name));
   const availableStores = currentUser.role === 'manager' ? managerStores : stores;
 
   return (
@@ -186,9 +186,9 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
                   return (
                     <tr key={record.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{record.dish_name || record.dishName}</div>
+                        <div className="font-medium text-gray-900">{record.dish_name}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.store_name || record.storeName}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.store_name}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.quantity}份</td>
                       <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.reason}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -197,8 +197,8 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
                           {statusConfig[record.status].label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.submitter_name || record.submitterName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{record.submit_time || record.submitTime}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600">{record.submitter_name}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-gray-600 text-sm">{record.submit_time}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-2">
                           <button
@@ -339,7 +339,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
         {selectedRecord && (
           <div className="space-y-4">
             <div className="border-b pb-4">
-              <h3 className="text-lg font-semibold text-gray-800">{selectedRecord.dish_name || selectedRecord.dishName}</h3>
+              <h3 className="text-lg font-semibold text-gray-800">{selectedRecord.dish_name}</h3>
               <div className="flex items-center mt-2">
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusConfig[selectedRecord.status].color}`}>
                   {statusConfig[selectedRecord.status].label}
@@ -349,7 +349,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-gray-500">门店：</span>
-                <span className="text-gray-800">{selectedRecord.store_name || selectedRecord.storeName}</span>
+                <span className="text-gray-800">{selectedRecord.store_name}</span>
               </div>
               <div>
                 <span className="text-gray-500">区域：</span>
@@ -365,38 +365,38 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
               </div>
               <div>
                 <span className="text-gray-500">提交人：</span>
-                <span className="text-gray-800">{selectedRecord.submitter_name || selectedRecord.submitterName}</span>
+                <span className="text-gray-800">{selectedRecord.submitter_name}</span>
               </div>
               <div>
                 <span className="text-gray-500">提交时间：</span>
-                <span className="text-gray-800">{selectedRecord.submit_time || selectedRecord.submitTime}</span>
+                <span className="text-gray-800">{selectedRecord.submit_time}</span>
               </div>
-              {(selectedRecord.approver_name || selectedRecord.approverName) && (
+              {selectedRecord.approver_name && (
                 <>
                   <div>
                     <span className="text-gray-500">审核人：</span>
-                    <span className="text-gray-800">{selectedRecord.approver_name || selectedRecord.approverName}</span>
+                    <span className="text-gray-800">{selectedRecord.approver_name}</span>
                   </div>
                   <div>
                     <span className="text-gray-500">审核时间：</span>
-                    <span className="text-gray-800">{selectedRecord.approve_time || selectedRecord.approveTime}</span>
+                    <span className="text-gray-800">{selectedRecord.approve_time}</span>
                   </div>
                 </>
               )}
             </div>
-            {(selectedRecord.remark) && (
+            {selectedRecord.remark && (
               <div>
                 <span className="text-gray-500 block mb-1">备注说明：</span>
                 <p className="text-gray-800 bg-gray-50 p-3 rounded-lg">{selectedRecord.remark}</p>
               </div>
             )}
-            {(selectedRecord.reject_reason || selectedRecord.rejectReason) && (
+            {selectedRecord.reject_reason && (
               <div className="bg-red-50 p-3 rounded-lg">
                 <span className="text-red-600 block mb-1 flex items-center">
                   <AlertCircle className="w-4 h-4 mr-1" />
                   驳回原因
                 </span>
-                <p className="text-red-800">{selectedRecord.reject_reason || selectedRecord.rejectReason}</p>
+                <p className="text-red-800">{selectedRecord.reject_reason}</p>
               </div>
             )}
           </div>
@@ -406,7 +406,7 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
       <Modal isOpen={showRejectModal} onClose={() => setShowRejectModal(false)} title="驳回售罄申请">
         {selectedRecord && (
           <div className="space-y-4">
-            <p className="text-gray-600">确定要驳回 <strong>{selectedRecord.dish_name || selectedRecord.dishName}</strong> 的售罄申请吗？</p>
+            <p className="text-gray-600">确定要驳回 <strong>{selectedRecord.dish_name}</strong> 的售罄申请吗？</p>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">驳回原因 *</label>
               <textarea
@@ -454,11 +454,11 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-500">菜品名称</span>
-                    <span className="text-gray-800">{selectedRecord.dish_name || selectedRecord.dishName}</span>
+                    <span className="text-gray-800">{selectedRecord.dish_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">门店</span>
-                    <span className="text-gray-800">{selectedRecord.store_name || selectedRecord.storeName}</span>
+                    <span className="text-gray-800">{selectedRecord.store_name}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">状态</span>
@@ -469,17 +469,17 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
                 </div>
               </div>
 
-              {(selectedRecord.status === 'rejected') && (
+              {selectedRecord.status === 'rejected' && (
                 <div className="bg-red-50 rounded-lg p-4">
                   <h3 className="font-semibold text-red-800 mb-2 flex items-center">
                     <AlertCircle className="w-4 h-4 mr-2" />
                     驳回原因
                   </h3>
-                  <p className="text-red-700 text-sm">{selectedRecord.reject_reason || selectedRecord.rejectReason}</p>
+                  <p className="text-red-700 text-sm">{selectedRecord.reject_reason}</p>
                 </div>
               )}
 
-              {(selectedRecord.status === 'replenished') && (
+              {selectedRecord.status === 'replenished' && (
                 <div className="bg-green-50 rounded-lg p-4">
                   <h3 className="font-semibold text-green-800 mb-2 flex items-center">
                     <Check className="w-4 h-4 mr-2" />
@@ -509,19 +509,19 @@ export default function OutOfStockList({ currentUser }: OutOfStockListProps) {
                     </div>
                     <div>
                       <p className="font-medium text-gray-800">提交售罄申请</p>
-                      <p className="text-sm text-gray-500">{selectedRecord.submit_time || selectedRecord.submitTime}</p>
-                      <p className="text-sm text-gray-500">{selectedRecord.submitter_name || selectedRecord.submitterName}</p>
+                      <p className="text-sm text-gray-500">{selectedRecord.submit_time}</p>
+                      <p className="text-sm text-gray-500">{selectedRecord.submitter_name}</p>
                     </div>
                   </div>
-                  {(selectedRecord.approve_time || selectedRecord.approveTime) && (
+                  {selectedRecord.approve_time && (
                     <div className="flex items-start space-x-3">
                       <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${selectedRecord.status === 'rejected' ? 'bg-red-500' : 'bg-blue-500'}`}>
                         {selectedRecord.status === 'rejected' ? <X className="w-4 h-4 text-white" /> : <Check className="w-4 h-4 text-white" />}
                       </div>
                       <div>
                         <p className="font-medium text-gray-800">{selectedRecord.status === 'rejected' ? '驳回申请' : '确认售罄'}</p>
-                        <p className="text-sm text-gray-500">{selectedRecord.approve_time || selectedRecord.approveTime}</p>
-                        <p className="text-sm text-gray-500">{selectedRecord.approver_name || selectedRecord.approverName}</p>
+                        <p className="text-sm text-gray-500">{selectedRecord.approve_time}</p>
+                        <p className="text-sm text-gray-500">{selectedRecord.approver_name}</p>
                       </div>
                     </div>
                   )}
