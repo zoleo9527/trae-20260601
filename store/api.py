@@ -345,8 +345,11 @@ def list_returns(
                 'name': ret.assigned_to.user.get_full_name(),
                 'role': ret.assigned_to.get_role_display(),
             } if ret.assigned_to else None,
+            'current_handler_role': ret.get_current_expected_handler(),
+            'amount_refunded': float(ret.amount_refunded),
             'stuck_info': stuck_info,
             'created_at': ret.created_at,
+            'updated_at': ret.updated_at,
         })
 
     return {'returns': returns, 'count': queryset.count()}

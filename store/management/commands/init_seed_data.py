@@ -306,6 +306,7 @@ class Command(BaseCommand):
         member2 = Member.objects.get(member_id='MB20240002')
         member3 = Member.objects.get(member_id='MB20240003')
 
+        now = timezone.now()
         returns_data = [
             {
                 'return_number': 'RE202406150001',
@@ -320,6 +321,7 @@ class Command(BaseCommand):
                 'assigned_to': self.clerk,
                 'current_handler_role': 'clerk',
                 'stuck_reason': '等待店员确认奶粉质量问题',
+                'created_at': now - timedelta(days=4),
             },
             {
                 'return_number': 'RE202406150002',
@@ -333,6 +335,7 @@ class Command(BaseCommand):
                 'assigned_to': self.clerk,
                 'current_handler_role': 'manager',
                 'stuck_reason': '等待店长审批换货申请',
+                'created_at': now - timedelta(days=5),
             },
             {
                 'return_number': 'RE202406150003',
@@ -347,6 +350,7 @@ class Command(BaseCommand):
                 'assigned_to': self.manager,
                 'current_handler_role': 'purchaser',
                 'stuck_reason': '采购正在与供应商协调退款事宜',
+                'created_at': now - timedelta(days=6),
             },
             {
                 'return_number': 'RE202406160001',
@@ -361,11 +365,13 @@ class Command(BaseCommand):
                 'assigned_to': self.clerk,
                 'current_handler_role': 'clerk',
                 'amount_refunded': 298.00,
-                'completed_at': timezone.now() - timedelta(days=1),
+                'created_at': now - timedelta(days=2),
+                'completed_at': now - timedelta(days=1),
             },
         ]
 
         for return_data in returns_data:
+            created_at = return_data.pop('created_at', None)
             completed_at = return_data.pop('completed_at', None)
             ret, created = ReturnExchange.objects.get_or_create(
                 return_number=return_data['return_number'],
@@ -376,9 +382,11 @@ class Command(BaseCommand):
                 status_display = ret.get_status_display()
                 self.stdout.write(f"  ✓ 创建退换货: {ret.return_number} - {status_display}")
 
+                if created_at:
+                    ret.created_at = created_at
                 if completed_at:
                     ret.completed_at = completed_at
-                    ret.save()
+                ret.save()
 
         self.stdout.write(f"  总计创建 {len(returns_data)} 条退换货记录")
 
@@ -393,6 +401,7 @@ class Command(BaseCommand):
 
         completed_return = ReturnExchange.objects.get(return_number='RE202406160001')
 
+        now = timezone.now()
         visits_data = [
             {
                 'visit_number': 'VIS202406150001',
@@ -403,8 +412,9 @@ class Command(BaseCommand):
                 'priority': 'high',
                 'status': 'pending',
                 'assigned_to': self.clerk,
-                'scheduled_date': timezone.now().date() - timedelta(days=2),
+                'scheduled_date': now.date() - timedelta(days=2),
                 'stuck_reason': '店员表示客户电话无人接听，需要改时间联系',
+                'created_at': now - timedelta(days=3),
             },
             {
                 'visit_number': 'VIS202406150002',
@@ -414,8 +424,9 @@ class Command(BaseCommand):
                 'priority': 'normal',
                 'status': 'pending',
                 'assigned_to': self.clerk,
-                'scheduled_date': timezone.now().date() - timedelta(days=3),
+                'scheduled_date': now.date() - timedelta(days=3),
                 'stuck_reason': '客户表示近期没空，需要下周再联系',
+                'created_at': now - timedelta(days=4),
             },
             {
                 'visit_number': 'VIS202406150003',
@@ -425,11 +436,12 @@ class Command(BaseCommand):
                 'priority': 'low',
                 'status': 'completed',
                 'assigned_to': self.clerk,
-                'scheduled_date': timezone.now().date() - timedelta(days=1),
-                'completed_date': timezone.now().date() - timedelta(days=1),
+                'scheduled_date': now.date() - timedelta(days=1),
+                'completed_date': now.date() - timedelta(days=1),
                 'content': '通过微信发送了新品介绍，客户表示有兴趣',
                 'result': '客户表示等宝宝再大一点会考虑购买',
                 'satisfaction_score': 5,
+                'created_at': now - timedelta(days=2),
             },
             {
                 'visit_number': 'VIS202406160001',
@@ -439,12 +451,14 @@ class Command(BaseCommand):
                 'priority': 'high',
                 'status': 'pending',
                 'assigned_to': self.clerk,
-                'scheduled_date': timezone.now().date(),
+                'scheduled_date': now.date(),
                 'stuck_reason': '',
+                'created_at': now - timedelta(hours=1),
             },
         ]
 
         for visit_data in visits_data:
+            created_at = visit_data.pop('created_at', None)
             visit, created = VisitRecord.objects.get_or_create(
                 visit_number=visit_data['visit_number'],
                 defaults=visit_data
@@ -454,9 +468,11 @@ class Command(BaseCommand):
                 status_display = visit.get_status_display()
                 self.stdout.write(f"  ✓ 创建回访: {visit.visit_number} - {status_display}")
 
+                if created_at:
+                    visit.created_at = created_at
                 if visit.status == 'completed':
-                    visit.completed_time = timezone.now().time()
-                    visit.save()
+                    visit.completed_time = now.time()
+                visit.save()
 
         self.stdout.write(f"  总计创建 {len(visits_data)} 条客户回访记录")
 
@@ -467,6 +483,7 @@ class Command(BaseCommand):
         clerk = self.clerk
         manager = self.manager
 
+        now = timezone.now()
         audit_logs_data = [
             {
                 'action': 'create',
@@ -476,6 +493,7 @@ class Command(BaseCommand):
                 'user': clerk,
                 'description': '创建退换货单 RE202406150001',
                 'new_value': {'status': 'pending', 'type': '退货'},
+                'created_at': now - timedelta(days=4),
             },
             {
                 'action': 'assignment',
@@ -485,6 +503,7 @@ class Command(BaseCommand):
                 'user': clerk,
                 'description': '分配退换货单给店员张晓丽处理',
                 'new_value': {'assigned_to': 'EMP001'},
+                'created_at': now - timedelta(days=4),
             },
             {
                 'action': 'status_change',
@@ -495,6 +514,7 @@ class Command(BaseCommand):
                 'description': '退换货状态变更为店员审核中',
                 'old_value': {'status': 'pending'},
                 'new_value': {'status': 'clerk_reviewing'},
+                'created_at': now - timedelta(days=3),
             },
             {
                 'action': 'approval',
@@ -505,6 +525,7 @@ class Command(BaseCommand):
                 'description': '店长审批通过，等待采购处理',
                 'old_value': {'status': 'manager_reviewing'},
                 'new_value': {'status': 'purchaser_handling'},
+                'created_at': now - timedelta(days=2),
             },
             {
                 'action': 'create',
@@ -514,10 +535,12 @@ class Command(BaseCommand):
                 'user': clerk,
                 'description': '创建客户回访记录 VIS202406150001',
                 'new_value': {'status': 'pending', 'priority': '高优先级'},
+                'created_at': now - timedelta(days=3),
             },
         ]
 
         for log_data in audit_logs_data:
+            created_at = log_data.pop('created_at', None)
             log, created = AuditLog.objects.get_or_create(
                 entity_type=log_data['entity_type'],
                 entity_id=log_data['entity_id'],
@@ -527,5 +550,8 @@ class Command(BaseCommand):
 
             if created:
                 self.stdout.write(f"  ✓ 创建审计日志: {log.description[:30]}...")
+                if created_at:
+                    log.created_at = created_at
+                    log.save()
 
         self.stdout.write(f"  总计创建 {len(audit_logs_data)} 条审计日志")
