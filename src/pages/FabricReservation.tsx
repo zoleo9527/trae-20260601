@@ -394,132 +394,132 @@ const FabricReservation: React.FC<FabricReservationProps> = ({ onViewOrder }) =>
         </div>
       )}
 
-      {detailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">面料预留详情</h3>
-              <button
-                onClick={() => setDetailModal(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            
-            {fabricReservations.find(f => f.id === detailModal) && (item => {
-              const history = getFabricHistory(item.id);
-              const reminders = getReminders(item.id, 'fabric');
+      {detailModal && (() => {
+        const item = fabricReservations.find(f => f.id === detailModal);
+        if (!item) return null;
+        const history = getFabricHistory(item.id);
+        const reminders = getReminders(item.id, 'fabric');
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-xl p-6 w-[500px] max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">面料预留详情</h3>
+                <button
+                  onClick={() => setDetailModal(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
               
-              return (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm text-gray-500">订单号</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.order_id}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">客户姓名</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.customer_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">面料名称</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.fabric_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">面料编号</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.fabric_code}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">用量</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.quantity}m</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">状态</p>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusColor(item.status)}`}>
-                        <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current"></span>
-                        {FABRIC_STATUS_MAP[item.status]}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">责任人</p>
-                      <p className="font-medium text-gray-800 mt-1">{item.responsible_name}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm text-gray-500">预留时间</p>
-                      <p className="font-medium text-gray-800 mt-1">{formatDateTime(item.reserved_at)}</p>
-                    </div>
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-gray-500">订单号</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.order_id}</p>
                   </div>
-                  
-                  {item.remark && (
-                    <div>
-                      <p className="text-sm text-gray-500">备注</p>
-                      <p className="text-gray-600 mt-1">{item.remark}</p>
-                    </div>
-                  )}
+                  <div>
+                    <p className="text-sm text-gray-500">客户姓名</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.customer_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">面料名称</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.fabric_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">面料编号</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.fabric_code}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">用量</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.quantity}m</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">状态</p>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getStatusColor(item.status)}`}>
+                      <span className="w-1.5 h-1.5 rounded-full mr-1.5 bg-current"></span>
+                      {FABRIC_STATUS_MAP[item.status]}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">责任人</p>
+                    <p className="font-medium text-gray-800 mt-1">{item.responsible_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">预留时间</p>
+                    <p className="font-medium text-gray-800 mt-1">{formatDateTime(item.reserved_at)}</p>
+                  </div>
+                </div>
+                
+                {item.remark && (
+                  <div>
+                    <p className="text-sm text-gray-500">备注</p>
+                    <p className="text-gray-600 mt-1">{item.remark}</p>
+                  </div>
+                )}
 
-                  <div className="pt-4 border-t border-gray-100">
-                    <h4 className="font-medium text-gray-800 flex items-center mb-3">
-                      <Clock className="w-4 h-4 mr-2 text-purple-500" />
-                      状态变更历史
-                    </h4>
-                    {history.length === 0 ? (
-                      <p className="text-gray-500 text-sm">暂无变更记录</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {history.map((record, index) => (
-                          <div key={record.id} className="flex items-start space-x-3">
-                            <div className={`w-2 h-2 rounded-full mt-2 ${index === 0 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(record.status_to)}`}>
-                                  {FABRIC_STATUS_MAP[record.status_to]}
+                <div className="pt-4 border-t border-gray-100">
+                  <h4 className="font-medium text-gray-800 flex items-center mb-3">
+                    <Clock className="w-4 h-4 mr-2 text-purple-500" />
+                    状态变更历史
+                  </h4>
+                  {history.length === 0 ? (
+                    <p className="text-gray-500 text-sm">暂无变更记录</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {history.map((record, index) => (
+                        <div key={record.id} className="flex items-start space-x-3">
+                          <div className={`w-2 h-2 rounded-full mt-2 ${index === 0 ? 'bg-green-500' : 'bg-gray-300'}`}></div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <span className={`px-2 py-0.5 rounded text-xs font-medium ${getStatusColor(record.status_to)}`}>
+                                {FABRIC_STATUS_MAP[record.status_to]}
+                              </span>
+                              {record.status_from && (
+                                <span className="text-sm text-gray-400">
+                                  由 {FABRIC_STATUS_MAP[record.status_from]} 变更
                                 </span>
-                                {record.status_from && (
-                                  <span className="text-sm text-gray-400">
-                                    由 {FABRIC_STATUS_MAP[record.status_from]} 变更
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-gray-500 mt-1">
-                                {record.operator_name} | {formatDateTime(record.change_time)}
-                              </p>
-                              {record.remark && (
-                                <p className="text-sm text-gray-600 mt-1 bg-gray-50 px-3 py-2 rounded">
-                                  {record.remark}
-                                </p>
                               )}
                             </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {reminders.length > 0 && (
-                    <div className="pt-4 border-t border-gray-100">
-                      <h4 className="font-medium text-gray-800 flex items-center mb-3">
-                        <MessageSquare className="w-4 h-4 mr-2 text-yellow-500" />
-                        催单记录
-                      </h4>
-                      <div className="space-y-3">
-                        {reminders.map(reminder => (
-                          <div key={reminder.id} className="bg-yellow-50 p-3 rounded-lg">
-                            <p className="text-sm text-yellow-800">{reminder.remark}</p>
-                            <p className="text-xs text-yellow-600 mt-1">
-                              {reminder.operator_name} | {formatDateTime(reminder.reminder_time)}
+                            <p className="text-sm text-gray-500 mt-1">
+                              {record.operator_name} | {formatDateTime(record.change_time)}
                             </p>
+                            {record.remark && (
+                              <p className="text-sm text-gray-600 mt-1 bg-gray-50 px-3 py-2 rounded">
+                                {record.remark}
+                              </p>
+                            )}
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
-              );
-            })()}
+
+                {reminders.length > 0 && (
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="font-medium text-gray-800 flex items-center mb-3">
+                      <MessageSquare className="w-4 h-4 mr-2 text-yellow-500" />
+                      催单记录
+                    </h4>
+                    <div className="space-y-3">
+                      {reminders.map(reminder => (
+                        <div key={reminder.id} className="bg-yellow-50 p-3 rounded-lg">
+                          <p className="text-sm text-yellow-800">{reminder.remark}</p>
+                          <p className="text-xs text-yellow-600 mt-1">
+                            {reminder.operator_name} | {formatDateTime(reminder.reminder_time)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };

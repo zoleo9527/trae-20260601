@@ -47,8 +47,8 @@ export const mockFabricReservations: FabricReservation[] = [
   { id: 'fr001', order_id: 'ord001', customer_name: '李明', fabric_name: '高级羊毛', fabric_code: 'W001', quantity: 3.5, status: 'reserved', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-15 14:00:00', remark: '已确认库存' },
   { id: 'fr002', order_id: 'ord002', customer_name: '王芳', fabric_name: '真丝缎面', fabric_code: 'S001', quantity: 2.8, status: 'reserved', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-16 15:00:00', remark: '已确认库存' },
   { id: 'fr003', order_id: 'ord003', customer_name: '张伟', fabric_name: '亚麻混纺', fabric_code: 'L001', quantity: 4.0, status: 'pending', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-17 15:30:00', remark: '待确认' },
-  { id: 'fr004', order_id: 'ord005', customer_name: '陈静', fabric_name: '羊绒', fabric_code: 'C001', quantity: 3.0, status: 'supplement', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-19 14:00:00', remark: '库存不足，需补货' },
-  { id: 'fr005', order_id: 'ord007', customer_name: '赵雪', fabric_name: '棉麻', fabric_code: 'M001', quantity: 5.0, status: 'rejected', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-21 10:00:00', remark: '面料不符合要求，已退回' },
+  { id: 'fr004', order_id: 'ord005', customer_name: '陈静', fabric_name: '羊绒', fabric_code: 'C001', quantity: 3.0, status: 'reserved', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-21 10:00:00', remark: '补货已到，确认预留' },
+  { id: 'fr005', order_id: 'ord007', customer_name: '赵雪', fabric_name: '棉麻', fabric_code: 'M001', quantity: 5.0, status: 'reserved', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-22 10:00:00', remark: '新面料检验合格，确认预留' },
   { id: 'fr006', order_id: 'ord008', customer_name: '孙强', fabric_name: '真丝', fabric_code: 'S002', quantity: 2.5, status: 'pending', responsible_id: 'u3', responsible_name: '王五', reserved_at: '2024-01-22 14:30:00', remark: '待确认' },
 ];
 
@@ -63,14 +63,17 @@ export const mockFabricHistory: FabricHistory[] = [
   { id: 'fh8', fabric_id: 'fr005', order_id: 'ord007', status_from: null, status_to: 'pending', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-21 09:00:00', remark: '创建面料预留申请' },
   { id: 'fh9', fabric_id: 'fr005', order_id: 'ord007', status_from: 'pending', status_to: 'rejected', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-21 10:00:00', remark: '面料有瑕疵，已退回仓库' },
   { id: 'fh10', fabric_id: 'fr006', order_id: 'ord008', status_from: null, status_to: 'pending', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-22 14:30:00', remark: '创建面料预留申请' },
+  { id: 'fh11', fabric_id: 'fr004', order_id: 'ord005', status_from: 'supplement', status_to: 'reserved', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-21 10:00:00', remark: '补货已到，确认预留' },
+  { id: 'fh12', fabric_id: 'fr005', order_id: 'ord007', status_from: 'rejected', status_to: 'pending', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-22 09:00:00', remark: '重新申请面料预留' },
+  { id: 'fh13', fabric_id: 'fr005', order_id: 'ord007', status_from: 'pending', status_to: 'reserved', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-22 10:00:00', remark: '新面料检验合格，确认预留' },
 ];
 
 export const mockPatternTasks: PatternTask[] = [
   { id: 'pt001', order_id: 'ord001', customer_name: '李明', task_name: '西装打版', status: 'in_progress', assignee_id: 'u2', assignee_name: '李四', scheduled_date: '2024-01-18', created_at: '2024-01-16 09:00:00', remark: '加急订单' },
-  { id: 'pt002', order_id: 'ord002', customer_name: '王芳', task_name: '连衣裙打版', status: 'pending', assignee_id: '', assignee_name: '', scheduled_date: '2024-01-20', created_at: '2024-01-16 15:00:00', remark: '' },
-  { id: 'pt003', order_id: 'ord005', customer_name: '陈静', task_name: '大衣打版', status: 'completed', assignee_id: 'u5', assignee_name: '钱七', scheduled_date: '2024-01-21', created_at: '2024-01-20 09:00:00', remark: '已完成' },
-  { id: 'pt004', order_id: 'ord006', customer_name: '杨磊', task_name: '衬衫打版', status: 'completed', assignee_id: 'u2', assignee_name: '李四', scheduled_date: '2024-01-22', created_at: '2024-01-21 10:00:00', remark: '已完成' },
-  { id: 'pt005', order_id: 'ord007', customer_name: '赵雪', task_name: '休闲裤打版', status: 'rejected', assignee_id: 'u5', assignee_name: '钱七', scheduled_date: '2024-01-23', created_at: '2024-01-21 10:00:00', remark: '版型不符合要求，已退回修改' },
+  { id: 'pt002', order_id: 'ord002', customer_name: '王芳', task_name: '连衣裙打版', status: 'in_progress', assignee_id: 'u2', assignee_name: '李四', scheduled_date: '2024-01-20', created_at: '2024-01-21 09:00:00', remark: '按新设计重新打版' },
+  { id: 'pt003', order_id: 'ord005', customer_name: '陈静', task_name: '大衣打版', status: 'completed', assignee_id: 'u5', assignee_name: '钱七', scheduled_date: '2024-01-21', created_at: '2024-01-21 16:00:00', remark: '打版完成，等待试衣' },
+  { id: 'pt004', order_id: 'ord006', customer_name: '杨磊', task_name: '衬衫打版', status: 'completed', assignee_id: 'u2', assignee_name: '李四', scheduled_date: '2024-01-22', created_at: '2024-01-22 14:00:00', remark: '打版完成，等待试衣' },
+  { id: 'pt005', order_id: 'ord007', customer_name: '赵雪', task_name: '休闲裤打版', status: 'completed', assignee_id: 'u5', assignee_name: '钱七', scheduled_date: '2024-01-23', created_at: '2024-01-23 16:00:00', remark: '重新打版完成' },
   { id: 'pt006', order_id: 'ord008', customer_name: '孙强', task_name: '风衣打版', status: 'pending', assignee_id: '', assignee_name: '', scheduled_date: '2024-01-24', created_at: '2024-01-22 14:30:00', remark: '' },
 ];
 
@@ -88,6 +91,11 @@ export const mockPatternHistory: PatternHistory[] = [
   { id: 'ph11', task_id: 'pt005', order_id: 'ord007', status_from: 'pending', status_to: 'in_progress', operator_id: 'u5', operator_name: '钱七', change_time: '2024-01-21 10:00:00', remark: '开始打版制作' },
   { id: 'ph12', task_id: 'pt005', order_id: 'ord007', status_from: 'in_progress', status_to: 'rejected', operator_id: 'u2', operator_name: '李四', change_time: '2024-01-22 11:00:00', remark: '版型不符合客户要求，退回修改' },
   { id: 'ph13', task_id: 'pt006', order_id: 'ord008', status_from: null, status_to: 'pending', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-22 14:30:00', remark: '创建打版任务' },
+  { id: 'ph14', task_id: 'pt005', order_id: 'ord007', status_from: 'rejected', status_to: 'in_progress', operator_id: 'u5', operator_name: '钱七', change_time: '2024-01-22 14:00:00', remark: '重新开始打版制作' },
+  { id: 'ph15', task_id: 'pt005', order_id: 'ord007', status_from: 'in_progress', status_to: 'completed', operator_id: 'u5', operator_name: '钱七', change_time: '2024-01-23 16:00:00', remark: '重新打版完成' },
+  { id: 'ph16', task_id: 'pt002', order_id: 'ord002', status_from: 'pending', status_to: 'in_progress', operator_id: 'u2', operator_name: '李四', change_time: '2024-01-19 09:00:00', remark: '分配给李四开始打版' },
+  { id: 'ph17', task_id: 'pt002', order_id: 'ord002', status_from: 'in_progress', status_to: 'rejected', operator_id: 'u3', operator_name: '王五', change_time: '2024-01-20 10:00:00', remark: '客户要求修改设计，退回' },
+  { id: 'ph18', task_id: 'pt002', order_id: 'ord002', status_from: 'rejected', status_to: 'in_progress', operator_id: 'u2', operator_name: '李四', change_time: '2024-01-21 09:00:00', remark: '按新设计重新打版' },
 ];
 
 export const mockReminders: Reminder[] = [
@@ -95,4 +103,10 @@ export const mockReminders: Reminder[] = [
   { id: 'r2', target_id: 'fr004', target_type: 'fabric', operator_id: 'u3', operator_name: '王五', reminder_time: '2024-01-20 14:00:00', remark: '补货进度如何？客户催单' },
   { id: 'r3', target_id: 'pt001', target_type: 'pattern', operator_id: 'u3', operator_name: '王五', reminder_time: '2024-01-17 09:00:00', remark: '加急订单，请优先处理' },
   { id: 'r4', target_id: 'pt005', target_type: 'pattern', operator_id: 'u3', operator_name: '王五', reminder_time: '2024-01-22 14:00:00', remark: '退回修改，请尽快重新打版' },
+  { id: 'r5', target_id: 'fr001', target_type: 'fabric', operator_id: 'u2', operator_name: '李四', reminder_time: '2024-01-15 15:00:00', remark: '面料何时能到位？急等打版' },
+  { id: 'r6', target_id: 'fr005', target_type: 'fabric', operator_id: 'u1', operator_name: '张三', reminder_time: '2024-01-21 11:00:00', remark: '退回面料请尽快处理，客户着急' },
+  { id: 'r7', target_id: 'pt002', target_type: 'pattern', operator_id: 'u1', operator_name: '张三', reminder_time: '2024-01-19 14:00:00', remark: '客户希望提前完成打版' },
+  { id: 'r8', target_id: 'pt002', target_type: 'pattern', operator_id: 'u3', operator_name: '王五', reminder_time: '2024-01-20 15:00:00', remark: '客户修改需求，请尽快调整' },
+  { id: 'r9', target_id: 'pt003', target_type: 'pattern', operator_id: 'u3', operator_name: '王五', reminder_time: '2024-01-21 10:00:00', remark: '打版进度如何？' },
+  { id: 'r10', target_id: 'fr005', target_type: 'fabric', operator_id: 'u5', operator_name: '钱七', reminder_time: '2024-01-22 10:30:00', remark: '面料确认后请及时通知' },
 ];

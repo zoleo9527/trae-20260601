@@ -80,6 +80,8 @@ export const useStore = create<AppState>((set, get) => ({
     const fabric = fabricReservations.find(f => f.id === fabricId);
     if (!fabric) return;
     
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    
     const historyEntry: FabricHistory = {
       id: `fh${Date.now()}`,
       fabric_id: fabricId,
@@ -88,13 +90,20 @@ export const useStore = create<AppState>((set, get) => ({
       status_to: newStatus,
       operator_id: currentUser.id,
       operator_name: currentUser.name,
-      change_time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      change_time: now,
       remark,
     };
     
     set({
       fabricReservations: fabricReservations.map(f => 
-        f.id === fabricId ? { ...f, status: newStatus, remark } : f
+        f.id === fabricId ? { 
+          ...f, 
+          status: newStatus, 
+          remark,
+          responsible_id: currentUser.id,
+          responsible_name: currentUser.name,
+          reserved_at: now
+        } : f
       ),
       fabricHistory: [...fabricHistory, historyEntry],
     });
@@ -105,6 +114,8 @@ export const useStore = create<AppState>((set, get) => ({
     const task = patternTasks.find(t => t.id === taskId);
     if (!task) return;
     
+    const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+    
     const historyEntry: PatternHistory = {
       id: `ph${Date.now()}`,
       task_id: taskId,
@@ -113,13 +124,20 @@ export const useStore = create<AppState>((set, get) => ({
       status_to: newStatus,
       operator_id: currentUser.id,
       operator_name: currentUser.name,
-      change_time: new Date().toISOString().replace('T', ' ').slice(0, 19),
+      change_time: now,
       remark,
     };
     
     set({
       patternTasks: patternTasks.map(t => 
-        t.id === taskId ? { ...t, status: newStatus, remark } : t
+        t.id === taskId ? { 
+          ...t, 
+          status: newStatus, 
+          remark,
+          assignee_id: newStatus === 'in_progress' && !t.assignee_id ? currentUser.id : t.assignee_id,
+          assignee_name: newStatus === 'in_progress' && !t.assignee_name ? currentUser.name : t.assignee_name,
+          created_at: now
+        } : t
       ),
       patternHistory: [...patternHistory, historyEntry],
     });
