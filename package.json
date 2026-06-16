@@ -1,0 +1,13 @@
+{
+  "name": "火锅后厨管理系统",
+  "version": "1.0.0",
+  "description": "火锅店加菜退菜与后厨出品管理",
+  "scripts": {
+    "dev": "npx neutralino serve",
+    "build": "npx neutralino build",
+    "update": "npx neutralino update"
+  },
+  "devDependencies": {
+    "@neutralinojs/neu": "^4.16.0"
+  }
+}

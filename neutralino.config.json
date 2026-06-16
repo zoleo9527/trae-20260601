@@ -1,0 +1,33 @@
+{
+  "applicationId": "com.example.hotpot-kitchen",
+  "version": "1.0.0",
+  "defaultMode": "window",
+  "port": 0,
+  "documentRoot": "/",
+  "url": "/index.html",
+  "enableServer": true,
+  "enableNativeAPI": true,
+  "nativeAllowList": [
+    "app.*",
+    "os.*",
+    "storage.*",
+    "filesystem.*"
+  ],
+  "modes": {
+    "window": {
+      "title": "火锅后厨管理系统",
+      "width": 1400,
+      "height": 800,
+      "minWidth": 800,
+      "minHeight": 600,
+      "center": true,
+      "resizable": true
+    }
+  },
+  "cli": {
+    "binaryName": "hotpot-kitchen",
+    "resourcesPath": "/resources",
+    "extensions": [],
+    "clientLibrary": "/js/neutralino.js"
+  }
+}
