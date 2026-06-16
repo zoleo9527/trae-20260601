@@ -1,9 +1,9 @@
 import { Clock, User, Tag, AlertCircle, Calendar, AlertTriangle, Phone, Clock4 } from 'lucide-react';
+import { useOrderStore } from '@/store/orderStore';
 import type { Order } from '@/types';
 
 interface OrderCardProps {
   order: Order;
-  followUpCount?: number;
   onClick: () => void;
 }
 
@@ -32,12 +32,16 @@ const pickupStatusConfig = {
   'picked-up': { label: '已取件', color: 'bg-navy-100 text-navy-700', icon: Clock },
 };
 
-export function OrderCard({ order, followUpCount = 0, onClick }: OrderCardProps) {
+export function OrderCard({ order, onClick }: OrderCardProps) {
+  const { followUpRecords } = useOrderStore();
+
   const status = statusConfig[order.status];
   const product = productConfig[order.productType];
   const priority = priorityConfig[order.priority];
   const pickupStatus = pickupStatusConfig[order.pickupStatus];
   const PickupIcon = pickupStatus.icon;
+
+  const followUpCount = followUpRecords.filter((r) => r.orderId === order.id).length;
   const isPendingFollowUp = order.pickupStatus === 'delayed' && followUpCount === 0;
 
   return (
@@ -89,7 +93,7 @@ export function OrderCard({ order, followUpCount = 0, onClick }: OrderCardProps)
             )}
           </div>
         </div>
-        
+
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2 text-gray-600">
             <Tag className="w-4 h-4" />
@@ -108,9 +112,13 @@ export function OrderCard({ order, followUpCount = 0, onClick }: OrderCardProps)
             <span>{pickupStatus.label}</span>
           </div>
           {order.pickupStatus === 'delayed' && (
-            <div className={`flex items-center gap-2 text-sm ${
-              isPendingFollowUp ? 'text-amber-600 bg-amber-50 p-2 rounded-lg' : 'text-gray-500'
-            }`}>
+            <div
+              className={`flex items-center gap-2 text-sm ${
+                isPendingFollowUp
+                  ? 'text-amber-600 bg-amber-50 p-2 rounded-lg'
+                  : 'text-gray-500'
+              }`}
+            >
               <Phone className="w-4 h-4" />
               <span className="text-xs">
                 {isPendingFollowUp ? '⚠️ 需要客服跟进' : `已跟进 ${followUpCount} 次`}
@@ -118,11 +126,13 @@ export function OrderCard({ order, followUpCount = 0, onClick }: OrderCardProps)
             </div>
           )}
         </div>
-        
+
         <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">优先级</span>
-            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${priority.color}`}>
+            <span
+              className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${priority.color}`}
+            >
               {priority.label}
             </span>
           </div>

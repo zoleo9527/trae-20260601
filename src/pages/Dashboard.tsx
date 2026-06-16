@@ -11,28 +11,35 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onSelectOrder }: DashboardProps) {
-  const { setOrders, orders, setPickupStatusFilter, setStatusFilter, setProductFilter, setSearchQuery, setFollowUpFilter } = useOrderStore();
+  const {
+    orders,
+    followUpRecords,
+    setOrders,
+    setFollowUpRecords,
+    setPickupStatusFilter,
+    setStatusFilter,
+    setProductFilter,
+    setSearchQuery,
+    setFollowUpFilter,
+  } = useOrderStore();
   const [loading, setLoading] = useState(true);
-  const [followUpCounts, setFollowUpCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const loadOrders = async () => {
       setLoading(true);
-      const [data, records] = await Promise.all([
-        getOrders(),
-        getFollowUpRecordsByOrderId('')
-      ]);
+      const data = await getOrders();
       setOrders(data);
-      
-      const counts: Record<string, number> = {};
+
+      const allRecords: Awaited<ReturnType<typeof getFollowUpRecordsByOrderId>> = [];
       for (const order of data) {
-        counts[order.id] = records.filter(r => r.orderId === order.id).length;
+        const records = await getFollowUpRecordsByOrderId(order.id);
+        allRecords.push(...records);
       }
-      setFollowUpCounts(counts);
+      setFollowUpRecords(allRecords);
       setLoading(false);
     };
     loadOrders();
-  }, [setOrders]);
+  }, [setOrders, setFollowUpRecords]);
 
   const handleFilterDelayed = () => {
     setPickupStatusFilter('delayed' as PickupStatusType);
@@ -50,8 +57,13 @@ export function Dashboard({ onSelectOrder }: DashboardProps) {
     setSearchQuery('');
   };
 
-  const delayedCount = orders.filter(o => o.pickupStatus === 'delayed').length;
-  const pendingFollowUpCount = orders.filter(o => o.pickupStatus === 'delayed' && (followUpCounts[o.id] || 0) === 0).length;
+  const delayedCount = orders.filter((o) => o.pickupStatus === 'delayed').length;
+
+  const pendingFollowUpCount = orders.filter((o) => {
+    if (o.pickupStatus !== 'delayed') return false;
+    const count = followUpRecords.filter((r) => r.orderId === o.id).length;
+    return count === 0;
+  }).length;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -59,7 +71,7 @@ export function Dashboard({ onSelectOrder }: DashboardProps) {
         <h2 className="text-2xl font-bold text-navy-900">工作台</h2>
         <p className="text-gray-500 mt-1">管理定制服装订单的交付验收与售后调整</p>
       </div>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-500">总订单</p>
@@ -68,19 +80,19 @@ export function Dashboard({ onSelectOrder }: DashboardProps) {
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-500">试穿中</p>
           <p className="text-2xl font-bold text-blue-600">
-            {orders.filter(o => o.status === 'fitting').length}
+            {orders.filter((o) => o.status === 'fitting').length}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-500">调整中</p>
           <p className="text-2xl font-bold text-coral-600">
-            {orders.filter(o => o.status === 'adjusting').length}
+            {orders.filter((o) => o.status === 'adjusting').length}
           </p>
         </div>
         <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
           <p className="text-sm text-gray-500">已完成</p>
           <p className="text-2xl font-bold text-mint-600">
-            {orders.filter(o => o.status === 'completed').length}
+            {orders.filter((o) => o.status === 'completed').length}
           </p>
         </div>
         <button
@@ -114,15 +126,15 @@ export function Dashboard({ onSelectOrder }: DashboardProps) {
           </div>
         </button>
       </div>
-      
+
       <FilterBar />
-      
+
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-8 h-8 text-navy-600 animate-spin" />
         </div>
       ) : (
-        <OrderList onSelectOrder={onSelectOrder} followUpCounts={followUpCounts} />
+        <OrderList onSelectOrder={onSelectOrder} />
       )}
     </div>
   );

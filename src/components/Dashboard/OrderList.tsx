@@ -4,10 +4,9 @@ import { Package } from 'lucide-react';
 
 interface OrderListProps {
   onSelectOrder: (orderId: string) => void;
-  followUpCounts?: Record<string, number>;
 }
 
-export function OrderList({ onSelectOrder, followUpCounts = {} }: OrderListProps) {
+export function OrderList({ onSelectOrder }: OrderListProps) {
   const { filteredOrders, orders } = useOrderStore();
   const ordersToShow = filteredOrders();
 
@@ -36,12 +35,7 @@ export function OrderList({ onSelectOrder, followUpCounts = {} }: OrderListProps
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {ordersToShow.map((order) => (
-        <OrderCard
-          key={order.id}
-          order={order}
-          followUpCount={followUpCounts[order.id] || 0}
-          onClick={() => onSelectOrder(order.id)}
-        />
+        <OrderCard key={order.id} order={order} onClick={() => onSelectOrder(order.id)} />
       ))}
     </div>
   );
