@@ -104,6 +104,10 @@ class Command(BaseCommand):
         waiter1 = Staff.objects.get(username='waiter1')
         waiter1.set_password('123456')
         waiter1.save()
+        
+        housekeeper1 = Staff.objects.get(username='housekeeper1')
+        housekeeper1.set_password('123456')
+        housekeeper1.save()
 
     def create_tables(self):
         for i in range(1, 6):
@@ -282,7 +286,7 @@ class Command(BaseCommand):
             date=today,
             time_slot='18:00',
             guest_count=6,
-            status='confirmed',
+            status='menu_submitted',
             created_by=waiter1
         )
         
@@ -329,7 +333,7 @@ class Command(BaseCommand):
             date=day_after,
             time_slot='12:00',
             guest_count=4,
-            status='confirmed',
+            status='menu_rejected',
             created_by=waiter1
         )
         
@@ -421,20 +425,75 @@ class Command(BaseCommand):
                 menu_item=gongbaojiding,
                 quantity=2
             )
+        
+        table_h2 = DiningTable.objects.get(table_number='H2')
+        reservation5 = Reservation.objects.create(
+            customer_name='孙七',
+            customer_phone='13900139005',
+            table=table_h2,
+            date=today,
+            time_slot='14:00',
+            guest_count=2,
+            status='menu_resubmitted',
+            created_by=waiter1
+        )
+        
+        FlowRecord.objects.create(
+            reservation=reservation5,
+            action='create',
+            operator=waiter1,
+            remark='创建预订'
+        )
+        FlowRecord.objects.create(
+            reservation=reservation5,
+            action='confirm',
+            operator=boss,
+            remark='老板确认预订'
+        )
+        FlowRecord.objects.create(
+            reservation=reservation5,
+            action='submit_menu',
+            operator=waiter1,
+            remark='服务员提交菜单'
+        )
+        FlowRecord.objects.create(
+            reservation=reservation5,
+            action='reject_menu',
+            operator=Staff.objects.get(username='chef1'),
+            remark='菜品数量不足，需要调整'
+        )
+        FlowRecord.objects.create(
+            reservation=reservation5,
+            action='submit_menu',
+            operator=waiter1,
+            remark='服务员重新提交菜单'
+        )
+        
+        yaotang = MenuItem.objects.get(name='老鸭汤')
+        ReservationMenu.objects.create(
+            reservation=reservation5,
+            menu_item=yaotang,
+            quantity=1
+        )
 
     def create_sample_notifications(self):
         chef1 = Staff.objects.get(username='chef1')
         waiter1 = Staff.objects.get(username='waiter1')
         boss = Staff.objects.get(username='boss')
+        housekeeper1 = Staff.objects.get(username='housekeeper1')
+        today = date.today()
         
         pending_reservation = Reservation.objects.filter(status='pending').first()
-        confirmed_with_menu = Reservation.objects.filter(
-            status='confirmed',
-            menus__isnull=False
-        ).exclude(flow_records__action='approve_menu').first()
-        rejected_menu_reservation = Reservation.objects.filter(
-            flow_records__action='reject_menu'
+        menu_submitted_reservation = Reservation.objects.filter(
+            status='menu_submitted'
         ).first()
+        menu_resubmitted_reservation = Reservation.objects.filter(
+            status='menu_resubmitted'
+        ).first()
+        menu_rejected_reservation = Reservation.objects.filter(
+            status='menu_rejected'
+        ).first()
+        today_reservation = Reservation.objects.filter(date=today).first()
         
         if pending_reservation:
             Notification.objects.get_or_create(
@@ -447,24 +506,56 @@ class Command(BaseCommand):
                 }
             )
         
-        if confirmed_with_menu:
+        if menu_submitted_reservation:
             Notification.objects.get_or_create(
                 staff=chef1,
-                reservation=confirmed_with_menu,
+                reservation=menu_submitted_reservation,
                 type='pending_menu',
                 defaults={
-                    'message': f"新菜单待处理: {confirmed_with_menu.customer_name} {confirmed_with_menu.date} {confirmed_with_menu.time_slot}",
+                    'message': f"新菜单待处理: {menu_submitted_reservation.customer_name} {menu_submitted_reservation.date} {menu_submitted_reservation.time_slot}",
                     'is_read': False
                 }
             )
         
-        if rejected_menu_reservation:
+        if menu_resubmitted_reservation:
             Notification.objects.get_or_create(
-                staff=waiter1,
-                reservation=rejected_menu_reservation,
-                type='rejected_menu',
+                staff=chef1,
+                reservation=menu_resubmitted_reservation,
+                type='pending_menu',
                 defaults={
-                    'message': f"菜单被驳回: {rejected_menu_reservation.customer_name} - 请联系客户更换菜品",
+                    'message': f"补录菜单待确认: {menu_resubmitted_reservation.customer_name} {menu_resubmitted_reservation.date} {menu_resubmitted_reservation.time_slot}",
                     'is_read': False
                 }
             )
+        
+        if menu_rejected_reservation:
+            Notification.objects.get_or_create(
+                staff=waiter1,
+                reservation=menu_rejected_reservation,
+                type='rejected_menu',
+                defaults={
+                    'message': f"菜单被驳回: {menu_rejected_reservation.customer_name} - 请联系客户更换菜品",
+                    'is_read': False
+                }
+            )
+        
+        if today_reservation:
+            Notification.objects.get_or_create(
+                staff=housekeeper1,
+                reservation=today_reservation,
+                type='reminder',
+                defaults={
+                    'message': f"今日客房提醒: {today_reservation.date} 有 {today_reservation.guest_count} 位客人用餐，请提前准备",
+                    'is_read': False
+                }
+            )
+        
+        Notification.objects.get_or_create(
+            staff=housekeeper1,
+            reservation=today_reservation,
+            type='reminder',
+            defaults={
+                'message': "今日清洁任务：请打扫包间B1、B2和大厅H1-H3",
+                'is_read': False
+            }
+        ) if today_reservation else None

@@ -46,6 +46,12 @@ class DiningTableSchema(Schema):
     table_type_display: str
     status: bool
 
+class LastRejectInfoSchema(Schema):
+    operator_name: str = None
+    operator_role: str = None
+    remark: str = None
+    created_at: datetime = None
+
 class ReservationSchema(Schema):
     id: int
     customer_name: str
@@ -58,6 +64,7 @@ class ReservationSchema(Schema):
     status_display: str
     created_at: datetime
     updated_at: datetime
+    last_reject_info: LastRejectInfoSchema = None
 
 class MenuItemSchema(Schema):
     id: int
@@ -85,6 +92,7 @@ class ReservationDetailSchema(Schema):
     reservation: ReservationSchema
     menus: list[ReservationMenuSchema]
     flow_records: list[FlowRecordSchema]
+    last_reject_info: LastRejectInfoSchema = None
 
 class CreateReservationSchema(Schema):
     customer_name: str
@@ -120,6 +128,21 @@ class NotificationSchema(Schema):
     created_at: datetime
     reservation_id: int
 
+def get_last_reject_info(reservation):
+    last_reject = FlowRecord.objects.filter(
+        reservation=reservation,
+        action__in=['reject_menu']
+    ).order_by('-created_at').first()
+    
+    if last_reject:
+        return {
+            "operator_name": last_reject.operator.name,
+            "operator_role": last_reject.operator.role.get_name_display(),
+            "remark": last_reject.remark,
+            "created_at": last_reject.created_at
+        }
+    return None
+
 @api.get("/reservations", response=list[ReservationSchema], auth=AuthBearer())
 def list_reservations(request, status: str = None, date: date = None, table_type: str = None, page: int = 1, page_size: int = 10):
     queryset = Reservation.objects.select_related('table').order_by('-created_at')
@@ -135,26 +158,31 @@ def list_reservations(request, status: str = None, date: date = None, table_type
     end = start + page_size
     reservations = queryset[start:end]
     
-    return [{
-        "id": r.id,
-        "customer_name": r.customer_name,
-        "customer_phone": r.customer_phone,
-        "table": {
-            "id": r.table.id,
-            "table_number": r.table.table_number,
-            "capacity": r.table.capacity,
-            "table_type": r.table.table_type,
-            "table_type_display": r.table.get_table_type_display(),
-            "status": r.table.status
-        },
-        "date": r.date,
-        "time_slot": r.time_slot,
-        "guest_count": r.guest_count,
-        "status": r.status,
-        "status_display": r.get_status_display(),
-        "created_at": r.created_at,
-        "updated_at": r.updated_at
-    } for r in reservations]
+    result = []
+    for r in reservations:
+        last_reject = get_last_reject_info(r)
+        result.append({
+            "id": r.id,
+            "customer_name": r.customer_name,
+            "customer_phone": r.customer_phone,
+            "table": {
+                "id": r.table.id,
+                "table_number": r.table.table_number,
+                "capacity": r.table.capacity,
+                "table_type": r.table.table_type,
+                "table_type_display": r.table.get_table_type_display(),
+                "status": r.table.status
+            },
+            "date": r.date,
+            "time_slot": r.time_slot,
+            "guest_count": r.guest_count,
+            "status": r.status,
+            "status_display": r.get_status_display(),
+            "created_at": r.created_at,
+            "updated_at": r.updated_at,
+            "last_reject_info": last_reject
+        })
+    return result
 
 @api.get("/reservations/{reservation_id}", response=ReservationDetailSchema, auth=AuthBearer())
 def get_reservation(request, reservation_id: int):
@@ -162,6 +190,7 @@ def get_reservation(request, reservation_id: int):
         reservation = Reservation.objects.select_related('table').get(id=reservation_id)
         menus = ReservationMenu.objects.filter(reservation=reservation).select_related('menu_item__category')
         flow_records = FlowRecord.objects.filter(reservation=reservation).select_related('operator__role').order_by('created_at')
+        last_reject = get_last_reject_info(reservation)
         
         return {
             "reservation": {
@@ -182,7 +211,8 @@ def get_reservation(request, reservation_id: int):
                 "status": reservation.status,
                 "status_display": reservation.get_status_display(),
                 "created_at": reservation.created_at,
-                "updated_at": reservation.updated_at
+                "updated_at": reservation.updated_at,
+                "last_reject_info": last_reject
             },
             "menus": [{
                 "id": m.id,
@@ -204,7 +234,8 @@ def get_reservation(request, reservation_id: int):
                 "operator_role": f.operator.role.get_name_display(),
                 "remark": f.remark,
                 "created_at": f.created_at
-            } for f in flow_records]
+            } for f in flow_records],
+            "last_reject_info": last_reject
         }
     except Reservation.DoesNotExist:
         return api.create_response(request, {"detail": "Reservation not found"}, status=404)
@@ -402,8 +433,9 @@ def add_menu(request, reservation_id: int, data: AddMenuSchema):
     except MenuItem.DoesNotExist:
         return api.create_response(request, {"detail": "Menu item not found"}, status=404)
     
-    if reservation.status != 'confirmed':
-        return api.create_response(request, {"detail": "Reservation must be confirmed first"}, status=400)
+    allowed_statuses = ['confirmed', 'menu_submitted', 'menu_rejected', 'menu_resubmitted']
+    if reservation.status not in allowed_statuses:
+        return api.create_response(request, {"detail": "Cannot add menu for this reservation status"}, status=400)
     
     existing_menu = ReservationMenu.objects.filter(reservation=reservation, menu_item=menu_item).first()
     if existing_menu:
@@ -420,13 +452,25 @@ def add_menu(request, reservation_id: int, data: AddMenuSchema):
         )
     
     has_menu = ReservationMenu.objects.filter(reservation=reservation).exists()
-    if has_menu and reservation.status == 'confirmed':
-        FlowRecord.objects.create(
-            reservation=reservation,
-            action='submit_menu',
-            operator=request.auth,
-            remark="提交菜单"
-        )
+    if has_menu:
+        if reservation.status == 'confirmed':
+            reservation.status = 'menu_submitted'
+            reservation.save()
+            FlowRecord.objects.create(
+                reservation=reservation,
+                action='submit_menu',
+                operator=request.auth,
+                remark="提交菜单"
+            )
+        elif reservation.status == 'menu_rejected':
+            reservation.status = 'menu_resubmitted'
+            reservation.save()
+            FlowRecord.objects.create(
+                reservation=reservation,
+                action='submit_menu',
+                operator=request.auth,
+                remark="重新提交菜单"
+            )
     
     return {"detail": "Menu added successfully"}
 
@@ -447,7 +491,8 @@ def process_menu(request, reservation_id: int, data: ProcessMenuSchema):
         return api.create_response(request, {"detail": "Reservation not found"}, status=404)
     
     if data.action == 'approve':
-        if reservation.status != 'confirmed':
+        allowed_statuses = ['menu_submitted', 'menu_resubmitted']
+        if reservation.status not in allowed_statuses:
             return api.create_response(request, {"detail": "Cannot approve menu for this status"}, status=400)
         
         has_menu = ReservationMenu.objects.filter(reservation=reservation).exists()
@@ -474,8 +519,12 @@ def process_menu(request, reservation_id: int, data: ProcessMenuSchema):
             )
         
     elif data.action == 'reject':
-        if reservation.status != 'confirmed':
+        allowed_statuses = ['menu_submitted', 'menu_resubmitted']
+        if reservation.status not in allowed_statuses:
             return api.create_response(request, {"detail": "Cannot reject menu for this status"}, status=400)
+        
+        reservation.status = 'menu_rejected'
+        reservation.save()
         
         FlowRecord.objects.create(
             reservation=reservation,
@@ -558,16 +607,91 @@ def get_tables(request, table_type: str = None):
 @api.get("/dashboard", auth=AuthBearer())
 def get_dashboard(request):
     today = date.today()
+    role_name = request.auth.role.name
+    
     pending_count = Reservation.objects.filter(status='pending').count()
     confirmed_count = Reservation.objects.filter(status='confirmed').count()
+    menu_submitted_count = Reservation.objects.filter(status='menu_submitted').count()
+    menu_rejected_count = Reservation.objects.filter(status='menu_rejected').count()
+    menu_resubmitted_count = Reservation.objects.filter(status='menu_resubmitted').count()
     menu_confirmed_count = Reservation.objects.filter(status='menu_confirmed').count()
     today_reservations = Reservation.objects.filter(date=today).count()
     
-    return {
-        "pending_count": pending_count,
-        "confirmed_count": confirmed_count,
-        "menu_confirmed_count": menu_confirmed_count,
-        "today_reservations": today_reservations,
-        "role": request.auth.role.name,
-        "role_display": request.auth.role.get_name_display()
-    }
+    pending_notifications = Notification.objects.filter(staff=request.auth, is_read=False).count()
+    
+    if role_name == 'boss':
+        return {
+            "pending_count": pending_count,
+            "confirmed_count": confirmed_count,
+            "menu_submitted_count": menu_submitted_count,
+            "menu_rejected_count": menu_rejected_count,
+            "menu_resubmitted_count": menu_resubmitted_count,
+            "menu_confirmed_count": menu_confirmed_count,
+            "today_reservations": today_reservations,
+            "pending_notifications": pending_notifications,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display(),
+            "pending_actions": [
+                {"type": "pending_reservation", "count": pending_count, "label": "待确认预订"},
+                {"type": "pending_menu", "count": menu_submitted_count + menu_resubmitted_count, "label": "待确认菜单"}
+            ]
+        }
+    
+    elif role_name == 'chef':
+        return {
+            "pending_count": pending_count,
+            "confirmed_count": confirmed_count,
+            "menu_submitted_count": menu_submitted_count,
+            "menu_rejected_count": menu_rejected_count,
+            "menu_resubmitted_count": menu_resubmitted_count,
+            "menu_confirmed_count": menu_confirmed_count,
+            "today_reservations": today_reservations,
+            "pending_notifications": pending_notifications,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display(),
+            "pending_actions": [
+                {"type": "pending_menu", "count": menu_submitted_count + menu_resubmitted_count, "label": "待确认菜单"}
+            ]
+        }
+    
+    elif role_name == 'housekeeper':
+        return {
+            "pending_count": pending_count,
+            "confirmed_count": confirmed_count,
+            "menu_confirmed_count": menu_confirmed_count,
+            "today_reservations": today_reservations,
+            "pending_notifications": pending_notifications,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display(),
+            "pending_actions": [
+                {"type": "cleaning_task", "count": today_reservations, "label": "今日客房清洁"}
+            ]
+        }
+    
+    elif role_name == 'waiter':
+        return {
+            "pending_count": pending_count,
+            "confirmed_count": confirmed_count,
+            "menu_submitted_count": menu_submitted_count,
+            "menu_rejected_count": menu_rejected_count,
+            "menu_resubmitted_count": menu_resubmitted_count,
+            "menu_confirmed_count": menu_confirmed_count,
+            "today_reservations": today_reservations,
+            "pending_notifications": pending_notifications,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display(),
+            "pending_actions": [
+                {"type": "rejected_menu", "count": menu_rejected_count, "label": "菜单驳回待补录"}
+            ]
+        }
+    
+    else:
+        return {
+            "pending_count": pending_count,
+            "confirmed_count": confirmed_count,
+            "menu_confirmed_count": menu_confirmed_count,
+            "today_reservations": today_reservations,
+            "pending_notifications": pending_notifications,
+            "role": role_name,
+            "role_display": request.auth.role.get_name_display()
+        }

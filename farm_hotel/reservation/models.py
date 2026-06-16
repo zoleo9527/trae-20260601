@@ -82,6 +82,9 @@ class Reservation(models.Model):
     STATUS_CHOICES = [
         ('pending', '待确认'),
         ('confirmed', '已确认'),
+        ('menu_submitted', '菜单已提交'),
+        ('menu_rejected', '菜单驳回待补录'),
+        ('menu_resubmitted', '补录后待确认'),
         ('menu_confirmed', '菜单已确认'),
         ('completed', '已完成'),
         ('cancelled', '已取消'),
