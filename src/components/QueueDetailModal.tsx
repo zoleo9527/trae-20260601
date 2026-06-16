@@ -88,6 +88,9 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
     });
 
     queueLogs.forEach(log => {
+      if (log.action === '完成结账' || log.action.includes('取消')) {
+        return;
+      }
       const icon = getLogIcon(log.action);
       events.push({
         id: `log-${log.id}`,
