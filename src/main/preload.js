@@ -21,5 +21,11 @@ contextBridge.exposeInMainWorld('api', {
   createFittingRecord: (data) => ipcRenderer.invoke('db:createFittingRecord', data),
   getFittingRecords: (appointmentId) => ipcRenderer.invoke('db:getFittingRecords', appointmentId),
   createFabricCard: (data) => ipcRenderer.invoke('db:createFabricCard', data),
-  getFabricCards: (appointmentId) => ipcRenderer.invoke('db:getFabricCards', appointmentId)
+  getFabricCards: (appointmentId) => ipcRenderer.invoke('db:getFabricCards', appointmentId),
+  createTodo: (data) => ipcRenderer.invoke('db:createTodo', data),
+  getTodos: (filters) => ipcRenderer.invoke('db:getTodos', filters),
+  updateTodo: (id, data) => ipcRenderer.invoke('db:updateTodo', id, data),
+  deleteTodo: (id) => ipcRenderer.invoke('db:deleteTodo', id),
+  updateAppointmentOwner: (appointmentId, ownerId, ownerRole) => ipcRenderer.invoke('db:updateAppointmentOwner', appointmentId, ownerId, ownerRole),
+  getAppointmentsWithOwner: () => ipcRenderer.invoke('db:getAppointmentsWithOwner')
 });

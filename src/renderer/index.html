@@ -111,6 +111,13 @@
                                 <div class="stat-label">待确认款式</div>
                             </div>
                         </div>
+                        <div class="stat-card" onclick="loadTodos()">
+                            <div class="stat-icon">📋</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="pendingTodos">0</div>
+                                <div class="stat-label">待办事项</div>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="dashboard-grid">
@@ -120,6 +127,15 @@
                             </div>
                             <div class="card-content" id="riskItemsList">
                                 <div class="empty-state">暂无风险项</div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>📋 待办事项</h3>
+                            </div>
+                            <div class="card-content" id="todosList">
+                                <div class="empty-state">暂无待办事项</div>
                             </div>
                         </div>
 
@@ -250,13 +266,14 @@
                                     <th>操作时间</th>
                                     <th>操作类型</th>
                                     <th>实体类型</th>
-                                    <th>描述</th>
-                                    <th>操作人</th>
+                                    <th>操作者</th>
+                                    <th>来源</th>
+                                    <th>变更摘要</th>
                                 </tr>
                             </thead>
                             <tbody id="historyTableBody">
                                 <tr>
-                                    <td colspan="5" class="empty-state">加载中...</td>
+                                    <td colspan="6" class="empty-state">加载中...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -351,9 +368,58 @@
                     <button class="tab-btn" data-tab="fabrics">面料卡</button>
                     <button class="tab-btn" data-tab="styles">款式确认</button>
                     <button class="tab-btn" data-tab="fittings">试衣记录</button>
+                    <button class="tab-btn" data-tab="todos">待办事项</button>
                 </div>
 
                 <div class="tab-content active" id="tab-basic">
+                    <div class="workflow-kanban">
+                        <div class="kanban-header">
+                            <h4>📋 工作流程接力</h4>
+                            <button class="btn btn-secondary" onclick="showTransferOwnerModal()">转移责任人</button>
+                        </div>
+                        <div class="kanban-board">
+                            <div class="kanban-column">
+                                <div class="kanban-column-header">
+                                    <span class="kanban-icon">👔</span>
+                                    <span>量体师</span>
+                                </div>
+                                <div class="kanban-card" id="kanban-tailor">
+                                    <div class="card-title" id="tailor-name">-</div>
+                                    <div class="card-status" id="tailor-status">未分配</div>
+                                </div>
+                            </div>
+                            <div class="kanban-arrow">→</div>
+                            <div class="kanban-column">
+                                <div class="kanban-column-header">
+                                    <span class="kanban-icon">✂️</span>
+                                    <span>版师</span>
+                                </div>
+                                <div class="kanban-card" id="kanban-pattern">
+                                    <div class="card-title" id="pattern-name">-</div>
+                                    <div class="card-status" id="pattern-status">未分配</div>
+                                </div>
+                            </div>
+                            <div class="kanban-arrow">→</div>
+                            <div class="kanban-column">
+                                <div class="kanban-column-header">
+                                    <span class="kanban-icon">💁</span>
+                                    <span>客服</span>
+                                </div>
+                                <div class="kanban-card" id="kanban-service">
+                                    <div class="card-title" id="service-name">-</div>
+                                    <div class="card-status" id="service-status">未分配</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="current-owner-section">
+                            <div class="owner-label">当前责任人</div>
+                            <div class="owner-info" id="current-owner">
+                                <span class="owner-badge" id="current-owner-badge"></span>
+                                <span id="current-owner-name">未分配</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="detail-grid">
                         <div class="detail-item">
                             <label>客户姓名</label>
@@ -420,6 +486,13 @@
                         <button class="btn btn-primary" onclick="showNewFittingRecordModal()">新建试衣记录</button>
                     </div>
                     <div id="fittingRecordsList"></div>
+                </div>
+
+                <div class="tab-content" id="tab-todos">
+                    <div class="tab-actions">
+                        <button class="btn btn-primary" onclick="showNewTodoModal()">新建待办</button>
+                    </div>
+                    <div id="appointmentTodosList"></div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -701,6 +774,102 @@
             <div class="modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('fittingRecordModal')">取消</button>
                 <button class="btn btn-primary" onclick="saveFittingRecord()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="transferOwnerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>转移责任人</h3>
+                <button class="modal-close" onclick="closeModal('transferOwnerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="transferOwnerForm">
+                    <input type="hidden" id="transferAppointmentId">
+                    
+                    <div class="form-group">
+                        <label for="transferRole">转移到角色</label>
+                        <select id="transferRole" onchange="updateTransferEmployeeOptions()">
+                            <option value="tailor">量体师</option>
+                            <option value="pattern_maker">版师</option>
+                            <option value="customer_service">客服</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transferEmployee">选择人员</label>
+                        <select id="transferEmployee"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="transferNote">备注</label>
+                        <textarea id="transferNote" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('transferOwnerModal')">取消</button>
+                <button class="btn btn-primary" onclick="transferOwner()">确认转移</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="todoModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="todoModalTitle">新建待办</h3>
+                <button class="modal-close" onclick="closeModal('todoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="todoForm">
+                    <input type="hidden" id="todoId">
+                    <input type="hidden" id="todoAppointmentId">
+                    
+                    <div class="form-group">
+                        <label for="todoTitle">标题 <span class="required">*</span></label>
+                        <input type="text" id="todoTitle" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="todoDescription">描述</label>
+                        <textarea id="todoDescription" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="todoAssigneeRole">指派角色</label>
+                            <select id="todoAssigneeRole" onchange="updateTodoEmployeeOptions()">
+                                <option value="tailor">量体师</option>
+                                <option value="pattern_maker">版师</option>
+                                <option value="customer_service">客服</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="todoAssignee">指派人员</label>
+                            <select id="todoAssignee"></select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="todoPriority">优先级</label>
+                            <select id="todoPriority">
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="todoDueDate">截止日期</label>
+                            <input type="date" id="todoDueDate">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('todoModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveTodo()">保存</button>
             </div>
         </div>
     </div>

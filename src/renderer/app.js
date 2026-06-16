@@ -132,6 +132,7 @@ async function loadDashboard() {
         
         await loadRiskItems();
         await loadRecentChanges();
+        await loadTodos();
     } catch (error) {
         console.error('加载仪表盘失败:', error);
     }
@@ -255,10 +256,16 @@ function getStatusBadge(status) {
         'confirmed': '已确认',
         'in_progress': '进行中',
         'completed': '已完成',
-        'risk': '风险项'
+        'risk': '风险项',
+        'approved': '已批准',
+        'rejected': '已拒绝'
     };
     
-    return `<span class="status-badge ${status}">${statusMap[status] || status}</span>`;
+    const badge = document.createElement('span');
+    badge.className = `status-badge ${status}`;
+    badge.textContent = statusMap[status] || status;
+    
+    return badge;
 }
 
 function filterAppointments(status) {
@@ -406,7 +413,6 @@ async function viewAppointment(id) {
         document.getElementById('detailCustomerService').textContent = appointment.customer_service_name || '-';
         
         const statusBadge = getStatusBadge(appointment.status);
-        statusBadge.className = 'status-badge ' + appointment.status;
         document.getElementById('detailStatus').innerHTML = statusBadge.outerHTML;
         
         document.getElementById('detailNotes').textContent = appointment.notes || '-';
@@ -528,7 +534,7 @@ function renderStyleConfirmations(styleConfirmations) {
             <div class="record-card">
                 <div class="record-header">
                     <div class="record-title">${sc.style_name}</div>
-                    ${statusBadge}
+                    ${statusBadge.outerHTML}
                 </div>
                 <div class="record-grid">
                     <div class="record-field">
@@ -906,14 +912,28 @@ async function loadRecentItems() {
             'fitting_record': '试衣记录'
         };
         
+        const roleLabels = {
+            'tailor': '量体师',
+            'pattern_maker': '版师',
+            'customer_service': '客服'
+        };
+        
         container.innerHTML = recentItems.map(item => {
             const time = new Date(item.last_accessed).toLocaleString('zh-CN');
+            const accessedBy = employees.find(e => e.id === item.accessed_by);
+            const operatorName = accessedBy?.name || '未知';
+            const operatorRole = accessedBy ? roleLabels[accessedBy.role] || accessedBy.role : '-';
             
             return `
                 <div class="recent-item-card" onclick="openRecentItem('${item.item_type}', ${item.item_id})">
-                    <div class="recent-item-type">${typeLabels[item.item_type] || item.item_type}</div>
+                    <div class="recent-item-header">
+                        <span class="recent-item-type">${typeLabels[item.item_type] || item.item_type}</span>
+                        <span class="recent-item-operator">${operatorName} (${operatorRole})</span>
+                    </div>
                     <div class="recent-item-title">${item.item_title}</div>
-                    <div class="recent-item-time">最后访问: ${time}</div>
+                    <div class="recent-item-footer">
+                        <span class="recent-item-time">最后访问: ${time}</span>
+                    </div>
                 </div>
             `;
         }).join('');
@@ -941,7 +961,7 @@ async function loadOperationHistory() {
         const tbody = document.getElementById('historyTableBody');
         
         if (history.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="empty-state">暂无操作历史</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">暂无操作历史</td></tr>';
             return;
         }
         
@@ -950,20 +970,38 @@ async function loadOperationHistory() {
             const icon = getOperationIcon(item.operation_type);
             
             const typeLabels = {
-                'appointment': '预约',
-                'measurement': '量体',
+                'appointment': '量体预约',
+                'measurement': '量体记录',
                 'style_confirmation': '款式确认',
                 'fabric_card': '面料卡',
-                'fitting_record': '试衣记录'
+                'fitting_record': '试衣记录',
+                'todo': '待办事项'
             };
+            
+            const operationLabels = {
+                'create': '创建',
+                'update': '更新',
+                'delete': '删除',
+                'status_change': '状态变更',
+                'approve': '批准',
+                'approved': '批准',
+                'reject': '拒绝',
+                'rejected': '拒绝',
+                'warning': '警告',
+                'complete': '完成'
+            };
+            
+            const source = getSourceInfo(item);
+            const summary = getChangeSummary(item);
             
             return `
                 <tr>
                     <td>${time}</td>
-                    <td>${icon} ${item.operation_type}</td>
+                    <td>${icon} ${operationLabels[item.operation_type] || item.operation_type}</td>
                     <td>${typeLabels[item.entity_type] || item.entity_type}</td>
-                    <td>${item.description}</td>
-                    <td>${item.operator_name || '-'}</td>
+                    <td>${item.operator_name || '系统'}</td>
+                    <td>${source}</td>
+                    <td title="${item.description}">${summary}</td>
                 </tr>
             `;
         }).join('');
@@ -972,6 +1010,452 @@ async function loadOperationHistory() {
     }
 }
 
+function getSourceInfo(item) {
+    if (item.entity_type === 'appointment') {
+        return '预约管理';
+    } else if (item.entity_type === 'measurement') {
+        return '量体记录';
+    } else if (item.entity_type === 'style_confirmation') {
+        return '款式确认';
+    } else if (item.entity_type === 'fabric_card') {
+        return '面料管理';
+    } else if (item.entity_type === 'fitting_record') {
+        return '试衣记录';
+    } else if (item.entity_type === 'todo') {
+        return '待办管理';
+    }
+    return '系统';
+}
+
+function getChangeSummary(item) {
+    if (!item.description) return '-';
+    
+    if (item.description.length <= 30) {
+        return item.description;
+    }
+    
+    return item.description.substring(0, 30) + '...';
+}
+
 function closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');
+}
+
+async function loadTodos() {
+    try {
+        const todos = await window.api.getTodos({ status: 'pending' });
+        const container = document.getElementById('todosList');
+        const countElement = document.getElementById('pendingTodos');
+        
+        countElement.textContent = todos.length;
+        
+        if (todos.length === 0) {
+            container.innerHTML = '<div class="empty-state">暂无待办事项</div>';
+            return;
+        }
+        
+        container.innerHTML = todos.map(item => {
+            const time = new Date(item.created_at).toLocaleDateString('zh-CN');
+            const priorityLabel = { high: '高', medium: '中', low: '低' };
+            
+            return `
+                <div class="todo-item ${item.priority}" onclick="viewAppointment(${item.appointment_id})">
+                    <div class="todo-icon">📋</div>
+                    <div class="todo-content">
+                        <div class="todo-title">${item.title}</div>
+                        <div class="todo-meta">
+                            ${item.customer_name} · 优先级: ${priorityLabel[item.priority]} · ${time}
+                        </div>
+                    </div>
+                    <div class="todo-actions">
+                        <button class="btn btn-success" onclick="completeTodo(${item.id})">完成</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('加载待办失败:', error);
+    }
+}
+
+function showNewTodoModal(appointmentId = null) {
+    document.getElementById('todoForm').reset();
+    document.getElementById('todoModalTitle').textContent = '新建待办';
+    document.getElementById('todoId').value = '';
+    document.getElementById('todoAppointmentId').value = appointmentId || currentAppointmentId;
+    
+    updateTodoEmployeeOptions();
+    
+    document.getElementById('todoModal').classList.add('active');
+}
+
+function updateTodoEmployeeOptions() {
+    const role = document.getElementById('todoAssigneeRole').value;
+    const select = document.getElementById('todoAssignee');
+    
+    const filtered = employees.filter(e => e.role === role);
+    select.innerHTML = '<option value="">请选择人员</option>' +
+        filtered.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+async function saveTodo() {
+    try {
+        const id = document.getElementById('todoId').value;
+        const data = {
+            appointment_id: parseInt(document.getElementById('todoAppointmentId').value),
+            title: document.getElementById('todoTitle').value,
+            description: document.getElementById('todoDescription').value,
+            assignee_id: document.getElementById('todoAssignee').value || null,
+            assignee_role: document.getElementById('todoAssigneeRole').value,
+            priority: document.getElementById('todoPriority').value,
+            due_date: document.getElementById('todoDueDate').value,
+            created_by: 1
+        };
+        
+        if (!data.title) {
+            alert('请填写待办标题');
+            return;
+        }
+        
+        if (id) {
+            await window.api.updateTodo(parseInt(id), data);
+        } else {
+            await window.api.createTodo(data);
+        }
+        
+        closeModal('todoModal');
+        loadTodos();
+        loadDashboard();
+    } catch (error) {
+        console.error('保存待办失败:', error);
+        alert('保存失败: ' + error.message);
+    }
+}
+
+async function completeTodo(id) {
+    try {
+        await window.api.updateTodo(id, { status: 'completed' });
+        loadTodos();
+        loadDashboard();
+    } catch (error) {
+        console.error('完成待办失败:', error);
+    }
+}
+
+function showTransferOwnerModal() {
+    document.getElementById('transferAppointmentId').value = currentAppointmentId;
+    document.getElementById('transferRole').value = 'tailor';
+    updateTransferEmployeeOptions();
+    
+    document.getElementById('transferOwnerModal').classList.add('active');
+}
+
+function updateTransferEmployeeOptions() {
+    const role = document.getElementById('transferRole').value;
+    const select = document.getElementById('transferEmployee');
+    
+    const filtered = employees.filter(e => e.role === role);
+    select.innerHTML = '<option value="">请选择人员</option>' +
+        filtered.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+}
+
+async function transferOwner() {
+    try {
+        const appointmentId = parseInt(document.getElementById('transferAppointmentId').value);
+        const ownerId = parseInt(document.getElementById('transferEmployee').value);
+        const ownerRole = document.getElementById('transferRole').value;
+        
+        if (!ownerId) {
+            alert('请选择责任人');
+            return;
+        }
+        
+        await window.api.updateAppointmentOwner(appointmentId, ownerId, ownerRole);
+        
+        await window.api.createTodo({
+            appointment_id: appointmentId,
+            title: `任务已转移给${employees.find(e => e.id === ownerId)?.name}`,
+            description: document.getElementById('transferNote').value,
+            assignee_id: ownerId,
+            assignee_role: ownerRole,
+            priority: 'high'
+        });
+        
+        closeModal('transferOwnerModal');
+        await viewAppointment(currentAppointmentId);
+        loadDashboard();
+    } catch (error) {
+        console.error('转移责任人失败:', error);
+        alert('操作失败: ' + error.message);
+    }
+}
+
+async function updateAppointmentStatusBasedOnDetails(appointment) {
+    try {
+        let newStatus = appointment.status;
+        const styleConfirmations = appointment.style_confirmations || [];
+        const fittingRecords = appointment.fitting_records || [];
+        const measurements = appointment.measurements || [];
+        
+        const allStylesApproved = styleConfirmations.length > 0 && 
+            styleConfirmations.every(sc => sc.approval_status === 'approved');
+        const hasRejectedStyle = styleConfirmations.some(sc => sc.approval_status === 'rejected');
+        const hasMeasurements = measurements.length > 0;
+        const hasFittingIssues = fittingRecords.some(fr => fr.issues && fr.issues.trim());
+        const hasFinalFitting = fittingRecords.some(fr => fr.fitting_stage === '成衣检查');
+        
+        if (appointment.status === 'pending') {
+            if (hasMeasurements && allStylesApproved) {
+                newStatus = 'in_progress';
+            }
+        } else if (appointment.status === 'confirmed') {
+            if (hasMeasurements && allStylesApproved) {
+                newStatus = 'in_progress';
+            }
+        } else if (appointment.status === 'in_progress') {
+            if (hasRejectedStyle) {
+                newStatus = 'risk';
+            } else if (hasFinalFitting && !hasFittingIssues) {
+                const finalFitting = fittingRecords.find(fr => fr.fitting_stage === '成衣检查');
+                if (finalFitting && finalFitting.fit_rating >= 4) {
+                    newStatus = 'completed';
+                }
+            } else if (hasFittingIssues) {
+                newStatus = 'risk';
+            }
+        }
+        
+        if (newStatus !== appointment.status) {
+            await window.api.updateAppointment(appointment.id, { 
+                status: newStatus,
+                operator_id: 1,
+                operator_name: '系统'
+            });
+            
+            await window.api.addOperationHistory({
+                operation_type: 'status_change',
+                entity_type: 'appointment',
+                entity_id: appointment.id,
+                description: `系统自动更新状态: ${appointment.status} → ${newStatus}`,
+                operator_id: 1,
+                operator_name: '系统'
+            });
+        }
+    } catch (error) {
+        console.error('更新预约状态失败:', error);
+    }
+}
+
+function renderWorkflowKanban(appointment) {
+    const roleLabels = {
+        tailor: '量体师',
+        pattern_maker: '版师',
+        customer_service: '客服'
+    };
+    
+    document.getElementById('tailor-name').textContent = appointment.tailor_name || '-';
+    document.getElementById('pattern-name').textContent = appointment.pattern_maker_name || '-';
+    document.getElementById('service-name').textContent = appointment.customer_service_name || '-';
+    
+    document.getElementById('tailor-status').textContent = appointment.tailor_id ? '已分配' : '未分配';
+    document.getElementById('pattern-status').textContent = appointment.pattern_maker_id ? '已分配' : '未分配';
+    document.getElementById('service-status').textContent = appointment.customer_service_id ? '已分配' : '未分配';
+    
+    const tailorCard = document.getElementById('kanban-tailor');
+    const patternCard = document.getElementById('kanban-pattern');
+    const serviceCard = document.getElementById('kanban-service');
+    
+    tailorCard.classList.remove('active', 'current-owner');
+    patternCard.classList.remove('active', 'current-owner');
+    serviceCard.classList.remove('active', 'current-owner');
+    
+    if (appointment.current_owner_role === 'tailor') {
+        tailorCard.classList.add('current-owner');
+    } else if (appointment.current_owner_role === 'pattern_maker') {
+        patternCard.classList.add('current-owner');
+    } else if (appointment.current_owner_role === 'customer_service') {
+        serviceCard.classList.add('current-owner');
+    }
+    
+    document.getElementById('current-owner-name').textContent = appointment.current_owner_name || '未分配';
+    document.getElementById('current-owner-badge').textContent = 
+        appointment.current_owner_role ? roleLabels[appointment.current_owner_role] : '-';
+}
+
+async function viewAppointment(id) {
+    try {
+        const appointment = await window.api.getAppointment(id);
+        currentAppointmentId = id;
+        
+        document.getElementById('appointmentDetailTitle').textContent = 
+            `${appointment.customer_name} - 预约详情`;
+        
+        document.getElementById('detailCustomerName').textContent = appointment.customer_name;
+        document.getElementById('detailCustomerPhone').textContent = appointment.customer_phone || '-';
+        document.getElementById('detailAppointmentDate').textContent = 
+            new Date(appointment.appointment_date).toLocaleDateString('zh-CN');
+        document.getElementById('detailAppointmentTime').textContent = 
+            appointment.appointment_time || '-';
+        document.getElementById('detailTailor').textContent = appointment.tailor_name || '-';
+        document.getElementById('detailPatternMaker').textContent = appointment.pattern_maker_name || '-';
+        document.getElementById('detailCustomerService').textContent = appointment.customer_service_name || '-';
+        
+        const statusBadge = getStatusBadge(appointment.status);
+        document.getElementById('detailStatus').innerHTML = statusBadge.outerHTML;
+        
+        document.getElementById('detailNotes').textContent = appointment.notes || '-';
+        
+        renderWorkflowKanban(appointment);
+        renderMeasurements(appointment.measurements || []);
+        renderFabricCards(appointment.fabric_cards || []);
+        renderStyleConfirmations(appointment.style_confirmations || []);
+        renderFittingRecords(appointment.fitting_records || []);
+        renderAppointmentTodos(appointment.id);
+        
+        updateAppointmentStatusBasedOnDetails(appointment);
+        
+        await window.api.addRecentItem({
+            item_type: 'appointment',
+            item_id: id,
+            item_title: `${appointment.customer_name} - ${appointment.notes || '预约'}`
+        });
+        
+        document.getElementById('appointmentDetailModal').classList.add('active');
+    } catch (error) {
+        console.error('加载预约详情失败:', error);
+    }
+}
+
+async function renderAppointmentTodos(appointmentId) {
+    const container = document.getElementById('appointmentTodosList');
+    
+    try {
+        const todos = await window.api.getTodos({ appointment_id: appointmentId });
+        
+        if (todos.length === 0) {
+            container.innerHTML = '<div class="todo-add-btn" onclick="showNewTodoModal()">+ 添加待办</div>';
+            return;
+        }
+        
+        container.innerHTML = todos.map(item => {
+            const priorityLabel = { high: '高', medium: '中', low: '低' };
+            
+            return `
+                <div class="todo-item ${item.priority} ${item.status === 'completed' ? 'completed' : ''}">
+                    <div class="todo-icon">${item.status === 'completed' ? '✅' : '📋'}</div>
+                    <div class="todo-content">
+                        <div class="todo-title">${item.title}</div>
+                        <div class="todo-meta">
+                            指派: ${item.assignee_name || '-'} · 优先级: ${priorityLabel[item.priority]}
+                        </div>
+                    </div>
+                    <div class="todo-actions">
+                        ${item.status !== 'completed' ? `
+                            <button class="btn btn-success" onclick="completeTodo(${item.id})">完成</button>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('') + '<div class="todo-add-btn" onclick="showNewTodoModal()">+ 添加待办</div>';
+    } catch (error) {
+        console.error('加载预约待办失败:', error);
+        container.innerHTML = '<div class="todo-add-btn" onclick="showNewTodoModal()">+ 添加待办</div>';
+    }
+}
+
+async function approveStyleConfirmation() {
+    try {
+        await window.api.updateStyleConfirmation(currentStyleConfirmationId, {
+            approval_status: 'approved',
+            approved_by: 1
+        });
+        
+        await window.api.createTodo({
+            appointment_id: currentAppointmentId,
+            title: '款式确认已批准，开始制作纸样',
+            description: '根据批准的款式确认开始纸样制作',
+            assignee_role: 'pattern_maker',
+            priority: 'high'
+        });
+        
+        closeModal('styleDetailModal');
+        await refreshAppointmentDetail();
+        loadStyleConfirmations();
+        loadDashboard();
+    } catch (error) {
+        console.error('批准款式确认失败:', error);
+        alert('操作失败: ' + error.message);
+    }
+}
+
+async function saveMeasurement() {
+    try {
+        const data = {
+            appointment_id: parseInt(document.getElementById('measurementAppointmentId').value),
+            height: parseFloat(document.getElementById('measurementHeight').value) || null,
+            weight: parseFloat(document.getElementById('measurementWeight').value) || null,
+            bust: parseFloat(document.getElementById('measurementBust').value) || null,
+            waist: parseFloat(document.getElementById('measurementWaist').value) || null,
+            hip: parseFloat(document.getElementById('measurementHip').value) || null,
+            shoulder_width: parseFloat(document.getElementById('measurementShoulder').value) || null,
+            arm_length: parseFloat(document.getElementById('measurementArm').value) || null,
+            leg_length: parseFloat(document.getElementById('measurementLeg').value) || null,
+            notes: document.getElementById('measurementNotes').value,
+            measured_by: 1
+        };
+        
+        await window.api.createMeasurement(data);
+        
+        await window.api.createTodo({
+            appointment_id: data.appointment_id,
+            title: '量体完成，待确认款式',
+            description: '量体数据已录入，等待客户确认款式',
+            assignee_role: 'customer_service',
+            priority: 'high'
+        });
+        
+        closeModal('measurementModal');
+        await refreshAppointmentDetail();
+    } catch (error) {
+        console.error('保存量体记录失败:', error);
+        alert('保存失败: ' + error.message);
+    }
+}
+
+async function saveFittingRecord() {
+    try {
+        const data = {
+            appointment_id: parseInt(document.getElementById('fittingRecordAppointmentId').value),
+            fitting_stage: document.getElementById('fittingStage').value,
+            fitting_date: document.getElementById('fittingDate').value,
+            fit_rating: parseInt(document.getElementById('fittingRating').value) || null,
+            issues: document.getElementById('fittingIssues').value,
+            adjustments: document.getElementById('fittingAdjustments').value,
+            notes: document.getElementById('fittingNotes').value,
+            fitter_id: 1
+        };
+        
+        if (!data.fitting_stage) {
+            alert('请选择试衣阶段');
+            return;
+        }
+        
+        await window.api.createFittingRecord(data);
+        
+        if (data.issues && data.issues.trim()) {
+            await window.api.createTodo({
+                appointment_id: data.appointment_id,
+                title: `试衣发现问题: ${data.issues.substring(0, 30)}...`,
+                description: `试衣问题: ${data.issues}\n调整方案: ${data.adjustments}`,
+                assignee_role: 'tailor',
+                priority: 'high'
+            });
+        }
+        
+        closeModal('fittingRecordModal');
+        await refreshAppointmentDetail();
+    } catch (error) {
+        console.error('保存试衣记录失败:', error);
+        alert('保存失败: ' + error.message);
+    }
 }

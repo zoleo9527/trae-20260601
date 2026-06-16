@@ -45,13 +45,34 @@ class AppDatabase {
         tailor_id INTEGER,
         pattern_maker_id INTEGER,
         customer_service_id INTEGER,
+        current_owner_id INTEGER,
+        current_owner_role TEXT,
         status TEXT DEFAULT 'pending',
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (tailor_id) REFERENCES employees(id),
         FOREIGN KEY (pattern_maker_id) REFERENCES employees(id),
-        FOREIGN KEY (customer_service_id) REFERENCES employees(id)
+        FOREIGN KEY (customer_service_id) REFERENCES employees(id),
+        FOREIGN KEY (current_owner_id) REFERENCES employees(id)
+      );
+
+      CREATE TABLE IF NOT EXISTS todos (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        appointment_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        description TEXT,
+        assignee_id INTEGER,
+        assignee_role TEXT,
+        status TEXT DEFAULT 'pending',
+        priority TEXT DEFAULT 'medium',
+        due_date DATE,
+        created_by INTEGER,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        completed_at DATETIME,
+        FOREIGN KEY (appointment_id) REFERENCES appointments(id),
+        FOREIGN KEY (assignee_id) REFERENCES employees(id),
+        FOREIGN KEY (created_by) REFERENCES employees(id)
       );
 
       CREATE TABLE IF NOT EXISTS measurements (
@@ -151,12 +172,16 @@ class AppDatabase {
 
       CREATE INDEX IF NOT EXISTS idx_appointments_date ON appointments(appointment_date);
       CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+      CREATE INDEX IF NOT EXISTS idx_appointments_owner ON appointments(current_owner_id);
       CREATE INDEX IF NOT EXISTS idx_measurements_appointment ON measurements(appointment_id);
       CREATE INDEX IF NOT EXISTS idx_fabric_cards_appointment ON fabric_cards(appointment_id);
       CREATE INDEX IF NOT EXISTS idx_style_confirmations_appointment ON style_confirmations(appointment_id);
       CREATE INDEX IF NOT EXISTS idx_fitting_records_appointment ON fitting_records(appointment_id);
       CREATE INDEX IF NOT EXISTS idx_operation_history_created ON operation_history(created_at);
       CREATE INDEX IF NOT EXISTS idx_recent_items_accessed ON recent_items(last_accessed);
+      CREATE INDEX IF NOT EXISTS idx_todos_appointment ON todos(appointment_id);
+      CREATE INDEX IF NOT EXISTS idx_todos_assignee ON todos(assignee_id);
+      CREATE INDEX IF NOT EXISTS idx_todos_status ON todos(status);
     `);
 
     log.info('数据库表初始化完成');
@@ -391,11 +416,13 @@ class AppDatabase {
         a.*,
         t.name as tailor_name,
         pm.name as pattern_maker_name,
-        cs.name as customer_service_name
+        cs.name as customer_service_name,
+        co.name as current_owner_name
       FROM appointments a
       LEFT JOIN employees t ON a.tailor_id = t.id
       LEFT JOIN employees pm ON a.pattern_maker_id = pm.id
       LEFT JOIN employees cs ON a.customer_service_id = cs.id
+      LEFT JOIN employees co ON a.current_owner_id = co.id
       WHERE a.id = ?
     `).get(id);
     
@@ -882,6 +909,135 @@ class AppDatabase {
     });
     
     return riskItems;
+  }
+
+  createTodo(data) {
+    const result = this.db.prepare(`
+      INSERT INTO todos 
+      (appointment_id, title, description, assignee_id, assignee_role, priority, due_date, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      data.appointment_id,
+      data.title,
+      data.description,
+      data.assignee_id,
+      data.assignee_role,
+      data.priority || 'medium',
+      data.due_date,
+      data.created_by || 1
+    );
+    
+    this.addOperationHistory({
+      operation_type: 'create',
+      entity_type: 'todo',
+      entity_id: result.lastInsertRowid,
+      description: `创建待办: ${data.title}`,
+      operator_id: data.created_by
+    });
+    
+    return result.lastInsertRowid;
+  }
+
+  getTodos(filters = {}) {
+    let query = `
+      SELECT 
+        t.*,
+        a.customer_name,
+        e.name as assignee_name,
+        ce.name as created_by_name
+      FROM todos t
+      LEFT JOIN appointments a ON t.appointment_id = a.id
+      LEFT JOIN employees e ON t.assignee_id = e.id
+      LEFT JOIN employees ce ON t.created_by = ce.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    
+    if (filters.appointment_id) {
+      query += ' AND t.appointment_id = ?';
+      params.push(filters.appointment_id);
+    }
+    
+    if (filters.status) {
+      query += ' AND t.status = ?';
+      params.push(filters.status);
+    }
+    
+    if (filters.assignee_id) {
+      query += ' AND t.assignee_id = ?';
+      params.push(filters.assignee_id);
+    }
+    
+    if (filters.assignee_role) {
+      query += ' AND t.assignee_role = ?';
+      params.push(filters.assignee_role);
+    }
+    
+    query += ' ORDER BY t.created_at DESC';
+    
+    return this.db.prepare(query).all(...params);
+  }
+
+  updateTodo(id, data) {
+    const result = this.db.prepare(`
+      UPDATE todos SET
+        title = COALESCE(?, title),
+        description = COALESCE(?, description),
+        assignee_id = COALESCE(?, assignee_id),
+        assignee_role = COALESCE(?, assignee_role),
+        status = COALESCE(?, status),
+        priority = COALESCE(?, priority),
+        due_date = COALESCE(?, due_date),
+        completed_at = CASE WHEN ? = 'completed' THEN CURRENT_TIMESTAMP ELSE completed_at END
+      WHERE id = ?
+    `).run(
+      data.title,
+      data.description,
+      data.assignee_id,
+      data.assignee_role,
+      data.status,
+      data.priority,
+      data.due_date,
+      data.status,
+      id
+    );
+    
+    return id;
+  }
+
+  deleteTodo(id) {
+    this.db.prepare('DELETE FROM todos WHERE id = ?').run(id);
+    return id;
+  }
+
+  updateAppointmentOwner(appointmentId, ownerId, ownerRole) {
+    this.db.prepare(`
+      UPDATE appointments SET
+        current_owner_id = ?,
+        current_owner_role = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(ownerId, ownerRole, appointmentId);
+    
+    return appointmentId;
+  }
+
+  getAppointmentsWithOwner() {
+    return this.db.prepare(`
+      SELECT 
+        a.*,
+        t.name as tailor_name,
+        pm.name as pattern_maker_name,
+        cs.name as customer_service_name,
+        co.name as current_owner_name
+      FROM appointments a
+      LEFT JOIN employees t ON a.tailor_id = t.id
+      LEFT JOIN employees pm ON a.pattern_maker_id = pm.id
+      LEFT JOIN employees cs ON a.customer_service_id = cs.id
+      LEFT JOIN employees co ON a.current_owner_id = co.id
+      ORDER BY a.appointment_date DESC, a.appointment_time DESC
+    `).all();
   }
 
   getEmployees() {

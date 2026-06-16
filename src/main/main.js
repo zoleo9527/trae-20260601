@@ -254,5 +254,59 @@ function setupIpcHandlers() {
     }
   });
 
+  ipcMain.handle('db:createTodo', async (event, data) => {
+    try {
+      return db.createTodo(data);
+    } catch (error) {
+      log.error('创建待办失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('db:getTodos', async (event, filters) => {
+    try {
+      return db.getTodos(filters);
+    } catch (error) {
+      log.error('获取待办失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('db:updateTodo', async (event, id, data) => {
+    try {
+      return db.updateTodo(id, data);
+    } catch (error) {
+      log.error('更新待办失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('db:deleteTodo', async (event, id) => {
+    try {
+      return db.deleteTodo(id);
+    } catch (error) {
+      log.error('删除待办失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('db:updateAppointmentOwner', async (event, appointmentId, ownerId, ownerRole) => {
+    try {
+      return db.updateAppointmentOwner(appointmentId, ownerId, ownerRole);
+    } catch (error) {
+      log.error('更新预约责任人失败:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('db:getAppointmentsWithOwner', async () => {
+    try {
+      return db.getAppointmentsWithOwner();
+    } catch (error) {
+      log.error('获取预约列表失败:', error);
+      throw error;
+    }
+  });
+
   log.info('IPC 处理器已设置');
 }

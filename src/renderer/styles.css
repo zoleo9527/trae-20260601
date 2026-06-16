@@ -719,16 +719,36 @@ body {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+.recent-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
 .recent-item-type {
     font-size: 12px;
     color: var(--text-secondary);
-    margin-bottom: 8px;
+    padding: 2px 6px;
+    background: var(--bg-color);
+    border-radius: 4px;
+}
+
+.recent-item-operator {
+    font-size: 11px;
+    color: var(--primary-color);
 }
 
 .recent-item-title {
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 8px;
+    color: var(--text-primary);
+}
+
+.recent-item-footer {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .recent-item-time {
@@ -753,5 +773,209 @@ body {
 
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+.workflow-kanban {
+    background: var(--bg-color);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 20px;
+}
+
+.kanban-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.kanban-header h4 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.kanban-board {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    justify-content: center;
+}
+
+.kanban-column {
+    flex: 1;
+    max-width: 200px;
+}
+
+.kanban-column-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.kanban-icon {
+    font-size: 18px;
+}
+
+.kanban-card {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+    box-shadow: var(--shadow);
+    border: 2px solid transparent;
+    transition: all 0.3s;
+}
+
+.kanban-card.active {
+    border-color: var(--primary-color);
+    background: #e6f7ff;
+}
+
+.kanban-card.current-owner {
+    border-color: var(--success-color);
+    background: #f6ffed;
+}
+
+.card-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.card-status {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.kanban-arrow {
+    font-size: 20px;
+    color: var(--border-color);
+    align-self: center;
+}
+
+.current-owner-section {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border-color);
+}
+
+.owner-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.owner-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.owner-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: var(--primary-color);
+    color: white;
+}
+
+.todo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 12px;
+    background: #fff;
+    border-left: 3px solid var(--warning-color);
+}
+
+.todo-item.high {
+    border-left-color: var(--danger-color);
+    background: #fff1f0;
+}
+
+.todo-item.medium {
+    border-left-color: var(--warning-color);
+    background: #fffbe6;
+}
+
+.todo-item.low {
+    border-left-color: var(--primary-color);
+    background: #e6f7ff;
+}
+
+.todo-item.completed {
+    opacity: 0.6;
+    border-left-color: var(--success-color);
+}
+
+.todo-icon {
+    font-size: 18px;
+}
+
+.todo-content {
+    flex: 1;
+}
+
+.todo-title {
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.todo-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.todo-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.todo-actions button {
+    padding: 2px 6px;
+    font-size: 12px;
+}
+
+.todo-add-btn {
+    text-align: center;
+    padding: 12px;
+    border: 2px dashed var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    transition: all 0.3s;
+}
+
+.todo-add-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.tab-actions-right {
+    display: flex;
+    gap: 8px;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+}
+
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 }
