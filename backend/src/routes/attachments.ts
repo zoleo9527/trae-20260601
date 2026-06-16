@@ -1,8 +1,17 @@
 import express from 'express'
+import { Response } from 'express'
+import fs from 'fs'
+import path from 'path'
 import { db } from '../database'
 import { authMiddleware, AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
+
+const uploadDir = path.join(__dirname, '../../uploads')
+
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true })
+}
 
 router.post('/coupons/:coupon_id/attachments', authMiddleware, (req: AuthRequest, res: Response) => {
   const { coupon_id } = req.params
@@ -29,8 +38,13 @@ router.post('/coupons/:coupon_id/attachments', authMiddleware, (req: AuthRequest
     })
   }
 
+  const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+  const filePath = `${coupon_id}_${Date.now()}_${sanitizedFilename}`
+  const fullPath = path.join(uploadDir, filePath)
+  
   const fileData = Buffer.from(base64_content, 'base64')
-  const filePath = `uploads/${coupon_id}_${Date.now()}_${filename}`
+  
+  fs.writeFileSync(fullPath, fileData)
   
   const result = db.prepare(`
     INSERT INTO attachments (coupon_id, filename, file_path, file_type, file_size)
@@ -80,14 +94,25 @@ router.get('/attachments/:id/download', authMiddleware, (req: AuthRequest, res: 
     })
   }
 
-  res.json({
-    success: true,
-    data: {
-      filename: attachment.filename,
-      file_type: attachment.file_type,
-      file_size: attachment.file_size,
-    },
-  })
+  const fullPath = path.join(uploadDir, attachment.file_path)
+
+  if (!fs.existsSync(fullPath)) {
+    return res.status(404).json({
+      success: false,
+      error: {
+        code: 'BUSINESS_002',
+        message: '文件不存在',
+      },
+    })
+  }
+
+  const fileData = fs.readFileSync(fullPath)
+
+  res.setHeader('Content-Type', attachment.file_type || 'application/octet-stream')
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(attachment.filename)}"`)
+  res.setHeader('Content-Length', attachment.file_size)
+
+  res.send(fileData)
 })
 
 router.delete('/attachments/:id', authMiddleware, (req: AuthRequest, res: Response) => {
@@ -103,6 +128,12 @@ router.delete('/attachments/:id', authMiddleware, (req: AuthRequest, res: Respon
         message: '附件不存在',
       },
     })
+  }
+
+  const fullPath = path.join(uploadDir, attachment.file_path)
+  
+  if (fs.existsSync(fullPath)) {
+    fs.unlinkSync(fullPath)
   }
 
   db.prepare('DELETE FROM attachments WHERE id = ?').run(id)

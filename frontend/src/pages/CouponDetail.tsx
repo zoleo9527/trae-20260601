@@ -41,14 +41,15 @@ export default function CouponDetail() {
     }
   }
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !id) return
 
     setUploading(true)
-    try {
-      const reader = new FileReader()
-      reader.onload = async (event) => {
+    
+    const reader = new FileReader()
+    reader.onload = async (event) => {
+      try {
         const base64Content = event.target?.result as string
         const base64Data = base64Content.split(',')[1]
         
@@ -60,23 +61,45 @@ export default function CouponDetail() {
         })
         
         loadCoupon()
+      } catch (error) {
+        console.error('Failed to upload file:', error)
+        alert('上传失败，请重试')
+      } finally {
+        setUploading(false)
+        e.target.value = ''
       }
-      reader.readAsDataURL(file)
-    } catch (error) {
-      console.error('Failed to upload file:', error)
-      alert('上传失败，请重试')
-    } finally {
+    }
+    reader.onerror = () => {
+      console.error('Failed to read file')
+      alert('读取文件失败，请重试')
       setUploading(false)
       e.target.value = ''
     }
+    reader.readAsDataURL(file)
   }
 
   const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
     try {
-      const response = await couponApi.downloadAttachment(attachmentId)
-      if (response.success) {
-        alert(`正在下载: ${filename}`)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`/api/attachments/${attachmentId}/download`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error('下载失败')
       }
+
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
     } catch (error) {
       console.error('Failed to download file:', error)
       alert('下载失败，请重试')
