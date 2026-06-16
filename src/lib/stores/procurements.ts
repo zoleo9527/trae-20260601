@@ -93,6 +93,13 @@ function createProcurementStore() {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getAll: () => {
+      let result: Procurement[] = [];
+      subscribe(items => {
+        result = items;
+      })();
+      return result;
     }
   };
 }

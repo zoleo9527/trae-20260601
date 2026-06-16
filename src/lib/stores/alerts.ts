@@ -76,6 +76,13 @@ function createAlertStore() {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getAll: () => {
+      let result: Alert[] = [];
+      subscribe(items => {
+        result = items;
+      })();
+      return result;
     }
   };
 }

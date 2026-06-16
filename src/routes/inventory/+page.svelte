@@ -164,6 +164,7 @@
         {#each $inventoryEstimates as estimate}
           {@const relatedProcs = getRelatedProcurements(estimate.ingredient_name)}
           {@const activeProc = relatedProcs.find(p => ['pending', 'approved', 'purchasing'].includes(p.status))}
+          {@const inventoryItem = inventory.getByIngredientName(estimate.ingredient_name)}
           <div class="suggestion-item">
             <div class="suggestion-header">
               <span class="suggestion-name">{estimate.ingredient_name}</span>
@@ -171,7 +172,7 @@
             </div>
             <div class="suggestion-details">
               <div class="suggestion-quantity">
-                建议采购：<strong>{estimate.estimated_consumption}</strong>
+                建议采购：<strong>{estimate.estimated_consumption}{inventoryItem?.unit || '斤'}</strong>
               </div>
               <div class="suggestion-reason">{estimate.reason}</div>
             </div>
@@ -185,7 +186,7 @@
                 </Badge>
               </div>
             {:else}
-              <a href="/procurement/new?ingredient={encodeURIComponent(estimate.ingredient_name)}&quantity={estimate.estimated_consumption}" class="suggestion-action">
+              <a href="/procurement/new?ingredient={encodeURIComponent(estimate.ingredient_name)}&quantity={estimate.estimated_consumption}&unit={encodeURIComponent(inventoryItem?.unit || '斤')}" class="suggestion-action">
                 创建采购单 →
               </a>
             {/if}

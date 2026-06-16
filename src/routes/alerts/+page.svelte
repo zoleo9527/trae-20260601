@@ -58,29 +58,40 @@
     switch (alert.type) {
       case 'procurement': {
         const proc = procurements.getById(alert.related_id);
-        return proc ? {
+        if (!proc) return null;
+        const lastStatus = proc.status_history[proc.status_history.length - 1];
+        return {
           label: `采购单（${proc.items.length}项）`,
           status: PROCUREMENT_STATUS_LABELS[proc.status],
           statusVariant: proc.status === 'completed' ? 'success' : 
                          proc.status === 'rejected' ? 'danger' : 
-                         proc.status === 'pending' ? 'warning' : 'primary'
-        } : null;
+                         proc.status === 'pending' ? 'warning' : 'primary',
+          currentHandler: lastStatus?.handler || proc.applicant,
+          lastAction: lastStatus?.note || '提交采购申请'
+        };
       }
       case 'booking': {
         const booking = bookings.getById(alert.related_id);
-        return booking ? {
+        if (!booking) return null;
+        const lastStatus = booking.status_history[booking.status_history.length - 1];
+        return {
           label: `${booking.customer_name}的预订`,
           status: '',
-          statusVariant: 'info'
-        } : null;
+          statusVariant: 'info',
+          currentHandler: lastStatus?.handler || booking.handler,
+          lastAction: lastStatus?.note || '创建预订'
+        };
       }
       case 'accommodation': {
         const acc = accommodations.getById(alert.related_id);
-        return acc ? {
+        if (!acc) return null;
+        return {
           label: `${acc.guest_name}入住${acc.room_number}`,
           status: '',
-          statusVariant: 'info'
-        } : null;
+          statusVariant: 'info',
+          currentHandler: acc.handler,
+          lastAction: '办理入住'
+        };
       }
       default:
         return null;
@@ -196,12 +207,22 @@
             <p class="alert-description">{alert.description}</p>
           </div>
           <div class="alert-footer">
-            {#if lastHandler}
+            {#if relatedEntity && relatedEntity.currentHandler}
+              <div class="alert-handler">
+                <span class="handler-label">当前处理：</span>
+                <span class="handler-name">{relatedEntity.currentHandler}</span>
+                <span class="handler-action">- {relatedEntity.lastAction}</span>
+              </div>
+            {:else if lastHandler}
               <div class="alert-handler">
                 <span class="handler-label">最近处理：</span>
                 <span class="handler-name">{lastHandler.handler}</span>
                 <span class="handler-action">- {lastHandler.action}</span>
                 <span class="handler-time">{formatDate(lastHandler.created_at)}</span>
+              </div>
+            {:else if alert.status === 'active'}
+              <div class="alert-handler">
+                <span class="handler-label">待处理</span>
               </div>
             {/if}
             <div class="alert-actions">

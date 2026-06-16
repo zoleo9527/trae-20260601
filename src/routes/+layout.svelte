@@ -4,6 +4,7 @@
   import { onMount } from 'svelte';
   import { bookings, procurements, accommodations, inventory, alerts, notifications } from '$lib/stores';
   import { initializeData } from '$lib/storage';
+  import { initializeSampleData } from '$lib/stores/sampleData';
   
   onMount(() => {
     initializeData();
@@ -13,6 +14,8 @@
     inventory.init();
     alerts.init();
     notifications.init();
+    
+    initializeSampleData();
   });
 </script>
 

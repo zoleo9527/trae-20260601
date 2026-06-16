@@ -51,6 +51,20 @@ function createInventoryStore() {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getAll: () => {
+      let result: Inventory[] = [];
+      subscribe(items => {
+        result = items;
+      })();
+      return result;
+    },
+    getByIngredientName: (name: string) => {
+      let result: Inventory | undefined;
+      subscribe(items => {
+        result = items.find(item => item.ingredient_name === name);
+      })();
+      return result;
     }
   };
 }

@@ -14,12 +14,13 @@
   page.subscribe(($page) => {
     const ingredient = $page.url.searchParams.get('ingredient');
     const quantity = $page.url.searchParams.get('quantity');
+    const unit = $page.url.searchParams.get('unit');
     
     if (ingredient) {
       items = [{
         ingredient_name: ingredient,
         quantity: quantity ? parseFloat(quantity) : 1,
-        unit: '斤',
+        unit: unit || '斤',
         note: ''
       }];
     }

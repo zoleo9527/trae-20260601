@@ -53,6 +53,13 @@ function createAccommodationStore() {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getAll: () => {
+      let result: Accommodation[] = [];
+      subscribe(items => {
+        result = items;
+      })();
+      return result;
     }
   };
 }

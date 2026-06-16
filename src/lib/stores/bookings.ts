@@ -83,6 +83,13 @@ function createBookingStore() {
         result = items.find(item => item.id === id);
       })();
       return result;
+    },
+    getAll: () => {
+      let result: Booking[] = [];
+      subscribe(items => {
+        result = items;
+      })();
+      return result;
     }
   };
 }
