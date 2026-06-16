@@ -255,17 +255,30 @@ class ReturnExchange(models.Model):
             return None
 
         days_pending = (timezone.now() - self.created_at).days
+        
+        current_handler_info = None
+        if self.assigned_to:
+            current_handler_info = {
+                'id': self.assigned_to.id,
+                'employee_id': self.assigned_to.employee_id,
+                'name': self.assigned_to.user.get_full_name(),
+                'role': self.assigned_to.role,
+                'role_display': self.assigned_to.get_role_display(),
+            }
+
         if days_pending >= 3:
             return {
                 'is_stuck': True,
                 'days': days_pending,
                 'reason': self.stuck_reason or f'已等待{days_pending}天未处理',
-                'current_handler': self.assigned_to,
+                'current_handler': current_handler_info,
                 'expected_handler': self.get_current_expected_handler(),
             }
         return {
             'is_stuck': False,
             'days': days_pending,
+            'current_handler': current_handler_info,
+            'expected_handler': self.get_current_expected_handler(),
         }
 
     def get_current_expected_handler(self):
@@ -360,16 +373,28 @@ class VisitRecord(models.Model):
             return None
 
         today = timezone.now().date()
+        
+        assigned_to_info = None
+        if self.assigned_to:
+            assigned_to_info = {
+                'id': self.assigned_to.id,
+                'employee_id': self.assigned_to.employee_id,
+                'name': self.assigned_to.user.get_full_name(),
+                'role': self.assigned_to.role,
+                'role_display': self.assigned_to.get_role_display(),
+            }
+
         if self.scheduled_date < today:
             return {
                 'is_stuck': True,
                 'days_overdue': (today - self.scheduled_date).days,
                 'reason': self.stuck_reason or '已超过计划回访日期',
-                'assigned_to': self.assigned_to,
+                'assigned_to': assigned_to_info,
             }
         return {
             'is_stuck': False,
             'days_until': (self.scheduled_date - today).days,
+            'assigned_to': assigned_to_info,
         }
 
 
