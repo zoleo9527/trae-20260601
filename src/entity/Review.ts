@@ -83,7 +83,7 @@ export class Review {
   blockedReason: string | null = null;
 
   @ManyToOne(() => Store, store => store.reviews)
-  store: Store;
+  store: Store | null = null;
 
   @OneToMany(() => Compensation, compensation => compensation.review)
   compensations: Compensation[] = [];

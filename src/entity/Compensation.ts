@@ -66,10 +66,10 @@ export class Compensation {
   paymentTransactionId: string | null = null;
 
   @ManyToOne(() => Review, review => review.compensations)
-  review: Review;
+  review: Review | null = null;
 
   @ManyToOne(() => Store, store => store.compensations)
-  store: Store;
+  store: Store | null = null;
 
   @CreateDateColumn()
   createdAt: Date = new Date();

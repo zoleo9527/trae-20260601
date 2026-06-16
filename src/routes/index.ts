@@ -23,6 +23,8 @@ export const registerRoutes = (app: Express) => {
 
   app.post("/api/compensations", compensationController.createCompensation.bind(compensationController));
   app.get("/api/compensations", compensationController.getCompensations.bind(compensationController));
+  app.get("/api/compensations/pending", compensationController.getPendingCompensations.bind(compensationController));
+  app.get("/api/compensations/uncompleted", compensationController.getUncompletedCompensations.bind(compensationController));
   app.get("/api/compensations/:id", compensationController.getCompensationById.bind(compensationController));
   app.put("/api/compensations/:id", compensationController.updateCompensation.bind(compensationController));
   app.get("/api/compensations/:id/details", compensationController.getCompensationWithDetails.bind(compensationController));
@@ -30,8 +32,6 @@ export const registerRoutes = (app: Express) => {
   app.post("/api/compensations/:id/reject", compensationController.rejectCompensation.bind(compensationController));
   app.post("/api/compensations/:id/process", compensationController.processCompensation.bind(compensationController));
   app.post("/api/compensations/:id/complete", compensationController.completeCompensation.bind(compensationController));
-  app.get("/api/compensations/pending", compensationController.getPendingCompensations.bind(compensationController));
-  app.get("/api/compensations/uncompleted", compensationController.getUncompletedCompensations.bind(compensationController));
 
   app.get("/api/audit/target/:targetId", auditController.getLogsByTargetId.bind(auditController));
   app.get("/api/audit/module/:module", auditController.getLogsByModule.bind(auditController));
