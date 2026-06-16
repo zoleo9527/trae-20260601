@@ -5,7 +5,8 @@ import { authMiddleware, AuthRequest } from '../middlewares/auth.js'
 const router = Router()
 
 router.get('/', authMiddleware, (req: AuthRequest, res: Response) => {
-  const { search, limit = 100 } = req.query
+  const { search, page = 1, limit = 100 } = req.query
+  const offset = (Number(page) - 1) * Number(limit)
 
   let whereClause = '1=1'
   const params: any[] = []
@@ -15,16 +16,24 @@ router.get('/', authMiddleware, (req: AuthRequest, res: Response) => {
     params.push(`%${search}%`, `%${search}%`, `%${search}%`)
   }
 
+  const countQuery = `SELECT COUNT(*) as total FROM members WHERE ${whereClause}`
+  const total = (db.prepare(countQuery).get(...params) as { total: number }).total
+
   const items = db.prepare(`
     SELECT * FROM members
     WHERE ${whereClause}
     ORDER BY created_at DESC
-    LIMIT ?
-  `).all(...params, Number(limit))
+    LIMIT ? OFFSET ?
+  `).all(...params, Number(limit), offset)
 
   res.json({
     success: true,
-    data: items,
+    data: {
+      items,
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
   })
 })
 
@@ -55,18 +64,31 @@ router.get('/:id/coupons', authMiddleware, (req: AuthRequest, res: Response) => 
   const coupons = db.prepare(`
     SELECT
       c.*,
-      p.name as policy_name,
-      s.name as store_name
+      p.id as policy_id, p.name as policy_name, p.discount_amount,
+      s.id as store_id, s.name as store_name
     FROM coupons c
     LEFT JOIN policies p ON c.policy_id = p.id
     LEFT JOIN stores s ON c.store_id = s.id
     WHERE c.member_id = ?
     ORDER BY c.created_at DESC
-  `).all(id)
+  `).all(id) as any[]
+
+  const formattedCoupons = coupons.map(coupon => ({
+    ...coupon,
+    policy: coupon.policy_id ? {
+      id: coupon.policy_id,
+      name: coupon.policy_name,
+      discount_amount: coupon.discount_amount,
+    } : null,
+    store: coupon.store_id ? {
+      id: coupon.store_id,
+      name: coupon.store_name,
+    } : null,
+  }))
 
   res.json({
     success: true,
-    data: coupons,
+    data: formattedCoupons,
   })
 })
 

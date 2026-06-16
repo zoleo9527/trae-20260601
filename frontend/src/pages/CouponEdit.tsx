@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Send, Package } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { couponApi, memberApi, policyApi, batchApi } from '@/services/api'
-import type { Member, Policy, Batch } from '@/types'
+import type { Member, Policy, Batch, Coupon } from '@/types'
 
-export default function CouponIssue() {
+export default function CouponEdit() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
@@ -14,6 +15,7 @@ export default function CouponIssue() {
   const [members, setMembers] = useState<Member[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [batches, setBatches] = useState<Batch[]>([])
+  const [coupon, setCoupon] = useState<Coupon | null>(null)
 
   const [formData, setFormData] = useState({
     member_id: '',
@@ -26,18 +28,30 @@ export default function CouponIssue() {
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    loadInitialData()
+    loadData()
   }, [])
 
-  const loadInitialData = async () => {
+  const loadData = async () => {
     setLoading(true)
     try {
-      const [membersRes, policiesRes, batchesRes] = await Promise.all([
+      const [couponRes, membersRes, policiesRes, batchesRes] = await Promise.all([
+        couponApi.get(parseInt(id!)),
         memberApi.list({ limit: 100 }),
         policyApi.list({ status: 'active' }),
         batchApi.list({ status: 'normal,expiring' }),
       ])
 
+      if (couponRes.success) {
+        setCoupon(couponRes.data)
+        const c = couponRes.data
+        setFormData({
+          member_id: c.member_id.toString(),
+          policy_id: c.policy_id.toString(),
+          batch_id: c.batch_id ? c.batch_id.toString() : '',
+          expiry_date: c.expiry_date || '',
+          issue_remarks: c.issue_remarks || '',
+        })
+      }
       if (membersRes.success) setMembers(membersRes.data.items)
       if (policiesRes.success) setPolicies(policiesRes.data)
       if (batchesRes.success) setBatches(batchesRes.data.items)
@@ -98,16 +112,14 @@ export default function CouponIssue() {
         data.batch_id = parseInt(formData.batch_id)
       }
 
-      const response = await couponApi.create(data)
+      await couponApi.update(parseInt(id!), data)
 
-      if (response.success && response.data) {
-        if (submitType === 'submit') {
-          await couponApi.submit(response.data.id)
-        }
-        navigate(`/coupons/${response.data.id}`)
+      if (submitType === 'submit') {
+        await couponApi.submit(parseInt(id!))
       }
+      navigate(`/coupons/${id}`)
     } catch (error) {
-      console.error('Failed to create coupon:', error)
+      console.error('Failed to update coupon:', error)
     } finally {
       setSubmitting(false)
     }
@@ -127,22 +139,57 @@ export default function CouponIssue() {
     )
   }
 
+  if (!coupon) {
+    return (
+      <div className="p-8">
+        <p className="text-gray-500">未找到该券信息</p>
+      </div>
+    )
+  }
+
+  const statusLabels: Record<string, string> = {
+    draft: '草稿',
+    pending_review: '待复核',
+    issued: '已发放',
+    verified: '已核销',
+    archived: '已归档',
+    rejected: '已拒绝',
+  }
+
   return (
     <div className="p-8">
       <div className="mb-6 flex items-center justify-between">
         <div className="flex items-center">
           <Link
-            to="/coupons"
+            to={`/coupons/${id}`}
             className="p-2 hover:bg-gray-100 rounded-lg mr-4 transition-colors"
           >
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">新建发放</h1>
-            <p className="text-gray-500 mt-1">填写促销券发放信息</p>
+            <h1 className="text-3xl font-bold text-gray-800">编辑发放</h1>
+            <p className="text-gray-500 mt-1">
+              当前状态：<span className="text-red-500 font-medium">{statusLabels[coupon.status]}</span>
+            </p>
           </div>
         </div>
       </div>
+
+      {coupon.status === 'rejected' && (
+        <div className="card bg-red-50 border-red-200 mb-6">
+          <div className="flex items-start space-x-3 p-4">
+            <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <span className="text-red-600">!</span>
+            </div>
+            <div>
+              <h3 className="font-medium text-red-800">审核被拒绝</h3>
+              <p className="text-sm text-red-600 mt-1">
+                {coupon.review_remarks || '未填写拒绝原因'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center justify-center mb-8">
         <div className="flex items-center">
@@ -415,7 +462,7 @@ export default function CouponIssue() {
 
         <div className="mt-8 flex items-center justify-between pt-6 border-t border-gray-200">
           <button
-            onClick={step === 1 ? () => navigate('/coupons') : handleBack}
+            onClick={step === 1 ? () => navigate(`/coupons/${id}`) : handleBack}
             className="btn btn-secondary"
           >
             {step === 1 ? '取消' : '上一步'}
@@ -434,7 +481,7 @@ export default function CouponIssue() {
                   className="btn btn-secondary"
                 >
                   <Save size={18} className="mr-2 inline" />
-                  保存草稿
+                  保存修改
                 </button>
                 <button
                   onClick={() => handleSubmit('submit')}

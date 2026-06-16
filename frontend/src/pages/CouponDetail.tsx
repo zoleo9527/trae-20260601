@@ -401,6 +401,26 @@ export default function CouponDetail() {
               </div>
             </div>
           )}
+
+          {coupon.status === 'rejected' && (
+            <div className="card bg-red-50 border-red-200">
+              <h3 className="font-semibold text-red-800 mb-3">审核被拒绝</h3>
+              <p className="text-sm text-red-600 mb-2">
+                {coupon.review_remarks || '未填写拒绝原因'}
+              </p>
+              <p className="text-sm text-gray-600 mb-4">
+                请修改后重新提交复核
+              </p>
+              <div className="space-y-2">
+                <Link
+                  to={`/coupons/${coupon.id}/edit`}
+                  className="btn btn-primary w-full block text-center"
+                >
+                  修改并重提
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

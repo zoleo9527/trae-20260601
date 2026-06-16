@@ -74,6 +74,16 @@ router.get('/', authMiddleware, (req: AuthRequest, res: Response) => {
 })
 
 router.post('/', authMiddleware, (req: AuthRequest, res: Response) => {
+  if (req.user!.role === 'buyer') {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'AUTH_001',
+        message: '采购角色无权创建促销券',
+      },
+    })
+  }
+
   const { policy_id, member_id, batch_id, expiry_date, issue_remarks } = req.body
 
   if (!policy_id || !member_id || !expiry_date) {
@@ -225,6 +235,16 @@ router.get('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
 })
 
 router.put('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
+  if (req.user!.role === 'buyer') {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'AUTH_001',
+        message: '采购角色无权修改促销券',
+      },
+    })
+  }
+
   const { id } = req.params
   const { policy_id, batch_id, expiry_date, issue_remarks } = req.body
 
@@ -274,6 +294,16 @@ router.put('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
 })
 
 router.post('/:id/submit', authMiddleware, (req: AuthRequest, res: Response) => {
+  if (req.user!.role === 'buyer') {
+    return res.status(403).json({
+      success: false,
+      error: {
+        code: 'AUTH_001',
+        message: '采购角色无权提交促销券',
+      },
+    })
+  }
+
   const { id } = req.params
 
   const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(id) as any

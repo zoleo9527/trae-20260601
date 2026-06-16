@@ -6,6 +6,7 @@ import Dashboard from '@/pages/Dashboard'
 import CouponList from '@/pages/CouponList'
 import CouponIssue from '@/pages/CouponIssue'
 import CouponDetail from '@/pages/CouponDetail'
+import CouponEdit from '@/pages/CouponEdit'
 import CouponReview from '@/pages/CouponReview'
 import MemberList from '@/pages/MemberList'
 import MemberDetail from '@/pages/MemberDetail'
@@ -39,7 +40,7 @@ export default function App() {
         <Route path="coupons" element={<CouponList />} />
         <Route path="coupons/issue" element={<CouponIssue />} />
         <Route path="coupons/:id" element={<CouponDetail />} />
-        <Route path="coupons/:id/edit" element={<CouponIssue />} />
+        <Route path="coupons/:id/edit" element={<CouponEdit />} />
         <Route path="coupons/:id/review" element={<CouponReview />} />
         <Route path="members" element={<MemberList />} />
         <Route path="members/:id" element={<MemberDetail />} />
