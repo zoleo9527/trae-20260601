@@ -34,6 +34,17 @@ export interface IssueCheckResult {
   issues: any[];
 }
 
+export function normalizeDate(date: string | Date | undefined): string | undefined {
+  if (!date) return undefined;
+  if (typeof date === 'string') {
+    return date.split('T')[0];
+  }
+  if (date instanceof Date) {
+    return date.toISOString().split('T')[0];
+  }
+  return undefined;
+}
+
 export class ReservationService {
   async createReservation(data: any, staffId: string, staffRole: StaffRole) {
     const reservationDateStr = typeof data.reservationDate === 'string' 
@@ -489,15 +500,17 @@ export class SingerScheduleService {
       throw new Error('排班记录不存在');
     }
 
-    const conflictCheck = singerRepo.findConflicts(newDate, newStartTime, newEndTime, scheduleId);
+    const normalizedNewDate = normalizeDate(newDate)!;
+    const conflictCheck = singerRepo.findConflicts(normalizedNewDate, newStartTime, newEndTime, scheduleId);
     if (conflictCheck.length > 0) {
       throw new Error(`演出时间冲突: ${conflictCheck.length}条排班与此时间段重叠`);
     }
 
     const originalDate = schedule.performanceDate;
+    const originalDateStr = normalizeDate(originalDate)!;
 
     const updated = singerRepo.update(scheduleId, {
-      performanceDate: new Date(newDate),
+      performanceDate: new Date(normalizedNewDate),
       startTime: newStartTime,
       endTime: newEndTime,
       status: 'rescheduled',
@@ -512,18 +525,18 @@ export class SingerScheduleService {
       changedBy: managerId,
       changedByRole: 'manager',
       changeReason: reason || '演出改期',
-      notes: `原日期: ${originalDate.toISOString().split('T')[0]} → 新日期: ${newDate}`,
+      notes: `原日期: ${originalDateStr} → 新日期: ${normalizedNewDate}`,
       timestamp: new Date()
     });
 
-    await this.createAlertForScheduleChange(scheduleId, originalDate, new Date(newDate), reason);
+    await this.createAlertForScheduleChange(scheduleId, originalDateStr, normalizedNewDate, reason);
 
     return updated;
   }
 
-  private async createAlertForScheduleChange(scheduleId: string, originalDate: Date, newDate: Date, reason?: string) {
+  private async createAlertForScheduleChange(scheduleId: string, originalDateStr: string, newDateStr: string, reason?: string) {
     const affectedReservations = reservationRepo.findAll({ 
-      date: originalDate.toISOString().split('T')[0] 
+      date: originalDateStr 
     });
 
     for (const reservation of affectedReservations) {
@@ -541,7 +554,7 @@ export class SingerScheduleService {
         entityId: reservation.id,
         assigneeRole: 'manager',
         title: `⚠️ 演出变更通知: ${reservation.customerName}`,
-        description: `演出从 ${originalDate.toISOString().split('T')[0]} 改期至 ${newDate.toISOString().split('T')[0]}\n原因: ${reason || '未说明'}`,
+        description: `演出从 ${originalDateStr} 改期至 ${newDateStr}\n原因: ${reason || '未说明'}`,
         priority: 'high',
         status: 'pending'
       });
