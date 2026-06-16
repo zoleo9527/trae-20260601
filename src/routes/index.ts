@@ -24,6 +24,7 @@ export const registerRoutes = (app: Express) => {
   app.post("/api/compensations", compensationController.createCompensation.bind(compensationController));
   app.get("/api/compensations", compensationController.getCompensations.bind(compensationController));
   app.get("/api/compensations/:id", compensationController.getCompensationById.bind(compensationController));
+  app.put("/api/compensations/:id", compensationController.updateCompensation.bind(compensationController));
   app.get("/api/compensations/:id/details", compensationController.getCompensationWithDetails.bind(compensationController));
   app.post("/api/compensations/:id/approve", compensationController.approveCompensation.bind(compensationController));
   app.post("/api/compensations/:id/reject", compensationController.rejectCompensation.bind(compensationController));

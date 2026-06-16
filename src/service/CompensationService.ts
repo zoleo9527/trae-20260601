@@ -12,6 +12,13 @@ export interface CreateCompensationRequest {
   type: CompensationType;
   amount: number;
   reason: string;
+  pendingReason?: string;
+  internalNotes?: string;
+}
+
+export interface UpdateCompensationRequest {
+  pendingReason?: string;
+  internalNotes?: string;
 }
 
 export interface CompensationQuery {
@@ -37,7 +44,7 @@ export class CompensationService {
   }
 
   async createCompensation(request: CreateCompensationRequest, operatorRole: AuditOperatorRole, operatorName: string, ipAddress: string): Promise<{ code: ErrorCode; message: string; data?: Compensation }> {
-    const { reviewId, type, amount, reason } = request;
+    const { reviewId, type, amount, reason, pendingReason, internalNotes } = request;
 
     const review = await this.reviewRepository.findOne({ where: { id: reviewId }, relations: ["store"] });
     if (!review) {
@@ -59,6 +66,8 @@ export class CompensationService {
       type,
       amount,
       reason,
+      pendingReason,
+      internalNotes,
       review,
       store: review.store,
       status: CompensationStatus.PENDING,
@@ -100,6 +109,55 @@ export class CompensationService {
       return { code: ErrorCode.SUCCESS, message: ErrorMessage[ErrorCode.SUCCESS], data: compensation };
     } catch (error) {
       console.error("Failed to get compensation:", error);
+      return { code: ErrorCode.DATABASE_ERROR, message: ErrorMessage[ErrorCode.DATABASE_ERROR] };
+    }
+  }
+
+  async updateCompensation(id: string, request: UpdateCompensationRequest, operatorRole: AuditOperatorRole, operatorName: string, ipAddress: string): Promise<{ code: ErrorCode; message: string; data?: Compensation }> {
+    const compensation = await this.compensationRepository.findOne({ where: { id } });
+    if (!compensation) {
+      return { code: ErrorCode.COMPENSATION_NOT_FOUND, message: ErrorMessage[ErrorCode.COMPENSATION_NOT_FOUND] };
+    }
+
+    if (compensation.status === CompensationStatus.COMPLETED) {
+      return { code: ErrorCode.COMPENSATION_ALREADY_COMPLETED, message: ErrorMessage[ErrorCode.COMPENSATION_ALREADY_COMPLETED] };
+    }
+
+    const beforeData = {
+      pendingReason: compensation.pendingReason,
+      internalNotes: compensation.internalNotes,
+    };
+
+    if (request.pendingReason !== undefined) {
+      compensation.pendingReason = request.pendingReason;
+    }
+    if (request.internalNotes !== undefined) {
+      compensation.internalNotes = request.internalNotes;
+    }
+
+    try {
+      const updatedCompensation = await this.compensationRepository.save(compensation);
+
+      const afterData = {
+        pendingReason: updatedCompensation.pendingReason,
+        internalNotes: updatedCompensation.internalNotes,
+      };
+
+      await this.auditService.createLog(
+        AuditModule.COMPENSATION,
+        AuditAction.UPDATE,
+        updatedCompensation.id,
+        operatorRole,
+        operatorName,
+        beforeData,
+        afterData,
+        "更新补偿备注信息",
+        ipAddress
+      );
+
+      return { code: ErrorCode.SUCCESS, message: ErrorMessage[ErrorCode.SUCCESS], data: updatedCompensation };
+    } catch (error) {
+      console.error("Failed to update compensation:", error);
       return { code: ErrorCode.DATABASE_ERROR, message: ErrorMessage[ErrorCode.DATABASE_ERROR] };
     }
   }

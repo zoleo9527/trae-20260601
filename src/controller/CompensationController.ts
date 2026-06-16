@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { CompensationService, CreateCompensationRequest, CompensationQuery } from "../service/CompensationService";
+import { CompensationService, CreateCompensationRequest, UpdateCompensationRequest, CompensationQuery } from "../service/CompensationService";
 import { CompensationStatus, CompensationType, CompensationApprover } from "../entity/Compensation";
 import { AuditOperatorRole } from "../entity/AuditLog";
 
@@ -24,6 +24,17 @@ export class CompensationController {
     const { id } = req.params;
     const result = await this.compensationService.getCompensationById(id);
     res.status(result.code === 0 ? 200 : 404).json(result);
+  }
+
+  async updateCompensation(req: Request, res: Response) {
+    const { id } = req.params;
+    const request: UpdateCompensationRequest = req.body;
+    const operatorRole = (req.headers["x-operator-role"] as AuditOperatorRole) || AuditOperatorRole.SYSTEM;
+    const operatorName = req.headers["x-operator-name"] as string || "system";
+    const ipAddress = req.ip || "127.0.0.1";
+
+    const result = await this.compensationService.updateCompensation(id, request, operatorRole, operatorName, ipAddress);
+    res.status(result.code === 0 ? 200 : 400).json(result);
   }
 
   async getCompensations(req: Request, res: Response) {

@@ -290,7 +290,7 @@ export class ReviewService {
       return { code: ErrorCode.REVIEW_ALREADY_RESOLVED, message: ErrorMessage[ErrorCode.REVIEW_ALREADY_RESOLVED] };
     }
 
-    const pendingCompensations = review.compensations?.filter(c => c.status === "pending");
+    const pendingCompensations = review.compensations?.filter(c => c.status === CompensationStatus.PENDING);
     if (pendingCompensations && pendingCompensations.length > 0) {
       return { code: ErrorCode.COMPENSATION_STATUS_INVALID, message: "存在待审核的补偿申请，无法解决差评" };
     }
@@ -335,7 +335,7 @@ export class ReviewService {
       return { code: ErrorCode.REVIEW_ALREADY_RESOLVED, message: ErrorMessage[ErrorCode.REVIEW_ALREADY_RESOLVED] };
     }
 
-    const pendingCompensations = review.compensations?.filter(c => c.status !== "completed");
+    const pendingCompensations = review.compensations?.filter(c => c.status !== CompensationStatus.COMPLETED);
     if (pendingCompensations && pendingCompensations.length > 0) {
       return { code: ErrorCode.COMPENSATION_STATUS_INVALID, message: "存在未完成的补偿记录，无法关闭差评" };
     }
