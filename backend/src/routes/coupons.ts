@@ -46,10 +46,10 @@ router.get('/', authMiddleware, (req: AuthRequest, res: Response) => {
   const query = `
     SELECT
       c.*,
-      p.name as policy_name, p.discount_amount,
-      m.name as member_name, m.phone as member_phone,
-      s.name as store_name,
-      u.name as operator_name
+      p.id as policy_id, p.name as policy_name, p.discount_amount,
+      m.id as member_id, m.name as member_name, m.phone as member_phone,
+      s.id as store_id, s.name as store_name,
+      u.id as operator_id, u.name as operator_name
     FROM coupons c
     LEFT JOIN policies p ON c.policy_id = p.id
     LEFT JOIN members m ON c.member_id = m.id
@@ -60,7 +60,29 @@ router.get('/', authMiddleware, (req: AuthRequest, res: Response) => {
     LIMIT ? OFFSET ?
   `
 
-  const items = db.prepare(query).all(...params, Number(limit), offset)
+  const rawItems = db.prepare(query).all(...params, Number(limit), offset) as any[]
+
+  const items = rawItems.map(item => ({
+    ...item,
+    policy: item.policy_id ? {
+      id: item.policy_id,
+      name: item.policy_name,
+      discount_amount: item.discount_amount,
+    } : null,
+    member: item.member_id ? {
+      id: item.member_id,
+      name: item.member_name,
+      phone: item.member_phone,
+    } : null,
+    store: item.store_id ? {
+      id: item.store_id,
+      name: item.store_name,
+    } : null,
+    operator: item.operator_id ? {
+      id: item.operator_id,
+      name: item.operator_name,
+    } : null,
+  }))
 
   res.json({
     success: true,
@@ -246,7 +268,7 @@ router.put('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
   }
 
   const { id } = req.params
-  const { policy_id, batch_id, expiry_date, issue_remarks } = req.body
+  const { member_id, policy_id, batch_id, expiry_date, issue_remarks } = req.body
 
   const coupon = db.prepare('SELECT * FROM coupons WHERE id = ?').get(id) as any
 
@@ -272,13 +294,14 @@ router.put('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
 
   db.prepare(`
     UPDATE coupons
-    SET policy_id = COALESCE(?, policy_id),
+    SET member_id = COALESCE(?, member_id),
+        policy_id = COALESCE(?, policy_id),
         batch_id = COALESCE(?, batch_id),
         expiry_date = COALESCE(?, expiry_date),
         issue_remarks = COALESCE(?, issue_remarks),
         updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
-  `).run(policy_id, batch_id, expiry_date, issue_remarks, id)
+  `).run(member_id, policy_id, batch_id, expiry_date, issue_remarks, id)
 
   db.prepare(`
     INSERT INTO operation_logs (coupon_id, user_id, action, old_value, new_value)

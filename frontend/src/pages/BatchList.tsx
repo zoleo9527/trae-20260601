@@ -20,7 +20,7 @@ export default function BatchList() {
     try {
       const response = await batchApi.list()
       if (response.success) {
-        setBatches(response.data)
+        setBatches(response.data.items)
       }
     } catch (error) {
       console.error('Failed to load batches:', error)
@@ -37,7 +37,7 @@ export default function BatchList() {
         search: search || undefined,
       })
       if (response.success) {
-        setBatches(response.data)
+        setBatches(response.data.items)
       }
     } catch (error) {
       console.error('Failed to search batches:', error)
