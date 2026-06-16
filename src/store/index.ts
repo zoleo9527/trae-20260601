@@ -134,8 +134,8 @@ export const useStore = create<AppState>((set, get) => ({
           ...t, 
           status: newStatus, 
           remark,
-          assignee_id: newStatus === 'in_progress' && !t.assignee_id ? currentUser.id : t.assignee_id,
-          assignee_name: newStatus === 'in_progress' && !t.assignee_name ? currentUser.name : t.assignee_name,
+          assignee_id: newStatus === 'in_progress' ? currentUser.id : t.assignee_id,
+          assignee_name: newStatus === 'in_progress' ? currentUser.name : t.assignee_name,
           created_at: now
         } : t
       ),
