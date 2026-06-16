@@ -64,6 +64,22 @@ export const couponApi = {
     const response = await api.get(`/coupons/${id}/history`)
     return response.data
   },
+  getAttachments: async (id: number) => {
+    const response = await api.get(`/attachments/coupons/${id}`)
+    return response.data
+  },
+  uploadAttachment: async (couponId: number, data: { filename: string; file_type: string; file_size: number; base64_content: string }) => {
+    const response = await api.post(`/attachments/coupons/${couponId}`, data)
+    return response.data
+  },
+  downloadAttachment: async (id: number) => {
+    const response = await api.get(`/attachments/${id}/download`)
+    return response.data
+  },
+  deleteAttachment: async (id: number) => {
+    const response = await api.delete(`/attachments/${id}`)
+    return response.data
+  },
 }
 
 export const memberApi = {

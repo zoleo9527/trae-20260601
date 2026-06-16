@@ -1,82 +1,71 @@
-import { Router, Response } from 'express'
-import multer from 'multer'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { v4 as uuidv4 } from 'uuid'
-import db from '../database.js'
-import { authMiddleware, AuthRequest } from '../middlewares/auth.js'
+import express from 'express'
+import { db } from '../database'
+import { authMiddleware, AuthRequest } from '../middleware/auth'
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const uploadDir = path.join(__dirname, '../../uploads')
+const router = express.Router()
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir)
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname)
-    cb(null, `${uuidv4()}${ext}`)
-  },
-})
+router.post('/coupons/:coupon_id/attachments', authMiddleware, (req: AuthRequest, res: Response) => {
+  const { coupon_id } = req.params
+  const { filename, file_type, file_size, base64_content } = req.body
 
-const upload = multer({
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024,
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['.jpg', '.jpeg', '.png', '.pdf']
-    const ext = path.extname(file.originalname).toLowerCase()
-    if (allowedTypes.includes(ext)) {
-      cb(null, true)
-    } else {
-      cb(new Error('不支持的文件类型'))
-    }
-  },
-})
-
-const router = Router()
-
-router.post('/upload', authMiddleware, (req: AuthRequest, res: Response) => {
-  upload.single('file')(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_001',
-          message: err.message || '文件上传失败',
-        },
-      })
-    }
-
-    const { coupon_id } = req.body
-    const file = req.file
-
-    if (!file || !coupon_id) {
-      return res.status(400).json({
-        success: false,
-        error: {
-          code: 'VALIDATION_002',
-          message: '文件或券ID不能为空',
-        },
-      })
-    }
-
-    const result = db.prepare(`
-      INSERT INTO attachments (coupon_id, filename, file_path, file_type, file_size)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(coupon_id, file.originalname, file.filename, file.mimetype, file.size)
-
-    const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(result.lastInsertRowid)
-
-    res.json({
-      success: true,
-      data: attachment,
+  if (!filename || !base64_content) {
+    return res.status(400).json({
+      success: false,
+      error: {
+        code: 'VALIDATION_001',
+        message: '文件名和内容不能为空',
+      },
     })
+  }
+
+  const coupon = db.prepare('SELECT id FROM coupons WHERE id = ?').get(coupon_id)
+  if (!coupon) {
+    return res.status(404).json({
+      success: false,
+      error: {
+        code: 'BUSINESS_002',
+        message: '促销券不存在',
+      },
+    })
+  }
+
+  const fileData = Buffer.from(base64_content, 'base64')
+  const filePath = `uploads/${coupon_id}_${Date.now()}_${filename}`
+  
+  const result = db.prepare(`
+    INSERT INTO attachments (coupon_id, filename, file_path, file_type, file_size)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(coupon_id, filename, filePath, file_type, file_size)
+
+  res.json({
+    success: true,
+    data: {
+      id: result.lastInsertRowid,
+      coupon_id: parseInt(coupon_id),
+      filename,
+      file_path: filePath,
+      file_type,
+      file_size,
+    },
   })
 })
 
-router.get('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
+router.get('/coupons/:coupon_id/attachments', authMiddleware, (req: AuthRequest, res: Response) => {
+  const { coupon_id } = req.params
+
+  const attachments = db.prepare(`
+    SELECT * FROM attachments
+    WHERE coupon_id = ?
+    ORDER BY created_at DESC
+  `).all(coupon_id)
+
+  res.json({
+    success: true,
+    data: attachments,
+  })
+})
+
+router.get('/attachments/:id/download', authMiddleware, (req: AuthRequest, res: Response) => {
   const { id } = req.params
 
   const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id) as any
@@ -86,18 +75,22 @@ router.get('/:id', authMiddleware, (req: AuthRequest, res: Response) => {
       success: false,
       error: {
         code: 'BUSINESS_002',
-        message: '数据不存在',
+        message: '附件不存在',
       },
     })
   }
 
   res.json({
     success: true,
-    data: attachment,
+    data: {
+      filename: attachment.filename,
+      file_type: attachment.file_type,
+      file_size: attachment.file_size,
+    },
   })
 })
 
-router.get('/:id/preview', authMiddleware, (req: AuthRequest, res: Response) => {
+router.delete('/attachments/:id', authMiddleware, (req: AuthRequest, res: Response) => {
   const { id } = req.params
 
   const attachment = db.prepare('SELECT * FROM attachments WHERE id = ?').get(id) as any
@@ -107,13 +100,17 @@ router.get('/:id/preview', authMiddleware, (req: AuthRequest, res: Response) => 
       success: false,
       error: {
         code: 'BUSINESS_002',
-        message: '数据不存在',
+        message: '附件不存在',
       },
     })
   }
 
-  const filePath = path.join(uploadDir, attachment.file_path)
-  res.sendFile(filePath)
+  db.prepare('DELETE FROM attachments WHERE id = ?').run(id)
+
+  res.json({
+    success: true,
+    message: '附件已删除',
+  })
 })
 
 export default router

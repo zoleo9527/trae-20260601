@@ -47,16 +47,53 @@ export default function CouponDetail() {
 
     setUploading(true)
     try {
-      const response = await couponApi.update(parseInt(id), {})
-      console.log('File upload placeholder:', file.name)
-      alert('附件上传功能正在开发中')
-      loadCoupon()
+      const reader = new FileReader()
+      reader.onload = async (event) => {
+        const base64Content = event.target?.result as string
+        const base64Data = base64Content.split(',')[1]
+        
+        await couponApi.uploadAttachment(parseInt(id), {
+          filename: file.name,
+          file_type: file.type,
+          file_size: file.size,
+          base64_content: base64Data,
+        })
+        
+        loadCoupon()
+      }
+      reader.readAsDataURL(file)
     } catch (error) {
       console.error('Failed to upload file:', error)
       alert('上传失败，请重试')
     } finally {
       setUploading(false)
       e.target.value = ''
+    }
+  }
+
+  const handleDownloadAttachment = async (attachmentId: number, filename: string) => {
+    try {
+      const response = await couponApi.downloadAttachment(attachmentId)
+      if (response.success) {
+        alert(`正在下载: ${filename}`)
+      }
+    } catch (error) {
+      console.error('Failed to download file:', error)
+      alert('下载失败，请重试')
+    }
+  }
+
+  const handleDeleteAttachment = async (attachmentId: number) => {
+    if (!confirm('确定要删除这个附件吗？')) return
+    
+    try {
+      const response = await couponApi.deleteAttachment(attachmentId)
+      if (response.success) {
+        loadCoupon()
+      }
+    } catch (error) {
+      console.error('Failed to delete file:', error)
+      alert('删除失败，请重试')
     }
   }
 
@@ -296,9 +333,20 @@ export default function CouponDetail() {
                         </span>
                       )}
                     </div>
-                    <button className="text-sm text-primary hover:text-primary-600">
-                      下载
-                    </button>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => handleDownloadAttachment(attachment.id, attachment.filename)}
+                        className="text-sm text-primary hover:text-primary-600"
+                      >
+                        下载
+                      </button>
+                      <button
+                        onClick={() => handleDeleteAttachment(attachment.id)}
+                        className="text-sm text-red-500 hover:text-red-600"
+                      >
+                        删除
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
