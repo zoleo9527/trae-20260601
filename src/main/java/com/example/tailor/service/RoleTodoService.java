@@ -52,7 +52,6 @@ public class RoleTodoService {
                 feedbacks = feedbackRepository.findByStatus(FeedbackStatus.PROCESSING);
                 break;
             case PATTERN_MAKER:
-                feedbacks = feedbackRepository.findByStatus(FeedbackStatus.PROCESSING);
                 break;
             default:
                 break;
@@ -70,6 +69,7 @@ public class RoleTodoService {
                         Role.MEASURER.name(), ModificationStatus.PENDING);
                 modifications.addAll(modificationRecordRepository.findByResponsibleRoleAndStatus(
                         Role.MEASURER.name(), ModificationStatus.IN_PROGRESS));
+                modifications.addAll(modificationRecordRepository.findByStatus(ModificationStatus.COMPLETED));
                 break;
             case PATTERN_MAKER:
                 modifications = modificationRecordRepository.findByResponsibleRoleAndStatus(

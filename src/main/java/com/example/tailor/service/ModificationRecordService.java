@@ -53,6 +53,9 @@ public class ModificationRecordService {
         FittingFeedback feedback = feedbackRepository.findById(request.getFeedbackId())
                 .orElseThrow(() -> new BusinessException("试衣反馈不存在：" + request.getFeedbackId()));
 
+        Measurement measurement = measurementRepository.findByOrderId(feedback.getOrder().getId()).orElse(null);
+        FabricCard fabricCard = fabricCardRepository.findById(feedback.getOrder().getFabricCard().getId()).orElse(null);
+
         String modificationNo = generateModificationNo();
 
         ModificationRecord modification = new ModificationRecord();
@@ -70,15 +73,63 @@ public class ModificationRecordService {
         modification.setAssigneeName(request.getAssigneeName());
         modification.setStatus(ModificationStatus.PENDING);
         modification.setPriority(request.getPriority());
-        modification.setRelatedMeasurementFields(request.getRelatedMeasurementFields());
-        modification.setRelatedFabricInfo(request.getRelatedFabricInfo());
+
+        if (request.getRelatedMeasurementFields() != null && !request.getRelatedMeasurementFields().isEmpty()) {
+            modification.setRelatedMeasurementFields(request.getRelatedMeasurementFields());
+        } else if (measurement != null) {
+            StringBuilder measurementFields = new StringBuilder();
+            if (measurement.getBust() != null) measurementFields.append("胸围:").append(measurement.getBust()).append(";");
+            if (measurement.getWaist() != null) measurementFields.append("腰围:").append(measurement.getWaist()).append(";");
+            if (measurement.getHips() != null) measurementFields.append("臀围:").append(measurement.getHips()).append(";");
+            if (measurement.getShoulderWidth() != null) measurementFields.append("肩宽:").append(measurement.getShoulderWidth()).append(";");
+            if (measurement.getSleeveLength() != null) measurementFields.append("袖长:").append(measurement.getSleeveLength()).append(";");
+            if (measurement.getArmhole() != null) measurementFields.append("袖窿:").append(measurement.getArmhole()).append(";");
+            if (measurement.getBackLength() != null) measurementFields.append("背长:").append(measurement.getBackLength()).append(";");
+            if (measurement.getFrontLength() != null) measurementFields.append("前长:").append(measurement.getFrontLength()).append(";");
+            if (measurement.getNeckCircumference() != null) measurementFields.append("领围:").append(measurement.getNeckCircumference()).append(";");
+            if (measurement.getWristCircumference() != null) measurementFields.append("腕围:").append(measurement.getWristCircumference()).append(";");
+            if (measurement.getThighCircumference() != null) measurementFields.append("大腿围:").append(measurement.getThighCircumference()).append(";");
+            if (measurement.getKneeCircumference() != null) measurementFields.append("膝围:").append(measurement.getKneeCircumference()).append(";");
+            if (measurement.getInseamLength() != null) measurementFields.append("内长:").append(measurement.getInseamLength()).append(";");
+            if (measurement.getOutseamLength() != null) measurementFields.append("外长:").append(measurement.getOutseamLength()).append(";");
+            if (measurement.getNotes() != null) measurementFields.append("备注:").append(measurement.getNotes());
+            modification.setRelatedMeasurementFields(measurementFields.toString());
+        }
+
+        if (request.getRelatedFabricInfo() != null && !request.getRelatedFabricInfo().isEmpty()) {
+            modification.setRelatedFabricInfo(request.getRelatedFabricInfo());
+        } else if (fabricCard != null) {
+            StringBuilder fabricInfo = new StringBuilder();
+            fabricInfo.append("面料编码:").append(fabricCard.getFabricCode()).append(";");
+            fabricInfo.append("面料名称:").append(fabricCard.getFabricName()).append(";");
+            fabricInfo.append("面料类型:").append(fabricCard.getFabricType()).append(";");
+            fabricInfo.append("颜色:").append(fabricCard.getColor()).append(";");
+            fabricInfo.append("花型:").append(fabricCard.getPattern()).append(";");
+            fabricInfo.append("幅宽:").append(fabricCard.getWidth()).append(";");
+            if (fabricCard.getDescription() != null) {
+                fabricInfo.append("描述:").append(fabricCard.getDescription());
+            }
+            modification.setRelatedFabricInfo(fabricInfo.toString());
+        }
 
         ModificationRecord saved = modificationRecordRepository.save(modification);
 
         notificationService.triggerModificationCreated(saved.getId(), modificationNo,
                 feedback.getId(), feedback.getFeedbackNo(), request.getResponsibleRole());
 
+        syncFeedbackStatusOnCreation(saved);
+
         return convertToDTO(saved);
+    }
+
+    private void syncFeedbackStatusOnCreation(ModificationRecord modification) {
+        FittingFeedback feedback = modification.getFeedback();
+        if (feedback.getStatus() == FeedbackStatus.PENDING) {
+            feedback.setStatus(FeedbackStatus.PROCESSING);
+            feedbackRepository.save(feedback);
+            notificationService.triggerFeedbackProcessed(feedback.getId(), feedback.getFeedbackNo(),
+                    feedback.getOrder().getId(), feedback.getOrder().getOrderNo(), "系统");
+        }
     }
 
     public ModificationDetailDTO getModificationDetailById(Long id) {
@@ -191,18 +242,32 @@ public class ModificationRecordService {
 
     private void syncFeedbackStatus(ModificationRecord modification) {
         FittingFeedback feedback = modification.getFeedback();
+        ModificationStatus newStatus = modification.getStatus();
         
-        List<ModificationRecord> allModifications = modificationRecordRepository.findByFeedbackId(feedback.getId());
-        boolean allVerified = allModifications.stream()
-                .allMatch(m -> m.getStatus() == ModificationStatus.VERIFIED);
-        
-        if (allVerified && feedback.getStatus() != FeedbackStatus.RESOLVED) {
-            feedback.setStatus(FeedbackStatus.RESOLVED);
-            feedbackRepository.save(feedback);
+        if (newStatus == ModificationStatus.COMPLETED) {
+            boolean allCompleted = modificationRecordRepository.findByFeedbackId(feedback.getId()).stream()
+                    .allMatch(m -> m.getStatus() == ModificationStatus.COMPLETED || 
+                                   m.getStatus() == ModificationStatus.VERIFIED);
+            if (allCompleted && feedback.getStatus() != FeedbackStatus.PROCESSING) {
+                feedback.setStatus(FeedbackStatus.PROCESSING);
+                feedbackRepository.save(feedback);
+                notificationService.triggerFeedbackProcessed(feedback.getId(), feedback.getFeedbackNo(),
+                        feedback.getOrder().getId(), feedback.getOrder().getOrderNo(),
+                        modification.getAssigneeName() != null ? modification.getAssigneeName() : "系统");
+            }
+        } else if (newStatus == ModificationStatus.VERIFIED) {
+            List<ModificationRecord> allModifications = modificationRecordRepository.findByFeedbackId(feedback.getId());
+            boolean allVerified = allModifications.stream()
+                    .allMatch(m -> m.getStatus() == ModificationStatus.VERIFIED);
             
-            notificationService.triggerFeedbackProcessed(feedback.getId(), feedback.getFeedbackNo(),
-                    feedback.getOrder().getId(), feedback.getOrder().getOrderNo(),
-                    modification.getVerifierName() != null ? modification.getVerifierName() : "系统");
+            if (allVerified && feedback.getStatus() != FeedbackStatus.RESOLVED) {
+                feedback.setStatus(FeedbackStatus.RESOLVED);
+                feedbackRepository.save(feedback);
+                
+                notificationService.triggerFeedbackProcessed(feedback.getId(), feedback.getFeedbackNo(),
+                        feedback.getOrder().getId(), feedback.getOrder().getOrderNo(),
+                        modification.getVerifierName() != null ? modification.getVerifierName() : "系统");
+            }
         }
     }
 
