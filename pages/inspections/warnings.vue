@@ -8,9 +8,10 @@ const searchQuery = ref('')
 const typeFilter = ref('all')
 const statusFilter = ref('all')
 const severityFilter = ref('all')
+const expandedStores = ref<string[]>([])
 
 const typeOptions = [
-  { value: 'all', label: '全部类型' },
+  { value: 'all', label: '全部类型', icon: '📋' },
   { value: 'stock_shortage', label: '缺菜预警', icon: '🥬' },
   { value: 'bad_review', label: '外卖差评', icon: '📝' },
   { value: 'standard_deviation', label: '执行标准不一', icon: '📊' },
@@ -42,6 +43,48 @@ const filteredWarnings = computed(() => {
     return matchesSearch && matchesType && matchesStatus && matchesSeverity
   })
 })
+
+const warningsByStore = computed(() => {
+  const grouped: Record<string, typeof filteredWarnings.value> = {}
+  filteredWarnings.value.forEach(warning => {
+    if (!grouped[warning.storeId]) {
+      grouped[warning.storeId] = []
+    }
+    grouped[warning.storeId].push(warning)
+  })
+  
+  const sortedStores = Object.entries(grouped).sort((a, b) => {
+    const aActive = a[1].filter(w => w.status === 'active').length
+    const bActive = b[1].filter(w => w.status === 'active').length
+    return bActive - aActive
+  })
+  
+  return sortedStores.map(([storeId, warnings]) => ({
+    storeId,
+    storeName: warnings[0].storeName,
+    warnings: warnings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    activeCount: warnings.filter(w => w.status === 'active').length,
+    highSeverityCount: warnings.filter(w => w.severity === 'high' && w.status === 'active').length,
+  }))
+})
+
+const stats = computed(() => ({
+  total: filteredWarnings.value.length,
+  active: filteredWarnings.value.filter(w => w.status === 'active').length,
+  resolved: filteredWarnings.value.filter(w => w.status === 'resolved').length,
+  highSeverity: filteredWarnings.value.filter(w => w.severity === 'high' && w.status === 'active').length,
+  mediumSeverity: filteredWarnings.value.filter(w => w.severity === 'medium' && w.status === 'active').length,
+  lowSeverity: filteredWarnings.value.filter(w => w.severity === 'low' && w.status === 'active').length,
+}))
+
+const toggleStore = (storeId: string) => {
+  const index = expandedStores.value.indexOf(storeId)
+  if (index === -1) {
+    expandedStores.value.push(storeId)
+  } else {
+    expandedStores.value.splice(index, 1)
+  }
+}
 
 const getTypeLabel = (type: string) => {
   const labels: Record<string, string> = {
@@ -103,6 +146,21 @@ const formatTime = (time: string) => {
     minute: '2-digit'
   })
 }
+
+const quickFilterStatus = (status: string) => {
+  statusFilter.value = status
+}
+
+const quickFilterSeverity = (severity: string) => {
+  severityFilter.value = severity
+}
+
+const resetFilters = () => {
+  typeFilter.value = 'all'
+  statusFilter.value = 'all'
+  severityFilter.value = 'all'
+  searchQuery.value = ''
+}
 </script>
 
 <template>
@@ -141,6 +199,53 @@ const formatTime = (time: string) => {
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">预警总数</p>
+              <p class="text-2xl font-bold text-gray-900 mt-1">{{ stats.total }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+              <span class="text-xl">📊</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">紧急预警</p>
+              <p class="text-2xl font-bold text-danger-600 mt-1">{{ stats.highSeverity }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-danger-100 flex items-center justify-center">
+              <span class="text-xl">🚨</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">处理中</p>
+              <p class="text-2xl font-bold text-warning-600 mt-1">{{ stats.active }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-warning-100 flex items-center justify-center">
+              <span class="text-xl">🔄</span>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">已处理</p>
+              <p class="text-2xl font-bold text-success-600 mt-1">{{ stats.resolved }}</p>
+            </div>
+            <div class="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
+              <span class="text-xl">✅</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div class="flex-1">
@@ -154,95 +259,163 @@ const formatTime = (time: string) => {
               />
             </div>
           </div>
-          <div class="flex items-center space-x-4">
-            <select
-              v-model="typeFilter"
-              class="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+          <div class="flex items-center space-x-2">
+            <button
+              @click="quickFilterStatus('active')"
+              :class="[
+                'px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                statusFilter === 'active' ? 'bg-warning-100 text-warning-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ]"
             >
-              <option v-for="opt in typeOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
+              ⚠️ 处理中
+            </button>
+            <button
+              @click="quickFilterStatus('resolved')"
+              :class="[
+                'px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                statusFilter === 'resolved' ? 'bg-success-100 text-success-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ]"
+            >
+              ✅ 已处理
+            </button>
+            <button
+              @click="quickFilterSeverity('high')"
+              :class="[
+                'px-3 py-2 text-sm font-medium rounded-lg transition-colors',
+                severityFilter === 'high' ? 'bg-danger-100 text-danger-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              ]"
+            >
+              🔴 紧急
+            </button>
+            <button
+              @click="resetFilters"
+              class="px-3 py-2 text-sm font-medium bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              重置
+            </button>
+          </div>
+        </div>
+        
+        <div class="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+          <div class="flex items-center space-x-2">
+            <span class="text-sm text-gray-500">类型:</span>
+            <div class="flex space-x-1">
+              <button
+                v-for="opt in typeOptions"
+                :key="opt.value"
+                @click="typeFilter = opt.value"
+                :class="[
+                  'px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                  typeFilter === opt.value ? 'bg-primary-100 text-primary-600' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ]"
+              >
+                <span class="mr-1">{{ opt.icon }}</span>
+                {{ opt.label }}
+              </button>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <span class="text-sm text-gray-500">级别:</span>
             <select
               v-model="severityFilter"
-              class="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+              class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option v-for="opt in severityOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
-            </select>
-            <select
-              v-model="statusFilter"
-              class="px-4 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-            >
-              <option v-for="opt in statusOptions" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="space-y-4">
         <div
-          v-for="warning in filteredWarnings"
-          :key="warning.id"
-          class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
-          :class="{ 'opacity-60': warning.status === 'resolved' }"
+          v-for="group in warningsByStore"
+          :key="group.storeId"
+          class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
         >
           <div
-            :class="[
-              'px-5 py-3 border-b',
-              warning.status === 'active' ? warning.severity === 'high' ? 'bg-danger-50 border-danger-100' : warning.severity === 'medium' ? 'bg-warning-50 border-warning-100' : 'bg-gray-50 border-gray-100' :
-              'bg-success-50 border-success-100'
-            ]"
+            @click="toggleStore(group.storeId)"
+            class="px-5 py-4 cursor-pointer hover:bg-gray-50 transition-colors flex items-center justify-between"
           >
-            <div class="flex items-center justify-between">
-              <div class="flex items-center space-x-2">
-                <span class="text-xl">{{ getTypeIcon(warning.type) }}</span>
-                <span class="font-medium text-gray-900">{{ getTypeLabel(warning.type) }}</span>
+            <div class="flex items-center space-x-4">
+              <div class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center">
+                <span class="text-lg">🏪</span>
               </div>
-              <span
-                :class="[
-                  'px-2 py-0.5 rounded text-xs font-medium',
-                  getStatusColor(warning.status)
-                ]"
-              >
-                {{ getStatusLabel(warning.status) }}
-              </span>
-            </div>
-          </div>
-          <div class="p-5">
-            <h3 class="font-semibold text-gray-900 mb-2">{{ warning.title }}</h3>
-            <p class="text-sm text-gray-600 mb-3">{{ warning.storeName }}</p>
-            <p class="text-sm text-gray-500 mb-4 line-clamp-2">{{ warning.description }}</p>
-            
-            <div class="flex items-center justify-between mb-4">
-              <span
-                :class="[
-                  'px-2 py-0.5 rounded text-xs font-medium',
-                  getSeverityColor(warning.severity)
-                ]"
-              >
-                {{ getSeverityLabel(warning.severity) }}
-              </span>
-              <span class="text-xs text-gray-400">{{ formatTime(warning.createdAt) }}</span>
-            </div>
-            
-            <div v-if="warning.handlingHistory.length > 0" class="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p class="text-xs text-gray-500 mb-2">处理记录 ({{ warning.handlingHistory.length }}条)</p>
-              <div class="space-y-1">
-                <p
-                  v-for="history in warning.handlingHistory.slice(-3)"
-                  :key="history.id"
-                  class="text-xs text-gray-600"
-                >
-                  {{ formatTime(history.time) }} - {{ history.operator }}: {{ history.action }}
-                  <span v-if="history.comment" class="ml-1">("{{ history.comment }}")</span>
+              <div>
+                <h3 class="font-semibold text-gray-900">{{ group.storeName }}</h3>
+                <p class="text-sm text-gray-500">
+                  共 {{ group.warnings.length }} 条预警
+                  <span v-if="group.activeCount > 0" class="text-warning-600">| {{ group.activeCount }} 条处理中</span>
+                  <span v-if="group.highSeverityCount > 0" class="text-danger-600">| {{ group.highSeverityCount }} 条紧急</span>
                 </p>
               </div>
             </div>
-            
-            <button
-              @click="navigateTo(`/inspections/warnings/${warning.id}`)"
-              class="w-full py-2.5 bg-gray-100 text-gray-700 font-medium rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              查看详情
-            </button>
+            <div class="flex items-center space-x-3">
+              <span
+                v-if="group.highSeverityCount > 0"
+                class="px-2 py-1 bg-danger-100 text-danger-600 text-xs font-medium rounded"
+              >
+                {{ group.highSeverityCount }} 紧急
+              </span>
+              <span
+                :class="[
+                  'text-xl transition-transform duration-200',
+                  expandedStores.includes(group.storeId) ? 'rotate-180' : ''
+                ]"
+              >
+                ▼
+              </span>
+            </div>
+          </div>
+          
+          <div
+            v-show="expandedStores.includes(group.storeId)"
+            class="border-t border-gray-100"
+          >
+            <div class="divide-y divide-gray-100">
+              <div
+                v-for="warning in group.warnings"
+                :key="warning.id"
+                class="px-5 py-4 hover:bg-gray-50 transition-colors"
+              >
+                <div class="flex items-start justify-between">
+                  <div class="flex-1">
+                    <div class="flex items-center space-x-2">
+                      <span class="text-lg">{{ getTypeIcon(warning.type) }}</span>
+                      <span class="font-medium text-gray-900">{{ warning.title }}</span>
+                      <span
+                        :class="[
+                          'px-2 py-0.5 rounded text-xs font-medium',
+                          getSeverityColor(warning.severity)
+                        ]"
+                      >
+                        {{ getSeverityLabel(warning.severity) }}
+                      </span>
+                      <span
+                        :class="[
+                          'px-2 py-0.5 rounded text-xs font-medium',
+                          getStatusColor(warning.status)
+                        ]"
+                      >
+                        {{ getStatusLabel(warning.status) }}
+                      </span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">{{ warning.description }}</p>
+                    <div class="flex items-center space-x-4 mt-2 text-xs text-gray-400">
+                      <span>{{ formatTime(warning.createdAt) }}</span>
+                      <span v-if="warning.handlingHistory.length > 0">
+                        已处理 {{ warning.handlingHistory.length }} 次
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    @click.stop="navigateTo(`/inspections/warnings/${warning.id}`)"
+                    class="ml-4 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    查看详情
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

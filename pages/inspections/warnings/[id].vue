@@ -12,6 +12,25 @@ const warning = computed(() => {
   return store.warnings.find(w => w.id === warningId.value)
 })
 
+const allWarnings = computed(() => {
+  return store.warnings.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+})
+
+const currentIndex = computed(() => {
+  if (!warning.value) return -1
+  return allWarnings.value.findIndex(w => w.id === warning.value!.id)
+})
+
+const prevWarning = computed(() => {
+  if (currentIndex.value <= 0) return null
+  return allWarnings.value[currentIndex.value - 1]
+})
+
+const nextWarning = computed(() => {
+  if (currentIndex.value === -1 || currentIndex.value >= allWarnings.value.length - 1) return null
+  return allWarnings.value[currentIndex.value + 1]
+})
+
 const relatedReviews = computed(() => {
   if (!warning.value || warning.value.type !== 'bad_review') return []
   return store.badReviews.filter(r => r.storeId === warning.value!.storeId)
@@ -105,6 +124,18 @@ const handleRespondToReview = (id: string) => {
   showReviewModal.value = null
   reviewResponse.value = ''
 }
+
+const navigateToPrev = () => {
+  if (prevWarning.value) {
+    navigateTo(`/inspections/warnings/${prevWarning.value.id}`)
+  }
+}
+
+const navigateToNext = () => {
+  if (nextWarning.value) {
+    navigateTo(`/inspections/warnings/${nextWarning.value.id}`)
+  }
+}
 </script>
 
 <template>
@@ -145,6 +176,44 @@ const handleRespondToReview = (id: string) => {
         </div>
       </div>
     </header>
+
+    <div class="bg-gray-100 border-b border-gray-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <button
+              @click="navigateToPrev"
+              :disabled="!prevWarning"
+              class="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span>←</span>
+              <span class="text-sm">上一条</span>
+            </button>
+            <span class="text-sm text-gray-500">
+              {{ currentIndex + 1 }} / {{ allWarnings.length }}
+            </span>
+            <button
+              @click="navigateToNext"
+              :disabled="!nextWarning"
+              class="flex items-center space-x-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span class="text-sm">下一条</span>
+              <span>→</span>
+            </button>
+          </div>
+          <div class="flex items-center space-x-4 text-sm text-gray-500">
+            <span v-if="prevWarning" class="flex items-center space-x-1">
+              <span class="text-xs bg-gray-200 px-2 py-1 rounded">{{ getTypeIcon(prevWarning.type) }}</span>
+              <span>{{ prevWarning.storeName }}</span>
+            </span>
+            <span v-if="nextWarning" class="flex items-center space-x-1">
+              <span>{{ nextWarning.storeName }}</span>
+              <span class="text-xs bg-gray-200 px-2 py-1 rounded">{{ getTypeIcon(nextWarning.type) }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       <div v-if="!warning" class="text-center py-12">
@@ -311,6 +380,37 @@ const handleRespondToReview = (id: string) => {
               <div class="flex items-center justify-between">
                 <span class="text-gray-500">处理记录数</span>
                 <span class="font-medium text-gray-900">{{ warning.handlingHistory.length }} 条</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-lg font-semibold text-gray-900 mb-4">门店预警概览</h2>
+            <div class="space-y-3">
+              <div
+                v-for="w in store.warnings.filter(w => w.storeId === warning.storeId && w.id !== warning.id).slice(0, 5)"
+                :key="w.id"
+                class="p-3 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors"
+                @click="navigateTo(`/inspections/warnings/${w.id}`)"
+              >
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <span>{{ getTypeIcon(w.type) }}</span>
+                    <span class="text-sm text-gray-700">{{ w.title }}</span>
+                  </div>
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded text-xs font-medium',
+                      getStatusColor(w.status)
+                    ]"
+                  >
+                    {{ getStatusLabel(w.status) }}
+                  </span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">{{ formatTime(w.createdAt) }}</p>
+              </div>
+              <div v-if="store.warnings.filter(w => w.storeId === warning.storeId && w.id !== warning.id).length === 0" class="text-center py-4 text-gray-400">
+                <p class="text-sm">该门店暂无其他预警</p>
               </div>
             </div>
           </div>
