@@ -75,7 +75,7 @@ export const QueueList: React.FC<QueueListProps> = ({ queues, onSelectQueue }) =
             <h2 className="text-lg font-bold text-gray-800">等位排号</h2>
             <p className="text-sm text-gray-500">当前等待人数: {waitingQueues.length}</p>
           </div>
-          {(user?.role === 'manager' || user?.role === 'admin') && (
+          {(user?.role === 'manager') && (
             <button
               onClick={() => setShowAddModal(true)}
               className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all"
@@ -220,12 +220,14 @@ export const QueueList: React.FC<QueueListProps> = ({ queues, onSelectQueue }) =
           <div className="p-8 text-center">
             <UserPlus className="w-12 h-12 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-500">暂无排号记录</p>
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm"
-            >
-              创建第一个排号
-            </button>
+            {(user?.role === 'manager') && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="mt-4 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-all text-sm"
+              >
+                创建第一个排号
+              </button>
+            )}
           </div>
         )}
       </div>

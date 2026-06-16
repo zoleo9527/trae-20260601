@@ -36,7 +36,7 @@ router.post('/', (req, res) => {
       return res.status(401).json({ message: '用户不存在' });
     }
     
-    if (user.role !== 'manager' && user.role !== 'admin') {
+    if (user.role !== 'manager') {
       return res.status(403).json({ message: '仅前厅经理可创建排号' });
     }
 

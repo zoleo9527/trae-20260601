@@ -118,13 +118,14 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
 
     const completeLog = queueLogs.find(l => l.action === '完成结账');
     const cancelLog = queueLogs.find(l => l.action.includes('取消'));
+    const tableName = queue.assignedTableName || '未知桌台';
     
     if (queue.status === 'completed') {
       events.push({
         id: `complete-${queue.id}`,
         type: 'complete',
         title: '完成结账',
-        description: completeLog?.details || '桌台已释放',
+        description: `桌台 ${tableName} 已释放为可用`,
         operatorName: completeLog?.userName || user?.name || '-',
         timestamp: queue.updatedAt,
         icon: <CreditCard className="w-4 h-4" />,
@@ -182,11 +183,6 @@ export const QueueDetailModal: React.FC<QueueDetailModalProps> = ({ queue, table
     try {
       const updatedQueue = await queueApi.assignTable(queue.id, selectedTableId, user.id);
       updateQueue(updatedQueue);
-      
-      const table = await tableApi.updateTable(selectedTableId, 'occupied', undefined, undefined, undefined, user.id);
-      updateTableState(table);
-
-      await assignmentApi.createAssignment(queue.id, selectedTableId, user.id, user.name);
       
       setShowAssignModal(false);
       setSelectedTableId(null);
