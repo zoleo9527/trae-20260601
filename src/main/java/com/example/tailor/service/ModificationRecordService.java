@@ -124,7 +124,7 @@ public class ModificationRecordService {
 
     private void syncFeedbackStatusOnCreation(ModificationRecord modification) {
         FittingFeedback feedback = modification.getFeedback();
-        if (feedback.getStatus() != FeedbackStatus.RESOLVED) {
+        if (feedback.getStatus() != FeedbackStatus.PROCESSING) {
             feedback.setStatus(FeedbackStatus.PROCESSING);
             feedbackRepository.save(feedback);
             notificationService.triggerFeedbackProcessed(feedback.getId(), feedback.getFeedbackNo(),
