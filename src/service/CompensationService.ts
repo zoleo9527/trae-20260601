@@ -425,11 +425,14 @@ export class CompensationService {
 
   async getUncompletedCompensations(): Promise<{ code: ErrorCode; message: string; data?: Compensation[] }> {
     try {
-      const compensations = await this.compensationRepository.find({
-        where: { status: (qb) => qb.not().in([CompensationStatus.COMPLETED]) },
-        relations: ["review", "store"],
-        order: { createdAt: "ASC" },
-      });
+      const compensations = await this.compensationRepository
+        .createQueryBuilder("compensation")
+        .leftJoinAndSelect("compensation.review", "review")
+        .leftJoinAndSelect("compensation.store", "store")
+        .where("compensation.status != :completedStatus", { completedStatus: CompensationStatus.COMPLETED })
+        .orderBy("compensation.createdAt", "ASC")
+        .getMany();
+
       return { code: ErrorCode.SUCCESS, message: ErrorMessage[ErrorCode.SUCCESS], data: compensations };
     } catch (error) {
       console.error("Failed to get uncompleted compensations:", error);

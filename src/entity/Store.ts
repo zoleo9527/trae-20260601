@@ -5,44 +5,44 @@ import { Compensation } from "./Compensation";
 @Entity()
 export class Store {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id: string = "";
 
   @Column({ unique: true })
-  storeCode: string;
+  storeCode: string = "";
 
   @Column()
-  storeName: string;
+  storeName: string = "";
 
   @Column()
-  region: string;
+  region: string = "";
 
   @Column()
-  address: string;
+  address: string = "";
 
   @Column()
-  managerName: string;
+  managerName: string = "";
 
   @Column()
-  managerPhone: string;
+  managerPhone: string = "";
 
   @Column({ nullable: true })
-  supervisorName: string;
+  supervisorName: string | null = null;
 
   @Column({ nullable: true })
-  supervisorPhone: string;
+  supervisorPhone: string | null = null;
 
   @Column({ default: true })
-  isActive: boolean;
+  isActive: boolean = true;
 
   @OneToMany(() => Review, review => review.store)
-  reviews: Review[];
+  reviews: Review[] = [];
 
   @OneToMany(() => Compensation, compensation => compensation.store)
-  compensations: Compensation[];
+  compensations: Compensation[] = [];
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date = new Date();
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date = new Date();
 }

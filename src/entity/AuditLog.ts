@@ -30,35 +30,35 @@ export enum AuditOperatorRole {
 @Entity()
 export class AuditLog {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id: string = "";
 
   @Column({ type: "enum", enum: AuditModule })
-  module: AuditModule;
+  module: AuditModule = AuditModule.SYSTEM;
 
   @Column({ type: "enum", enum: AuditAction })
-  action: AuditAction;
+  action: AuditAction = AuditAction.CREATE;
 
   @Column()
-  targetId: string;
+  targetId: string = "";
 
   @Column({ type: "enum", enum: AuditOperatorRole })
-  operatorRole: AuditOperatorRole;
+  operatorRole: AuditOperatorRole = AuditOperatorRole.SYSTEM;
 
   @Column()
-  operatorName: string;
+  operatorName: string = "";
 
   @Column({ type: "json", nullable: true })
-  beforeData: Record<string, any> | null;
+  beforeData: Record<string, any> | null = null;
 
   @Column({ type: "json", nullable: true })
-  afterData: Record<string, any> | null;
+  afterData: Record<string, any> | null = null;
 
   @Column({ type: "text", nullable: true })
-  description: string;
+  description: string | null = null;
 
   @Column()
-  ipAddress: string;
+  ipAddress: string = "";
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date = new Date();
 }

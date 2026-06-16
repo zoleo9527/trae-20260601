@@ -27,43 +27,43 @@ export enum CompensationApprover {
 @Entity()
 export class Compensation {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id: string = "";
 
   @Column({ type: "enum", enum: CompensationType })
-  type: CompensationType;
+  type: CompensationType = CompensationType.OTHER;
 
   @Column({ type: "decimal", precision: 10, scale: 2 })
-  amount: number;
+  amount: number = 0;
 
   @Column({ type: "enum", enum: CompensationStatus, default: CompensationStatus.PENDING })
-  status: CompensationStatus;
+  status: CompensationStatus = CompensationStatus.PENDING;
 
   @Column({ type: "text", nullable: true })
-  reason: string;
+  reason: string | null = null;
 
   @Column({ type: "text", nullable: true })
-  rejectReason: string;
+  rejectReason: string | null = null;
 
   @Column({ type: "text", nullable: true })
-  pendingReason: string;
+  pendingReason: string | null = null;
 
   @Column({ type: "text", nullable: true })
-  internalNotes: string;
+  internalNotes: string | null = null;
 
   @Column({ type: "enum", enum: CompensationApprover, nullable: true })
-  approvedBy: CompensationApprover | null;
+  approvedBy: CompensationApprover | null = null;
 
   @Column({ nullable: true })
-  approverName: string;
+  approverName: string | null = null;
 
   @Column({ type: "enum", enum: CompensationApprover, nullable: true })
-  processedBy: CompensationApprover | null;
+  processedBy: CompensationApprover | null = null;
 
   @Column({ nullable: true })
-  processorName: string;
+  processorName: string | null = null;
 
   @Column({ nullable: true })
-  paymentTransactionId: string;
+  paymentTransactionId: string | null = null;
 
   @ManyToOne(() => Review, review => review.compensations)
   review: Review;
@@ -72,17 +72,17 @@ export class Compensation {
   store: Store;
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date = new Date();
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date = new Date();
 
   @Column({ nullable: true })
-  approvedAt: Date;
+  approvedAt: Date | null = null;
 
   @Column({ nullable: true })
-  processedAt: Date;
+  processedAt: Date | null = null;
 
   @Column({ nullable: true })
-  completedAt: Date;
+  completedAt: Date | null = null;
 }

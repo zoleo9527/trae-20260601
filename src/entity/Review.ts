@@ -41,59 +41,59 @@ export enum HandlerRole {
 @Entity()
 export class Review {
   @PrimaryGeneratedColumn("uuid")
-  id: string;
+  id: string = "";
 
   @Column({ type: "enum", enum: ReviewSource })
-  source: ReviewSource;
+  source: ReviewSource = ReviewSource.OTHER;
 
   @Column()
-  orderId: string;
+  orderId: string = "";
 
   @Column()
-  customerName: string;
+  customerName: string = "";
 
   @Column()
-  customerPhone: string;
+  customerPhone: string = "";
 
   @Column({ type: "text" })
-  content: string;
+  content: string = "";
 
   @Column({ type: "enum", enum: ReviewLevel })
-  level: ReviewLevel;
+  level: ReviewLevel = ReviewLevel.LOW;
 
   @Column({ type: "enum", enum: ReviewType })
-  type: ReviewType;
+  type: ReviewType = ReviewType.OTHER;
 
   @Column({ type: "enum", enum: ReviewStatus, default: ReviewStatus.PENDING })
-  status: ReviewStatus;
+  status: ReviewStatus = ReviewStatus.PENDING;
 
   @Column({ type: "decimal", precision: 5, scale: 2 })
-  orderAmount: number;
+  orderAmount: number = 0;
 
   @Column({ type: "enum", enum: HandlerRole, nullable: true })
-  currentHandler: HandlerRole | null;
+  currentHandler: HandlerRole | null = null;
 
   @Column({ nullable: true })
-  handlerName: string;
+  handlerName: string | null = null;
 
   @Column({ type: "text", nullable: true })
-  internalNotes: string;
+  internalNotes: string | null = null;
 
   @Column({ nullable: true })
-  blockedReason: string;
+  blockedReason: string | null = null;
 
   @ManyToOne(() => Store, store => store.reviews)
   store: Store;
 
   @OneToMany(() => Compensation, compensation => compensation.review)
-  compensations: Compensation[];
+  compensations: Compensation[] = [];
 
   @CreateDateColumn()
-  createdAt: Date;
+  createdAt: Date = new Date();
 
   @UpdateDateColumn()
-  updatedAt: Date;
+  updatedAt: Date = new Date();
 
   @Column({ nullable: true })
-  resolvedAt: Date;
+  resolvedAt: Date | null = null;
 }
