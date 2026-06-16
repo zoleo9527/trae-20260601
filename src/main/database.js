@@ -21,6 +21,7 @@ class AppDatabase {
     this.db.pragma('journal_mode = WAL');
     
     this.initializeTables();
+    this.migrateDatabase();
     this.initializeSampleData();
   }
 
@@ -45,16 +46,13 @@ class AppDatabase {
         tailor_id INTEGER,
         pattern_maker_id INTEGER,
         customer_service_id INTEGER,
-        current_owner_id INTEGER,
-        current_owner_role TEXT,
         status TEXT DEFAULT 'pending',
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (tailor_id) REFERENCES employees(id),
         FOREIGN KEY (pattern_maker_id) REFERENCES employees(id),
-        FOREIGN KEY (customer_service_id) REFERENCES employees(id),
-        FOREIGN KEY (current_owner_id) REFERENCES employees(id)
+        FOREIGN KEY (customer_service_id) REFERENCES employees(id)
       );
 
       CREATE TABLE IF NOT EXISTS todos (
@@ -185,6 +183,111 @@ class AppDatabase {
     `);
 
     log.info('数据库表初始化完成');
+  }
+
+  migrateDatabase() {
+    log.info('执行数据库迁移...');
+
+    try {
+      const columns = this.db.prepare(`
+        PRAGMA table_info(appointments)
+      `).all();
+      
+      const columnNames = columns.map(col => col.name);
+      
+      if (!columnNames.includes('current_owner_id')) {
+        log.info('添加 current_owner_id 字段到 appointments 表');
+        this.db.exec(`ALTER TABLE appointments ADD COLUMN current_owner_id INTEGER`);
+      }
+      
+      if (!columnNames.includes('current_owner_role')) {
+        log.info('添加 current_owner_role 字段到 appointments 表');
+        this.db.exec(`ALTER TABLE appointments ADD COLUMN current_owner_role TEXT`);
+      }
+      
+      if (!columnNames.includes('updated_at')) {
+        log.info('添加 updated_at 字段到 appointments 表');
+        this.db.exec(`ALTER TABLE appointments ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP`);
+      }
+
+      const todosExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='todos'
+      `).get();
+      
+      if (!todosExists) {
+        log.info('创建 todos 表');
+        this.db.exec(`
+          CREATE TABLE todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            appointment_id INTEGER NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            assignee_id INTEGER,
+            assignee_role TEXT,
+            status TEXT DEFAULT 'pending',
+            priority TEXT DEFAULT 'medium',
+            due_date DATE,
+            created_by INTEGER,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
+            FOREIGN KEY (appointment_id) REFERENCES appointments(id),
+            FOREIGN KEY (assignee_id) REFERENCES employees(id),
+            FOREIGN KEY (created_by) REFERENCES employees(id)
+          );
+          CREATE INDEX idx_todos_appointment ON todos(appointment_id);
+          CREATE INDEX idx_todos_assignee ON todos(assignee_id);
+          CREATE INDEX idx_todos_status ON todos(status);
+        `);
+      }
+
+      const recentItemsExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='recent_items'
+      `).get();
+      
+      if (!recentItemsExists) {
+        log.info('创建 recent_items 表');
+        this.db.exec(`
+          CREATE TABLE recent_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            item_type TEXT NOT NULL,
+            item_id INTEGER NOT NULL,
+            item_title TEXT,
+            last_accessed DATETIME DEFAULT CURRENT_TIMESTAMP,
+            accessed_by INTEGER,
+            FOREIGN KEY (accessed_by) REFERENCES employees(id)
+          );
+          CREATE INDEX idx_recent_items_accessed ON recent_items(last_accessed);
+        `);
+      }
+
+      const operationHistoryExists = this.db.prepare(`
+        SELECT name FROM sqlite_master WHERE type='table' AND name='operation_history'
+      `).get();
+      
+      if (!operationHistoryExists) {
+        log.info('创建 operation_history 表');
+        this.db.exec(`
+          CREATE TABLE operation_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            operation_type TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER,
+            description TEXT,
+            operator_id INTEGER,
+            operator_name TEXT,
+            old_data TEXT,
+            new_data TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (operator_id) REFERENCES employees(id)
+          );
+          CREATE INDEX idx_operation_history_created ON operation_history(created_at);
+        `);
+      }
+
+      log.info('数据库迁移完成');
+    } catch (error) {
+      log.error('数据库迁移失败:', error);
+    }
   }
 
   initializeSampleData() {

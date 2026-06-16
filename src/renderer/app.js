@@ -65,9 +65,6 @@ function showSection(section) {
         case 'appointments':
             loadAppointments();
             break;
-        case 'style-confirmations':
-            loadStyleConfirmations();
-            break;
         case 'recent':
             loadRecentItems();
             break;
@@ -261,11 +258,7 @@ function getStatusBadge(status) {
         'rejected': '已拒绝'
     };
     
-    const badge = document.createElement('span');
-    badge.className = `status-badge ${status}`;
-    badge.textContent = statusMap[status] || status;
-    
-    return badge;
+    return `<span class="status-badge ${status}">${statusMap[status] || status}</span>`;
 }
 
 function filterAppointments(status) {
@@ -425,7 +418,8 @@ async function viewAppointment(id) {
         await window.api.addRecentItem({
             item_type: 'appointment',
             item_id: id,
-            item_title: `${appointment.customer_name} - ${appointment.notes || '预约'}`
+            item_title: `${appointment.customer_name} - ${appointment.notes || '预约'}`,
+            accessed_by: 1
         });
         
         document.getElementById('appointmentDetailModal').classList.add('active');
@@ -534,7 +528,7 @@ function renderStyleConfirmations(styleConfirmations) {
             <div class="record-card">
                 <div class="record-header">
                     <div class="record-title">${sc.style_name}</div>
-                    ${statusBadge.outerHTML}
+                    ${statusBadge}
                 </div>
                 <div class="record-grid">
                     <div class="record-field">
@@ -731,7 +725,8 @@ async function viewStyleConfirmation(id) {
         await window.api.addRecentItem({
             item_type: 'style_confirmation',
             item_id: id,
-            item_title: `${styleConfirmation.customer_name} - ${styleConfirmation.style_name}`
+            item_title: `${styleConfirmation.customer_name} - ${styleConfirmation.style_name}`,
+            accessed_by: 1
         });
         
         document.getElementById('styleDetailModal').classList.add('active');
@@ -818,53 +813,7 @@ async function refreshAppointmentDetail() {
     renderFittingRecords(appointment.fitting_records || []);
 }
 
-async function loadStyleConfirmations() {
-    try {
-        const status = document.getElementById('styleStatusFilter').value;
-        
-        const filters = {};
-        if (status) filters.approval_status = status;
-        
-        const styleConfirmations = await window.api.getStyleConfirmations(filters);
-        const tbody = document.getElementById('styleConfirmationsTableBody');
-        
-        if (styleConfirmations.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="empty-state">暂无款式确认数据</td></tr>';
-            return;
-        }
-        
-        tbody.innerHTML = styleConfirmations.map(sc => {
-            const statusBadge = getStatusBadge(sc.approval_status);
-            const date = new Date(sc.created_at).toLocaleString('zh-CN');
-            
-            return `
-                <tr>
-                    <td>${sc.customer_name || '-'}</td>
-                    <td>${sc.style_name}</td>
-                    <td>${sc.style_type || '-'}</td>
-                    <td>${sc.created_by_name || '-'}</td>
-                    <td>${statusBadge}</td>
-                    <td>${date}</td>
-                    <td>
-                        <button class="action-btn" onclick="viewStyleConfirmation(${sc.id})">查看</button>
-                        ${sc.approval_status === 'pending' ? `
-                            <button class="action-btn" onclick="quickApprove(${sc.id})">批准</button>
-                            <button class="action-btn" onclick="quickReject(${sc.id})">拒绝</button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `;
-        }).join('');
-    } catch (error) {
-        console.error('加载款式确认列表失败:', error);
-    }
-}
 
-function filterStyleConfirmations(status) {
-    document.getElementById('styleStatusFilter').value = status;
-    showSection('style-confirmations');
-    loadStyleConfirmations();
-}
 
 async function quickApprove(id) {
     try {
@@ -1317,7 +1266,8 @@ async function viewAppointment(id) {
         await window.api.addRecentItem({
             item_type: 'appointment',
             item_id: id,
-            item_title: `${appointment.customer_name} - ${appointment.notes || '预约'}`
+            item_title: `${appointment.customer_name} - ${appointment.notes || '预约'}`,
+            accessed_by: 1
         });
         
         document.getElementById('appointmentDetailModal').classList.add('active');

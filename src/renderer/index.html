@@ -33,10 +33,7 @@
                             <span class="nav-icon">📅</span>
                             <span class="nav-text">量体预约</span>
                         </li>
-                        <li class="nav-item" data-section="style-confirmations">
-                            <span class="nav-icon">✅</span>
-                            <span class="nav-text">款式确认</span>
-                        </li>
+                        
                     </ul>
                 </div>
 
@@ -104,7 +101,7 @@
                                 <div class="stat-label">今日预约</div>
                             </div>
                         </div>
-                        <div class="stat-card" onclick="filterStyleConfirmations('pending')">
+                        <div class="stat-card" onclick="showSection('appointments')">
                             <div class="stat-icon">✅</div>
                             <div class="stat-content">
                                 <div class="stat-value" id="pendingStyles">0</div>
@@ -187,44 +184,6 @@
                             <tbody id="appointmentsTableBody">
                                 <tr>
                                     <td colspan="8" class="empty-state">加载中...</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-
-                <section id="style-confirmations-section" class="content-section">
-                    <div class="section-header">
-                        <h2 class="section-title">款式确认</h2>
-                        <div class="section-actions">
-                            <div class="filter-group">
-                                <select id="styleStatusFilter" onchange="loadStyleConfirmations()">
-                                    <option value="">全部状态</option>
-                                    <option value="pending">待确认</option>
-                                    <option value="approved">已批准</option>
-                                    <option value="rejected">已拒绝</option>
-                                </select>
-                                <button class="btn btn-secondary" onclick="loadStyleConfirmations()">刷新</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="data-table-container">
-                        <table class="data-table" id="styleConfirmationsTable">
-                            <thead>
-                                <tr>
-                                    <th>客户姓名</th>
-                                    <th>款式名称</th>
-                                    <th>款式类型</th>
-                                    <th>创建人</th>
-                                    <th>审批状态</th>
-                                    <th>创建时间</th>
-                                    <th>操作</th>
-                                </tr>
-                            </thead>
-                            <tbody id="styleConfirmationsTableBody">
-                                <tr>
-                                    <td colspan="7" class="empty-state">加载中...</td>
                                 </tr>
                             </tbody>
                         </table>
