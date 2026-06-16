@@ -202,31 +202,37 @@ complaintRouter.put('/:id/followup', (req, res) => {
   
   const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
 
-  db.run(`
-    INSERT OR REPLACE INTO followups (complaintId, followupBy, followupResult, followupNote, followupAt)
-    VALUES (?, ?, ?, ?, ?)
-  `, [id, followupBy, followupResult, followupNote, now], function(err) {
+  db.run(`DELETE FROM followups WHERE complaintId = ?`, [id], function(err) {
     if (err) {
       return res.status(500).json({ error: err.message })
     }
 
-    const newStatus = followupResult === 'resolved' ? 'resolved' : 'followup'
-    
-    db.run('UPDATE complaints SET status = ?, updatedAt = ? WHERE id = ?', [newStatus, now, id], function(err) {
+    db.run(`
+      INSERT INTO followups (complaintId, followupBy, followupResult, followupNote, followupAt)
+      VALUES (?, ?, ?, ?, ?)
+    `, [id, followupBy, followupResult, followupNote, now], function(err) {
       if (err) {
         return res.status(500).json({ error: err.message })
       }
 
-      res.json({ 
-        id, 
-        status: newStatus, 
-        updatedAt: now,
-        followup: {
-          followupBy,
-          followupResult,
-          followupNote,
-          followupAt: now
+      const newStatus = followupResult === 'resolved' ? 'resolved' : 'followup'
+      
+      db.run('UPDATE complaints SET status = ?, updatedAt = ? WHERE id = ?', [newStatus, now, id], function(err) {
+        if (err) {
+          return res.status(500).json({ error: err.message })
         }
+
+        res.json({ 
+          id, 
+          status: newStatus, 
+          updatedAt: now,
+          followup: {
+            followupBy,
+            followupResult,
+            followupNote,
+            followupAt: now
+          }
+        })
       })
     })
   })

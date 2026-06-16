@@ -221,7 +221,7 @@ export function ComplaintTable({
                         <span>添加补偿</span>
                       </button>
                     )}
-                    {complaint.status === 'compensated' && !complaint.compensate?.isAbnormal && (
+                    {complaint.status === 'compensated' && complaint.compensate?.verifiedBy && !complaint.compensate?.isAbnormal && (
                       <button
                         onClick={(e) => { e.stopPropagation(); onAddFollowup?.(complaint); }}
                         className="flex items-center space-x-1 px-4 py-2 bg-yellow-600 hover:bg-yellow-500 rounded-lg text-sm text-white transition-colors"
