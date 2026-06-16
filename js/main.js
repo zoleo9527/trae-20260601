@@ -55,12 +55,14 @@ function generateOrders() {
       id: 'DD20240115002',
       tableNo: 'A02',
       people: 6,
-      status: 'processing',
+      status: 'completed',
       createTime: '2024-01-15 11:35:20',
-      totalAmount: 363,
+      totalAmount: 174,
       cashierSettled: false,
       items: [
         { dishId: 2, name: '鲜切羊肉', quantity: 2, price: 58 },
+        { dishId: 3, name: '虾滑', quantity: 1, price: 48 },
+        { dishId: 5, name: '黄喉', quantity: 1, price: 45 },
         { dishId: 8, name: '土豆片', quantity: 2, price: 18 },
         { dishId: 11, name: '香菇', quantity: 1, price: 22 }
       ],
@@ -72,10 +74,10 @@ function generateOrders() {
       timeline: [
         { time: '2024-01-15 11:35:20', role: 'cashier', action: '创建订单', detail: 'A02桌，6人', operator: '收银员-小王' },
         { time: '2024-01-15 11:36:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-张厨师' },
-        { time: '2024-01-15 11:55:00', role: 'front', action: '退菜', detail: '虾滑1份-超时', operator: '前厅-经理陈', responsible: 'kitchen' },
-        { time: '2024-01-15 12:00:00', role: 'front', action: '退菜', detail: '黄喉1份-超时', operator: '前厅-经理陈', responsible: 'kitchen' },
-        { time: '2024-01-15 12:05:00', role: 'kitchen', action: '责任确认', detail: '高峰期出菜延迟，厨房承担', operator: '后厨-李师傅', conclusion: '厨房责任-免单处理' },
-        { time: '2024-01-15 12:10:00', role: 'kitchen', action: '完单确认', detail: '剩余菜品已出，等待结算', operator: '后厨-张厨师' }
+        { time: '2024-01-15 11:55:00', role: 'front', action: '退菜', detail: '虾滑1份-超时 | 责任方:后厨', operator: '前厅-经理陈', responsible: 'kitchen' },
+        { time: '2024-01-15 12:00:00', role: 'front', action: '退菜', detail: '黄喉1份-超时 | 责任方:后厨', operator: '前厅-经理陈', responsible: 'kitchen' },
+        { time: '2024-01-15 12:05:00', role: 'kitchen', action: '责任确认', detail: '高峰期出菜延迟，厨房承担', operator: '后厨-李师傅', responsible: 'kitchen', conclusion: '厨房责任-免单处理' },
+        { time: '2024-01-15 12:10:00', role: 'kitchen', action: '完单确认', detail: '剩余菜品已出，2项异常已处理，等待结算', operator: '后厨-张厨师' }
       ],
       dishStatus: {
         2: { status: 'ready', cookConfirm: '2024-01-15 11:42:00', cookOperator: '张厨师' },
@@ -203,11 +205,12 @@ function generateOrders() {
       people: 5,
       status: 'processing',
       createTime: '2024-01-15 11:05:30',
-      totalAmount: 370,
+      totalAmount: 186,
       cashierSettled: false,
       items: [
         { dishId: 2, name: '鲜切羊肉', quantity: 1, price: 58 },
         { dishId: 5, name: '黄喉', quantity: 2, price: 45 },
+        { dishId: 8, name: '土豆片', quantity: 1, price: 18 },
         { dishId: 10, name: '金针菇', quantity: 1, price: 20 },
         { dishId: 13, name: '鸭血', quantity: 1, price: 18 }
       ],
@@ -218,13 +221,13 @@ function generateOrders() {
       timeline: [
         { time: '2024-01-15 11:05:30', role: 'cashier', action: '创建订单', detail: 'C02桌，5人', operator: '收银员-小王' },
         { time: '2024-01-15 11:06:00', role: 'kitchen', action: '接单制作', detail: '开始备餐', operator: '后厨-张厨师' },
-        { time: '2024-01-15 11:25:00', role: 'kitchen', action: '异常-复核不通过', detail: '土豆片与订单不符', operator: '后厨-张厨师' },
-        { time: '2024-01-15 11:30:00', role: 'kitchen', action: '责任确认', detail: '厨房操作失误，重新制作', operator: '后厨-李师傅', conclusion: '厨房责任-免单处理' }
+        { time: '2024-01-15 11:25:00', role: 'front', action: '退菜', detail: '土豆片1份-复核不通过 | 责任方:后厨', operator: '前厅-经理陈', responsible: 'kitchen' },
+        { time: '2024-01-15 11:30:00', role: 'kitchen', action: '责任确认', detail: '厨房操作失误，重新制作', operator: '后厨-李师傅', responsible: 'kitchen', conclusion: '厨房责任-免单处理' }
       ],
       dishStatus: {
         2: { status: 'ready', cookConfirm: '2024-01-15 11:15:00', cookOperator: '张厨师' },
         5: { status: 'ready', cookConfirm: '2024-01-15 11:20:00', cookOperator: '张厨师' },
-        8: { status: 'abnormal', abnormalType: 'review-fail', abnormalReason: '菜品与订单不符', abnormalTime: '2024-01-15 11:25:00', responsible: 'kitchen' },
+        8: { status: 'return', returnTime: '2024-01-15 11:25:00', returnReason: 'review-fail', responsible: 'kitchen' },
         10: { status: 'cooking', cookStart: '2024-01-15 11:30:00', cookOperator: '李师傅' },
         13: { status: 'pending' }
       },
@@ -782,7 +785,7 @@ function renderHandle() {
   });
   
   document.getElementById('pendingAddItems').innerHTML = pendingAdd.length ? pendingAdd.map(item => `
-    <div class="abnormal-card">
+    <div class="abnormal-card" onclick="showOrderDetail('${item.orderId}')" style="cursor:pointer;">
       <div class="abnormal-card-header">
         <span class="abnormal-card-table">${item.tableNo}</span>
         <span class="recent-card-status status-processing">待接单</span>
@@ -795,13 +798,13 @@ function renderHandle() {
         </div>
       </div>
       <div class="abnormal-card-actions">
-        <button class="btn btn-primary" onclick="acceptAddItem('${item.orderId}', ${item.dishId})">接单制作</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation();acceptAddItem('${item.orderId}', ${item.dishId})">接单制作</button>
       </div>
     </div>
   `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无待接单加菜</p>';
   
   document.getElementById('abnormalItems').innerHTML = abnormalItems.length ? abnormalItems.map(item => `
-    <div class="abnormal-card ${item.status.abnormalType}">
+    <div class="abnormal-card ${item.status.abnormalType}" onclick="showOrderDetail('${item.orderId}')" style="cursor:pointer;">
       <div class="abnormal-card-header">
         <span class="abnormal-card-table">${item.tableNo}</span>
         <span class="abnormal-card-type type-${item.status.abnormalType}">${reasonMap[item.status.abnormalType] || '异常'}</span>
@@ -816,7 +819,7 @@ function renderHandle() {
       </div>
       <div class="abnormal-card-actions">
         ${item.status.responsible ? `<span style="font-size:12px;color:#666;">责任方: ${item.status.responsible === 'kitchen' ? '后厨' : (item.status.responsible === 'front' ? '前厅' : '双方')}</span>` : ''}
-        <button class="btn btn-primary" onclick="confirmResponsibility('${item.orderId}', ${item.dishId})">确认处理</button>
+        <button class="btn btn-primary" onclick="event.stopPropagation();confirmResponsibility('${item.orderId}', ${item.dishId})">确认处理</button>
       </div>
     </div>
   `).join('') : '<p style="text-align:center;color:#999;padding:20px;">暂无异常待处理</p>';
@@ -860,24 +863,45 @@ function acceptAddItem(orderId, dishId) {
   const order = orders.find(o => o.id === orderId);
   if (!order) return;
   
+  const dish = order.items.find(i => i.dishId === dishId);
+  if (!dish) return;
+  
+  const conclusions = [
+    '正常接单制作',
+    '材料不足需沟通',
+    '需优先制作',
+    '其他'
+  ];
+  
+  const selectedConclusion = prompt(`请选择加菜处理结论:\n\n1. ${conclusions[0]}\n2. ${conclusions[1]}\n3. ${conclusions[2]}\n4. ${conclusions[3]}\n\n输入数字选择:`);
+  
+  let conclusion = '';
+  if (selectedConclusion === '1') conclusion = conclusions[0];
+  else if (selectedConclusion === '2') conclusion = conclusions[1];
+  else if (selectedConclusion === '3') conclusion = conclusions[2];
+  else if (selectedConclusion === '4') conclusion = prompt('请输入其他处理结论:') || conclusions[3];
+  else conclusion = conclusions[0];
+  
   const now = new Date().toLocaleString('zh-CN');
   
   order.dishStatus[dishId] = {
     ...order.dishStatus[dishId],
     status: 'cooking',
     cookStart: now,
-    cookOperator: '李师傅'
+    cookOperator: '李师傅',
+    conclusion: conclusion
   };
   
   order.timeline.push({
     time: now,
     role: 'kitchen',
     action: '加菜接单',
-    detail: `${order.items.find(i => i.dishId === dishId)?.name}已加入制作`,
-    operator: '后厨-李师傅'
+    detail: `${dish.name}已加入制作`,
+    operator: '后厨-李师傅',
+    conclusion: conclusion
   });
   
-  alert('已接单加菜');
+  alert(`已接单加菜\n处理结论: ${conclusion}`);
   renderHandle();
   renderRecentList();
 }
@@ -942,16 +966,33 @@ function finishCooking(orderId, dishId) {
   
   const allReady = order.items.every(item => {
     const itemStatus = order.dishStatus[item.dishId];
-    return itemStatus?.status === 'ready' || itemStatus?.status === 'return';
+    return itemStatus?.status === 'ready' || itemStatus?.status === 'return' || itemStatus?.status === 'abnormal';
   });
   
-  if (allReady) {
+  const hasAbnormal = order.items.some(item => {
+    const itemStatus = order.dishStatus[item.dishId];
+    return itemStatus?.status === 'abnormal';
+  });
+  
+  const hasCooking = order.items.some(item => {
+    const itemStatus = order.dishStatus[item.dishId];
+    return itemStatus?.status === 'cooking';
+  });
+  
+  if (allReady && !hasCooking) {
     order.status = 'completed';
+    
+    let detail = '全部菜品已出，等待结算';
+    if (hasAbnormal) {
+      const abnormalCount = order.items.filter(item => order.dishStatus[item.dishId]?.status === 'abnormal').length;
+      detail = `全部菜品已出，${abnormalCount}项异常已处理，等待结算`;
+    }
+    
     order.timeline.push({
       time: now,
       role: 'kitchen',
       action: '完单确认',
-      detail: '全部菜品已出，等待结算',
+      detail: detail,
       operator: '后厨-李师傅'
     });
   }
@@ -971,11 +1012,29 @@ function settleOrder(orderId) {
   order.settleTime = now;
   order.settleOperator = '收银员-小王';
   
+  let detail = `实收¥${order.totalAmount}`;
+  
+  if (order.returnItems.length > 0) {
+    const kitchenResponsible = order.returnItems.filter(r => r.responsible === 'kitchen').length;
+    const frontResponsible = order.returnItems.filter(r => r.responsible === 'front').length;
+    const bothResponsible = order.returnItems.filter(r => r.responsible === 'both').length;
+    
+    if (kitchenResponsible > 0) {
+      detail += ` | 后厨责任退菜${kitchenResponsible}项`;
+    }
+    if (frontResponsible > 0) {
+      detail += ` | 前厅责任退菜${frontResponsible}项`;
+    }
+    if (bothResponsible > 0) {
+      detail += ` | 双方协商${bothResponsible}项`;
+    }
+  }
+  
   order.timeline.push({
     time: now,
     role: 'cashier',
     action: '落账结算',
-    detail: `实收¥${order.totalAmount}`,
+    detail: detail,
     operator: '收银员-小王'
   });
   
