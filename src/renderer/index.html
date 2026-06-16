@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>餐饮连锁门店缺货申领系统</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="app-header">
+            <div class="header-left">
+                <h1 class="app-title">🍽️ 餐饮连锁门店缺货申领系统</h1>
+            </div>
+            <div class="header-right">
+                <span class="current-time" id="currentTime"></span>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <nav class="sidebar">
+                <div class="nav-section">
+                    <h3 class="nav-section-title">快捷入口</h3>
+                    <ul class="nav-menu">
+                        <li class="nav-item active" data-section="dashboard">
+                            <span class="nav-icon">📊</span>
+                            <span class="nav-text">仪表盘</span>
+                        </li>
+                        <li class="nav-item" data-section="requests">
+                            <span class="nav-icon">📝</span>
+                            <span class="nav-text">缺货申领</span>
+                        </li>
+                        <li class="nav-item" data-section="allocations">
+                            <span class="nav-icon">📦</span>
+                            <span class="nav-text">配货状态</span>
+                        </li>
+                        <li class="nav-item" data-section="receipts">
+                            <span class="nav-icon">✅</span>
+                            <span class="nav-text">到货验收</span>
+                        </li>
+                        <li class="nav-item" data-section="discrepancies">
+                            <span class="nav-icon">⚠️</span>
+                            <span class="nav-text">差异处理</span>
+                        </li>
+                        <li class="nav-item" data-section="feedbacks">
+                            <span class="nav-icon">💬</span>
+                            <span class="nav-text">门店反馈</span>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <main class="content-area">
+                <section id="dashboard-section" class="content-section active">
+                    <div class="section-header">
+                        <h2 class="section-title">仪表盘</h2>
+                    </div>
+
+                    <div class="stats-grid">
+                        <div class="stat-card" onclick="showSection('requests')">
+                            <div class="stat-icon">📝</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="pendingRequests">0</div>
+                                <div class="stat-label">待审核申领</div>
+                            </div>
+                        </div>
+                        <div class="stat-card warning" onclick="showSection('requests')">
+                            <div class="stat-icon">🚨</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="affectBusiness">0</div>
+                                <div class="stat-label">影响营业</div>
+                            </div>
+                        </div>
+                        <div class="stat-card" onclick="showSection('allocations')">
+                            <div class="stat-icon">📦</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="pendingAllocations">0</div>
+                                <div class="stat-label">待发货配货</div>
+                            </div>
+                        </div>
+                        <div class="stat-card" onclick="showSection('receipts')">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="pendingReceipts">0</div>
+                                <div class="stat-label">待验收到货</div>
+                            </div>
+                        </div>
+                        <div class="stat-card danger" onclick="showSection('discrepancies')">
+                            <div class="stat-icon">⚠️</div>
+                            <div class="stat-content">
+                                <div class="stat-value" id="pendingDiscrepancies">0</div>
+                                <div class="stat-label">待处理差异</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>📝 待审核缺货申领</h3>
+                            </div>
+                            <div class="card-content" id="pendingRequestsList">
+                                <div class="empty-state">暂无待审核申领</div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>🚨 影响营业的缺货</h3>
+                            </div>
+                            <div class="card-content" id="affectBusinessList">
+                                <div class="empty-state">暂无影响营业的缺货</div>
+                            </div>
+                        </div>
+
+                        <div class="dashboard-card">
+                            <div class="card-header">
+                                <h3>📦 待发货配货单</h3>
+                            </div>
+                            <div class="card-content" id="pendingAllocationsList">
+                                <div class="empty-state">暂无待发货配货</div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="requests-section" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">缺货申领</h2>
+                        <div class="section-actions">
+                            <div class="filter-group">
+                                <select id="requestStoreFilter" onchange="loadShortageRequests()">
+                                    <option value="">全部门店</option>
+                                </select>
+                                <select id="requestStatusFilter" onchange="loadShortageRequests()">
+                                    <option value="">全部状态</option>
+                                    <option value="pending">待审核</option>
+                                    <option value="approved">已批准</option>
+                                    <option value="allocated">已配货</option>
+                                    <option value="shipped">已发货</option>
+                                    <option value="received">已到货</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadShortageRequests()">刷新</button>
+                            </div>
+                            <button class="btn btn-primary" onclick="showNewRequestModal()">新建申领</button>
+                        </div>
+                    </div>
+
+                    <div class="data-table-container">
+                        <table class="data-table" id="requestsTable">
+                            <thead>
+                                <tr>
+                                    <th>门店</th>
+                                    <th>商品</th>
+                                    <th>规格</th>
+                                    <th>申请数量</th>
+                                    <th>是否影响营业</th>
+                                    <th>原因</th>
+                                    <th>状态</th>
+                                    <th>创建人</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="requestsTableBody">
+                                <tr>
+                                    <td colspan="9" class="empty-state">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="allocations-section" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">配货状态</h2>
+                        <div class="section-actions">
+                            <div class="filter-group">
+                                <select id="allocationStoreFilter" onchange="loadAllocations()">
+                                    <option value="">全部门店</option>
+                                </select>
+                                <select id="allocationStatusFilter" onchange="loadAllocations()">
+                                    <option value="">全部状态</option>
+                                    <option value="allocated">已配货</option>
+                                    <option value="shipped">已发货</option>
+                                    <option value="delivered">已送达</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadAllocations()">刷新</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="data-table-container">
+                        <table class="data-table" id="allocationsTable">
+                            <thead>
+                                <tr>
+                                    <th>门店</th>
+                                    <th>商品</th>
+                                    <th>申请数量</th>
+                                    <th>配货数量</th>
+                                    <th>仓库</th>
+                                    <th>发货日期</th>
+                                    <th>运单号</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="allocationsTableBody">
+                                <tr>
+                                    <td colspan="9" class="empty-state">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="receipts-section" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">到货验收</h2>
+                        <div class="section-actions">
+                            <div class="filter-group">
+                                <select id="receiptStoreFilter" onchange="loadReceipts()">
+                                    <option value="">全部门店</option>
+                                </select>
+                                <select id="receiptStatusFilter" onchange="loadReceipts()">
+                                    <option value="">全部状态</option>
+                                    <option value="pending">待验收</option>
+                                    <option value="completed">已完成</option>
+                                    <option value="discrepancy">有差异</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadReceipts()">刷新</button>
+                            </div>
+                            <button class="btn btn-primary" onclick="showNewReceiptModal()">新建验收</button>
+                        </div>
+                    </div>
+
+                    <div class="data-table-container">
+                        <table class="data-table" id="receiptsTable">
+                            <thead>
+                                <tr>
+                                    <th>门店</th>
+                                    <th>商品</th>
+                                    <th>配货数量</th>
+                                    <th>实收数量</th>
+                                    <th>运单号</th>
+                                    <th>验收时间</th>
+                                    <th>状态</th>
+                                    <th>验收人</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="receiptsTableBody">
+                                <tr>
+                                    <td colspan="9" class="empty-state">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="discrepancies-section" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">差异处理</h2>
+                        <div class="section-actions">
+                            <div class="filter-group">
+                                <select id="discrepancyStoreFilter" onchange="loadDiscrepancies()">
+                                    <option value="">全部门店</option>
+                                </select>
+                                <select id="discrepancyStatusFilter" onchange="loadDiscrepancies()">
+                                    <option value="">全部状态</option>
+                                    <option value="reported">待处理</option>
+                                    <option value="resolved">已解决</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadDiscrepancies()">刷新</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="data-table-container">
+                        <table class="data-table" id="discrepanciesTable">
+                            <thead>
+                                <tr>
+                                    <th>门店</th>
+                                    <th>差异类型</th>
+                                    <th>描述</th>
+                                    <th>数量差异</th>
+                                    <th>温度异常</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="discrepanciesTableBody">
+                                <tr>
+                                    <td colspan="7" class="empty-state">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section id="feedbacks-section" class="content-section">
+                    <div class="section-header">
+                        <h2 class="section-title">门店反馈</h2>
+                        <div class="section-actions">
+                            <div class="filter-group">
+                                <select id="feedbackStoreFilter" onchange="loadFeedbacks()">
+                                    <option value="">全部门店</option>
+                                </select>
+                                <button class="btn btn-secondary" onclick="loadFeedbacks()">刷新</button>
+                            </div>
+                            <button class="btn btn-primary" onclick="showNewFeedbackModal()">新建反馈</button>
+                        </div>
+                    </div>
+
+                    <div class="data-table-container">
+                        <table class="data-table" id="feedbacksTable">
+                            <thead>
+                                <tr>
+                                    <th>门店</th>
+                                    <th>类型</th>
+                                    <th>内容</th>
+                                    <th>反馈人</th>
+                                    <th>创建时间</th>
+                                </tr>
+                            </thead>
+                            <tbody id="feedbacksTableBody">
+                                <tr>
+                                    <td colspan="5" class="empty-state">加载中...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+
+    <div class="modal" id="newRequestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新建缺货申领</h3>
+                <button class="modal-close" onclick="closeModal('newRequestModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="requestForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="requestStore">门店 <span class="required">*</span></label>
+                            <select id="requestStore" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="requestProduct">商品 <span class="required">*</span></label>
+                            <select id="requestProduct" required></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="requestQty">申请数量 <span class="required">*</span></label>
+                            <input type="number" id="requestQty" min="1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="requestUnit">单位</label>
+                            <input type="text" id="requestUnit" readonly>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestReason">缺货原因 <span class="required">*</span></label>
+                        <textarea id="requestReason" rows="3" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="requestAffectBusiness">
+                            <input type="checkbox" id="requestAffectBusiness"> 影响正常营业
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('newRequestModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveRequest()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="reviewRequestModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>审核缺货申领</h3>
+                <button class="modal-close" onclick="closeModal('reviewRequestModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="reviewRequestId">
+                <div class="form-group">
+                    <label>门店</label>
+                    <span id="reviewStoreName"></span>
+                </div>
+                <div class="form-group">
+                    <label>商品</label>
+                    <span id="reviewProductName"></span>
+                </div>
+                <div class="form-group">
+                    <label>申请数量</label>
+                    <span id="reviewRequestQty"></span>
+                </div>
+                <div class="form-group">
+                    <label>缺货原因</label>
+                    <span id="reviewRequestReason"></span>
+                </div>
+                <div class="form-group">
+                    <label for="reviewStatus">审核结果</label>
+                    <select id="reviewStatus">
+                        <option value="approved">批准</option>
+                        <option value="rejected">拒绝</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="reviewNote">审核意见</label>
+                    <textarea id="reviewNote" rows="2"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('reviewRequestModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveReview()">确认审核</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="createAllocationModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>创建配货单</h3>
+                <button class="modal-close" onclick="closeModal('createAllocationModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="allocationRequestId">
+                <div class="form-group">
+                    <label>门店</label>
+                    <span id="allocationStoreName"></span>
+                </div>
+                <div class="form-group">
+                    <label>商品</label>
+                    <span id="allocationProductName"></span>
+                </div>
+                <div class="form-group">
+                    <label>申请数量</label>
+                    <span id="allocationRequestedQty"></span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="allocationQty">配货数量 <span class="required">*</span></label>
+                        <input type="number" id="allocationQty" min="1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="allocationWarehouse">仓库 <span class="required">*</span></label>
+                        <select id="allocationWarehouse" required>
+                            <option value="北京仓">北京仓</option>
+                            <option value="上海仓">上海仓</option>
+                            <option value="广州仓">广州仓</option>
+                            <option value="深圳仓">深圳仓</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="allocationDate">发货日期 <span class="required">*</span></label>
+                        <input type="date" id="allocationDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="allocationTrackingNo">运单号</label>
+                        <input type="text" id="allocationTrackingNo">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('createAllocationModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveAllocation()">确认配货</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="newReceiptModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>到货验收</h3>
+                <button class="modal-close" onclick="closeModal('newReceiptModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="receiptForm">
+                    <div class="form-group">
+                        <label for="receiptAllocation">选择配货单 <span class="required">*</span></label>
+                        <select id="receiptAllocation" required></select>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>门店</label>
+                            <span id="receiptStoreName"></span>
+                        </div>
+                        <div class="form-group">
+                            <label>商品</label>
+                            <span id="receiptProductName"></span>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>应到数量</label>
+                            <span id="receiptAllocatedQty"></span>
+                        </div>
+                        <div class="form-group">
+                            <label for="receiptQty">实收数量 <span class="required">*</span></label>
+                            <input type="number" id="receiptQty" min="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="receiptTemperature">到货温度 (仅冷链商品)</label>
+                        <input type="number" step="0.1" id="receiptTemperature">
+                        <span id="receiptTempRange"></span>
+                    </div>
+                    <div class="form-group">
+                        <label for="receiptHasDiscrepancy">
+                            <input type="checkbox" id="receiptHasDiscrepancy"> 存在差异
+                        </label>
+                    </div>
+                    <div id="discrepancyFields" style="display: none;">
+                        <div class="form-group">
+                            <label for="discrepancyType">差异类型</label>
+                            <select id="discrepancyType">
+                                <option value="shortage">数量不足</option>
+                                <option value="excess">数量超额</option>
+                                <option value="wrong_item">错配商品</option>
+                                <option value="temperature">温度异常</option>
+                                <option value="spec">规格不符</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="discrepancyDesc">差异描述</label>
+                            <textarea id="discrepancyDesc" rows="2"></textarea>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('newReceiptModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveReceipt()">确认验收</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="resolveDiscrepancyModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>处理差异</h3>
+                <button class="modal-close" onclick="closeModal('resolveDiscrepancyModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="resolveDiscrepancyId">
+                <div class="form-group">
+                    <label>门店</label>
+                    <span id="resolveStoreName"></span>
+                </div>
+                <div class="form-group">
+                    <label>差异类型</label>
+                    <span id="resolveDiscrepancyType"></span>
+                </div>
+                <div class="form-group">
+                    <label>差异描述</label>
+                    <span id="resolveDiscrepancyDesc"></span>
+                </div>
+                <div class="form-group">
+                    <label for="resolveNote">处理结果</label>
+                    <textarea id="resolveNote" rows="3" required></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('resolveDiscrepancyModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveResolve()">确认处理</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="newFeedbackModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>新建反馈</h3>
+                <button class="modal-close" onclick="closeModal('newFeedbackModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="feedbackForm">
+                    <div class="form-group">
+                        <label for="feedbackStore">门店 <span class="required">*</span></label>
+                        <select id="feedbackStore" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="feedbackType">反馈类型</label>
+                        <select id="feedbackType">
+                            <option value="general">一般反馈</option>
+                            <option value="receipt">验收反馈</option>
+                            <option value="suggestion">建议</option>
+                            <option value="complaint">投诉</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="feedbackContent">反馈内容 <span class="required">*</span></label>
+                        <textarea id="feedbackContent" rows="4" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeModal('newFeedbackModal')">取消</button>
+                <button class="btn btn-primary" onclick="saveFeedback()">提交反馈</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
