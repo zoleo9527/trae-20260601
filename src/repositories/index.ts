@@ -3,6 +3,13 @@ import { v4 as uuidv4 } from 'uuid';
 import type { Staff, Reservation, BeverageStorage, SingerSchedule, StatusHistory, TodoItem, IssueDetection } from '../models/schemas.js';
 
 export class ReservationRepository {
+  private formatDate(date: Date | string): string {
+    if (typeof date === 'string') {
+      return date.split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  }
+
   create(data: Omit<Reservation, 'id' | 'createdAt' | 'updatedAt'>): Reservation {
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -18,7 +25,7 @@ export class ReservationRepository {
 
     stmt.run(
       id, data.customerName, data.customerPhone, data.tableNumber, 
-      data.reservationDate.toISOString(), data.reservationTime, data.partySize,
+      this.formatDate(data.reservationDate), data.reservationTime, data.partySize,
       data.status, data.minimumConsumptionAmount || null, 
       data.minimumConsumptionStatus || null, data.reservationStaffId,
       data.managerId || null, data.notes || null, data.internalNotes || null,
@@ -125,7 +132,12 @@ export class ReservationRepository {
       if (value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         updates.push(`${dbKey} = ?`);
-        params.push(value instanceof Date ? value.toISOString() : value);
+        if (key === 'reservationDate' || key === 'performanceDate' || key === 'originalDate') {
+          const dateValue = typeof value === 'string' ? value : value.toISOString();
+          params.push(dateValue.split('T')[0]);
+        } else {
+          params.push(value instanceof Date ? value.toISOString() : value);
+        }
       }
     }
 
@@ -224,7 +236,12 @@ export class BeverageStorageRepository {
       if (value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         updates.push(`${dbKey} = ?`);
-        params.push(value instanceof Date ? value.toISOString() : value);
+        if (key === 'reservationDate' || key === 'performanceDate' || key === 'originalDate') {
+          const dateValue = typeof value === 'string' ? value : value.toISOString();
+          params.push(dateValue.split('T')[0]);
+        } else {
+          params.push(value instanceof Date ? value.toISOString() : value);
+        }
       }
     }
 
@@ -258,6 +275,14 @@ export class BeverageStorageRepository {
 }
 
 export class SingerScheduleRepository {
+  private formatDate(date: Date | string | undefined): string | null {
+    if (!date) return null;
+    if (typeof date === 'string') {
+      return date.split('T')[0];
+    }
+    return date.toISOString().split('T')[0];
+  }
+
   create(data: Omit<SingerSchedule, 'id' | 'createdAt' | 'updatedAt'>): SingerSchedule {
     const id = uuidv4();
     const now = new Date().toISOString();
@@ -270,8 +295,8 @@ export class SingerScheduleRepository {
     `);
 
     stmt.run(
-      id, data.singerName, data.performanceDate.toISOString(), data.startTime,
-      data.endTime, data.status, data.originalDate?.toISOString() || null,
+      id, data.singerName, this.formatDate(data.performanceDate)!, data.startTime,
+      data.endTime, data.status, this.formatDate(data.originalDate),
       data.notes || null, data.managerId, now, now
     );
 
@@ -335,7 +360,12 @@ export class SingerScheduleRepository {
       if (value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         updates.push(`${dbKey} = ?`);
-        params.push(value instanceof Date ? value.toISOString() : value);
+        if (key === 'reservationDate' || key === 'performanceDate' || key === 'originalDate') {
+          const dateValue = typeof value === 'string' ? value : value.toISOString();
+          params.push(dateValue.split('T')[0]);
+        } else {
+          params.push(value instanceof Date ? value.toISOString() : value);
+        }
       }
     }
 
@@ -481,7 +511,12 @@ export class TodoItemRepository {
       if (value !== undefined) {
         const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
         updates.push(`${dbKey} = ?`);
-        params.push(value instanceof Date ? value.toISOString() : value);
+        if (key === 'reservationDate' || key === 'performanceDate' || key === 'originalDate') {
+          const dateValue = typeof value === 'string' ? value : value.toISOString();
+          params.push(dateValue.split('T')[0]);
+        } else {
+          params.push(value instanceof Date ? value.toISOString() : value);
+        }
       }
     }
 

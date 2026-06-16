@@ -172,6 +172,10 @@ export class ReservationService {
       throw new Error('预约不存在');
     }
 
+    if (reservation.status !== 'confirmed') {
+      throw new Error('低消只能在预约已确认后执行');
+    }
+
     const previousStatus = reservation.minimumConsumptionStatus;
     const previousAmount = reservation.minimumConsumptionAmount;
 

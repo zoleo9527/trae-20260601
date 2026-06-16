@@ -198,6 +198,9 @@ router.put('/:id/minimum-consumption', async (req, res) => {
     if (error.message === '预约不存在') {
       return res.status(404).json({ error: '预约不存在' });
     }
+    if (error.message === '低消只能在预约已确认后执行') {
+      return res.status(400).json({ error: '低消只能在预约已确认后执行' });
+    }
     console.error('Error updating minimum consumption:', error);
     res.status(500).json({ error: '更新低消信息失败' });
   }
