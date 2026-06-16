@@ -255,14 +255,15 @@ const useAppStore = create<AppState>((set, get) => ({
 
   batchWarehouseConfirm: async (data) => {
     await returnsApi.batchWarehouseConfirm(data);
-    const { fetchReturnList } = get();
-    fetchReturnList();
+    const { fetchReturnList, returnListParams } = get();
+    fetchReturnList(returnListParams);
+    set({ error: null });
   },
-
   batchCancel: async (data) => {
     await returnsApi.batchCancel(data);
-    const { fetchReturnList } = get();
-    fetchReturnList();
+    const { fetchReturnList, returnListParams } = get();
+    fetchReturnList(returnListParams);
+    set({ error: null });
   },
 
   createReissue: async (data) => {

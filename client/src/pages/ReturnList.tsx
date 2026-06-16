@@ -116,23 +116,17 @@ export default function ReturnList() {
       message.warning('请选择要取消的申请');
       return;
     }
-    Modal.confirm({
-      title: '确认取消',
-      content: `确定要取消选中的 ${selectedRowKeys.length} 条申请吗？`,
-      onOk: async () => {
-        try {
-          await batchCancel({
-            ids: selectedRowKeys as string[],
-            operator: currentUser.name,
-            operator_role: currentUser.role,
-          });
-          message.success(`成功取消 ${selectedRowKeys.length} 条申请`);
-          setSelectedRowKeys([]);
-        } catch (error: any) {
-          message.error(error.message || '操作失败');
-        }
-      },
-    });
+    try {
+      await batchCancel({
+        ids: selectedRowKeys as string[],
+        operator: currentUser.name,
+        operator_role: currentUser.role,
+      });
+      message.success(`成功取消 ${selectedRowKeys.length} 条申请`);
+      setSelectedRowKeys([]);
+    } catch (error: any) {
+      message.error(error.message || '操作失败');
+    }
   };
 
   const columns: ColumnsType<ReturnExchangeRequest> = [

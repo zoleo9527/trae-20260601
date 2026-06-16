@@ -153,10 +153,10 @@ export const returnsApi = {
     return request.put('/returns/' + id + '/complete', data);
   },
   batchWarehouseConfirm: (data: any): Promise<{ success: boolean; count: number; message: string }> => {
-    return request.put('/returns/batch-warehouse-confirm', data);
+    return request.post('/returns/batch-warehouse-confirm', data);
   },
   batchCancel: (data: any): Promise<{ success: boolean; count: number; message: string }> => {
-    return request.put('/returns/batch-cancel', data);
+    return request.post('/returns/batch-cancel', data);
   },
 };
 
