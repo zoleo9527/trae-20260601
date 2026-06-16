@@ -403,18 +403,8 @@ const completeInstall = async () => {
 
 const resubmitQuote = async () => {
   try {
-    await axios.put(`/api/quotes/${props.quote.id}`, {
-      measure_id: props.measure.id,
-      unit_price: props.quote.unit_price,
-      quantity: props.quote.quantity,
-      total_price: props.quote.total_price,
-      discount: props.quote.discount,
-      final_price: props.quote.final_price,
-      notes: props.quote.notes
-    })
-    
-    await axios.post(`/api/quotes/${props.quote.id}/confirm`)
-    alert('重新提交成功')
+    await axios.post(`/api/quotes/${props.quote.id}/resubmit`)
+    alert('重新提交成功，等待安装师傅确认')
     emit('success')
     window.location.reload()
   } catch (error) {

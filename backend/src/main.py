@@ -77,6 +77,13 @@ class LoginResponse(BaseModel):
     role: str
     access_token: str
 
+class RejectRequest(BaseModel):
+    reason: str
+
+class SupplementRequest(BaseModel):
+    materials: str
+    additional_cost: float = 0
+
 mock_users = {
     "导购": {"password": "123456", "role": "导购"},
     "量尺师": {"password": "123456", "role": "量尺师"},
@@ -333,11 +340,12 @@ async def update_measure(measure_id: str, measure: CustomerMeasureCreate):
     return measures_db[index]
 
 @app.post("/api/measures/{measure_id}/reject")
-async def reject_measure(measure_id: str, reason: str = "未填写驳回原因"):
+async def reject_measure(measure_id: str, request: RejectRequest):
     measure = next((m for m in measures_db if m.id == measure_id), None)
     if not measure:
         raise HTTPException(status_code=404, detail="量尺单不存在")
     
+    reason = request.reason or "未填写驳回原因"
     measure.status = "已驳回"
     measure.rejected_reason = reason
     measure.updated_at = datetime.now()
@@ -472,11 +480,12 @@ async def confirm_quote(quote_id: str):
     return {"message": "确认成功"}
 
 @app.post("/api/quotes/{quote_id}/reject")
-async def reject_quote(quote_id: str, reason: str = "未填写驳回原因"):
+async def reject_quote(quote_id: str, request: RejectRequest):
     quote = next((q for q in quotes_db if q.id == quote_id), None)
     if not quote:
         raise HTTPException(status_code=404, detail="报价单不存在")
     
+    reason = request.reason or "未填写驳回原因"
     quote.status = "已驳回"
     quote.rejected_reason = reason
     quote.updated_at = datetime.now()
@@ -484,7 +493,7 @@ async def reject_quote(quote_id: str, reason: str = "未填写驳回原因"):
     
     measure = next((m for m in measures_db if m.id == quote.measure_id), None)
     if measure:
-        measure.status = "待报价"
+        measure.status = "已报价"
         measure.updated_at = datetime.now()
         measure.updated_by = "安装师傅"
     
@@ -492,18 +501,18 @@ async def reject_quote(quote_id: str, reason: str = "未填写驳回原因"):
     return {"message": "驳回成功"}
 
 @app.post("/api/quotes/{quote_id}/supplement")
-async def supplement_materials(quote_id: str, materials: str, additional_cost: float = 0):
+async def supplement_materials(quote_id: str, request: SupplementRequest):
     quote = next((q for q in quotes_db if q.id == quote_id), None)
     if not quote:
         raise HTTPException(status_code=404, detail="报价单不存在")
     
     quote.status = "待补材料"
-    quote.supplementary_materials = materials
+    quote.supplementary_materials = request.materials
     quote.updated_at = datetime.now()
     quote.updated_by = "量尺师"
     
-    if additional_cost > 0:
-        quote.total_price = quote.total_price + additional_cost
+    if request.additional_cost > 0:
+        quote.total_price = quote.total_price + request.additional_cost
         quote.final_price = quote.total_price * (1 - (quote.discount or 0))
     
     measure = next((m for m in measures_db if m.id == quote.measure_id), None)
@@ -512,7 +521,7 @@ async def supplement_materials(quote_id: str, materials: str, additional_cost: f
         measure.updated_at = datetime.now()
         measure.updated_by = "量尺师"
     
-    add_log("补充材料", quote_id, "报价单", "量尺师", f"补充材料：{materials}，额外费用：{additional_cost}元")
+    add_log("补充材料", quote_id, "报价单", "量尺师", f"补充材料：{request.materials}，额外费用：{request.additional_cost}元")
     return {"message": "补充材料成功"}
 
 @app.post("/api/quotes/{quote_id}/complete_supplement")
@@ -533,6 +542,27 @@ async def complete_supplement(quote_id: str):
     
     add_log("完成补料", quote_id, "报价单", "量尺师", "完成材料补充，报价单等待确认")
     return {"message": "完成补料成功"}
+
+@app.post("/api/quotes/{quote_id}/resubmit")
+async def resubmit_quote(quote_id: str):
+    quote = next((q for q in quotes_db if q.id == quote_id), None)
+    if not quote:
+        raise HTTPException(status_code=404, detail="报价单不存在")
+    
+    quote.status = "待确认"
+    quote.rejected_reason = None
+    quote.updated_at = datetime.now()
+    quote.updated_by = "量尺师"
+    
+    measure = next((m for m in measures_db if m.id == quote.measure_id), None)
+    if measure:
+        measure.status = "已报价"
+        measure.updated_at = datetime.now()
+        measure.updated_by = "量尺师"
+    
+    customer = next((m for m in measures_db if m.id == quote.measure_id), None)
+    add_log("重新提交报价", quote_id, "报价单", "量尺师", f"重新提交客户{customer.customer_name}的报价单，等待安装师傅确认")
+    return {"message": "重新提交成功"}
 
 @app.post("/api/quotes/{quote_id}/complete")
 async def complete_quote(quote_id: str):
