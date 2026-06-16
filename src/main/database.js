@@ -46,13 +46,16 @@ class AppDatabase {
         tailor_id INTEGER,
         pattern_maker_id INTEGER,
         customer_service_id INTEGER,
+        current_owner_id INTEGER,
+        current_owner_role TEXT,
         status TEXT DEFAULT 'pending',
         notes TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (tailor_id) REFERENCES employees(id),
         FOREIGN KEY (pattern_maker_id) REFERENCES employees(id),
-        FOREIGN KEY (customer_service_id) REFERENCES employees(id)
+        FOREIGN KEY (customer_service_id) REFERENCES employees(id),
+        FOREIGN KEY (current_owner_id) REFERENCES employees(id)
       );
 
       CREATE TABLE IF NOT EXISTS todos (

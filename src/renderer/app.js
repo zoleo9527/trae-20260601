@@ -523,6 +523,7 @@ function renderStyleConfirmations(styleConfirmations) {
     
     container.innerHTML = styleConfirmations.map(sc => {
         const statusBadge = getStatusBadge(sc.approval_status);
+        const isPending = sc.approval_status === 'pending';
         
         return `
             <div class="record-card">
@@ -538,17 +539,36 @@ function renderStyleConfirmations(styleConfirmations) {
                         <label>创建人:</label> ${sc.created_by_name || '-'}
                     </div>
                 </div>
-                ${sc.design_description ? `
-                    <div class="record-field" style="margin-top: 8px;">
-                        <label>设计描述:</label> ${sc.design_description}
+                <div class="record-details" id="style-details-${sc.id}" style="display: none;">
+                    ${sc.design_description ? `
+                        <div class="record-field">
+                            <label>设计描述:</label> ${sc.design_description}
+                        </div>
+                    ` : ''}
+                    <div class="record-field">
+                        <label>审批人:</label> ${sc.approved_by_name || '-'}
                     </div>
-                ` : ''}
+                    <div class="record-field">
+                        <label>备注:</label> ${sc.notes || '-'}
+                    </div>
+                </div>
                 <div style="margin-top: 12px;">
-                    <button class="btn btn-secondary" onclick="viewStyleConfirmation(${sc.id})">查看详情</button>
+                    <button class="btn btn-secondary" onclick="toggleStyleDetails(${sc.id})">${isPending ? '展开详情' : '查看详情'}</button>
+                    ${isPending ? `
+                        <button class="btn btn-success" onclick="quickApprove(${sc.id})">批准</button>
+                        <button class="btn btn-danger" onclick="quickReject(${sc.id})">拒绝</button>
+                    ` : ''}
                 </div>
             </div>
         `;
     }).join('');
+}
+
+function toggleStyleDetails(id) {
+    const details = document.getElementById(`style-details-${id}`);
+    if (details) {
+        details.style.display = details.style.display === 'none' ? 'block' : 'none';
+    }
 }
 
 function renderFittingRecords(fittingRecords) {
@@ -773,10 +793,24 @@ async function saveFittingRecord() {
 async function refreshAppointmentDetail() {
     const appointment = await window.api.getAppointment(currentAppointmentId);
     
+    const statusBadge = getStatusBadge(appointment.status);
+    document.getElementById('detailStatus').innerHTML = statusBadge;
+    
+    document.getElementById('current-owner-name').textContent = appointment.current_owner_name || '未分配';
+    if (appointment.current_owner_role) {
+        const roleLabels = {
+            'tailor': '量体师',
+            'pattern_maker': '版师',
+            'customer_service': '客服'
+        };
+        document.getElementById('current-owner-badge').textContent = roleLabels[appointment.current_owner_role] || appointment.current_owner_role;
+    }
+    
     renderMeasurements(appointment.measurements || []);
     renderFabricCards(appointment.fabric_cards || []);
     renderStyleConfirmations(appointment.style_confirmations || []);
     renderFittingRecords(appointment.fitting_records || []);
+    renderAppointmentTodos(currentAppointmentId);
 }
 
 
