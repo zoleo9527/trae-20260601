@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  role      String
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamBuilding {
+  id              String              @id @default(cuid())
+  name            String
+  contactName     String
+  contactPhone    String
+  date            DateTime
+  participantCount Int
+  status          String
+  riskLevel       String              @default("NONE")
+  privateRooms    PrivateRoom[]
+  accommodations  Accommodation[]
+  ingredients     Ingredient[]
+  notes           String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  updatedBy       String
+  settlement      ExpenseSettlement[]
+
+  @@index([status])
+  @@index([date])
+  @@index([riskLevel])
+}
+
+model PrivateRoom {
+  id             String          @id @default(cuid())
+  name           String
+  capacity       Int
+  bookedAt       DateTime
+  teamBuildingId String
+  teamBuilding   TeamBuilding   @relation(fields: [teamBuildingId], references: [id])
+  notes          String?
+  createdAt      DateTime       @default(now())
+}
+
+model Accommodation {
+  id             String          @id @default(cuid())
+  roomNumber     String
+  guestName      String
+  checkInDate    DateTime
+  checkOutDate   DateTime
+  depositAmount  Decimal?
+  depositPaid    Boolean         @default(false)
+  teamBuildingId String
+  teamBuilding   TeamBuilding   @relation(fields: [teamBuildingId], references: [id])
+  notes          String?
+  createdAt      DateTime       @default(now())
+}
+
+model Ingredient {
+  id             String          @id @default(cuid())
+  name           String
+  quantity       Decimal
+  unit           String
+  unitPrice      Decimal
+  teamBuildingId String
+  teamBuilding   TeamBuilding   @relation(fields: [teamBuildingId], references: [id])
+  stockStatus    String
+  notes          String?
+  createdAt      DateTime       @default(now())
+}
+
+model ExpenseSettlement {
+  id                 String          @id @default(cuid())
+  teamBuildingId     String
+  teamBuilding       TeamBuilding   @relation(fields: [teamBuildingId], references: [id])
+  status             String
+  totalAmount        Decimal
+  depositAmount      Decimal
+  paidAmount         Decimal
+  outstandingAmount  Decimal
+  notes              String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  updatedBy          String
+
+  @@index([status])
+}
