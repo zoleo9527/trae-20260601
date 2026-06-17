@@ -234,25 +234,38 @@ async function updateSettlementStatusOnActivityTransition(
     return { updated: false }
   }
 
-  if (newStatus === 'CANCELLED') {
-    await prisma.expenseSettlement.updateMany({
-      where: { teamBuildingId: activityId },
-      data: { status: 'SETTLED' }
-    })
-    return { updated: true, message: '已将关联结算单状态更新为 SETTLED' }
+  let updatedCount = 0
+  const messages: string[] = []
+
+  for (const settlement of activity.settlement) {
+    const currentStatus = settlement.status as SettlementStatus
+    let targetStatus: SettlementStatus | null = null
+
+    if (newStatus === 'CANCELLED') {
+      targetStatus = 'SETTLED'
+    } else if (newStatus === 'COMPLETED' && currentStatus === 'UNSETTLED') {
+      targetStatus = 'PARTIAL'
+    }
+
+    if (targetStatus) {
+      const transitions = getSettlementStatusTransitions(currentStatus)
+      const isAllowedByFlow = transitions.some(t => t.to === targetStatus && t.allowed)
+      
+      if (isAllowedByFlow && isSettlementStatusAllowedForActivity(newStatus, targetStatus)) {
+        await prisma.expenseSettlement.update({
+          where: { id: settlement.id },
+          data: { status: targetStatus }
+        })
+        updatedCount++
+      }
+    }
   }
 
-  if (newStatus === 'COMPLETED') {
-    const unsettledSettlements = activity.settlement.filter(
-      (s) => s.status === 'UNSETTLED'
-    )
-
-    if (unsettledSettlements.length > 0) {
-      await prisma.expenseSettlement.updateMany({
-        where: { teamBuildingId: activityId, status: 'UNSETTLED' },
-        data: { status: 'PARTIAL' }
-      })
-      return { updated: true, message: `已将 ${unsettledSettlements.length} 个 UNSETTLED 结算单自动更新为 PARTIAL` }
+  if (updatedCount > 0) {
+    const targetStatusText = newStatus === 'CANCELLED' ? 'SETTLED' : 'PARTIAL'
+    return { 
+      updated: true, 
+      message: `已将 ${updatedCount} 个结算单自动更新为 ${targetStatusText}` 
     }
   }
 

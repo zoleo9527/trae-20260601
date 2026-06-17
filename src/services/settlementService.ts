@@ -1,7 +1,7 @@
 import prisma from '../prisma'
 import { UpdateSettlementRequest, SettlementFilter, PaginatedResponse } from '../types'
 import { ExpenseSettlement } from '@prisma/client'
-import { getActivityToSettlementMapping } from './statusFlowService'
+import { getActivityToSettlementMapping, getSettlementStatusTransitions, isSettlementStatusAllowedForActivity, SettlementStatus } from './statusFlowService'
 
 export interface SettlementDetail {
   id: string
@@ -156,17 +156,25 @@ export async function updateSettlement(
   const newTotalAmount = data.totalAmount !== undefined ? data.totalAmount : Number(settlement.totalAmount)
   const outstandingAmount = newTotalAmount - newPaidAmount
 
-  let newStatus = settlement.status
+  let newStatus = settlement.status as SettlementStatus
   if (paidAmount !== undefined) {
     const activityStatus = settlement.teamBuilding.status
     const newStatusFromPayment = newPaidAmount >= newTotalAmount ? 'SETTLED' : newPaidAmount > 0 ? 'PARTIAL' : 'UNSETTLED'
     
-    const allowedStatuses = getActivityToSettlementMapping(activityStatus as any)
-    if (allowedStatuses.includes(newStatusFromPayment)) {
-      newStatus = newStatusFromPayment
-    } else {
+    const currentStatus = settlement.status as SettlementStatus
+    const settlementTransitions = getSettlementStatusTransitions(currentStatus)
+    const isAllowedBySettlementFlow = settlementTransitions.some(t => t.to === newStatusFromPayment && t.allowed)
+    
+    if (!isAllowedBySettlementFlow) {
+      const reason = settlementTransitions.find(t => t.to === newStatusFromPayment)?.reason
+      throw new Error(reason || `结算状态流转规则不允许从 ${currentStatus} 变为 ${newStatusFromPayment}`)
+    }
+    
+    if (!isSettlementStatusAllowedForActivity(activityStatus as any, newStatusFromPayment)) {
       throw new Error(`根据活动状态(${activityStatus})，不允许结算状态变为${newStatusFromPayment}`)
     }
+    
+    newStatus = newStatusFromPayment
   }
 
   const updatedSettlement = await prisma.expenseSettlement.update({
