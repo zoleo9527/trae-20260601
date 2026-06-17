@@ -186,6 +186,8 @@ function App() {
   const [newRemark, setNewRemark] = useState('')
   const [transferHandler, setTransferHandler] = useState('')
   const [transferName, setTransferName] = useState('')
+  const [blockReasonInput, setBlockReasonInput] = useState('')
+  const [showBlockReasonModal, setShowBlockReasonModal] = useState(false)
 
   const filteredData = useMemo(() => {
     return tickets.filter(item => {
@@ -219,6 +221,8 @@ function App() {
     setNewRemark('')
     setTransferHandler('')
     setTransferName('')
+    setBlockReasonInput('')
+    setShowBlockReasonModal(false)
   }
 
   const handleCloseDetails = () => {
@@ -226,6 +230,8 @@ function App() {
     setNewRemark('')
     setTransferHandler('')
     setTransferName('')
+    setBlockReasonInput('')
+    setShowBlockReasonModal(false)
   }
 
   const getCurrentTime = () => {
@@ -301,6 +307,7 @@ function App() {
 
     let actionText = action
     let remark = ''
+    let newBlockReason = selectedTicket.blockReason
 
     if (action === '开始处理') {
       actionText = '开始处理'
@@ -308,9 +315,11 @@ function App() {
     } else if (action === '完成配置') {
       actionText = '完成配置'
       remark = '票种配置已完成，所有渠道库存同步完毕'
+      newBlockReason = null
     } else if (action === '标记阻塞') {
-      actionText = '标记阻塞'
-      remark = '票种配置遇到问题，已暂停'
+      setBlockReasonInput(selectedTicket.blockReason || '')
+      setShowBlockReasonModal(true)
+      return
     } else if (action === '重新处理') {
       actionText = '重新处理'
       remark = '问题已解决，重新开始配置'
@@ -338,6 +347,7 @@ function App() {
         const updated = {
           ...t,
           status: nextStatus,
+          blockReason: newBlockReason,
           timeline: [...t.timeline, newTimelineItem],
         }
         
@@ -345,6 +355,12 @@ function App() {
           updated.blockReason = null
           updated.configProgress = 100
           updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+        } else if (nextStatus === 'processing' && t.status === 'completed') {
+          const completedCount = t.channels.filter(c => c.status === 'completed').length
+          updated.configProgress = Math.round((completedCount / t.channels.length) * 100)
+          if (completedCount < t.channels.length) {
+            updated.blockReason = '部分渠道库存未完成'
+          }
         }
         
         return updated
@@ -356,6 +372,7 @@ function App() {
       const updated = {
         ...prev,
         status: nextStatus,
+        blockReason: newBlockReason,
         timeline: [...prev.timeline, newTimelineItem],
       }
       
@@ -363,10 +380,54 @@ function App() {
         updated.blockReason = null
         updated.configProgress = 100
         updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+      } else if (nextStatus === 'processing' && prev.status === 'completed') {
+        const completedCount = prev.channels.filter(c => c.status === 'completed').length
+        updated.configProgress = Math.round((completedCount / prev.channels.length) * 100)
+        if (completedCount < prev.channels.length) {
+          updated.blockReason = '部分渠道库存未完成'
+        }
       }
       
       return updated
     })
+  }
+
+  const confirmBlock = () => {
+    if (!selectedTicket) return
+
+    const actionText = '标记阻塞'
+    const remark = blockReasonInput.trim() || '票种配置遇到问题，已暂停'
+    const newBlockReason = blockReasonInput.trim() || '配置暂停'
+
+    const newTimelineItem = {
+      user: selectedTicket.handlerName,
+      role: selectedTicket.handler,
+      action: actionText,
+      time: getCurrentTime(),
+      remark,
+    }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === selectedTicket.id) {
+        return {
+          ...t,
+          status: 'blocked',
+          blockReason: newBlockReason,
+          timeline: [...t.timeline, newTimelineItem],
+        }
+      }
+      return t
+    }))
+
+    setSelectedTicket(prev => ({
+      ...prev,
+      status: 'blocked',
+      blockReason: newBlockReason,
+      timeline: [...prev.timeline, newTimelineItem],
+    }))
+
+    setShowBlockReasonModal(false)
+    setBlockReasonInput('')
   }
 
   const updateChannelInventory = (channelIndex, inventory) => {
@@ -374,7 +435,19 @@ function App() {
     
     const numInventory = parseInt(inventory) || 0
     const channel = selectedTicket.channels[channelIndex]
+    const oldInventory = channel.inventory
     const newStatus = numInventory >= channel.total ? 'completed' : numInventory > 0 ? 'processing' : 'pending'
+
+    let newTimelineItem = null
+    if (numInventory !== oldInventory) {
+      newTimelineItem = {
+        user: selectedTicket.handlerName,
+        role: selectedTicket.handler,
+        action: `更新库存`,
+        time: getCurrentTime(),
+        remark: `${channel.name}库存从${oldInventory}调整为${numInventory}`,
+      }
+    }
 
     setTickets(prev => prev.map(t => {
       if (t.id === selectedTicket.id) {
@@ -393,12 +466,30 @@ function App() {
           newBlockReason = null
         }
 
-        return {
+        const isStatusChangeNeeded = t.status === 'completed' && completedCount < newChannels.length
+
+        const updated = {
           ...t,
           channels: newChannels,
           configProgress: newProgress,
           blockReason: newBlockReason,
+          timeline: newTimelineItem ? [...t.timeline, newTimelineItem] : t.timeline,
         }
+
+        if (isStatusChangeNeeded) {
+          updated.status = 'processing'
+          updated.blockReason = '库存调整导致配置未完成'
+          const statusChangeItem = {
+            user: t.handlerName,
+            role: t.handler,
+            action: '状态变更',
+            time: getCurrentTime(),
+            remark: '库存调整导致配置未完成，自动撤销完成态',
+          }
+          updated.timeline = [...updated.timeline, statusChangeItem]
+        }
+
+        return updated
       }
       return t
     }))
@@ -419,12 +510,30 @@ function App() {
         newBlockReason = null
       }
 
-      return {
+      const isStatusChangeNeeded = prev.status === 'completed' && completedCount < newChannels.length
+
+      const updated = {
         ...prev,
         channels: newChannels,
         configProgress: newProgress,
         blockReason: newBlockReason,
+        timeline: newTimelineItem ? [...prev.timeline, newTimelineItem] : prev.timeline,
       }
+
+      if (isStatusChangeNeeded) {
+        updated.status = 'processing'
+        updated.blockReason = '库存调整导致配置未完成'
+        const statusChangeItem = {
+          user: prev.handlerName,
+          role: prev.handler,
+          action: '状态变更',
+          time: getCurrentTime(),
+          remark: '库存调整导致配置未完成，自动撤销完成态',
+        }
+        updated.timeline = [...updated.timeline, statusChangeItem]
+      }
+
+      return updated
     })
   }
 
@@ -809,6 +918,25 @@ function App() {
           </div>
         )}
       </main>
+
+      {showBlockReasonModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>标记阻塞</h3>
+            <p>请输入阻塞原因：</p>
+            <textarea
+              value={blockReasonInput}
+              onChange={(e) => setBlockReasonInput(e.target.value)}
+              placeholder="请输入阻塞原因..."
+              rows={4}
+            />
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={() => setShowBlockReasonModal(false)}>取消</button>
+              <button className="btn btn-primary" onClick={confirmBlock}>确认阻塞</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
