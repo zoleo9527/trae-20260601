@@ -1,6 +1,7 @@
 import prisma from '../prisma'
 import { UpdateSettlementRequest, SettlementFilter, PaginatedResponse } from '../types'
 import { ExpenseSettlement } from '@prisma/client'
+import { getActivityToSettlementMapping } from './statusFlowService'
 
 export interface SettlementDetail {
   id: string
@@ -146,16 +147,26 @@ export async function updateSettlement(
     throw new Error('Settlement not found')
   }
 
+  if (data.status !== undefined) {
+    throw new Error('状态更新请使用专用的状态流转接口 /api/status-flow/settlement/:id/transition')
+  }
+
   const { paidAmount, ...rest } = data
   const newPaidAmount = paidAmount !== undefined ? paidAmount : Number(settlement.paidAmount)
   const newTotalAmount = data.totalAmount !== undefined ? data.totalAmount : Number(settlement.totalAmount)
   const outstandingAmount = newTotalAmount - newPaidAmount
 
-  let status = settlement.status
-  if (data.status) {
-    status = data.status
-  } else if (paidAmount !== undefined) {
-    status = newPaidAmount >= newTotalAmount ? 'SETTLED' : newPaidAmount > 0 ? 'PARTIAL' : 'UNSETTLED'
+  let newStatus = settlement.status
+  if (paidAmount !== undefined) {
+    const activityStatus = settlement.teamBuilding.status
+    const newStatusFromPayment = newPaidAmount >= newTotalAmount ? 'SETTLED' : newPaidAmount > 0 ? 'PARTIAL' : 'UNSETTLED'
+    
+    const allowedStatuses = getActivityToSettlementMapping(activityStatus as any)
+    if (allowedStatuses.includes(newStatusFromPayment)) {
+      newStatus = newStatusFromPayment
+    } else {
+      throw new Error(`根据活动状态(${activityStatus})，不允许结算状态变为${newStatusFromPayment}`)
+    }
   }
 
   const updatedSettlement = await prisma.expenseSettlement.update({
@@ -164,7 +175,7 @@ export async function updateSettlement(
       ...rest,
       paidAmount: newPaidAmount,
       outstandingAmount,
-      status,
+      status: newStatus,
       updatedBy: userId
     },
     include: { teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } } }

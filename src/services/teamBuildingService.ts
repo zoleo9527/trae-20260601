@@ -125,7 +125,11 @@ export async function updateTeamBuilding(
   data: UpdateTeamBuildingRequest,
   userId: string
 ): Promise<TeamBuilding | null> {
-  const { date, ...rest } = data
+  const { date, status, ...rest } = data
+
+  if (status !== undefined) {
+    throw new Error('状态更新请使用专用的状态流转接口 /api/status-flow/activity/:id/transition')
+  }
 
   return prisma.teamBuilding.update({
     where: { id },

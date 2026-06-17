@@ -122,7 +122,7 @@ export async function transitionActivityStatus(
   activityId: string,
   newStatus: ActivityStatus,
   userId: string
-): Promise<{ success: boolean; message: string; activity?: any; settlementUpdated?: boolean }> {
+): Promise<{ success: boolean; message: string; activity?: any; settlementUpdated?: boolean; settlementUpdateMessage?: string }> {
   const activity = await prisma.teamBuilding.findUnique({
     where: { id: activityId },
     include: { settlement: true }
@@ -145,17 +145,15 @@ export async function transitionActivityStatus(
     if (!activity.settlement || activity.settlement.length === 0) {
       return { success: false, message: '活动完成前需先创建结算单' }
     }
+  }
 
-    const invalidSettlements = activity.settlement.filter(
-      (s) => !isSettlementStatusAllowedForActivity('COMPLETED', s.status as SettlementStatus)
-    )
+  let settlementUpdateMessage: string | undefined
+  let settlementUpdated = false
 
-    if (invalidSettlements.length > 0) {
-      return { 
-        success: false, 
-        message: `活动完成前需先处理结算状态，当前存在 ${invalidSettlements.length} 个结算单状态与 COMPLETED 不匹配` 
-      }
-    }
+  if (newStatus === 'CANCELLED' || newStatus === 'COMPLETED') {
+    const result = await updateSettlementStatusOnActivityTransition(activityId, newStatus)
+    settlementUpdated = result.updated
+    settlementUpdateMessage = result.message
   }
 
   const updatedActivity = await prisma.teamBuilding.update({
@@ -167,9 +165,17 @@ export async function transitionActivityStatus(
     include: { settlement: true }
   })
 
-  const { updated: settlementUpdated } = await updateSettlementStatusOnActivityTransition(activityId, newStatus)
+  let messages = ['状态更新成功']
+  if (settlementUpdateMessage) {
+    messages.push(settlementUpdateMessage)
+  }
 
-  return { success: true, message: '状态更新成功', activity: updatedActivity, settlementUpdated }
+  return { 
+    success: true, 
+    message: messages.join('；'), 
+    activity: updatedActivity, 
+    settlementUpdated 
+  }
 }
 
 export async function transitionSettlementStatus(
