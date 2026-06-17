@@ -126,7 +126,7 @@ export async function GET() {
         time: redeem.time.toISOString().replace('T', ' ').slice(0, 16),
         status: 'success' as const,
         depositId: redeem.depositId,
-        redeemId: redeem.id,
+        depositCode: redeem.depositCode,
       })),
       ...recentExpired.map((deposit) => ({
         id: deposit.id,

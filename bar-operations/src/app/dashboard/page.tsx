@@ -4,10 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import { StatCard } from '@/components/dashboard/StatCard'
-import { TodoList } from '@/components/dashboard/TodoList'
-import { RiskAlerts } from '@/components/dashboard/RiskAlerts'
-import { RecentChanges } from '@/components/dashboard/RecentChanges'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface TodoItem {
   id: string
@@ -36,7 +33,7 @@ interface RecentItem {
   time: string
   status: 'pending' | 'success' | 'danger'
   depositId?: string
-  redeemId?: string
+  depositCode?: string
 }
 
 interface DashboardData {
@@ -54,25 +51,76 @@ interface DashboardData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
 
-  useEffect(() => {
-    const fetchData = async () => {
+  const fetchData = async () => {
+    try {
       const response = await fetch('/api/dashboard/data')
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const result = await response.json()
 
       if (result.success) {
         setData(result.data)
+        setError(null)
+      } else {
+        throw new Error(result.error || '获取数据失败')
       }
+    } catch (err) {
+      console.error('Dashboard fetch error:', err)
+      setError('加载数据失败，请稍后重试')
+      setData(null)
+    } finally {
       setLoading(false)
     }
+  }
 
+  useEffect(() => {
     fetchData()
   }, [])
+
+  const handleRetry = () => {
+    if (retryCount < 3) {
+      setLoading(true)
+      setRetryCount(prev => prev + 1)
+      fetchData()
+    }
+  }
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#A0AEC0]">加载中...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen">
+        <Header title="首页仪表盘" subtitle="酒吧运营管理系统" />
+        <div className="p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-[#FF6B6B] mx-auto mb-4" />
+          <p className="text-lg text-[#A0AEC0] mb-4">{error}</p>
+          <button
+            onClick={handleRetry}
+            disabled={retryCount >= 3}
+            className="flex items-center gap-2 mx-auto px-6 py-2.5 bg-[#00D9FF]/20 text-[#00D9FF] rounded-lg hover:bg-[#00D9FF]/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            {retryCount >= 3 ? '已达到最大重试次数' : `重试 (${retryCount}/3)`}
+          </button>
+          {retryCount >= 3 && (
+            <p className="mt-4 text-sm text-[#A0AEC0]">请检查网络连接或稍后再试</p>
+          )}
+        </div>
       </div>
     )
   }
@@ -82,7 +130,7 @@ export default function DashboardPage() {
       <div className="min-h-screen">
         <Header title="首页仪表盘" subtitle="酒吧运营管理系统" />
         <div className="p-8 text-center">
-          <p className="text-[#A0AEC0]">加载数据失败，请刷新页面</p>
+          <p className="text-[#A0AEC0]">暂无数据</p>
         </div>
       </div>
     )
@@ -318,8 +366,8 @@ export default function DashboardPage() {
                     let linkUrl = ''
                     if (item.type === 'deposit' && item.depositId) {
                       linkUrl = `/deposit/${item.depositId}`
-                    } else if (item.type === 'redeem' && item.redeemId) {
-                      linkUrl = `/redeem/${item.redeemId}`
+                    } else if (item.type === 'redeem' && item.depositCode) {
+                      linkUrl = `/redeem/history?search=${encodeURIComponent(item.depositCode)}`
                     } else if (item.type === 'expiry' && item.depositId) {
                       linkUrl = `/deposit/${item.depositId}`
                     }
@@ -327,7 +375,7 @@ export default function DashboardPage() {
                     return (
                       <Link
                         key={item.id}
-                        href={linkUrl || '#'}
+                        href={linkUrl || '/deposit'}
                         className="block p-4 bg-[#0D1117] rounded-lg border border-[#2D3748] hover:border-[#00D9FF]/50 transition-all group cursor-pointer"
                       >
                         <div className="flex items-center gap-3 mb-3">

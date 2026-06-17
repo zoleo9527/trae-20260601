@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import { Search, Filter, ScanLine, User, Calendar, Download, Eye, RefreshCw } from 'lucide-react'
 
@@ -18,6 +19,7 @@ interface RedeemRecord {
 }
 
 export default function RedeemHistoryPage() {
+  const searchParams = useSearchParams()
   const [searchTerm, setSearchTerm] = useState('')
   const [records, setRecords] = useState<RedeemRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -37,6 +39,13 @@ export default function RedeemHistoryPage() {
     setLoading(false)
     setRefreshing(false)
   }
+
+  useEffect(() => {
+    const urlSearch = searchParams.get('search')
+    if (urlSearch) {
+      setSearchTerm(urlSearch)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     fetchRecords()
