@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
-import { Search, X, Clock, Users, AlertCircle, CheckCircle, ChevronRight } from 'lucide-react'
+import { Search, X, Clock, Users, AlertCircle, CheckCircle, ChevronRight, Send, RefreshCw, CheckSquare, UserMinus, UserPlus } from 'lucide-react'
 
-const sampleData = [
+const initialData = [
   {
     id: 'TK001',
     ticketName: '成人票',
@@ -151,21 +151,44 @@ const statusMap = {
 }
 
 const handlerMap = {
-  '票务主管': '#3498db',
-  '检票员': '#27ae60',
-  '客服': '#e67e22',
+  '票务主管': { color: '#3498db', names: ['李明', '王芳'] },
+  '检票员': { color: '#27ae60', names: ['张伟', '刘洋'] },
+  '客服': { color: '#e74c3c', names: ['陈静', '赵丽'] },
+}
+
+const transitionActions = {
+  pending: [
+    { action: '开始处理', nextStatus: 'processing' },
+    { action: '标记阻塞', nextStatus: 'blocked' },
+  ],
+  processing: [
+    { action: '继续处理', nextStatus: 'processing' },
+    { action: '完成配置', nextStatus: 'completed' },
+    { action: '标记阻塞', nextStatus: 'blocked' },
+  ],
+  blocked: [
+    { action: '重新处理', nextStatus: 'processing' },
+    { action: '继续阻塞', nextStatus: 'blocked' },
+  ],
+  completed: [
+    { action: '重新打开', nextStatus: 'processing' },
+  ],
 }
 
 function App() {
+  const [tickets, setTickets] = useState(initialData)
   const [filters, setFilters] = useState({
     status: '',
     handler: '',
     keyword: '',
   })
   const [selectedTicket, setSelectedTicket] = useState(null)
+  const [newRemark, setNewRemark] = useState('')
+  const [transferHandler, setTransferHandler] = useState('')
+  const [transferName, setTransferName] = useState('')
 
   const filteredData = useMemo(() => {
-    return sampleData.filter(item => {
+    return tickets.filter(item => {
       if (filters.status && item.status !== filters.status) return false
       if (filters.handler && item.handler !== filters.handler) return false
       if (filters.keyword) {
@@ -176,7 +199,12 @@ function App() {
       }
       return true
     })
-  }, [filters])
+  }, [tickets, filters])
+
+  const getCurrentTicket = useMemo(() => {
+    if (!selectedTicket) return null
+    return tickets.find(t => t.id === selectedTicket.id)
+  }, [selectedTicket, tickets])
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -188,10 +216,222 @@ function App() {
 
   const handleRowClick = (ticket) => {
     setSelectedTicket(ticket)
+    setNewRemark('')
+    setTransferHandler('')
+    setTransferName('')
   }
 
   const handleCloseDetails = () => {
     setSelectedTicket(null)
+    setNewRemark('')
+    setTransferHandler('')
+    setTransferName('')
+  }
+
+  const getCurrentTime = () => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+  }
+
+  const addRemark = () => {
+    if (!newRemark.trim() || !selectedTicket) return
+    
+    const newTimelineItem = {
+      user: selectedTicket.handlerName,
+      role: selectedTicket.handler,
+      action: '添加备注',
+      time: getCurrentTime(),
+      remark: newRemark.trim(),
+    }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === selectedTicket.id) {
+        return {
+          ...t,
+          timeline: [...t.timeline, newTimelineItem],
+        }
+      }
+      return t
+    }))
+
+    setSelectedTicket(prev => ({
+      ...prev,
+      timeline: [...prev.timeline, newTimelineItem],
+    }))
+
+    setNewRemark('')
+  }
+
+  const handleTransfer = () => {
+    if (!transferHandler || !transferName || !selectedTicket) return
+
+    const newTimelineItem = {
+      user: selectedTicket.handlerName,
+      role: selectedTicket.handler,
+      action: `转派给${transferHandler}`,
+      time: getCurrentTime(),
+      remark: `转派至${transferHandler}${transferName}处理`,
+    }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === selectedTicket.id) {
+        return {
+          ...t,
+          handler: transferHandler,
+          handlerName: transferName,
+          timeline: [...t.timeline, newTimelineItem],
+        }
+      }
+      return t
+    }))
+
+    setSelectedTicket(prev => ({
+      ...prev,
+      handler: transferHandler,
+      handlerName: transferName,
+      timeline: [...prev.timeline, newTimelineItem],
+    }))
+
+    setTransferHandler('')
+    setTransferName('')
+  }
+
+  const handleStatusChange = (action, nextStatus) => {
+    if (!selectedTicket) return
+
+    let actionText = action
+    let remark = ''
+
+    if (action === '开始处理') {
+      actionText = '开始处理'
+      remark = '开始配置票种信息'
+    } else if (action === '完成配置') {
+      actionText = '完成配置'
+      remark = '票种配置已完成，所有渠道库存同步完毕'
+    } else if (action === '标记阻塞') {
+      actionText = '标记阻塞'
+      remark = '票种配置遇到问题，已暂停'
+    } else if (action === '重新处理') {
+      actionText = '重新处理'
+      remark = '问题已解决，重新开始配置'
+    } else if (action === '继续处理') {
+      actionText = '继续处理'
+      remark = '继续配置票种信息'
+    } else if (action === '继续阻塞') {
+      actionText = '继续阻塞'
+      remark = '问题尚未解决，继续暂停'
+    } else if (action === '重新打开') {
+      actionText = '重新打开'
+      remark = '需要调整配置，重新打开处理'
+    }
+
+    const newTimelineItem = {
+      user: selectedTicket.handlerName,
+      role: selectedTicket.handler,
+      action: actionText,
+      time: getCurrentTime(),
+      remark,
+    }
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === selectedTicket.id) {
+        const updated = {
+          ...t,
+          status: nextStatus,
+          timeline: [...t.timeline, newTimelineItem],
+        }
+        
+        if (nextStatus === 'completed') {
+          updated.blockReason = null
+          updated.configProgress = 100
+          updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+        }
+        
+        return updated
+      }
+      return t
+    }))
+
+    setSelectedTicket(prev => {
+      const updated = {
+        ...prev,
+        status: nextStatus,
+        timeline: [...prev.timeline, newTimelineItem],
+      }
+      
+      if (nextStatus === 'completed') {
+        updated.blockReason = null
+        updated.configProgress = 100
+        updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+      }
+      
+      return updated
+    })
+  }
+
+  const updateChannelInventory = (channelIndex, inventory) => {
+    if (!selectedTicket) return
+    
+    const numInventory = parseInt(inventory) || 0
+    const channel = selectedTicket.channels[channelIndex]
+    const newStatus = numInventory >= channel.total ? 'completed' : numInventory > 0 ? 'processing' : 'pending'
+
+    setTickets(prev => prev.map(t => {
+      if (t.id === selectedTicket.id) {
+        const newChannels = [...t.channels]
+        newChannels[channelIndex] = {
+          ...newChannels[channelIndex],
+          inventory: numInventory,
+          status: newStatus,
+        }
+
+        const completedCount = newChannels.filter(c => c.status === 'completed').length
+        const newProgress = Math.round((completedCount / newChannels.length) * 100)
+        
+        let newBlockReason = t.blockReason
+        if (completedCount === newChannels.length) {
+          newBlockReason = null
+        }
+
+        return {
+          ...t,
+          channels: newChannels,
+          configProgress: newProgress,
+          blockReason: newBlockReason,
+        }
+      }
+      return t
+    }))
+
+    setSelectedTicket(prev => {
+      const newChannels = [...prev.channels]
+      newChannels[channelIndex] = {
+        ...newChannels[channelIndex],
+        inventory: numInventory,
+        status: newStatus,
+      }
+
+      const completedCount = newChannels.filter(c => c.status === 'completed').length
+      const newProgress = Math.round((completedCount / newChannels.length) * 100)
+      
+      let newBlockReason = prev.blockReason
+      if (completedCount === newChannels.length) {
+        newBlockReason = null
+      }
+
+      return {
+        ...prev,
+        channels: newChannels,
+        configProgress: newProgress,
+        blockReason: newBlockReason,
+      }
+    })
+  }
+
+  const markChannelCompleted = (channelIndex) => {
+    if (!selectedTicket) return
+    const channel = selectedTicket.channels[channelIndex]
+    updateChannelInventory(channelIndex, channel.total)
   }
 
   return (
@@ -275,8 +515,8 @@ function App() {
                       gap: 6,
                       padding: '2px 8px',
                       borderRadius: '12px',
-                      backgroundColor: `${handlerMap[ticket.handler]}20`,
-                      color: handlerMap[ticket.handler],
+                      backgroundColor: `${handlerMap[ticket.handler].color}20`,
+                      color: handlerMap[ticket.handler].color,
                       fontSize: '12px',
                       fontWeight: 500
                     }}>
@@ -284,9 +524,9 @@ function App() {
                         width: 8, 
                         height: 8, 
                         borderRadius: '50%', 
-                        backgroundColor: handlerMap[ticket.handler] 
+                        backgroundColor: handlerMap[ticket.handler].color 
                       }} />
-                      {ticket.handler}
+                      {ticket.handler} - {ticket.handlerName}
                     </span>
                   </td>
                   <td>
@@ -330,7 +570,7 @@ function App() {
           )}
         </div>
 
-        {selectedTicket && (
+        {selectedTicket && getCurrentTicket && (
           <div className="details-panel">
             <div className="panel-header">
               <h3>{selectedTicket.id} - {selectedTicket.ticketName} 详情</h3>
@@ -366,7 +606,7 @@ function App() {
                 </div>
                 <div className="info-item">
                   <label>处理人</label>
-                  <span style={{ color: handlerMap[selectedTicket.handler], fontWeight: 500 }}>
+                  <span style={{ color: handlerMap[selectedTicket.handler].color, fontWeight: 500 }}>
                     {selectedTicket.handler} - {selectedTicket.handlerName}
                   </span>
                 </div>
@@ -386,12 +626,110 @@ function App() {
                 )}
               </div>
 
+              {selectedTicket.status === 'completed' && (
+                <div className="completion-summary">
+                  <div className="completion-icon">
+                    <CheckCircle size={48} style={{ color: '#27ae60' }} />
+                  </div>
+                  <div className="completion-content">
+                    <h4>配置完成</h4>
+                    <p>票种 {selectedTicket.ticketName} 已完成全部配置工作，所有渠道库存已同步完毕。</p>
+                    <div className="completion-stats">
+                      <div className="stat-item">
+                        <span className="stat-value">{selectedTicket.channels.length}</span>
+                        <span className="stat-label">销售渠道</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">{selectedTicket.channels.reduce((sum, c) => sum + c.total, 0)}</span>
+                        <span className="stat-label">总库存</span>
+                      </div>
+                      <div className="stat-item">
+                        <span className="stat-value">¥{selectedTicket.price}</span>
+                        <span className="stat-label">票价</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="action-section">
+                <div className="action-group">
+                  <h4>状态推进</h4>
+                  <div className="action-buttons">
+                    {transitionActions[selectedTicket.status]?.map((item, index) => (
+                      <button
+                        key={index}
+                        className={`btn btn-action btn-${item.nextStatus}`}
+                        onClick={() => handleStatusChange(item.action, item.nextStatus)}
+                      >
+                        <RefreshCw size={14} style={{ marginRight: 6 }} />
+                        {item.action}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="action-group">
+                  <h4>转派处理</h4>
+                  <div className="transfer-controls">
+                    <select 
+                      value={transferHandler} 
+                      onChange={(e) => {
+                        setTransferHandler(e.target.value)
+                        setTransferName('')
+                      }}
+                    >
+                      <option value="">选择角色</option>
+                      {Object.entries(handlerMap).map(([role, data]) => (
+                        <option key={role} value={role}>{role}</option>
+                      ))}
+                    </select>
+                    {transferHandler && (
+                      <select value={transferName} onChange={(e) => setTransferName(e.target.value)}>
+                        <option value="">选择人员</option>
+                        {handlerMap[transferHandler]?.names.map(name => (
+                          <option key={name} value={name}>{name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={handleTransfer}
+                      disabled={!transferHandler || !transferName}
+                    >
+                      <UserMinus size={14} style={{ marginRight: 6 }} />
+                      转派
+                    </button>
+                  </div>
+                </div>
+
+                <div className="action-group">
+                  <h4>添加备注</h4>
+                  <div className="remark-input">
+                    <textarea
+                      value={newRemark}
+                      onChange={(e) => setNewRemark(e.target.value)}
+                      placeholder="输入备注内容..."
+                      rows={3}
+                    />
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={addRemark}
+                      disabled={!newRemark.trim()}
+                    >
+                      <Send size={14} style={{ marginRight: 6 }} />
+                      添加备注
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div className="section-title">处理历史</div>
               <div className="timeline">
                 {selectedTicket.timeline.map((item, index) => (
                   <div key={index} className="timeline-item">
                     <div className="timeline-header">
-                      <span className="timeline-user" style={{ color: handlerMap[item.role] }}>
+                      <span className="timeline-user" style={{ color: handlerMap[item.role]?.color || '#333' }}>
                         {item.user} ({item.role})
                       </span>
                       <span className="timeline-time">
@@ -411,7 +749,7 @@ function App() {
               </div>
 
               <div className="channel-section">
-                <div className="section-title">渠道库存</div>
+                <div className="section-title">渠道库存管理</div>
                 <table className="channel-table">
                   <thead>
                     <tr>
@@ -420,6 +758,7 @@ function App() {
                       <th>总库存</th>
                       <th>配置进度</th>
                       <th>状态</th>
+                      <th>操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -428,7 +767,16 @@ function App() {
                       return (
                         <tr key={index}>
                           <td>{channel.name}</td>
-                          <td>{channel.inventory}</td>
+                          <td>
+                            <input
+                              type="number"
+                              value={channel.inventory}
+                              onChange={(e) => updateChannelInventory(index, e.target.value)}
+                              min="0"
+                              max={channel.total}
+                              className="inventory-input"
+                            />
+                          </td>
                           <td>{channel.total}</td>
                           <td>
                             <div className="progress-bar" style={{ width: '80px' }}>
@@ -440,6 +788,16 @@ function App() {
                             <span className={`status-badge ${statusMap[channel.status].className}`}>
                               {statusMap[channel.status].label}
                             </span>
+                          </td>
+                          <td>
+                            <button
+                              className="btn btn-mini"
+                              onClick={() => markChannelCompleted(index)}
+                              disabled={channel.status === 'completed'}
+                            >
+                              <CheckSquare size={14} />
+                              完成
+                            </button>
                           </td>
                         </tr>
                       )
