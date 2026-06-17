@@ -14,6 +14,7 @@ export interface StatusFlow {
   activityStatus: ActivityStatus
   settlementStatus?: SettlementStatus
   possibleTransitions: StatusTransition[]
+  conflicts?: string[]
 }
 
 const activityStatusTransitions: Record<ActivityStatus, ActivityStatus[]> = {
@@ -25,7 +26,7 @@ const activityStatusTransitions: Record<ActivityStatus, ActivityStatus[]> = {
 }
 
 const settlementStatusTransitions: Record<SettlementStatus, SettlementStatus[]> = {
-  UNSETTLED: ['PARTIAL', 'SETTLED', 'DISPUTED'],
+  UNSETTLED: ['PARTIAL', 'DISPUTED'],
   PARTIAL: ['SETTLED', 'DISPUTED', 'UNSETTLED'],
   SETTLED: ['DISPUTED'],
   DISPUTED: ['PARTIAL', 'SETTLED']
@@ -105,7 +106,7 @@ function getTransitionReason(from: ActivityStatus, to: ActivityStatus): string {
 function getSettlementTransitionReason(from: SettlementStatus, to: SettlementStatus): string {
   const reasons: Record<string, Record<string, string>> = {
     UNSETTLED: {
-      SETTLED: '未结算状态不能直接变为已结清，需先有部分支付'
+      SETTLED: '未结算状态不能直接变为已结清，需先有部分支付(PARTIAL)'
     },
     PARTIAL: {},
     SETTLED: {
@@ -121,7 +122,7 @@ export async function transitionActivityStatus(
   activityId: string,
   newStatus: ActivityStatus,
   userId: string
-): Promise<{ success: boolean; message: string; activity?: any }> {
+): Promise<{ success: boolean; message: string; activity?: any; settlementUpdated?: boolean }> {
   const activity = await prisma.teamBuilding.findUnique({
     where: { id: activityId },
     include: { settlement: true }
@@ -144,6 +145,17 @@ export async function transitionActivityStatus(
     if (!activity.settlement || activity.settlement.length === 0) {
       return { success: false, message: '活动完成前需先创建结算单' }
     }
+
+    const invalidSettlements = activity.settlement.filter(
+      (s) => !isSettlementStatusAllowedForActivity('COMPLETED', s.status as SettlementStatus)
+    )
+
+    if (invalidSettlements.length > 0) {
+      return { 
+        success: false, 
+        message: `活动完成前需先处理结算状态，当前存在 ${invalidSettlements.length} 个结算单状态与 COMPLETED 不匹配` 
+      }
+    }
   }
 
   const updatedActivity = await prisma.teamBuilding.update({
@@ -155,9 +167,9 @@ export async function transitionActivityStatus(
     include: { settlement: true }
   })
 
-  await updateSettlementStatusOnActivityTransition(activityId, newStatus)
+  const { updated: settlementUpdated } = await updateSettlementStatusOnActivityTransition(activityId, newStatus)
 
-  return { success: true, message: '状态更新成功', activity: updatedActivity }
+  return { success: true, message: '状态更新成功', activity: updatedActivity, settlementUpdated }
 }
 
 export async function transitionSettlementStatus(
@@ -206,13 +218,39 @@ export async function transitionSettlementStatus(
 async function updateSettlementStatusOnActivityTransition(
   activityId: string,
   newStatus: ActivityStatus
-): Promise<void> {
+): Promise<{ updated: boolean; message?: string }> {
+  const activity = await prisma.teamBuilding.findUnique({
+    where: { id: activityId },
+    include: { settlement: true }
+  })
+
+  if (!activity || !activity.settlement || activity.settlement.length === 0) {
+    return { updated: false }
+  }
+
   if (newStatus === 'CANCELLED') {
     await prisma.expenseSettlement.updateMany({
       where: { teamBuildingId: activityId },
       data: { status: 'SETTLED' }
     })
+    return { updated: true, message: '已将关联结算单状态更新为 SETTLED' }
   }
+
+  if (newStatus === 'COMPLETED') {
+    const unsettledSettlements = activity.settlement.filter(
+      (s) => s.status === 'UNSETTLED'
+    )
+
+    if (unsettledSettlements.length > 0) {
+      await prisma.expenseSettlement.updateMany({
+        where: { teamBuildingId: activityId, status: 'UNSETTLED' },
+        data: { status: 'PARTIAL' }
+      })
+      return { updated: true, message: `已将 ${unsettledSettlements.length} 个 UNSETTLED 结算单自动更新为 PARTIAL` }
+    }
+  }
+
+  return { updated: false }
 }
 
 export async function getActivityStatusFlow(activityId: string): Promise<StatusFlow> {
@@ -228,10 +266,16 @@ export async function getActivityStatusFlow(activityId: string): Promise<StatusF
   const activityStatus = activity.status as ActivityStatus
   const settlementStatus = activity.settlement?.[0]?.status as SettlementStatus | undefined
 
+  const conflicts: string[] = []
+  if (settlementStatus && !isSettlementStatusAllowedForActivity(activityStatus, settlementStatus)) {
+    conflicts.push(`结算状态 ${settlementStatus} 与活动状态 ${activityStatus} 不匹配`)
+  }
+
   return {
     activityStatus,
     settlementStatus,
-    possibleTransitions: getActivityStatusTransitions(activityStatus)
+    possibleTransitions: getActivityStatusTransitions(activityStatus),
+    conflicts
   }
 }
 
@@ -248,9 +292,40 @@ export async function getSettlementStatusFlow(settlementId: string): Promise<Sta
   const settlementStatus = settlement.status as SettlementStatus
   const activityStatus = settlement.teamBuilding.status as ActivityStatus
 
+  const conflicts: string[] = []
+  if (!isSettlementStatusAllowedForActivity(activityStatus, settlementStatus)) {
+    conflicts.push(`结算状态 ${settlementStatus} 与活动状态 ${activityStatus} 不匹配`)
+  }
+
   return {
     activityStatus,
     settlementStatus,
-    possibleTransitions: getSettlementStatusTransitions(settlementStatus)
+    possibleTransitions: getSettlementStatusTransitions(settlementStatus),
+    conflicts
   }
+}
+
+export async function validateStatusConsistency(activityId: string): Promise<{ valid: boolean; issues: string[] }> {
+  const activity = await prisma.teamBuilding.findUnique({
+    where: { id: activityId },
+    include: { settlement: true }
+  })
+
+  if (!activity) {
+    return { valid: false, issues: ['活动不存在'] }
+  }
+
+  const issues: string[] = []
+  const activityStatus = activity.status as ActivityStatus
+
+  if (activity.settlement && activity.settlement.length > 0) {
+    activity.settlement.forEach((settlement) => {
+      const settlementStatus = settlement.status as SettlementStatus
+      if (!isSettlementStatusAllowedForActivity(activityStatus, settlementStatus)) {
+        issues.push(`结算单 ${settlement.id}: ${settlementStatus} 与活动状态 ${activityStatus} 冲突`)
+      }
+    })
+  }
+
+  return { valid: issues.length === 0, issues }
 }

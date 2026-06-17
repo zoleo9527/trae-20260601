@@ -236,13 +236,37 @@ function transformToSettlementDetail(settlement: SettlementInput): SettlementDet
   const anomalies: AnomalyItem[] = []
 
   settlement.teamBuilding.privateRooms.forEach((room: RoomItem) => {
-    if (room.notes?.includes('超订') || room.notes?.includes('预警') || room.notes?.includes('异常')) {
+    if (room.notes?.includes('超订')) {
+      anomalies.push({
+        id: room.id,
+        type: 'room',
+        title: `包间超订: ${room.name}`,
+        description: room.notes || '包间超订预警',
+        severity: 'high'
+      })
+    } else if (room.notes?.includes('检修') || room.notes?.includes('维护') || room.notes?.includes('维修')) {
+      anomalies.push({
+        id: room.id,
+        type: 'room',
+        title: `包间检修维护: ${room.name}`,
+        description: room.notes || '包间需要检修维护',
+        severity: 'medium'
+      })
+    } else if (room.notes?.includes('异常') || room.notes?.includes('问题')) {
       anomalies.push({
         id: room.id,
         type: 'room',
         title: `包间异常: ${room.name}`,
         description: room.notes || '包间存在异常情况',
-        severity: room.notes?.includes('超订') ? 'high' : 'medium'
+        severity: 'high'
+      })
+    } else if (room.notes?.includes('预警')) {
+      anomalies.push({
+        id: room.id,
+        type: 'room',
+        title: `包间预警: ${room.name}`,
+        description: room.notes,
+        severity: 'medium'
       })
     }
   })
@@ -264,6 +288,14 @@ function transformToSettlementDetail(settlement: SettlementInput): SettlementDet
         description: ing.notes || '食材库存偏低',
         severity: 'medium'
       })
+    } else if (ing.notes?.includes('异常') || ing.notes?.includes('问题')) {
+      anomalies.push({
+        id: ing.id,
+        type: 'ingredient',
+        title: `食材异常: ${ing.name}`,
+        description: ing.notes,
+        severity: 'high'
+      })
     }
   })
 
@@ -277,14 +309,25 @@ function transformToSettlementDetail(settlement: SettlementInput): SettlementDet
         severity: 'medium'
       })
     }
-    if (acc.notes?.includes('异常') || acc.notes?.includes('问题')) {
+    if (acc.notes?.includes('争议') || acc.notes?.includes('纠纷')) {
       anomalies.push({
         id: acc.id,
         type: 'accommodation',
-        title: `住宿异常: ${acc.roomNumber}`,
-        description: acc.notes,
+        title: `押金争议: ${acc.roomNumber}`,
+        description: acc.notes || '押金存在争议',
         severity: 'high'
       })
+    }
+    if (acc.notes?.includes('异常') || acc.notes?.includes('问题')) {
+      if (!anomalies.some((a) => a.id === acc.id)) {
+        anomalies.push({
+          id: acc.id,
+          type: 'accommodation',
+          title: `住宿异常: ${acc.roomNumber}`,
+          description: acc.notes,
+          severity: 'high'
+        })
+      }
     }
   })
 
