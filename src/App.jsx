@@ -93,7 +93,18 @@ const initialData = [
       { user: '张伟', role: '检票员', action: '闸机测试', time: '2024-01-10 14:00', remark: '老年票通道测试完成' },
       { user: '李明', role: '票务主管', action: '渠道配置', time: '2024-01-11 09:00', remark: '各渠道库存配置完成' },
       { user: '张伟', role: '检票员', action: '正式启用', time: '2024-01-12 08:00', remark: '老年票正式上线销售' },
-    ]
+    ],
+    completionSnapshot: {
+      channels: [
+        { name: '官方网站', inventory: 150, total: 150, status: 'completed' },
+        { name: 'OTA平台', inventory: 100, total: 100, status: 'completed' },
+        { name: '线下窗口', inventory: 200, total: 200, status: 'completed' },
+        { name: '合作旅行社', inventory: 50, total: 50, status: 'completed' },
+      ],
+      configProgress: 100,
+      blockReason: null,
+      completedAt: '2024-01-12 08:00',
+    }
   },
   {
     id: 'TK005',
@@ -355,11 +366,23 @@ function App() {
           updated.blockReason = null
           updated.configProgress = 100
           updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+          updated.completionSnapshot = {
+            channels: JSON.parse(JSON.stringify(updated.channels)),
+            configProgress: 100,
+            blockReason: null,
+            completedAt: getCurrentTime(),
+          }
         } else if (nextStatus === 'processing' && t.status === 'completed') {
-          const completedCount = t.channels.filter(c => c.status === 'completed').length
-          updated.configProgress = Math.round((completedCount / t.channels.length) * 100)
-          if (completedCount < t.channels.length) {
-            updated.blockReason = '部分渠道库存未完成'
+          if (t.completionSnapshot) {
+            updated.channels = JSON.parse(JSON.stringify(t.completionSnapshot.channels))
+            updated.configProgress = t.completionSnapshot.configProgress
+            updated.blockReason = t.completionSnapshot.blockReason
+          } else {
+            const completedCount = t.channels.filter(c => c.status === 'completed').length
+            updated.configProgress = Math.round((completedCount / t.channels.length) * 100)
+            if (completedCount < t.channels.length) {
+              updated.blockReason = '部分渠道库存未完成'
+            }
           }
         }
         
@@ -380,11 +403,23 @@ function App() {
         updated.blockReason = null
         updated.configProgress = 100
         updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
+        updated.completionSnapshot = {
+          channels: JSON.parse(JSON.stringify(updated.channels)),
+          configProgress: 100,
+          blockReason: null,
+          completedAt: getCurrentTime(),
+        }
       } else if (nextStatus === 'processing' && prev.status === 'completed') {
-        const completedCount = prev.channels.filter(c => c.status === 'completed').length
-        updated.configProgress = Math.round((completedCount / prev.channels.length) * 100)
-        if (completedCount < prev.channels.length) {
-          updated.blockReason = '部分渠道库存未完成'
+        if (prev.completionSnapshot) {
+          updated.channels = JSON.parse(JSON.stringify(prev.completionSnapshot.channels))
+          updated.configProgress = prev.completionSnapshot.configProgress
+          updated.blockReason = prev.completionSnapshot.blockReason
+        } else {
+          const completedCount = prev.channels.filter(c => c.status === 'completed').length
+          updated.configProgress = Math.round((completedCount / prev.channels.length) * 100)
+          if (completedCount < prev.channels.length) {
+            updated.blockReason = '部分渠道库存未完成'
+          }
         }
       }
       
@@ -541,6 +576,11 @@ function App() {
     if (!selectedTicket) return
     const channel = selectedTicket.channels[channelIndex]
     updateChannelInventory(channelIndex, channel.total)
+  }
+
+  const isFullyCompleted = (ticket) => {
+    if (ticket.status !== 'completed') return false
+    return ticket.channels.every(c => c.status === 'completed') && ticket.configProgress === 100
   }
 
   return (
@@ -733,9 +773,15 @@ function App() {
                     <span style={{ color: '#e74c3c' }}>{selectedTicket.blockReason}</span>
                   </div>
                 )}
+                {selectedTicket.completionSnapshot && (
+                  <div className="info-item">
+                    <label>上次完成时间</label>
+                    <span style={{ color: '#666' }}>{selectedTicket.completionSnapshot.completedAt}</span>
+                  </div>
+                )}
               </div>
 
-              {selectedTicket.status === 'completed' && (
+              {isFullyCompleted(selectedTicket) && (
                 <div className="completion-summary">
                   <div className="completion-icon">
                     <CheckCircle size={48} style={{ color: '#27ae60' }} />
