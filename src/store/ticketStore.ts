@@ -2,6 +2,15 @@ import { create } from 'zustand';
 import { Ticket, ReleaseRecord, User } from '../types';
 import { mockTickets, mockRecords, mockUsers } from '../data/mockData';
 
+interface CreateRecordInput {
+    exception_type: string;
+    release_reason: string;
+    approver: string;
+    checker: string;
+    remarks: string;
+    status: 'pending' | 'approved';
+}
+
 interface TicketStore {
     tickets: Ticket[];
     records: ReleaseRecord[];
@@ -9,7 +18,7 @@ interface TicketStore {
     currentUser: User | null;
     selectedTicket: Ticket | null;
     searchTicket: (ticketId: string) => Ticket | undefined;
-    createReleaseRecord: (record: Omit<ReleaseRecord, 'record_id' | 'created_at'>, ticket: Ticket) => void;
+    createReleaseRecord: (record: CreateRecordInput, ticket: Ticket) => void;
     approveRecord: (recordId: string, approver: string) => void;
     rejectRecord: (recordId: string, approver: string) => void;
     updateCSRemarks: (recordId: string, remarks: string, csName: string) => void;

@@ -1,6 +1,6 @@
 import { ReleaseRecord } from '../types';
 import { getExceptionLabel, getStatusLabel } from '../data/mockData';
-import { X, Ticket, AlertTriangle, User, CheckCircle, Clock, Building2, Globe, CreditCard } from 'lucide-react';
+import { X, Ticket, AlertTriangle, User, Clock, Building2, Globe } from 'lucide-react';
 
 interface DetailModalProps {
     record: ReleaseRecord;

@@ -28,13 +28,6 @@ const hoverColorMap: Record<string, string> = {
     id_verify_fail: 'hover:bg-blue-600'
 };
 
-const borderColorMap: Record<string, string> = {
-    expired: 'border-red-500 shadow-red-200',
-    team_mismatch: 'border-orange-500 shadow-orange-200',
-    gate_offline: 'border-amber-500 shadow-amber-200',
-    id_verify_fail: 'border-blue-500 shadow-blue-200'
-};
-
 const bgColorMap: Record<string, string> = {
     expired: 'bg-red-50 border-red-200',
     team_mismatch: 'bg-orange-50 border-orange-200',

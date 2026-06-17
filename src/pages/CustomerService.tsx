@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTicketStore } from '../store/ticketStore';
 import { ReleaseRecord } from '../types';
-import { getExceptionLabel, getStatusLabel } from '../data/mockData';
+import { getExceptionLabel } from '../data/mockData';
 import { Headphones, Search, MessageSquare, Send, User, Ticket, AlertCircle, CheckCircle, Clock, Phone } from 'lucide-react';
 
 export const CustomerService = () => {
@@ -37,13 +37,6 @@ export const CustomerService = () => {
         setTimeout(() => {
             setShowSuccess(false);
         }, 3000);
-    };
-
-    const maskId = (id: string): string => {
-        if (id.length >= 18) {
-            return id.slice(0, 6) + '**********' + id.slice(-4);
-        }
-        return id;
     };
 
     const csActionTypes = [
