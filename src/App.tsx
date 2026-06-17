@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Workbench } from './pages/Workbench';
 import { Records } from './pages/Records';
 import { Approval } from './pages/Approval';
+import { CustomerService } from './pages/CustomerService';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('workbench');
@@ -15,6 +16,8 @@ function App() {
         return <Records />;
       case 'approval':
         return <Approval />;
+      case 'customer_service':
+        return <CustomerService />;
       default:
         return <Workbench />;
     }

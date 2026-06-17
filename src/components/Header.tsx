@@ -1,5 +1,5 @@
-import { BarChart3, ClipboardList, CheckSquare, User } from 'lucide-react';
-import { useTicketStore } from '../store/ticketStore';
+import { BarChart3, ClipboardList, CheckSquare, Headphones } from 'lucide-react';
+import { UserSwitcher } from './UserSwitcher';
 
 interface HeaderProps {
     currentPage: string;
@@ -7,21 +7,12 @@ interface HeaderProps {
 }
 
 export const Header = ({ currentPage, onPageChange }: HeaderProps) => {
-    const { currentUser } = useTicketStore();
     const navItems = [
         { id: 'workbench', label: '异常放行', icon: BarChart3 },
         { id: 'records', label: '放行记录', icon: ClipboardList },
-        { id: 'approval', label: '审批管理', icon: CheckSquare }
+        { id: 'approval', label: '审批管理', icon: CheckSquare },
+        { id: 'customer_service', label: '客服处理', icon: Headphones }
     ];
-
-    const getRoleLabel = (role: string) => {
-        switch (role) {
-            case 'checker': return '检票员';
-            case 'supervisor': return '主管';
-            case 'customer_service': return '客服';
-            default: return role;
-        }
-    };
 
     return (
         <header className="bg-blue-800 text-white shadow-lg sticky top-0 z-40">
@@ -58,13 +49,7 @@ export const Header = ({ currentPage, onPageChange }: HeaderProps) => {
                         })}
                     </nav>
 
-                    <div className="flex items-center space-x-2 bg-blue-700 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg">
-                        <User className="w-4 sm:w-5 h-4 sm:h-5" />
-                        <span className="text-xs sm:text-sm font-medium truncate max-w-[80px] sm:max-w-none">{currentUser?.name}</span>
-                        <span className="text-blue-300 text-xs px-1.5 sm:px-2 py-0.5 bg-blue-600 rounded">
-                            {getRoleLabel(currentUser?.role || '')}
-                        </span>
-                    </div>
+                    <UserSwitcher />
                 </div>
             </div>
         </header>

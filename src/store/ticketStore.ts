@@ -9,9 +9,10 @@ interface TicketStore {
     currentUser: User | null;
     selectedTicket: Ticket | null;
     searchTicket: (ticketId: string) => Ticket | undefined;
-    createReleaseRecord: (record: Omit<ReleaseRecord, 'record_id' | 'created_at'>) => void;
+    createReleaseRecord: (record: Omit<ReleaseRecord, 'record_id' | 'created_at'>, ticket: Ticket) => void;
     approveRecord: (recordId: string, approver: string) => void;
     rejectRecord: (recordId: string, approver: string) => void;
+    updateCSRemarks: (recordId: string, remarks: string, csName: string) => void;
     setCurrentUser: (user: User) => void;
     setSelectedTicket: (ticket: Ticket | null) => void;
 }
@@ -34,9 +35,15 @@ export const useTicketStore = create<TicketStore>((set) => ({
         return mockTickets.find(t => t.ticket_id === ticketId);
     },
     
-    createReleaseRecord: (record) => {
+    createReleaseRecord: (record, ticket) => {
         const newRecord: ReleaseRecord = {
             ...record,
+            ticket_id: ticket.ticket_id,
+            ticket_type: ticket.ticket_type,
+            channel: ticket.channel,
+            visitor_name: ticket.visitor_name,
+            visitor_id: ticket.visitor_id,
+            cs_remarks: '',
             record_id: generateRecordId(),
             created_at: new Date().toLocaleString('zh-CN')
         };
@@ -58,6 +65,16 @@ export const useTicketStore = create<TicketStore>((set) => ({
             records: state.records.map(r => 
                 r.record_id === recordId 
                     ? { ...r, status: 'rejected' as const, approver }
+                    : r
+            )
+        }));
+    },
+    
+    updateCSRemarks: (recordId, remarks, csName) => {
+        set((state) => ({
+            records: state.records.map(r => 
+                r.record_id === recordId 
+                    ? { ...r, cs_remarks: `${csName}: ${remarks}` }
                     : r
             )
         }));

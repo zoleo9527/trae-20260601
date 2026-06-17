@@ -12,11 +12,16 @@ export interface Ticket {
 export interface ReleaseRecord {
     record_id: string;
     ticket_id: string;
+    ticket_type: string;
+    channel: string;
+    visitor_name: string;
+    visitor_id: string;
     exception_type: string;
     release_reason: string;
     approver: string;
     checker: string;
     remarks: string;
+    cs_remarks: string;
     created_at: string;
     status: 'pending' | 'approved' | 'rejected';
 }

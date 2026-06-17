@@ -23,14 +23,13 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
         if (!selectedReason) return;
         
         createReleaseRecord({
-            ticket_id: ticket.ticket_id,
             exception_type: exceptionType,
             release_reason: selectedReason,
             approver: requiresApproval ? '' : currentUser?.name || '',
             checker: currentUser?.name || '',
             remarks,
             status: requiresApproval ? 'pending' : 'approved'
-        });
+        }, ticket);
         
         onSubmit();
     };
