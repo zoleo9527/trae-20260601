@@ -11,14 +11,19 @@ export async function GET(request: Request) {
         ? {
             OR: [
               { depositCode: { contains: searchTerm, mode: 'insensitive' } },
-              { customerName: { contains: searchTerm } },
-              { itemName: { contains: searchTerm } },
+              { itemName: { contains: searchTerm, mode: 'insensitive' } },
+              { operator: { contains: searchTerm, mode: 'insensitive' } },
+              {
+                deposit: {
+                  customerName: { contains: searchTerm, mode: 'insensitive' },
+                },
+              },
             ],
           }
         : {},
       include: {
         deposit: {
-          select: { customerName: true },
+          select: { customerName: true, id: true },
         },
       },
       orderBy: {
@@ -29,6 +34,7 @@ export async function GET(request: Request) {
     const formattedRecords = records.map((record) => ({
       ...record,
       customerName: record.deposit?.customerName || '',
+      depositId: record.deposit?.id || '',
       time: record.time.toISOString().replace('T', ' ').slice(0, 16),
     }))
 

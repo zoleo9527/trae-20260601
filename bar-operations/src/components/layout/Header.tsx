@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import {
   Wine,
   LayoutDashboard,
@@ -33,13 +34,17 @@ const navItems = [
 
 export function Header({ title, subtitle }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const pathname = usePathname() || ''
+
+  const isActive = (href: string) => {
+    if (!pathname) return false
+    return pathname.startsWith(href)
+  }
 
   return (
     <header className="bg-[#0D1117] border-b border-[#2D3748] sticky top-0 z-50">
-      {/* 顶部导航栏 */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          {/* Logo */}
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-[#00D9FF] to-[#F5A623] rounded-lg flex items-center justify-center">
@@ -49,17 +54,16 @@ export function Header({ title, subtitle }: HeaderProps) {
             </Link>
           </div>
 
-          {/* 桌面端导航 */}
           <nav className="hidden lg:flex items-center gap-1">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = window.location.pathname.startsWith(item.href)
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.label}
                   href={item.href}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                    isActive
+                    active
                       ? 'bg-[#00D9FF]/20 text-[#00D9FF]'
                       : 'text-[#A0AEC0] hover:bg-[#252B3B] hover:text-white'
                   }`}
@@ -71,7 +75,6 @@ export function Header({ title, subtitle }: HeaderProps) {
             })}
           </nav>
 
-          {/* 右侧操作区 */}
           <div className="flex items-center gap-3">
             <button className="relative p-2 text-[#A0AEC0] hover:text-white hover:bg-[#252B3B] rounded-lg transition-colors">
               <Bell className="w-5 h-5" />
@@ -86,7 +89,6 @@ export function Header({ title, subtitle }: HeaderProps) {
               <span className="text-sm hidden sm:block">退出</span>
             </button>
 
-            {/* 移动端菜单按钮 */}
             <button
               className="lg:hidden p-2 text-[#A0AEC0] hover:text-white hover:bg-[#252B3B] rounded-lg transition-colors"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -96,24 +98,22 @@ export function Header({ title, subtitle }: HeaderProps) {
           </div>
         </div>
 
-        {/* 页面标题 */}
         <div className="pb-4 border-b border-[#2D3748]">
           <h1 className="text-xl font-bold text-white">{title}</h1>
           <p className="text-sm text-[#A0AEC0]">{subtitle}</p>
         </div>
 
-        {/* 移动端菜单 */}
         {mobileMenuOpen && (
           <nav className="lg:hidden py-4 border-b border-[#2D3748]">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = window.location.pathname.startsWith(item.href)
+              const active = isActive(item.href)
               return (
                 <Link
                   key={item.label}
                   href={item.href}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
-                    isActive
+                    active
                       ? 'bg-[#00D9FF]/20 text-[#00D9FF]'
                       : 'text-[#A0AEC0] hover:bg-[#252B3B] hover:text-white'
                   }`}

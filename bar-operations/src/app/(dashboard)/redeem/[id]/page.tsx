@@ -1,30 +1,69 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import {
   ScanLine,
   Package,
   User,
+  Phone,
   Calendar,
   Camera,
   FileText,
   ArrowLeft,
+  AlertTriangle,
 } from 'lucide-react'
 
+interface RedeemRecord {
+  id: string
+  depositCode: string
+  depositId: string
+  customerName: string
+  customerPhone: string | null
+  itemName: string
+  category: string
+  quantity: number
+  operator: string
+  time: string
+  notes?: string
+}
+
 export default function RedeemDetailPage({ params }: { params: { id: string } }) {
-  const record = {
-    id: params.id,
-    depositCode: 'DEP-20240615-A3F2',
-    customerName: '王先生',
-    customerPhone: '139****1234',
-    itemName: '尊尼获加',
-    category: '威士忌',
-    quantity: 2,
-    operator: '小李',
-    operatorRole: '吧台',
-    time: '2024-06-16 22:00',
-    notes: '客户现场开酒庆祝生日',
+  const [record, setRecord] = useState<RedeemRecord | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchRecord = async () => {
+      const response = await fetch(`/api/redeem/${params.id}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setRecord(result.data)
+      }
+      setLoading(false)
+    }
+
+    fetchRecord()
+  }, [params.id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  if (!record) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-[#FF6B6B] mx-auto mb-4" />
+          <p className="text-[#A0AEC0]">核销记录不存在</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -33,7 +72,6 @@ export default function RedeemDetailPage({ params }: { params: { id: string } })
 
       <div className="p-8">
         <div className="max-w-4xl mx-auto">
-          {/* 返回按钮 */}
           <Link
             href="/redeem/history"
             className="inline-flex items-center gap-2 text-[#A0AEC0] hover:text-white transition-colors mb-6"
@@ -64,10 +102,12 @@ export default function RedeemDetailPage({ params }: { params: { id: string } })
                     <p className="text-xs text-[#A0AEC0] mb-1">客户姓名</p>
                     <p className="text-sm text-white">{record.customerName}</p>
                   </div>
-                  <div>
-                    <p className="text-xs text-[#A0AEC0] mb-1">联系电话</p>
-                    <p className="text-sm text-white">{record.customerPhone}</p>
-                  </div>
+                  {record.customerPhone && (
+                    <div>
+                      <p className="text-xs text-[#A0AEC0] mb-1">联系电话</p>
+                      <p className="text-sm text-white">{record.customerPhone}</p>
+                    </div>
+                  )}
                   <div>
                     <p className="text-xs text-[#A0AEC0] mb-1">核销物品</p>
                     <p className="text-sm text-white">{record.itemName}</p>
@@ -83,7 +123,7 @@ export default function RedeemDetailPage({ params }: { params: { id: string } })
                   <div>
                     <p className="text-xs text-[#A0AEC0] mb-1">操作人</p>
                     <p className="text-sm text-white">{record.operator}</p>
-                    <p className="text-xs text-[#A0AEC0]">{record.operatorRole}</p>
+                    <p className="text-xs text-[#A0AEC0]">吧台</p>
                   </div>
                 </div>
 
@@ -118,7 +158,7 @@ export default function RedeemDetailPage({ params }: { params: { id: string } })
                 <h3 className="text-lg font-bold text-white mb-4">相关操作</h3>
                 <div className="space-y-3">
                   <Link
-                    href={`/deposit/${record.depositCode}`}
+                    href={`/deposit/${record.depositId}`}
                     className="flex items-center gap-2 p-3 bg-[#0D1117] rounded-lg border border-[#2D3748] text-[#A0AEC0] hover:bg-[#252B3B] hover:text-white transition-colors"
                   >
                     <Package className="w-4 h-4" />

@@ -157,7 +157,7 @@ export default function BatchPage() {
             <h3 className="text-lg font-bold text-white">待处理列表</h3>
             <div className="flex items-center gap-3">
               <button
-                onClick={handleBatchAction}
+                onClick={fetchItems}
                 className="flex items-center gap-2 px-3 py-1.5 bg-[#1A1F2E] border border-[#2D3748] text-[#A0AEC0] rounded-lg hover:bg-[#252B3B] transition-colors"
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />

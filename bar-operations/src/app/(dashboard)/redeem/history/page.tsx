@@ -8,6 +8,7 @@ import { Search, Filter, ScanLine, User, Calendar, Download, Eye, RefreshCw } fr
 interface RedeemRecord {
   id: string
   depositCode: string
+  depositId: string
   customerName: string
   itemName: string
   quantity: number
@@ -125,6 +126,9 @@ export default function RedeemHistoryPage() {
                   <th className="px-6 py-4 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-wider">
                     备注
                   </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-[#A0AEC0] uppercase tracking-wider">
+                    操作
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2D3748]">
@@ -161,6 +165,15 @@ export default function RedeemHistoryPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-[#A0AEC0] max-w-[200px] truncate">
                       {record.notes || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link
+                        href={`/redeem/${record.id}`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-[#00D9FF] hover:bg-[#00D9FF]/10 rounded-lg transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        详情
+                      </Link>
                     </td>
                   </tr>
                 ))}
