@@ -8,6 +8,7 @@ export const CustomerService = () => {
     const { records, currentUser, updateCSRemarks } = useTicketStore();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedRecord, setSelectedRecord] = useState<ReleaseRecord | null>(null);
+    const [selectedActionType, setSelectedActionType] = useState<string>('');
     const [remarks, setRemarks] = useState('');
     const [showSuccess, setShowSuccess] = useState(false);
     const [activeTab, setActiveTab] = useState<'pending' | 'processed'>('pending');
@@ -27,24 +28,38 @@ export const CustomerService = () => {
     );
 
     const handleSubmit = () => {
-        if (!selectedRecord || !remarks.trim()) return;
+        if (!selectedRecord || !selectedActionType || !remarks.trim()) return;
         
-        updateCSRemarks(selectedRecord.record_id, remarks, currentUser?.name || '');
+        updateCSRemarks(selectedRecord.record_id, remarks, currentUser?.name || '', selectedActionType as 'refund' | 'reschedule' | 'complaint' | 'info');
         setShowSuccess(true);
         setRemarks('');
         setSelectedRecord(null);
+        setSelectedActionType('');
         
         setTimeout(() => {
             setShowSuccess(false);
         }, 3000);
     };
 
+    const handleSelectRecord = (record: ReleaseRecord) => {
+        if (!isCS) return;
+        setSelectedRecord(record);
+        setSelectedActionType('');
+        setRemarks('');
+    };
+
     const csActionTypes = [
-        { value: 'refund', label: '退票处理', color: 'bg-red-100 text-red-700' },
-        { value: 'reschedule', label: '改期处理', color: 'bg-blue-100 text-blue-700' },
-        { value: 'complaint', label: '投诉处理', color: 'bg-orange-100 text-orange-700' },
-        { value: 'info', label: '咨询回复', color: 'bg-green-100 text-green-700' }
+        { value: 'refund', label: '退票处理', color: 'bg-red-100 text-red-700 border border-red-200' },
+        { value: 'reschedule', label: '改期处理', color: 'bg-blue-100 text-blue-700 border border-blue-200' },
+        { value: 'complaint', label: '投诉处理', color: 'bg-orange-100 text-orange-700 border border-orange-200' },
+        { value: 'info', label: '咨询回复', color: 'bg-green-100 text-green-700 border border-green-200' }
     ];
+
+    const getActionTypeLabel = (type: string | undefined) => {
+        if (!type) return null;
+        const action = csActionTypes.find(a => a.value === type);
+        return action?.label || type;
+    };
 
     return (
         <div className="max-w-7xl mx-auto px-4 py-4 sm:py-6">
@@ -144,7 +159,7 @@ export const CustomerService = () => {
                                 filteredRecords.map((record) => (
                                     <div
                                         key={record.record_id}
-                                        onClick={() => isCS && setSelectedRecord(record)}
+                                        onClick={() => handleSelectRecord(record)}
                                         className={`p-4 sm:p-5 transition-colors ${
                                             selectedRecord?.record_id === record.record_id
                                                 ? 'bg-green-50 border-l-4 border-green-500'
@@ -160,9 +175,9 @@ export const CustomerService = () => {
                                                     <div className="flex items-center space-x-2 sm:space-x-3">
                                                         <p className="font-semibold text-gray-800">{record.visitor_name}</p>
                                                         <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                                            record.cs_remarks ? 'bg-gray-100 text-gray-600' : 'bg-amber-100 text-amber-700'
+                                                            record.cs_remarks ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
                                                         }`}>
-                                                            {record.cs_remarks ? '已处理' : '待处理'}
+                                                            {record.cs_remarks ? getActionTypeLabel(record.cs_action_type) : '待处理'}
                                                         </span>
                                                     </div>
                                                     <div className="flex flex-wrap items-center gap-2 mt-1">
@@ -204,6 +219,14 @@ export const CustomerService = () => {
                                                 <div className="flex items-center space-x-2 mb-1">
                                                     <MessageSquare className="w-4 h-4 text-green-500" />
                                                     <span className="text-xs font-medium text-green-700">客服备注</span>
+                                                    <span className={`px-2 py-0.5 rounded text-xs ${
+                                                        record.cs_action_type === 'refund' ? 'bg-red-100 text-red-700' :
+                                                        record.cs_action_type === 'reschedule' ? 'bg-blue-100 text-blue-700' :
+                                                        record.cs_action_type === 'complaint' ? 'bg-orange-100 text-orange-700' :
+                                                        'bg-green-100 text-green-700'
+                                                    }`}>
+                                                        {getActionTypeLabel(record.cs_action_type)}
+                                                    </span>
                                                 </div>
                                                 <p className="text-sm text-gray-700">{record.cs_remarks}</p>
                                             </div>
@@ -260,23 +283,31 @@ export const CustomerService = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-gray-700 mb-2 block">选择处理类型</label>
+                                    <label className="text-sm font-medium text-gray-700 mb-2 block">选择处理类型 <span className="text-red-500">*</span></label>
                                     <div className="grid grid-cols-2 gap-2">
                                         {csActionTypes.map((action) => (
                                             <button
                                                 key={action.value}
-                                                className={`px-3 py-2 rounded-lg text-xs font-medium transition-colors ${action.color}`}
+                                                onClick={() => setSelectedActionType(action.value)}
+                                                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                                    selectedActionType === action.value
+                                                        ? `${action.color} ring-2 ring-green-500`
+                                                        : `${action.color} hover:opacity-80`
+                                                }`}
                                             >
                                                 {action.label}
                                             </button>
                                         ))}
                                     </div>
+                                    {!selectedActionType && isCS && (
+                                        <p className="text-xs text-orange-500 mt-2">请选择处理类型</p>
+                                    )}
                                 </div>
 
                                 <div>
                                     <label className="flex items-center text-sm font-medium text-gray-700 mb-2">
                                         <MessageSquare className="w-4 h-4 mr-2 text-green-500" />
-                                        处理备注
+                                        处理备注 <span className="text-red-500">*</span>
                                     </label>
                                     <textarea
                                         value={remarks}
@@ -289,16 +320,20 @@ export const CustomerService = () => {
 
                                 <div className="flex space-x-2">
                                     <button
-                                        onClick={() => setSelectedRecord(null)}
+                                        onClick={() => {
+                                            setSelectedRecord(null);
+                                            setSelectedActionType('');
+                                            setRemarks('');
+                                        }}
                                         className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg font-medium transition-colors"
                                     >
                                         取消
                                     </button>
                                     <button
                                         onClick={handleSubmit}
-                                        disabled={!remarks.trim()}
+                                        disabled={!selectedActionType || !remarks.trim()}
                                         className={`flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                                            remarks.trim()
+                                            selectedActionType && remarks.trim()
                                                 ? 'bg-green-500 hover:bg-green-600 text-white'
                                                 : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                                         }`}
@@ -307,6 +342,17 @@ export const CustomerService = () => {
                                         <span>保存备注</span>
                                     </button>
                                 </div>
+                                
+                                {(!selectedActionType || !remarks.trim()) && selectedRecord && (
+                                    <div className="text-xs text-orange-500 text-center">
+                                        {!selectedActionType && !remarks.trim()
+                                            ? '请选择处理类型并填写备注'
+                                            : !selectedActionType
+                                            ? '请选择处理类型'
+                                            : '请填写处理备注'
+                                        }
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

@@ -21,7 +21,7 @@ interface TicketStore {
     createReleaseRecord: (record: CreateRecordInput, ticket: Ticket) => void;
     approveRecord: (recordId: string, approver: string) => void;
     rejectRecord: (recordId: string, approver: string) => void;
-    updateCSRemarks: (recordId: string, remarks: string, csName: string) => void;
+    updateCSRemarks: (recordId: string, remarks: string, csName: string, actionType?: 'refund' | 'reschedule' | 'complaint' | 'info') => void;
     setCurrentUser: (user: User) => void;
     setSelectedTicket: (ticket: Ticket | null) => void;
 }
@@ -79,11 +79,11 @@ export const useTicketStore = create<TicketStore>((set) => ({
         }));
     },
     
-    updateCSRemarks: (recordId, remarks, csName) => {
+    updateCSRemarks: (recordId, remarks, csName, actionType) => {
         set((state) => ({
             records: state.records.map(r => 
                 r.record_id === recordId 
-                    ? { ...r, cs_remarks: `${csName}: ${remarks}` }
+                    ? { ...r, cs_remarks: `${csName}: ${remarks}`, cs_action_type: actionType }
                     : r
             )
         }));

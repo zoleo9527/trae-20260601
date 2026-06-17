@@ -1,6 +1,6 @@
 import { ReleaseRecord } from '../types';
 import { getExceptionLabel, getStatusLabel } from '../data/mockData';
-import { X, Ticket, AlertTriangle, User, Clock, Building2, Globe } from 'lucide-react';
+import { X, Ticket, AlertTriangle, User, Clock, Building2, Globe, MessageSquare } from 'lucide-react';
 
 interface DetailModalProps {
     record: ReleaseRecord;
@@ -12,6 +12,28 @@ const maskId = (id: string): string => {
         return id.slice(0, 6) + '**********' + id.slice(-4);
     }
     return id;
+};
+
+const getActionTypeLabel = (type: string | undefined) => {
+    if (!type) return '';
+    const actionMap: Record<string, string> = {
+        refund: '退票处理',
+        reschedule: '改期处理',
+        complaint: '投诉处理',
+        info: '咨询回复'
+    };
+    return actionMap[type] || type;
+};
+
+const getActionTypeColor = (type: string | undefined) => {
+    if (!type) return '';
+    const colorMap: Record<string, string> = {
+        refund: 'bg-red-100 text-red-700',
+        reschedule: 'bg-blue-100 text-blue-700',
+        complaint: 'bg-orange-100 text-orange-700',
+        info: 'bg-green-100 text-green-700'
+    };
+    return colorMap[type] || '';
 };
 
 export const DetailModal = ({ record, onClose }: DetailModalProps) => {
@@ -127,9 +149,18 @@ export const DetailModal = ({ record, onClose }: DetailModalProps) => {
                         <div className="bg-green-50 rounded-lg p-4">
                             <div className="flex items-center space-x-2 mb-2">
                                 <Globe className="w-4 h-4 text-green-500" />
-                                <span className="font-medium text-gray-800">客服备注</span>
+                                <span className="font-medium text-gray-800">客服处理</span>
+                                {record.cs_action_type && (
+                                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${getActionTypeColor(record.cs_action_type)}`}>
+                                        {getActionTypeLabel(record.cs_action_type)}
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-sm text-gray-700">{record.cs_remarks}</p>
+                            <div className="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                                <MessageSquare className="w-3 h-3" />
+                                <span>备注信息</span>
+                            </div>
+                            <p className="text-sm text-gray-700 mt-1">{record.cs_remarks}</p>
                         </div>
                     )}
 

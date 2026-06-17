@@ -22,6 +22,7 @@ export interface ReleaseRecord {
     checker: string;
     remarks: string;
     cs_remarks: string;
+    cs_action_type?: 'refund' | 'reschedule' | 'complaint' | 'info';
     created_at: string;
     status: 'pending' | 'approved' | 'rejected';
 }
