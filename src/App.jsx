@@ -11,7 +11,6 @@ const initialData = [
     handler: '票务主管',
     handlerName: '李明',
     blockReason: '渠道库存同步中',
-    configProgress: 80,
     createdAt: '2024-01-15 09:00',
     channels: [
       { name: '官方网站', inventory: 500, total: 500, status: 'completed' },
@@ -35,7 +34,6 @@ const initialData = [
     handler: '客服',
     handlerName: '陈静',
     blockReason: '年龄限制规则待确认',
-    configProgress: 45,
     createdAt: '2024-01-16 11:00',
     channels: [
       { name: '官方网站', inventory: 0, total: 300, status: 'pending' },
@@ -58,7 +56,6 @@ const initialData = [
     handler: '票务主管',
     handlerName: '李明',
     blockReason: '学生证验证接口未完成',
-    configProgress: 30,
     createdAt: '2024-01-17 08:30',
     channels: [
       { name: '官方网站', inventory: 0, total: 200, status: 'pending' },
@@ -79,7 +76,6 @@ const initialData = [
     handler: '检票员',
     handlerName: '张伟',
     blockReason: null,
-    configProgress: 100,
     createdAt: '2024-01-10 10:00',
     channels: [
       { name: '官方网站', inventory: 150, total: 150, status: 'completed' },
@@ -101,7 +97,6 @@ const initialData = [
         { name: '线下窗口', inventory: 200, total: 200, status: 'completed' },
         { name: '合作旅行社', inventory: 50, total: 50, status: 'completed' },
       ],
-      configProgress: 100,
       blockReason: null,
       completedAt: '2024-01-12 08:00',
     }
@@ -115,7 +110,6 @@ const initialData = [
     handler: '票务主管',
     handlerName: '李明',
     blockReason: '套餐组合待审核',
-    configProgress: 65,
     createdAt: '2024-01-18 09:00',
     channels: [
       { name: '官方网站', inventory: 100, total: 100, status: 'completed' },
@@ -137,7 +131,6 @@ const initialData = [
     handler: '客服',
     handlerName: '陈静',
     blockReason: '照片上传功能异常',
-    configProgress: 55,
     createdAt: '2024-01-14 08:00',
     channels: [
       { name: '官方网站', inventory: 0, total: 200, status: 'pending' },
@@ -184,6 +177,16 @@ const transitionActions = {
   completed: [
     { action: '重新打开', nextStatus: 'processing' },
   ],
+}
+
+const calculateProgress = (channels) => {
+  const completedCount = channels.filter(c => c.status === 'completed').length
+  return Math.round((completedCount / channels.length) * 100)
+}
+
+const isFullyCompleted = (ticket) => {
+  if (ticket.status !== 'completed') return false
+  return ticket.channels.every(c => c.status === 'completed')
 }
 
 function App() {
@@ -363,23 +366,19 @@ function App() {
         }
         
         if (nextStatus === 'completed') {
-          updated.blockReason = null
-          updated.configProgress = 100
-          updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
           updated.completionSnapshot = {
-            channels: JSON.parse(JSON.stringify(updated.channels)),
-            configProgress: 100,
-            blockReason: null,
+            channels: JSON.parse(JSON.stringify(t.channels)),
+            blockReason: t.blockReason,
             completedAt: getCurrentTime(),
           }
+          updated.blockReason = null
+          updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
         } else if (nextStatus === 'processing' && t.status === 'completed') {
           if (t.completionSnapshot) {
             updated.channels = JSON.parse(JSON.stringify(t.completionSnapshot.channels))
-            updated.configProgress = t.completionSnapshot.configProgress
             updated.blockReason = t.completionSnapshot.blockReason
           } else {
             const completedCount = t.channels.filter(c => c.status === 'completed').length
-            updated.configProgress = Math.round((completedCount / t.channels.length) * 100)
             if (completedCount < t.channels.length) {
               updated.blockReason = '部分渠道库存未完成'
             }
@@ -400,23 +399,19 @@ function App() {
       }
       
       if (nextStatus === 'completed') {
-        updated.blockReason = null
-        updated.configProgress = 100
-        updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
         updated.completionSnapshot = {
-          channels: JSON.parse(JSON.stringify(updated.channels)),
-          configProgress: 100,
-          blockReason: null,
+          channels: JSON.parse(JSON.stringify(prev.channels)),
+          blockReason: prev.blockReason,
           completedAt: getCurrentTime(),
         }
+        updated.blockReason = null
+        updated.channels = updated.channels.map(c => ({ ...c, inventory: c.total, status: 'completed' }))
       } else if (nextStatus === 'processing' && prev.status === 'completed') {
         if (prev.completionSnapshot) {
           updated.channels = JSON.parse(JSON.stringify(prev.completionSnapshot.channels))
-          updated.configProgress = prev.completionSnapshot.configProgress
           updated.blockReason = prev.completionSnapshot.blockReason
         } else {
           const completedCount = prev.channels.filter(c => c.status === 'completed').length
-          updated.configProgress = Math.round((completedCount / prev.channels.length) * 100)
           if (completedCount < prev.channels.length) {
             updated.blockReason = '部分渠道库存未完成'
           }
@@ -494,7 +489,6 @@ function App() {
         }
 
         const completedCount = newChannels.filter(c => c.status === 'completed').length
-        const newProgress = Math.round((completedCount / newChannels.length) * 100)
         
         let newBlockReason = t.blockReason
         if (completedCount === newChannels.length) {
@@ -506,7 +500,6 @@ function App() {
         const updated = {
           ...t,
           channels: newChannels,
-          configProgress: newProgress,
           blockReason: newBlockReason,
           timeline: newTimelineItem ? [...t.timeline, newTimelineItem] : t.timeline,
         }
@@ -538,7 +531,6 @@ function App() {
       }
 
       const completedCount = newChannels.filter(c => c.status === 'completed').length
-      const newProgress = Math.round((completedCount / newChannels.length) * 100)
       
       let newBlockReason = prev.blockReason
       if (completedCount === newChannels.length) {
@@ -550,7 +542,6 @@ function App() {
       const updated = {
         ...prev,
         channels: newChannels,
-        configProgress: newProgress,
         blockReason: newBlockReason,
         timeline: newTimelineItem ? [...prev.timeline, newTimelineItem] : prev.timeline,
       }
@@ -576,11 +567,6 @@ function App() {
     if (!selectedTicket) return
     const channel = selectedTicket.channels[channelIndex]
     updateChannelInventory(channelIndex, channel.total)
-  }
-
-  const isFullyCompleted = (ticket) => {
-    if (ticket.status !== 'completed') return false
-    return ticket.channels.every(c => c.status === 'completed') && ticket.configProgress === 100
   }
 
   return (
@@ -646,68 +632,71 @@ function App() {
               </tr>
             </thead>
             <tbody>
-              {filteredData.map(ticket => (
-                <tr key={ticket.id} onClick={() => handleRowClick(ticket)} style={{ cursor: 'pointer' }}>
-                  <td><strong>{ticket.id}</strong></td>
-                  <td>{ticket.ticketName}</td>
-                  <td>{ticket.category}</td>
-                  <td>¥{ticket.price}</td>
-                  <td>
-                    <span className={`status-badge ${statusMap[ticket.status].className}`}>
-                      {statusMap[ticket.status].label}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ 
-                      display: 'inline-flex', 
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      backgroundColor: `${handlerMap[ticket.handler].color}20`,
-                      color: handlerMap[ticket.handler].color,
-                      fontSize: '12px',
-                      fontWeight: 500
-                    }}>
+              {filteredData.map(ticket => {
+                const progress = calculateProgress(ticket.channels)
+                return (
+                  <tr key={ticket.id} onClick={() => handleRowClick(ticket)} style={{ cursor: 'pointer' }}>
+                    <td><strong>{ticket.id}</strong></td>
+                    <td>{ticket.ticketName}</td>
+                    <td>{ticket.category}</td>
+                    <td>¥{ticket.price}</td>
+                    <td>
+                      <span className={`status-badge ${statusMap[ticket.status].className}`}>
+                        {statusMap[ticket.status].label}
+                      </span>
+                    </td>
+                    <td>
                       <span style={{ 
-                        width: 8, 
-                        height: 8, 
-                        borderRadius: '50%', 
-                        backgroundColor: handlerMap[ticket.handler].color 
-                      }} />
-                      {ticket.handler} - {ticket.handlerName}
-                    </span>
-                  </td>
-                  <td>
-                    <div className="progress-bar" style={{ width: '100px' }}>
-                      <div 
-                        className="progress-fill" 
-                        style={{ width: `${ticket.configProgress}%` }} 
-                      />
-                    </div>
-                    <span style={{ fontSize: '12px', marginLeft: '8px' }}>{ticket.configProgress}%</span>
-                  </td>
-                  <td>
-                    {ticket.blockReason ? (
-                      <span style={{ color: '#e74c3c', fontSize: '12px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <AlertCircle size={14} />
-                        {ticket.blockReason}
+                        display: 'inline-flex', 
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        backgroundColor: `${handlerMap[ticket.handler].color}20`,
+                        color: handlerMap[ticket.handler].color,
+                        fontSize: '12px',
+                        fontWeight: 500
+                      }}>
+                        <span style={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          backgroundColor: handlerMap[ticket.handler].color 
+                        }} />
+                        {ticket.handler} - {ticket.handlerName}
                       </span>
-                    ) : (
-                      <span style={{ color: '#27ae60', fontSize: '12px', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <CheckCircle size={14} />
-                        正常
+                    </td>
+                    <td>
+                      <div className="progress-bar" style={{ width: '100px' }}>
+                        <div 
+                          className="progress-fill" 
+                          style={{ width: `${progress}%` }} 
+                        />
+                      </div>
+                      <span style={{ fontSize: '12px', marginLeft: '8px' }}>{progress}%</span>
+                    </td>
+                    <td>
+                      {ticket.blockReason ? (
+                        <span style={{ color: '#e74c3c', fontSize: '12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <AlertCircle size={14} />
+                          {ticket.blockReason}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#27ae60', fontSize: '12px', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          <CheckCircle size={14} />
+                          正常
+                        </span>
+                      )}
+                    </td>
+                    <td>{ticket.createdAt}</td>
+                    <td>
+                      <span style={{ color: '#3498db', display: 'flex', alignItems: 'center', gap: 2 }}>
+                        查看详情 <ChevronRight size={14} />
                       </span>
-                    )}
-                  </td>
-                  <td>{ticket.createdAt}</td>
-                  <td>
-                    <span style={{ color: '#3498db', display: 'flex', alignItems: 'center', gap: 2 }}>
-                      查看详情 <ChevronRight size={14} />
-                    </span>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
 
@@ -761,7 +750,7 @@ function App() {
                 </div>
                 <div className="info-item">
                   <label>配置进度</label>
-                  <span>{selectedTicket.configProgress}%</span>
+                  <span>{calculateProgress(selectedTicket.channels)}%</span>
                 </div>
                 <div className="info-item">
                   <label>创建时间</label>
