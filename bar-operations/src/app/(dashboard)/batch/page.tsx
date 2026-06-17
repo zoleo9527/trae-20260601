@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Header } from '@/components/layout/Header'
-import { Layers, Package, Clock, CheckCircle, Download } from 'lucide-react'
+import { Layers, Package, Clock, CheckCircle, Download, RefreshCw } from 'lucide-react'
 
 interface BatchItem {
   id: string
@@ -10,49 +10,47 @@ interface BatchItem {
   customerName: string
   itemName: string
   quantity: number
+  remaining: number
   expiredAt: string
   type: 'redeem' | 'extend'
   selected: boolean
 }
 
-const mockItems: BatchItem[] = [
-  {
-    id: '1',
-    depositCode: 'DEP-20240615-A3F2',
-    customerName: '王先生',
-    itemName: '尊尼获加',
-    quantity: 3,
-    expiredAt: '2024-07-15',
-    type: 'redeem',
-    selected: false,
-  },
-  {
-    id: '2',
-    depositCode: 'DEP-20240614-E5F6',
-    customerName: '李女士',
-    itemName: '拉菲',
-    quantity: 2,
-    expiredAt: '2024-07-14',
-    type: 'extend',
-    selected: false,
-  },
-  {
-    id: '3',
-    depositCode: 'DEP-20240610-B2C1',
-    customerName: '张先生',
-    itemName: '白酒',
-    quantity: 3,
-    expiredAt: '2024-07-10',
-    type: 'redeem',
-    selected: false,
-  },
-]
-
 export default function BatchPage() {
-  const [items, setItems] = useState(mockItems)
+  const [items, setItems] = useState<BatchItem[]>([])
   const [actionType, setActionType] = useState<'redeem' | 'extend'>('redeem')
   const [extendDays, setExtendDays] = useState(30)
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+
+  const fetchItems = async () => {
+    setRefreshing(true)
+    const response = await fetch('/api/deposit/list')
+    const result = await response.json()
+
+    if (result.success) {
+      const today = new Date().toISOString().slice(0, 10)
+      const batchItems: BatchItem[] = result.data
+        .filter((d: any) => d.status !== 'COMPLETED')
+        .map((deposit: any) => ({
+          id: deposit.id,
+          depositCode: deposit.depositCode,
+          customerName: deposit.customerName,
+          itemName: deposit.items[0]?.itemName || '',
+          quantity: deposit.items.reduce((sum: number, item: any) => sum + item.quantity, 0),
+          remaining: deposit.items.reduce((sum: number, item: any) => sum + item.remaining, 0),
+          expiredAt: deposit.expiredAt,
+          type: deposit.expiredAt < today ? 'extend' : 'redeem',
+          selected: false,
+        }))
+      setItems(batchItems)
+    }
+    setRefreshing(false)
+  }
+
+  useEffect(() => {
+    fetchItems()
+  }, [])
 
   const toggleItem = (id: string) => {
     setItems(
@@ -68,11 +66,37 @@ export default function BatchPage() {
   const selectedCount = items.filter((item) => item.selected).length
 
   const handleBatchAction = async () => {
+    if (selectedCount === 0) return
+
     setLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    const selectedIds = items.filter((item) => item.selected).map((item) => item.id)
+
+    let url = ''
+    let body = {}
+
+    if (actionType === 'redeem') {
+      url = '/api/batch/redeem'
+      body = { depositIds: selectedIds, operator: 'admin' }
+    } else {
+      url = '/api/batch/extend'
+      body = { depositIds: selectedIds, days: extendDays, operator: 'admin' }
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      alert(`${actionType === 'redeem' ? '批量核销' : '批量延期'}成功！共处理 ${result.data.count} 条记录`)
+      fetchItems()
+    } else {
+      alert(result.error || '操作失败')
+    }
     setLoading(false)
-    alert(`${actionType === 'redeem' ? '批量核销' : '批量延期'}成功！`)
-    setItems(items.map((item) => ({ ...item, selected: false })))
   }
 
   return (
@@ -133,6 +157,13 @@ export default function BatchPage() {
             <h3 className="text-lg font-bold text-white">待处理列表</h3>
             <div className="flex items-center gap-3">
               <button
+                onClick={handleBatchAction}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[#1A1F2E] border border-[#2D3748] text-[#A0AEC0] rounded-lg hover:bg-[#252B3B] transition-colors"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                刷新
+              </button>
+              <button
                 onClick={toggleAll}
                 className="text-sm text-[#00D9FF] hover:bg-[#00D9FF]/10 px-3 py-1 rounded transition-colors"
               >
@@ -144,45 +175,56 @@ export default function BatchPage() {
             </div>
           </div>
 
-          <div className="space-y-3">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => toggleItem(item.id)}
-                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                  item.selected
-                    ? 'bg-[#00D9FF]/10 border-[#00D9FF]'
-                    : 'bg-[#0D1117] border-[#2D3748] hover:border-[#00D9FF]/50'
-                }`}
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-                      item.selected
-                        ? 'bg-[#00D9FF] border-[#00D9FF]'
-                        : 'border-[#2D3748]'
-                    }`}
-                  >
-                    {item.selected && <CheckCircle className="w-3 h-3 text-white" />}
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-mono text-sm text-[#00D9FF]">{item.depositCode}</span>
-                      <span className="px-2 py-0.5 bg-[#F5A623]/20 text-[#F5A623] text-xs rounded">
-                        {item.type === 'extend' ? '即将过期' : '待核销'}
-                      </span>
+          {refreshing ? (
+            <div className="p-12 text-center">
+              <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-[#A0AEC0]">加载中...</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => toggleItem(item.id)}
+                  className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    item.selected
+                      ? 'bg-[#00D9FF]/10 border-[#00D9FF]'
+                      : 'bg-[#0D1117] border-[#2D3748] hover:border-[#00D9FF]/50'
+                  }`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div
+                      className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
+                        item.selected
+                          ? 'bg-[#00D9FF] border-[#00D9FF]'
+                          : 'border-[#2D3748]'
+                      }`}
+                    >
+                      {item.selected && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
-                    <p className="text-sm text-white mb-1">
-                      {item.customerName} · {item.itemName} × {item.quantity}
-                    </p>
-                    <p className="text-xs text-[#A0AEC0]">
-                      有效期至：{item.expiredAt}
-                    </p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="font-mono text-sm text-[#00D9FF]">{item.depositCode}</span>
+                        <span className={`px-2 py-0.5 text-xs rounded ${
+                          item.type === 'extend' 
+                            ? 'bg-[#FF6B6B]/20 text-[#FF6B6B]' 
+                            : 'bg-[#F5A623]/20 text-[#F5A623]'
+                        }`}>
+                          {item.type === 'extend' ? '已过期' : '待核销'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-white mb-1">
+                        {item.customerName} · {item.itemName} × {item.remaining}/{item.quantity}
+                      </p>
+                      <p className="text-xs text-[#A0AEC0]">
+                        有效期至：{item.expiredAt}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 执行按钮 */}

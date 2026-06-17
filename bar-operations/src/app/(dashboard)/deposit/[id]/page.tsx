@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
 import {
@@ -13,13 +13,12 @@ import {
   ScanLine,
   AlertTriangle,
   ArrowLeft,
-  Edit,
   Printer,
 } from 'lucide-react'
 
 interface TimelineEvent {
   id: string
-  type: 'created' | 'confirmed' | 'redeem' | 'expiry' | 'warning'
+  type: 'CREATED' | 'CONFIRMED' | 'REDEEM' | 'EXTENDED' | 'WARNING' | 'EXPIRED'
   title: string
   description: string
   time: string
@@ -27,114 +26,86 @@ interface TimelineEvent {
 }
 
 interface DepositItem {
+  id: string
   itemName: string
   category: string
   quantity: number
   remaining: number
 }
 
-const mockDeposit = {
-  id: '1',
-  depositCode: 'DEP-20240615-A3F2',
-  customerName: '王先生',
-  customerPhone: '139****1234',
-  status: 'partially' as const,
-  bookingId: 'A123',
-  createdAt: '2024-06-15 20:30',
-  expiredAt: '2024-07-15',
-  operator: '小李',
-  items: [
-    { itemName: '尊尼获加', category: '威士忌', quantity: 3, remaining: 1 },
-    { itemName: '拉菲', category: '红酒', quantity: 2, remaining: 2 },
-  ] as DepositItem[],
+interface Deposit {
+  id: string
+  depositCode: string
+  customerName: string
+  customerPhone: string | null
+  status: 'ACTIVE' | 'PARTIALLY' | 'COMPLETED' | 'EXPIRED'
+  bookingId: string | null
+  createdAt: string
+  expiredAt: string
+  operator: string
+  items: DepositItem[]
+  events: TimelineEvent[]
 }
 
-const mockTimeline: TimelineEvent[] = [
-  {
-    id: '1',
-    type: 'created',
-    title: '寄存创建',
-    description: '关联订台 #A123',
-    time: '2024-06-15 20:30',
-    operator: '小李',
-  },
-  {
-    id: '2',
-    type: 'confirmed',
-    title: '入库确认',
-    description: '所有物品已入库',
-    time: '2024-06-15 20:35',
-    operator: '小李',
-  },
-  {
-    id: '3',
-    type: 'redeem',
-    title: '第1次核销',
-    description: '尊尼获加 × 2',
-    time: '2024-06-16 22:00',
-    operator: '小李',
-  },
-  {
-    id: '4',
-    type: 'warning',
-    title: '即将到期提醒',
-    description: '距离过期还有7天',
-    time: '2024-07-08 09:00',
-  },
-  {
-    id: '5',
-    type: 'redeem',
-    title: '第2次核销',
-    description: '尊尼获加 × 1',
-    time: '2024-07-10 21:30',
-    operator: '小王',
-  },
-]
-
-const typeConfig = {
-  created: {
-    icon: Package,
-    color: 'text-[#00D9FF]',
-    bgColor: 'bg-[#00D9FF]/20',
-  },
-  confirmed: {
-    icon: CheckCircle,
-    color: 'text-[#4ECDC4]',
-    bgColor: 'bg-[#4ECDC4]/20',
-  },
-  redeem: {
-    icon: ScanLine,
-    color: 'text-[#F5A623]',
-    bgColor: 'bg-[#F5A623]/20',
-  },
-  warning: {
-    icon: AlertTriangle,
-    color: 'text-[#F5A623]',
-    bgColor: 'bg-[#F5A623]/20',
-  },
-  expiry: {
-    icon: AlertTriangle,
-    color: 'text-[#FF6B6B]',
-    bgColor: 'bg-[#FF6B6B]/20',
-  },
+const typeConfig: Record<string, { icon: typeof Package; color: string; bgColor: string }> = {
+  CREATED: { icon: Package, color: 'text-[#00D9FF]', bgColor: 'bg-[#00D9FF]/20' },
+  CONFIRMED: { icon: CheckCircle, color: 'text-[#4ECDC4]', bgColor: 'bg-[#4ECDC4]/20' },
+  REDEEM: { icon: ScanLine, color: 'text-[#F5A623]', bgColor: 'bg-[#F5A623]/20' },
+  EXTENDED: { icon: Clock, color: 'text-[#4ECDC4]', bgColor: 'bg-[#4ECDC4]/20' },
+  WARNING: { icon: AlertTriangle, color: 'text-[#F5A623]', bgColor: 'bg-[#F5A623]/20' },
+  EXPIRED: { icon: AlertTriangle, color: 'text-[#FF6B6B]', bgColor: 'bg-[#FF6B6B]/20' },
 }
 
-const statusColors = {
-  active: 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]',
-  partially: 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]',
-  completed: 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]',
-  expired: 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]',
+const statusColors: Record<string, string> = {
+  ACTIVE: 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]',
+  PARTIALLY: 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]',
+  COMPLETED: 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]',
+  EXPIRED: 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]',
 }
 
-const statusText = {
-  active: '进行中',
-  partially: '部分取完',
-  completed: '已完成',
-  expired: '已过期',
+const statusText: Record<string, string> = {
+  ACTIVE: '进行中',
+  PARTIALLY: '部分取完',
+  COMPLETED: '已完成',
+  EXPIRED: '已过期',
 }
 
 export default function DepositDetailPage({ params }: { params: { id: string } }) {
-  const deposit = mockDeposit
+  const [deposit, setDeposit] = useState<Deposit | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchDeposit = async () => {
+      const response = await fetch(`/api/deposit/${params.id}`)
+      const result = await response.json()
+
+      if (result.success) {
+        setDeposit(result.data)
+      }
+      setLoading(false)
+    }
+
+    fetchDeposit()
+  }, [params.id])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    )
+  }
+
+  if (!deposit) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertTriangle className="w-12 h-12 text-[#FF6B6B] mx-auto mb-4" />
+          <p className="text-[#A0AEC0]">寄存记录不存在</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
@@ -199,13 +170,15 @@ export default function DepositDetailPage({ params }: { params: { id: string } }
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3">
-                    <Calendar className="w-5 h-5 text-[#00D9FF]" />
-                    <div>
-                      <p className="text-xs text-[#A0AEC0]">关联订台</p>
-                      <p className="text-sm text-white">#{deposit.bookingId}</p>
+                  {deposit.bookingId && (
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-[#00D9FF]" />
+                      <div>
+                        <p className="text-xs text-[#A0AEC0]">关联订台</p>
+                        <p className="text-sm text-white">#{deposit.bookingId}</p>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   <div className="flex items-center gap-3">
                     <Clock className="w-5 h-5 text-[#00D9FF]" />
@@ -232,9 +205,9 @@ export default function DepositDetailPage({ params }: { params: { id: string } }
               <div className="bg-[#1A1F2E] rounded-lg border border-[#2D3748] p-6">
                 <h3 className="text-lg font-bold text-white mb-4">寄存物品</h3>
                 <div className="space-y-3">
-                  {deposit.items.map((item, idx) => (
+                  {deposit.items.map((item) => (
                     <div
-                      key={idx}
+                      key={item.id}
                       className="p-3 bg-[#0D1117] rounded-lg border border-[#2D3748]"
                     >
                       <div className="flex items-start justify-between">
@@ -275,10 +248,10 @@ export default function DepositDetailPage({ params }: { params: { id: string } }
                   <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-[#2D3748]"></div>
 
                   <div className="space-y-6">
-                    {mockTimeline.map((event, index) => {
+                    {deposit.events.map((event, index) => {
                       const config = typeConfig[event.type]
                       const Icon = config.icon
-                      const isLast = index === mockTimeline.length - 1
+                      const isLast = index === deposit.events.length - 1
 
                       return (
                         <div key={event.id} className="relative flex gap-4">

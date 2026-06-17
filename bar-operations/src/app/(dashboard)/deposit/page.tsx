@@ -1,88 +1,67 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/layout/Header'
-import { Plus, Search, Filter, Package, User, Clock, Eye } from 'lucide-react'
+import { Plus, Search, Filter, Package, User, Clock, Eye, RefreshCw } from 'lucide-react'
 
 interface Deposit {
   id: string
   depositCode: string
   customerName: string
-  customerPhone: string
-  status: 'active' | 'partially' | 'completed' | 'expired'
+  customerPhone: string | null
+  status: 'ACTIVE' | 'PARTIALLY' | 'COMPLETED' | 'EXPIRED'
   items: Array<{ itemName: string; quantity: number; remaining: number }>
   expiredAt: string
   createdAt: string
   bookingId?: string
 }
 
-const mockDeposits: Deposit[] = [
-  {
-    id: '1',
-    depositCode: 'DEP-20240616-C4D5',
-    customerName: '李女士',
-    customerPhone: '138****5678',
-    status: 'active',
-    items: [
-      { itemName: '威士忌', quantity: 2, remaining: 2 },
-      { itemName: '啤酒', quantity: 6, remaining: 6 },
-    ],
-    expiredAt: '2024-07-16',
-    createdAt: '2024-06-16 20:30',
-    bookingId: 'C205',
-  },
-  {
-    id: '2',
-    depositCode: 'DEP-20240615-A3F2',
-    customerName: '王先生',
-    customerPhone: '139****1234',
-    status: 'partially',
-    items: [
-      { itemName: '威士忌', quantity: 3, remaining: 1 },
-      { itemName: '红酒', quantity: 2, remaining: 2 },
-    ],
-    expiredAt: '2024-07-15',
-    createdAt: '2024-06-15 21:00',
-    bookingId: 'A123',
-  },
-  {
-    id: '3',
-    depositCode: 'DEP-20240601-X1Y2',
-    customerName: '张先生',
-    customerPhone: '137****9876',
-    status: 'expired',
-    items: [{ itemName: '白酒', quantity: 3, remaining: 3 }],
-    expiredAt: '2024-07-01',
-    createdAt: '2024-06-01 22:00',
-  },
-]
-
-const statusColors = {
-  active: 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]',
-  partially: 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]',
-  completed: 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]',
-  expired: 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]',
+const statusColors: Record<string, string> = {
+  ACTIVE: 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]',
+  PARTIALLY: 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]',
+  COMPLETED: 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]',
+  EXPIRED: 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]',
 }
 
-const statusText = {
-  active: '进行中',
-  partially: '部分取完',
-  completed: '已完成',
-  expired: '已过期',
+const statusText: Record<string, string> = {
+  ACTIVE: '进行中',
+  PARTIALLY: '部分取完',
+  COMPLETED: '已完成',
+  EXPIRED: '已过期',
 }
 
 export default function DepositListPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [deposits, setDeposits] = useState<Deposit[]>([])
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  const filteredDeposits = mockDeposits.filter((deposit) => {
-    const matchesSearch =
-      deposit.depositCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      deposit.customerName.includes(searchTerm)
-    const matchesStatus = statusFilter === 'all' || deposit.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const fetchDeposits = async () => {
+    setLoading(true)
+    const params = new URLSearchParams()
+    if (searchTerm) params.append('search', searchTerm)
+    if (statusFilter !== 'all') params.append('status', statusFilter)
+
+    const response = await fetch(`/api/deposit/list?${params}`)
+    const result = await response.json()
+
+    if (result.success) {
+      setDeposits(result.data)
+    }
+    setLoading(false)
+    setRefreshing(false)
+  }
+
+  useEffect(() => {
+    fetchDeposits()
+  }, [searchTerm, statusFilter])
+
+  const handleRefresh = () => {
+    setRefreshing(true)
+    fetchDeposits()
+  }
 
   return (
     <div className="min-h-screen">
@@ -108,11 +87,19 @@ export default function DepositListPage() {
             className="px-4 py-2.5 bg-[#1A1F2E] border border-[#2D3748] rounded-lg text-white focus:outline-none focus:border-[#00D9FF] transition-all"
           >
             <option value="all">全部状态</option>
-            <option value="active">进行中</option>
-            <option value="partially">部分取完</option>
-            <option value="completed">已完成</option>
-            <option value="expired">已过期</option>
+            <option value="ACTIVE">进行中</option>
+            <option value="PARTIALLY">部分取完</option>
+            <option value="COMPLETED">已完成</option>
+            <option value="EXPIRED">已过期</option>
           </select>
+
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#1A1F2E] border border-[#2D3748] text-[#A0AEC0] rounded-lg hover:bg-[#252B3B] transition-colors"
+          >
+            <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+            刷新
+          </button>
 
           <Link
             href="/deposit/new"
@@ -153,7 +140,7 @@ export default function DepositListPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#2D3748]">
-                {filteredDeposits.map((deposit) => (
+                {deposits.map((deposit) => (
                   <tr key={deposit.id} className="hover:bg-[#252B3B] transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
@@ -166,7 +153,7 @@ export default function DepositListPage() {
                         <User className="w-4 h-4 text-[#A0AEC0]" />
                         <div>
                           <p className="text-sm font-medium text-white">{deposit.customerName}</p>
-                          <p className="text-xs text-[#A0AEC0]">{deposit.customerPhone}</p>
+                          <p className="text-xs text-[#A0AEC0]">{deposit.customerPhone || '-'}</p>
                         </div>
                       </div>
                     </td>
@@ -210,7 +197,14 @@ export default function DepositListPage() {
             </table>
           </div>
 
-          {filteredDeposits.length === 0 && (
+          {loading && (
+            <div className="p-12 text-center">
+              <div className="w-12 h-12 border-4 border-[#00D9FF] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-[#A0AEC0]">加载中...</p>
+            </div>
+          )}
+
+          {!loading && deposits.length === 0 && (
             <div className="p-12 text-center">
               <Package className="w-12 h-12 text-[#A0AEC0] mx-auto mb-4" />
               <p className="text-[#A0AEC0]">暂无寄存记录</p>

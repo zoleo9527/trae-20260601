@@ -1,0 +1,85 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Deposit {
+  id             String     @id @default(cuid())
+  depositCode    String     @unique
+  customerName   String
+  customerPhone  String?
+  bookingId      String?
+  status         DepositStatus @default(ACTIVE)
+  expiredAt      DateTime
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+  operator       String
+
+  items          DepositItem[]
+  events         DepositEvent[]
+  redeemRecords  RedeemRecord[]
+
+  @@map("deposits")
+}
+
+model DepositItem {
+  id         String  @id @default(cuid())
+  depositId  String
+  itemName   String
+  category   String
+  quantity   Int
+  remaining  Int
+
+  deposit    Deposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+
+  @@map("deposit_items")
+}
+
+model DepositEvent {
+  id         String          @id @default(cuid())
+  depositId  String
+  type       DepositEventType
+  title      String
+  description String
+  time       DateTime   @default(now())
+  operator   String?
+
+  deposit    Deposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+
+  @@map("deposit_events")
+}
+
+model RedeemRecord {
+  id             String  @id @default(cuid())
+  depositId      String
+  depositCode    String
+  itemName       String
+  quantity       Int
+  operator       String
+  time           DateTime   @default(now())
+  notes          String?
+
+  deposit        Deposit @relation(fields: [depositId], references: [id], onDelete: Cascade)
+
+  @@map("redeem_records")
+}
+
+enum DepositStatus {
+  ACTIVE
+  PARTIALLY
+  COMPLETED
+  EXPIRED
+}
+
+enum DepositEventType {
+  CREATED
+  CONFIRMED
+  REDEEM
+  EXTENDED
+  WARNING
+  EXPIRED
+}

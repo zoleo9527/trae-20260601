@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Header } from '@/components/layout/Header'
 import {
@@ -15,20 +14,19 @@ import {
 } from 'lucide-react'
 
 interface DepositItem {
+  id: string
   itemName: string
   category: string
   remaining: number
   quantity: number
 }
 
-const mockDeposit = {
-  depositCode: 'DEP-20240615-A3F2',
-  customerName: '王先生',
-  status: 'active',
-  items: [
-    { itemName: '尊尼获加', category: '威士忌', remaining: 1, quantity: 3 },
-    { itemName: '拉菲', category: '红酒', remaining: 2, quantity: 2 },
-  ] as DepositItem[],
+interface Deposit {
+  id: string
+  depositCode: string
+  customerName: string
+  status: string
+  items: DepositItem[]
 }
 
 export default function RedeemPage() {
@@ -37,20 +35,37 @@ export default function RedeemPage() {
   const initialCode = searchParams.get('deposit') || ''
 
   const [depositCode, setDepositCode] = useState(initialCode)
-  const [deposit, setDeposit] = useState<typeof mockDeposit | null>(
-    initialCode ? mockDeposit : null
-  )
+  const [deposit, setDeposit] = useState<Deposit | null>(null)
   const [selectedItems, setSelectedItems] = useState<Record<string, number>>({})
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
+  const [searching, setSearching] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState('')
 
-  const handleSearch = () => {
-    // Simulate search
-    if (depositCode) {
-      setDeposit(mockDeposit)
-      setSelectedItems({})
+  useEffect(() => {
+    if (initialCode) {
+      handleSearch()
     }
+  }, [])
+
+  const handleSearch = async () => {
+    if (!depositCode) return
+
+    setSearching(true)
+    setError('')
+
+    const response = await fetch(`/api/deposit/search?code=${encodeURIComponent(depositCode)}`)
+    const result = await response.json()
+
+    if (result.success) {
+      setDeposit(result.data)
+      setSelectedItems({})
+    } else {
+      setDeposit(null)
+      setError(result.error || '寄存记录不存在')
+    }
+    setSearching(false)
   }
 
   const updateQuantity = (itemName: string, delta: number) => {
@@ -69,16 +84,39 @@ export default function RedeemPage() {
   const totalItems = Object.values(selectedItems).reduce((sum, qty) => sum + qty, 0)
 
   const handleSubmit = async () => {
-    if (totalItems === 0) return
+    if (totalItems === 0 || !deposit) return
 
     setLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setLoading(false)
-    setSuccess(true)
 
-    setTimeout(() => {
-      router.push('/redeem/history')
-    }, 2000)
+    const redeemItems = Object.entries(selectedItems)
+      .filter(([, quantity]) => quantity > 0)
+      .map(([itemName, quantity]) => ({ itemName, quantity }))
+
+    const response = await fetch('/api/redeem/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        depositId: deposit.id,
+        depositCode: deposit.depositCode,
+        items: redeemItems,
+        operator: 'admin',
+        notes,
+      }),
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      setSuccess(true)
+      setTimeout(() => {
+        router.push('/redeem/history')
+      }, 2000)
+    } else {
+      setError(result.error || '核销失败')
+      setLoading(false)
+    }
   }
 
   if (success) {
@@ -118,14 +156,19 @@ export default function RedeemPage() {
               />
               <button
                 onClick={handleSearch}
-                className="px-6 py-3 bg-gradient-to-r from-[#00D9FF] to-[#00B8D9] text-white font-medium rounded-lg hover:from-[#00B8D9] hover:to-[#0099CC] transition-all shadow-lg hover:shadow-xl hover:shadow-[#00D9FF]/20"
+                disabled={searching}
+                className="px-6 py-3 bg-gradient-to-r from-[#00D9FF] to-[#00B8D9] text-white font-medium rounded-lg hover:from-[#00B8D9] hover:to-[#0099CC] transition-all shadow-lg hover:shadow-xl hover:shadow-[#00D9FF]/20 disabled:opacity-50"
               >
-                查找
+                {searching ? '查找中...' : '查找'}
               </button>
               <button className="px-6 py-3 bg-[#1A1F2E] border border-[#2D3748] text-[#A0AEC0] rounded-lg hover:bg-[#252B3B] transition-colors">
                 <ScanLine className="w-6 h-6" />
               </button>
             </div>
+
+            {error && (
+              <p className="mt-4 text-[#FF6B6B] text-sm">{error}</p>
+            )}
           </div>
 
           {/* 寄存详情 */}
@@ -142,12 +185,14 @@ export default function RedeemPage() {
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-xs font-medium border ${
-                      deposit.status === 'active'
+                      deposit.status === 'ACTIVE' || deposit.status === 'PARTIALLY'
                         ? 'bg-[#4ECDC4]/20 text-[#4ECDC4] border-[#4ECDC4]'
-                        : 'bg-[#F5A623]/20 text-[#F5A623] border-[#F5A623]'
+                        : deposit.status === 'COMPLETED'
+                        ? 'bg-[#00D9FF]/20 text-[#00D9FF] border-[#00D9FF]'
+                        : 'bg-[#FF6B6B]/20 text-[#FF6B6B] border-[#FF6B6B]'
                     }`}
                   >
-                    {deposit.status === 'active' ? '进行中' : '部分取完'}
+                    {deposit.status === 'ACTIVE' ? '进行中' : deposit.status === 'PARTIALLY' ? '部分取完' : deposit.status === 'COMPLETED' ? '已完成' : '已过期'}
                   </span>
                 </div>
 
@@ -160,7 +205,7 @@ export default function RedeemPage() {
 
                     return (
                       <div
-                        key={item.itemName}
+                        key={item.id}
                         className={`p-4 rounded-lg border-2 transition-all ${
                           isSelected
                             ? 'bg-[#00D9FF]/10 border-[#00D9FF]'
@@ -246,7 +291,7 @@ export default function RedeemPage() {
             </>
           )}
 
-          {!deposit && (
+          {!deposit && !searching && !initialCode && (
             <div className="bg-[#1A1F2E] rounded-lg border border-[#2D3748] p-12 text-center">
               <AlertTriangle className="w-12 h-12 text-[#A0AEC0] mx-auto mb-4" />
               <p className="text-[#A0AEC0]">请输入寄存编号查找寄存记录</p>

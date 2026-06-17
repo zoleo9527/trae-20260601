@@ -54,19 +54,29 @@ export default function NewDepositPage() {
     e.preventDefault()
     setLoading(true)
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    // In production, make actual API call
-    console.log({
-      customerName,
-      customerPhone,
-      bookingId,
-      expiryDays,
-      items,
+    const response = await fetch('/api/deposit/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        customerName,
+        customerPhone,
+        bookingId,
+        expiryDays,
+        items,
+        operator: 'admin',
+      }),
     })
 
-    router.push('/deposit')
+    const result = await response.json()
+
+    if (result.success) {
+      router.push('/deposit')
+    } else {
+      alert(result.error || '创建寄存失败')
+      setLoading(false)
+    }
   }
 
   return (
