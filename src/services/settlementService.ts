@@ -2,6 +2,33 @@ import prisma from '../prisma'
 import { UpdateSettlementRequest, SettlementFilter, PaginatedResponse } from '../types'
 import { ExpenseSettlement } from '@prisma/client'
 
+export interface SettlementDetail {
+  id: string
+  teamBuildingId: string
+  activityName: string
+  activityDate: string
+  activityStatus: string
+  activityNotes: string | null
+  status: string
+  totalAmount: number
+  depositAmount: number
+  paidAmount: number
+  outstandingAmount: number
+  notes: string | null
+  createdAt: Date
+  updatedAt: Date
+  updatedBy: string
+  anomalies: AnomalyItem[]
+}
+
+export interface AnomalyItem {
+  id: string
+  type: 'room' | 'ingredient' | 'accommodation'
+  title: string
+  description: string
+  severity: 'high' | 'medium' | 'low'
+}
+
 export async function createSettlement(
   teamBuildingId: string,
   userId: string,
@@ -49,18 +76,26 @@ export async function createSettlement(
   })
 }
 
-export async function getSettlementById(id: string): Promise<ExpenseSettlement | null> {
-  return prisma.expenseSettlement.findUnique({
+export async function getSettlementById(id: string): Promise<SettlementDetail | null> {
+  const settlement = await prisma.expenseSettlement.findUnique({
     where: { id },
-    include: { teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } } }
+    include: {
+      teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } }
+    }
   })
+
+  if (!settlement) {
+    return null
+  }
+
+  return transformToSettlementDetail(settlement)
 }
 
 export async function getSettlements(
   filter: SettlementFilter,
   page: number,
   pageSize: number
-): Promise<PaginatedResponse<ExpenseSettlement>> {
+): Promise<PaginatedResponse<SettlementDetail>> {
   const { status, dateStart, dateEnd } = filter
 
   const where: any = {}
@@ -79,7 +114,7 @@ export async function getSettlements(
     }
   }
 
-  const [data, total] = await Promise.all([
+  const [settlements, total] = await Promise.all([
     prisma.expenseSettlement.findMany({
       where,
       include: {
@@ -92,6 +127,8 @@ export async function getSettlements(
     prisma.expenseSettlement.count({ where })
   ])
 
+  const data = settlements.map(transformToSettlementDetail)
+
   return { data, total, page, pageSize }
 }
 
@@ -99,8 +136,11 @@ export async function updateSettlement(
   id: string,
   data: UpdateSettlementRequest,
   userId: string
-): Promise<ExpenseSettlement | null> {
-  const settlement = await prisma.expenseSettlement.findUnique({ where: { id } })
+): Promise<SettlementDetail | null> {
+  const settlement = await prisma.expenseSettlement.findUnique({
+    where: { id },
+    include: { teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } } }
+  })
 
   if (!settlement) {
     throw new Error('Settlement not found')
@@ -118,7 +158,7 @@ export async function updateSettlement(
     status = newPaidAmount >= newTotalAmount ? 'SETTLED' : newPaidAmount > 0 ? 'PARTIAL' : 'UNSETTLED'
   }
 
-  return prisma.expenseSettlement.update({
+  const updatedSettlement = await prisma.expenseSettlement.update({
     where: { id },
     data: {
       ...rest,
@@ -129,12 +169,141 @@ export async function updateSettlement(
     },
     include: { teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } } }
   })
+
+  return transformToSettlementDetail(updatedSettlement)
 }
 
-export async function getUnsettledSettlements(): Promise<ExpenseSettlement[]> {
-  return prisma.expenseSettlement.findMany({
+export async function getUnsettledSettlements(): Promise<SettlementDetail[]> {
+  const settlements = await prisma.expenseSettlement.findMany({
     where: { status: { in: ['UNSETTLED', 'PARTIAL', 'DISPUTED'] } },
-    include: { teamBuilding: true },
+    include: {
+      teamBuilding: { include: { privateRooms: true, accommodations: true, ingredients: true } }
+    },
     orderBy: { createdAt: 'asc' }
   })
+
+  return settlements.map(transformToSettlementDetail)
+}
+
+interface RoomItem {
+  id: string
+  name: string
+  notes: string | null
+}
+
+interface IngredientItem {
+  id: string
+  name: string
+  stockStatus: string
+  notes: string | null
+}
+
+interface AccommodationItem {
+  id: string
+  roomNumber: string
+  depositPaid: boolean
+  depositAmount: unknown
+  notes: string | null
+}
+
+interface SettlementTeamBuilding {
+  id: string
+  name: string
+  date: Date
+  status: string
+  notes: string | null
+  privateRooms: RoomItem[]
+  accommodations: AccommodationItem[]
+  ingredients: IngredientItem[]
+}
+
+interface SettlementInput {
+  id: string
+  teamBuildingId: string
+  status: string
+  totalAmount: unknown
+  depositAmount: unknown
+  paidAmount: unknown
+  outstandingAmount: unknown
+  notes: string | null
+  createdAt: Date
+  updatedAt: Date
+  updatedBy: string
+  teamBuilding: SettlementTeamBuilding
+}
+
+function transformToSettlementDetail(settlement: SettlementInput): SettlementDetail {
+  const anomalies: AnomalyItem[] = []
+
+  settlement.teamBuilding.privateRooms.forEach((room: RoomItem) => {
+    if (room.notes?.includes('超订') || room.notes?.includes('预警') || room.notes?.includes('异常')) {
+      anomalies.push({
+        id: room.id,
+        type: 'room',
+        title: `包间异常: ${room.name}`,
+        description: room.notes || '包间存在异常情况',
+        severity: room.notes?.includes('超订') ? 'high' : 'medium'
+      })
+    }
+  })
+
+  settlement.teamBuilding.ingredients.forEach((ing: IngredientItem) => {
+    if (ing.stockStatus === 'INSUFFICIENT') {
+      anomalies.push({
+        id: ing.id,
+        type: 'ingredient',
+        title: `食材短缺: ${ing.name}`,
+        description: ing.notes || '食材库存不足',
+        severity: 'high'
+      })
+    } else if (ing.stockStatus === 'LOW') {
+      anomalies.push({
+        id: ing.id,
+        type: 'ingredient',
+        title: `食材库存偏低: ${ing.name}`,
+        description: ing.notes || '食材库存偏低',
+        severity: 'medium'
+      })
+    }
+  })
+
+  settlement.teamBuilding.accommodations.forEach((acc: AccommodationItem) => {
+    if (!acc.depositPaid && acc.depositAmount) {
+      anomalies.push({
+        id: acc.id,
+        type: 'accommodation',
+        title: `押金未支付: ${acc.roomNumber}`,
+        description: acc.notes || `押金 ${acc.depositAmount} 元未支付`,
+        severity: 'medium'
+      })
+    }
+    if (acc.notes?.includes('异常') || acc.notes?.includes('问题')) {
+      anomalies.push({
+        id: acc.id,
+        type: 'accommodation',
+        title: `住宿异常: ${acc.roomNumber}`,
+        description: acc.notes,
+        severity: 'high'
+      })
+    }
+  })
+
+  return {
+    id: settlement.id,
+    teamBuildingId: settlement.teamBuildingId,
+    activityName: settlement.teamBuilding.name,
+    activityDate: settlement.teamBuilding.date.toISOString(),
+    activityStatus: settlement.teamBuilding.status,
+    activityNotes: settlement.teamBuilding.notes,
+    status: settlement.status,
+    totalAmount: Number(settlement.totalAmount),
+    depositAmount: Number(settlement.depositAmount),
+    paidAmount: Number(settlement.paidAmount),
+    outstandingAmount: Number(settlement.outstandingAmount),
+    notes: settlement.notes,
+    createdAt: settlement.createdAt,
+    updatedAt: settlement.updatedAt,
+    updatedBy: settlement.updatedBy,
+    anomalies
+  }
 }
