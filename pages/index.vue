@@ -47,15 +47,15 @@
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="filterType = 'refund'">
+        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="handlePendingCardClick('refund')">
           <div class="text-sm text-gray-500 mb-1">待处理退票</div>
           <div class="text-3xl font-bold text-primary-600">{{ stats.pendingRefunds }}</div>
         </div>
-        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="filterType = 'reschedule'">
+        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="handlePendingCardClick('reschedule')">
           <div class="text-sm text-gray-500 mb-1">待处理改期</div>
           <div class="text-3xl font-bold text-blue-600">{{ stats.pendingReschedules }}</div>
         </div>
-        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="filterType = 'complaint'">
+        <div class="card cursor-pointer hover:shadow-md transition-shadow" @click="handlePendingCardClick('complaint')">
           <div class="text-sm text-gray-500 mb-1">待处理投诉</div>
           <div class="text-3xl font-bold text-yellow-600">{{ stats.pendingComplaints }}</div>
         </div>
@@ -253,6 +253,9 @@ const notifications = ref<Notification[]>([])
 
 const activeTab = ref('all')
 const filterType = ref('')
+const filterStatus = ref('')
+const filterStuck = ref(false)
+const filterUrgent = ref(false)
 const showCreateModal = ref(false)
 const selectedTask = ref<any>(null)
 const selectedTaskType = ref<'refund' | 'reschedule' | 'complaint'>('refund')
@@ -305,7 +308,12 @@ async function loadStats() {
 async function loadTasks() {
   try {
     const response = await $fetch('/api/tasks/list', {
-      query: { type: filterType.value || undefined }
+      query: { 
+        type: filterType.value || undefined,
+        status: filterStatus.value || undefined,
+        stuck: filterStuck.value ? 'true' : undefined,
+        urgent: filterUrgent.value ? 'true' : undefined
+      }
     })
     if (response.code === 200) {
       tasks.value = response.data
@@ -378,15 +386,26 @@ function openTaskDetail(task: any) {
   }
 }
 
+function handlePendingCardClick(type: string) {
+  activeTab.value = type
+  filterType.value = type
+  filterStatus.value = 'pending'
+  loadTasks()
+}
+
 function showStuckTasks() {
   activeTab.value = 'all'
   filterType.value = ''
+  filterStatus.value = ''
+  filterStuck.value = true
   loadTasks()
 }
 
 function showUrgentComplaints() {
   activeTab.value = 'complaint'
-  filterType.value = ''
+  filterType.value = 'complaint'
+  filterStatus.value = ''
+  filterUrgent.value = true
   loadTasks()
 }
 
@@ -402,21 +421,44 @@ function handleTaskCreated() {
 
 function handleNotificationNavigate(relatedNo: string, type: string) {
   showNotificationCenter.value = false
-  const task = tasks.value.find(t => 
-    t.id === relatedNo || 
-    t.ticketNo === relatedNo || 
-    t.complaintNo === relatedNo ||
-    (t.ticketNo && t.ticketNo.includes(relatedNo)) ||
-    (t.complaintNo && t.complaintNo.includes(relatedNo))
-  )
+  
+  const actualType = determineTaskType(relatedNo, type)
+  
+  let task = null
+  
+  if (actualType === 'complaint') {
+    task = tasks.value.find(t => 
+      'title' in t && 
+      (t.complaintNo === relatedNo || (t.complaintNo && t.complaintNo.includes(relatedNo)))
+    )
+  } else if (actualType === 'refund') {
+    task = tasks.value.find(t => 
+      'refundReason' in t && 
+      (t.ticketNo === relatedNo || (t.ticketNo && t.ticketNo.includes(relatedNo)))
+    )
+  } else if (actualType === 'reschedule') {
+    task = tasks.value.find(t => 
+      'originalDate' in t && 
+      (t.ticketNo === relatedNo || (t.ticketNo && t.ticketNo.includes(relatedNo)))
+    )
+  }
+  
+  if (!task) {
+    task = tasks.value.find(t => 
+      t.id === relatedNo || 
+      t.ticketNo === relatedNo || 
+      t.complaintNo === relatedNo
+    )
+  }
+
   if (task) {
     openTaskDetail(task)
   } else {
-    if (type === 'complaint') {
-      activeTab.value = 'complaint'
-    } else if (type === 'refund') {
-      activeTab.value = 'refund'
-    }
+    activeTab.value = actualType
+    filterType.value = actualType
+    filterStatus.value = ''
+    filterStuck.value = false
+    filterUrgent.value = false
     loadTasks()
     setTimeout(() => {
       const delayedTask = tasks.value.find(t => 
@@ -429,6 +471,21 @@ function handleNotificationNavigate(relatedNo: string, type: string) {
       }
     }, 300)
   }
+}
+
+function determineTaskType(relatedNo: string, type: string): string {
+  if (relatedNo) {
+    if (relatedNo.startsWith('CT')) {
+      return 'complaint'
+    } else if (relatedNo.startsWith('RT')) {
+      return 'refund'
+    } else if (relatedNo.startsWith('TK')) {
+      if (type === 'reschedule' || type === 'refund') {
+        return type
+      }
+    }
+  }
+  return type || 'all'
 }
 
 function handleLogout() {

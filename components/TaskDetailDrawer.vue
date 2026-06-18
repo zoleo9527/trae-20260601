@@ -6,7 +6,7 @@
           {{ taskType === 'refund' ? '退票申请' : taskType === 'reschedule' ? '改期申请' : '投诉处理' }}详情
         </h2>
         <p class="text-sm text-gray-500 mt-1">
-          {{ task.ticketNo || task.complaintNo }}
+          {{ localTask?.ticketNo || localTask?.complaintNo || props.task.ticketNo || props.task.complaintNo }}
         </p>
       </div>
       <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
@@ -72,67 +72,67 @@
           <div class="grid grid-cols-2 gap-4">
             <div>
               <div class="text-sm text-gray-500 mb-1">游客姓名</div>
-              <div class="font-medium">{{ task.touristName }}</div>
+              <div class="font-medium">{{ localTask?.touristName || props.task.touristName }}</div>
             </div>
             <div>
               <div class="text-sm text-gray-500 mb-1">联系电话</div>
-              <div class="font-medium">{{ task.touristPhone }}</div>
+              <div class="font-medium">{{ localTask?.touristPhone || props.task.touristPhone }}</div>
             </div>
-            <div v-if="task.ticketNo">
+            <div v-if="localTask?.ticketNo || props.task.ticketNo">
               <div class="text-sm text-gray-500 mb-1">票号</div>
-              <div class="font-medium">{{ task.ticketNo }}</div>
+              <div class="font-medium">{{ localTask?.ticketNo || props.task.ticketNo }}</div>
             </div>
             <div>
               <div class="text-sm text-gray-500 mb-1">状态</div>
-              <span :class="getStatusBadgeClass(task.status)">
-                {{ getStatusLabel(task.status) }}
+              <span :class="getStatusBadgeClass(localTask?.status || props.task.status)">
+                {{ getStatusLabel(localTask?.status || props.task.status) }}
               </span>
             </div>
-            <div v-if="task.refundAmount">
+            <div v-if="localTask?.refundAmount || props.task.refundAmount">
               <div class="text-sm text-gray-500 mb-1">退款金额</div>
-              <div class="font-medium text-red-600">¥{{ task.refundAmount }}</div>
+              <div class="font-medium text-red-600">¥{{ localTask?.refundAmount || props.task.refundAmount }}</div>
             </div>
-            <div v-if="task.level">
+            <div v-if="localTask?.level || props.task.level">
               <div class="text-sm text-gray-500 mb-1">投诉等级</div>
-              <span :class="getLevelBadgeClass(task.level)">
-                {{ getLevelLabel(task.level) }}
+              <span :class="getLevelBadgeClass(localTask?.level || props.task.level)">
+                {{ getLevelLabel(localTask?.level || props.task.level) }}
               </span>
             </div>
           </div>
         </div>
 
-        <div v-if="taskType === 'refund' && task.refundReason" class="card">
+        <div v-if="taskType === 'refund' && (localTask?.refundReason || props.task.refundReason)" class="card">
           <h3 class="font-semibold text-gray-900 mb-2">退票原因</h3>
-          <p class="text-gray-700">{{ task.refundReason }}</p>
+          <p class="text-gray-700">{{ localTask?.refundReason || props.task.refundReason }}</p>
         </div>
 
-        <div v-if="taskType === 'reschedule' && task.rescheduleReason" class="card">
+        <div v-if="taskType === 'reschedule' && (localTask?.rescheduleReason || props.task.rescheduleReason)" class="card">
           <h3 class="font-semibold text-gray-900 mb-2">改期原因</h3>
-          <p class="text-gray-700">{{ task.rescheduleReason }}</p>
+          <p class="text-gray-700">{{ localTask?.rescheduleReason || props.task.rescheduleReason }}</p>
           <div class="mt-4 flex items-center space-x-4">
             <div class="text-sm">
               <span class="text-gray-500">原日期:</span>
-              <span class="font-medium ml-2">{{ task.originalDate }}</span>
+              <span class="font-medium ml-2">{{ localTask?.originalDate || props.task.originalDate }}</span>
             </div>
             <ArrowRightIcon class="w-4 h-4 text-gray-400" />
             <div class="text-sm">
               <span class="text-gray-500">新日期:</span>
-              <span class="font-medium ml-2">{{ task.newDate }}</span>
+              <span class="font-medium ml-2">{{ localTask?.newDate || props.task.newDate }}</span>
             </div>
           </div>
         </div>
 
-        <div v-if="taskType === 'complaint' && task.description" class="card">
+        <div v-if="taskType === 'complaint' && (localTask?.description || props.task.description)" class="card">
           <h3 class="font-semibold text-gray-900 mb-2">投诉详情</h3>
-          <p class="text-gray-700">{{ task.description }}</p>
+          <p class="text-gray-700">{{ localTask?.description || props.task.description }}</p>
           <div class="mt-4 flex items-center space-x-4">
-            <div v-if="task.source" class="text-sm">
+            <div v-if="localTask?.source || props.task.source" class="text-sm">
               <span class="text-gray-500">来源:</span>
-              <span class="font-medium ml-2">{{ getSourceLabel(task.source) }}</span>
+              <span class="font-medium ml-2">{{ getSourceLabel(localTask?.source || props.task.source) }}</span>
             </div>
-            <div v-if="task.relatedTicketNo" class="text-sm">
+            <div v-if="localTask?.relatedTicketNo || props.task.relatedTicketNo" class="text-sm">
               <span class="text-gray-500">关联票号:</span>
-              <span class="font-medium text-primary-600 ml-2">{{ task.relatedTicketNo }}</span>
+              <span class="font-medium text-primary-600 ml-2">{{ localTask?.relatedTicketNo || props.task.relatedTicketNo }}</span>
             </div>
           </div>
         </div>
@@ -174,8 +174,8 @@
             <ClockIcon class="w-5 h-5 mr-2" />
             处理日志
           </h3>
-          <div v-if="task.processingLogs && task.processingLogs.length > 0" class="space-y-3">
-            <div v-for="log in task.processingLogs" :key="log.id" class="flex items-start space-x-3">
+          <div v-if="(localTask?.processingLogs || props.task.processingLogs) && (localTask?.processingLogs?.length || props.task.processingLogs?.length) > 0" class="space-y-3">
+            <div v-for="log in (localTask?.processingLogs || props.task.processingLogs)" :key="log.id" class="flex items-start space-x-3">
               <div class="w-2 h-2 bg-gray-400 rounded-full mt-2"></div>
               <div class="flex-1">
                 <div class="flex items-center space-x-2">
@@ -303,7 +303,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import {
   XMarkIcon,
   ClockIcon,
@@ -324,6 +324,7 @@ const emit = defineEmits<{
   refresh: []
 }>()
 
+const localTask = ref<any>(null)
 const trackerInfo = ref<any>(null)
 const contextData = ref<any>(null)
 const processingComment = ref('')
@@ -343,6 +344,12 @@ function getCurrentUser() {
   }
   return currentUser.value
 }
+
+watch(() => props.task, (newTask) => {
+  if (newTask) {
+    localTask.value = { ...newTask }
+  }
+}, { immediate: true })
 
 async function loadTaskDetail() {
   try {
@@ -391,6 +398,7 @@ async function handleProcess() {
     if (response.code === 200) {
       alert('处理成功')
       processingComment.value = ''
+      localTask.value = response.data
       loadTaskDetail()
       loadContext()
       emit('refresh')
@@ -439,6 +447,7 @@ async function confirmAssign() {
       alert('分配成功')
       showAssignModal.value = false
       newHandler.value = ''
+      localTask.value = response.data
       loadTaskDetail()
       loadContext()
       emit('refresh')
@@ -477,6 +486,7 @@ async function handleMarkStuck() {
       showStuckModal.value = false
       stuckPoint.value = ''
       stuckReason.value = ''
+      localTask.value = response.data
       loadTaskDetail()
       loadContext()
       emit('refresh')

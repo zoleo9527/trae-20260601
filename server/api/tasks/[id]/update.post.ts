@@ -52,9 +52,7 @@ export default defineEventHandler(async (event) => {
     item.currentHandler = newHandler.role
     item.currentHandlerName = newHandler.name
     item.handlerDepartment = newHandler.department
-  }
-
-  if (action === 'process' && !item.currentHandler) {
+  } else if (action === 'process' || action === 'stuck') {
     item.currentHandler = operator.role
     item.currentHandlerName = operator.name
     item.handlerDepartment = operator.department

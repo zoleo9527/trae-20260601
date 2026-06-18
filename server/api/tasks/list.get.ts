@@ -10,7 +10,7 @@ import {
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
-  const { type, status, handler } = query
+  const { type, status, handler, stuck, urgent } = query
 
   let results: any[] = []
 
@@ -34,6 +34,14 @@ export default defineEventHandler(async (event) => {
 
   if (handler) {
     results = results.filter(item => item.currentHandler === handler)
+  }
+
+  if (stuck === 'true') {
+    results = results.filter(item => item.stuckPoint)
+  }
+
+  if (urgent === 'true') {
+    results = results.filter(item => item.level === 'urgent')
   }
 
   return {
