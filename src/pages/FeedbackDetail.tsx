@@ -233,7 +233,7 @@ export const FeedbackDetail: React.FC = () => {
           </div>
           <button
             onClick={handlePrev}
-            disabled={!prevFeedback}
+            disabled={!prevFeedback || !isMyTask}
             className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -241,7 +241,7 @@ export const FeedbackDetail: React.FC = () => {
           </button>
           <button
             onClick={handleNext}
-            disabled={!nextFeedback}
+            disabled={!nextFeedback || !isMyTask}
             className="px-4 py-2 border border-border rounded-lg flex items-center gap-2 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="text-sm">下一条</span>
@@ -537,7 +537,7 @@ export const FeedbackDetail: React.FC = () => {
                   </div>
                 )}
 
-                {nextFeedback && !canHandle && (
+                {nextFeedback && !canHandle && isMyTask && (
                   <ActionButton
                     variant="primary"
                     onClick={handleNext}
@@ -562,7 +562,7 @@ export const FeedbackDetail: React.FC = () => {
                   <p className="text-sm text-green-600">反馈已审核通过</p>
                 </div>
               </div>
-              {nextFeedback && (
+              {nextFeedback && isMyTask && (
                 <div className="mt-4">
                   <ActionButton
                     variant="primary"

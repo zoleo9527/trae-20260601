@@ -20,6 +20,7 @@ interface AppState {
   getTasksByCurrentUser: () => Feedback[];
   getNextTask: (currentId: string) => Feedback | undefined;
   getPrevTask: (currentId: string) => Feedback | undefined;
+  getCurrentTaskIndex: (currentId: string) => number;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -145,12 +146,14 @@ export const useStore = create<AppState>((set, get) => ({
   getNextTask: (currentId) => {
     const myTasks = get().getTasksByCurrentUser();
     const currentIndex = myTasks.findIndex((f) => f.id === currentId);
+    if (currentIndex === -1) return undefined;
     return myTasks[currentIndex + 1];
   },
 
   getPrevTask: (currentId) => {
     const myTasks = get().getTasksByCurrentUser();
     const currentIndex = myTasks.findIndex((f) => f.id === currentId);
+    if (currentIndex === -1) return undefined;
     return myTasks[currentIndex - 1];
   },
 
