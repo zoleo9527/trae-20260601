@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useFeedback } from '~/composables/useFeedback'
 
-const { schedules, feedbacks, selectFeedback } = useFeedback()
+const { schedules, feedbacks, selectFeedback, openTransferModal, createFeedback, getRelatedFeedbackBySchedule } = useFeedback()
 
 const selectedDate = ref(new Date().toISOString().split('T')[0])
 const searchQuery = ref('')
@@ -43,9 +43,8 @@ const conflictSchedules = computed(() =>
   schedules.value.filter(s => s.conflictInfo || s.status === 'conflict')
 )
 
-const getRelatedFeedback = (feedbackId?: string) => {
-  if (!feedbackId) return null
-  return feedbacks.value.find(f => f.id === feedbackId)
+const getScheduleFeedback = (scheduleId: string) => {
+  return getRelatedFeedbackBySchedule(scheduleId)
 }
 
 const openScheduleDetail = (item: any) => {
@@ -58,12 +57,24 @@ const closeScheduleDetail = () => {
   selectedSchedule.value = null
 }
 
-const viewRelatedFeedback = (feedbackId: string) => {
-  const fb = getRelatedFeedback(feedbackId)
+const viewRelatedFeedback = (scheduleId: string) => {
+  const fb = getScheduleFeedback(scheduleId)
   if (fb) {
     closeScheduleDetail()
     selectFeedback(fb)
   }
+}
+
+const createFeedbackForSchedule = (item: any) => {
+  const newFeedback = createFeedback({
+    title: `${item.title} - 讲解冲突反馈`,
+    content: `讲解预约"${item.title}"（${item.date} ${item.startTime}-${item.endTime}，${item.location}）存在时间冲突：${item.conflictInfo || '请核实'}，请尽快调整。`,
+    type: 'complaint',
+    priority: 'high',
+    relatedScheduleId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
 }
 
 const statusLabels: Record<string, string> = {
@@ -120,12 +131,20 @@ const availableCount = computed(() => schedules.value.filter(s => s.date === sel
                 <span class="text-xs text-orange-600">{{ item.date }} {{ item.startTime }}</span>
               </div>
               <p v-if="item.conflictInfo" class="text-xs text-orange-600 mt-1 line-clamp-1">{{ item.conflictInfo }}</p>
-              <div v-if="item.relatedFeedbackId" class="mt-2">
+              <div class="flex items-center gap-2 mt-2">
                 <button
-                  @click.stop="viewRelatedFeedback(item.relatedFeedbackId)"
+                  v-if="getScheduleFeedback(item.id)"
+                  @click.stop="viewRelatedFeedback(item.id)"
                   class="text-xs text-primary-600 hover:text-primary-700 underline"
                 >
                   查看关联反馈 →
+                </button>
+                <button
+                  v-else
+                  @click.stop="createFeedbackForSchedule(item)"
+                  class="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 创建反馈
                 </button>
               </div>
             </div>
@@ -235,12 +254,20 @@ const availableCount = computed(() => schedules.value.filter(s => s.date === sel
               </div>
             </div>
 
-            <div v-if="schedule.relatedFeedbackId" class="mt-3 pt-3 border-t border-gray-100">
+            <div class="mt-3 pt-3 border-t border-gray-100">
               <button
-                @click.stop="viewRelatedFeedback(schedule.relatedFeedbackId)"
-                class="text-xs text-primary-600 hover:text-primary-700"
+                v-if="getScheduleFeedback(schedule.id)"
+                @click.stop="viewRelatedFeedback(schedule.id)"
+                class="text-xs text-primary-600 hover:text-primary-700 underline"
               >
                 查看关联反馈 →
+              </button>
+              <button
+                v-else
+                @click.stop="createFeedbackForSchedule(schedule)"
+                class="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 创建反馈
               </button>
             </div>
           </div>
@@ -305,26 +332,41 @@ const availableCount = computed(() => schedules.value.filter(s => s.date === sel
             <p class="text-sm text-gray-600">{{ selectedSchedule.description }}</p>
           </div>
 
-          <div v-if="selectedSchedule.relatedFeedbackId">
+          <div v-if="getScheduleFeedback(selectedSchedule.id)">
             <h5 class="text-sm font-medium text-gray-700 mb-2">关联反馈</h5>
             <div
-              v-if="getRelatedFeedback(selectedSchedule.relatedFeedbackId)"
               class="p-3 bg-primary-50 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors"
-              @click="viewRelatedFeedback(selectedSchedule.relatedFeedbackId)"
+              @click="viewRelatedFeedback(selectedSchedule.id)"
             >
-              <p class="text-sm font-medium text-primary-900">{{ getRelatedFeedback(selectedSchedule.relatedFeedbackId)?.title }}</p>
+              <p class="text-sm font-medium text-primary-900">{{ getScheduleFeedback(selectedSchedule.id)?.title }}</p>
               <p class="text-xs text-primary-600 mt-1">点击查看反馈详情 →</p>
             </div>
           </div>
+          <div v-else>
+            <h5 class="text-sm font-medium text-gray-700 mb-2">关联反馈</h5>
+            <button
+              @click="createFeedbackForSchedule(selectedSchedule)"
+              class="text-sm text-primary-600 hover:text-primary-700"
+            >
+              + 创建反馈并流转处理
+            </button>
+          </div>
         </div>
 
-        <div class="p-4 border-t border-gray-100">
+        <div class="p-4 border-t border-gray-100 space-y-2">
           <button
-            v-if="selectedSchedule.relatedFeedbackId"
-            @click="viewRelatedFeedback(selectedSchedule.relatedFeedbackId)"
+            v-if="getScheduleFeedback(selectedSchedule.id)"
+            @click="viewRelatedFeedback(selectedSchedule.id)"
             class="btn btn-primary w-full"
           >
             查看关联反馈
+          </button>
+          <button
+            v-else
+            @click="createFeedbackForSchedule(selectedSchedule)"
+            class="btn btn-primary w-full"
+          >
+            创建反馈并流转处理
           </button>
         </div>
       </div>
