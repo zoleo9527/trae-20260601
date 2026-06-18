@@ -326,8 +326,8 @@ export function getRoleTodos(
           type: "verification",
           title: `处理异常核销 ${v.id}`,
           description: v.remark
-            ? truncateDescription(v.remark)
-            : "需核实异常原因并处理",
+            ? v.remark + "，请尽快核实"
+            : "券码异常，需核实原因并处理",
           priority: "high",
           time: getTodoTime(),
           relatedId: v.id,
@@ -343,8 +343,8 @@ export function getRoleTodos(
           type: "verification",
           title: `确认退款 ${v.id}`,
           description: v.remark
-            ? truncateDescription(v.remark)
-            : "待确认退款处理结果",
+            ? v.remark + "，待确认"
+            : "退款申请待确认，需核对金额与券码",
           priority: "medium",
           time: getTodoTime(),
           relatedId: v.id,
@@ -355,11 +355,34 @@ export function getRoleTodos(
         (c) => c.responsibleParty === "front" && c.status !== "completed"
       );
       frontComplaints.forEach((c) => {
+        let title = "";
+        let description = "";
+        switch (c.status) {
+          case "pending":
+            title = `协助受理客诉 ${c.id}`;
+            description = "客户提出投诉，请协助前厅处理";
+            break;
+          case "processing":
+            title = `协助跟进客诉 ${c.id}`;
+            description = "客诉处理中，请配合前厅工作";
+            break;
+          case "to_visit":
+            title = `协助回访客诉 ${c.id}`;
+            description = "客诉已处理，需配合前厅完成回访";
+            break;
+          case "escalated":
+            title = `协助处理升级客诉 ${c.id}`;
+            description = "客诉已升级，需收银侧配合提供数据";
+            break;
+          default:
+            title = `协助处理客诉 ${c.id}`;
+            description = truncateDescription(c.content);
+        }
         todos.push({
           id: `TD${++todoIndex}`,
           type: "complaint",
-          title: `协助处理客诉 ${c.id}`,
-          description: truncateDescription(c.content),
+          title,
+          description,
           priority: getSeverityPriority(c.severity),
           time: getTodoTime(c.deadline),
           relatedId: c.id,
@@ -378,17 +401,25 @@ export function getRoleTodos(
       );
       kitchenComplaints.forEach((c) => {
         let priority = getSeverityPriority(c.severity);
-        let description = truncateDescription(c.content);
+        let title = `处理客诉 ${c.id}`;
+        let description = "";
 
-        if (c.status === "processing" && c.kitchenNote) {
-          priority = "medium";
-          description = "等待前厅回访";
+        if (c.status === "pending") {
+          description = "前厅转来客诉，请尽快核实原因";
+        } else if (c.status === "processing") {
+          if (c.kitchenNote) {
+            priority = "medium";
+            title = `等待回访 ${c.id}`;
+            description = "已提交处理说明，等待前厅回访客户";
+          } else {
+            description = "客诉处理中，请尽快给出解决方案";
+          }
         }
 
         todos.push({
           id: `TD${++todoIndex}`,
           type: "complaint",
-          title: `处理客诉 ${c.id}`,
+          title,
           description,
           priority,
           time: getTodoTime(c.deadline),
@@ -409,7 +440,7 @@ export function getRoleTodos(
           id: `TD${++todoIndex}`,
           type: "complaint",
           title: `受理客诉 ${c.id}`,
-          description: truncateDescription(c.content),
+          description: "新客诉待受理，客户等待回应",
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
@@ -425,7 +456,7 @@ export function getRoleTodos(
           id: `TD${++todoIndex}`,
           type: "visit",
           title: `执行回访 ${c.id}`,
-          description: truncateDescription(c.content),
+          description: "客诉已处理完成，安排回访确认满意度",
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
@@ -441,7 +472,7 @@ export function getRoleTodos(
           id: `TD${++todoIndex}`,
           type: "complaint",
           title: `跟进升级客诉 ${c.id}`,
-          description: truncateDescription(c.content),
+          description: "客诉已升级，需重点跟进并同步客户",
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
@@ -457,7 +488,7 @@ export function getRoleTodos(
           id: `TD${++todoIndex}`,
           type: "complaint",
           title: `跟进处理中客诉 ${c.id}`,
-          description: truncateDescription(c.content),
+          description: "后厨处理中，跟进进度并及时同步客户",
           priority: "medium",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
