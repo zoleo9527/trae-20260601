@@ -277,7 +277,9 @@ export default function Materials() {
                       return (
                         <div
                           key={material.materialId}
-                          className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          className={`flex items-center justify-between p-3 rounded-lg ${
+                            course.status === 'completed' ? 'bg-blue-50' : 'bg-gray-50'
+                          }`}
                         >
                           <div className="flex-1">
                             <div className="flex items-center justify-between mb-1">
@@ -286,36 +288,36 @@ export default function Materials() {
                               </span>
                               <span className="text-sm text-gray-500">
                                 {course.status === 'completed'
-                                  ? `${material.returnedQty || 0}/${material.requiredQty} ${material.unit} (已归还)`
+                                  ? `${material.returnedQty || 0}/${material.requiredQty} ${material.unit}`
                                   : `${material.allocatedQty}/${material.requiredQty} ${material.unit}`}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    isFullyProcessed ? 'bg-green-500' : 'bg-amber-500'
-                                  }`}
-                                  style={{ width: `${progress}%` }}
-                                />
+                            {course.status !== 'completed' && (
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      isFullyProcessed ? 'bg-green-500' : 'bg-amber-500'
+                                    }`}
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
+                                {stock && stock.quantity <= stock.minStock && (
+                                  <span className="text-xs text-red-500 ml-2">库存不足</span>
+                                )}
                               </div>
-                              {stock && stock.quantity <= stock.minStock && course.status !== 'completed' && (
-                                <span className="text-xs text-red-500 ml-2">库存不足</span>
-                              )}
-                            </div>
+                            )}
                           </div>
                           <span
                             className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
-                              isFullyProcessed
-                                ? course.status === 'completed'
-                                  ? 'bg-blue-100 text-blue-700'
-                                  : 'bg-green-100 text-green-700'
+                              course.status === 'completed'
+                                ? 'bg-blue-100 text-blue-700'
+                                : isFullyProcessed
+                                ? 'bg-green-100 text-green-700'
                                 : 'bg-amber-100 text-amber-700'
                             }`}
                           >
-                            {course.status === 'completed'
-                              ? isFullyProcessed ? '已归还' : '待归还'
-                              : isFullyProcessed ? '已领用' : '待领用'}
+                            {course.status === 'completed' ? '已归还' : isFullyProcessed ? '已领用' : '待领用'}
                           </span>
                         </div>
                       );

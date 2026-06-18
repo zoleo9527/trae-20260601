@@ -50,12 +50,57 @@ export const useCourseStore = create<CourseStore>()(
         set((state) => ({ courses: [...state.courses, newCourse] }));
       },
 
-      updateCourseStatus: (id, status) => {
+      updateCourseStatus: (id, status, author) => {
+        const state = get();
+        const course = state.courses.find((c) => c.id === id);
+        
+        if (!course) return;
+
+        let updates: Partial<Course> = { status, updatedAt: new Date().toLocaleString('zh-CN') };
+        
+        if (status === 'approved') {
+          const engineer = users.find((u) => u.role === 'engineer');
+          const teacher = users.find((u) => u.role === 'teacher');
+          updates = {
+            ...updates,
+            engineer: engineer?.name || course.engineer,
+            teacher: teacher?.name || course.teacher,
+            assignee: teacher?.name || course.assignee,
+          };
+        } else if (status === 'supplement' && course.engineer && course.teacher) {
+          updates.assignee = course.teacher;
+        } else if (status === 'pending' && course.engineer) {
+          updates.assignee = course.engineer;
+        }
+
+        let newComment = null;
+        if (author) {
+          const statusLabels: Record<string, string> = {
+            approved: '审核通过',
+            rejected: '退回修改',
+            urgent: '标记催办',
+            supplement: '申请补材料',
+            pending: '重新提交',
+            completed: '完成课程',
+          };
+          newComment = {
+            id: `cm${Date.now()}`,
+            courseId: id,
+            author,
+            content: `${statusLabels[status] || status}`,
+            createdAt: new Date().toLocaleString('zh-CN'),
+          };
+        }
+
         set((state) => ({
-          courses: state.courses.map((course) =>
-            course.id === id
-              ? { ...course, status, updatedAt: new Date().toLocaleString('zh-CN') }
-              : course
+          courses: state.courses.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  ...updates,
+                  comments: newComment ? [...c.comments, newComment] : c.comments,
+                }
+              : c
           ),
         }));
       },

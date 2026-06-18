@@ -390,21 +390,21 @@ export default function CourseDetail() {
           {course.status === 'pending' && (
             <>
               <button
-                onClick={handleApprove}
+                onClick={() => updateCourseStatus(course.id, 'approved', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>审核通过</span>
               </button>
               <button
-                onClick={handleReject}
+                onClick={() => updateCourseStatus(course.id, 'rejected', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
                 <span>退回修改</span>
               </button>
               <button
-                onClick={handleUrgent}
+                onClick={() => updateCourseStatus(course.id, 'urgent', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
               >
                 <AlertTriangle className="w-4 h-4" />
@@ -415,14 +415,14 @@ export default function CourseDetail() {
           {course.status === 'urgent' && (
             <>
               <button
-                onClick={handleApprove}
+                onClick={() => updateCourseStatus(course.id, 'approved', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
                 <CheckCircle className="w-4 h-4" />
                 <span>审核通过</span>
               </button>
               <button
-                onClick={handleReject}
+                onClick={() => updateCourseStatus(course.id, 'rejected', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 <XCircle className="w-4 h-4" />
@@ -433,7 +433,7 @@ export default function CourseDetail() {
           {course.status === 'approved' && (
             <>
               <button
-                onClick={handleSupplement}
+                onClick={() => updateCourseStatus(course.id, 'supplement', selectedAuthor)}
                 className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
                 <AlertTriangle className="w-4 h-4" />
@@ -456,7 +456,7 @@ export default function CourseDetail() {
           )}
           {course.status === 'rejected' && (
             <button
-              onClick={() => updateCourseStatus(course.id, 'pending')}
+              onClick={() => updateCourseStatus(course.id, 'pending', selectedAuthor)}
               className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
             >
               <CheckCircle className="w-4 h-4" />
