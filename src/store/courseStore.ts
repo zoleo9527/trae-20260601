@@ -14,6 +14,8 @@ interface CourseStore {
   updateCourseStatus: (id: string, status: Course['status']) => void;
   addComment: (courseId: string, author: string, content: string) => void;
   updateMaterialAllocation: (courseId: string, materialId: string, allocatedQty: number) => void;
+  consumeStock: (materialId: string, qty: number) => void;
+  returnStock: (materialId: string, qty: number) => void;
   getFilteredCourses: () => Course[];
   exportData: () => string;
   importData: (data: string) => boolean;
@@ -79,6 +81,33 @@ export const useCourseStore = create<CourseStore>()(
       },
 
       updateMaterialAllocation: (courseId, materialId, allocatedQty) => {
+        const state = get();
+        const course = state.courses.find((c) => c.id === courseId);
+        const material = state.materials.find((m) => m.id === materialId);
+        
+        if (course && material) {
+          const currentAllocation = course.materials.find((m) => m.materialId === materialId);
+          const qtyDiff = allocatedQty - (currentAllocation?.allocatedQty || 0);
+          
+          if (qtyDiff > 0) {
+            set((state) => ({
+              materials: state.materials.map((m) =>
+                m.id === materialId
+                  ? { ...m, quantity: Math.max(0, m.quantity - qtyDiff) }
+                  : m
+              ),
+            }));
+          } else if (qtyDiff < 0) {
+            set((state) => ({
+              materials: state.materials.map((m) =>
+                m.id === materialId
+                  ? { ...m, quantity: m.quantity + Math.abs(qtyDiff) }
+                  : m
+              ),
+            }));
+          }
+        }
+
         set((state) => ({
           courses: state.courses.map((course) =>
             course.id === courseId
@@ -92,6 +121,26 @@ export const useCourseStore = create<CourseStore>()(
                   updatedAt: new Date().toLocaleString('zh-CN'),
                 }
               : course
+          ),
+        }));
+      },
+
+      consumeStock: (materialId, qty) => {
+        set((state) => ({
+          materials: state.materials.map((m) =>
+            m.id === materialId
+              ? { ...m, quantity: Math.max(0, m.quantity - qty) }
+              : m
+          ),
+        }));
+      },
+
+      returnStock: (materialId, qty) => {
+        set((state) => ({
+          materials: state.materials.map((m) =>
+            m.id === materialId
+              ? { ...m, quantity: m.quantity + qty }
+              : m
           ),
         }));
       },

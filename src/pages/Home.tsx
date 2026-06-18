@@ -21,6 +21,15 @@ const roleOptions = [
   { value: 'teacher', label: '活动老师' },
 ];
 
+const users = [
+  { id: 'u1', name: '张教员', role: 'educator' as const },
+  { id: 'u2', name: '李工程师', role: 'engineer' as const },
+  { id: 'u3', name: '王老师', role: 'teacher' as const },
+  { id: 'u4', name: '刘教员', role: 'educator' as const },
+  { id: 'u5', name: '陈工程师', role: 'engineer' as const },
+  { id: 'u6', name: '赵老师', role: 'teacher' as const },
+];
+
 export default function Home() {
   const navigate = useNavigate();
   const { courses, filterStatus, filterRole, setFilterStatus, setFilterRole } = useCourseStore();
@@ -30,7 +39,17 @@ export default function Home() {
     const statusMatch = filterStatus === 'all' || course.status === filterStatus;
     const searchMatch = course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                        course.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return statusMatch && searchMatch;
+    
+    let roleMatch = true;
+    if (filterRole === 'educator') {
+      roleMatch = users.some((u) => u.name === course.creator && u.role === 'educator');
+    } else if (filterRole === 'engineer') {
+      roleMatch = users.some((u) => u.name === course.assignee && u.role === 'engineer');
+    } else if (filterRole === 'teacher') {
+      roleMatch = users.some((u) => u.name === course.assignee && u.role === 'teacher');
+    }
+    
+    return statusMatch && searchMatch && roleMatch;
   });
 
   const urgentCount = courses.filter((c) => c.status === 'urgent').length;
