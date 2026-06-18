@@ -34,7 +34,7 @@ export interface FlowLog {
   relatedId: string;
   operatorId: string;
   operatorName: string;
-  action: 'submit' | 'review' | 'organize' | 'approve' | 'issue' | 'reject' | 'note';
+  action: 'submit' | 'review' | 'organize' | 'approve' | 'issue' | 'reject' | 'note' | 'create';
   remark?: string;
   timestamp: string;
 }

@@ -311,9 +311,6 @@ export const FlowBoard: React.FC = () => {
             <Award className="w-5 h-5 text-primary" />
             证书发放统计
           </h3>
-          <Link to="/certificate" className="text-sm text-primary hover:underline">
-            查看详情
-          </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="flex items-center gap-4 p-4 bg-blue-50 rounded-lg">

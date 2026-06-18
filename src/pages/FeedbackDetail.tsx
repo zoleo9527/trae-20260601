@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStore } from '@/store/useStore';
 import { StatusTag } from '@/components/common/StatusTag';
@@ -17,7 +17,8 @@ import {
   FileText,
   Send,
   Eye,
-  ChevronRight
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
@@ -35,14 +36,25 @@ export const FeedbackDetail: React.FC = () => {
     getCertificatesByFeedbackId,
     updateFeedbackStatus,
     addFlowLog,
+    createCertificates,
     currentUser,
     users,
     updateCertificateStatus,
-    certificates,
+    getNextTask,
+    getPrevTask,
   } = useStore();
 
   const feedback = getFeedbackById(id || '');
   const certs = getCertificatesByFeedbackId(id || '');
+
+  const nextFeedback = feedback ? getNextTask(feedback.id) : undefined;
+  const prevFeedback = feedback ? getPrevTask(feedback.id) : undefined;
+
+  useEffect(() => {
+    if (feedback && feedback.status === 'completed' && certs.length === 0 && feedback.certificateEligible) {
+      setShowCertificatePanel(true);
+    }
+  }, [feedback, certs.length]);
 
   if (!feedback) {
     return (
@@ -52,26 +64,10 @@ export const FeedbackDetail: React.FC = () => {
     );
   }
 
-  const currentIndex = feedbacks.findIndex((f) => f.id === feedback.id);
-  const nextFeedback = feedbacks
-    .filter((f) => f.status !== 'completed')
-    .find((_, idx) => {
-      const pendingIndices = feedbacks
-        .map((f, i) => (f.status !== 'completed' ? i : -1))
-        .filter((i) => i !== -1);
-      const currentPendingIndex = pendingIndices.indexOf(currentIndex);
-      return pendingIndices[currentPendingIndex + 1] === idx;
-    });
-
-  const prevFeedback = feedbacks
-    .filter((f) => f.status !== 'completed')
-    .find((_, idx) => {
-      const pendingIndices = feedbacks
-        .map((f, i) => (f.status !== 'completed' ? i : -1))
-        .filter((i) => i !== -1);
-      const currentPendingIndex = pendingIndices.indexOf(currentIndex);
-      return pendingIndices[currentPendingIndex - 1] === idx;
-    });
+  const myPendingTasks = feedbacks.filter(
+    (f) => f.assigneeId === currentUser.id && f.status !== 'completed'
+  );
+  const currentIndex = myPendingTasks.findIndex((f) => f.id === feedback.id);
 
   const statusLabels = {
     pending_review: '待初核',
@@ -103,7 +99,7 @@ export const FeedbackDetail: React.FC = () => {
   const nextStep = feedback.currentStep === 'teacher' ? 'volunteer' : feedback.currentStep === 'volunteer' ? 'supervisor' : null;
   const nextStepInfo = nextStep ? flowStepLabels[nextStep] : null;
 
-  const handleAction = async (action: 'approve' | 'reject' | 'organize') => {
+  const handleAction = async (action: 'approve' | 'reject') => {
     setLoading(true);
 
     const now = new Date().toISOString();
@@ -111,35 +107,59 @@ export const FeedbackDetail: React.FC = () => {
     let nextStep = feedback.currentStep;
     let assigneeId = feedback.assigneeId;
     let assigneeName = feedback.assigneeName;
+    let actionRemark = '';
 
-    if (action === 'approve' && feedback.currentStep === 'teacher') {
-      newStatus = 'organized';
-      nextStep = 'volunteer';
-      const volunteer = users.find((u) => u.role === 'volunteer');
-      if (volunteer) {
-        assigneeId = volunteer.id;
-        assigneeName = volunteer.name;
+    if (action === 'approve') {
+      if (feedback.currentStep === 'teacher') {
+        newStatus = 'organized';
+        nextStep = 'volunteer';
+        const volunteer = users.find((u) => u.role === 'volunteer');
+        if (volunteer) {
+          assigneeId = volunteer.id;
+          assigneeName = volunteer.name;
+        }
+        actionRemark = '初核通过，流转至志愿者整理';
+      } else if (feedback.currentStep === 'volunteer') {
+        newStatus = 'pending_approval';
+        nextStep = 'supervisor';
+        const supervisor = users.find((u) => u.role === 'supervisor');
+        if (supervisor) {
+          assigneeId = supervisor.id;
+          assigneeName = supervisor.name;
+        }
+        actionRemark = '整理完成，流转至主管终审';
+      } else if (feedback.currentStep === 'supervisor') {
+        newStatus = 'completed';
+        nextStep = 'supervisor';
+        actionRemark = '终审通过';
+        
+        if (feedback.certificateEligible && certs.length === 0) {
+          const recipientNames = feedback.content.comments.map((_, i) => `学员${i + 1}`);
+          createCertificates(feedback.id, feedback.activityId, feedback.activityName, recipientNames.slice(0, 3));
+          actionRemark = '终审通过，已自动生成证书草稿';
+        }
       }
-    } else if (action === 'approve' && feedback.currentStep === 'volunteer') {
-      newStatus = 'pending_approval';
-      nextStep = 'supervisor';
-      const supervisor = users.find((u) => u.role === 'supervisor');
-      if (supervisor) {
-        assigneeId = supervisor.id;
-        assigneeName = supervisor.name;
-      }
-    } else if (action === 'approve' && feedback.currentStep === 'supervisor') {
-      newStatus = 'completed';
-      nextStep = 'supervisor';
-    }
-
-    if (action === 'reject') {
-      newStatus = 'pending_review';
-      nextStep = 'teacher';
-      const teacher = users.find((u) => u.role === 'teacher');
-      if (teacher) {
-        assigneeId = teacher.id;
-        assigneeName = teacher.name;
+    } else if (action === 'reject') {
+      if (feedback.currentStep === 'volunteer') {
+        newStatus = 'pending_review';
+        nextStep = 'teacher';
+        const teacher = users.find((u) => u.role === 'teacher');
+        if (teacher) {
+          assigneeId = teacher.id;
+          assigneeName = teacher.name;
+        }
+        actionRemark = '退回社教老师补充';
+      } else if (feedback.currentStep === 'supervisor') {
+        newStatus = 'organized';
+        nextStep = 'volunteer';
+        const volunteer = users.find((u) => u.role === 'volunteer');
+        if (volunteer) {
+          assigneeId = volunteer.id;
+          assigneeName = volunteer.name;
+        }
+        actionRemark = '退回志愿者补充材料';
+      } else {
+        actionRemark = '退回修改';
       }
     }
 
@@ -149,15 +169,21 @@ export const FeedbackDetail: React.FC = () => {
       operatorId: currentUser.id,
       operatorName: currentUser.name,
       action,
-      remark: remark || (action === 'approve' ? '审核通过' : action === 'reject' ? '退回补充' : '整理完成'),
+      remark: remark || actionRemark,
       timestamp: now,
     });
 
     setRemark('');
     setLoading(false);
 
-    if (nextFeedback && newStatus === 'completed') {
-      navigate(`/feedback/${nextFeedback.id}`);
+    if (newStatus === 'completed') {
+      if (nextFeedback) {
+        setTimeout(() => navigate(`/feedback/${nextFeedback.id}`), 500);
+      } else {
+        setTimeout(() => navigate('/'), 500);
+      }
+    } else if (action === 'approve' && nextFeedback) {
+      setTimeout(() => navigate(`/feedback/${nextFeedback.id}`), 500);
     }
   };
 
@@ -186,13 +212,7 @@ export const FeedbackDetail: React.FC = () => {
     }
   };
 
-  const handleCompleteAndNext = () => {
-    if (feedback.currentStep === currentUser.role && feedback.status !== 'completed') {
-      handleAction('approve');
-    } else if (nextFeedback) {
-      navigate(`/feedback/${nextFeedback.id}`);
-    }
-  };
+  const canHandle = feedback.currentStep === currentUser.role && feedback.status !== 'completed';
 
   return (
     <div className="space-y-6">
@@ -205,7 +225,13 @@ export const FeedbackDetail: React.FC = () => {
           <span>返回工作台</span>
         </button>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
+            <Users className="w-4 h-4 text-text-muted" />
+            <span className="text-sm text-text-muted">
+              {currentIndex + 1} / {myPendingTasks.length}
+            </span>
+          </div>
           <button
             onClick={handlePrev}
             disabled={!prevFeedback}
@@ -214,9 +240,6 @@ export const FeedbackDetail: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm">上一条</span>
           </button>
-          <span className="text-sm text-text-muted px-2">
-            {currentIndex + 1} / {feedbacks.length}
-          </span>
           <button
             onClick={handleNext}
             disabled={!nextFeedback}
@@ -342,6 +365,11 @@ export const FeedbackDetail: React.FC = () => {
                 <Award className="w-5 h-5 text-primary" />
                 <h3 className="font-semibold text-text-main">关联证书</h3>
                 <span className="text-sm text-text-muted">({certs.length}份)</span>
+                {feedback.status === 'completed' && feedback.certificateEligible && certs.length === 0 && (
+                  <span className="px-2 py-0.5 bg-success/10 text-success text-xs rounded-full">
+                    可生成证书
+                  </span>
+                )}
               </div>
               <ArrowDown className={`w-5 h-5 text-text-muted transition-transform ${showCertificatePanel ? 'rotate-180' : ''}`} />
             </div>
@@ -349,9 +377,19 @@ export const FeedbackDetail: React.FC = () => {
             {showCertificatePanel && (
               <div className="p-6">
                 {certs.length === 0 ? (
-                  <div className="text-center py-8 text-text-muted">
-                    暂无关联证书
-                  </div>
+                  feedback.status === 'completed' && feedback.certificateEligible ? (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Award className="w-8 h-8 text-success" />
+                      </div>
+                      <p className="text-text-main font-medium">审核通过，可生成证书</p>
+                      <p className="text-sm text-text-muted mt-2">证书已自动生成，等待发放</p>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-text-muted">
+                      暂无关联证书
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-4">
                     {certs.map((cert) => (
@@ -451,29 +489,17 @@ export const FeedbackDetail: React.FC = () => {
                   rows={4}
                 />
 
-                {feedback.currentStep === currentUser.role && (
+                {canHandle ? (
                   <div className="space-y-3">
-                    {feedback.currentStep !== 'supervisor' ? (
-                      <ActionButton
-                        variant="success"
-                        onClick={() => handleAction('approve')}
-                        icon={<Send className="w-4 h-4" />}
-                        loading={loading}
-                        className="w-full"
-                      >
-                        确认并流转
-                      </ActionButton>
-                    ) : (
-                      <ActionButton
-                        variant="success"
-                        onClick={() => handleAction('approve')}
-                        icon={<CheckCircle className="w-4 h-4" />}
-                        loading={loading}
-                        className="w-full"
-                      >
-                        完成审核
-                      </ActionButton>
-                    )}
+                    <ActionButton
+                      variant="success"
+                      onClick={() => handleAction('approve')}
+                      icon={feedback.currentStep === 'supervisor' ? <CheckCircle className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                      loading={loading}
+                      className="w-full"
+                    >
+                      {feedback.currentStep === 'supervisor' ? '完成审核' : '确认并流转'}
+                    </ActionButton>
 
                     <ActionButton
                       variant="danger"
@@ -485,9 +511,7 @@ export const FeedbackDetail: React.FC = () => {
                       退回补充
                     </ActionButton>
                   </div>
-                )}
-
-                {feedback.currentStep !== currentUser.role && (
+                ) : (
                   <div className="text-center py-4 bg-gray-50 rounded-lg">
                     <p className="text-sm text-text-muted">
                       当前环节由 <span className="font-medium text-text-main">{feedback.assigneeName}</span> 处理
@@ -495,14 +519,14 @@ export const FeedbackDetail: React.FC = () => {
                   </div>
                 )}
 
-                {nextFeedback && feedback.status === 'completed' && (
+                {nextFeedback && !canHandle && (
                   <ActionButton
                     variant="primary"
-                    onClick={handleCompleteAndNext}
+                    onClick={handleNext}
                     icon={<ChevronRight className="w-4 h-4" />}
                     className="w-full"
                   >
-                    处理下一条
+                    跳转到下一条
                   </ActionButton>
                 )}
               </div>

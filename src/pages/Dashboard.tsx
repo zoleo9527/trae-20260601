@@ -86,6 +86,8 @@ export const Dashboard: React.FC = () => {
     return certificates.filter((c) => c.status === 'ready').slice(0, 3);
   }, [certificates]);
 
+  const firstOverdueTask = urgentTasks[0];
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -120,7 +122,7 @@ export const Dashboard: React.FC = () => {
               </div>
             </div>
             <Link
-              to="/feedback?filter=overdue"
+              to={firstOverdueTask ? `/feedback/${firstOverdueTask.id}` : '/feedback'}
               className="px-4 py-2 bg-white text-red-600 rounded-lg font-medium hover:bg-gray-100 transition-colors flex items-center gap-2"
             >
               立即处理 <ArrowRight className="w-4 h-4" />
@@ -129,7 +131,11 @@ export const Dashboard: React.FC = () => {
 
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {urgentTasks.map((task) => (
-              <div key={task.id} className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
+              <Link
+                key={task.id}
+                to={`/feedback/${task.id}`}
+                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 hover:bg-white/20 transition-colors cursor-pointer"
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-medium">{task.activityName}</span>
                   <StatusTag status="overdue" label="超时" />
@@ -138,7 +144,7 @@ export const Dashboard: React.FC = () => {
                   <Clock className="w-4 h-4" />
                   <span>{task.submittedAt}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -231,12 +237,6 @@ export const Dashboard: React.FC = () => {
                 <Award className="w-5 h-5 text-primary" />
                 待发放证书
               </h3>
-              <Link
-                to="/certificate"
-                className="text-sm text-primary hover:underline font-medium"
-              >
-                查看全部
-              </Link>
             </div>
 
             {certReadyToIssue.length === 0 ? (
@@ -245,26 +245,30 @@ export const Dashboard: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-3">
-                {certReadyToIssue.map((cert) => (
-                  <div
-                    key={cert.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Award className="w-5 h-5 text-primary" />
+                {certReadyToIssue.map((cert) => {
+                  const feedback = feedbacks.find((f) => f.id === cert.feedbackId);
+                  return (
+                    <Link
+                      key={cert.id}
+                      to={feedback ? `/feedback/${feedback.id}` : '/feedback'}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Award className="w-5 h-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-text-main">{cert.recipientName}</p>
+                          <p className="text-sm text-text-muted">{cert.activityName}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-text-main">{cert.recipientName}</p>
-                        <p className="text-sm text-text-muted">{cert.activityName}</p>
+                      <div className="flex items-center gap-3">
+                        <StatusTag status="in_progress" label="待发放" />
+                        <ArrowRight className="w-5 h-5 text-text-muted" />
                       </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <StatusTag status="in_progress" label="待发放" />
-                      <ArrowRight className="w-5 h-5 text-text-muted" />
-                    </div>
-                  </div>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -11,11 +11,15 @@ interface AppState {
   updateFeedbackStatus: (feedbackId: string, newStatus: Feedback['status'], nextStep: Feedback['currentStep'], assigneeId: string, assigneeName: string) => void;
   addFlowLog: (type: 'feedback' | 'certificate', relatedId: string, log: Omit<FlowLog, 'id' | 'relatedType' | 'relatedId'>) => void;
   updateCertificateStatus: (certificateId: string, newStatus: Certificate['status'], issuedAt?: string, issuedBy?: string) => void;
+  createCertificates: (feedbackId: string, activityId: string, activityName: string, recipientNames: string[]) => void;
+  switchUser: (userId: string) => void;
   getFeedbackById: (id: string) => Feedback | undefined;
   getCertificateById: (id: string) => Certificate | undefined;
   getCertificatesByFeedbackId: (feedbackId: string) => Certificate[];
   getOverdueTasks: () => Feedback[];
   getTasksByCurrentUser: () => Feedback[];
+  getNextTask: (currentId: string) => Feedback | undefined;
+  getPrevTask: (currentId: string) => Feedback | undefined;
 }
 
 export const useStore = create<AppState>((set, get) => ({
@@ -76,6 +80,41 @@ export const useStore = create<AppState>((set, get) => ({
     }));
   },
 
+  createCertificates: (feedbackId, activityId, activityName, recipientNames) => {
+    const newCertificates: Certificate[] = recipientNames.map((name, index) => ({
+      id: `c-${Date.now()}-${index}`,
+      feedbackId,
+      activityId,
+      activityName,
+      recipientName: name,
+      status: 'ready',
+      issueMethod: 'onsite',
+      flowLogs: [
+        {
+          id: `cert-log-${Date.now()}-${index}`,
+          relatedType: 'certificate',
+          relatedId: `c-${Date.now()}-${index}`,
+          operatorId: get().currentUser.id,
+          operatorName: get().currentUser.name,
+          action: 'create',
+          remark: '审核通过，自动生成证书草稿',
+          timestamp: new Date().toLocaleString('zh-CN'),
+        },
+      ],
+    }));
+
+    set((state) => ({
+      certificates: [...state.certificates, ...newCertificates],
+    }));
+  },
+
+  switchUser: (userId) => {
+    const user = get().users.find((u) => u.id === userId);
+    if (user) {
+      set({ currentUser: user });
+    }
+  },
+
   getFeedbackById: (id) => {
     return get().feedbacks.find((f) => f.id === id);
   },
@@ -97,5 +136,23 @@ export const useStore = create<AppState>((set, get) => ({
     return get().feedbacks.filter(
       (f) => f.assigneeId === user.id && f.status !== 'completed'
     );
+  },
+
+  getNextTask: (currentId) => {
+    const user = get().currentUser;
+    const myTasks = get().feedbacks.filter(
+      (f) => f.assigneeId === user.id && f.status !== 'completed'
+    );
+    const currentIndex = myTasks.findIndex((f) => f.id === currentId);
+    return myTasks[currentIndex + 1];
+  },
+
+  getPrevTask: (currentId) => {
+    const user = get().currentUser;
+    const myTasks = get().feedbacks.filter(
+      (f) => f.assigneeId === user.id && f.status !== 'completed'
+    );
+    const currentIndex = myTasks.findIndex((f) => f.id === currentId);
+    return myTasks[currentIndex - 1];
   },
 }));
