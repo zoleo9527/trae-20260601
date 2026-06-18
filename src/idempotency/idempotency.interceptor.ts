@@ -1,8 +1,7 @@
-
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { Observable, of } from 'rxjs';
-import { tap } from 'rxjs/operators';
-import { IdempotencyService } from './idempotency.service';
+import { Observable, of, throwError } from 'rxjs';
+import { tap, catchError } from 'rxjs/operators';
+import { IdempotencyService, IdempotencyStatus } from './idempotency.service';
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -16,17 +15,29 @@ export class IdempotencyInterceptor implements NestInterceptor {
       return next.handle();
     }
 
-    const existingResponse = await this.idempotencyService.get(idempotencyKey);
+    const existingRecord = await this.idempotencyService.get(idempotencyKey);
     
-    if (existingResponse) {
-      return of(existingResponse);
+    if (existingRecord) {
+      if (existingRecord.status === 'completed') {
+        return of(existingRecord.responseData);
+      }
+      if (existingRecord.status === 'failed') {
+        await this.idempotencyService.create(idempotencyKey, request.body);
+      }
+    } else {
+      await this.idempotencyService.create(idempotencyKey, request.body);
     }
-
-    await this.idempotencyService.create(idempotencyKey, request.body);
 
     return next.handle().pipe(
       tap(async (response) => {
         await this.idempotencyService.update(idempotencyKey, response);
+      }),
+      catchError(async (error) => {
+        await this.idempotencyService.fail(idempotencyKey, {
+          error: error.message,
+          statusCode: error.status || 500,
+        });
+        return throwError(() => error);
       }),
     );
   }

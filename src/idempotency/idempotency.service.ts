@@ -1,12 +1,13 @@
-
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+
+export type IdempotencyStatus = 'pending' | 'completed' | 'failed';
 
 @Injectable()
 export class IdempotencyService {
   constructor(private prisma: PrismaService) {}
 
-  async get(idempotencyKey: string): Promise<any | null> {
+  async get(idempotencyKey: string): Promise<{ responseData: any; status: IdempotencyStatus } | null> {
     const record = await this.prisma.idempotencyKey.findUnique({
       where: { key: idempotencyKey },
     });
@@ -20,15 +21,24 @@ export class IdempotencyService {
       return null;
     }
 
-    return record.responseData;
+    return {
+      responseData: record.responseData,
+      status: record.status as IdempotencyStatus,
+    };
   }
 
   async create(idempotencyKey: string, requestData: any): Promise<void> {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 24);
 
-    await this.prisma.idempotencyKey.create({
-      data: {
+    await this.prisma.idempotencyKey.upsert({
+      where: { key: idempotencyKey },
+      update: {
+        requestData,
+        status: 'pending',
+        expiresAt,
+      },
+      create: {
         key: idempotencyKey,
         requestData,
         status: 'pending',
@@ -43,6 +53,16 @@ export class IdempotencyService {
       data: {
         responseData,
         status: 'completed',
+      },
+    });
+  }
+
+  async fail(idempotencyKey: string, errorData: any): Promise<void> {
+    await this.prisma.idempotencyKey.update({
+      where: { key: idempotencyKey },
+      data: {
+        responseData: errorData,
+        status: 'failed',
       },
     });
   }

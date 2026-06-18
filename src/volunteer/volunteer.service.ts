@@ -1,4 +1,3 @@
-
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateVolunteerDto } from './dto/create-volunteer.dto';
@@ -20,34 +19,39 @@ export class VolunteerService {
     }
 
     const applicationId = uuidv4();
+    const recruitmentRecordId = createVolunteerDto.recruitmentRecordId || undefined;
 
-    const volunteer = await this.prisma.volunteer.create({
-      data: {
-        ...createVolunteerDto,
-        applicationId,
-        recruitmentRecordId: createVolunteerDto.recruitmentRecordId || undefined,
-      },
-    });
-
-    await this.prisma.auditRecord.create({
-      data: {
-        auditType: AuditType.APPLICATION_SUBMITTED,
-        targetType: TargetType.VOLUNTEER,
-        targetId: volunteer.id,
-        newStatus: VolunteerStatus.PENDING,
-        auditorId: userId,
-        volunteerId: volunteer.id,
-      },
-    });
-
-    if (createVolunteerDto.recruitmentRecordId) {
-      await this.prisma.recruitmentRecord.update({
-        where: { id: createVolunteerDto.recruitmentRecordId },
-        data: { appliedCount: { increment: 1 } },
+    const result = await this.prisma.$transaction(async (tx) => {
+      const volunteer = await tx.volunteer.create({
+        data: {
+          ...createVolunteerDto,
+          applicationId,
+          recruitmentRecordId,
+        },
       });
-    }
 
-    return volunteer;
+      await tx.auditRecord.create({
+        data: {
+          auditType: AuditType.APPLICATION_SUBMITTED,
+          targetType: TargetType.VOLUNTEER,
+          targetId: volunteer.id,
+          newStatus: VolunteerStatus.PENDING,
+          auditorId: userId,
+          volunteerId: volunteer.id,
+        },
+      });
+
+      if (recruitmentRecordId) {
+        await tx.recruitmentRecord.update({
+          where: { id: recruitmentRecordId },
+          data: { appliedCount: { increment: 1 } },
+        });
+      }
+
+      return volunteer;
+    });
+
+    return result;
   }
 
   async findAll(status?: VolunteerStatus): Promise<Volunteer[]> {
@@ -84,26 +88,30 @@ export class VolunteerService {
     const volunteer = await this.findOne(id);
     const previousStatus = volunteer.status;
 
-    const updated = await this.prisma.volunteer.update({
-      where: { id },
-      data: updateVolunteerDto,
+    const result = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.volunteer.update({
+        where: { id },
+        data: updateVolunteerDto,
+      });
+
+      if (updateVolunteerDto.status && updateVolunteerDto.status !== previousStatus) {
+        await tx.auditRecord.create({
+          data: {
+            auditType: AuditType.STATUS_CHANGED,
+            targetType: TargetType.VOLUNTEER,
+            targetId: id,
+            previousStatus,
+            newStatus: updateVolunteerDto.status,
+            auditorId: userId,
+            volunteerId: id,
+          },
+        });
+      }
+
+      return updated;
     });
 
-    if (updateVolunteerDto.status && updateVolunteerDto.status !== previousStatus) {
-      await this.prisma.auditRecord.create({
-        data: {
-          auditType: AuditType.STATUS_CHANGED,
-          targetType: TargetType.VOLUNTEER,
-          targetId: id,
-          previousStatus,
-          newStatus: updateVolunteerDto.status,
-          auditorId: userId,
-          volunteerId: id,
-        },
-      });
-    }
-
-    return updated;
+    return result;
   }
 
   async remove(id: string): Promise<void> {
