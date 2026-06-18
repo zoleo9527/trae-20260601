@@ -38,11 +38,18 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	idempotentKey := fmt.Sprintf("signup:%s", req.IdempotencyKey)
 
 	if req.IdempotencyKey != "" {
-		isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-		if isDup {
-			var existing database.ActivitySignup
-			if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-				return &existing, nil
+		isDuplicate, result := s.idempotentSvc.Check(idempotentKey)
+		if isDuplicate {
+			if result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var signup database.ActivitySignup
+					if err := json.Unmarshal(dataBytes, &signup); err == nil {
+						return &signup, nil
+					}
+				} else {
+					return nil, errors.New(result.Error)
+				}
 			}
 		}
 
@@ -51,15 +58,17 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 			return nil, err
 		}
 		if isLocked {
-			for i := 0; i < 10; i++ {
-				isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-				if isDup {
-					var existing database.ActivitySignup
-					if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-						return &existing, nil
+			isDuplicate, result := s.idempotentSvc.WaitForResult(idempotentKey, 20, 50*time.Millisecond)
+			if isDuplicate && result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var signup database.ActivitySignup
+					if err := json.Unmarshal(dataBytes, &signup); err == nil {
+						return &signup, nil
 					}
+				} else {
+					return nil, errors.New(result.Error)
 				}
-				time.Sleep(100 * time.Millisecond)
 			}
 			return nil, errors.New("timeout waiting for idempotent operation")
 		}
@@ -68,7 +77,7 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	var course database.Course
 	if err := s.db.Where("id = ?", req.CourseID).First(&course).Error; err != nil {
 		if req.IdempotencyKey != "" {
-			s.idempotentSvc.Commit(idempotentKey, `{"error":"course not found"}`, 10)
+			s.idempotentSvc.CommitError(idempotentKey, err.Error(), 10)
 		}
 		return nil, err
 	}
@@ -76,10 +85,11 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	var count int
 	s.db.Model(&database.ActivitySignup{}).Where("course_id = ? AND status = ?", req.CourseID, "confirmed").Count(&count)
 	if count >= course.Capacity {
+		errMsg := "course capacity reached"
 		if req.IdempotencyKey != "" {
-			s.idempotentSvc.Commit(idempotentKey, `{"error":"course capacity reached"}`, 10)
+			s.idempotentSvc.CommitError(idempotentKey, errMsg, 10)
 		}
-		return nil, errors.New("course capacity reached")
+		return nil, errors.New(errMsg)
 	}
 
 	signup := &database.ActivitySignup{
@@ -96,7 +106,7 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 
 	if err := s.db.Create(signup).Error; err != nil {
 		if req.IdempotencyKey != "" {
-			s.idempotentSvc.Commit(idempotentKey, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 10)
+			s.idempotentSvc.CommitError(idempotentKey, err.Error(), 10)
 		}
 		return nil, err
 	}
@@ -113,7 +123,7 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	s.db.Create(auditLog)
 
 	if req.IdempotencyKey != "" {
-		s.idempotentSvc.Commit(idempotentKey, string(data), 10)
+		s.idempotentSvc.CommitSuccess(idempotentKey, signup, 10)
 	}
 
 	return signup, nil

@@ -43,11 +43,18 @@ func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.Acti
 	idempotentKey := fmt.Sprintf("checkin:%s", req.IdempotencyKey)
 
 	if req.IdempotencyKey != "" {
-		isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-		if isDup {
-			var existing database.ActivityCheckin
-			if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-				return &existing, nil
+		isDuplicate, result := s.idempotentSvc.Check(idempotentKey)
+		if isDuplicate {
+			if result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var checkin database.ActivityCheckin
+					if err := json.Unmarshal(dataBytes, &checkin); err == nil {
+						return &checkin, nil
+					}
+				} else {
+					return nil, errors.New(result.Error)
+				}
 			}
 		}
 
@@ -56,15 +63,17 @@ func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.Acti
 			return nil, err
 		}
 		if isLocked {
-			for i := 0; i < 10; i++ {
-				isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-				if isDup {
-					var existing database.ActivityCheckin
-					if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-						return &existing, nil
+			isDuplicate, result := s.idempotentSvc.WaitForResult(idempotentKey, 20, 50*time.Millisecond)
+			if isDuplicate && result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var checkin database.ActivityCheckin
+					if err := json.Unmarshal(dataBytes, &checkin); err == nil {
+						return &checkin, nil
 					}
+				} else {
+					return nil, errors.New(result.Error)
 				}
-				time.Sleep(100 * time.Millisecond)
 			}
 			return nil, errors.New("timeout waiting for idempotent operation")
 		}
@@ -86,7 +95,7 @@ func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.Acti
 
 	if err := s.db.Create(checkin).Error; err != nil {
 		if req.IdempotencyKey != "" {
-			s.idempotentSvc.Commit(idempotentKey, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 10)
+			s.idempotentSvc.CommitError(idempotentKey, err.Error(), 10)
 		}
 		return nil, err
 	}
@@ -105,7 +114,7 @@ func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.Acti
 	s.db.Create(auditLog)
 
 	if req.IdempotencyKey != "" {
-		s.idempotentSvc.Commit(idempotentKey, string(data), 10)
+		s.idempotentSvc.CommitSuccess(idempotentKey, checkin, 10)
 	}
 
 	return checkin, nil
@@ -182,11 +191,18 @@ func (s *CheckinService) BackfillCheckin(req CreateCheckinRequest) (*database.Ac
 	idempotentKey := fmt.Sprintf("checkin:backfill:%s", req.IdempotencyKey)
 
 	if req.IdempotencyKey != "" {
-		isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-		if isDup {
-			var existing database.ActivityCheckin
-			if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-				return &existing, nil
+		isDuplicate, result := s.idempotentSvc.Check(idempotentKey)
+		if isDuplicate {
+			if result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var checkin database.ActivityCheckin
+					if err := json.Unmarshal(dataBytes, &checkin); err == nil {
+						return &checkin, nil
+					}
+				} else {
+					return nil, errors.New(result.Error)
+				}
 			}
 		}
 
@@ -195,15 +211,17 @@ func (s *CheckinService) BackfillCheckin(req CreateCheckinRequest) (*database.Ac
 			return nil, err
 		}
 		if isLocked {
-			for i := 0; i < 10; i++ {
-				isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
-				if isDup {
-					var existing database.ActivityCheckin
-					if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
-						return &existing, nil
+			isDuplicate, result := s.idempotentSvc.WaitForResult(idempotentKey, 20, 50*time.Millisecond)
+			if isDuplicate && result != nil {
+				if result.Success {
+					dataBytes, _ := json.Marshal(result.Data)
+					var checkin database.ActivityCheckin
+					if err := json.Unmarshal(dataBytes, &checkin); err == nil {
+						return &checkin, nil
 					}
+				} else {
+					return nil, errors.New(result.Error)
 				}
-				time.Sleep(100 * time.Millisecond)
 			}
 			return nil, errors.New("timeout waiting for idempotent operation")
 		}
@@ -225,7 +243,7 @@ func (s *CheckinService) BackfillCheckin(req CreateCheckinRequest) (*database.Ac
 
 	if err := s.db.Create(checkin).Error; err != nil {
 		if req.IdempotencyKey != "" {
-			s.idempotentSvc.Commit(idempotentKey, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 10)
+			s.idempotentSvc.CommitError(idempotentKey, err.Error(), 10)
 		}
 		return nil, err
 	}
@@ -244,7 +262,7 @@ func (s *CheckinService) BackfillCheckin(req CreateCheckinRequest) (*database.Ac
 	s.db.Create(auditLog)
 
 	if req.IdempotencyKey != "" {
-		s.idempotentSvc.Commit(idempotentKey, string(data), 10)
+		s.idempotentSvc.CommitSuccess(idempotentKey, checkin, 10)
 	}
 
 	return checkin, nil

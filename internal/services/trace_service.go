@@ -15,20 +15,46 @@ func NewTraceService(db *gorm.DB) *TraceService {
 	return &TraceService{db: db}
 }
 
-type FullTrace struct {
-	Checkin        *database.ActivityCheckin   `json:"checkin"`
-	CheckinAudits  []database.AuditLog        `json:"checkin_audits"`
-	SafetyRecords  []SafetyRecordWithAudit     `json:"safety_records"`
-	Exceptions     []database.Exception        `json:"exceptions"`
-	LinkedAudits   []database.AuditLog         `json:"linked_audits"`
+type AuditEntry struct {
+	ID        string    `json:"id"`
+	Action    string    `json:"action"`
+	Module    string    `json:"module"`
+	TargetID  string    `json:"target_id"`
+	UserID    string    `json:"user_id"`
+	UserName  string    `json:"user_name"`
+	Data      string    `json:"data"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type SafetyRecordWithAudit struct {
-	Record  database.SafetyRecord  `json:"record"`
-	Audits  []database.AuditLog   `json:"audits"`
+	Record  database.SafetyRecord `json:"record"`
+	Audits  []AuditEntry          `json:"audits"`
 }
 
-func (s *TraceService) GetFullTrace(checkinID string) (*FullTrace, error) {
+type CheckinTrace struct {
+	Checkin        *database.ActivityCheckin   `json:"checkin"`
+	CheckinAudits  []AuditEntry                `json:"checkin_audits"`
+	SafetyRecords  []SafetyRecordWithAudit     `json:"safety_records"`
+	Exceptions     []database.Exception        `json:"exceptions"`
+	LinkedAudits   []AuditEntry                `json:"linked_audits"`
+}
+
+type CourseTrace struct {
+	Course          *database.Course            `json:"course"`
+	Checkins        []database.ActivityCheckin  `json:"checkins"`
+	Statistics      CourseStatistics            `json:"statistics"`
+	SafetyRecords   []SafetyRecordWithAudit     `json:"safety_records"`
+	Exceptions     []database.Exception        `json:"exceptions"`
+	Audits         []AuditEntry                `json:"audits"`
+}
+
+type CourseStatistics struct {
+	TotalCheckins int `json:"total_checkins"`
+	RejectedCount int `json:"rejected_count"`
+	BackfillCount int `json:"backfill_count"`
+}
+
+func (s *TraceService) GetFullTrace(checkinID string) (*CheckinTrace, error) {
 	var checkin database.ActivityCheckin
 	if err := s.db.Where("id = ?", checkinID).First(&checkin).Error; err != nil {
 		return nil, err
@@ -42,7 +68,7 @@ func (s *TraceService) GetFullTrace(checkinID string) (*FullTrace, error) {
 
 	linkedAudits := s.getLinkedAudits(checkinID)
 
-	return &FullTrace{
+	return &CheckinTrace{
 		Checkin:        &checkin,
 		CheckinAudits:  checkinAudits,
 		SafetyRecords:  safetyRecords,
@@ -51,14 +77,15 @@ func (s *TraceService) GetFullTrace(checkinID string) (*FullTrace, error) {
 	}, nil
 }
 
-func (s *TraceService) getCheckinAudits(checkinID string) []database.AuditLog {
+func (s *TraceService) getCheckinAudits(checkinID string) []AuditEntry {
 	var audits []database.AuditLog
 	s.db.Where("(module = ? AND target_id = ?) OR (module = ? AND data LIKE ?)",
 		"checkin", checkinID,
 		"checkin", "%\""+checkinID+"\"").
 		Order("created_at ASC").
 		Find(&audits)
-	return audits
+
+	return convertAudits(audits)
 }
 
 func (s *TraceService) getSafetyRecordsWithAudits(checkinID string) []SafetyRecordWithAudit {
@@ -76,7 +103,7 @@ func (s *TraceService) getSafetyRecordsWithAudits(checkinID string) []SafetyReco
 
 		result = append(result, SafetyRecordWithAudit{
 			Record: record,
-			Audits: audits,
+			Audits: convertAudits(audits),
 		})
 	}
 	return result
@@ -88,13 +115,14 @@ func (s *TraceService) getExceptions(checkinID string) []database.Exception {
 	return exceptions
 }
 
-func (s *TraceService) getLinkedAudits(checkinID string) []database.AuditLog {
+func (s *TraceService) getLinkedAudits(checkinID string) []AuditEntry {
 	var audits []database.AuditLog
 	s.db.Where("data LIKE ?", "%\""+checkinID+"\"").
 		Where("module NOT IN (?)", []string{"checkin", "safety"}).
 		Order("created_at ASC").
 		Find(&audits)
-	return audits
+
+	return convertAudits(audits)
 }
 
 func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.Time) (*CourseTrace, error) {
@@ -141,22 +169,22 @@ func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.T
 				Find(&audits)
 			safetyRecords = append(safetyRecords, SafetyRecordWithAudit{
 				Record: record,
-				Audits: audits,
+				Audits: convertAudits(audits),
 			})
 		}
 
 		s.db.Where("checkin_id IN (?)", checkinIDs).Find(&exceptions)
 	}
 
-	var allAudits []database.AuditLog
+	var audits []database.AuditLog
 	s.db.Where("data LIKE ?", "%\""+courseID+"\"").
 		Order("created_at DESC").
 		Limit(100).
-		Find(&allAudits)
+		Find(&audits)
 
 	return &CourseTrace{
-		Course:          &course,
-		Checkins:        checkins,
+		Course:        &course,
+		Checkins:      checkins,
 		Statistics: CourseStatistics{
 			TotalCheckins: totalCheckins,
 			RejectedCount: rejectedCount,
@@ -164,21 +192,23 @@ func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.T
 		},
 		SafetyRecords: safetyRecords,
 		Exceptions:    exceptions,
-		Audits:        allAudits,
+		Audits:        convertAudits(audits),
 	}, nil
 }
 
-type CourseTrace struct {
-	Course        *database.Course            `json:"course"`
-	Checkins      []database.ActivityCheckin  `json:"checkins"`
-	Statistics    CourseStatistics            `json:"statistics"`
-	SafetyRecords []SafetyRecordWithAudit     `json:"safety_records"`
-	Exceptions    []database.Exception        `json:"exceptions"`
-	Audits        []database.AuditLog         `json:"audits"`
-}
-
-type CourseStatistics struct {
-	TotalCheckins int `json:"total_checkins"`
-	RejectedCount int `json:"rejected_count"`
-	BackfillCount int `json:"backfill_count"`
+func convertAudits(audits []database.AuditLog) []AuditEntry {
+	result := make([]AuditEntry, len(audits))
+	for i, audit := range audits {
+		result[i] = AuditEntry{
+			ID:        audit.ID,
+			Action:    audit.Action,
+			Module:    audit.Module,
+			TargetID:  audit.TargetID,
+			UserID:    audit.UserID,
+			UserName:  audit.UserName,
+			Data:      audit.Data,
+			CreatedAt: audit.CreatedAt,
+		}
+	}
+	return result
 }
