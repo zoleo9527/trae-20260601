@@ -2,6 +2,8 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"museum-education/internal/database"
 	"time"
 
@@ -9,18 +11,23 @@ import (
 )
 
 type SignupService struct {
-	db *gorm.DB
+	db               *gorm.DB
+	idempotentSvc    *IdempotentService
 }
 
-func NewSignupService(db *gorm.DB) *SignupService {
-	return &SignupService{db: db}
+func NewSignupService(db *gorm.DB, idempotentSvc *IdempotentService) *SignupService {
+	return &SignupService{
+		db:            db,
+		idempotentSvc: idempotentSvc,
+	}
 }
 
 type CreateSignupRequest struct {
-	CourseID    string `json:"course_id" validate:"required"`
-	StudentID   string `json:"student_id" validate:"required"`
-	StudentName string `json:"student_name" validate:"required"`
-	Phone       string `json:"phone"`
+	IdempotencyKey string `json:"idempotency_key"`
+	CourseID       string `json:"course_id" validate:"required"`
+	StudentID      string `json:"student_id" validate:"required"`
+	StudentName    string `json:"student_name" validate:"required"`
+	Phone          string `json:"phone"`
 }
 
 type UpdateSignupRequest struct {
@@ -28,6 +35,20 @@ type UpdateSignupRequest struct {
 }
 
 func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.ActivitySignup, error) {
+	if req.IdempotencyKey != "" {
+		isDup, existingData := s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("signup:%s", req.IdempotencyKey),
+			"",
+			10,
+		)
+		if isDup && existingData != "" {
+			var existing database.ActivitySignup
+			if json.Unmarshal([]byte(existingData), &existing) == nil {
+				return &existing, nil
+			}
+		}
+	}
+
 	var course database.Course
 	if err := s.db.Where("id = ?", req.CourseID).First(&course).Error; err != nil {
 		return nil, err
@@ -36,7 +57,7 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	var count int
 	s.db.Model(&database.ActivitySignup{}).Where("course_id = ? AND status = ?", req.CourseID, "confirmed").Count(&count)
 	if count >= course.Capacity {
-		return nil, gorm.ErrRecordNotFound
+		return nil, errors.New("course capacity reached")
 	}
 
 	signup := &database.ActivitySignup{
@@ -60,10 +81,19 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 		ID:        database.GenerateID(),
 		Action:    "create",
 		Module:    "signup",
+		TargetID:  signup.ID,
 		Data:      string(data),
 		CreatedAt: time.Now(),
 	}
 	s.db.Create(auditLog)
+
+	if req.IdempotencyKey != "" {
+		s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("signup:%s", req.IdempotencyKey),
+			string(data),
+			10,
+		)
+	}
 
 	return signup, nil
 }

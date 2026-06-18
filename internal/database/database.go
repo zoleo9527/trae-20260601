@@ -3,6 +3,7 @@ package database
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3"
@@ -32,5 +33,16 @@ func Migrate(db *gorm.DB) {
 		&ActivityCheckin{},
 		&SafetyRecord{},
 		&AuditLog{},
+		&Exception{},
+		&InstructorSchedule{},
+		&IdempotentRecord{},
 	)
+}
+
+type IdempotentRecord struct {
+	ID        string    `gorm:"primary_key" json:"id"`
+	Key       string    `json:"key" gorm:"uniqueIndex"`
+	Data      string    `json:"data"`
+	ExpireAt  time.Time `json:"expire_at"`
+	CreatedAt time.Time `json:"created_at"`
 }

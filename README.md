@@ -17,7 +17,7 @@
 
 ### 2. 讲师管理
 - 讲师信息管理
-- 课程排班功能
+- 课程排班功能（持久化存储）
 
 ### 3. 物料清单
 - 物料管理
@@ -27,26 +27,43 @@
 - 学生报名课程
 - 容量校验
 - 报名状态管理
+- **幂等提交支持**
 
 ### 5. 活动签到
 - 现场签到
 - 签到驳回
 - 补录签到
 - 签到备注
+- **幂等提交支持**
 
 ### 6. 安全记录
 - 安全状态记录
 - 继承签到备注
 - 完整追溯能力
+- **幂等提交支持**
 
-### 7. 审计日志
+### 7. 异常说明
+- 签到异常记录
+- 异常类型和严重程度
+- 异常处理和关闭
+- **完整追溯聚合**
+
+### 8. 追溯链路
+- 签到到安全记录的完整链路
+- 驳回、补录、安全记录变更统一追溯
+- 异常说明关联追溯
+- **审计数据聚合**
+
+### 9. 审计日志
 - 操作记录
 - 变更追踪
 - 查询过滤
+- **TargetID关联**
 
-### 8. 幂等提交
+### 10. 幂等提交
 - 防止重复提交
 - 请求去重
+- 10分钟过期
 
 ## 项目结构
 
@@ -69,6 +86,8 @@
 │   │   ├── signup_service.go
 │   │   ├── checkin_service.go
 │   │   ├── safety_service.go
+│   │   ├── exception_service.go
+│   │   ├── trace_service.go
 │   │   ├── audit_service.go
 │   │   └── idempotent_service.go
 │   ├── controllers/           # 控制器层
@@ -78,6 +97,8 @@
 │   │   ├── signup_controller.go
 │   │   ├── checkin_controller.go
 │   │   ├── safety_controller.go
+│   │   ├── exception_controller.go
+│   │   ├── trace_controller.go
 │   │   └── audit_controller.go
 │   └── routes/                # 路由配置
 │       └── routes.go
@@ -245,11 +266,11 @@ go run main.go
 | GET | `/api/safety/checkin/:checkin_id` | 签到安全记录 |
 | GET | `/api/safety/:id` | 查询安全记录 |
 | PUT | `/api/safety/:id` | 更新安全记录 |
-| GET | `/api/safety/trace/:checkin_id` | 完整追溯 |
 
 **创建安全记录请求示例**:
 ```json
 {
+  "idempotency_key": "unique-key-123",
   "checkin_id": "checkin001",
   "operator_id": "op001",
   "operator_name": "安全员",
@@ -258,7 +279,46 @@ go run main.go
 }
 ```
 
-**完整追溯响应示例**:
+### 异常说明
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| POST | `/api/exceptions` | 创建异常记录 |
+| GET | `/api/exceptions/open` | 查询未处理异常 |
+| GET | `/api/exceptions/course/:course_id` | 课程异常列表 |
+| GET | `/api/exceptions/checkin/:checkin_id` | 签到异常列表 |
+| GET | `/api/exceptions/:id` | 查询异常详情 |
+| PUT | `/api/exceptions/:id/resolve` | 处理异常 |
+
+**创建异常记录请求示例**:
+```json
+{
+  "checkin_id": "checkin001",
+  "type": "late",
+  "description": "迟到15分钟",
+  "severity": "low",
+  "operator_id": "op001",
+  "operator_name": "工作人员"
+}
+```
+
+**处理异常请求示例**:
+```json
+{
+  "resolved_by": "op002",
+  "resolved_name": "管理员",
+  "resolved_note": "已与家长沟通，确认特殊情况"
+}
+```
+
+### 追溯链路
+
+| 方法 | 路径 | 描述 |
+|------|------|------|
+| GET | `/api/trace/checkin/:checkin_id` | 签到完整追溯 |
+| GET | `/api/trace/course/:course_id` | 课程追溯统计 |
+
+**签到完整追溯响应示例**:
 ```json
 {
   "checkin": {
@@ -268,35 +328,44 @@ go run main.go
     "student_name": "张三",
     "checkin_time": "2024-01-15T09:10:00Z",
     "status": "checked_in",
-    "remarks": "迟到10分钟",
-    "operator_id": "op001",
-    "operator_name": "工作人员"
+    "remarks": "迟到10分钟"
   },
-  "safety_records": [
-    {
-      "id": "safety001",
-      "checkin_id": "checkin001",
-      "course_id": "course001",
-      "student_id": "stu001",
-      "student_name": "张三",
-      "checkin_remarks": "迟到10分钟",
-      "safety_status": "safe",
-      "safety_remarks": "学生状态良好",
-      "operator_id": "op002",
-      "operator_name": "安全员"
-    }
-  ],
-  "audits": [
+  "checkin_audits": [
     {
       "id": "audit001",
       "action": "create",
       "module": "checkin",
-      "user_id": "op001",
-      "user_name": "工作人员",
-      "data": "{...}",
-      "created_at": "2024-01-15T09:10:00Z"
+      "target_id": "checkin001",
+      "data": "{...}"
     }
-  ]
+  ],
+  "safety_records": [
+    {
+      "record": {
+        "id": "safety001",
+        "checkin_remarks": "迟到10分钟",
+        "safety_status": "safe"
+      },
+      "audits": [
+        {
+          "id": "audit002",
+          "action": "create",
+          "module": "safety",
+          "target_id": "safety001"
+        }
+      ]
+    }
+  ],
+  "exceptions": [
+    {
+      "id": "exc001",
+      "type": "late",
+      "description": "迟到10分钟",
+      "severity": "low",
+      "status": "resolved"
+    }
+  ],
+  "linked_audits": []
 }
 ```
 
@@ -308,9 +377,9 @@ go run main.go
 | GET | `/api/audit/:id` | 查询日志详情 |
 
 **查询参数**:
-- `module`: 模块名称 (course/instructor/material/signup/checkin/safety)
+- `module`: 模块名称 (course/instructor/material/signup/checkin/safety/exception)
 - `user_id`: 操作人ID
-- `action`: 操作类型 (create/update/delete/schedule/backfill)
+- `action`: 操作类型 (create/update/delete/schedule/backfill/resolve)
 - `start_at`: 开始时间 (RFC3339格式)
 - `end_at`: 结束时间 (RFC3339格式)
 
@@ -398,10 +467,44 @@ go run main.go
 | id | string | 主键 |
 | action | string | 操作类型 |
 | module | string | 模块名称 |
+| target_id | string | 目标记录ID |
 | user_id | string | 操作人ID |
 | user_name | string | 操作人姓名 |
 | data | string | 操作数据(JSON) |
 | ip | string | 操作IP |
+| created_at | datetime | 创建时间 |
+
+### Exception（异常说明）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | string | 主键 |
+| checkin_id | string | 关联签到 |
+| course_id | string | 关联课程 |
+| student_id | string | 学生ID |
+| student_name | string | 学生姓名 |
+| type | string | 异常类型 |
+| description | string | 异常描述 |
+| severity | string | 严重程度 (low/medium/high) |
+| status | string | 状态 (open/resolved) |
+| resolved_by | string | 处理人ID |
+| resolved_name | string | 处理人姓名 |
+| resolved_at | datetime | 处理时间 |
+| resolved_note | string | 处理备注 |
+| operator_id | string | 操作人ID |
+| operator_name | string | 操作人姓名 |
+
+### InstructorSchedule（讲师排班）
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | string | 主键 |
+| instructor_id | string | 讲师ID |
+| instructor_name | string | 讲师姓名 |
+| course_id | string | 课程ID |
+| course_name | string | 课程名称 |
+| start_time | datetime | 开始时间 |
+| end_time | datetime | 结束时间 |
+| location | string | 地点 |
+| status | string | 状态 |
 
 ## 核心特性实现
 
@@ -413,16 +516,37 @@ go run main.go
 - **补录**: 支持事后补录签到，自动标记补录标识
 
 ### 3. 完整追溯
-通过 `/api/safety/trace/:checkin_id` 接口可以获取：
+通过 `/api/trace/checkin/:checkin_id` 接口可以获取：
 - 签到记录详情
-- 所有关联的安全记录
-- 相关的审计日志
+- 签到相关的审计日志
+- 所有关联的安全记录及其审计日志
+- 关联的异常说明
+- 相关的其他审计日志
+
+通过 `/api/trace/course/:course_id` 接口可以获取：
+- 课程信息
+- 课程所有签到记录
+- 签到统计（总数、驳回数、补录数）
+- 所有安全记录及其审计日志
+- 所有异常说明
+- 最近的审计日志
 
 ### 4. 幂等提交
-使用请求唯一标识防止重复提交，默认过期时间为10分钟。
+使用 `idempotency_key` 防止重复提交，默认过期时间为10分钟。
+- 报名接口支持幂等
+- 签到接口支持幂等
+- 安全记录接口支持幂等
 
 ### 5. 审计日志
-所有关键操作自动记录审计日志，支持多维度查询。
+所有关键操作自动记录审计日志，审计日志包含：
+- `target_id`: 目标记录ID，便于关联查询
+- 完整的操作前后数据
+
+### 6. 异常说明
+- 支持记录签到异常
+- 支持异常分级（low/medium/high）
+- 支持异常处理和关闭
+- 异常说明可被追溯链路关联
 
 ## 模拟接口说明
 

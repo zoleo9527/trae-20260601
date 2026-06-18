@@ -9,6 +9,8 @@ import (
 )
 
 func Setup(app *fiber.App, db *gorm.DB) {
+	idempotentService := services.NewIdempotentService(db)
+
 	courseService := services.NewCourseService(db)
 	courseController := controllers.NewCourseController(courseService)
 
@@ -18,14 +20,20 @@ func Setup(app *fiber.App, db *gorm.DB) {
 	materialService := services.NewMaterialService(db)
 	materialController := controllers.NewMaterialController(materialService)
 
-	signupService := services.NewSignupService(db)
+	signupService := services.NewSignupService(db, idempotentService)
 	signupController := controllers.NewSignupController(signupService)
 
-	checkinService := services.NewCheckinService(db)
+	checkinService := services.NewCheckinService(db, idempotentService)
 	checkinController := controllers.NewCheckinController(checkinService)
 
-	safetyService := services.NewSafetyService(db)
+	safetyService := services.NewSafetyService(db, idempotentService)
 	safetyController := controllers.NewSafetyController(safetyService)
+
+	exceptionService := services.NewExceptionService(db)
+	exceptionController := controllers.NewExceptionController(exceptionService)
+
+	traceService := services.NewTraceService(db)
+	traceController := controllers.NewTraceController(traceService)
 
 	auditService := services.NewAuditService(db)
 	auditController := controllers.NewAuditController(auditService)
@@ -79,7 +87,18 @@ func Setup(app *fiber.App, db *gorm.DB) {
 	safety.Get("/checkin/:checkin_id", safetyController.GetSafetyRecordsByCheckin)
 	safety.Get("/:id", safetyController.GetSafetyRecordByID)
 	safety.Put("/:id", safetyController.UpdateSafetyRecord)
-	safety.Get("/trace/:checkin_id", safetyController.GetFullTrace)
+
+	exceptions := api.Group("/exceptions")
+	exceptions.Post("/", exceptionController.CreateException)
+	exceptions.Get("/open", exceptionController.GetOpenExceptions)
+	exceptions.Get("/course/:course_id", exceptionController.GetExceptionsByCourse)
+	exceptions.Get("/checkin/:checkin_id", exceptionController.GetExceptionsByCheckin)
+	exceptions.Get("/:id", exceptionController.GetExceptionByID)
+	exceptions.Put("/:id/resolve", exceptionController.ResolveException)
+
+	trace := api.Group("/trace")
+	trace.Get("/checkin/:checkin_id", traceController.GetFullTrace)
+	trace.Get("/course/:course_id", traceController.GetCourseTrace)
 
 	audit := api.Group("/audit")
 	audit.Get("/", auditController.GetAuditLogs)

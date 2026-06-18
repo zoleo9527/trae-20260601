@@ -86,9 +86,9 @@ func (c *InstructorController) GetInstructorSchedule(ctx *fiber.Ctx) error {
 
 func (c *InstructorController) GetCourseSchedule(ctx *fiber.Ctx) error {
 	courseID := ctx.Params("course_id")
-	schedule, err := c.service.GetCourseSchedule(courseID)
+	schedules, err := c.service.GetCourseSchedule(courseID)
 	if err != nil {
-		return ctx.Status(404).JSON(fiber.Map{"error": "Schedule not found"})
+		return ctx.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
-	return ctx.JSON(schedule)
+	return ctx.JSON(schedules)
 }

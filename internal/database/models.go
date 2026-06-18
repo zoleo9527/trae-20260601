@@ -90,11 +90,46 @@ type AuditLog struct {
 	ID        string     `gorm:"primary_key" json:"id"`
 	Action    string     `json:"action"`
 	Module    string     `json:"module"`
+	TargetID  string     `json:"target_id"`
 	UserID    string     `json:"user_id"`
 	UserName  string     `json:"user_name"`
 	Data      string     `json:"data"`
 	IP        string     `json:"ip"`
 	CreatedAt time.Time  `json:"created_at"`
+}
+
+type Exception struct {
+	ID           string     `gorm:"primary_key" json:"id"`
+	CheckinID    string     `json:"checkin_id"`
+	CourseID     string     `json:"course_id"`
+	StudentID    string     `json:"student_id"`
+	StudentName  string     `json:"student_name"`
+	Type        string     `json:"type"`
+	Description  string     `json:"description"`
+	Severity     string     `json:"severity"`
+	Status       string     `json:"status"`
+	ResolvedBy   string     `json:"resolved_by"`
+	ResolvedName string     `json:"resolved_name"`
+	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`
+	ResolvedNote string     `json:"resolved_note"`
+	OperatorID   string     `json:"operator_id"`
+	OperatorName string     `json:"operator_name"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+}
+
+type InstructorSchedule struct {
+	ID            string    `gorm:"primary_key" json:"id"`
+	InstructorID  string    `json:"instructor_id"`
+	InstructorName string  `json:"instructor_name"`
+	CourseID      string    `json:"course_id"`
+	CourseName    string    `json:"course_name"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	Location      string    `json:"location"`
+	Status        string    `json:"status"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 func GenerateID() string {

@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"museum-education/internal/database"
 	"time"
 
@@ -9,20 +10,25 @@ import (
 )
 
 type CheckinService struct {
-	db *gorm.DB
+	db            *gorm.DB
+	idempotentSvc *IdempotentService
 }
 
-func NewCheckinService(db *gorm.DB) *CheckinService {
-	return &CheckinService{db: db}
+func NewCheckinService(db *gorm.DB, idempotentSvc *IdempotentService) *CheckinService {
+	return &CheckinService{
+		db:            db,
+		idempotentSvc: idempotentSvc,
+	}
 }
 
 type CreateCheckinRequest struct {
-	CourseID      string `json:"course_id" validate:"required"`
-	StudentID     string `json:"student_id" validate:"required"`
-	StudentName   string `json:"student_name" validate:"required"`
-	OperatorID    string `json:"operator_id"`
-	OperatorName  string `json:"operator_name"`
-	Remarks       string `json:"remarks"`
+	IdempotencyKey string `json:"idempotency_key"`
+	CourseID       string `json:"course_id" validate:"required"`
+	StudentID      string `json:"student_id" validate:"required"`
+	StudentName    string `json:"student_name" validate:"required"`
+	OperatorID     string `json:"operator_id"`
+	OperatorName   string `json:"operator_name"`
+	Remarks        string `json:"remarks"`
 }
 
 type UpdateCheckinRequest struct {
@@ -33,6 +39,20 @@ type UpdateCheckinRequest struct {
 }
 
 func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.ActivityCheckin, error) {
+	if req.IdempotencyKey != "" {
+		isDup, existingData := s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("checkin:%s", req.IdempotencyKey),
+			"",
+			10,
+		)
+		if isDup && existingData != "" {
+			var existing database.ActivityCheckin
+			if json.Unmarshal([]byte(existingData), &existing) == nil {
+				return &existing, nil
+			}
+		}
+	}
+
 	checkin := &database.ActivityCheckin{
 		ID:            database.GenerateID(),
 		CourseID:      req.CourseID,
@@ -56,12 +76,21 @@ func (s *CheckinService) CreateCheckin(req CreateCheckinRequest) (*database.Acti
 		ID:        database.GenerateID(),
 		Action:    "create",
 		Module:    "checkin",
+		TargetID:  checkin.ID,
 		UserID:    req.OperatorID,
 		UserName:  req.OperatorName,
 		Data:      string(data),
 		CreatedAt: time.Now(),
 	}
 	s.db.Create(auditLog)
+
+	if req.IdempotencyKey != "" {
+		s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("checkin:%s", req.IdempotencyKey),
+			string(data),
+			10,
+		)
+	}
 
 	return checkin, nil
 }
@@ -113,6 +142,7 @@ func (s *CheckinService) UpdateCheckin(id string, req UpdateCheckinRequest) (*da
 		ID:        database.GenerateID(),
 		Action:    "update",
 		Module:    "checkin",
+		TargetID:  checkin.ID,
 		UserID:    req.OperatorID,
 		UserName:  req.OperatorName,
 		Data:      "{\"old\":" + string(oldData) + ",\"new\":" + string(newData) + "}",
@@ -156,6 +186,7 @@ func (s *CheckinService)补录Checkin(req CreateCheckinRequest) (*database.Activ
 		ID:        database.GenerateID(),
 		Action:    "backfill",
 		Module:    "checkin",
+		TargetID:  checkin.ID,
 		UserID:    req.OperatorID,
 		UserName:  req.OperatorName,
 		Data:      string(data),

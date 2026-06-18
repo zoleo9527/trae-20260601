@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"fmt"
 	"museum-education/internal/database"
 	"time"
 
@@ -9,18 +10,23 @@ import (
 )
 
 type SafetyService struct {
-	db *gorm.DB
+	db            *gorm.DB
+	idempotentSvc *IdempotentService
 }
 
-func NewSafetyService(db *gorm.DB) *SafetyService {
-	return &SafetyService{db: db}
+func NewSafetyService(db *gorm.DB, idempotentSvc *IdempotentService) *SafetyService {
+	return &SafetyService{
+		db:            db,
+		idempotentSvc: idempotentSvc,
+	}
 }
 
 type CreateSafetyRecordRequest struct {
-	CheckinID    string `json:"checkin_id" validate:"required"`
-	OperatorID   string `json:"operator_id"`
-	OperatorName string `json:"operator_name"`
-	SafetyStatus string `json:"safety_status"`
+	IdempotencyKey string `json:"idempotency_key"`
+	CheckinID      string `json:"checkin_id" validate:"required"`
+	OperatorID     string `json:"operator_id"`
+	OperatorName   string `json:"operator_name"`
+	SafetyStatus  string `json:"safety_status"`
 	SafetyRemarks string `json:"safety_remarks"`
 }
 
@@ -32,6 +38,20 @@ type UpdateSafetyRecordRequest struct {
 }
 
 func (s *SafetyService) CreateSafetyRecord(req CreateSafetyRecordRequest) (*database.SafetyRecord, error) {
+	if req.IdempotencyKey != "" {
+		isDup, existingData := s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("safety:%s", req.IdempotencyKey),
+			"",
+			10,
+		)
+		if isDup && existingData != "" {
+			var existing database.SafetyRecord
+			if json.Unmarshal([]byte(existingData), &existing) == nil {
+				return &existing, nil
+			}
+		}
+	}
+
 	var checkin database.ActivityCheckin
 	if err := s.db.Where("id = ?", req.CheckinID).First(&checkin).Error; err != nil {
 		return nil, err
@@ -62,12 +82,21 @@ func (s *SafetyService) CreateSafetyRecord(req CreateSafetyRecordRequest) (*data
 		ID:        database.GenerateID(),
 		Action:    "create",
 		Module:    "safety",
+		TargetID:  safetyRecord.ID,
 		UserID:    req.OperatorID,
 		UserName:  req.OperatorName,
 		Data:      string(data),
 		CreatedAt: time.Now(),
 	}
 	s.db.Create(auditLog)
+
+	if req.IdempotencyKey != "" {
+		s.idempotentSvc.CheckAndSet(
+			fmt.Sprintf("safety:%s", req.IdempotencyKey),
+			string(data),
+			10,
+		)
+	}
 
 	return safetyRecord, nil
 }
@@ -127,6 +156,7 @@ func (s *SafetyService) UpdateSafetyRecord(id string, req UpdateSafetyRecordRequ
 		ID:        database.GenerateID(),
 		Action:    "update",
 		Module:    "safety",
+		TargetID:  record.ID,
 		UserID:    req.OperatorID,
 		UserName:  req.OperatorName,
 		Data:      "{\"old\":" + string(oldData) + ",\"new\":" + string(newData) + "}",
@@ -135,33 +165,4 @@ func (s *SafetyService) UpdateSafetyRecord(id string, req UpdateSafetyRecordRequ
 	s.db.Create(auditLog)
 
 	return &record, nil
-}
-
-func (s *SafetyService) GetFullTrace(checkinID string) (*SafetyTrace, error) {
-	var checkin database.ActivityCheckin
-	if err := s.db.Where("id = ?", checkinID).First(&checkin).Error; err != nil {
-		return nil, err
-	}
-
-	var safetyRecords []database.SafetyRecord
-	if err := s.db.Where("checkin_id = ?", checkinID).Order("created_at DESC").Find(&safetyRecords).Error; err != nil {
-		return nil, err
-	}
-
-	var audits []database.AuditLog
-	if err := s.db.Where("module IN (?,?) AND data LIKE ?", "checkin", "safety", "%\"id\":\""+checkinID+"%").Order("created_at DESC").Find(&audits).Error; err != nil {
-		return nil, err
-	}
-
-	return &SafetyTrace{
-		Checkin:       checkin,
-		SafetyRecords: safetyRecords,
-		Audits:        audits,
-	}, nil
-}
-
-type SafetyTrace struct {
-	Checkin       database.ActivityCheckin  `json:"checkin"`
-	SafetyRecords []database.SafetyRecord   `json:"safety_records"`
-	Audits        []database.AuditLog       `json:"audits"`
 }

@@ -7,25 +7,16 @@ import (
 	"github.com/jinzhu/gorm"
 )
 
-type IdempotentRecord struct {
-	ID         string     `gorm:"primary_key" json:"id"`
-	Key        string     `json:"key"`
-	Data       string     `json:"data"`
-	ExpireAt   time.Time  `json:"expire_at"`
-	CreatedAt  time.Time  `json:"created_at"`
-}
-
 type IdempotentService struct {
 	db *gorm.DB
 }
 
 func NewIdempotentService(db *gorm.DB) *IdempotentService {
-	db.AutoMigrate(&IdempotentRecord{})
 	return &IdempotentService{db: db}
 }
 
 func (s *IdempotentService) CheckAndSet(key, data string, expireMinutes int) (bool, string) {
-	var record IdempotentRecord
+	var record database.IdempotentRecord
 	err := s.db.Where("key = ? AND expire_at > ?", key, time.Now()).First(&record).Error
 
 	if err == nil {
@@ -36,11 +27,11 @@ func (s *IdempotentService) CheckAndSet(key, data string, expireMinutes int) (bo
 		return false, ""
 	}
 
-	newRecord := IdempotentRecord{
-		ID:       database.GenerateID(),
-		Key:      key,
-		Data:     data,
-		ExpireAt: time.Now().Add(time.Duration(expireMinutes) * time.Minute),
+	newRecord := database.IdempotentRecord{
+		ID:        database.GenerateID(),
+		Key:       key,
+		Data:      data,
+		ExpireAt:  time.Now().Add(time.Duration(expireMinutes) * time.Minute),
 		CreatedAt: time.Now(),
 	}
 
@@ -52,7 +43,7 @@ func (s *IdempotentService) CheckAndSet(key, data string, expireMinutes int) (bo
 }
 
 func (s *IdempotentService) Get(key string) (string, bool) {
-	var record IdempotentRecord
+	var record database.IdempotentRecord
 	err := s.db.Where("key = ? AND expire_at > ?", key, time.Now()).First(&record).Error
 
 	if err != nil {
