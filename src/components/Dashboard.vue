@@ -64,26 +64,33 @@
           </h3>
         </div>
         <div class="p-4">
-          <div v-if="blockedItems.length === 0" class="text-center py-8 text-gray-500">
+          <div v-if="blockedVisits.length + escalatedIssues.length === 0" class="text-center py-8 text-gray-500">
             <CheckCircle class="w-12 h-12 mx-auto mb-2 text-green-500" />
             <p>暂无卡住的单子</p>
           </div>
           <div v-else class="space-y-3">
-            <div
-              v-for="item in blockedItems"
-              :key="item.id"
-              class="p-3 bg-red-50 rounded-lg border border-red-100"
-            >
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="font-medium text-gray-900">{{ item.type === 'visit' ? item.data.keyPerson.name : item.data.title }}</p>
-                  <p class="text-sm text-gray-500">{{ item.type === 'visit' ? item.data.keyPerson.address : item.data.description }}</p>
+            <template v-for="visit in blockedVisits" :key="'v-' + visit.id">
+              <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-medium text-gray-900">{{ visit.keyPerson.name }}</p>
+                    <p class="text-sm text-gray-500">{{ visit.keyPerson.address }}</p>
+                  </div>
+                  <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">回访卡住</span>
                 </div>
-                <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">
-                  {{ item.type === 'visit' ? '回访卡住' : '问题升级' }}
-                </span>
               </div>
-            </div>
+            </template>
+            <template v-for="issue in escalatedIssues" :key="'i-' + issue.id">
+              <div class="p-3 bg-red-50 rounded-lg border border-red-100">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="font-medium text-gray-900">{{ issue.title }}</p>
+                    <p class="text-sm text-gray-500">{{ issue.description }}</p>
+                  </div>
+                  <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">问题升级</span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
       </div>
@@ -131,7 +138,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Clock, AlertCircle, XCircle, AlertTriangle, ClipboardList, CheckCircle } from 'lucide-vue-next'
 import { useStore } from '@/store'
 import { getSystemStats } from '@/api'
-import type { VisitRecord, Issue, VisitStatus } from '@/types'
+import type { VisitStatus } from '@/types'
 
 const store = useStore()
 const stats = ref({
@@ -142,19 +149,8 @@ const stats = ref({
   escalatedIssues: 0
 })
 
-const blockedItems = computed(() => {
-  const items: { id: string; type: 'visit' | 'issue'; data: VisitRecord | Issue }[] = []
-  
-  store.blockedVisits.value.forEach(v => {
-    items.push({ id: v.id, type: 'visit', data: v })
-  })
-  
-  store.escalatedIssues.value.forEach(i => {
-    items.push({ id: i.id, type: 'issue', data: i })
-  })
-  
-  return items.slice(0, 5)
-})
+const blockedVisits = computed(() => store.blockedVisits.value.slice(0, 3))
+const escalatedIssues = computed(() => store.escalatedIssues.value.slice(0, 3))
 
 const recentVisits = computed(() => {
   return [...store.state.visitRecords]

@@ -205,11 +205,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ClipboardList, CheckCircle, AlertTriangle, CheckCircle2, Heart } from 'lucide-vue-next'
-import { useStore } from '@/store'
 import { getSystemStats, getKeyPersons } from '@/api'
 import type { SystemStats, VisitStatus, IssueStatus, KeyPerson } from '@/types'
 
-const store = useStore()
 const stats = ref<SystemStats>({
   totalVisits: 0,
   pendingVisits: 0,

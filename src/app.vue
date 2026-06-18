@@ -11,6 +11,7 @@
         <IssueManagement v-else-if="activeMenu === 'issues' || activeMenu === 'issue-handle'" />
         <EscalationManagement v-else-if="activeMenu === 'escalation'" />
         <Reports v-else-if="activeMenu === 'reports'" />
+        <BoundaryDoc v-else-if="activeMenu === 'boundary'" />
       </main>
     </div>
     
@@ -38,6 +39,7 @@ import VisitManagement from '@/components/VisitManagement.vue'
 import IssueManagement from '@/components/IssueManagement.vue'
 import EscalationManagement from '@/components/EscalationManagement.vue'
 import Reports from '@/components/Reports.vue'
+import BoundaryDoc from '@/components/BoundaryDoc.vue'
 
 const store = useStore()
 const activeMenu = ref('dashboard')

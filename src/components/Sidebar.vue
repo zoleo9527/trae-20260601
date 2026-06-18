@@ -98,12 +98,12 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { Users, User, RefreshCw, LogOut, X, CheckCircle2, ClipboardList, AlertTriangle, Users2, Building2 } from 'lucide-vue-next'
+import { Users, User, RefreshCw, LogOut, X, CheckCircle2, ClipboardList, AlertTriangle, Users2, Building2, FileText } from 'lucide-vue-next'
 import { useStore } from '@/store'
 import { getUsers } from '@/api'
 import type { User as UserType, Role } from '@/types'
 
-const props = defineProps<{
+defineProps<{
   activeMenu: string
 }>()
 
@@ -139,7 +139,8 @@ const menuItems = computed(() => {
     items.push(
       { key: 'dashboard', label: '工作台', icon: ClipboardList },
       { key: 'escalation', label: '异常处理', icon: AlertTriangle, badge: store.escalatedIssues.value.length + store.blockedVisits.value.length, badgeClass: 'bg-red-100 text-red-700' },
-      { key: 'reports', label: '统计报表', icon: Building2 }
+      { key: 'reports', label: '统计报表', icon: Building2 },
+      { key: 'boundary', label: '交付边界', icon: FileText }
     )
   }
   

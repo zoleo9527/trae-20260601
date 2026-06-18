@@ -6,6 +6,7 @@
         <p class="text-gray-500 mt-1">管理重点对象的回访任务</p>
       </div>
       <button
+        v-if="canCreateVisit"
         @click="showAddModal = true"
         class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition flex items-center gap-2"
       >
@@ -86,7 +87,7 @@
                   class="text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1"
                 >
                   <Eye class="w-4 h-4" />
-                  查看/回访
+                  查看
                 </button>
               </td>
             </tr>
@@ -101,174 +102,380 @@
     
     <div
       v-if="showVisitDrawer"
-      class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-50 flex flex-col"
+      class="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-xl z-50 flex flex-col"
     >
       <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">回访详情</h3>
+        <h3 class="text-lg font-semibold text-gray-900">{{ drawerTitle }}</h3>
         <button @click="closeVisitDrawer" class="p-1 hover:bg-gray-100 rounded-lg">
           <X class="w-5 h-5 text-gray-500" />
         </button>
       </div>
       
-      <div v-if="selectedVisit" class="flex-1 overflow-y-auto p-4">
-        <div class="bg-gray-50 rounded-xl p-4 mb-4">
-          <h4 class="font-medium text-gray-900 mb-3">重点对象信息</h4>
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">姓名</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.name }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">年龄</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.age }}岁</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">地址</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.address }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">电话</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.phone }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">类型</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.type }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">关怀等级</span>
-              <span
-                class="text-xs px-2 py-1 rounded-full"
-                :class="getCareLevelClass(selectedVisit.keyPerson.careLevel)"
-              >
-                {{ getCareLevelLabel(selectedVisit.keyPerson.careLevel) }}
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        <div class="bg-gray-50 rounded-xl p-4 mb-4">
-          <h4 class="font-medium text-gray-900 mb-3">回访信息</h4>
-          <div class="space-y-2">
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">计划日期</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.scheduledDate }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-sm text-gray-500">状态</span>
-              <span
-                class="text-xs px-2 py-1 rounded-full"
-                :class="getStatusClass(selectedVisit.status)"
-              >
-                {{ getStatusLabel(selectedVisit.status) }}
-              </span>
-            </div>
-            <div v-if="selectedVisit.actualDate" class="flex justify-between">
-              <span class="text-sm text-gray-500">实际回访日期</span>
-              <span class="text-sm text-gray-900">{{ selectedVisit.actualDate }}</span>
-            </div>
-            <div v-if="selectedVisit.notes" class="mt-4">
-              <span class="text-sm text-gray-500 block mb-1">回访记录</span>
-              <p class="text-sm text-gray-900 bg-white p-3 rounded-lg">{{ selectedVisit.notes }}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div v-if="selectedVisit.status !== 'completed'" class="space-y-3">
-          <textarea
-            v-model="visitNotes"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-            rows="4"
-            placeholder="请输入回访记录..."
-          ></textarea>
-          
-          <div class="grid grid-cols-2 gap-3">
-            <button
-              v-if="selectedVisit.status === 'pending'"
-              @click="completeVisit"
-              class="py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
-            >
-              完成回访
-            </button>
-            <button
-              @click="blockVisit"
-              class="py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
-            >
-              标记卡住
-            </button>
-          </div>
-        </div>
-        
-        <div v-if="selectedVisit.status === 'completed'" class="space-y-3">
-          <button
-            @click="showIssueForm = true"
-            class="w-full py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium flex items-center justify-center gap-2"
-          >
-            <AlertTriangle class="w-5 h-5" />
-            上报问题
-          </button>
-        </div>
-      </div>
-    </div>
-    
-    <div
-      v-if="showIssueForm"
-      class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-xl z-50 flex flex-col"
-    >
-      <div class="p-4 border-b border-gray-200 flex items-center justify-between">
-        <h3 class="text-lg font-semibold text-gray-900">上报问题</h3>
-        <button @click="showIssueForm = false" class="p-1 hover:bg-gray-100 rounded-lg">
-          <X class="w-5 h-5 text-gray-500" />
-        </button>
-      </div>
-      
-      <div class="flex-1 overflow-y-auto p-4">
-        <div class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">问题标题</label>
-            <input
-              v-model="issueForm.title"
-              type="text"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-              placeholder="请输入问题标题"
-            />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">问题分类</label>
-            <select
-              v-model="issueForm.category"
-              class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-            >
-              <option value="">请选择分类</option>
-              <option value="生活物资">生活物资</option>
-              <option value="紧急情况">紧急情况</option>
-              <option value="沟通协调">沟通协调</option>
-              <option value="就业帮扶">就业帮扶</option>
-              <option value="医疗健康">医疗健康</option>
-              <option value="其他">其他</option>
-            </select>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">问题描述</label>
-            <textarea
-              v-model="issueForm.description"
-              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
-              rows="5"
-              placeholder="请详细描述问题..."
-            ></textarea>
-          </div>
-        </div>
-      </div>
-      
-      <div class="p-4 border-t border-gray-200">
+      <div class="flex border-b border-gray-200">
         <button
-          @click="submitIssue"
-          :disabled="!issueForm.title || !issueForm.category || !issueForm.description"
-          class="w-full py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+          @click="drawerStep = 'visit'"
+          :class="[
+            'flex-1 px-4 py-3 text-sm font-medium transition relative',
+            drawerStep === 'visit' ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'
+          ]"
         >
-          提交问题
+          回访处理
+          <div
+            v-if="drawerStep === 'visit'"
+            class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"
+          ></div>
         </button>
+        <button
+          @click="drawerStep = 'issue'"
+          :class="[
+            'flex-1 px-4 py-3 text-sm font-medium transition relative',
+            drawerStep === 'issue' ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          问题上报
+          <span
+            v-if="hasRelatedIssues"
+            class="ml-1 text-xs px-1.5 py-0.5 bg-red-100 text-red-600 rounded-full"
+          >
+            {{ relatedIssues.length }}
+          </span>
+          <div
+            v-if="drawerStep === 'issue'"
+            class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"
+          ></div>
+        </button>
+        <button
+          @click="drawerStep = 'history'"
+          :class="[
+            'flex-1 px-4 py-3 text-sm font-medium transition relative',
+            drawerStep === 'history' ? 'text-primary-600' : 'text-gray-500 hover:text-gray-700'
+          ]"
+        >
+          责任流转
+          <div
+            v-if="drawerStep === 'history'"
+            class="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600"
+          ></div>
+        </button>
+      </div>
+      
+      <div class="flex-1 overflow-y-auto">
+        <div v-if="drawerStep === 'visit'" v-show="drawerStep === 'visit'" class="p-4">
+          <div v-if="selectedVisit" class="space-y-4">
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h4 class="font-medium text-gray-900 mb-3">重点对象信息</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">姓名</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.name }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">年龄</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.age }}岁</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">地址</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.address }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">电话</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.phone }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">类型</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.keyPerson.type }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">关怀等级</span>
+                  <span
+                    class="text-xs px-2 py-1 rounded-full"
+                    :class="getCareLevelClass(selectedVisit.keyPerson.careLevel)"
+                  >
+                    {{ getCareLevelLabel(selectedVisit.keyPerson.careLevel) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h4 class="font-medium text-gray-900 mb-3">回访信息</h4>
+              <div class="space-y-2">
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">计划日期</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.scheduledDate }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-sm text-gray-500">状态</span>
+                  <span
+                    class="text-xs px-2 py-1 rounded-full"
+                    :class="getStatusClass(selectedVisit.status)"
+                  >
+                    {{ getStatusLabel(selectedVisit.status) }}
+                  </span>
+                </div>
+                <div v-if="selectedVisit.actualDate" class="flex justify-between">
+                  <span class="text-sm text-gray-500">实际回访日期</span>
+                  <span class="text-sm text-gray-900">{{ selectedVisit.actualDate }}</span>
+                </div>
+                <div v-if="selectedVisit.notes" class="mt-4">
+                  <span class="text-sm text-gray-500 block mb-1">回访记录</span>
+                  <p class="text-sm text-gray-900 bg-white p-3 rounded-lg">{{ selectedVisit.notes }}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="selectedVisit.status !== 'completed'" class="space-y-3">
+              <textarea
+                v-model="visitNotes"
+                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                rows="4"
+                placeholder="请输入回访记录..."
+              ></textarea>
+              
+              <div class="grid grid-cols-2 gap-3">
+                <button
+                  v-if="selectedVisit.status === 'pending' && canCompleteVisit"
+                  @click="completeVisit"
+                  class="py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
+                >
+                  完成回访
+                </button>
+                <button
+                  v-if="canBlockVisit"
+                  @click="blockVisit"
+                  class="py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition font-medium"
+                >
+                  标记卡住
+                </button>
+              </div>
+            </div>
+            
+            <div v-if="selectedVisit.status === 'completed'" class="space-y-3">
+              <button
+                v-if="canReportIssue"
+                @click="drawerStep = 'issue'"
+                class="w-full py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition font-medium flex items-center justify-center gap-2"
+              >
+                <AlertTriangle class="w-5 h-5" />
+                上报问题
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div v-if="drawerStep === 'issue'" v-show="drawerStep === 'issue'" class="p-4">
+          <div v-if="selectedVisit" class="space-y-4">
+            <div v-if="!isCreatingIssue && hasRelatedIssues" class="space-y-3">
+              <div
+                v-for="issue in relatedIssues"
+                :key="issue.id"
+                class="p-3 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <div class="flex items-center justify-between mb-2">
+                  <h4 class="font-medium text-gray-900">{{ issue.title }}</h4>
+                  <span
+                    class="text-xs px-2 py-0.5 rounded-full"
+                    :class="getIssueStatusClass(issue.status)"
+                  >
+                    {{ getIssueStatusLabel(issue.status) }}
+                  </span>
+                </div>
+                <p class="text-sm text-gray-600">{{ issue.description }}</p>
+                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                  <span>分类: {{ issue.category }}</span>
+                  <span>上报人: {{ issue.reporterName }}</span>
+                  <span>{{ formatDate(issue.createdAt) }}</span>
+                </div>
+                <div v-if="issue.assignedName" class="mt-2 text-xs text-gray-500">
+                  处理人: {{ issue.assignedName }}
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!isCreatingIssue && !hasRelatedIssues" class="text-center py-8">
+              <AlertTriangle class="w-12 h-12 mx-auto text-gray-300 mb-2" />
+              <p class="text-gray-500">暂无相关问题</p>
+            </div>
+            
+            <div v-if="isCreatingIssue" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">问题标题</label>
+                <input
+                  v-model="issueForm.title"
+                  type="text"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  placeholder="请输入问题标题"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">问题分类</label>
+                <select
+                  v-model="issueForm.category"
+                  class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                >
+                  <option value="">请选择分类</option>
+                  <option value="生活物资">生活物资</option>
+                  <option value="紧急情况">紧急情况</option>
+                  <option value="沟通协调">沟通协调</option>
+                  <option value="就业帮扶">就业帮扶</option>
+                  <option value="医疗健康">医疗健康</option>
+                  <option value="其他">其他</option>
+                </select>
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">问题描述</label>
+                <textarea
+                  v-model="issueForm.description"
+                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent outline-none transition"
+                  rows="5"
+                  placeholder="请详细描述问题..."
+                ></textarea>
+              </div>
+              
+              <div class="flex gap-3">
+                <button
+                  @click="cancelCreateIssue"
+                  class="flex-1 py-2.5 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition font-medium"
+                >
+                  取消
+                </button>
+                <button
+                  @click="submitIssue"
+                  :disabled="!issueForm.title || !issueForm.category || !issueForm.description"
+                  class="flex-1 py-2.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                >
+                  提交问题
+                </button>
+              </div>
+            </div>
+            
+            <button
+              v-if="!isCreatingIssue && canReportIssue"
+              @click="startCreateIssue"
+              class="w-full py-2.5 border-2 border-dashed border-gray-300 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition font-medium text-gray-600"
+            >
+              + 新增问题
+            </button>
+          </div>
+        </div>
+        
+        <div v-if="drawerStep === 'history'" v-show="drawerStep === 'history'" class="p-4">
+          <div v-if="selectedVisit" class="space-y-4">
+            <div class="bg-gray-50 rounded-xl p-4">
+              <h4 class="font-medium text-gray-900 mb-3">回访责任流转</h4>
+              <div class="space-y-3">
+                <div class="flex items-start gap-3">
+                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <User class="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
+                      <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">创建任务</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.createdAt) }}</p>
+                  </div>
+                </div>
+                
+                <div v-if="selectedVisit.status === 'completed' && selectedVisit.actualDate" class="flex items-start gap-3">
+                  <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <CheckCircle class="w-4 h-4 text-green-600" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
+                      <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">完成回访</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.updatedAt) }}</p>
+                  </div>
+                </div>
+                
+                <div v-if="selectedVisit.status === 'blocked'" class="flex items-start gap-3">
+                  <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <XCircle class="w-4 h-4 text-red-600" />
+                  </div>
+                  <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
+                      <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">标记卡住</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.updatedAt) }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="hasRelatedIssues" class="bg-gray-50 rounded-xl p-4">
+              <h4 class="font-medium text-gray-900 mb-3">问题责任流转</h4>
+              <div class="space-y-4">
+                <div v-for="issue in relatedIssues" :key="issue.id">
+                  <div class="space-y-3">
+                    <div class="flex items-start gap-3">
+                      <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle class="w-4 h-4 text-yellow-600" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium text-gray-900">{{ issue.reporterName }}</span>
+                          <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">上报问题</span>
+                        </div>
+                        <p class="text-sm text-gray-700 mt-1">{{ issue.title }}</p>
+                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.createdAt) }}</p>
+                      </div>
+                    </div>
+                    
+                    <div v-if="issue.status === 'processing' && issue.assignedName" class="flex items-start gap-3 ml-11">
+                      <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <UserCheck class="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
+                          <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">开始处理</span>
+                        </div>
+                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
+                      </div>
+                    </div>
+                    
+                    <div v-if="issue.status === 'resolved' && issue.assignedName" class="flex items-start gap-3 ml-11">
+                      <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <CheckCircle2 class="w-4 h-4 text-green-600" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
+                          <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">处理完成</span>
+                        </div>
+                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
+                      </div>
+                    </div>
+                    
+                    <div v-if="issue.status === 'escalated' && issue.assignedName" class="flex items-start gap-3 ml-11">
+                      <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <ArrowUpCircle class="w-4 h-4 text-red-600" />
+                      </div>
+                      <div class="flex-1">
+                        <div class="flex items-center gap-2">
+                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
+                          <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">升级上报</span>
+                        </div>
+                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
+                        <p v-if="issue.escalationReason" class="text-sm text-gray-600 mt-1">原因: {{ issue.escalationReason }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <div v-if="!hasRelatedIssues" class="text-center py-8">
+              <History class="w-12 h-12 mx-auto text-gray-300 mb-2" />
+              <p class="text-gray-500">暂无问题责任流转记录</p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -322,21 +529,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Plus, Eye, X, ClipboardList, AlertTriangle } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { Plus, Eye, X, ClipboardList, AlertTriangle, User, CheckCircle, XCircle, UserCheck, CheckCircle2, ArrowUpCircle, History } from 'lucide-vue-next'
 import { useStore } from '@/store'
-import { getKeyPersons, createVisitRecord } from '@/api'
-import type { VisitRecord, KeyPerson, VisitStatus, IssueStatus } from '@/types'
+import { getKeyPersons, createVisitRecord, getIssuesByVisitId } from '@/api'
+import type { VisitRecord, KeyPerson, VisitStatus, IssueStatus, Issue } from '@/types'
 
 const store = useStore()
 
 const activeTab = ref<VisitStatus | 'all'>('all')
 const showVisitDrawer = ref(false)
-const showIssueForm = ref(false)
 const showAddModal = ref(false)
 const selectedVisit = ref<VisitRecord | null>(null)
 const visitNotes = ref('')
 const keyPersons = ref<KeyPerson[]>([])
+const relatedIssues = ref<Issue[]>([])
+
+const drawerStep = ref<'visit' | 'issue' | 'history'>('visit')
+const isCreatingIssue = ref(false)
 
 const issueForm = ref({
   title: '',
@@ -347,6 +557,20 @@ const issueForm = ref({
 const newVisitForm = ref({
   keyPersonId: '',
   scheduledDate: ''
+})
+
+const currentRole = computed(() => store.state.currentUser?.role)
+
+const canCreateVisit = computed(() => currentRole.value === 'socialWorker')
+const canCompleteVisit = computed(() => currentRole.value === 'socialWorker')
+const canBlockVisit = computed(() => ['socialWorker', 'volunteerLeader'].includes(currentRole.value || ''))
+const canReportIssue = computed(() => currentRole.value === 'socialWorker')
+
+const hasRelatedIssues = computed(() => relatedIssues.value.length > 0)
+
+const drawerTitle = computed(() => {
+  if (!selectedVisit.value) return '回访详情'
+  return `${selectedVisit.value.keyPerson.name} - 回访详情`
 })
 
 const tabs = computed(() => [
@@ -362,6 +586,12 @@ const filteredVisits = computed(() => {
     return store.state.visitRecords
   }
   return store.state.visitRecords.filter(v => v.status === activeTab.value)
+})
+
+watch(selectedVisit, async (visit) => {
+  if (visit) {
+    relatedIssues.value = await getIssuesByVisitId(visit.id)
+  }
 })
 
 function getStatusLabel(status: VisitStatus): string {
@@ -384,6 +614,26 @@ function getStatusClass(status: VisitStatus): string {
   return map[status]
 }
 
+function getIssueStatusLabel(status: IssueStatus): string {
+  const map: Record<IssueStatus, string> = {
+    pending: '待处理',
+    processing: '处理中',
+    resolved: '已解决',
+    escalated: '已升级'
+  }
+  return map[status]
+}
+
+function getIssueStatusClass(status: IssueStatus): string {
+  const map: Record<IssueStatus, string> = {
+    pending: 'bg-yellow-100 text-yellow-700',
+    processing: 'bg-blue-100 text-blue-700',
+    resolved: 'bg-green-100 text-green-700',
+    escalated: 'bg-red-100 text-red-700'
+  }
+  return map[status]
+}
+
 function getCareLevelLabel(level: 'high' | 'medium' | 'low'): string {
   const map: Record<string, string> = {
     high: '重点关注',
@@ -402,9 +652,19 @@ function getCareLevelClass(level: 'high' | 'medium' | 'low'): string {
   return map[level]
 }
 
+function formatDate(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+function formatDateTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleString('zh-CN')
+}
+
 function handleVisit(visit: VisitRecord) {
   selectedVisit.value = visit
   visitNotes.value = visit.notes || ''
+  drawerStep.value = 'visit'
+  isCreatingIssue.value = false
   showVisitDrawer.value = true
 }
 
@@ -412,6 +672,8 @@ function closeVisitDrawer() {
   showVisitDrawer.value = false
   selectedVisit.value = null
   visitNotes.value = ''
+  isCreatingIssue.value = false
+  issueForm.value = { title: '', category: '', description: '' }
 }
 
 async function completeVisit() {
@@ -423,7 +685,12 @@ async function completeVisit() {
     notes: visitNotes.value
   })
   
-  closeVisitDrawer()
+  selectedVisit.value = {
+    ...selectedVisit.value,
+    status: 'completed',
+    actualDate: new Date().toISOString().split('T')[0],
+    notes: visitNotes.value
+  }
 }
 
 async function blockVisit() {
@@ -434,13 +701,26 @@ async function blockVisit() {
     notes: visitNotes.value || '回访受阻，需要社区干部介入'
   })
   
-  closeVisitDrawer()
+  selectedVisit.value = {
+    ...selectedVisit.value,
+    status: 'blocked',
+    notes: visitNotes.value || '回访受阻，需要社区干部介入'
+  }
+}
+
+function startCreateIssue() {
+  isCreatingIssue.value = true
+}
+
+function cancelCreateIssue() {
+  isCreatingIssue.value = false
+  issueForm.value = { title: '', category: '', description: '' }
 }
 
 async function submitIssue() {
   if (!selectedVisit.value) return
   
-  await store.createIssue({
+  const newIssue = await store.createIssue({
     visitId: selectedVisit.value.id,
     reporterId: store.state.currentUser?.id || '',
     reporterName: store.state.currentUser?.name || '',
@@ -450,9 +730,9 @@ async function submitIssue() {
     status: 'pending' as IssueStatus
   })
   
-  showIssueForm.value = false
+  relatedIssues.value.push(newIssue)
+  isCreatingIssue.value = false
   issueForm.value = { title: '', category: '', description: '' }
-  closeVisitDrawer()
 }
 
 async function submitNewVisit() {
