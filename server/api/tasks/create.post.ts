@@ -2,7 +2,7 @@ import { mockRefundRequests, mockRescheduleRequests, mockComplaints } from '~/se
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
-  const { type, ticketId, ticketNo, touristName, touristPhone, reason, newDate } = body
+  const { type, ticketId, ticketNo, touristName, touristPhone, reason, newDate, title } = body
 
   let newItem: any = null
 
@@ -53,7 +53,7 @@ export default defineEventHandler(async (event) => {
     const complaintItem = {
       id: `c${Date.now()}`,
       complaintNo: generateComplaintNo(),
-      title: reason,
+      title: title || reason,
       description: reason,
       source: 'onsite' as const,
       level: 'medium' as const,

@@ -188,11 +188,25 @@ function formatDateTime(dateStr: string) {
   return dateStr.slice(0, 16).replace('T', ' ')
 }
 
-function handleResolve(exception: ExceptionRecord) {
+async function handleResolve(exception: ExceptionRecord) {
   if (exception.status === 'resolved') return
-  exception.status = 'resolved'
-  alert('异常已标记为已解决')
-  emit('refresh')
+  try {
+    const response = await $fetch('/api/dashboard/exceptions/update', {
+      method: 'POST',
+      body: {
+        id: exception.id,
+        status: 'resolved'
+      }
+    })
+    if (response.code === 200) {
+      exception.status = 'resolved'
+      alert('异常已标记为已解决')
+      emit('refresh')
+    }
+  } catch (error) {
+    console.error('标记异常解决失败:', error)
+    alert('标记异常解决失败')
+  }
 }
 
 function handleExport() {

@@ -303,6 +303,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import {
   XMarkIcon,
   ClockIcon,
@@ -333,6 +334,16 @@ const stuckPoint = ref('')
 const stuckReason = ref('')
 const newHandler = ref('')
 
+const currentUser = ref<any>(null)
+
+function getCurrentUser() {
+  const userStr = sessionStorage.getItem('currentUser')
+  if (userStr) {
+    currentUser.value = JSON.parse(userStr)
+  }
+  return currentUser.value
+}
+
 async function loadTaskDetail() {
   try {
     const response = await $fetch(`/api/tasks/${props.task.id}`, {
@@ -361,6 +372,7 @@ async function loadContext() {
 
 async function handleProcess() {
   processing.value = true
+  const user = getCurrentUser()
   try {
     const response = await $fetch(`/api/tasks/${props.task.id}/update`, {
       method: 'POST',
@@ -368,12 +380,19 @@ async function handleProcess() {
         type: props.taskType,
         action: 'process',
         comment: processingComment.value,
-        newStatus: 'processing'
+        newStatus: 'processing',
+        operatorInfo: user ? {
+          name: user.name,
+          role: user.role,
+          department: user.department
+        } : undefined
       }
     })
     if (response.code === 200) {
       alert('处理成功')
       processingComment.value = ''
+      loadTaskDetail()
+      loadContext()
       emit('refresh')
     }
   } catch (error) {
@@ -400,19 +419,28 @@ async function confirmAssign() {
     customer_service: { name: '王芳', department: '客服部', role: 'customer_service' }
   }
 
+  const user = getCurrentUser()
+
   try {
     const response = await $fetch(`/api/tasks/${props.task.id}/update`, {
       method: 'POST',
       body: {
         type: props.taskType,
         action: 'assign',
-        newHandler: handlerMap[newHandler.value]
+        newHandler: handlerMap[newHandler.value],
+        operatorInfo: user ? {
+          name: user.name,
+          role: user.role,
+          department: user.department
+        } : undefined
       }
     })
     if (response.code === 200) {
       alert('分配成功')
       showAssignModal.value = false
       newHandler.value = ''
+      loadTaskDetail()
+      loadContext()
       emit('refresh')
     }
   } catch (error) {
@@ -427,6 +455,8 @@ async function handleMarkStuck() {
     return
   }
 
+  const user = getCurrentUser()
+
   try {
     const response = await $fetch(`/api/tasks/${props.task.id}/update`, {
       method: 'POST',
@@ -434,7 +464,12 @@ async function handleMarkStuck() {
         type: props.taskType,
         action: 'stuck',
         stuckPoint: stuckPoint.value,
-        stuckReason: stuckReason.value
+        stuckReason: stuckReason.value,
+        operatorInfo: user ? {
+          name: user.name,
+          role: user.role,
+          department: user.department
+        } : undefined
       }
     })
     if (response.code === 200) {
@@ -442,6 +477,8 @@ async function handleMarkStuck() {
       showStuckModal.value = false
       stuckPoint.value = ''
       stuckReason.value = ''
+      loadTaskDetail()
+      loadContext()
       emit('refresh')
     }
   } catch (error) {

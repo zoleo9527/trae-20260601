@@ -1,9 +1,9 @@
-import { mockRefundRequests, mockRescheduleRequests, mockComplaints } from '~/server/utils/mockData'
+import { mockRefundRequests, mockRescheduleRequests, mockComplaints, mockUsers } from '~/server/utils/mockData'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   const body = await readBody(event)
-  const { type, action, comment, newStatus, newHandler, stuckPoint, stuckReason } = body
+  const { type, action, comment, newStatus, newHandler, stuckPoint, stuckReason, operatorInfo } = body
 
   let item: any = null
 
@@ -22,13 +22,21 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const defaultOperator = {
+    name: '系统管理员',
+    role: 'admin',
+    department: '系统'
+  }
+  
+  const operator = operatorInfo || defaultOperator
+
   const logEntry = {
     id: `log${Date.now()}`,
     type: action,
     action: getActionText(action, newStatus, newHandler),
-    operator: '当前用户',
-    operatorRole: 'ticket_manager',
-    operatorDepartment: '票务部',
+    operator: operator.name,
+    operatorRole: operator.role,
+    operatorDepartment: operator.department,
     timestamp: new Date().toISOString().replace('T', ' ').slice(0, 19),
     comment
   }
@@ -44,6 +52,12 @@ export default defineEventHandler(async (event) => {
     item.currentHandler = newHandler.role
     item.currentHandlerName = newHandler.name
     item.handlerDepartment = newHandler.department
+  }
+
+  if (action === 'process' && !item.currentHandler) {
+    item.currentHandler = operator.role
+    item.currentHandlerName = operator.name
+    item.handlerDepartment = operator.department
   }
 
   if (stuckPoint !== undefined) {

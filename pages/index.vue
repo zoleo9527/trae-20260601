@@ -380,10 +380,14 @@ function openTaskDetail(task: any) {
 
 function showStuckTasks() {
   activeTab.value = 'all'
+  filterType.value = ''
+  loadTasks()
 }
 
 function showUrgentComplaints() {
   activeTab.value = 'complaint'
+  filterType.value = ''
+  loadTasks()
 }
 
 function handleExport() {
@@ -396,11 +400,34 @@ function handleTaskCreated() {
   loadStats()
 }
 
-function handleNotificationNavigate(taskId: string, type: string) {
+function handleNotificationNavigate(relatedNo: string, type: string) {
   showNotificationCenter.value = false
-  const task = tasks.value.find(t => t.id === taskId || t.ticketNo === taskId || t.complaintNo === taskId)
+  const task = tasks.value.find(t => 
+    t.id === relatedNo || 
+    t.ticketNo === relatedNo || 
+    t.complaintNo === relatedNo ||
+    (t.ticketNo && t.ticketNo.includes(relatedNo)) ||
+    (t.complaintNo && t.complaintNo.includes(relatedNo))
+  )
   if (task) {
     openTaskDetail(task)
+  } else {
+    if (type === 'complaint') {
+      activeTab.value = 'complaint'
+    } else if (type === 'refund') {
+      activeTab.value = 'refund'
+    }
+    loadTasks()
+    setTimeout(() => {
+      const delayedTask = tasks.value.find(t => 
+        t.id === relatedNo || 
+        t.ticketNo === relatedNo || 
+        t.complaintNo === relatedNo
+      )
+      if (delayedTask) {
+        openTaskDetail(delayedTask)
+      }
+    }, 300)
   }
 }
 
