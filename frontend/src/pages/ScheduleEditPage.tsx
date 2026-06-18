@@ -72,15 +72,17 @@ export const ScheduleEditPage: React.FC = () => {
       return;
     }
 
-    const result = await updateSchedule(id!, {
+    const payload = {
       ...formData,
       changeReason: showChangeReason ? changeReason : undefined,
       updatedBy: 'user_001',
-      updatedByName: '当前用户',
-    });
+      updatedByName: '张明',
+    };
+
+    const result = await updateSchedule(id!, payload);
 
     if (result.success) {
-      navigate(`/schedules/${id}`);
+      navigate(`/schedules/${id}`, { state: { changed: result.isChanged, changeReason } });
     }
   };
 

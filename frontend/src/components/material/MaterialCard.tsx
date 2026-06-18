@@ -26,6 +26,7 @@ export const MaterialCard: React.FC<MaterialCardProps> = ({
       preparedByName: '周洋',
     });
     setShowClaimModal(false);
+    window.location.reload();
   };
 
   const canClaim = material.status === 'NOT_STARTED' && !material.preparedBy;

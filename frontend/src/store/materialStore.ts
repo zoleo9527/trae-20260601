@@ -12,7 +12,7 @@ interface MaterialState {
   fetchMaterials: (params?: any) => Promise<void>;
   fetchMaterialById: (id: string) => Promise<void>;
   fetchMaterialByScheduleId: (scheduleId: string) => Promise<void>;
-  claimMaterial: (id: string, preparedBy: string) => Promise<void>;
+  claimMaterial: (id: string, data: { preparedBy: string; preparedByName: string }) => Promise<void>;
   transitionMaterial: (id: string, data: any) => Promise<void>;
   acknowledgeMaterial: (id: string, acknowledged: boolean, remarks?: string) => Promise<void>;
   clearCurrentMaterial: () => void;
@@ -59,10 +59,10 @@ export const useMaterialStore = create<MaterialState>((set, get) => ({
     }
   },
 
-  claimMaterial: async (id: string, preparedBy: string) => {
+  claimMaterial: async (id: string, data: { preparedBy: string; preparedByName: string }) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await materialApi.claim(id, preparedBy);
+      const response = await materialApi.claim(id, data);
       const updatedMaterial = response.data;
       set(state => ({
         materials: state.materials.map(m => m.id === id ? updatedMaterial : m),

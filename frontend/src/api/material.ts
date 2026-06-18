@@ -55,8 +55,8 @@ export const materialApi = {
     return apiClient.put(`/materials/${id}`, data);
   },
 
-  claim: async (id: string, preparedBy: string) => {
-    return apiClient.post(`/materials/${id}/claim`, { preparedBy });
+  claim: async (id: string, data: { preparedBy: string; preparedByName: string }) => {
+    return apiClient.post(`/materials/${id}/claim`, data);
   },
 
   transition: async (id: string, data: TransitionData) => {

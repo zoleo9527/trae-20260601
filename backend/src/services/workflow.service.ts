@@ -111,6 +111,9 @@ export class WorkflowService {
             changedFields,
           });
 
+          await this.updateMaterialScheduleSnapshot(material.id, schedule);
+          await this.updateScheduleMaterialStatus(schedule.id, 'BLOCKED');
+
           const changeLabels = changedFields.map(field => {
             const labelMap: Record<string, string> = {
               scheduledAt: '时间',
@@ -196,6 +199,32 @@ export class WorkflowService {
       materials[index].lastNotificationId = notificationId;
       materials[index].updatedAt = new Date().toISOString();
       await dataStore.write('materials.json', materials);
+    }
+  }
+
+  private async updateMaterialScheduleSnapshot(materialId: string, schedule: ActivitySchedule) {
+    let materials = await dataStore.findAll<MaterialList>('materials.json');
+    const index = materials.findIndex(m => m.id === materialId);
+    if (index !== -1) {
+      materials[index].scheduleSnapshot = {
+        lecturerName: schedule.lecturerName,
+        scheduledAt: schedule.scheduledAt,
+        location: schedule.location,
+        expectedParticipants: schedule.expectedParticipants,
+        courseName: schedule.courseName,
+      };
+      materials[index].updatedAt = new Date().toISOString();
+      await dataStore.write('materials.json', materials);
+    }
+  }
+
+  private async updateScheduleMaterialStatus(scheduleId: string, materialStatus: string) {
+    let schedules = await dataStore.findAll<ActivitySchedule>('schedules.json');
+    const index = schedules.findIndex(s => s.id === scheduleId);
+    if (index !== -1) {
+      schedules[index].materialStatus = materialStatus;
+      schedules[index].updatedAt = new Date().toISOString();
+      await dataStore.write('schedules.json', schedules);
     }
   }
 
@@ -287,6 +316,10 @@ export class WorkflowService {
   }) {
     const { material, toStatus } = data;
 
+    if (material.scheduleId) {
+      await this.updateScheduleMaterialStatus(material.scheduleId, toStatus);
+    }
+
     if (toStatus === 'READY') {
       const schedules = await dataStore.findAll<ActivitySchedule>('schedules.json');
       const schedule = schedules.find(s => s.id === material.scheduleId);
@@ -309,12 +342,16 @@ export class WorkflowService {
     }
 
     if (toStatus === 'BLOCKED') {
+      const schedules = await dataStore.findAll<ActivitySchedule>('schedules.json');
+      const schedule = schedules.find(s => s.id === material.scheduleId);
+      
       await this.createNotification({
         type: 'MATERIAL_BLOCKED',
         title: '物料准备受阻',
-        content: `课程物料准备遇到问题，请及时处理`,
+        content: schedule ? `课程【${schedule.courseName}】物料准备遇到问题，请及时处理` : '物料准备遇到问题，请及时处理',
         recipients: ['user_005', 'user_008'],
         relatedMaterialId: material.id,
+        relatedScheduleId: schedule?.id,
         priority: 'HIGH',
         actions: [
           { type: 'VIEW_MATERIAL', label: '查看详情' },
