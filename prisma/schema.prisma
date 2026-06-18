@@ -1,0 +1,166 @@
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url = "postgresql://postgres:postgres@localhost:5432/volunteer_db?schema=public"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  username      String         @unique
+  password      String
+  name          String
+  role          Role           @default(STAFF)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  recruitmentRecords RecruitmentRecord[]
+  auditRecords   AuditRecord[]
+  exceptionLogs  ExceptionLog[]
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  VOLUNTEER
+}
+
+model Volunteer {
+  id                 String              @id @default(cuid())
+  name               String
+  phone              String
+  email              String?
+  idCard             String              @unique
+  address            String
+  education          String
+  skills             String[]
+  status             VolunteerStatus     @default(PENDING)
+  applicationId      String              @unique
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  recruitmentRecord  RecruitmentRecord?  @relation(fields: [recruitmentRecordId], references: [id])
+  recruitmentRecordId String?
+  auditRecords       AuditRecord[]
+  exceptionLogs      ExceptionLog[]
+}
+
+enum VolunteerStatus {
+  PENDING
+  AUDITING
+  APPROVED
+  REJECTED
+  SUSPENDED
+}
+
+model RecruitmentRecord {
+  id              String         @id @default(cuid())
+  title           String
+  description     String
+  requirements    String[]
+  quota           Int
+  appliedCount    Int            @default(0)
+  status          RecruitmentStatus @default(ACTIVE)
+  creatorId       String
+  creator         User           @relation(fields: [creatorId], references: [id])
+  volunteers      Volunteer[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  auditRecords    AuditRecord[]
+  exceptionLogs   ExceptionLog[]
+}
+
+enum RecruitmentStatus {
+  ACTIVE
+  CLOSED
+  CANCELLED
+}
+
+model AuditRecord {
+  id              String           @id @default(cuid())
+  auditType       AuditType
+  targetType      TargetType
+  targetId        String
+  previousStatus  String?
+  newStatus       String
+  auditorId       String
+  auditor         User             @relation(fields: [auditorId], references: [id])
+  volunteerId     String?
+  volunteer       Volunteer?       @relation(fields: [volunteerId], references: [id])
+  recruitmentId   String?
+  recruitment     RecruitmentRecord? @relation(fields: [recruitmentId], references: [id])
+  exceptionId     String?
+  exception       ExceptionLog?    @relation(fields: [exceptionId], references: [id])
+  comment         String?
+  createdAt       DateTime         @default(now())
+}
+
+enum AuditType {
+  APPLICATION_SUBMITTED
+  APPLICATION_ACCEPTED
+  APPLICATION_REJECTED
+  AUDIT_PASSED
+  AUDIT_FAILED
+  STATUS_CHANGED
+  EXCEPTION_RECORDED
+  EXCEPTION_RESOLVED
+}
+
+enum TargetType {
+  VOLUNTEER
+  RECRUITMENT
+  EXCEPTION
+}
+
+model ExceptionLog {
+  id              String           @id @default(cuid())
+  exceptionType   ExceptionType
+  severity        SeverityLevel
+  targetType      TargetType
+  targetId        String
+  volunteerId     String?
+  volunteer       Volunteer?       @relation(fields: [volunteerId], references: [id])
+  recruitmentId   String?
+  recruitment     RecruitmentRecord? @relation(fields: [recruitmentId], references: [id])
+  description     String
+  status          ExceptionStatus  @default(PENDING)
+  resolverId      String?
+  resolver        User?            @relation(fields: [resolverId], references: [id])
+  resolveComment  String?
+  createdAt       DateTime         @default(now())
+  resolvedAt      DateTime?
+  auditRecords    AuditRecord[]
+}
+
+enum ExceptionType {
+  DOCUMENT_MISSING
+  INFORMATION_INCONSISTENT
+  BACKGROUND_CHECK_FAILED
+  COMPLIANCE_VIOLATION
+  OTHER
+}
+
+enum SeverityLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ExceptionStatus {
+  PENDING
+  PROCESSING
+  RESOLVED
+  ESCALATED
+}
+
+model IdempotencyKey {
+  id              String       @id @default(cuid())
+  key             String       @unique
+  requestData     Json
+  responseData    Json?
+  status          String
+  createdAt       DateTime     @default(now())
+  expiresAt       DateTime
+}
