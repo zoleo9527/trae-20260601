@@ -1,6 +1,6 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, ConflictException } from '@nestjs/common';
-import { Observable, of, throwError } from 'rxjs';
-import { tap, catchError } from 'rxjs/operators';
+import { Observable, of, throwError, from } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
 import { IdempotencyService } from './idempotency.service';
 
 @Injectable()
@@ -34,8 +34,10 @@ export class IdempotencyInterceptor implements NestInterceptor {
     }
 
     return next.handle().pipe(
-      tap(async (response) => {
-        await this.idempotencyService.update(idempotencyKey, response);
+      switchMap((response) => {
+        return from(
+          this.idempotencyService.update(idempotencyKey, response).then(() => response)
+        );
       }),
       catchError(async (error: any) => {
         await this.idempotencyService.fail(idempotencyKey, {
