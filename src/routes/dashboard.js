@@ -130,20 +130,20 @@ router.get('/educator/:userId', async (req, res) => {
   const twoHoursAgo = subHours(today, 2);
 
   const [
-    myPendingReservations,
+    pendingReservations,
     myScheduledToday,
     myInProgressSchedules,
     myReportedIssues,
-    recentlyReturnedMine,
-    myOverdueReservations
+    recentlyReturned,
+    overdueReservations
   ] = await Promise.all([
     prisma.reservation.findMany({
       where: {
         status: 'PENDING_CONFIRM',
-        startTime: { gte: todayStart, lte: todayEnd },
-        createdById: userId
+        startTime: { gte: todayStart, lte: todayEnd }
       },
       include: {
+        createdBy: { select: { name: true, role: true } },
         exhibitIssue: { select: { id: true, exhibitName: true, status: true } }
       },
       orderBy: { startTime: 'asc' }
@@ -206,10 +206,11 @@ router.get('/educator/:userId', async (req, res) => {
       where: {
         status: 'REJECTED',
         rejectedAt: { gte: twoHoursAgo },
-        createdById: userId
+        needsReview: true
       },
       include: {
-        exhibitIssue: { select: { exhibitName: true } }
+        createdBy: { select: { name: true, role: true } },
+        exhibitIssue: { select: { exhibitName: true, status: true } }
       },
       orderBy: { rejectedAt: 'desc' }
     }),
@@ -217,32 +218,35 @@ router.get('/educator/:userId', async (req, res) => {
     prisma.reservation.findMany({
       where: {
         status: { in: ['PENDING_CONFIRM', 'CONFIRMED'] },
-        startTime: { lt: today },
-        createdById: userId
+        startTime: { lt: today }
+      },
+      include: {
+        createdBy: { select: { name: true, role: true } },
+        schedule: { select: { educator: { select: { name: true } } } }
       },
       orderBy: { startTime: 'asc' }
     })
   ]);
 
   const stats = {
-    pendingReservations: myPendingReservations.length,
+    pendingReservations: pendingReservations.length,
     scheduledToday: myScheduledToday.length,
     inProgress: myInProgressSchedules.length,
     reportedIssues: myReportedIssues.length,
-    recentlyReturned: recentlyReturnedMine.length,
-    overdue: myOverdueReservations.length
+    recentlyReturned: recentlyReturned.length,
+    overdue: overdueReservations.length
   };
 
   res.json({
     timestamp: today.toISOString(),
     stats,
     role: 'EXHIBIT_EDUCATOR',
-    pendingReservations: myPendingReservations,
+    pendingReservations,
     scheduledToday: myScheduledToday,
     inProgress: myInProgressSchedules,
     reportedIssues: myReportedIssues,
-    recentlyReturned: recentlyReturnedMine,
-    overdue: myOverdueReservations
+    recentlyReturned,
+    overdue: overdueReservations
   });
 });
 
@@ -309,23 +313,29 @@ router.get('/engineer/:userId', async (req, res) => {
       where: {
         needsReview: true,
         status: 'REJECTED',
-        rejectedAt: { gte: twoHoursAgo }
+        rejectedAt: { gte: twoHoursAgo },
+        exhibitIssue: {
+          handlerId: userId
+        }
       },
       include: {
         createdBy: { select: { name: true, role: true } },
-        exhibitIssue: { select: { exhibitName: true, status: true } }
+        exhibitIssue: { select: { exhibitName: true, status: true, cause: true } }
       },
       orderBy: { rejectedAt: 'desc' }
     }),
     
     prisma.exhibitIssue.findMany({
       where: {
+        handlerId: userId,
         status: 'SHUTDOWN_EMERGENCY',
         deadline: { lte: todayStart }
       },
       include: {
         reporter: { select: { name: true, phone: true } },
-        handler: { select: { name: true } }
+        affectedReservations: {
+          select: { visitorGroup: true, startTime: true, status: true }
+        }
       },
       orderBy: { deadline: 'asc' }
     })
