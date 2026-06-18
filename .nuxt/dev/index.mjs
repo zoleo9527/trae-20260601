@@ -2213,16 +2213,16 @@ _wH6JrtIxmaSoA8lCPWFnE9z4lQeXW6H5z3l5aymEQw
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"24b1b-BZASTlASjnKe/AxK98TEoiVQ9Hc\"",
-    "mtime": "2026-06-18T03:19:16.176Z",
-    "size": 150299,
+    "etag": "\"24d81-ebC8YffMqjkOwcyOgG4fpAWFzTM\"",
+    "mtime": "2026-06-18T03:32:16.267Z",
+    "size": 150913,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"8eb4b-dZWRkUuK5r5ZTIGZkItJkviEncI\"",
-    "mtime": "2026-06-18T03:19:16.177Z",
-    "size": 584523,
+    "etag": "\"8f5bf-2BEwbX2rNASxTQeXmrsGtUl09VM\"",
+    "mtime": "2026-06-18T03:32:16.267Z",
+    "size": 587199,
     "path": "index.mjs.map"
   }
 };
@@ -3526,7 +3526,7 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   }
   const courseRegistrations = registrations.filter((r) => r.courseId === id && r.status === "confirmed");
   if (courseRegistrations.length >= course.maxParticipants) {
-    const historyEntry2 = {
+    const historyEntry = {
       id: `h${Date.now()}`,
       waitlistEntryId: waitlistEntry.id,
       courseId: id,
@@ -3534,9 +3534,13 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
       actorId: body.actorId,
       actorName: actor.name,
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-      result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1"
+      result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1",
+      participantName: waitlistEntry.participantName,
+      originalPosition: waitlistEntry.position,
+      previousStatus: "active",
+      newStatus: "active"
     };
-    waitlistHistory.push(historyEntry2);
+    waitlistHistory.push(historyEntry);
     throw createError({ statusCode: 400, message: "\u8BFE\u7A0B\u540D\u989D\u5DF2\u6EE1\uFF0C\u65E0\u6CD5\u5347\u7EA7" });
   }
   const newRegistration = {
@@ -3555,6 +3559,7 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   registrations.push(newRegistration);
   const waitlistIndex = waitlist.findIndex((w) => w.id === body.waitlistId);
   if (waitlistIndex !== -1) {
+    const originalPosition = waitlist[waitlistIndex].position;
     waitlist[waitlistIndex].status = "promoted";
     waitlist[waitlistIndex].promotedAt = (/* @__PURE__ */ new Date()).toISOString();
     waitlist[waitlistIndex].promotedBy = body.actorId;
@@ -3562,6 +3567,22 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
     waitlist[waitlistIndex].handledAt = (/* @__PURE__ */ new Date()).toISOString();
     waitlist[waitlistIndex].handledResult = "promoted";
     waitlist[waitlistIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const historyEntry = {
+      id: `h${Date.now()}`,
+      waitlistEntryId: waitlistEntry.id,
+      courseId: id,
+      action: "promote",
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D",
+      notes: body.notes,
+      participantName: waitlistEntry.participantName,
+      originalPosition,
+      previousStatus: "active",
+      newStatus: "promoted"
+    };
+    waitlistHistory.push(historyEntry);
   }
   waitlist.filter((w) => w.courseId === id && w.status === "active" && w.position > waitlistEntry.position).forEach((w) => {
     w.position--;
@@ -3569,7 +3590,6 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   });
   const courseIndex = courses.findIndex((c) => c.id === id);
   if (courseIndex !== -1) {
-    courses[courseIndex].currentParticipants++;
     courses[courseIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     const newTimelineItem = {
       id: `t${Date.now()}`,
@@ -3582,24 +3602,12 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
     };
     courses[courseIndex].timeline.push(newTimelineItem);
   }
-  const historyEntry = {
-    id: `h${Date.now()}`,
-    waitlistEntryId: waitlistEntry.id,
-    courseId: id,
-    action: "promote",
-    actorId: body.actorId,
-    actorName: actor.name,
-    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D",
-    notes: body.notes
-  };
-  waitlistHistory.push(historyEntry);
   return {
     success: true,
     message: `\u5DF2\u5C06 ${waitlistEntry.participantName} \u4ECE\u5019\u8865\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D`,
     registration: newRegistration,
     waitlistEntry: waitlist[waitlistIndex],
-    historyEntry
+    historyEntry: waitlistHistory[waitlistHistory.length - 1]
   };
 });
 
@@ -3703,6 +3711,8 @@ const resetData_post = defineEventHandler(async (event) => {
   waitlist.filter((w) => w.courseId === id).forEach((w) => {
     const idx = waitlist.findIndex((entry) => entry.id === w.id);
     if (idx !== -1) {
+      const originalPosition = waitlist[idx].position;
+      const previousStatus = waitlist[idx].status;
       waitlist[idx].status = "cancelled";
       waitlist[idx].handledBy = body.actorId;
       waitlist[idx].handledAt = (/* @__PURE__ */ new Date()).toISOString();
@@ -3717,7 +3727,11 @@ const resetData_post = defineEventHandler(async (event) => {
         actorName: actor.name,
         timestamp: (/* @__PURE__ */ new Date()).toISOString(),
         result: "\u6570\u636E\u91CD\u7F6E\u88AB\u53D6\u6D88",
-        notes: "\u8BFE\u7A0B\u6570\u636E\u91CD\u7F6E\u5BFC\u81F4\u5019\u8865\u88AB\u53D6\u6D88"
+        notes: "\u8BFE\u7A0B\u6570\u636E\u91CD\u7F6E\u5BFC\u81F4\u5019\u8865\u88AB\u53D6\u6D88",
+        participantName: w.participantName,
+        originalPosition,
+        previousStatus,
+        newStatus: "cancelled"
       };
       waitlistHistory.push(historyEntry);
     }

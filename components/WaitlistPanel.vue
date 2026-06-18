@@ -17,6 +17,7 @@ interface WaitlistEntry {
 const props = defineProps<{
   currentUser: User
   selectedCourseId: string | null
+  refreshTrigger: number
 }>()
 
 const waitlist = ref<WaitlistEntry[]>([])
@@ -87,6 +88,10 @@ const showMessage = (msg: string, type: 'success' | 'error') => {
 watch(() => props.selectedCourseId, () => {
   fetchWaitlist()
 }, { immediate: true })
+
+watch(() => props.refreshTrigger, () => {
+  fetchWaitlist()
+})
 </script>
 
 <template>

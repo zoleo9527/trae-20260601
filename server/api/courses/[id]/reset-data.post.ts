@@ -31,6 +31,8 @@ export default defineEventHandler(async (event) => {
     .forEach(w => {
       const idx = waitlist.findIndex(entry => entry.id === w.id)
       if (idx !== -1) {
+        const originalPosition = waitlist[idx].position
+        const previousStatus = waitlist[idx].status
         waitlist[idx].status = 'cancelled'
         waitlist[idx].handledBy = body.actorId
         waitlist[idx].handledAt = new Date().toISOString()
@@ -46,7 +48,11 @@ export default defineEventHandler(async (event) => {
           actorName: actor.name,
           timestamp: new Date().toISOString(),
           result: '数据重置被取消',
-          notes: '课程数据重置导致候补被取消'
+          notes: '课程数据重置导致候补被取消',
+          participantName: w.participantName,
+          originalPosition,
+          previousStatus,
+          newStatus: 'cancelled'
         }
         waitlistHistory.push(historyEntry)
       }

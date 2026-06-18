@@ -71,6 +71,10 @@ interface WaitlistHistoryEntry {
   timestamp: string
   result: string
   notes?: string
+  participantName?: string
+  originalPosition?: number
+  previousStatus?: string
+  newStatus?: string
 }
 
 interface Course {
@@ -249,6 +253,7 @@ const handleRegister = async () => {
       showRegistrationForm.value = false
       registrationForm.value = { participantName: '', phone: '', email: '' }
       fetchCourse()
+      emit('refresh')
     } else {
       showMessage(data.message || '报名失败', 'error')
     }
@@ -296,6 +301,7 @@ const handleReset = async () => {
       showMessage(data.message, 'success')
       showResetModal.value = false
       fetchCourse()
+      emit('refresh')
     } else {
       showMessage(data.message || '重置失败', 'error')
     }
@@ -325,6 +331,7 @@ const handlePromote = async () => {
       promotionNotes.value = ''
       selectedWaitlistEntry.value = null
       fetchCourse()
+      emit('refresh')
     } else {
       showMessage(data.message || '升级失败', 'error')
     }
@@ -750,9 +757,18 @@ watch(() => props.courseId, () => {
                       {{ history.action === 'promote' ? '升级' : history.action === 'reject' ? '拒绝' : '取消' }}
                     </span>
                   </div>
+                  <div v-if="history.participantName" class="text-sm text-gray-700 mb-1">
+                    学员: {{ history.participantName }}
+                    <span v-if="history.originalPosition" class="text-gray-500 ml-2">
+                      (原序号: #{{ history.originalPosition }})
+                    </span>
+                  </div>
                   <p class="text-sm" :class="history.result.includes('成功') ? 'text-success-600' : 'text-danger-600'">
                     {{ history.result }}
                   </p>
+                  <div v-if="history.previousStatus && history.newStatus" class="text-xs text-gray-500 mt-1">
+                    状态变更: {{ history.previousStatus }} → {{ history.newStatus }}
+                  </div>
                   <p v-if="history.notes" class="text-xs text-gray-500 mt-1">备注: {{ history.notes }}</p>
                 </div>
                 <span class="text-xs text-gray-400">{{ formatDateShort(history.timestamp) }}</span>

@@ -109,6 +109,10 @@ export interface WaitlistHistory {
   timestamp: string
   result: string
   notes?: string
+  participantName?: string
+  originalPosition?: number
+  previousStatus?: string
+  newStatus?: string
 }
 
 export const users: User[] = [

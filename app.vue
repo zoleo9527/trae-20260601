@@ -8,15 +8,22 @@ import { users } from './server/data/mockData'
 const currentView = ref<'list' | 'detail'>('list')
 const selectedCourseId = ref<string | null>(null)
 const currentUser = ref(users[4])
+const refreshTrigger = ref(0)
 
 const handleCourseSelect = (courseId: string) => {
   selectedCourseId.value = courseId
   currentView.value = 'detail'
+  refreshTrigger.value++
 }
 
 const handleBackToList = () => {
   currentView.value = 'list'
   selectedCourseId.value = null
+  refreshTrigger.value++
+}
+
+const handleRefresh = () => {
+  refreshTrigger.value++
 }
 
 const canReview = computed(() => currentUser.value.role === 'manager')
@@ -58,12 +65,14 @@ const canReview = computed(() => currentUser.value.role === 'manager')
             :course-id="selectedCourseId"
             :current-user="currentUser"
             @back="handleBackToList"
+            @refresh="handleRefresh"
           />
         </div>
         
         <WaitlistPanel 
           :current-user="currentUser"
           :selected-course-id="selectedCourseId"
+          :refresh-trigger="refreshTrigger"
         />
       </div>
     </main>

@@ -30,7 +30,11 @@ export default defineEventHandler(async (event) => {
       actorId: body.actorId,
       actorName: actor.name,
       timestamp: new Date().toISOString(),
-      result: '升级失败，名额已满'
+      result: '升级失败，名额已满',
+      participantName: waitlistEntry.participantName,
+      originalPosition: waitlistEntry.position,
+      previousStatus: 'active',
+      newStatus: 'active'
     }
     waitlistHistory.push(historyEntry)
     
@@ -55,6 +59,7 @@ export default defineEventHandler(async (event) => {
   
   const waitlistIndex = waitlist.findIndex(w => w.id === body.waitlistId)
   if (waitlistIndex !== -1) {
+    const originalPosition = waitlist[waitlistIndex].position
     waitlist[waitlistIndex].status = 'promoted'
     waitlist[waitlistIndex].promotedAt = new Date().toISOString()
     waitlist[waitlistIndex].promotedBy = body.actorId
@@ -62,6 +67,23 @@ export default defineEventHandler(async (event) => {
     waitlist[waitlistIndex].handledAt = new Date().toISOString()
     waitlist[waitlistIndex].handledResult = 'promoted'
     waitlist[waitlistIndex].updatedAt = new Date().toISOString()
+    
+    const historyEntry = {
+      id: `h${Date.now()}`,
+      waitlistEntryId: waitlistEntry.id,
+      courseId: id!,
+      action: 'promote' as const,
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: new Date().toISOString(),
+      result: '成功升级为正式报名',
+      notes: body.notes,
+      participantName: waitlistEntry.participantName,
+      originalPosition,
+      previousStatus: 'active',
+      newStatus: 'promoted'
+    }
+    waitlistHistory.push(historyEntry)
   }
   
   waitlist
@@ -73,7 +95,6 @@ export default defineEventHandler(async (event) => {
   
   const courseIndex = courses.findIndex(c => c.id === id)
   if (courseIndex !== -1) {
-    courses[courseIndex].currentParticipants++
     courses[courseIndex].updatedAt = new Date().toISOString()
     
     const newTimelineItem = {
@@ -88,24 +109,11 @@ export default defineEventHandler(async (event) => {
     courses[courseIndex].timeline.push(newTimelineItem)
   }
   
-  const historyEntry = {
-    id: `h${Date.now()}`,
-    waitlistEntryId: waitlistEntry.id,
-    courseId: id!,
-    action: 'promote' as const,
-    actorId: body.actorId,
-    actorName: actor.name,
-    timestamp: new Date().toISOString(),
-    result: '成功升级为正式报名',
-    notes: body.notes
-  }
-  waitlistHistory.push(historyEntry)
-  
   return {
     success: true,
     message: `已将 ${waitlistEntry.participantName} 从候补升级为正式报名`,
     registration: newRegistration,
     waitlistEntry: waitlist[waitlistIndex],
-    historyEntry
+    historyEntry: waitlistHistory[waitlistHistory.length - 1]
   }
 })
