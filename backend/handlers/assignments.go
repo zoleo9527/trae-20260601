@@ -87,12 +87,30 @@ func (h *Handler) GetCrewReview() fiber.Handler {
 		if ed!="" { if t,e:=time.Parse("2006-01-02",ed); e==nil { t2:=t.Add(24*time.Hour); q=q.Where("created_at<?",t2) } }
 		var list []models.CrewAssignment
 		q.Preload("Schedule").Preload("Booking").Preload("Crew").Order("created_at DESC").Find(&list)
-		var cnt, cc, rc int64
-		h.DB.Model(&models.CrewAssignment{}).Where("crew_id=?",cid).Count(&cnt)
-		h.DB.Model(&models.CrewAssignment{}).Where("crew_id=? AND status=?",cid,models.AssignmentCompleted).Count(&cc)
+		var totalCount, completedCount, rejectCount int64
+		h.DB.Model(&models.CrewAssignment{}).Where("crew_id=?",cid).Count(&totalCount)
+		h.DB.Model(&models.CrewAssignment{}).Where("crew_id=? AND status=?",cid,models.AssignmentCompleted).Count(&completedCount)
 		var all []models.CrewAssignment
-		h.DB.Model(&models.CrewAssignment{}).Where("crew_id=?",cid).Find(&all)
-		for _, x := range all { rc += int64(x.RejectCount) }
-		return c.JSON(fiber.Map{"count":cnt,"completed_count":cc,"total_reject_count":rc,"assignments":list})
+		h.DB.Model(&models.CrewAssignment{}).Preload("Booking").Where("crew_id=?",cid).Find(&all)
+		for _, x := range all { rejectCount += int64(x.RejectCount) }
+		onTimeRate := 0.0
+		if totalCount > 0 {
+			onTimeRate = float64(completedCount) / float64(totalCount)
+		}
+		customerMap := make(map[string]bool)
+		for _, x := range all {
+			if x.Booking != nil {
+				customerMap[x.Booking.ID.String()] = true
+			}
+		}
+		uniqueCustomers := len(customerMap)
+		return c.JSON(fiber.Map{
+			"total_count": totalCount,
+			"completed_count": completedCount,
+			"reject_count": rejectCount,
+			"on_time_rate": onTimeRate,
+			"unique_customers": uniqueCustomers,
+			"recent_assignments": list,
+		})
 	}
 }

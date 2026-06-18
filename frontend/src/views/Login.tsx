@@ -16,26 +16,24 @@ export default function Login() {
   const [role, setRole] = useState<Role>("dispatcher")
   const [loading, setLoading] = useState(false)
 
-  const roleList: { value: Role; label: string; icon: any; color: string }[] = [
-    { value: "dispatcher", label: "调度员", icon: CarOutlined, color: "#1677ff" },
-    { value: "leader", label: "组长", icon: TeamOutlined, color: "#52c41a" },
-    { value: "customer_service", label: "客服", icon: CustomerServiceOutlined, color: "#fa8c16" },
+  const roleList: { value: Role; label: string; icon: any; color: string; username: string }[] = [
+    { value: "dispatcher", label: "调度员", icon: CarOutlined, color: "#1677ff", username: "dispatcher" },
+    { value: "leader", label: "组长", icon: TeamOutlined, color: "#52c41a", username: "leader" },
+    { value: "customer", label: "客服", icon: CustomerServiceOutlined, color: "#fa8c16", username: "customer" },
   ];
 
   const handleLogin = async (values: any) => {
     setLoading(true);
     try {
-      await api.login({ username: values.username, password: values.password, role });
-    } catch {}
-    const roleUserMap: Record<Role, any> = {
-      dispatcher: { id: "u1", name: "调度小李", role: "dispatcher", token: "mock-token-dispatcher" },
-      leader: { id: "u2", name: "组长A", role: "leader", token: "mock-token-leader" },
-      customer_service: { id: "u3", name: "客服小王", role: "customer_service", token: "mock-token-cs" },
-    };
-    login(roleUserMap[role]);
-    message.success("登录成功！正在跳转...");
-    setLoading(false);
-    setTimeout(() => navigate("/entry"), 500);
+      const user = await api.login({ username: values.username, password: values.password });
+      login(user as any);
+      message.success("登录成功");
+      navigate("/entry");
+    } catch (err: any) {
+      message.error(err.message || "登录失败");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -49,11 +47,11 @@ export default function Login() {
           {roleList.map(r => {
             const Icon = r.icon; const active = role === r.value;
             return (
-              <Button key={r.value} type={active ? "primary" : "default"} icon={<Icon />} style={{ flex: 1, ...(active ? { background: r.color, borderColor: r.color } : {}) }} onClick={() => setRole(r.value)}>{r.label}</Button>
+              <Button key={r.value} type={active ? "primary" : "default"} icon={<Icon />} style={{ flex: 1, ...(active ? { background: r.color, borderColor: r.color } : {}) }} onClick={() => { setRole(r.value); form.setFieldsValue({ username: r.username, password: "123456" }); }}>{r.label}</Button>
             );
           })}
         </Space>
-        <Form form={form} layout="vertical" onFinish={handleLogin} initialValues={{ username: "admin", password: "123456" }}>
+        <Form form={form} layout="vertical" onFinish={handleLogin} initialValues={{ username: "dispatcher", password: "123456" }}>
           <Form.Item label="用户名" name="username" rules={[{ required: true, message: "请输入用户名" }]}><Input size="large" placeholder="请输入用户名" /></Form.Item>
           <Form.Item label="密码" name="password" rules={[{ required: true, message: "请输入密码" }]}><Input.Password size="large" placeholder="请输入密码" /></Form.Item>
           <Form.Item><Button type="primary" size="large" block loading={loading} htmlType="submit" style={{ height: 44 }}>登 录</Button></Form.Item>

@@ -1,207 +1,809 @@
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useNavigate } from "react-router-dom"
-import { Layout, Tabs, Table, Button, Space, Modal, Form, Select, DatePicker, App, Card, Row, Col, Tag, Statistic } from "antd"
-import { PlusOutlined, CarOutlined, TeamOutlined, ExclamationCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, ScheduleOutlined, LogoutOutlined } from "@ant-design/icons"
+import { Layout, Tabs, Table, Button, Space, Modal, Form, Select, DatePicker, App, Card, Tag, Spin, Input, Row, Col, Timeline } from "antd"
+import { ScheduleOutlined, LogoutOutlined, TeamOutlined, ExclamationCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, CarOutlined, EyeOutlined } from "@ant-design/icons"
 import dayjs from "dayjs"
 import StatusBadge from "@/components/StatusBadge"
 import { useAuthStore } from "@/store/auth"
-import type { Booking, Vehicle, VehicleSchedule, ExceptionRecord, BookingStatus, ScheduleStatus, ExceptionType, CrewMember } from "@/types"
+import type {
+  Booking,
+  Vehicle,
+  VehicleSchedule,
+  CrewMember,
+  ExceptionRecord,
+  BookingStatus,
+  ExceptionType,
+  ScheduleStatus,
+  CrewAssignment,
+  TimelineResult,
+} from "@/types"
 import * as api from "@/services/api"
 
 const { Header, Content } = Layout
 const { Option } = Select
+const { TextArea } = Input
 
-const mockBookings: Booking[] = [
-  { id: "1", orderNo: "BK20260615001", customerName: "张三", customerPhone: "13800138001", moveFrom: "北京市朝阳区望京SOHO", moveTo: "北京市海淀区中关村软件园", moveDate: "2026-06-15", moveTime: "09:00", items: "家具、家电、衣物约20箱", areaSize: 90, floorFrom: 12, floorTo: 8, hasElevatorFrom: true, hasElevatorTo: true, estimatedPrice: 2800, status: "pending", createdAt: "2026-06-14 10:30:00" },
-  { id: "2", orderNo: "BK20260615002", customerName: "李四", customerPhone: "13800138002", moveFrom: "北京市西城区金融街", moveTo: "北京市昌平区回龙观", moveDate: "2026-06-15", moveTime: "14:00", items: "钢琴、保险柜、红木家具", areaSize: 120, floorFrom: 3, floorTo: 15, hasElevatorFrom: false, hasElevatorTo: true, estimatedPrice: 4500, status: "scheduled", createdAt: "2026-06-13 15:20:00" },
-  { id: "3", orderNo: "BK20260615003", customerName: "王五", customerPhone: "13800138003", moveFrom: "北京市东城区东直门", moveTo: "北京市通州区运河核心区", moveDate: "2026-06-15", moveTime: "08:00", items: "办公用品、文件、设备", areaSize: 60, floorFrom: 5, floorTo: 1, hasElevatorFrom: true, hasElevatorTo: false, estimatedPrice: 1800, status: "in_progress", createdAt: "2026-06-14 09:15:00" },
-  { id: "4", orderNo: "BK20260615004", customerName: "赵六", customerPhone: "13800138004", moveFrom: "上海市浦东新区陆家嘴", moveTo: "上海市闵行区莘庄", moveDate: "2026-06-16", moveTime: "10:00", items: "个人物品", areaSize: 75, floorFrom: 10, floorTo: 6, hasElevatorFrom: true, hasElevatorTo: true, estimatedPrice: 2200, status: "pending", createdAt: "2026-06-14 16:45:00" },
-  { id: "5", orderNo: "BK20260615005", customerName: "钱七", customerPhone: "13800138005", moveFrom: "北京市大兴区亦庄", moveTo: "北京市房山区良乡", moveDate: "2026-06-16", moveTime: "07:30", items: "大家电、大型家具、厨房用品", areaSize: 150, floorFrom: 1, floorTo: 3, hasElevatorFrom: true, hasElevatorTo: false, estimatedPrice: 5200, status: "completed", createdAt: "2026-06-12 11:00:00" },
-];
+const statusFilters: { key: BookingStatus | "all"; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "pending", label: "待派单" },
+  { key: "assigned", label: "已派单" },
+  { key: "in_progress", label: "进行中" },
+  { key: "delayed", label: "已延误" },
+  { key: "surcharged", label: "已加价" },
+  { key: "completed", label: "已完成" },
+]
 
-const mockVehicles: Vehicle[] = [
-  { id: "v1", plateNumber: "京A·12345", type: "4.2米厢式货车", capacity: "4.2T", status: "available", driverName: "王师傅", driverPhone: "13900139001" },
-  { id: "v2", plateNumber: "京B·67890", type: "6.8米厢式货车", capacity: "6.8T", status: "busy", driverName: "李师傅", driverPhone: "13900139002" },
-  { id: "v3", plateNumber: "京C·54321", type: "9.6米厢式货车", capacity: "9.6T", status: "available", driverName: "张师傅", driverPhone: "13900139003" },
-];
-
-const mockCrew: CrewMember[] = [
-  { id: "c1", name: "组长A", role: "leader", phone: "13700137001", status: "available" },
-  { id: "c2", name: "组长B", role: "leader", phone: "13700137002", status: "available" },
-  { id: "c3", name: "搬运工1", role: "worker", phone: "13700137003", status: "available" },
-  { id: "c4", name: "搬运工2", role: "worker", phone: "13700137004", status: "available" },
-  { id: "c5", name: "搬运工3", role: "worker", phone: "13700137005", status: "busy" },
-  { id: "c6", name: "搬运工4", role: "worker", phone: "13700137006", status: "available" },
-];
-
-const mockSchedules: VehicleSchedule[] = [
-  { id: "s1", bookingId: "2", vehicleId: "v2", leaderId: "c2", departureTime: "2026-06-15 13:00", arrivalTime: "2026-06-15 16:30", status: "pending", createdAt: "2026-06-14 10:00:00" },
-  { id: "s2", bookingId: "3", vehicleId: "v1", leaderId: "c1", departureTime: "2026-06-15 07:00", arrivalTime: "2026-06-15 11:00", status: "transporting", createdAt: "2026-06-14 09:00:00" },
-];
-
-const mockExceptions: ExceptionRecord[] = [
-  { id: "e1", bookingId: "3", scheduleId: "s2", type: "delay", description: "客户小区临时封闭施工，原定路线无法进入，需要绕行约5公里", status: "pending", reportedBy: "c1", reporterName: "组长A", createdAt: "2026-06-15 07:30:00" },
-  { id: "e2", bookingId: "2", scheduleId: "s1", type: "surcharge", description: "到现场发现额外物品未申报：两台大型鱼缸及附件，需加人工费", status: "processing", reportedBy: "c2", reporterName: "组长B", resultAmount: 300, createdAt: "2026-06-15 12:00:00" },
-  { id: "e3", bookingId: "5", type: "damage", description: "搬运过程中客户古董花瓶外包装完好但内部受损", status: "resolved", reportedBy: "c1", reporterName: "组长A", resultAmount: 200, handleResult: "按照物损约定协商赔付200元，客户确认同意", handledAt: "2026-06-15 18:00:00", createdAt: "2026-06-15 16:00:00" },
-];
+const scheduleStatusFlow: { status: ScheduleStatus; label: string }[] = [
+  { status: "created", label: "待派车" },
+  { status: "assigned", label: "已派车" },
+  { status: "departed", label: "已出车" },
+  { status: "arrived", label: "已到达" },
+  { status: "loading", label: "装车中" },
+  { status: "moving", label: "运输中" },
+  { status: "unloading", label: "卸车中" },
+  { status: "done", label: "已完成" },
+]
 
 export default function DispatcherDashboard() {
-  const navigate = useNavigate();
-  const { message } = App.useApp();
-  const { user, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState("bookings");
-  const [scheduleModal, setScheduleModal] = useState(false);
-  const [currentBooking, setCurrentBooking] = useState<Booking | null>(null);
-  const [scheduleForm] = Form.useForm();
-  const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
-  const today = dayjs().format("YYYY-MM-DD");
+  const navigate = useNavigate()
+  const { message } = App.useApp()
+  const { user, logout } = useAuthStore()
+  const today = dayjs().format("YYYY-MM-DD")
 
-  const handleScheduleClick = (booking: Booking) => { setCurrentBooking(booking); scheduleForm.resetFields(); setScheduleModal(true); };
+  const [activeTab, setActiveTab] = useState("bookings")
+  const [loading, setLoading] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all")
+
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [vehicles, setVehicles] = useState<Vehicle[]>([])
+  const [crews, setCrews] = useState<CrewMember[]>([])
+  const [schedules, setSchedules] = useState<VehicleSchedule[]>([])
+  const [exceptions, setExceptions] = useState<ExceptionRecord[]>([])
+  const [timeline, setTimeline] = useState<TimelineResult>({})
+
+  const [scheduleModal, setScheduleModal] = useState(false)
+  const [currentBooking, setCurrentBooking] = useState<Booking | null>(null)
+  const [scheduleForm] = Form.useForm()
+  const [submitLoading, setSubmitLoading] = useState(false)
+
+  const [detailModal, setDetailModal] = useState(false)
+  const [detailSchedule, setDetailSchedule] = useState<VehicleSchedule | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+
+  const [triggerModal, setTriggerModal] = useState(false)
+  const [triggerForm] = Form.useForm()
+
+  const loadBookings = useCallback(async () => {
+    try {
+      const res = await api.listBookings({ page_size: 100 })
+      setBookings(res.data)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [message])
+
+  const loadVehicles = useCallback(async () => {
+    try {
+      const res = await api.listVehicles({ page_size: 100 })
+      setVehicles(res.data)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [message])
+
+  const loadCrews = useCallback(async () => {
+    try {
+      const res = await api.listCrews({ page_size: 100 })
+      setCrews(res.data)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [message])
+
+  const loadSchedules = useCallback(async () => {
+    try {
+      const res = await api.listSchedules({ page_size: 100 })
+      setSchedules(res.data)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [message])
+
+  const loadExceptions = useCallback(async () => {
+    try {
+      const res = await api.listExceptions({ page_size: 100 })
+      setExceptions(res.data)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [message])
+
+  const loadTimeline = useCallback(async () => {
+    try {
+      const res = await api.getScheduleTimeline(today)
+      setTimeline(res)
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }, [today, message])
+
+  const loadScheduleDetail = useCallback(async (id: string) => {
+    setDetailLoading(true)
+    try {
+      const res = await api.getSchedule(id)
+      setDetailSchedule(res)
+    } catch (err: any) {
+      message.error(err.message)
+    } finally {
+      setDetailLoading(false)
+    }
+  }, [message])
+
+  useEffect(() => {
+    const init = async () => {
+      setLoading(true)
+      try {
+        const [bRes, vRes, cRes, sRes, eRes] = await Promise.all([
+          api.listBookings({ page_size: 100 }),
+          api.listVehicles({ page_size: 100 }),
+          api.listCrews({ page_size: 100 }),
+          api.listSchedules({ page_size: 100 }),
+          api.listExceptions({ page_size: 100 }),
+        ])
+        setBookings(bRes.data)
+        setVehicles(vRes.data)
+        setCrews(cRes.data)
+        setSchedules(sRes.data)
+        setExceptions(eRes.data)
+      } catch (err: any) {
+        message.error(err.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+    init()
+  }, [message])
+
+  useEffect(() => {
+    if (activeTab === "today") {
+      loadTimeline()
+    }
+  }, [activeTab, loadTimeline])
+
+  const idleVehicles = vehicles.filter(v => v.status === "idle")
+  const leaders = crews.filter(c => c.position === "组长" && c.status === "active")
+  const workers = crews.filter(c => c.position === "搬运工" && c.status === "active")
+
+  const handleScheduleClick = (booking: Booking) => {
+    setCurrentBooking(booking)
+    scheduleForm.resetFields()
+    setScheduleModal(true)
+  }
 
   const handleSubmitSchedule = async () => {
-    try { const values = await scheduleForm.validateFields(); await api.createSchedule({ bookingId: currentBooking!.id, vehicleId: values.vehicleId, leaderId: values.leaderId, workerIds: values.workerIds, departureTime: values.departureTime?.format("YYYY-MM-DD HH:mm"), arrivalTime: values.arrivalTime?.format("YYYY-MM-DD HH:mm") }); message.success("排班+派工创建成功！"); setScheduleModal(false); }
-    catch (e: any) { if (e?.errorFields) return; message.success("排班+派工创建成功！（Mock）"); setScheduleModal(false); } };
+    try {
+      const values = await scheduleForm.validateFields()
+      setSubmitLoading(true)
+      const crew_list = [
+        { crew_id: values.leader_id, role: "组长" },
+        ...values.worker_ids.map((id: string) => ({ crew_id: id, role: "搬运工" })),
+      ]
+      await api.createSchedule({
+        booking_id: currentBooking!.id,
+        vehicle_id: values.vehicle_id,
+        planned_start: dayjs(values.planned_start).toISOString(),
+        planned_end: dayjs(values.planned_end).toISOString(),
+        remarks: values.remarks || "",
+        crew_list,
+      })
+      message.success("排班成功")
+      setScheduleModal(false)
+      loadBookings()
+      loadSchedules()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(err.message)
+    } finally {
+      setSubmitLoading(false)
+    }
+  }
 
-  const handleTriggerException = async (type: ExceptionType) => { try { await api.triggerException({ type, bookingId: mockBookings[0].id, scheduleId: mockSchedules[0]?.id }); message.success("已触发模拟异常：" + type); } catch { message.success("已触发模拟异常：" + type + "（Mock）"); } };
-  const handleConfirmException = (id: string) => { message.success("异常 " + id + " 已确认处理"); };
-  const handleRejectException = (id: string) => { message.warning("异常 " + id + " 已退回"); };
+  const handleTriggerException = async () => {
+    try {
+      const values = await triggerForm.validateFields()
+      await api.triggerException(values.booking_id, values.type)
+      message.success("异常触发成功")
+      setTriggerModal(false)
+      triggerForm.resetFields()
+      loadExceptions()
+    } catch (err: any) {
+      if (err?.errorFields) return
+      message.error(err.message)
+    }
+  }
+
+  const handleConfirmException = async (id: string) => {
+    if (!user) return
+    try {
+      await api.handleException(id, {
+        status: "confirmed",
+        handler_id: user.id,
+      })
+      message.success("异常已确认")
+      loadExceptions()
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }
+
+  const handleRejectException = async (id: string) => {
+    if (!user) return
+    try {
+      await api.handleException(id, {
+        status: "rejected",
+        handler_id: user.id,
+        reject_reason: "需现场核实",
+      })
+      message.success("异常已退回")
+      loadExceptions()
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }
+
+  const handleViewDetail = (schedule: VehicleSchedule) => {
+    setDetailSchedule(schedule)
+    setDetailModal(true)
+    loadScheduleDetail(schedule.id)
+  }
+
+  const handleStatusChange = async (scheduleId: string, nextStatus: ScheduleStatus) => {
+    try {
+      await api.updateScheduleStatus(scheduleId, { status: nextStatus })
+      message.success("状态已更新")
+      loadSchedules()
+    } catch (err: any) {
+      message.error(err.message)
+    }
+  }
+
+  const getCurrentStatusIndex = (s: ScheduleStatus) =>
+    scheduleStatusFlow.findIndex(f => f.status === s)
+
+  const filteredBookings =
+    statusFilter === "all" ? bookings : bookings.filter(b => b.status === statusFilter)
 
   const bookingsColumns = [
-    { title: "订单号", dataIndex: "orderNo", width: 140 },
-    { title: "客户", dataIndex: "customerName", width: 80 },
-    { title: "搬出地", dataIndex: "moveFrom", ellipsis: true },
-    { title: "搬入地", dataIndex: "moveTo", ellipsis: true },
-    { title: "时间", width: 150, render: (_: any, r: Booking) => r.moveDate + " " + r.moveTime },
-    { title: "预估金额", dataIndex: "estimatedPrice", width: 100, render: (v: number) => "¥" + v },
-    { title: "状态", width: 100, dataIndex: "status", render: (s: BookingStatus) => <StatusBadge type="booking" value={s} /> },
-    { title: "操作", width: 120, key: "action", render: (_: any, r: Booking) => <Button size="small" type="primary" icon={<ScheduleOutlined />} disabled={r.status !== "pending"} onClick={() => handleScheduleClick(r)}>一键排班</Button> },
-  ];
+    { title: "客户", dataIndex: "customer_name", width: 100 },
+    { title: "搬出地", dataIndex: "from_address", ellipsis: true },
+    { title: "搬入地", dataIndex: "to_address", ellipsis: true },
+    {
+      title: "时间",
+      width: 160,
+      render: (_: any, r: Booking) => r.move_date + " " + r.move_time,
+    },
+    {
+      title: "基础价",
+      dataIndex: "base_price",
+      width: 100,
+      render: (v: number) => "¥" + v,
+    },
+    {
+      title: "总价",
+      width: 120,
+      render: (_: any, r: Booking) => (
+        <Space>
+          <span>¥{r.total_price}</span>
+          {r.extra_price !== 0 && <Tag color="blue">加价</Tag>}
+        </Space>
+      ),
+    },
+    {
+      title: "状态",
+      width: 100,
+      dataIndex: "status",
+      render: (s: BookingStatus) => <StatusBadge type="booking" value={s} />,
+    },
+    {
+      title: "操作",
+      width: 120,
+      key: "action",
+      render: (_: any, r: Booking) => (
+        <Button
+          size="small"
+          type="primary"
+          icon={<ScheduleOutlined />}
+          disabled={r.status !== "pending"}
+          onClick={() => handleScheduleClick(r)}
+        >
+          一键排班
+        </Button>
+      ),
+    },
+  ]
 
-  const exceptionsColumns = [
-    { title: "编号", dataIndex: "id", width: 80 },
-    { title: "订单号", width: 140, render: (_: any, r: ExceptionRecord) => mockBookings.find(b => b.id === r.bookingId)?.orderNo },
-    { title: "类型", width: 100, dataIndex: "type", render: (v: ExceptionType) => <StatusBadge type="exception_type" value={v} /> },
+  const scheduleColumns = [
+    {
+      title: "车牌",
+      width: 120,
+      render: (_: any, r: VehicleSchedule) => r.vehicle?.plate_number || "-",
+    },
+    {
+      title: "车型",
+      width: 100,
+      render: (_: any, r: VehicleSchedule) => r.vehicle?.vehicle_type || "-",
+    },
+    {
+      title: "客户",
+      width: 100,
+      render: (_: any, r: VehicleSchedule) => r.booking?.customer_name || "-",
+    },
+    {
+      title: "路线",
+      ellipsis: true,
+      render: (_: any, r: VehicleSchedule) =>
+        (r.booking?.from_address || "-") + " → " + (r.booking?.to_address || "-"),
+    },
+    {
+      title: "状态",
+      width: 100,
+      dataIndex: "status",
+      render: (s: ScheduleStatus) => <StatusBadge type="schedule" value={s} />,
+    },
+    {
+      title: "状态流转",
+      key: "flow",
+      width: 560,
+      render: (_: any, r: VehicleSchedule) => {
+        const idx = getCurrentStatusIndex(r.status)
+        return (
+          <Space size={4} wrap>
+            {scheduleStatusFlow.map((f, i) => {
+              const isCurrent = i === idx
+              const isDone = i < idx
+              const isNext = i === idx + 1
+              let btnType: any = "default"
+              if (isCurrent) btnType = "primary"
+              if (isDone) btnType = "dashed"
+              return (
+                <Button
+                  key={f.status}
+                  size="small"
+                  type={btnType}
+                  disabled={!isNext && !isCurrent}
+                  onClick={() => isNext && handleStatusChange(r.id, f.status)}
+                >
+                  {isDone ? "✓ " : ""}
+                  {f.label}
+                </Button>
+              )
+            })}
+          </Space>
+        )
+      },
+    },
+    {
+      title: "操作",
+      width: 100,
+      key: "action",
+      render: (_: any, r: VehicleSchedule) => (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => handleViewDetail(r)}>
+          详情
+        </Button>
+      ),
+    },
+  ]
+
+  const exceptionColumns = [
+    {
+      title: "类型",
+      width: 90,
+      dataIndex: "type",
+      render: (v: ExceptionType) => <StatusBadge type="exception_type" value={v} />,
+    },
+    { title: "标题", dataIndex: "title", width: 160, ellipsis: true },
     { title: "描述", dataIndex: "description", ellipsis: true },
-    { title: "上报人", dataIndex: "reporterName", width: 100 },
-    { title: "状态", width: 100, dataIndex: "status", render: (v: any) => <StatusBadge type="exception" value={v} /> },
-    { title: "结果金额", dataIndex: "resultAmount", width: 100, render: (v?: number) => v ? "¥" + v : "-" },
-    { title: "操作", width: 180, key: "action", render: (_: any, r: ExceptionRecord) => <Space size="small"><Button size="small" icon={<CheckCircleOutlined />} type="primary" disabled={r.status === "resolved"} onClick={() => handleConfirmException(r.id)}>确认</Button><Button size="small" icon={<CloseCircleOutlined />} danger disabled={r.status === "resolved"} onClick={() => handleRejectException(r.id)}>退回</Button></Space> },
-  ];
-
-  const filteredBookings = statusFilter === "all" ? mockBookings : mockBookings.filter(b => b.status === statusFilter);
+    {
+      title: "金额",
+      width: 110,
+      render: (_: any, r: ExceptionRecord) => {
+        if (r.surcharge_amount > 0) return "+¥" + r.surcharge_amount
+        if (r.refund_amount > 0) return "-¥" + r.refund_amount
+        return "-"
+      },
+    },
+    {
+      title: "状态",
+      width: 100,
+      dataIndex: "status",
+      render: (v: string) => <StatusBadge type="exception" value={v} />,
+    },
+    {
+      title: "操作",
+      width: 160,
+      key: "action",
+      render: (_: any, r: ExceptionRecord) => (
+        <Space size="small">
+          <Button
+            size="small"
+            icon={<CheckCircleOutlined />}
+            type="primary"
+            disabled={r.status !== "pending"}
+            onClick={() => handleConfirmException(r.id)}
+          >
+            确认
+          </Button>
+          <Button
+            size="small"
+            icon={<CloseCircleOutlined />}
+            danger
+            disabled={r.status !== "pending"}
+            onClick={() => handleRejectException(r.id)}
+          >
+            退回
+          </Button>
+        </Space>
+      ),
+    },
+  ]
 
   const renderBookingPool = () => (
-    <div>
+    <Spin spinning={loading}>
       <Space style={{ marginBottom: 16 }}>
         <span>状态筛选：</span>
-        { (["all", "pending", "scheduled", "in_progress", "completed"] as const).map(s => (<Button key={s} type={statusFilter === s ? "primary" : "default"} onClick={() => setStatusFilter(s)} size="small">{s === "all" ? "全部" : <StatusBadge type="booking" value={s} />}</Button>)) }
-        <Button type="primary" icon={<PlusOutlined />} style={{ marginLeft: "auto" }} onClick={() => message.info("创建预约单功能")}>新建预约</Button>
+        {statusFilters.map(s => (
+          <Button
+            key={s.key}
+            type={statusFilter === s.key ? "primary" : "default"}
+            onClick={() => setStatusFilter(s.key)}
+            size="small"
+          >
+            {s.label}
+          </Button>
+        ))}
       </Space>
-      <Table rowKey="id" columns={bookingsColumns} dataSource={filteredBookings} size="middle" pagination={{ pageSize: 10 }} />
-    </div>
-  );
+      <Table
+        rowKey="id"
+        columns={bookingsColumns}
+        dataSource={filteredBookings}
+        size="middle"
+        pagination={{ pageSize: 10 }}
+      />
+    </Spin>
+  )
 
-  const renderVehicleSchedule = () => {
-    const hours = Array.from({ length: 13 }, (_, i) => i + 7);
-    const getVehicleBookings = (vehicleId: string) => mockSchedules.filter(s => s.vehicleId === vehicleId);
-    const getStatusColor = (status: ScheduleStatus): string => (({ pending: "#faad14", departed: "#1677ff", arrived_origin: "#722ed1", loading: "#eb2f96", transporting: "#13c2c2", arrived_dest: "#52c41a", unloading: "#fa8c16", completed: "#52c41a" } as any)[status] || "#d9d9d9");
-    const getStatusLabel = (status: ScheduleStatus) => (({ pending: "待出车", departed: "已出车", arrived_origin: "已到起点", loading: "装车中", transporting: "运输中", arrived_dest: "已到终点", unloading: "卸车中", completed: "已完成" } as any)[status]);
+  const renderVehicleSchedule = () => (
+    <Spin spinning={loading}>
+      <Table
+        rowKey="id"
+        columns={scheduleColumns}
+        dataSource={schedules}
+        size="middle"
+        pagination={{ pageSize: 10 }}
+        scroll={{ x: 1200 }}
+      />
+    </Spin>
+  )
+
+  const renderTodayBoard = () => {
+    const vids = Object.keys(timeline)
+    if (vids.length === 0)
+      return (
+        <Spin spinning={loading}>
+          <Card>
+            <div style={{ textAlign: "center", color: "#999" }}>暂无今日排班时间线数据</div>
+          </Card>
+        </Spin>
+      )
     return (
-      <div style={{ overflowX: "auto" }}>
-        <Space style={{ marginBottom: 16, flexWrap: "wrap" }}>
-          <Tag color="gold">待出车</Tag><Tag color="blue">已出车</Tag><Tag color="purple">已到起点</Tag><Tag color="magenta">装车中</Tag><Tag color="cyan">运输中</Tag><Tag color="green">已完成</Tag>
-          <Tag color="geekblue">{today} 车辆排班时间线</Tag>
-        </Space>
-        <div style={{ minWidth: 900 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "200px repeat(" + hours.length + ", 70px)", borderBottom: "1px solid #f0f0f0", padding: "8px 0", fontWeight: 600, background: "#fafafa" }}>
-            <div style={{ paddingLeft: 12 }}>车辆 / 时间</div>
-            {hours.map(h => <div key={h} style={{ textAlign: "center" }}>{h.toString().padStart(2, "0")}:00</div>)}
-          </div>
-          {mockVehicles.map(v => {
-            const scheds = getVehicleBookings(v.id);
+      <Spin spinning={loading}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {vids.map(vid => {
+            const scheds = timeline[vid] || []
+            const vh = scheds[0]?.vehicle || vehicles.find(v => v.id === vid)
             return (
-              <div key={v.id} style={{ display: "grid", gridTemplateColumns: "200px repeat(" + hours.length + ", 70px)", borderBottom: "1px solid #f0f0f0", padding: "4px 0", alignItems: "center" }}>
-                <div style={{ paddingLeft: 12 }}><div><CarOutlined /> {v.plateNumber}</div><div style={{ fontSize: 12, color: "#888" }}>{v.type} · {v.driverName}</div></div>
-                {hours.map(h => {
-                  const matched = scheds.find(s => { const dep = dayjs(s.departureTime); const arr = dayjs(s.arrivalTime || s.departureTime).add(3, "hour"); return h >= dep.hour() && h <= arr.hour(); });
-                  if (matched) { const booking = mockBookings.find(b => b.id === matched.bookingId); return (<div key={h} title={booking?.orderNo + " - " + getStatusLabel(matched.status)} style={{ background: getStatusColor(matched.status), color: "#fff", padding: "8px 2px", textAlign: "center", borderRadius: 4, fontSize: 11 }}>{booking?.orderNo?.slice(-4)}</div>); }
-                  return <div key={h} />;
-                })}
-              </div>
-            );
+              <Card
+                key={vid}
+                title={
+                  <span>
+                    <CarOutlined /> {vh?.plate_number || vid} - {vh?.vehicle_type || ""}
+                  </span>
+                }
+                size="small"
+              >
+                <Timeline
+                  items={scheds.map(s => ({
+                    color:
+                      s.status === "done"
+                        ? "green"
+                        : s.status === "exception"
+                        ? "red"
+                        : "blue",
+                    children: (
+                      <div>
+                        <div>
+                          <b>{s.booking?.customer_name || "-"}</b>：
+                          {s.booking?.from_address || "-"} → {s.booking?.to_address || "-"}
+                        </div>
+                        <div style={{ fontSize: 12, color: "#666" }}>
+                          {dayjs(s.planned_start).format("HH:mm")} ~{" "}
+                          {dayjs(s.planned_end).format("HH:mm")}
+                          <span style={{ marginLeft: 8 }}>
+                            <StatusBadge type="schedule" value={s.status} />
+                          </span>
+                        </div>
+                      </div>
+                    ),
+                  }))}
+                />
+              </Card>
+            )
           })}
         </div>
-      </div>
-    );
-  };
-
-  const renderTodayBoard = () => (
-    <div>
-      <Row gutter={[16, 16]}>
-        <Col span={6}><Card><Statistic title="今日预约单" value={mockBookings.filter(b => b.moveDate === today).length} /></Card></Col>
-        <Col span={6}><Card><Statistic title="今日排班" value={mockSchedules.length} /></Card></Col>
-        <Col span={6}><Card><Statistic title="进行中" value={mockSchedules.filter(s => s.status !== "pending" && s.status !== "completed").length} /></Card></Col>
-        <Col span={6}><Card><Statistic title="待处理异常" value={mockExceptions.filter(e => e.status !== "resolved").length} valueStyle={{ color: "#cf1322" }} /></Card></Col>
-      </Row>
-      <Card title="今日排班详情" style={{ marginTop: 16 }}>
-        <Table rowKey="id" size="middle" pagination={false} dataSource={mockSchedules} columns={[
-          { title: "排班ID", dataIndex: "id", width: 80 },
-          { title: "订单号", width: 140, render: (_: any, r: VehicleSchedule) => mockBookings.find(b => b.id === r.bookingId)?.orderNo },
-          { title: "车辆", width: 150, render: (_: any, r: VehicleSchedule) => mockVehicles.find(v => v.id === r.vehicleId)?.plateNumber },
-          { title: "组长", width: 100, render: (_: any, r: VehicleSchedule) => mockCrew.find(c => c.id === r.leaderId)?.name },
-          { title: "出发时间", dataIndex: "departureTime", width: 160 },
-          { title: "状态", dataIndex: "status", width: 100, render: (s: ScheduleStatus) => <StatusBadge type="schedule" value={s} /> },
-        ]} />
-      </Card>
-    </div>
-  );
+      </Spin>
+    )
+  }
 
   const renderExceptionCenter = () => (
-    <div>
+    <Spin spinning={loading}>
       <Space style={{ marginBottom: 16 }}>
-        <span><ExclamationCircleOutlined style={{ color: "#faad14" }} /> 模拟触发异常测试：</span>
-        <Button size="small" onClick={() => handleTriggerException("delay")}>延误</Button>
-        <Button size="small" type="primary" onClick={() => handleTriggerException("surcharge")}>加价</Button>
-        <Button size="small" danger onClick={() => handleTriggerException("damage")}>物损</Button>
+        <Button
+          size="small"
+          type="primary"
+          icon={<ExclamationCircleOutlined />}
+          onClick={() => {
+            triggerForm.resetFields()
+            setTriggerModal(true)
+          }}
+        >
+          模拟异常
+        </Button>
       </Space>
-      <Table rowKey="id" columns={exceptionsColumns} dataSource={mockExceptions} size="middle" pagination={{ pageSize: 10 }} />
-    </div>
-  );
+      <Table
+        rowKey="id"
+        columns={exceptionColumns}
+        dataSource={exceptions}
+        size="middle"
+        pagination={{ pageSize: 10 }}
+      />
+    </Spin>
+  )
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
-      <Header style={{ background: "#fff", padding: "0 24px", display: "flex", alignItems: "center", borderBottom: "1px solid #f0f0f0" }}>
-        <span style={{ fontSize: 18, fontWeight: 600 }}><ScheduleOutlined /> 搬家管理系统 - 调度面板</span>
+      <Header
+        style={{
+          background: "#fff",
+          padding: "0 24px",
+          display: "flex",
+          alignItems: "center",
+          borderBottom: "1px solid #f0f0f0",
+        }}
+      >
+        <span style={{ fontSize: 18, fontWeight: 600 }}>
+          <ScheduleOutlined /> 搬家管理系统 - 调度面板
+        </span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 16 }}>
-          <span><TeamOutlined /> {user?.name}（调度员）</span>
-          <Button size="small" icon={<LogoutOutlined />} onClick={() => { logout(); navigate("/login"); }}>退出</Button>
+          <span>
+            <TeamOutlined /> {user?.name}（调度员）
+          </span>
+          <Button
+            size="small"
+            icon={<LogoutOutlined />}
+            onClick={() => {
+              logout()
+              navigate("/login")
+            }}
+          >
+            退出
+          </Button>
         </div>
       </Header>
       <Content style={{ padding: 24 }}>
-        <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
-          { key: "bookings", label: "预约单池", children: renderBookingPool() },
-          { key: "schedules", label: "车辆排班", children: renderVehicleSchedule() },
-          { key: "today", label: "今日看板", children: renderTodayBoard() },
-          { key: "exceptions", label: "异常中心", children: renderExceptionCenter() },
-        ]} />
+        <Tabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          items={[
+            { key: "bookings", label: "预约单池", children: renderBookingPool() },
+            { key: "schedules", label: "车辆排班", children: renderVehicleSchedule() },
+            { key: "today", label: "今日看板", children: renderTodayBoard() },
+            { key: "exceptions", label: "异常中心", children: renderExceptionCenter() },
+          ]}
+        />
       </Content>
-      <Modal title={"一键排班 - " + (currentBooking?.orderNo || "")} open={scheduleModal} onCancel={() => setScheduleModal(false)} onOk={handleSubmitSchedule} okText="提交排班+派工" width={640}>
+
+      <Modal
+        title={"一键排班 - " + (currentBooking?.customer_name || "")}
+        open={scheduleModal}
+        onCancel={() => setScheduleModal(false)}
+        onOk={handleSubmitSchedule}
+        okText="提交排班"
+        confirmLoading={submitLoading}
+        width={640}
+        destroyOnClose
+      >
         {currentBooking && (
           <Form form={scheduleForm} layout="vertical">
             <Card size="small" style={{ marginBottom: 16, background: "#fafafa" }}>
-              <div>📦 <b>{currentBooking.customerName}</b>：{currentBooking.moveFrom} → {currentBooking.moveTo}</div>
-              <div style={{ color: "#666", marginTop: 4 }}>📅 {currentBooking.moveDate} {currentBooking.moveTime} · 约{currentBooking.areaSize}㎡ · ¥{currentBooking.estimatedPrice}</div>
+              <div>
+                <b>{currentBooking.customer_name}</b>：{currentBooking.from_address} →{" "}
+                {currentBooking.to_address}
+              </div>
+              <div style={{ color: "#666", marginTop: 4 }}>
+                {currentBooking.move_date} {currentBooking.move_time} · ¥
+                {currentBooking.base_price}
+              </div>
             </Card>
             <Row gutter={16}>
-              <Col span={12}><Form.Item label="选择车辆" name="vehicleId" rules={[{ required: true, message: "请选择车辆" }]}><Select placeholder="请选择车辆">{mockVehicles.filter(v => v.status === "available").map(v => <Option key={v.id} value={v.id}>{v.plateNumber} - {v.type}（{v.driverName}）</Option>)}</Select></Form.Item></Col>
-              <Col span={12}><Form.Item label="选择组长" name="leaderId" rules={[{ required: true, message: "请选择组长" }]}><Select placeholder="请选择组长">{mockCrew.filter(c => c.role === "leader").map(c => <Option key={c.id} value={c.id}>{c.name}</Option>)}</Select></Form.Item></Col>
-              <Col span={24}><Form.Item label="选择搬运工（多选）" name="workerIds" rules={[{ required: true, message: "请选择至少1名搬运工" }]}><Select mode="multiple" placeholder="请选择搬运工">{mockCrew.filter(c => c.role === "worker").map(c => <Option key={c.id} value={c.id}>{c.name}（{c.status === "available" ? "空闲" : "忙"}）</Option>)}</Select></Form.Item></Col>
-              <Col span={12}><Form.Item label="出发时间" name="departureTime" rules={[{ required: true, message: "请选择出发时间" }]}><DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: "100%" }} /></Form.Item></Col>
-              <Col span={12}><Form.Item label="预计到达时间" name="arrivalTime" rules={[{ required: true, message: "请选择到达时间" }]}><DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: "100%" }} /></Form.Item></Col>
+              <Col span={12}>
+                <Form.Item
+                  label="选择车辆"
+                  name="vehicle_id"
+                  rules={[{ required: true, message: "请选择车辆" }]}
+                >
+                  <Select placeholder="请选择车辆">
+                    {idleVehicles.map(v => (
+                      <Option key={v.id} value={v.id}>
+                        {v.plate_number} - {v.vehicle_type}（{v.driver_name}）
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="选择组长"
+                  name="leader_id"
+                  rules={[{ required: true, message: "请选择组长" }]}
+                >
+                  <Select placeholder="请选择组长">
+                    {leaders.map(c => (
+                      <Option key={c.id} value={c.id}>
+                        {c.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={24}>
+                <Form.Item
+                  label="选择搬运工（多选）"
+                  name="worker_ids"
+                  rules={[{ required: true, message: "请选择至少1名搬运工" }]}
+                >
+                  <Select mode="multiple" placeholder="请选择搬运工">
+                    {workers.map(c => (
+                      <Option key={c.id} value={c.id}>
+                        {c.name}
+                      </Option>
+                    ))}
+                  </Select>
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="计划出发时间"
+                  name="planned_start"
+                  rules={[{ required: true, message: "请选择出发时间" }]}
+                >
+                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item
+                  label="计划到达时间"
+                  name="planned_end"
+                  rules={[{ required: true, message: "请选择到达时间" }]}
+                >
+                  <DatePicker showTime format="YYYY-MM-DD HH:mm" style={{ width: "100%" }} />
+                </Form.Item>
+              </Col>
+              <Col span={24}>
+                <Form.Item label="备注" name="remarks">
+                  <TextArea rows={2} placeholder="请输入备注（可选）" />
+                </Form.Item>
+              </Col>
             </Row>
           </Form>
         )}
       </Modal>
+
+      <Modal
+        title="排班详情"
+        open={detailModal}
+        onCancel={() => setDetailModal(false)}
+        footer={null}
+        width={600}
+        destroyOnClose
+      >
+        <Spin spinning={detailLoading}>
+          {detailSchedule && (
+            <div>
+              <Card size="small" style={{ marginBottom: 12 }}>
+                <div>
+                  <b>车辆：</b>
+                  {detailSchedule.vehicle?.plate_number || "-"}
+                </div>
+                <div>
+                  <b>车型：</b>
+                  {detailSchedule.vehicle?.vehicle_type || "-"}
+                </div>
+                <div>
+                  <b>客户：</b>
+                  {detailSchedule.booking?.customer_name || "-"}
+                </div>
+                <div>
+                  <b>路线：</b>
+                  {detailSchedule.booking?.from_address || "-"} →{" "}
+                  {detailSchedule.booking?.to_address || "-"}
+                </div>
+                <div>
+                  <b>计划时间：</b>
+                  {dayjs(detailSchedule.planned_start).format("YYYY-MM-DD HH:mm")} ~{" "}
+                  {dayjs(detailSchedule.planned_end).format("HH:mm")}
+                </div>
+                <div>
+                  <b>状态：</b>
+                  <StatusBadge type="schedule" value={detailSchedule.status} />
+                </div>
+                {detailSchedule.remarks && (
+                  <div>
+                    <b>备注：</b>
+                    {detailSchedule.remarks}
+                  </div>
+                )}
+              </Card>
+              {detailSchedule.assignments && detailSchedule.assignments.length > 0 && (
+                <Card size="small" title="派工列表">
+                  {detailSchedule.assignments.map((a: CrewAssignment) => (
+                    <div key={a.id} style={{ marginBottom: 4 }}>
+                      {a.crew?.name || a.crew_id} - {a.role}{" "}
+                      <StatusBadge type="assignment" value={a.status} />
+                    </div>
+                  ))}
+                </Card>
+              )}
+            </div>
+          )}
+        </Spin>
+      </Modal>
+
+      <Modal
+        title="模拟异常"
+        open={triggerModal}
+        onCancel={() => setTriggerModal(false)}
+        onOk={handleTriggerException}
+        okText="触发"
+        width={500}
+        destroyOnClose
+      >
+        <Form form={triggerForm} layout="vertical">
+          <Form.Item
+            label="选择预约单"
+            name="booking_id"
+            rules={[{ required: true, message: "请选择预约单" }]}
+          >
+            <Select placeholder="请选择预约单">
+              {bookings.map(b => (
+                <Option key={b.id} value={b.id}>
+                  {b.customer_name} - {b.from_address}
+                </Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            label="异常类型"
+            name="type"
+            rules={[{ required: true, message: "请选择异常类型" }]}
+          >
+            <Select placeholder="请选择异常类型">
+              <Option value="delay">延误</Option>
+              <Option value="surcharge">加价</Option>
+              <Option value="damage">物损</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
     </Layout>
-  );
+  )
 }

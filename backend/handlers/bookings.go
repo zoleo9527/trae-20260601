@@ -42,7 +42,7 @@ func (h *Handler) CreateBooking() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		var b models.Booking
 		if err:=c.BodyParser(&b); err!=nil { return c.Status(400).JSON(fiber.Map{"error":"bad"}) }
-		if b.Status=="" { b.Status = models.BookingPending }
+		if b.Status=="" { b.Status = models.BookingCreated }
 		b.TotalPrice = b.BasePrice + b.ExtraPrice
 		if err:=h.DB.Create(&b).Error; err!=nil { return c.Status(500).JSON(fiber.Map{"error":err.Error()}) }
 		return c.Status(201).JSON(b)
@@ -59,7 +59,9 @@ func (h *Handler) UpdateBooking() fiber.Handler {
 		if err:=c.BodyParser(&data); err!=nil { return c.Status(400).JSON(fiber.Map{"error":"bad"}) }
 		if bp,ok:=data["base_price"].(float64); ok { b.BasePrice = bp }
 		if ep,ok:=data["extra_price"].(float64); ok { b.ExtraPrice = ep }
-		b.TotalPrice = b.BasePrice + b.ExtraPrice
+		if fp,ok:=data["final_price"].(float64); ok { b.TotalPrice = fp } else { b.TotalPrice = b.BasePrice + b.ExtraPrice }
+		if pr,ok:=data["price_remark"].(string); ok { b.PriceRemark = pr }
+		if pa,ok:=data["price_adjusted"].(bool); ok { b.PriceAdjusted = pa }
 		data["total_price"] = b.TotalPrice
 		if err:=h.DB.Model(&b).Updates(data).Error; err!=nil { return c.Status(500).JSON(fiber.Map{"error":err.Error()}) }
 		h.DB.First(&b,id)

@@ -27,7 +27,7 @@ func (h *Handler) CreateException() fiber.Handler {
 			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) {
 				h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid)
 			}
-			for _, du := range h.getUserIDsByRole(models.RoleService) {
+			for _, du := range h.getUserIDsByRole(models.RoleCustomer) {
 				h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid)
 			}
 			if req.Type == models.ExceptionDelay {
@@ -124,7 +124,7 @@ func (h *Handler) TriggerTestException() fiber.Handler {
 		if h.DB.Where("booking_id=?",bid).First(&asgn).Error == nil {
 			reporterID = asgn.CrewID
 		} else {
-			for _, du := range h.getUserIDsByRole(models.RoleCrew) {
+			for _, du := range h.getUserIDsByRole(models.RoleLeader) {
 				reporterID = du; break
 			}
 		}
@@ -159,7 +159,7 @@ func (h *Handler) TriggerTestException() fiber.Handler {
 			if tx.Where("id=?", req.BookingID).First(&bk).Error == nil { bname = bk.CustomerName }
 			rid := exc.ID
 			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) { h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid) }
-			for _, du := range h.getUserIDsByRole(models.RoleService) { h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid) }
+			for _, du := range h.getUserIDsByRole(models.RoleCustomer) { h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid) }
 			if req.Type == models.ExceptionDelay { tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Update("status",models.BookingDelayed) }
 			if req.Type == models.ExceptionSurcharge { tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Update("status",models.BookingSurcharged) }
 			return nil

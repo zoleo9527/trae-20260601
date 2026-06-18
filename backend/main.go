@@ -71,9 +71,9 @@ func seedData(db *gorm.DB) {
 	customerID := uuid.New()
 
 	users := []models.User{
-		{ID: dispatcherID, Username: "dispatcher", Password: "123456", Name: "张调度", Phone: "13800000001", Role: models.RoleDispatcher},
-		{ID: leaderID, Username: "leader", Password: "123456", Name: "李组长", Phone: "13800000002", Role: models.RoleCrew},
-		{ID: customerID, Username: "customer", Password: "123456", Name: "王客服", Phone: "13800000003", Role: models.RoleService},
+		{ID: dispatcherID, Username: "dispatcher", Password: "123456", Name: "调度张调度", Phone: "13800000001", Role: models.RoleDispatcher},
+		{ID: leaderID, Username: "leader", Password: "123456", Name: "组长李队", Phone: "13800000002", Role: models.RoleLeader},
+		{ID: customerID, Username: "customer", Password: "123456", Name: "客服王姐", Phone: "13800000003", Role: models.RoleCustomer},
 	}
 	for _, u := range users {
 		if err := db.Create(&u).Error; err != nil {
@@ -131,7 +131,7 @@ func seedData(db *gorm.DB) {
 			MoveDate:    baseDate.AddDate(0, 0, 3), MoveTime: "09:00-12:00",
 			HouseSize: "两室一厅", Items: "床,衣柜,沙发,餐桌,电视柜,冰箱,洗衣机",
 			BasePrice: 1200, ExtraPrice: 0, TotalPrice: 1200,
-			Status: models.BookingPending, Remarks: "有钢琴需要专业搬运",
+			Status: models.BookingCreated, Remarks: "有钢琴需要专业搬运",
 		},
 		{
 			ID: b2ID, CustomerName: "陈女士", CustomerPhone: "13600000002",

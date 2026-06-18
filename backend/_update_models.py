@@ -1,4 +1,4 @@
-package models
+content = '''package models
 
 import (
 	"time"
@@ -10,9 +10,9 @@ import (
 type Role string
 
 const (
-RoleDispatcher Role = "dispatcher"
-RoleLeader     Role = "leader"
-RoleCustomer   Role = "customer"
+	RoleDispatcher Role = "dispatcher"
+	RoleLeader     Role = "leader"
+	RoleCustomer   Role = "customer"
 )
 
 type User struct {
@@ -367,3 +367,8 @@ func SeedData(db *gorm.DB) error {
 
 	return nil
 }
+'''
+
+with open('models/models.go', 'w') as f:
+    f.write(content)
+print("models/models.go written successfully")

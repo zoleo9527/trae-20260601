@@ -24,7 +24,7 @@ export const useAuthStore = create<AuthState>()(
         const m: Record<Role, EntryConfig> = {
           dispatcher: { title: "调度面板", desc: "预约单池、车辆排班、今日看板、异常中心", route: "/dispatcher", color: "#1677ff" },
           leader: { title: "组长面板", desc: "今日派工状态流转、异常上报", route: "/leader", color: "#52c41a" },
-          customer_service: { title: "客服面板", desc: "预约单处理、异常处理、物损查看", route: "/customer", color: "#fa8c16" },
+          customer: { title: "客服面板", desc: "预约单处理、异常处理、物损查看", route: "/customer", color: "#fa8c16" },
         };
         return m[user.role];
       },

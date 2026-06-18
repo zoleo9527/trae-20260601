@@ -10,7 +10,7 @@ const { Title, Paragraph } = Typography
 const entryConfigMap: Record<Role, { title: string; desc: string; route: string; icon: any; color: string; bg: string }> = {
   dispatcher: { title: "调度面板", desc: "预约单池、车辆排班、今日看板、异常中心", route: "/dispatcher", icon: CarOutlined, color: "#1677ff", bg: "#e6f4ff" },
   leader: { title: "组长面板", desc: "今日派工状态流转、异常上报一步提交", route: "/leader", icon: TeamOutlined, color: "#52c41a", bg: "#f6ffed" },
-  customer_service: { title: "客服面板", desc: "预约单改价、异常退款处理、物损查看", route: "/customer", icon: CustomerServiceOutlined, color: "#fa8c16", bg: "#fff7e6" },
+  customer: { title: "客服面板", desc: "预约单改价、异常退款处理、物损查看", route: "/customer", icon: CustomerServiceOutlined, color: "#fa8c16", bg: "#fff7e6" },
 };
 
 export default function RoleBasedEntry() {
