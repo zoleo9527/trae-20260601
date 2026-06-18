@@ -67,7 +67,7 @@ model User {
   reportedExhibitIssues  ExhibitIssue[] @relation("ReporterExhibitIssues")
   handledExhibitIssues   ExhibitIssue[] @relation("HandlerExhibitIssues")
   reservations           Reservation[]
-  createdSchedules       Schedule[]
+  createdSchedules       Schedule[] @relation("CreatedSchedules")
   assignedSchedules      Schedule[] @relation("AssigneeSchedules")
   reportedMaterialIssues MaterialIssue[] @relation("ReporterMaterialIssues")
   handledMaterialIssues  MaterialIssue[] @relation("HandlerMaterialIssues")

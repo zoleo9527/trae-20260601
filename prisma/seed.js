@@ -189,6 +189,7 @@ async function main() {
         scheduledStart: subHours(today, 2),
         scheduledEnd: subHours(today, 0.5),
         status: 'IN_PROGRESS',
+        createdById: users[3].id,
         assignedAt: subHours(today, 3),
         assignedById: users[0].id
       }
@@ -200,6 +201,7 @@ async function main() {
         scheduledStart: setMinutes(setHours(addDays(today, 1), 10), 0),
         scheduledEnd: setMinutes(setHours(addDays(today, 1), 11), 30),
         status: 'ASSIGNED',
+        createdById: users[3].id,
         assignedAt: today
       }
     })

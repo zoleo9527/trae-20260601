@@ -45,7 +45,8 @@ router.get('/', async (req, res) => {
             contactPhone: true
           }
         },
-        educator: { select: { id: true, name: true, phone: true, role: true } }
+        educator: { select: { id: true, name: true, phone: true, role: true } },
+        createdBy: { select: { id: true, name: true, role: true } }
       },
       orderBy: { scheduledStart: 'asc' },
       skip: (parseInt(page) - 1) * parseInt(limit),
@@ -137,7 +138,8 @@ router.get('/:id', async (req, res) => {
           exhibitIssue: { select: { exhibitName: true, status: true } }
         }
       },
-      educator: { select: { id: true, name: true, phone: true, email: true, role: true } }
+      educator: { select: { id: true, name: true, phone: true, email: true, role: true } },
+      createdBy: { select: { id: true, name: true, role: true, phone: true } }
     }
   });
   

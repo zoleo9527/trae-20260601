@@ -237,7 +237,8 @@ router.patch('/:id/confirm', requireRole('EXHIBIT_EDUCATOR', 'ADMIN'), async (re
         reservationId: reservation.id,
         scheduledStart: reservation.startTime,
         scheduledEnd: reservation.endTime,
-        status: 'PENDING'
+        status: 'PENDING',
+        createdById: userId
       }
     });
     
