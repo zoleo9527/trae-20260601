@@ -3136,18 +3136,20 @@ const courses = [
     currentParticipants: 18,
     status: "approved",
     materials: [
-      { id: "m1", name: "\u9752\u94DC\u4FEE\u590D\u5DE5\u5177", quantity: 18, requiredQuantity: 20, status: "partial" },
+      { id: "m1", name: "\u9752\u94DC\u4FEE\u590D\u5DE5\u5177", quantity: 18, requiredQuantity: 20, status: "partial", confirmedBy: "u4", confirmedAt: "2024-06-10T14:00:00Z" },
       { id: "m2", name: "\u9752\u94DC\u788E\u7247\u6837\u54C1", quantity: 0, requiredQuantity: 20, status: "missing" },
-      { id: "m3", name: "\u4FEE\u590D\u624B\u518C", quantity: 20, requiredQuantity: 20, status: "ready" }
+      { id: "m3", name: "\u4FEE\u590D\u624B\u518C", quantity: 20, requiredQuantity: 20, status: "ready", confirmedBy: "u4", confirmedAt: "2024-06-10T14:05:00Z" }
     ],
     teacherId: "u1",
     submitterId: "u1",
     createdAt: "2024-06-01T09:00:00Z",
     updatedAt: "2024-06-15T14:30:00Z",
     timeline: [
-      { id: "t1", action: "submit", actorId: "u1", actorName: "\u738B\u8001\u5E08", timestamp: "2024-06-01T09:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7" },
-      { id: "t2", action: "review", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-03T10:00:00Z", description: "\u5BA1\u6838\u901A\u8FC7" },
-      { id: "t3", action: "material_check", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-10T14:00:00Z", description: "\u68C0\u67E5\u7269\u6599\u6E05\u5355" }
+      { id: "t1", action: "submit", actorId: "u1", actorName: "\u738B\u8001\u5E08", timestamp: "2024-06-01T09:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7", result: "\u6210\u529F" },
+      { id: "t2", action: "review", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-03T10:00:00Z", description: "\u5BA1\u6838\u901A\u8FC7", result: "\u901A\u8FC7" },
+      { id: "t3", action: "schedule_assign", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-03T10:30:00Z", description: "\u5206\u914D\u8BB2\u5E08\u738B\u8001\u5E08", result: "\u5DF2\u5206\u914D" },
+      { id: "t4", action: "schedule_confirm", actorId: "u1", actorName: "\u738B\u8001\u5E08", timestamp: "2024-06-03T11:00:00Z", description: "\u786E\u8BA4\u6388\u8BFE\u5B89\u6392", result: "\u5DF2\u786E\u8BA4" },
+      { id: "t5", action: "material_check", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-10T14:00:00Z", description: "\u68C0\u67E5\u7269\u6599\u6E05\u5355", result: "\u90E8\u5206\u5B8C\u6210" }
     ],
     issues: [
       { id: "i1", type: "missing_material", title: "\u7F3A\u9752\u94DC\u788E\u7247\u6837\u54C1", description: "\u9700\u898120\u4E2A\u9752\u94DC\u788E\u7247\u6837\u54C1\uFF0C\u76EE\u524D\u5E93\u5B58\u4E3A0", status: "open", createdAt: "2024-06-10T14:30:00Z" },
@@ -3166,19 +3168,21 @@ const courses = [
     currentParticipants: 15,
     status: "approved",
     materials: [
-      { id: "m1", name: "\u53E4\u753B\u590D\u5236\u54C1", quantity: 15, requiredQuantity: 15, status: "ready" },
-      { id: "m2", name: "\u653E\u5927\u955C", quantity: 10, requiredQuantity: 15, status: "partial" },
-      { id: "m3", name: "\u9274\u8D4F\u6307\u5357", quantity: 15, requiredQuantity: 15, status: "ready" }
+      { id: "m1", name: "\u53E4\u753B\u590D\u5236\u54C1", quantity: 15, requiredQuantity: 15, status: "ready", confirmedBy: "u4", confirmedAt: "2024-06-15T10:00:00Z" },
+      { id: "m2", name: "\u653E\u5927\u955C", quantity: 10, requiredQuantity: 15, status: "partial", confirmedBy: "u4", confirmedAt: "2024-06-15T10:15:00Z" },
+      { id: "m3", name: "\u9274\u8D4F\u6307\u5357", quantity: 15, requiredQuantity: 15, status: "ready", confirmedBy: "u4", confirmedAt: "2024-06-15T10:20:00Z" }
     ],
     teacherId: "u2",
     submitterId: "u2",
     createdAt: "2024-06-05T11:00:00Z",
     updatedAt: "2024-06-18T09:00:00Z",
     timeline: [
-      { id: "t1", action: "submit", actorId: "u2", actorName: "\u674E\u8001\u5E08", timestamp: "2024-06-05T11:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7" },
-      { id: "t2", action: "review", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-08T15:00:00Z", description: "\u5BA1\u6838\u901A\u8FC7" },
-      { id: "t3", action: "material_check", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-15T10:00:00Z", description: "\u68C0\u67E5\u7269\u6599\u6E05\u5355" },
-      { id: "t4", action: "registration_open", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-18T09:00:00Z", description: "\u5F00\u653E\u62A5\u540D" }
+      { id: "t1", action: "submit", actorId: "u2", actorName: "\u674E\u8001\u5E08", timestamp: "2024-06-05T11:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7", result: "\u6210\u529F" },
+      { id: "t2", action: "review", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-08T15:00:00Z", description: "\u5BA1\u6838\u901A\u8FC7", result: "\u901A\u8FC7" },
+      { id: "t3", action: "schedule_assign", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-08T15:30:00Z", description: "\u5206\u914D\u8BB2\u5E08\u674E\u8001\u5E08", result: "\u5DF2\u5206\u914D" },
+      { id: "t4", action: "schedule_confirm", actorId: "u2", actorName: "\u674E\u8001\u5E08", timestamp: "2024-06-09T09:00:00Z", description: "\u786E\u8BA4\u6388\u8BFE\u5B89\u6392", result: "\u5DF2\u786E\u8BA4" },
+      { id: "t5", action: "material_check", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-15T10:00:00Z", description: "\u68C0\u67E5\u7269\u6599\u6E05\u5355", result: "\u90E8\u5206\u5B8C\u6210" },
+      { id: "t6", action: "registration_open", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-18T09:00:00Z", description: "\u5F00\u653E\u62A5\u540D", result: "\u5DF2\u5F00\u653E" }
     ],
     issues: [
       { id: "i1", type: "missing_material", title: "\u653E\u5927\u955C\u4E0D\u8DB3", description: "\u9700\u898115\u4E2A\u653E\u5927\u955C\uFF0C\u76EE\u524D\u53EA\u670910\u4E2A", status: "open", createdAt: "2024-06-15T10:30:00Z" }
@@ -3205,7 +3209,8 @@ const courses = [
     createdAt: "2024-06-10T14:00:00Z",
     updatedAt: "2024-06-10T14:00:00Z",
     timeline: [
-      { id: "t1", action: "submit", actorId: "u3", actorName: "\u5F20\u8001\u5E08", timestamp: "2024-06-10T14:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7" }
+      { id: "t1", action: "submit", actorId: "u3", actorName: "\u5F20\u8001\u5E08", timestamp: "2024-06-10T14:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7", result: "\u6210\u529F" },
+      { id: "t2", action: "schedule_assign", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-10T14:00:00Z", description: "\u5206\u914D\u8BB2\u5E08\u5F20\u8001\u5E08", result: "\u5DF2\u5206\u914D" }
     ],
     issues: [
       { id: "i1", type: "missing_material", title: "\u9676\u571F\u5E93\u5B58\u4E0D\u8DB3", description: "\u9700\u898124\u516C\u65A4\u9676\u571F\uFF0C\u76EE\u524D\u5E93\u5B58\u4E3A0", status: "open", createdAt: "2024-06-10T14:15:00Z" },
@@ -3233,7 +3238,7 @@ const courses = [
     createdAt: "2024-06-15T10:00:00Z",
     updatedAt: "2024-06-15T10:00:00Z",
     timeline: [
-      { id: "t1", action: "draft", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-15T10:00:00Z", description: "\u521B\u5EFA\u8BFE\u7A0B\u8349\u7A3F" }
+      { id: "t1", action: "draft", actorId: "u4", actorName: "\u9648\u5FD7\u613F\u8005", timestamp: "2024-06-15T10:00:00Z", description: "\u521B\u5EFA\u8BFE\u7A0B\u8349\u7A3F", result: "\u6210\u529F" }
     ],
     issues: []
   },
@@ -3257,8 +3262,8 @@ const courses = [
     createdAt: "2024-06-08T16:00:00Z",
     updatedAt: "2024-06-12T11:00:00Z",
     timeline: [
-      { id: "t1", action: "submit", actorId: "u2", actorName: "\u674E\u8001\u5E08", timestamp: "2024-06-08T16:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7" },
-      { id: "t2", action: "review", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-12T11:00:00Z", description: "\u5BA1\u6838\u672A\u901A\u8FC7" }
+      { id: "t1", action: "submit", actorId: "u2", actorName: "\u674E\u8001\u5E08", timestamp: "2024-06-08T16:00:00Z", description: "\u63D0\u4EA4\u8BFE\u7A0B\u7533\u8BF7", result: "\u6210\u529F" },
+      { id: "t2", action: "review", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-12T11:00:00Z", description: "\u5BA1\u6838\u672A\u901A\u8FC7", result: "\u672A\u901A\u8FC7" }
     ],
     issues: [
       { id: "i1", type: "review_failed", title: "\u8BFE\u7A0B\u5185\u5BB9\u4E0D\u7B26\u5408\u8981\u6C42", description: "\u8BFE\u7A0B\u4E3B\u9898\u4E0E\u535A\u7269\u9986\u5B9A\u4F4D\u4E0D\u7B26\uFF0C\u9700\u8981\u91CD\u65B0\u8C03\u6574", status: "resolved", createdAt: "2024-06-12T11:00:00Z", resolvedAt: "2024-06-12T11:30:00Z", resolvedBy: "u5" }
@@ -3277,8 +3282,18 @@ const waitlist = [
   { id: "w1", courseId: "c1", participantName: "\u5434\u4E5D", phone: "13800138007", email: "wujiu@example.com", position: 1, status: "active", createdAt: "2024-06-16T11:00:00Z", updatedAt: "2024-06-16T11:00:00Z" },
   { id: "w2", courseId: "c1", participantName: "\u90D1\u5341", phone: "13800138008", email: "zhengshi@example.com", position: 2, status: "active", createdAt: "2024-06-16T11:30:00Z", updatedAt: "2024-06-16T11:30:00Z" },
   { id: "w3", courseId: "c2", participantName: "\u94B1\u5341\u4E00", phone: "13800138009", email: "qianshiyi@example.com", position: 1, status: "active", createdAt: "2024-06-18T10:00:00Z", updatedAt: "2024-06-18T10:00:00Z" },
-  { id: "w4", courseId: "c2", participantName: "\u51AF\u5341\u4E8C", phone: "13800138010", email: "fengshi@er@example.com", position: 2, status: "active", createdAt: "2024-06-18T10:30:00Z", updatedAt: "2024-06-18T10:30:00Z" },
-  { id: "w5", courseId: "c3", participantName: "\u9648\u5341\u4E09", phone: "13800138011", email: "chenshisan@example.com", position: 1, status: "active", createdAt: "2024-06-14T09:00:00Z", updatedAt: "2024-06-14T09:00:00Z" }
+  { id: "w4", courseId: "c2", participantName: "\u51AF\u5341\u4E8C", phone: "13800138010", email: "fengshier@example.com", position: 2, status: "active", createdAt: "2024-06-18T10:30:00Z", updatedAt: "2024-06-18T10:30:00Z" },
+  { id: "w5", courseId: "c3", participantName: "\u9648\u5341\u4E09", phone: "13800138011", email: "chenshisan@example.com", position: 1, status: "active", createdAt: "2024-06-14T09:00:00Z", updatedAt: "2024-06-14T09:00:00Z" },
+  { id: "w6", courseId: "c1", participantName: "\u5218\u5341\u56DB", phone: "13800138012", email: "liushisi@example.com", position: 0, status: "promoted", createdAt: "2024-06-15T14:00:00Z", updatedAt: "2024-06-16T08:00:00Z", promotedAt: "2024-06-16T08:00:00Z", promotedBy: "u5", handledBy: "u5", handledAt: "2024-06-16T08:00:00Z", handledResult: "promoted" }
+];
+const schedules = [
+  { id: "s1", teacherId: "u1", courseId: "c1", date: "2024-07-15", status: "confirmed", assignedAt: "2024-06-03T10:00:00Z", confirmedAt: "2024-06-03T11:00:00Z", assignedBy: "u5", confirmedBy: "u1" },
+  { id: "s2", teacherId: "u2", courseId: "c2", date: "2024-07-20", status: "confirmed", assignedAt: "2024-06-08T15:00:00Z", confirmedAt: "2024-06-09T09:00:00Z", assignedBy: "u6", confirmedBy: "u2" },
+  { id: "s3", teacherId: "u3", courseId: "c3", date: "2024-07-25", status: "assigned", assignedAt: "2024-06-10T14:00:00Z", assignedBy: "u5" }
+];
+const waitlistHistory = [
+  { id: "h1", waitlistEntryId: "w6", courseId: "c1", action: "promote", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-16T08:00:00Z", result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D", notes: "\u539F\u62A5\u540D\u5B66\u5458\u53D6\u6D88\uFF0C\u5019\u8865\u5B66\u5458\u5347\u7EA7" },
+  { id: "h2", waitlistEntryId: "w1", courseId: "c1", action: "promote", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-17T10:30:00Z", result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1" }
 ];
 
 const courses_get = defineEventHandler(() => {
@@ -3310,12 +3325,29 @@ const _id__get = defineEventHandler((event) => {
   const submitter = users.find((u) => u.id === course.submitterId);
   const courseRegistrations = registrations.filter((r) => r.courseId === id && r.status === "confirmed");
   const courseWaitlist = waitlist.filter((w) => w.courseId === id && w.status === "active");
+  const courseSchedule = schedules.find((s) => s.courseId === id);
+  const scheduleTeacher = courseSchedule ? users.find((u) => u.id === courseSchedule.teacherId) : null;
+  const scheduleAssigner = (courseSchedule == null ? void 0 : courseSchedule.assignedBy) ? users.find((u) => u.id === courseSchedule.assignedBy) : null;
+  const scheduleConfirmer = (courseSchedule == null ? void 0 : courseSchedule.confirmedBy) ? users.find((u) => u.id === courseSchedule.confirmedBy) : null;
+  const courseWaitlistHistory = waitlistHistory.filter((h) => h.courseId === id);
+  const confirmedMaterials = course.materials.filter((m) => m.confirmedBy).length;
+  const totalMaterials = course.materials.length;
+  const materialConfirmationRate = totalMaterials > 0 ? Math.round(confirmedMaterials / totalMaterials * 100) : 0;
   return {
     ...course,
     teacherName: (teacher == null ? void 0 : teacher.name) || "\u672A\u77E5",
     submitterName: (submitter == null ? void 0 : submitter.name) || "\u672A\u77E5",
     registrations: courseRegistrations,
     waitlist: courseWaitlist,
+    schedule: courseSchedule ? {
+      ...courseSchedule,
+      teacherName: (scheduleTeacher == null ? void 0 : scheduleTeacher.name) || "\u672A\u77E5",
+      assignerName: (scheduleAssigner == null ? void 0 : scheduleAssigner.name) || "\u672A\u77E5",
+      confirmerName: (scheduleConfirmer == null ? void 0 : scheduleConfirmer.name) || "\u672A\u77E5"
+    } : null,
+    waitlistHistory: courseWaitlistHistory,
+    materialConfirmationRate,
+    confirmedMaterials,
     openIssues: course.issues.filter((i) => i.status === "open").length
   };
 });
@@ -3336,8 +3368,23 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   if (!waitlistEntry) {
     throw createError({ statusCode: 404, message: "\u5019\u8865\u8BB0\u5F55\u4E0D\u5B58\u5728" });
   }
+  const actor = users.find((u) => u.id === body.actorId);
+  if (!actor || actor.role !== "manager") {
+    throw createError({ statusCode: 403, message: "\u53EA\u6709\u6D3B\u52A8\u4E3B\u7BA1\u53EF\u4EE5\u8FDB\u884C\u5019\u8865\u5347\u7EA7" });
+  }
   const courseRegistrations = registrations.filter((r) => r.courseId === id && r.status === "confirmed");
   if (courseRegistrations.length >= course.maxParticipants) {
+    const historyEntry2 = {
+      id: `h${Date.now()}`,
+      waitlistEntryId: waitlistEntry.id,
+      courseId: id,
+      action: "promote",
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1"
+    };
+    waitlistHistory.push(historyEntry2);
     throw createError({ statusCode: 400, message: "\u8BFE\u7A0B\u540D\u989D\u5DF2\u6EE1\uFF0C\u65E0\u6CD5\u5347\u7EA7" });
   }
   const newRegistration = {
@@ -3348,13 +3395,20 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
     email: waitlistEntry.email,
     status: "confirmed",
     createdAt: waitlistEntry.createdAt,
-    updatedAt: (/* @__PURE__ */ new Date()).toISOString()
+    updatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    promotedFromWaitlist: true,
+    promotedBy: body.actorId,
+    promotedAt: (/* @__PURE__ */ new Date()).toISOString()
   };
   registrations.push(newRegistration);
   const waitlistIndex = waitlist.findIndex((w) => w.id === body.waitlistId);
   if (waitlistIndex !== -1) {
     waitlist[waitlistIndex].status = "promoted";
     waitlist[waitlistIndex].promotedAt = (/* @__PURE__ */ new Date()).toISOString();
+    waitlist[waitlistIndex].promotedBy = body.actorId;
+    waitlist[waitlistIndex].handledBy = body.actorId;
+    waitlist[waitlistIndex].handledAt = (/* @__PURE__ */ new Date()).toISOString();
+    waitlist[waitlistIndex].handledResult = "promoted";
     waitlist[waitlistIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
   }
   waitlist.filter((w) => w.courseId === id && w.status === "active" && w.position > waitlistEntry.position).forEach((w) => {
@@ -3364,12 +3418,36 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   const courseIndex = courses.findIndex((c) => c.id === id);
   if (courseIndex !== -1) {
     courses[courseIndex].currentParticipants++;
+    courses[courseIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const newTimelineItem = {
+      id: `t${Date.now()}`,
+      action: "waitlist_promote",
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      description: `\u5C06\u5019\u8865\u5B66\u5458 ${waitlistEntry.participantName} \u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D`,
+      result: "\u6210\u529F"
+    };
+    courses[courseIndex].timeline.push(newTimelineItem);
   }
+  const historyEntry = {
+    id: `h${Date.now()}`,
+    waitlistEntryId: waitlistEntry.id,
+    courseId: id,
+    action: "promote",
+    actorId: body.actorId,
+    actorName: actor.name,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D",
+    notes: body.notes
+  };
+  waitlistHistory.push(historyEntry);
   return {
     success: true,
     message: `\u5DF2\u5C06 ${waitlistEntry.participantName} \u4ECE\u5019\u8865\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D`,
     registration: newRegistration,
-    waitlistEntry: waitlist[waitlistIndex]
+    waitlistEntry: waitlist[waitlistIndex],
+    historyEntry
   };
 });
 
@@ -3453,9 +3531,14 @@ const register_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.definePro
 
 const resetData_post = defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
+  const body = await readBody(event);
   const courseIndex = courses.findIndex((c) => c.id === id);
   if (courseIndex === -1) {
     throw createError({ statusCode: 404, message: "\u8BFE\u7A0B\u4E0D\u5B58\u5728" });
+  }
+  const actor = users.find((u) => u.id === body.actorId);
+  if (!actor || actor.role !== "manager") {
+    throw createError({ statusCode: 403, message: "\u53EA\u6709\u6D3B\u52A8\u4E3B\u7BA1\u53EF\u4EE5\u91CD\u7F6E\u6570\u636E" });
   }
   const course = courses[courseIndex];
   registrations.filter((r) => r.courseId === id).forEach((r) => {
@@ -3469,6 +3552,9 @@ const resetData_post = defineEventHandler(async (event) => {
     const idx = waitlist.findIndex((entry) => entry.id === w.id);
     if (idx !== -1) {
       waitlist[idx].status = "cancelled";
+      waitlist[idx].handledBy = body.actorId;
+      waitlist[idx].handledAt = (/* @__PURE__ */ new Date()).toISOString();
+      waitlist[idx].handledResult = "cancelled";
       waitlist[idx].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     }
   });
@@ -3477,16 +3563,19 @@ const resetData_post = defineEventHandler(async (event) => {
   const newTimelineItem = {
     id: `t${Date.now()}`,
     action: "reset",
-    actorId: "system",
-    actorName: "\u7CFB\u7EDF\u7BA1\u7406\u5458",
+    actorId: body.actorId,
+    actorName: actor.name,
     timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-    description: "\u91CD\u7F6E\u62A5\u540D\u6570\u636E"
+    description: "\u91CD\u7F6E\u62A5\u540D\u6570\u636E",
+    result: "\u6210\u529F"
   };
   courses[courseIndex].timeline.push(newTimelineItem);
   return {
     success: true,
     message: `\u5DF2\u91CD\u7F6E\u8BFE\u7A0B\u300C${course.title}\u300D\u7684\u6240\u6709\u62A5\u540D\u6570\u636E`,
-    course: courses[courseIndex]
+    course: courses[courseIndex],
+    resetBy: actor.name,
+    resetAt: (/* @__PURE__ */ new Date()).toISOString()
   };
 });
 

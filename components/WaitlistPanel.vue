@@ -61,7 +61,7 @@ const handlePromote = async (entry: WaitlistEntry) => {
     const res = await fetch(`/api/courses/${entry.courseId}/promote-waitlist`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ waitlistId: entry.id })
+      body: JSON.stringify({ waitlistId: entry.id, actorId: props.currentUser.id })
     })
 
     const data = await res.json()
@@ -110,7 +110,7 @@ watch(() => props.selectedCourseId, () => {
         <p>暂无候补记录</p>
       </div>
 
-      <div v-else class="space-y-3 max-h-96 overflow-y-auto">
+      <div v-else class="space-y-3 max-h-80 overflow-y-auto">
         <div 
           v-for="entry in filteredWaitlist" 
           :key="entry.id"
@@ -120,7 +120,7 @@ watch(() => props.selectedCourseId, () => {
             <span class="font-medium text-sm">{{ entry.participantName }}</span>
             <span class="badge badge-info">#{{ entry.position }}</span>
           </div>
-          <div class="text-xs text-gray-500 mb-2">{{ entry.phone }}</div>
+          <div class="text-xs text-gray-500 mb-1">{{ entry.phone }}</div>
           <div class="text-xs text-gray-400 mb-2">{{ entry.courseTitle }}</div>
           <div class="text-xs text-gray-400">{{ formatDate(entry.createdAt) }}</div>
           <button 

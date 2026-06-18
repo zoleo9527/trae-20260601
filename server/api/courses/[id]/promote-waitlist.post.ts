@@ -1,4 +1,4 @@
-import { courses, registrations, waitlist } from '../../../../server/data/mockData'
+import { courses, registrations, waitlist, users, waitlistHistory } from '../../../../server/data/mockData'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -14,9 +14,26 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: '候补记录不存在' })
   }
   
+  const actor = users.find(u => u.id === body.actorId)
+  if (!actor || actor.role !== 'manager') {
+    throw createError({ statusCode: 403, message: '只有活动主管可以进行候补升级' })
+  }
+  
   const courseRegistrations = registrations.filter(r => r.courseId === id && r.status === 'confirmed')
   
   if (courseRegistrations.length >= course.maxParticipants) {
+    const historyEntry = {
+      id: `h${Date.now()}`,
+      waitlistEntryId: waitlistEntry.id,
+      courseId: id!,
+      action: 'promote' as const,
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: new Date().toISOString(),
+      result: '升级失败，名额已满'
+    }
+    waitlistHistory.push(historyEntry)
+    
     throw createError({ statusCode: 400, message: '课程名额已满，无法升级' })
   }
   
@@ -28,7 +45,10 @@ export default defineEventHandler(async (event) => {
     email: waitlistEntry.email,
     status: 'confirmed' as const,
     createdAt: waitlistEntry.createdAt,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
+    promotedFromWaitlist: true,
+    promotedBy: body.actorId,
+    promotedAt: new Date().toISOString()
   }
   
   registrations.push(newRegistration)
@@ -37,6 +57,10 @@ export default defineEventHandler(async (event) => {
   if (waitlistIndex !== -1) {
     waitlist[waitlistIndex].status = 'promoted'
     waitlist[waitlistIndex].promotedAt = new Date().toISOString()
+    waitlist[waitlistIndex].promotedBy = body.actorId
+    waitlist[waitlistIndex].handledBy = body.actorId
+    waitlist[waitlistIndex].handledAt = new Date().toISOString()
+    waitlist[waitlistIndex].handledResult = 'promoted'
     waitlist[waitlistIndex].updatedAt = new Date().toISOString()
   }
   
@@ -50,12 +74,38 @@ export default defineEventHandler(async (event) => {
   const courseIndex = courses.findIndex(c => c.id === id)
   if (courseIndex !== -1) {
     courses[courseIndex].currentParticipants++
+    courses[courseIndex].updatedAt = new Date().toISOString()
+    
+    const newTimelineItem = {
+      id: `t${Date.now()}`,
+      action: 'waitlist_promote',
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: new Date().toISOString(),
+      description: `将候补学员 ${waitlistEntry.participantName} 升级为正式报名`,
+      result: '成功'
+    }
+    courses[courseIndex].timeline.push(newTimelineItem)
   }
+  
+  const historyEntry = {
+    id: `h${Date.now()}`,
+    waitlistEntryId: waitlistEntry.id,
+    courseId: id!,
+    action: 'promote' as const,
+    actorId: body.actorId,
+    actorName: actor.name,
+    timestamp: new Date().toISOString(),
+    result: '成功升级为正式报名',
+    notes: body.notes
+  }
+  waitlistHistory.push(historyEntry)
   
   return {
     success: true,
     message: `已将 ${waitlistEntry.participantName} 从候补升级为正式报名`,
     registration: newRegistration,
-    waitlistEntry: waitlist[waitlistIndex]
+    waitlistEntry: waitlist[waitlistIndex],
+    historyEntry
   }
 })

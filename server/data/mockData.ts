@@ -11,6 +11,8 @@ export interface Material {
   quantity: number
   requiredQuantity: number
   status: 'ready' | 'missing' | 'partial'
+  confirmedBy?: string
+  confirmedAt?: string
 }
 
 export interface Course {
@@ -40,6 +42,7 @@ export interface TimelineItem {
   actorName: string
   timestamp: string
   description: string
+  result?: string
 }
 
 export interface Issue {
@@ -62,6 +65,9 @@ export interface Registration {
   status: 'confirmed' | 'waitlist' | 'cancelled'
   createdAt: string
   updatedAt: string
+  promotedFromWaitlist?: boolean
+  promotedBy?: string
+  promotedAt?: string
 }
 
 export interface WaitlistEntry {
@@ -75,6 +81,10 @@ export interface WaitlistEntry {
   createdAt: string
   updatedAt: string
   promotedAt?: string
+  promotedBy?: string
+  handledBy?: string
+  handledAt?: string
+  handledResult?: 'promoted' | 'rejected' | 'cancelled'
 }
 
 export interface TeacherSchedule {
@@ -85,6 +95,20 @@ export interface TeacherSchedule {
   status: 'assigned' | 'confirmed' | 'completed' | 'cancelled'
   assignedAt: string
   confirmedAt?: string
+  assignedBy?: string
+  confirmedBy?: string
+}
+
+export interface WaitlistHistory {
+  id: string
+  waitlistEntryId: string
+  courseId: string
+  action: 'promote' | 'reject' | 'cancel'
+  actorId: string
+  actorName: string
+  timestamp: string
+  result: string
+  notes?: string
 }
 
 export const users: User[] = [
@@ -117,18 +141,20 @@ export const courses: Course[] = [
     currentParticipants: 18,
     status: 'approved',
     materials: [
-      { id: 'm1', name: '青铜修复工具', quantity: 18, requiredQuantity: 20, status: 'partial' },
+      { id: 'm1', name: '青铜修复工具', quantity: 18, requiredQuantity: 20, status: 'partial', confirmedBy: 'u4', confirmedAt: '2024-06-10T14:00:00Z' },
       { id: 'm2', name: '青铜碎片样品', quantity: 0, requiredQuantity: 20, status: 'missing' },
-      { id: 'm3', name: '修复手册', quantity: 20, requiredQuantity: 20, status: 'ready' },
+      { id: 'm3', name: '修复手册', quantity: 20, requiredQuantity: 20, status: 'ready', confirmedBy: 'u4', confirmedAt: '2024-06-10T14:05:00Z' },
     ],
     teacherId: 'u1',
     submitterId: 'u1',
     createdAt: '2024-06-01T09:00:00Z',
     updatedAt: '2024-06-15T14:30:00Z',
     timeline: [
-      { id: 't1', action: 'submit', actorId: 'u1', actorName: '王老师', timestamp: '2024-06-01T09:00:00Z', description: '提交课程申请' },
-      { id: 't2', action: 'review', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-03T10:00:00Z', description: '审核通过' },
-      { id: 't3', action: 'material_check', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-10T14:00:00Z', description: '检查物料清单' },
+      { id: 't1', action: 'submit', actorId: 'u1', actorName: '王老师', timestamp: '2024-06-01T09:00:00Z', description: '提交课程申请', result: '成功' },
+      { id: 't2', action: 'review', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-03T10:00:00Z', description: '审核通过', result: '通过' },
+      { id: 't3', action: 'schedule_assign', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-03T10:30:00Z', description: '分配讲师王老师', result: '已分配' },
+      { id: 't4', action: 'schedule_confirm', actorId: 'u1', actorName: '王老师', timestamp: '2024-06-03T11:00:00Z', description: '确认授课安排', result: '已确认' },
+      { id: 't5', action: 'material_check', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-10T14:00:00Z', description: '检查物料清单', result: '部分完成' },
     ],
     issues: [
       { id: 'i1', type: 'missing_material', title: '缺青铜碎片样品', description: '需要20个青铜碎片样品，目前库存为0', status: 'open', createdAt: '2024-06-10T14:30:00Z' },
@@ -147,19 +173,21 @@ export const courses: Course[] = [
     currentParticipants: 15,
     status: 'approved',
     materials: [
-      { id: 'm1', name: '古画复制品', quantity: 15, requiredQuantity: 15, status: 'ready' },
-      { id: 'm2', name: '放大镜', quantity: 10, requiredQuantity: 15, status: 'partial' },
-      { id: 'm3', name: '鉴赏指南', quantity: 15, requiredQuantity: 15, status: 'ready' },
+      { id: 'm1', name: '古画复制品', quantity: 15, requiredQuantity: 15, status: 'ready', confirmedBy: 'u4', confirmedAt: '2024-06-15T10:00:00Z' },
+      { id: 'm2', name: '放大镜', quantity: 10, requiredQuantity: 15, status: 'partial', confirmedBy: 'u4', confirmedAt: '2024-06-15T10:15:00Z' },
+      { id: 'm3', name: '鉴赏指南', quantity: 15, requiredQuantity: 15, status: 'ready', confirmedBy: 'u4', confirmedAt: '2024-06-15T10:20:00Z' },
     ],
     teacherId: 'u2',
     submitterId: 'u2',
     createdAt: '2024-06-05T11:00:00Z',
     updatedAt: '2024-06-18T09:00:00Z',
     timeline: [
-      { id: 't1', action: 'submit', actorId: 'u2', actorName: '李老师', timestamp: '2024-06-05T11:00:00Z', description: '提交课程申请' },
-      { id: 't2', action: 'review', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-08T15:00:00Z', description: '审核通过' },
-      { id: 't3', action: 'material_check', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-15T10:00:00Z', description: '检查物料清单' },
-      { id: 't4', action: 'registration_open', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-18T09:00:00Z', description: '开放报名' },
+      { id: 't1', action: 'submit', actorId: 'u2', actorName: '李老师', timestamp: '2024-06-05T11:00:00Z', description: '提交课程申请', result: '成功' },
+      { id: 't2', action: 'review', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-08T15:00:00Z', description: '审核通过', result: '通过' },
+      { id: 't3', action: 'schedule_assign', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-08T15:30:00Z', description: '分配讲师李老师', result: '已分配' },
+      { id: 't4', action: 'schedule_confirm', actorId: 'u2', actorName: '李老师', timestamp: '2024-06-09T09:00:00Z', description: '确认授课安排', result: '已确认' },
+      { id: 't5', action: 'material_check', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-15T10:00:00Z', description: '检查物料清单', result: '部分完成' },
+      { id: 't6', action: 'registration_open', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-18T09:00:00Z', description: '开放报名', result: '已开放' },
     ],
     issues: [
       { id: 'i1', type: 'missing_material', title: '放大镜不足', description: '需要15个放大镜，目前只有10个', status: 'open', createdAt: '2024-06-15T10:30:00Z' },
@@ -186,7 +214,8 @@ export const courses: Course[] = [
     createdAt: '2024-06-10T14:00:00Z',
     updatedAt: '2024-06-10T14:00:00Z',
     timeline: [
-      { id: 't1', action: 'submit', actorId: 'u3', actorName: '张老师', timestamp: '2024-06-10T14:00:00Z', description: '提交课程申请' },
+      { id: 't1', action: 'submit', actorId: 'u3', actorName: '张老师', timestamp: '2024-06-10T14:00:00Z', description: '提交课程申请', result: '成功' },
+      { id: 't2', action: 'schedule_assign', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-10T14:00:00Z', description: '分配讲师张老师', result: '已分配' },
     ],
     issues: [
       { id: 'i1', type: 'missing_material', title: '陶土库存不足', description: '需要24公斤陶土，目前库存为0', status: 'open', createdAt: '2024-06-10T14:15:00Z' },
@@ -214,7 +243,7 @@ export const courses: Course[] = [
     createdAt: '2024-06-15T10:00:00Z',
     updatedAt: '2024-06-15T10:00:00Z',
     timeline: [
-      { id: 't1', action: 'draft', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-15T10:00:00Z', description: '创建课程草稿' },
+      { id: 't1', action: 'draft', actorId: 'u4', actorName: '陈志愿者', timestamp: '2024-06-15T10:00:00Z', description: '创建课程草稿', result: '成功' },
     ],
     issues: []
   },
@@ -238,8 +267,8 @@ export const courses: Course[] = [
     createdAt: '2024-06-08T16:00:00Z',
     updatedAt: '2024-06-12T11:00:00Z',
     timeline: [
-      { id: 't1', action: 'submit', actorId: 'u2', actorName: '李老师', timestamp: '2024-06-08T16:00:00Z', description: '提交课程申请' },
-      { id: 't2', action: 'review', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-12T11:00:00Z', description: '审核未通过' },
+      { id: 't1', action: 'submit', actorId: 'u2', actorName: '李老师', timestamp: '2024-06-08T16:00:00Z', description: '提交课程申请', result: '成功' },
+      { id: 't2', action: 'review', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-12T11:00:00Z', description: '审核未通过', result: '未通过' },
     ],
     issues: [
       { id: 'i1', type: 'review_failed', title: '课程内容不符合要求', description: '课程主题与博物馆定位不符，需要重新调整', status: 'resolved', createdAt: '2024-06-12T11:00:00Z', resolvedAt: '2024-06-12T11:30:00Z', resolvedBy: 'u5' },
@@ -260,12 +289,18 @@ export const waitlist: WaitlistEntry[] = [
   { id: 'w1', courseId: 'c1', participantName: '吴九', phone: '13800138007', email: 'wujiu@example.com', position: 1, status: 'active', createdAt: '2024-06-16T11:00:00Z', updatedAt: '2024-06-16T11:00:00Z' },
   { id: 'w2', courseId: 'c1', participantName: '郑十', phone: '13800138008', email: 'zhengshi@example.com', position: 2, status: 'active', createdAt: '2024-06-16T11:30:00Z', updatedAt: '2024-06-16T11:30:00Z' },
   { id: 'w3', courseId: 'c2', participantName: '钱十一', phone: '13800138009', email: 'qianshiyi@example.com', position: 1, status: 'active', createdAt: '2024-06-18T10:00:00Z', updatedAt: '2024-06-18T10:00:00Z' },
-  { id: 'w4', courseId: 'c2', participantName: '冯十二', phone: '13800138010', email: 'fengshi@er@example.com', position: 2, status: 'active', createdAt: '2024-06-18T10:30:00Z', updatedAt: '2024-06-18T10:30:00Z' },
+  { id: 'w4', courseId: 'c2', participantName: '冯十二', phone: '13800138010', email: 'fengshier@example.com', position: 2, status: 'active', createdAt: '2024-06-18T10:30:00Z', updatedAt: '2024-06-18T10:30:00Z' },
   { id: 'w5', courseId: 'c3', participantName: '陈十三', phone: '13800138011', email: 'chenshisan@example.com', position: 1, status: 'active', createdAt: '2024-06-14T09:00:00Z', updatedAt: '2024-06-14T09:00:00Z' },
+  { id: 'w6', courseId: 'c1', participantName: '刘十四', phone: '13800138012', email: 'liushisi@example.com', position: 0, status: 'promoted', createdAt: '2024-06-15T14:00:00Z', updatedAt: '2024-06-16T08:00:00Z', promotedAt: '2024-06-16T08:00:00Z', promotedBy: 'u5', handledBy: 'u5', handledAt: '2024-06-16T08:00:00Z', handledResult: 'promoted' },
 ]
 
 export const schedules: TeacherSchedule[] = [
-  { id: 's1', teacherId: 'u1', courseId: 'c1', date: '2024-07-15', status: 'confirmed', assignedAt: '2024-06-03T10:00:00Z', confirmedAt: '2024-06-03T11:00:00Z' },
-  { id: 's2', teacherId: 'u2', courseId: 'c2', date: '2024-07-20', status: 'confirmed', assignedAt: '2024-06-08T15:00:00Z', confirmedAt: '2024-06-09T09:00:00Z' },
-  { id: 's3', teacherId: 'u3', courseId: 'c3', date: '2024-07-25', status: 'assigned', assignedAt: '2024-06-10T14:00:00Z' },
+  { id: 's1', teacherId: 'u1', courseId: 'c1', date: '2024-07-15', status: 'confirmed', assignedAt: '2024-06-03T10:00:00Z', confirmedAt: '2024-06-03T11:00:00Z', assignedBy: 'u5', confirmedBy: 'u1' },
+  { id: 's2', teacherId: 'u2', courseId: 'c2', date: '2024-07-20', status: 'confirmed', assignedAt: '2024-06-08T15:00:00Z', confirmedAt: '2024-06-09T09:00:00Z', assignedBy: 'u6', confirmedBy: 'u2' },
+  { id: 's3', teacherId: 'u3', courseId: 'c3', date: '2024-07-25', status: 'assigned', assignedAt: '2024-06-10T14:00:00Z', assignedBy: 'u5' },
+]
+
+export const waitlistHistory: WaitlistHistory[] = [
+  { id: 'h1', waitlistEntryId: 'w6', courseId: 'c1', action: 'promote', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-16T08:00:00Z', result: '成功升级为正式报名', notes: '原报名学员取消，候补学员升级' },
+  { id: 'h2', waitlistEntryId: 'w1', courseId: 'c1', action: 'promote', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-17T10:30:00Z', result: '升级失败，名额已满' },
 ]
