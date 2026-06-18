@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Role } from '../../common/enums/role.enum';
 
 export class AssignQualityDto {
@@ -18,4 +18,10 @@ export class AssignQualityDto {
   @IsNotEmpty()
   @MaxLength(100)
   assignedName: string;
+
+  @ApiProperty({ description: '截止时间小时数', example: 24, required: false, default: 24 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  deadlineHours?: number = 24;
 }

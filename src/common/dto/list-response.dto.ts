@@ -4,6 +4,9 @@ export class ListResponseDto<T> {
   @ApiProperty({ description: '数据列表' })
   list: T[];
 
+  @ApiProperty({ description: '数据列表（与list同义，保持兼容性）' })
+  items: T[];
+
   @ApiProperty({ description: '总条数' })
   total: number;
 
@@ -15,6 +18,7 @@ export class ListResponseDto<T> {
 
   constructor(list: T[], total: number, page: number, pageSize: number) {
     this.list = list;
+    this.items = list;
     this.total = total;
     this.page = page;
     this.pageSize = pageSize;

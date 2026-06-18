@@ -8,6 +8,7 @@ import { QueryOrderDto } from "../dto/query-order.dto";
 import { ReportNoShowDto, NoShowParty } from "../dto/report-no-show.dto";
 import { HandleNoShowDto, NoShowResolutionType } from "../dto/handle-no-show.dto";
 import { ClarifyServiceDto } from "../dto/clarify-service.dto";
+import { AssignOrderOwnerDto } from "../dto/assign-owner.dto";
 import { OrderStatus } from "../../common/enums/order-status.enum";
 import { Role } from "../../common/enums";
 import { ListResponseDto } from "../../common/dto/list-response.dto";
@@ -228,6 +229,25 @@ export class OrderService {
     return saved;
   }
 
+  async assignOwner(
+    id: string,
+    dto: AssignOrderOwnerDto,
+    actor: Actor,
+  ): Promise<Order> {
+    const order = await this.findOneOrFail(id);
+    const old = {
+      ownerRole: order.ownerRole,
+      ownerId: order.ownerId,
+      ownerName: order.ownerName,
+    };
+    order.ownerRole = dto.ownerRole;
+    order.ownerId = dto.ownerId;
+    order.ownerName = dto.ownerName;
+    const saved = await this.orderRepo.save(order);
+    await this.auditQuickLog(id, AuditAction.ASSIGN, actor, { old, new: dto });
+    return saved;
+  }
+
   async confirm(id: string, actor: Actor): Promise<Order> {
     return this.updateStatus(id, OrderStatus.CONFIRMED, actor);
   }
@@ -286,6 +306,11 @@ export class OrderService {
     const { stalenessHours, stalled } = calcStaleness(order, now);
     const auditTrail = await this.getAuditTrail(id);
     return { ...order, stalenessHours, stalled, auditTrail };
+  }
+
+  async getAuditTrailOnly(id: string): Promise<any[]> {
+    await this.findOneOrFail(id);
+    return this.getAuditTrail(id);
   }
 
   async update(id: string, dto: UpdateOrderDto, actor: Actor): Promise<Order> {

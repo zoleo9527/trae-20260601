@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, In, Not } from 'typeorm';
+import { Repository, In, Not, LessThan } from 'typeorm';
 import { IntakeService } from '../intake/service/intake.service';
 import { MatchingService } from '../matching/service/matching.service';
 import { OrderService } from '../order/service/order.service';
@@ -372,12 +372,17 @@ export class DashboardService {
   }
 
   async getOverview() {
-    const [allIntakes, allOrders, allReviews, allAttempts] = await Promise.all([
+    const [allIntakes, allOrders, allReviews, allAttempts, pendingAssignments, inProgressReviews, escalatedReviews, overdueReviews] = await Promise.all([
       this.intakeRepo.find(),
       this.orderRepo.find(),
       this.reviewRepo.find(),
       this.attemptRepo.find(),
+      this.reviewRepo.find({ where: { status: ReviewStatus.AWAITING_QUALITY_ASSIGN } }),
+      this.reviewRepo.find({ where: { status: ReviewStatus.QUALITY_FOLLOWING } }),
+      this.reviewRepo.find({ where: { status: ReviewStatus.ESCALATED } }),
+      this.reviewRepo.find({ where: { status: ReviewStatus.QUALITY_FOLLOWING, deadline: LessThan(new Date()) } }),
     ]);
+
     const countBy = <T, K extends keyof T>(arr: T[], key: K): Record<string, number> => {
       const r: Record<string, number> = {};
       for (const x of arr) {
@@ -386,12 +391,14 @@ export class DashboardService {
       }
       return r;
     };
+
     const intakeByStatus = countBy(allIntakes, 'status');
     const orderByStatus = countBy(allOrders, 'status');
     const reviewByStatus = countBy(allReviews, 'status');
     const blockedCount = allIntakes.filter(i => i.blockReason && i.blockReason !== IntakeBlockReason.NONE).length;
     const totalAttempts = allAttempts.length;
     const acceptedAttempts = allAttempts.filter(a => a.status === MatchingStatus.ACCEPTED).length;
+
     const roundsByIntake = new Map();
     for (const a of allAttempts) {
       if (!roundsByIntake.has(a.intakeId)) roundsByIntake.set(a.intakeId, new Set());
@@ -400,8 +407,43 @@ export class DashboardService {
     const avgRounds = roundsByIntake.size > 0
       ? Math.round((Array.from(roundsByIntake.values()).reduce((s, rs) => s + rs.size, 0) / roundsByIntake.size) * 100) / 100
       : 0;
+
     const totalRating = allReviews.reduce((s, r) => s + (r.rating || 0), 0);
     const avgRating = allReviews.length > 0 ? Math.round((totalRating / allReviews.length) * 100) / 100 : 0;
+
+    const now = new Date();
+    const totalOverdueHours = overdueReviews.reduce((sum, r) => {
+      if (r.deadline) {
+        const diffMs = now.getTime() - new Date(r.deadline).getTime();
+        return sum + Math.floor(diffMs / (1000 * 60 * 60));
+      }
+      return sum;
+    }, 0);
+    const avgOverdueHours = overdueReviews.length > 0
+      ? Math.round((totalOverdueHours / overdueReviews.length) * 100) / 100
+      : 0;
+
+    const nonFinalReviewStatuses = [
+      ReviewStatus.AWAITING_QUALITY_ASSIGN,
+      ReviewStatus.QUALITY_FOLLOWING,
+      ReviewStatus.ESCALATED,
+    ];
+    const pendingReviews = allReviews.filter(r => nonFinalReviewStatuses.includes(r.status) && r.rating <= 3);
+    const byOwnerMap = new Map();
+    for (const r of pendingReviews) {
+      const oid = r.ownerId || 'unassigned';
+      const oname = r.ownerName || '未分配';
+      if (!byOwnerMap.has(oid)) {
+        byOwnerMap.set(oid, { ownerId: oid, ownerName: oname, count: 0 });
+      }
+      byOwnerMap.get(oid).count += 1;
+    }
+    const byOwner = Array.from(byOwnerMap.entries()).map(([id, data]) => ({
+      id,
+      name: data.ownerName,
+      count: data.count,
+    }));
+
     const activeCsOwners = new Set<string>();
     const activeHkOwners = new Set<string>();
     const activeQsOwners = new Set<string>();
@@ -423,6 +465,7 @@ export class DashboardService {
       else if (r.ownerRole === Role.HOUSEKEEPER) activeHkOwners.add(r.ownerId);
       else if (r.ownerRole === Role.QUALITY_SUPERVISOR) activeQsOwners.add(r.ownerId);
     }
+
     this.auditService.quickLog('DASHBOARD', 'overview', 'QUERY', '查询综合统计总览');
     return {
       generatedAt: new Date().toISOString(),
@@ -455,6 +498,12 @@ export class DashboardService {
           resolved: reviewByStatus[ReviewStatus.RESOLVED] || 0,
           escalated: reviewByStatus[ReviewStatus.ESCALATED] || 0,
           avgRating,
+          pendingAssignment: pendingAssignments.length,
+          qualityInProgress: inProgressReviews.length,
+          qualityEscalated: escalatedReviews.length,
+          overdue: overdueReviews.length,
+          avgOverdueHours,
+          byOwner,
         },
         matching: {
           totalAttempts,

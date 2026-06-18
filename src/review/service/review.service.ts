@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere } from 'typeorm';
+import { Repository, FindOptionsWhere, LessThan } from 'typeorm';
 import { Review } from '../review.entity';
 import { CreateReviewDto } from '../dto/create-review.dto';
 import { AssignQualityDto } from '../dto/assign-quality.dto';
@@ -86,11 +86,30 @@ export class ReviewService {
     review.assignedRole = dto.assignedRole;
     review.assignedId = dto.assignedId;
     review.assignedName = dto.assignedName;
+    review.ownerRole = dto.assignedRole;
+    review.ownerId = dto.assignedId;
+    review.ownerName = dto.assignedName;
     review.status = ReviewStatus.QUALITY_FOLLOWING;
+
+    const deadlineHours = dto.deadlineHours ?? 24;
+    const deadline = new Date();
+    deadline.setHours(deadline.getHours() + deadlineHours);
+    review.deadline = deadline;
 
     const saved = await this.reviewRepo.save(review);
 
-    await this.auditQuickLog(saved.id, AuditAction.ASSIGN, actor, { dto, oldStatus, newStatus: saved.status });
+    await this.auditQuickLog(saved.id, AuditAction.ASSIGN, actor, {
+      dto,
+      oldStatus,
+      newStatus: saved.status,
+      deadline: saved.deadline,
+      deadlineHours,
+      owner: {
+        role: saved.ownerRole,
+        id: saved.ownerId,
+        name: saved.ownerName,
+      },
+    });
     await this.auditStatusChange(saved.id, oldStatus, saved.status, actor, '分配质检主管');
 
     return saved;
@@ -222,5 +241,61 @@ export class ReviewService {
   async getAuditTrail(id: string): Promise<any[]> {
     await this.findOneOrFail(id);
     return this.auditService.getTrail('REVIEW', id);
+  }
+
+  async detectOverdueReviews(actor: { role: Role; id: string; name: string }): Promise<Array<{
+    review: Review;
+    overdueHours: number;
+    ownerRole?: Role;
+    ownerId?: string;
+    ownerName?: string;
+  }>> {
+    const now = new Date();
+    const overdueReviews = await this.reviewRepo.find({
+      where: {
+        status: ReviewStatus.QUALITY_FOLLOWING,
+        deadline: LessThan(now),
+      },
+    });
+
+    const result: Array<{
+      review: Review;
+      overdueHours: number;
+      ownerRole?: Role;
+      ownerId?: string;
+      ownerName?: string;
+    }> = [];
+
+    for (const review of overdueReviews) {
+      const diffMs = now.getTime() - review.deadline!.getTime();
+      const overdueHours = Math.floor(diffMs / (1000 * 60 * 60));
+      review.overdueHours = overdueHours;
+      await this.reviewRepo.save(review);
+
+      if (overdueHours > 24) {
+        const oldStatus = review.status;
+        review.status = ReviewStatus.ESCALATED;
+        review.escalatedAt = new Date();
+        await this.reviewRepo.save(review);
+
+        await this.auditQuickLog(review.id, AuditAction.ESCALATE, actor, {
+          reason: '系统自动升级：逾期超过24小时',
+          oldStatus,
+          newStatus: review.status,
+          overdueHours,
+        });
+        await this.auditStatusChange(review.id, oldStatus, review.status, actor, '系统自动升级：逾期超过24小时');
+      }
+
+      result.push({
+        review,
+        overdueHours,
+        ownerRole: review.ownerRole,
+        ownerId: review.ownerId,
+        ownerName: review.ownerName,
+      });
+    }
+
+    return result;
   }
 }

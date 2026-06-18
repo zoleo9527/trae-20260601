@@ -51,6 +51,12 @@ export class Review extends BaseEntity {
   resolution?: string;
 
   @Column({ type: 'datetime', nullable: true })
+  deadline?: Date;
+
+  @Column({ type: 'int', nullable: true, default: 0 })
+  overdueHours?: number;
+
+  @Column({ type: 'datetime', nullable: true })
   escalatedAt?: Date;
 
   @Column({ type: 'datetime', nullable: true })
