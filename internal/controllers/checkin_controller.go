@@ -86,7 +86,7 @@ func (c *CheckinController) BackfillCheckin(ctx *fiber.Ctx) error {
 		return ctx.Status(400).JSON(fiber.Map{"error": "Invalid request"})
 	}
 
-	checkin, err := c.service.补录Checkin(req)
+	checkin, err := c.service.BackfillCheckin(req)
 	if err != nil {
 		return ctx.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}

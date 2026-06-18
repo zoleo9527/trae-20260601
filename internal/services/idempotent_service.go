@@ -15,7 +15,7 @@ func NewIdempotentService(db *gorm.DB) *IdempotentService {
 	return &IdempotentService{db: db}
 }
 
-func (s *IdempotentService) CheckAndSet(key, data string, expireMinutes int) (bool, string) {
+func (s *IdempotentService) Check(key string) (bool, string) {
 	var record database.IdempotentRecord
 	err := s.db.Where("key = ? AND expire_at > ?", key, time.Now()).First(&record).Error
 
@@ -27,19 +27,40 @@ func (s *IdempotentService) CheckAndSet(key, data string, expireMinutes int) (bo
 		return false, ""
 	}
 
+	return false, ""
+}
+
+func (s *IdempotentService) Lock(key string, expireMinutes int) (bool, error) {
+	isDuplicate, _ := s.Check(key)
+	if isDuplicate {
+		return true, nil
+	}
+
 	newRecord := database.IdempotentRecord{
 		ID:        database.GenerateID(),
 		Key:       key,
-		Data:      data,
+		Data:      "__LOCKED__",
 		ExpireAt:  time.Now().Add(time.Duration(expireMinutes) * time.Minute),
 		CreatedAt: time.Now(),
 	}
 
 	if err := s.db.Create(&newRecord).Error; err != nil {
-		return false, ""
+		return false, err
 	}
 
-	return false, ""
+	return false, nil
+}
+
+func (s *IdempotentService) Commit(key, data string, expireMinutes int) error {
+	var record database.IdempotentRecord
+	err := s.db.Where("key = ?", key).First(&record).Error
+	if err != nil {
+		return err
+	}
+
+	record.Data = data
+	record.ExpireAt = time.Now().Add(time.Duration(expireMinutes) * time.Minute)
+	return s.db.Save(&record).Error
 }
 
 func (s *IdempotentService) Get(key string) (string, bool) {
@@ -51,4 +72,12 @@ func (s *IdempotentService) Get(key string) (string, bool) {
 	}
 
 	return record.Data, true
+}
+
+func (s *IdempotentService) CheckAndGet(key string) (bool, string) {
+	isDuplicate, data := s.Check(key)
+	if isDuplicate && data != "__LOCKED__" {
+		return true, data
+	}
+	return false, ""
 }

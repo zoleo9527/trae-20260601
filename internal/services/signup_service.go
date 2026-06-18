@@ -11,8 +11,8 @@ import (
 )
 
 type SignupService struct {
-	db               *gorm.DB
-	idempotentSvc    *IdempotentService
+	db            *gorm.DB
+	idempotentSvc *IdempotentService
 }
 
 func NewSignupService(db *gorm.DB, idempotentSvc *IdempotentService) *SignupService {
@@ -35,28 +35,50 @@ type UpdateSignupRequest struct {
 }
 
 func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.ActivitySignup, error) {
+	idempotentKey := fmt.Sprintf("signup:%s", req.IdempotencyKey)
+
 	if req.IdempotencyKey != "" {
-		isDup, existingData := s.idempotentSvc.CheckAndSet(
-			fmt.Sprintf("signup:%s", req.IdempotencyKey),
-			"",
-			10,
-		)
-		if isDup && existingData != "" {
+		isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
+		if isDup {
 			var existing database.ActivitySignup
-			if json.Unmarshal([]byte(existingData), &existing) == nil {
+			if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
 				return &existing, nil
 			}
+		}
+
+		isLocked, err := s.idempotentSvc.Lock(idempotentKey, 10)
+		if err != nil {
+			return nil, err
+		}
+		if isLocked {
+			for i := 0; i < 10; i++ {
+				isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
+				if isDup {
+					var existing database.ActivitySignup
+					if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
+						return &existing, nil
+					}
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			return nil, errors.New("timeout waiting for idempotent operation")
 		}
 	}
 
 	var course database.Course
 	if err := s.db.Where("id = ?", req.CourseID).First(&course).Error; err != nil {
+		if req.IdempotencyKey != "" {
+			s.idempotentSvc.Commit(idempotentKey, `{"error":"course not found"}`, 10)
+		}
 		return nil, err
 	}
 
 	var count int
 	s.db.Model(&database.ActivitySignup{}).Where("course_id = ? AND status = ?", req.CourseID, "confirmed").Count(&count)
 	if count >= course.Capacity {
+		if req.IdempotencyKey != "" {
+			s.idempotentSvc.Commit(idempotentKey, `{"error":"course capacity reached"}`, 10)
+		}
 		return nil, errors.New("course capacity reached")
 	}
 
@@ -73,6 +95,9 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	}
 
 	if err := s.db.Create(signup).Error; err != nil {
+		if req.IdempotencyKey != "" {
+			s.idempotentSvc.Commit(idempotentKey, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 10)
+		}
 		return nil, err
 	}
 
@@ -88,11 +113,7 @@ func (s *SignupService) CreateSignup(req CreateSignupRequest) (*database.Activit
 	s.db.Create(auditLog)
 
 	if req.IdempotencyKey != "" {
-		s.idempotentSvc.CheckAndSet(
-			fmt.Sprintf("signup:%s", req.IdempotencyKey),
-			string(data),
-			10,
-		)
+		s.idempotentSvc.Commit(idempotentKey, string(data), 10)
 	}
 
 	return signup, nil
@@ -144,6 +165,7 @@ func (s *SignupService) UpdateSignup(id string, req UpdateSignupRequest) (*datab
 		ID:        database.GenerateID(),
 		Action:    "update",
 		Module:    "signup",
+		TargetID:  signup.ID,
 		Data:      "{\"old\":" + string(oldData) + ",\"new\":" + string(newData) + "}",
 		CreatedAt: time.Now(),
 	}

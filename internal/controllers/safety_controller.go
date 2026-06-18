@@ -70,11 +70,4 @@ func (c *SafetyController) UpdateSafetyRecord(ctx *fiber.Ctx) error {
 	return ctx.JSON(record)
 }
 
-func (c *SafetyController) GetFullTrace(ctx *fiber.Ctx) error {
-	checkinID := ctx.Params("checkin_id")
-	trace, err := c.service.GetFullTrace(checkinID)
-	if err != nil {
-		return ctx.Status(500).JSON(fiber.Map{"error": err.Error()})
-	}
-	return ctx.JSON(trace)
-}
+

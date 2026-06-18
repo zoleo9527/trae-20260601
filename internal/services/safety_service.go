@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"museum-education/internal/database"
 	"time"
@@ -26,8 +27,8 @@ type CreateSafetyRecordRequest struct {
 	CheckinID      string `json:"checkin_id" validate:"required"`
 	OperatorID     string `json:"operator_id"`
 	OperatorName   string `json:"operator_name"`
-	SafetyStatus  string `json:"safety_status"`
-	SafetyRemarks string `json:"safety_remarks"`
+	SafetyStatus   string `json:"safety_status"`
+	SafetyRemarks  string `json:"safety_remarks"`
 }
 
 type UpdateSafetyRecordRequest struct {
@@ -38,22 +39,41 @@ type UpdateSafetyRecordRequest struct {
 }
 
 func (s *SafetyService) CreateSafetyRecord(req CreateSafetyRecordRequest) (*database.SafetyRecord, error) {
+	idempotentKey := fmt.Sprintf("safety:%s", req.IdempotencyKey)
+
 	if req.IdempotencyKey != "" {
-		isDup, existingData := s.idempotentSvc.CheckAndSet(
-			fmt.Sprintf("safety:%s", req.IdempotencyKey),
-			"",
-			10,
-		)
-		if isDup && existingData != "" {
+		isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
+		if isDup {
 			var existing database.SafetyRecord
-			if json.Unmarshal([]byte(existingData), &existing) == nil {
+			if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
 				return &existing, nil
 			}
+		}
+
+		isLocked, err := s.idempotentSvc.Lock(idempotentKey, 10)
+		if err != nil {
+			return nil, err
+		}
+		if isLocked {
+			for i := 0; i < 10; i++ {
+				isDup, existingData := s.idempotentSvc.CheckAndGet(idempotentKey)
+				if isDup {
+					var existing database.SafetyRecord
+					if err := json.Unmarshal([]byte(existingData), &existing); err == nil {
+						return &existing, nil
+					}
+				}
+				time.Sleep(100 * time.Millisecond)
+			}
+			return nil, errors.New("timeout waiting for idempotent operation")
 		}
 	}
 
 	var checkin database.ActivityCheckin
 	if err := s.db.Where("id = ?", req.CheckinID).First(&checkin).Error; err != nil {
+		if req.IdempotencyKey != "" {
+			s.idempotentSvc.Commit(idempotentKey, `{"error":"checkin not found"}`, 10)
+		}
 		return nil, err
 	}
 
@@ -74,6 +94,9 @@ func (s *SafetyService) CreateSafetyRecord(req CreateSafetyRecordRequest) (*data
 	}
 
 	if err := s.db.Create(safetyRecord).Error; err != nil {
+		if req.IdempotencyKey != "" {
+			s.idempotentSvc.Commit(idempotentKey, fmt.Sprintf(`{"error":"%s"}`, err.Error()), 10)
+		}
 		return nil, err
 	}
 
@@ -91,11 +114,7 @@ func (s *SafetyService) CreateSafetyRecord(req CreateSafetyRecordRequest) (*data
 	s.db.Create(auditLog)
 
 	if req.IdempotencyKey != "" {
-		s.idempotentSvc.CheckAndSet(
-			fmt.Sprintf("safety:%s", req.IdempotencyKey),
-			string(data),
-			10,
-		)
+		s.idempotentSvc.Commit(idempotentKey, string(data), 10)
 	}
 
 	return safetyRecord, nil
