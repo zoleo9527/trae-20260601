@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+"strings"
 	"time"
 
 	"scenic-ticket-system/internal/models"
@@ -30,6 +31,7 @@ func (s *Store) CreateSchedule(req models.CreateScheduleRequest) *models.GuideSc
 		GuideName:     req.GuideName,
 		GuideLanguage: req.GuideLanguage,
 		VisitDate:     req.VisitDate,
+VisitTimeSlot:  booking.VisitTimeSlot,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
 		TeamName:      booking.TeamName,
@@ -117,17 +119,42 @@ func (s *Store) AdjustSchedulesForBooking(bookingID string, reason string) []mod
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	booking, ok := s.bookings[bookingID]
+	if !ok {
+		return []models.GuideSchedule{}
+	}
+
+	var startTime, endTime string
+	if parts := strings.Split(booking.VisitTimeSlot, "-"); len(parts) == 2 {
+		startTime = parts[0]
+		endTime = parts[1]
+	}
+
 	var result []models.GuideSchedule
 	for id, schedule := range s.schedules {
 		if schedule.BookingID == bookingID {
 			schedule.Status = models.ScheduleAdjusted
 			schedule.UpdatedAt = time.Now()
+			schedule.VisitDate = booking.VisitDate
+			schedule.VisitTimeSlot = booking.VisitTimeSlot
+			schedule.VisitorCount = booking.VisitorCount
+			schedule.GuideLanguage = booking.GuideLanguage
+			if startTime != "" {
+				schedule.StartTime = startTime
+			}
+			if endTime != "" {
+				schedule.EndTime = endTime
+			}
+			if schedule.Remark == "" {
+				schedule.Remark = reason
+			}
 			s.schedules[id] = schedule
 			result = append(result, schedule)
 		}
 	}
 	return result
 }
+
 
 func (s *Store) GetScheduleDetail(id string) (*models.ScheduleDetail, bool) {
 	s.mu.RLock()

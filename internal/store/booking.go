@@ -208,15 +208,39 @@ func (s *Store) addChangeLogLocked(bookingID, changeType, fieldChanged, oldValue
 }
 
 func (s *Store) adjustSchedulesForBookingLocked(bookingID string, reason string) {
+	booking, ok := s.bookings[bookingID]
+	if !ok {
+		return
+	}
+
+	var startTime, endTime string
+	if parts := strings.Split(booking.VisitTimeSlot, "-"); len(parts) == 2 {
+		startTime = parts[0]
+		endTime = parts[1]
+	}
+
 	for id, schedule := range s.schedules {
 		if schedule.BookingID == bookingID {
 			schedule.Status = models.ScheduleAdjusted
-			schedule.Remark = reason
+			schedule.VisitDate = booking.VisitDate
+			schedule.VisitTimeSlot = booking.VisitTimeSlot
+			schedule.VisitorCount = booking.VisitorCount
+			schedule.GuideLanguage = booking.GuideLanguage
+			if startTime != "" {
+				schedule.StartTime = startTime
+			}
+			if endTime != "" {
+				schedule.EndTime = endTime
+			}
+			if schedule.Remark == "" {
+				schedule.Remark = reason
+			}
 			schedule.UpdatedAt = time.Now()
 			s.schedules[id] = schedule
 		}
 	}
 }
+
 
 func (s *Store) createNotificationLocked(title, content string, targetRole models.Role, targetUser string, relatedType, relatedID string) {
 	s.notificationSeq++

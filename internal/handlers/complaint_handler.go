@@ -23,14 +23,6 @@ func (h *ComplaintHandler) CreateComplaint(c *fiber.Ctx) error {
 
 	complaint := h.store.CreateComplaint(req)
 
-	h.store.CreateNotification(
-		"新投诉待处理",
-		"投诉编号 "+complaint.ComplaintNo+"："+complaint.ComplaintType,
-		models.RoleCustomerService,
-		"",
-		"complaint",
-		complaint.ID,
-	)
 
 	return c.Status(fiber.StatusCreated).JSON(complaint)
 }

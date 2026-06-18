@@ -47,7 +47,7 @@ func Seed(s *store.Store) {
 		Operator:      "客服-小陈",
 	})
 
-	s.CreateSchedule(models.CreateScheduleRequest{
+schedule1 := s.CreateSchedule(models.CreateScheduleRequest{
 		BookingID:     booking1.ID,
 		GuideID:       "G001",
 		GuideName:     "讲解员-刘导",
@@ -58,7 +58,7 @@ func Seed(s *store.Store) {
 		Remark:        "上午场讲解",
 	})
 
-	schedule2 := s.CreateSchedule(models.CreateScheduleRequest{
+	_ = s.CreateSchedule(models.CreateScheduleRequest{
 		BookingID:     booking2.ID,
 		GuideID:       "G002",
 		GuideName:     "讲解员-陈导",
@@ -84,16 +84,6 @@ func Seed(s *store.Store) {
 		CheckerName:  "检票员-周师傅",
 		Remark:       "5名学生请假未到",
 	})
-
-	complaint1 := s.CreateComplaint(models.CreateComplaintRequest{
-		BookingID:     booking2.ID,
-		ScheduleID:    schedule2.ID,
-		Complainant:   "王老师",
-		ContactPhone:  "13900139002",
-		ComplaintType: "服务态度",
-		Content:       "讲解员讲解不够耐心，对学生问题回答敷衍",
-	})
-
 	newVisitorCount := 30
 	newTimeSlot := "13:00-16:00"
 	s.UpdateBooking(booking1.ID, models.UpdateBookingRequest{
@@ -110,6 +100,16 @@ func Seed(s *store.Store) {
 		ChangeReason:  "人数再次调整，时间延后",
 		Operator:      "票务主管-李经理",
 	})
+
+	complaint1 := s.CreateComplaint(models.CreateComplaintRequest{
+		BookingID:     booking1.ID,
+		ScheduleID:    schedule1.ID,
+		Complainant:   "张三",
+		ContactPhone:  "13800138001",
+		ComplaintType: "排班变更",
+		Content:       "预约时间临时改动导致团队等待，讲解员迟到",
+	})
+
 
 	s.HandleComplaint(complaint1.ID, models.HandleComplaintRequest{
 		Handler:      "客服-小陈",
