@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Compensation } from '@/types'
 import { useReviewsStore } from '@/stores/reviews'
-import { reviews, cleaners, customers, orders, roleLabels, followUps } from '@/data/mockData'
+import { reviews, cleaners, customers, orders, roleLabels } from '@/data/mockData'
 
 const store = useReviewsStore()
 
@@ -13,7 +13,7 @@ const compensationList = computed(() => {
     const customer = customers.find(c => c.id === review?.customerId)
     const order = orders.find(o => o.id === review?.orderId)
     
-    const relatedFollowUps = followUps.filter(f => f.reviewId === compensation.reviewId)
+    const relatedFollowUps = store.followUps.value.filter(f => f.reviewId === compensation.reviewId)
     const mainFollowUp = relatedFollowUps.find(f => f.id === compensation.followUpId)
     
     return {
@@ -198,7 +198,7 @@ const getRoleOrder = (role: string) => roleOrder.indexOf(role)
                     ]">{{ followUp.actionTaken }}</span>
                   </div>
                 </div>
-                <div class="text-xs text-gray-400">步骤{{ index + 1 }}</div>
+                <div class="text-xs text-gray-400">{{ index + 1 }}</div>
               </div>
             </div>
           </div>

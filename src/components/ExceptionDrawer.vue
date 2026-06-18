@@ -19,9 +19,17 @@ const store = useReviewsStore()
 const cleaner = computed(() => cleaners.find(c => c.id === props.review.cleanerId))
 const customer = computed(() => customers.find(c => c.id === props.review.customerId))
 const order = computed(() => orders.find(o => o.id === props.review.orderId))
+
+const roleOrder = ['customer_service', 'cleaner', 'quality_manager']
+const getRoleOrder = (role: string) => roleOrder.indexOf(role)
+
 const followUps = computed(() => {
   const ups = store.getFollowUpsByReviewId(props.review.id)
-  return ups.sort((a, b) => a.submittedAt.localeCompare(b.submittedAt))
+  return ups.sort((a, b) => {
+    const orderDiff = getRoleOrder(a.submittedByRole) - getRoleOrder(b.submittedByRole)
+    if (orderDiff !== 0) return orderDiff
+    return a.submittedAt.localeCompare(b.submittedAt)
+  })
 })
 
 const compensation = computed(() => store.getCompensationByReviewId(props.review.id))
@@ -30,12 +38,47 @@ const submittedBy = ref('客服小王')
 const submittedByRole = ref<ReviewFollowUp['submittedByRole']>('customer_service')
 const content = ref('')
 const actionTaken = ref('电话回访')
+const roleError = ref('')
 
-const roleOptions = [
-  { value: 'customer_service', label: '客服' },
-  { value: 'cleaner', label: '家政员' },
-  { value: 'quality_manager', label: '质检主管' }
-]
+const allowedRoles = computed(() => {
+  if (followUps.value.length === 0) {
+    return ['customer_service']
+  }
+  
+  const lastRole = followUps.value[followUps.value.length - 1].submittedByRole
+  const lastRoleIndex = getRoleOrder(lastRole)
+  
+  if (lastRoleIndex >= roleOrder.length - 1) {
+    return []
+  }
+  
+  return [roleOrder[lastRoleIndex + 1] as ReviewFollowUp['submittedByRole']]
+})
+
+watch(submittedByRole, () => {
+  if (allowedRoles.value.length > 0 && !allowedRoles.value.includes(submittedByRole.value)) {
+    roleError.value = `必须按顺序添加：下一步应为 ${allowedRoles.value.map(r => roleLabels[r]?.text).join('、')} `
+  } else {
+    roleError.value = ''
+  }
+})
+
+watch(() => props.visible, (newVal) => {
+  if (newVal) {
+    content.value = ''
+    showCompensationForm.value = false
+    submittedByRole.value = 'customer_service'
+    roleError.value = ''
+  }
+})
+
+const roleOptions = computed(() => {
+  return roleOrder.map(role => ({
+    value: role,
+    label: roleLabels[role]?.text || role,
+    disabled: allowedRoles.value.length > 0 && !allowedRoles.value.includes(role as ReviewFollowUp['submittedByRole'])
+  }))
+})
 
 const actionOptions = [
   { value: '电话回访', label: '电话回访' },
@@ -90,6 +133,8 @@ const compensationStatusLabels: Record<string, { text: string; color: string }> 
 const handleSubmitFollowUp = () => {
   if (!content.value.trim()) return
   
+  if (roleError.value) return
+  
   if (submittedByRole.value === 'cleaner' && cleaner.value) {
     store.createFollowUp(props.review.id, cleaner.value.name, 'cleaner', content.value, actionTaken.value)
   } else {
@@ -101,6 +146,8 @@ const handleSubmitFollowUp = () => {
   if (submittedByRole.value === 'customer_service') {
     showCompensationForm.value = true
   }
+  
+  submittedByRole.value = 'customer_service'
 }
 
 const handleSubmitCompensation = () => {
@@ -110,20 +157,6 @@ const handleSubmitCompensation = () => {
   showCompensationForm.value = false
   compensationAmount.value = 0
   compensationDescription.value = ''
-}
-
-watch(() => props.visible, (newVal) => {
-  if (newVal) {
-    content.value = ''
-    showCompensationForm.value = false
-    submittedByRole.value = 'customer_service'
-  }
-})
-
-const getNextRole = (role: string) => {
-  const roleOrder = ['customer_service', 'cleaner', 'quality_manager']
-  const index = roleOrder.indexOf(role)
-  return roleOrder[index + 1] || null
 }
 </script>
 
@@ -265,7 +298,7 @@ const getNextRole = (role: string) => {
                       {{ followUpStatusLabels[followUp.status].text }}
                     </span>
                   </div>
-                  <div class="text-xs text-gray-500 mt-1">步骤{{ index + 1 }} - {{ followUp.submittedAt }}</div>
+                  <div class="text-xs text-gray-500 mt-1">{{ index + 1 }} - {{ followUp.submittedAt }}</div>
                   <div class="text-sm text-gray-600 mt-2">{{ followUp.content }}</div>
                   <div class="flex items-center gap-2 mt-2 text-xs">
                     <span class="text-gray-500">处理方式:</span>
@@ -278,7 +311,7 @@ const getNextRole = (role: string) => {
                     <span v-if="followUp.nextAction" class="text-gray-500">下一步: {{ followUp.nextAction }}</span>
                   </div>
                 </div>
-                <div class="text-xs text-gray-400">步骤{{ index + 1 }}</div>
+                <div class="text-xs text-gray-400">{{ index + 1 }}</div>
               </div>
             </div>
           </div>
@@ -324,6 +357,9 @@ const getNextRole = (role: string) => {
         
         <div class="mb-6">
           <h3 class="text-sm font-medium text-gray-500 mb-3">添加处理记录</h3>
+          <div v-if="roleError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">
+            {{ roleError }}
+          </div>
           <div class="space-y-4">
             <div>
               <label class="block text-sm font-medium text-gray-600 mb-1">处理角色</label>
@@ -331,7 +367,7 @@ const getNextRole = (role: string) => {
                 v-model="submittedByRole" 
                 class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option v-for="opt in roleOptions" :key="opt.value" :value="opt.value">
+                <option v-for="opt in roleOptions" :key="opt.value" :value="opt.value" :disabled="opt.disabled">
                   {{ opt.label }}
                 </option>
               </select>
@@ -375,7 +411,7 @@ const getNextRole = (role: string) => {
             
             <button 
               @click="handleSubmitFollowUp"
-              :disabled="!content.trim()"
+              :disabled="!content.trim() || !!roleError"
               class="w-full px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
             >
               提交处理记录
