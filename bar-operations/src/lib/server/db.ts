@@ -81,6 +81,32 @@ function migrateFaultReportsTable() {
   if (!columnNames.includes('processed_at')) {
     db.exec("ALTER TABLE fault_reports ADD COLUMN processed_at TEXT;");
   }
+
+  const faultWithInspection = db.prepare(`
+    SELECT f.id, f.inspection_id, f.status, f.repair_notes, f.processed_at,
+           i.id as related_insp_id
+    FROM fault_reports f
+    LEFT JOIN inspections i ON i.exhibit_id = f.exhibit_id AND i.result = 'abnormal'
+    WHERE f.inspection_id IS NULL
+  `).all() as Array<{ id: string; inspection_id: string | null; status: string; repair_notes: string | null; processed_at: string | null; related_insp_id: string }>;
+
+  faultWithInspection.forEach(fault => {
+    if (fault.related_insp_id) {
+      db.prepare('UPDATE fault_reports SET inspection_id = ? WHERE id = ?').run(fault.related_insp_id, fault.id);
+    }
+  });
+
+  const processingFaults = db.prepare(`
+    SELECT id, processed_at, repair_notes
+    FROM fault_reports
+    WHERE status = 'processing' AND processed_at IS NULL
+  `).all() as Array<{ id: string; processed_at: string | null; repair_notes: string | null }>;
+
+  processingFaults.forEach(fault => {
+    if (fault.repair_notes) {
+      db.prepare('UPDATE fault_reports SET processed_at = received_at WHERE id = ?').run(fault.id);
+    }
+  });
 }
 
 migrateFaultReportsTable();
