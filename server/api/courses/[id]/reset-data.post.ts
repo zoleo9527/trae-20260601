@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
     .forEach(w => {
       const idx = waitlist.findIndex(entry => entry.id === w.id)
       if (idx !== -1) {
-        const originalPosition = waitlist[idx].position
+        const originalPosition = waitlist[idx].originalPosition || waitlist[idx].position
         const previousStatus = waitlist[idx].status
         waitlist[idx].status = 'cancelled'
         waitlist[idx].handledBy = body.actorId

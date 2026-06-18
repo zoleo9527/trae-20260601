@@ -60,6 +60,8 @@ export default defineEventHandler(async (event) => {
   const waitlistIndex = waitlist.findIndex(w => w.id === body.waitlistId)
   if (waitlistIndex !== -1) {
     const originalPosition = waitlist[waitlistIndex].position
+    waitlist[waitlistIndex].position = 0
+    waitlist[waitlistIndex].originalPosition = originalPosition
     waitlist[waitlistIndex].status = 'promoted'
     waitlist[waitlistIndex].promotedAt = new Date().toISOString()
     waitlist[waitlistIndex].promotedBy = body.actorId

@@ -2213,16 +2213,16 @@ _wH6JrtIxmaSoA8lCPWFnE9z4lQeXW6H5z3l5aymEQw
 const assets = {
   "/index.mjs": {
     "type": "text/javascript; charset=utf-8",
-    "etag": "\"24d81-ebC8YffMqjkOwcyOgG4fpAWFzTM\"",
-    "mtime": "2026-06-18T03:32:16.267Z",
-    "size": 150913,
+    "etag": "\"24ed3-npRrLN2Pz6aWNoexKQngHm39nxk\"",
+    "mtime": "2026-06-18T03:42:53.965Z",
+    "size": 151251,
     "path": "index.mjs"
   },
   "/index.mjs.map": {
     "type": "application/json",
-    "etag": "\"8f5bf-2BEwbX2rNASxTQeXmrsGtUl09VM\"",
-    "mtime": "2026-06-18T03:32:16.267Z",
-    "size": 587199,
+    "etag": "\"8fd8b-fcV4/BpobCy0Ck8zHDwPX3/PxY8\"",
+    "mtime": "2026-06-18T03:42:53.968Z",
+    "size": 589195,
     "path": "index.mjs.map"
   }
 };
@@ -3303,7 +3303,7 @@ const waitlist = [
   { id: "w3", courseId: "c2", participantName: "\u94B1\u5341\u4E00", phone: "13800138009", email: "qianshiyi@example.com", position: 1, status: "active", createdAt: "2024-06-18T10:00:00Z", updatedAt: "2024-06-18T10:00:00Z" },
   { id: "w4", courseId: "c2", participantName: "\u51AF\u5341\u4E8C", phone: "13800138010", email: "fengshier@example.com", position: 2, status: "active", createdAt: "2024-06-18T10:30:00Z", updatedAt: "2024-06-18T10:30:00Z" },
   { id: "w5", courseId: "c3", participantName: "\u9648\u5341\u4E09", phone: "13800138011", email: "chenshisan@example.com", position: 1, status: "active", createdAt: "2024-06-14T09:00:00Z", updatedAt: "2024-06-14T09:00:00Z" },
-  { id: "w6", courseId: "c1", participantName: "\u5218\u5341\u56DB", phone: "13800138012", email: "liushisi@example.com", position: 0, status: "promoted", createdAt: "2024-06-15T14:00:00Z", updatedAt: "2024-06-16T08:00:00Z", promotedAt: "2024-06-16T08:00:00Z", promotedBy: "u5", handledBy: "u5", handledAt: "2024-06-16T08:00:00Z", handledResult: "promoted" }
+  { id: "w6", courseId: "c1", participantName: "\u5218\u5341\u56DB", phone: "13800138012", email: "liushisi@example.com", position: 0, originalPosition: 1, status: "promoted", createdAt: "2024-06-15T14:00:00Z", updatedAt: "2024-06-16T08:00:00Z", promotedAt: "2024-06-16T08:00:00Z", promotedBy: "u5", handledBy: "u5", handledAt: "2024-06-16T08:00:00Z", handledResult: "promoted" }
 ];
 const schedules = [
   { id: "s1", teacherId: "u1", courseId: "c1", date: "2024-07-15", status: "confirmed", assignedAt: "2024-06-03T10:00:00Z", confirmedAt: "2024-06-03T11:00:00Z", assignedBy: "u5", confirmedBy: "u1" },
@@ -3311,8 +3311,8 @@ const schedules = [
   { id: "s3", teacherId: "u3", courseId: "c3", date: "2024-07-25", status: "assigned", assignedAt: "2024-06-10T14:00:00Z", assignedBy: "u5" }
 ];
 const waitlistHistory = [
-  { id: "h1", waitlistEntryId: "w6", courseId: "c1", action: "promote", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-16T08:00:00Z", result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D", notes: "\u539F\u62A5\u540D\u5B66\u5458\u53D6\u6D88\uFF0C\u5019\u8865\u5B66\u5458\u5347\u7EA7" },
-  { id: "h2", waitlistEntryId: "w1", courseId: "c1", action: "promote", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-17T10:30:00Z", result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1" }
+  { id: "h1", waitlistEntryId: "w6", courseId: "c1", action: "promote", actorId: "u5", actorName: "\u5218\u4E3B\u7BA1", timestamp: "2024-06-16T08:00:00Z", result: "\u6210\u529F\u5347\u7EA7\u4E3A\u6B63\u5F0F\u62A5\u540D", notes: "\u539F\u62A5\u540D\u5B66\u5458\u53D6\u6D88\uFF0C\u5019\u8865\u5B66\u5458\u5347\u7EA7", participantName: "\u5218\u5341\u56DB", originalPosition: 1, previousStatus: "active", newStatus: "promoted" },
+  { id: "h2", waitlistEntryId: "w1", courseId: "c1", action: "promote", actorId: "u6", actorName: "\u8D75\u4E3B\u7BA1", timestamp: "2024-06-17T10:30:00Z", result: "\u5347\u7EA7\u5931\u8D25\uFF0C\u540D\u989D\u5DF2\u6EE1", participantName: "\u5434\u4E5D", originalPosition: 1, previousStatus: "active", newStatus: "active" }
 ];
 
 const courses_get = defineEventHandler(() => {
@@ -3560,6 +3560,8 @@ const promoteWaitlist_post = defineEventHandler(async (event) => {
   const waitlistIndex = waitlist.findIndex((w) => w.id === body.waitlistId);
   if (waitlistIndex !== -1) {
     const originalPosition = waitlist[waitlistIndex].position;
+    waitlist[waitlistIndex].position = 0;
+    waitlist[waitlistIndex].originalPosition = originalPosition;
     waitlist[waitlistIndex].status = "promoted";
     waitlist[waitlistIndex].promotedAt = (/* @__PURE__ */ new Date()).toISOString();
     waitlist[waitlistIndex].promotedBy = body.actorId;
@@ -3711,7 +3713,7 @@ const resetData_post = defineEventHandler(async (event) => {
   waitlist.filter((w) => w.courseId === id).forEach((w) => {
     const idx = waitlist.findIndex((entry) => entry.id === w.id);
     if (idx !== -1) {
-      const originalPosition = waitlist[idx].position;
+      const originalPosition = waitlist[idx].originalPosition || waitlist[idx].position;
       const previousStatus = waitlist[idx].status;
       waitlist[idx].status = "cancelled";
       waitlist[idx].handledBy = body.actorId;

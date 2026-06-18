@@ -77,6 +77,7 @@ export interface WaitlistEntry {
   phone: string
   email: string
   position: number
+  originalPosition?: number
   status: 'active' | 'promoted' | 'rejected' | 'cancelled'
   createdAt: string
   updatedAt: string
@@ -295,7 +296,7 @@ export const waitlist: WaitlistEntry[] = [
   { id: 'w3', courseId: 'c2', participantName: '钱十一', phone: '13800138009', email: 'qianshiyi@example.com', position: 1, status: 'active', createdAt: '2024-06-18T10:00:00Z', updatedAt: '2024-06-18T10:00:00Z' },
   { id: 'w4', courseId: 'c2', participantName: '冯十二', phone: '13800138010', email: 'fengshier@example.com', position: 2, status: 'active', createdAt: '2024-06-18T10:30:00Z', updatedAt: '2024-06-18T10:30:00Z' },
   { id: 'w5', courseId: 'c3', participantName: '陈十三', phone: '13800138011', email: 'chenshisan@example.com', position: 1, status: 'active', createdAt: '2024-06-14T09:00:00Z', updatedAt: '2024-06-14T09:00:00Z' },
-  { id: 'w6', courseId: 'c1', participantName: '刘十四', phone: '13800138012', email: 'liushisi@example.com', position: 0, status: 'promoted', createdAt: '2024-06-15T14:00:00Z', updatedAt: '2024-06-16T08:00:00Z', promotedAt: '2024-06-16T08:00:00Z', promotedBy: 'u5', handledBy: 'u5', handledAt: '2024-06-16T08:00:00Z', handledResult: 'promoted' },
+  { id: 'w6', courseId: 'c1', participantName: '刘十四', phone: '13800138012', email: 'liushisi@example.com', position: 0, originalPosition: 1, status: 'promoted', createdAt: '2024-06-15T14:00:00Z', updatedAt: '2024-06-16T08:00:00Z', promotedAt: '2024-06-16T08:00:00Z', promotedBy: 'u5', handledBy: 'u5', handledAt: '2024-06-16T08:00:00Z', handledResult: 'promoted' },
 ]
 
 export const schedules: TeacherSchedule[] = [
@@ -305,6 +306,6 @@ export const schedules: TeacherSchedule[] = [
 ]
 
 export const waitlistHistory: WaitlistHistory[] = [
-  { id: 'h1', waitlistEntryId: 'w6', courseId: 'c1', action: 'promote', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-16T08:00:00Z', result: '成功升级为正式报名', notes: '原报名学员取消，候补学员升级' },
-  { id: 'h2', waitlistEntryId: 'w1', courseId: 'c1', action: 'promote', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-17T10:30:00Z', result: '升级失败，名额已满' },
+  { id: 'h1', waitlistEntryId: 'w6', courseId: 'c1', action: 'promote', actorId: 'u5', actorName: '刘主管', timestamp: '2024-06-16T08:00:00Z', result: '成功升级为正式报名', notes: '原报名学员取消，候补学员升级', participantName: '刘十四', originalPosition: 1, previousStatus: 'active', newStatus: 'promoted' },
+  { id: 'h2', waitlistEntryId: 'w1', courseId: 'c1', action: 'promote', actorId: 'u6', actorName: '赵主管', timestamp: '2024-06-17T10:30:00Z', result: '升级失败，名额已满', participantName: '吴九', originalPosition: 1, previousStatus: 'active', newStatus: 'active' },
 ]
