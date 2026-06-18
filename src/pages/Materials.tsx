@@ -19,7 +19,7 @@ const getRoleLabel = (name: string) => {
   return name;
 };
 
-const getResponsibilityReminder = (course: { status: string; creator: string; assignee: string }) => {
+const getResponsibilityReminder = (course: { status: string; creator: string; assignee: string; engineer?: string; teacher?: string }) => {
   switch (course.status) {
     case 'pending':
       return {
@@ -28,12 +28,12 @@ const getResponsibilityReminder = (course: { status: string; creator: string; as
         message: `${course.creator}（展教员）已提交课程，等待${course.assignee}（设备工程师）审核确认材料需求。`,
       };
     case 'approved': {
-      const engineer = users.find((u) => u.role === 'engineer');
-      const teacher = users.find((u) => u.role === 'teacher');
+      const eng = course.engineer || course.assignee;
+      const tea = course.teacher || course.assignee;
       return {
         level: 'info' as const,
         title: '已通过',
-        message: `${engineer?.name || course.assignee}（设备工程师）已审核通过，请${teacher?.name || course.assignee}（活动老师）确认材料并领用。`,
+        message: `${eng}（设备工程师）已审核通过，请${tea}（活动老师）确认材料并领用。`,
       };
     }
     case 'urgent':
@@ -42,24 +42,30 @@ const getResponsibilityReminder = (course: { status: string; creator: string; as
         title: '催办中',
         message: `⚠️ ${course.creator}（展教员）已催促，请${course.assignee}（设备工程师）尽快处理！`,
       };
-    case 'supplement':
+    case 'supplement': {
+      const eng = course.engineer || course.assignee;
+      const tea = course.teacher || course.assignee;
       return {
         level: 'warning' as const,
         title: '补材料',
-        message: `${course.assignee}（活动老师）反馈材料不足，需要补充材料后继续。`,
+        message: `${tea}（活动老师）反馈材料不足，请${eng}（设备工程师）补充材料后继续。`,
       };
+    }
     case 'rejected':
       return {
         level: 'danger' as const,
         title: '已退回',
         message: `${course.assignee}（设备工程师）已退回课程，请${course.creator}（展教员）修改后重新提交。`,
       };
-    case 'completed':
+    case 'completed': {
+      const eng = course.engineer || course.assignee;
+      const tea = course.teacher || course.assignee;
       return {
         level: 'success' as const,
         title: '已完成',
-        message: '课程已完成，材料已全部归还入库。',
+        message: `${tea}（活动老师）已完成课程，材料已全部归还入库。审核工程师：${eng}（设备工程师）`,
       };
+    }
     default:
       return null;
   }
@@ -247,16 +253,25 @@ export default function Materials() {
                 <div className="p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <ClipboardList className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm font-medium text-gray-700">材料领用记录</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      {course.status === 'completed' ? '材料归还记录' : '材料领用记录'}
+                    </span>
                   </div>
 
                   <div className="space-y-2">
                     {course.materials.map((material) => {
-                      const progress = Math.min(
-                        (material.allocatedQty / material.requiredQty) * 100,
-                        100
-                      );
-                      const isFullyAllocated = material.allocatedQty >= material.requiredQty;
+                      const progress = course.status === 'completed'
+                        ? Math.min(
+                            ((material.returnedQty || 0) / material.requiredQty) * 100,
+                            100
+                          )
+                        : Math.min(
+                            (material.allocatedQty / material.requiredQty) * 100,
+                            100
+                          );
+                      const isFullyProcessed = course.status === 'completed'
+                        ? (material.returnedQty || 0) >= material.requiredQty
+                        : material.allocatedQty >= material.requiredQty;
                       const stock = materials.find((m) => m.id === material.materialId);
 
                       return (
@@ -270,31 +285,37 @@ export default function Materials() {
                                 {material.materialName}
                               </span>
                               <span className="text-sm text-gray-500">
-                                {material.allocatedQty}/{material.requiredQty} {material.unit}
+                                {course.status === 'completed'
+                                  ? `${material.returnedQty || 0}/${material.requiredQty} ${material.unit} (已归还)`
+                                  : `${material.allocatedQty}/${material.requiredQty} ${material.unit}`}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
                                 <div
                                   className={`h-full rounded-full transition-all ${
-                                    isFullyAllocated ? 'bg-green-500' : 'bg-amber-500'
+                                    isFullyProcessed ? 'bg-green-500' : 'bg-amber-500'
                                   }`}
                                   style={{ width: `${progress}%` }}
                                 />
                               </div>
-                              {stock && stock.quantity <= stock.minStock && (
+                              {stock && stock.quantity <= stock.minStock && course.status !== 'completed' && (
                                 <span className="text-xs text-red-500 ml-2">库存不足</span>
                               )}
                             </div>
                           </div>
                           <span
                             className={`ml-3 px-2 py-1 rounded-full text-xs font-medium ${
-                              isFullyAllocated
-                                ? 'bg-green-100 text-green-700'
+                              isFullyProcessed
+                                ? course.status === 'completed'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-green-100 text-green-700'
                                 : 'bg-amber-100 text-amber-700'
                             }`}
                           >
-                            {isFullyAllocated ? '已领用' : '待领用'}
+                            {course.status === 'completed'
+                              ? isFullyProcessed ? '已归还' : '待归还'
+                              : isFullyProcessed ? '已领用' : '待领用'}
                           </span>
                         </div>
                       );

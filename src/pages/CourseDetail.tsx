@@ -33,7 +33,7 @@ const getRoleLabel = (name: string) => {
 export default function CourseDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { courses, materials, updateCourseStatus, addComment, updateMaterialAllocation, returnStock } = useCourseStore();
+  const { courses, materials, updateCourseStatus, addComment, updateMaterialAllocation, completeCourse } = useCourseStore();
   const [activeTab, setActiveTab] = useState<'materials' | 'comments'>('materials');
   const [newComment, setNewComment] = useState('');
   const [selectedAuthor, setSelectedAuthor] = useState('张教员');
@@ -73,13 +73,7 @@ export default function CourseDetail() {
   };
 
   const handleComplete = () => {
-    course.materials.forEach((mat) => {
-      if (mat.allocatedQty > 0) {
-        returnStock(mat.materialId, mat.allocatedQty);
-      }
-    });
-    updateCourseStatus(course.id, 'completed');
-    addComment(course.id, selectedAuthor, '课程已完成，材料已归还入库。');
+    completeCourse(course.id, selectedAuthor);
   };
 
   const handleSupplement = () => {
@@ -190,37 +184,69 @@ export default function CourseDetail() {
                     <tr>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">材料名称</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">需求数量</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">已分配</th>
+                      {course.status === 'completed' ? (
+                        <>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">已归还</th>
+                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">已领用</th>
+                        </>
+                      ) : (
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">已分配</th>
+                      )}
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">当前库存</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">单位</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">状态</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
+                      {course.status !== 'completed' && (
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">操作</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
                     {course.materials.map((material) => {
-                      const isFullyAllocated = material.allocatedQty >= material.requiredQty;
-                      const progress = Math.min((material.allocatedQty / material.requiredQty) * 100, 100);
+                      const isFullyProcessed = course.status === 'completed'
+                        ? (material.returnedQty || 0) >= material.requiredQty
+                        : material.allocatedQty >= material.requiredQty;
+                      const progress = course.status === 'completed'
+                        ? Math.min(((material.returnedQty || 0) / material.requiredQty) * 100, 100)
+                        : Math.min((material.allocatedQty / material.requiredQty) * 100, 100);
                       const stock = materials.find((m) => m.id === material.materialId);
-                      const isLowStock = stock && stock.quantity <= stock.minStock;
+                      const isLowStock = stock && stock.quantity <= stock.minStock && course.status !== 'completed';
                       
                       return (
                         <tr key={material.materialId} className="hover:bg-gray-50">
                           <td className="px-4 py-3 text-sm text-gray-800">{material.materialName}</td>
                           <td className="px-4 py-3 text-sm text-gray-600">{material.requiredQty}</td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600">{material.allocatedQty}</span>
-                              <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div
-                                  className={`h-full rounded-full transition-all ${
-                                    isFullyAllocated ? 'bg-green-500' : 'bg-amber-500'
-                                  }`}
-                                  style={{ width: `${progress}%` }}
-                                />
+                          {course.status === 'completed' ? (
+                            <>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-blue-600">{material.returnedQty || 0}</span>
+                                  <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-500 rounded-full transition-all"
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-500 line-through">
+                                {material.allocatedQty > 0 ? material.allocatedQty : '-'}
+                              </td>
+                            </>
+                          ) : (
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <span className="text-sm text-gray-600">{material.allocatedQty}</span>
+                                <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all ${
+                                      isFullyProcessed ? 'bg-green-500' : 'bg-amber-500'
+                                    }`}
+                                    style={{ width: `${progress}%` }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          </td>
+                            </td>
+                          )}
                           <td className={`px-4 py-3 text-sm ${isLowStock ? 'text-red-600' : 'text-gray-600'}`}>
                             {stock?.quantity || 0}
                             {isLowStock && <span className="ml-1 text-xs">(库存不足)</span>}
@@ -229,15 +255,22 @@ export default function CourseDetail() {
                           <td className="px-4 py-3">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                                isFullyAllocated
-                                  ? 'bg-green-100 text-green-700'
+                                isFullyProcessed
+                                  ? course.status === 'completed'
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : 'bg-green-100 text-green-700'
                                   : 'bg-amber-100 text-amber-700'
                               }`}
                             >
-                              {isFullyAllocated ? (
+                              {course.status === 'completed' ? (
                                 <>
                                   <CheckCircle className="w-3 h-3" />
-                                  已完成
+                                  已归还
+                                </>
+                              ) : isFullyProcessed ? (
+                                <>
+                                  <CheckCircle className="w-3 h-3" />
+                                  已领用
                                 </>
                               ) : (
                                 <>
@@ -247,38 +280,40 @@ export default function CourseDetail() {
                               )}
                             </span>
                           </td>
-                          <td className="px-4 py-3">
-                            {course.status === 'approved' && (
-                              <button
-                                onClick={() =>
-                                  updateMaterialAllocation(
-                                    course.id,
-                                    material.materialId,
-                                    material.requiredQty,
-                                    selectedAuthor
-                                  )
-                                }
-                                className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                              >
-                                确认领用
-                              </button>
-                            )}
-                            {course.status === 'supplement' && (
-                              <button
-                                onClick={() =>
-                                  updateMaterialAllocation(
-                                    course.id,
-                                    material.materialId,
-                                    material.requiredQty,
-                                    selectedAuthor
-                                  )
-                                }
-                                className="px-3 py-1 text-xs bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                              >
-                                补充材料
-                              </button>
-                            )}
-                          </td>
+                          {course.status !== 'completed' && (
+                            <td className="px-4 py-3">
+                              {course.status === 'approved' && (
+                                <button
+                                  onClick={() =>
+                                    updateMaterialAllocation(
+                                      course.id,
+                                      material.materialId,
+                                      material.requiredQty,
+                                      selectedAuthor
+                                    )
+                                  }
+                                  className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                                >
+                                  确认领用
+                                </button>
+                              )}
+                              {course.status === 'supplement' && (
+                                <button
+                                  onClick={() =>
+                                    updateMaterialAllocation(
+                                      course.id,
+                                      material.materialId,
+                                      material.requiredQty,
+                                      selectedAuthor
+                                    )
+                                  }
+                                  className="px-3 py-1 text-xs bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
+                                >
+                                  补充材料
+                                </button>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     })}

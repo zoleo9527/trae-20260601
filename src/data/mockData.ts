@@ -28,6 +28,7 @@ export const mockCourses: Course[] = [
     status: 'urgent',
     creator: '张教员',
     assignee: '李工程师',
+    engineer: '李工程师',
     createdAt: '2024-01-10 09:00',
     updatedAt: '2024-01-12 14:30',
     materials: [
@@ -47,6 +48,7 @@ export const mockCourses: Course[] = [
     status: 'rejected',
     creator: '刘教员',
     assignee: '陈工程师',
+    engineer: '陈工程师',
     createdAt: '2024-01-08 14:00',
     updatedAt: '2024-01-11 16:00',
     materials: [
@@ -66,6 +68,8 @@ export const mockCourses: Course[] = [
     status: 'approved',
     creator: '张教员',
     assignee: '王老师',
+    engineer: '李工程师',
+    teacher: '王老师',
     createdAt: '2024-01-05 10:00',
     updatedAt: '2024-01-09 11:00',
     materials: [
@@ -85,6 +89,8 @@ export const mockCourses: Course[] = [
     status: 'supplement',
     creator: '刘教员',
     assignee: '赵老师',
+    engineer: '陈工程师',
+    teacher: '赵老师',
     createdAt: '2024-01-03 09:00',
     updatedAt: '2024-01-12 09:00',
     materials: [
@@ -121,15 +127,18 @@ export const mockCourses: Course[] = [
     status: 'completed',
     creator: '刘教员',
     assignee: '赵老师',
+    engineer: '陈工程师',
+    teacher: '赵老师',
     createdAt: '2023-12-20 08:30',
     updatedAt: '2024-01-02 16:00',
     materials: [
-      { materialId: 'm8', materialName: '放大镜', requiredQty: 25, allocatedQty: 25, unit: '个' },
+      { materialId: 'm8', materialName: '放大镜', requiredQty: 25, allocatedQty: 0, returnedQty: 25, unit: '个' },
     ],
     comments: [
       { id: 'cm13', courseId: 'c6', author: '刘教员', content: '昆虫标本制作课程申请。', createdAt: '2023-12-20 08:30' },
       { id: 'cm14', courseId: 'c6', author: '陈工程师', content: '审核通过。', createdAt: '2023-12-21 09:00' },
-      { id: 'cm15', courseId: 'c6', author: '赵老师', content: '课程已完成，材料全部归还。', createdAt: '2024-01-02 16:00' },
+      { id: 'cm15', courseId: 'c6', author: '赵老师', content: '已领用放大镜25个。', createdAt: '2023-12-25 10:00' },
+      { id: 'cm16', courseId: 'c6', author: '赵老师', content: '课程已完成，放大镜25个已全部归还入库。', createdAt: '2024-01-02 16:00' },
     ],
   },
 ];

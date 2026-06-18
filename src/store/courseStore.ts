@@ -11,9 +11,10 @@ interface CourseStore {
   setFilterStatus: (status: string) => void;
   setFilterRole: (role: string) => void;
   addCourse: (course: Omit<Course, 'id' | 'createdAt' | 'updatedAt' | 'comments'>) => void;
-  updateCourseStatus: (id: string, status: Course['status']) => void;
+  updateCourseStatus: (id: string, status: Course['status'], author?: string) => void;
   addComment: (courseId: string, author: string, content: string) => void;
   updateMaterialAllocation: (courseId: string, materialId: string, allocatedQty: number, author?: string) => void;
+  completeCourse: (courseId: string, author: string) => void;
   consumeStock: (materialId: string, qty: number) => void;
   returnStock: (materialId: string, qty: number) => void;
   getFilteredCourses: () => Course[];
@@ -173,6 +174,50 @@ export const useCourseStore = create<CourseStore>()(
             m.id === materialId
               ? { ...m, quantity: m.quantity + qty }
               : m
+          ),
+        }));
+      },
+
+      completeCourse: (courseId, author) => {
+        const state = get();
+        const course = state.courses.find((c) => c.id === courseId);
+        
+        if (!course) return;
+
+        const returnComments: string[] = [];
+        
+        set((state) => ({
+          materials: state.materials.map((m) => {
+            const courseMat = course.materials.find((cm) => cm.materialId === m.id);
+            if (courseMat && courseMat.allocatedQty > 0) {
+              returnComments.push(`${courseMat.materialName} ${courseMat.allocatedQty}${courseMat.unit}`);
+              return { ...m, quantity: m.quantity + courseMat.allocatedQty };
+            }
+            return m;
+          }),
+          courses: state.courses.map((c) =>
+            c.id === courseId
+              ? {
+                  ...c,
+                  status: 'completed' as const,
+                  materials: c.materials.map((mat) => ({
+                    ...mat,
+                    returnedQty: mat.allocatedQty,
+                    allocatedQty: 0,
+                  })),
+                  comments: [
+                    ...c.comments,
+                    {
+                      id: `cm${Date.now()}`,
+                      courseId,
+                      author,
+                      content: `课程已完成，材料已全部归还入库：${returnComments.join('、')}`,
+                      createdAt: new Date().toLocaleString('zh-CN'),
+                    },
+                  ],
+                  updatedAt: new Date().toLocaleString('zh-CN'),
+                }
+              : c
           ),
         }));
       },

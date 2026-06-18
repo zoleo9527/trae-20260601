@@ -3,6 +3,7 @@ export interface CourseMaterial {
   materialName: string;
   requiredQty: number;
   allocatedQty: number;
+  returnedQty?: number;
   unit: string;
 }
 
@@ -21,6 +22,8 @@ export interface Course {
   status: 'pending' | 'approved' | 'rejected' | 'urgent' | 'supplement' | 'completed';
   creator: string;
   assignee: string;
+  engineer?: string;
+  teacher?: string;
   createdAt: string;
   updatedAt: string;
   materials: CourseMaterial[];
