@@ -445,6 +445,28 @@ export class WorkflowService {
     }
   }
 
+  async onMaterialClaimed(material: MaterialList, preparedBy: string, preparedByName: string) {
+    await this.updateScheduleMaterialStatus(material.scheduleId, 'IN_PROGRESS');
+
+    const schedules = await dataStore.findAll<ActivitySchedule>('schedules.json');
+    const schedule = schedules.find(s => s.id === material.scheduleId);
+
+    if (schedule) {
+      await this.createNotification({
+        type: 'MATERIAL_CLAIMED',
+        title: '物料准备任务已被认领',
+        content: `课程【${schedule.courseName}】的物料准备任务已由${preparedByName}认领，正在准备中`,
+        recipients: ['user_005', 'user_008', schedule.lecturerId],
+        relatedScheduleId: schedule.id,
+        relatedMaterialId: material.id,
+        priority: 'LOW',
+        actions: [
+          { type: 'VIEW_MATERIAL', label: '查看物料清单' },
+        ],
+      });
+    }
+  }
+
   async onScheduleTransitioned(schedule: ActivitySchedule, fromStatus: string, toStatus: string) {
     this.eventEmitter.emit('schedule.transitioned', { schedule, fromStatus, toStatus });
   }

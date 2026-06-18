@@ -396,6 +396,8 @@ export async function claimMaterial(req: Request, res: Response) {
       });
     }
 
+    const oldStatus = materials[index].status;
+    
     materials[index].preparedBy = preparedBy;
     materials[index].preparedByName = preparedByName;
     materials[index].status = 'IN_PROGRESS';
@@ -404,7 +406,7 @@ export async function claimMaterial(req: Request, res: Response) {
 
     const statusTransition = {
       id: `mst_${uuidv4()}`,
-      fromStatus: 'NOT_STARTED',
+      fromStatus: oldStatus,
       toStatus: 'IN_PROGRESS',
       operator: preparedBy,
       operatorName: preparedByName,
@@ -414,6 +416,8 @@ export async function claimMaterial(req: Request, res: Response) {
     materials[index].statusHistory = [...(materials[index].statusHistory || []), statusTransition];
 
     await dataStore.write('materials.json', materials);
+
+    await workflowService.onMaterialClaimed(materials[index], preparedBy, preparedByName);
 
     res.json({
       success: true,

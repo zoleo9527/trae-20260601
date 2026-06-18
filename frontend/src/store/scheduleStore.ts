@@ -86,6 +86,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
         currentSchedule: state.currentSchedule?.id === id ? updatedSchedule : state.currentSchedule,
         isLoading: false,
       }));
+      return { success: true, data: updatedSchedule, isChanged: response.data?.isChanged || false, changedFields: response.data?.changedFields || [] };
     } catch (error) {
       console.error('Failed to update schedule:', error);
       set(state => ({
@@ -94,6 +95,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
         ),
         isLoading: false,
       }));
+      return { success: false, error: '更新失败' };
     }
   },
 

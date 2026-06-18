@@ -3,6 +3,7 @@ import { MaterialList as MaterialListType } from '@/types';
 import { Card, StatusTag, Button, Modal } from '../common';
 import { Package, MapPin, Clock, User, Hand } from 'lucide-react';
 import { useMaterialStore } from '@/store';
+import { getCurrentUser } from '@/data/mockUsers';
 import dayjs from 'dayjs';
 
 interface MaterialCardProps {
@@ -16,14 +17,15 @@ export const MaterialCard: React.FC<MaterialCardProps> = ({
 }) => {
   const [showClaimModal, setShowClaimModal] = useState(false);
   const { claimMaterial } = useMaterialStore();
+  const currentUser = getCurrentUser();
 
   const preparedCount = material.materials.filter(m => m.status === 'PREPARED').length;
   const totalCount = material.materials.length;
 
   const handleClaim = async () => {
     await claimMaterial(material.id, {
-      preparedBy: 'user_004',
-      preparedByName: '周洋',
+      preparedBy: currentUser.id,
+      preparedByName: currentUser.name,
     });
     setShowClaimModal(false);
     window.location.reload();
