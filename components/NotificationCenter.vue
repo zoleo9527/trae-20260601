@@ -24,31 +24,159 @@
           <p class="text-gray-500 mt-4">暂无通知</p>
         </div>
 
-        <div v-else class="divide-y divide-gray-200">
-          <div
-            v-for="notification in notifications"
-            :key="notification.id"
-            @click="handleNotificationClick(notification)"
-            :class="[
-              'p-4 cursor-pointer transition-colors',
-              notification.read ? 'bg-white hover:bg-gray-50' : 'bg-blue-50'
-            ]"
-          >
-            <div class="flex items-start space-x-3">
-              <div :class="getIconClass(notification.type)" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
-                <ExclamationCircleIcon v-if="notification.type === 'alert'" class="w-5 h-5 text-white" />
-                <CheckCircleIcon v-else-if="notification.type === 'success'" class="w-5 h-5 text-white" />
-                <InformationCircleIcon v-else class="w-5 h-5 text-white" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-start justify-between">
-                  <h3 class="font-medium text-gray-900">{{ notification.title }}</h3>
-                  <span v-if="!notification.read" class="w-2 h-2 bg-primary-600 rounded-full"></span>
+        <div v-else class="p-4 space-y-6">
+          <div v-if="refundNotifications.length > 0">
+            <div class="flex items-center space-x-2 mb-3">
+              <div class="w-2 h-2 bg-orange-500 rounded-full"></div>
+              <h3 class="font-semibold text-gray-900">退票相关</h3>
+              <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {{ refundNotifications.filter(n => !n.read).length }} 条未读
+              </span>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="notification in refundNotifications"
+                :key="notification.id"
+                @click="handleNotificationClick(notification)"
+                :class="[
+                  'p-3 rounded-lg cursor-pointer transition-colors',
+                  notification.read ? 'bg-white hover:bg-gray-50 border border-gray-100' : 'bg-orange-50 border border-orange-200'
+                ]"
+              >
+                <div class="flex items-start space-x-2">
+                  <div :class="getIconClass(notification.type)" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ExclamationCircleIcon v-if="notification.type === 'alert'" class="w-4 h-4 text-white" />
+                    <CheckCircleIcon v-else-if="notification.type === 'success'" class="w-4 h-4 text-white" />
+                    <InformationCircleIcon v-else class="w-4 h-4 text-white" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                      <h4 class="font-medium text-gray-900 text-sm">{{ notification.title }}</h4>
+                      <span v-if="!notification.read" class="w-2 h-2 bg-primary-600 rounded-full"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                    <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                      <span>{{ formatDateTime(notification.createdAt) }}</span>
+                      <span v-if="notification.relatedNo">· {{ notification.relatedNo }}</span>
+                    </div>
+                  </div>
                 </div>
-                <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
-                <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
-                  <span>{{ formatDateTime(notification.createdAt) }}</span>
-                  <span v-if="notification.relatedNo">· {{ notification.relatedNo }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="rescheduleNotifications.length > 0">
+            <div class="flex items-center space-x-2 mb-3">
+              <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <h3 class="font-semibold text-gray-900">改期相关</h3>
+              <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {{ rescheduleNotifications.filter(n => !n.read).length }} 条未读
+              </span>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="notification in rescheduleNotifications"
+                :key="notification.id"
+                @click="handleNotificationClick(notification)"
+                :class="[
+                  'p-3 rounded-lg cursor-pointer transition-colors',
+                  notification.read ? 'bg-white hover:bg-gray-50 border border-gray-100' : 'bg-blue-50 border border-blue-200'
+                ]"
+              >
+                <div class="flex items-start space-x-2">
+                  <div :class="getIconClass(notification.type)" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ExclamationCircleIcon v-if="notification.type === 'alert'" class="w-4 h-4 text-white" />
+                    <CheckCircleIcon v-else-if="notification.type === 'success'" class="w-4 h-4 text-white" />
+                    <InformationCircleIcon v-else class="w-4 h-4 text-white" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                      <h4 class="font-medium text-gray-900 text-sm">{{ notification.title }}</h4>
+                      <span v-if="!notification.read" class="w-2 h-2 bg-primary-600 rounded-full"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                    <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                      <span>{{ formatDateTime(notification.createdAt) }}</span>
+                      <span v-if="notification.relatedNo">· {{ notification.relatedNo }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="complaintNotifications.length > 0">
+            <div class="flex items-center space-x-2 mb-3">
+              <div class="w-2 h-2 bg-red-500 rounded-full"></div>
+              <h3 class="font-semibold text-gray-900">投诉相关</h3>
+              <span class="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                {{ complaintNotifications.filter(n => !n.read).length }} 条未读
+              </span>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="notification in complaintNotifications"
+                :key="notification.id"
+                @click="handleNotificationClick(notification)"
+                :class="[
+                  'p-3 rounded-lg cursor-pointer transition-colors',
+                  notification.read ? 'bg-white hover:bg-gray-50 border border-gray-100' : 'bg-red-50 border border-red-200'
+                ]"
+              >
+                <div class="flex items-start space-x-2">
+                  <div :class="getIconClass(notification.type)" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ExclamationCircleIcon v-if="notification.type === 'alert'" class="w-4 h-4 text-white" />
+                    <CheckCircleIcon v-else-if="notification.type === 'success'" class="w-4 h-4 text-white" />
+                    <InformationCircleIcon v-else class="w-4 h-4 text-white" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                      <h4 class="font-medium text-gray-900 text-sm">{{ notification.title }}</h4>
+                      <span v-if="!notification.read" class="w-2 h-2 bg-primary-600 rounded-full"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                    <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                      <span>{{ formatDateTime(notification.createdAt) }}</span>
+                      <span v-if="notification.relatedNo">· {{ notification.relatedNo }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="otherNotifications.length > 0">
+            <div class="flex items-center space-x-2 mb-3">
+              <div class="w-2 h-2 bg-gray-500 rounded-full"></div>
+              <h3 class="font-semibold text-gray-900">其他通知</h3>
+            </div>
+            <div class="space-y-2">
+              <div
+                v-for="notification in otherNotifications"
+                :key="notification.id"
+                @click="handleNotificationClick(notification)"
+                :class="[
+                  'p-3 rounded-lg cursor-pointer transition-colors',
+                  notification.read ? 'bg-white hover:bg-gray-50 border border-gray-100' : 'bg-gray-50 border border-gray-200'
+                ]"
+              >
+                <div class="flex items-start space-x-2">
+                  <div :class="getIconClass(notification.type)" class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                    <ExclamationCircleIcon v-if="notification.type === 'alert'" class="w-4 h-4 text-white" />
+                    <CheckCircleIcon v-else-if="notification.type === 'success'" class="w-4 h-4 text-white" />
+                    <InformationCircleIcon v-else class="w-4 h-4 text-white" />
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-start justify-between">
+                      <h4 class="font-medium text-gray-900 text-sm">{{ notification.title }}</h4>
+                      <span v-if="!notification.read" class="w-2 h-2 bg-primary-600 rounded-full"></span>
+                    </div>
+                    <p class="text-sm text-gray-600 mt-1">{{ notification.message }}</p>
+                    <div class="flex items-center space-x-2 mt-2 text-xs text-gray-500">
+                      <span>{{ formatDateTime(notification.createdAt) }}</span>
+                      <span v-if="notification.relatedNo">· {{ notification.relatedNo }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -91,6 +219,41 @@ const emit = defineEmits<{
  ];
 }>();
 const unreadCount = computed(() => props.notifications.filter(n => !n.read).length);
+
+const refundNotifications = computed(() => {
+  return props.notifications.filter(n => {
+    if (n.relatedNo?.startsWith('RT')) return true;
+    if (n.relatedNo?.startsWith('TK') && n.title.includes('退票')) return true;
+    if (!n.relatedNo && n.title.includes('退票')) return true;
+    return false;
+  }).sort((a, b) => (a.read ? 1 : 0) - (b.read ? 1 : 0));
+});
+
+const rescheduleNotifications = computed(() => {
+  return props.notifications.filter(n => {
+    if (n.relatedNo?.startsWith('TK') && n.title.includes('改期')) return true;
+    if (!n.relatedNo && n.title.includes('改期')) return true;
+    return false;
+  }).sort((a, b) => (a.read ? 1 : 0) - (b.read ? 1 : 0));
+});
+
+const complaintNotifications = computed(() => {
+  return props.notifications.filter(n => {
+    if (n.relatedNo?.startsWith('CT')) return true;
+    if (!n.relatedNo && n.title.includes('投诉')) return true;
+    return false;
+  }).sort((a, b) => (a.read ? 1 : 0) - (b.read ? 1 : 0));
+});
+
+const otherNotifications = computed(() => {
+  return props.notifications.filter(n => {
+    if (n.relatedNo?.startsWith('CT') || n.relatedNo?.startsWith('RT')) return false;
+    if (n.relatedNo?.startsWith('TK') && (n.title.includes('退票') || n.title.includes('改期'))) return false;
+    if (!n.relatedNo && (n.title.includes('退票') || n.title.includes('改期') || n.title.includes('投诉'))) return false;
+    return true;
+  }).sort((a, b) => (a.read ? 1 : 0) - (b.read ? 1 : 0));
+});
+
 function getIconClass(type: string) {
  const classMap: Record<string, string> = {
  alert: 'bg-red-600',

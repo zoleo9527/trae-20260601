@@ -103,6 +103,28 @@
       </div>
 
       <div class="card">
+        <div v-if="hasActiveFilters" class="px-6 py-3 bg-blue-50 border-b border-blue-200 flex items-center justify-between">
+          <div class="flex items-center space-x-4">
+            <span class="text-sm font-medium text-blue-900">当前视图条件:</span>
+            <div class="flex items-center space-x-2">
+              <span v-if="filterStatus" class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">
+                状态: {{ getStatusLabel(filterStatus) }}
+              </span>
+              <span v-if="filterStuck" class="px-2 py-1 bg-red-100 text-red-700 rounded text-xs">
+                卡点任务
+              </span>
+              <span v-if="filterUrgent" class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">
+                紧急投诉
+              </span>
+              <span v-if="filterType && filterType !== 'all'" class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">
+                {{ getTypeLabelForFilter(filterType) }}
+              </span>
+            </div>
+          </div>
+          <button @click="clearAllFilters" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+            清空筛选
+          </button>
+        </div>
         <div class="overflow-x-auto">
           <table class="min-w-full divide-y divide-gray-200">
             <thead class="bg-gray-50">
@@ -566,6 +588,29 @@ function getStatusLabel(status: string) {
   }
   return labelMap[status] || status
 }
+
+function getTypeLabelForFilter(type: string) {
+  const labelMap: Record<string, string> = {
+    refund: '退票',
+    reschedule: '改期',
+    complaint: '投诉',
+    all: '全部'
+  }
+  return labelMap[type] || type
+}
+
+function clearAllFilters() {
+  activeTab.value = 'all'
+  filterType.value = ''
+  filterStatus.value = ''
+  filterStuck.value = false
+  filterUrgent.value = false
+  loadTasks()
+}
+
+const hasActiveFilters = computed(() => {
+  return filterType.value !== '' || filterStatus.value !== '' || filterStuck.value || filterUrgent.value
+})
 
 function formatDateTime(dateStr: string) {
   if (!dateStr) return '-'
