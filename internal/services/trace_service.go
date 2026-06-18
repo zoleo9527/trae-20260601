@@ -27,25 +27,29 @@ type AuditEntry struct {
 }
 
 type SafetyRecordWithAudit struct {
-	Record  database.SafetyRecord `json:"record"`
-	Audits  []AuditEntry          `json:"audits"`
+	Record database.SafetyRecord `json:"record"`
+	Audits []AuditEntry          `json:"audits"`
 }
 
-type CheckinTrace struct {
-	Checkin        *database.ActivityCheckin   `json:"checkin"`
-	CheckinAudits  []AuditEntry                `json:"checkin_audits"`
-	SafetyRecords  []SafetyRecordWithAudit     `json:"safety_records"`
-	Exceptions     []database.Exception        `json:"exceptions"`
-	LinkedAudits   []AuditEntry                `json:"linked_audits"`
-}
-
-type CourseTrace struct {
-	Course          *database.Course            `json:"course"`
-	Checkins        []database.ActivityCheckin  `json:"checkins"`
-	Statistics      CourseStatistics            `json:"statistics"`
-	SafetyRecords   []SafetyRecordWithAudit     `json:"safety_records"`
-	Exceptions     []database.Exception        `json:"exceptions"`
-	Audits         []AuditEntry                `json:"audits"`
+type TraceResult struct {
+	// 签到级别数据
+	Checkin      *database.ActivityCheckin   `json:"checkin,omitempty"`
+	Checkins     []database.ActivityCheckin  `json:"checkins,omitempty"`
+	
+	// 安全记录
+	SafetyRecords []SafetyRecordWithAudit    `json:"safety_records"`
+	
+	// 异常说明
+	Exceptions   []database.Exception       `json:"exceptions"`
+	
+	// 统一审计日志
+	Audits       []AuditEntry               `json:"audits"`
+	
+	// 统计信息
+	Statistics   *CourseStatistics          `json:"statistics,omitempty"`
+	
+	// 课程信息
+	Course       *database.Course           `json:"course,omitempty"`
 }
 
 type CourseStatistics struct {
@@ -54,78 +58,27 @@ type CourseStatistics struct {
 	BackfillCount int `json:"backfill_count"`
 }
 
-func (s *TraceService) GetFullTrace(checkinID string) (*CheckinTrace, error) {
+func (s *TraceService) GetFullTrace(checkinID string) (*TraceResult, error) {
 	var checkin database.ActivityCheckin
 	if err := s.db.Where("id = ?", checkinID).First(&checkin).Error; err != nil {
 		return nil, err
 	}
 
-	checkinAudits := s.getCheckinAudits(checkinID)
-
 	safetyRecords := s.getSafetyRecordsWithAudits(checkinID)
 
 	exceptions := s.getExceptions(checkinID)
 
-	linkedAudits := s.getLinkedAudits(checkinID)
+	allAudits := s.getAllAuditsForCheckin(checkinID)
 
-	return &CheckinTrace{
-		Checkin:        &checkin,
-		CheckinAudits:  checkinAudits,
-		SafetyRecords:  safetyRecords,
-		Exceptions:     exceptions,
-		LinkedAudits:   linkedAudits,
+	return &TraceResult{
+		Checkin:       &checkin,
+		SafetyRecords: safetyRecords,
+		Exceptions:    exceptions,
+		Audits:        allAudits,
 	}, nil
 }
 
-func (s *TraceService) getCheckinAudits(checkinID string) []AuditEntry {
-	var audits []database.AuditLog
-	s.db.Where("(module = ? AND target_id = ?) OR (module = ? AND data LIKE ?)",
-		"checkin", checkinID,
-		"checkin", "%\""+checkinID+"\"").
-		Order("created_at ASC").
-		Find(&audits)
-
-	return convertAudits(audits)
-}
-
-func (s *TraceService) getSafetyRecordsWithAudits(checkinID string) []SafetyRecordWithAudit {
-	var records []database.SafetyRecord
-	s.db.Where("checkin_id = ?", checkinID).Order("created_at ASC").Find(&records)
-
-	var result []SafetyRecordWithAudit
-	for _, record := range records {
-		var audits []database.AuditLog
-		s.db.Where("(module = ? AND target_id = ?) OR (module = ? AND data LIKE ?)",
-			"safety", record.ID,
-			"safety", "%\""+record.ID+"\"").
-			Order("created_at ASC").
-			Find(&audits)
-
-		result = append(result, SafetyRecordWithAudit{
-			Record: record,
-			Audits: convertAudits(audits),
-		})
-	}
-	return result
-}
-
-func (s *TraceService) getExceptions(checkinID string) []database.Exception {
-	var exceptions []database.Exception
-	s.db.Where("checkin_id = ?", checkinID).Order("created_at ASC").Find(&exceptions)
-	return exceptions
-}
-
-func (s *TraceService) getLinkedAudits(checkinID string) []AuditEntry {
-	var audits []database.AuditLog
-	s.db.Where("data LIKE ?", "%\""+checkinID+"\"").
-		Where("module NOT IN (?)", []string{"checkin", "safety"}).
-		Order("created_at ASC").
-		Find(&audits)
-
-	return convertAudits(audits)
-}
-
-func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.Time) (*CourseTrace, error) {
+func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.Time) (*TraceResult, error) {
 	var checkins []database.ActivityCheckin
 	query := s.db.Where("course_id = ?", courseID)
 	if !startTime.IsZero() {
@@ -157,6 +110,8 @@ func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.T
 
 	var safetyRecords []SafetyRecordWithAudit
 	var exceptions []database.Exception
+	var allAudits []AuditEntry
+
 	if len(checkinIDs) > 0 {
 		var records []database.SafetyRecord
 		s.db.Where("checkin_id IN (?)", checkinIDs).Find(&records)
@@ -174,26 +129,77 @@ func (s *TraceService) GetCourseTrace(courseID string, startTime, endTime time.T
 		}
 
 		s.db.Where("checkin_id IN (?)", checkinIDs).Find(&exceptions)
+
+		allAudits = s.getAllAuditsForCourse(courseID, checkinIDs)
 	}
 
+	return &TraceResult{
+		Course:        &course,
+		Checkins:      checkins,
+		SafetyRecords: safetyRecords,
+		Exceptions:    exceptions,
+		Audits:        allAudits,
+		Statistics: &CourseStatistics{
+			TotalCheckins: totalCheckins,
+			RejectedCount: rejectedCount,
+			BackfillCount: backfillCount,
+		},
+	}, nil
+}
+
+func (s *TraceService) getSafetyRecordsWithAudits(checkinID string) []SafetyRecordWithAudit {
+	var records []database.SafetyRecord
+	s.db.Where("checkin_id = ?", checkinID).Order("created_at ASC").Find(&records)
+
+	var result []SafetyRecordWithAudit
+	for _, record := range records {
+		var audits []database.AuditLog
+		s.db.Where("(module = ? AND target_id = ?) OR (module = ? AND data LIKE ?)",
+			"safety", record.ID,
+			"safety", "%\""+record.ID+"\"").
+			Order("created_at ASC").
+			Find(&audits)
+
+		result = append(result, SafetyRecordWithAudit{
+			Record: record,
+			Audits: convertAudits(audits),
+		})
+	}
+	return result
+}
+
+func (s *TraceService) getExceptions(checkinID string) []database.Exception {
+	var exceptions []database.Exception
+	s.db.Where("checkin_id = ?", checkinID).Order("created_at ASC").Find(&exceptions)
+	return exceptions
+}
+
+func (s *TraceService) getAllAuditsForCheckin(checkinID string) []AuditEntry {
+	var audits []database.AuditLog
+	s.db.Where("data LIKE ?", "%\""+checkinID+"\"").
+		Order("created_at ASC").
+		Find(&audits)
+	return convertAudits(audits)
+}
+
+func (s *TraceService) getAllAuditsForCourse(courseID string, checkinIDs []string) []AuditEntry {
 	var audits []database.AuditLog
 	s.db.Where("data LIKE ?", "%\""+courseID+"\"").
 		Order("created_at DESC").
 		Limit(100).
 		Find(&audits)
 
-	return &CourseTrace{
-		Course:        &course,
-		Checkins:      checkins,
-		Statistics: CourseStatistics{
-			TotalCheckins: totalCheckins,
-			RejectedCount: rejectedCount,
-			BackfillCount: backfillCount,
-		},
-		SafetyRecords: safetyRecords,
-		Exceptions:    exceptions,
-		Audits:        convertAudits(audits),
-	}, nil
+	for _, checkinID := range checkinIDs {
+		var checkinAudits []database.AuditLog
+		s.db.Where("data LIKE ?", "%\""+checkinID+"\"").
+			Where("module IN (?)", []string{"checkin", "safety", "exception"}).
+			Order("created_at DESC").
+			Limit(20).
+			Find(&checkinAudits)
+		audits = append(audits, checkinAudits...)
+	}
+
+	return convertAudits(audits)
 }
 
 func convertAudits(audits []database.AuditLog) []AuditEntry {

@@ -1,8 +1,8 @@
 package services
 
 import (
-	"database/sql"
 	"encoding/json"
+	"strings"
 	"museum-education/internal/database"
 	"time"
 
@@ -129,9 +129,9 @@ func isUniqueConstraintError(err error) bool {
 	if err == nil {
 		return false
 	}
-	if sqlErr, ok := err.(*sql.Error); ok {
-		return sqlErr.Code == "23505" || sqlErr.Code == "SQLITE_CONSTRAINT"
-	}
-	return err.Error() == "UNIQUE constraint failed: idempotent_records.key" ||
-		err.Error() == "duplicate key value violates unique constraint \"idempotent_records_key_idx\""
+	errStr := err.Error()
+	return strings.Contains(errStr, "UNIQUE constraint failed") ||
+		strings.Contains(errStr, "duplicate key") ||
+		strings.Contains(errStr, "UNIQUE constraint") ||
+		strings.Contains(errStr, "constraint failed")
 }
