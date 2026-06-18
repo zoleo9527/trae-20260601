@@ -18,7 +18,6 @@ router.get('/', async (req, res) => {
     pendingSchedules,
     urgentMaterials
   ] = await Promise.all([
-    // 今日待处理预约
     prisma.reservation.findMany({
       where: {
         status: 'PENDING_CONFIRM',
@@ -34,7 +33,6 @@ router.get('/', async (req, res) => {
       orderBy: { startTime: 'asc' }
     }),
     
-    // 超时预约（已过开始时间但未完成的）
     prisma.reservation.findMany({
       where: {
         status: { in: ['PENDING_CONFIRM', 'CONFIRMED', 'IN_PROGRESS'] },
@@ -46,7 +44,6 @@ router.get('/', async (req, res) => {
       orderBy: { startTime: 'asc' }
     }),
     
-    // 刚退回的预约（最近2小时内退回的）
     prisma.reservation.findMany({
       where: {
         status: 'REJECTED',
@@ -58,7 +55,6 @@ router.get('/', async (req, res) => {
       orderBy: { rejectedAt: 'desc' }
     }),
     
-    // 活跃的展项问题
     prisma.exhibitIssue.findMany({
       where: {
         status: { in: ['SHUTDOWN_PLANNED', 'SHUTDOWN_EMERGENCY', 'MAINTENANCE', 'REPAIRING'] }
@@ -70,7 +66,6 @@ router.get('/', async (req, res) => {
       orderBy: { reportedAt: 'desc' }
     }),
     
-    // 待执行的排班
     prisma.schedule.findMany({
       where: {
         status: 'PENDING',
@@ -93,7 +88,6 @@ router.get('/', async (req, res) => {
       orderBy: { scheduledStart: 'asc' }
     }),
     
-    // 紧急的材料问题
     prisma.materialIssue.findMany({
       where: {
         status: 'OPEN',
@@ -125,6 +119,352 @@ router.get('/', async (req, res) => {
     activeExhibitIssues,
     pendingSchedules,
     urgentMaterials
+  });
+});
+
+router.get('/educator/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+  const twoHoursAgo = subHours(today, 2);
+
+  const [
+    myPendingReservations,
+    myScheduledToday,
+    myInProgressSchedules,
+    myReportedIssues,
+    recentlyReturnedMine,
+    myOverdueReservations
+  ] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        status: 'PENDING_CONFIRM',
+        startTime: { gte: todayStart, lte: todayEnd },
+        createdById: userId
+      },
+      include: {
+        exhibitIssue: { select: { id: true, exhibitName: true, status: true } }
+      },
+      orderBy: { startTime: 'asc' }
+    }),
+    
+    prisma.schedule.findMany({
+      where: {
+        educatorId: userId,
+        scheduledStart: { gte: todayStart, lte: todayEnd },
+        status: { notIn: ['COMPLETED', 'CANCELLED'] }
+      },
+      include: {
+        reservation: {
+          select: {
+            visitorGroup: true,
+            visitorCount: true,
+            startTime: true,
+            endTime: true,
+            contactName: true,
+            contactPhone: true
+          }
+        },
+        createdBy: { select: { name: true, role: true } }
+      },
+      orderBy: { scheduledStart: 'asc' }
+    }),
+    
+    prisma.schedule.findMany({
+      where: {
+        educatorId: userId,
+        status: 'IN_PROGRESS'
+      },
+      include: {
+        reservation: {
+          select: {
+            visitorGroup: true,
+            startTime: true,
+            endTime: true
+          }
+        }
+      },
+      orderBy: { scheduledStart: 'asc' }
+    }),
+    
+    prisma.exhibitIssue.findMany({
+      where: {
+        reporterId: userId,
+        status: { in: ['SHUTDOWN_PLANNED', 'SHUTDOWN_EMERGENCY', 'MAINTENANCE', 'REPAIRING'] }
+      },
+      include: {
+        handler: { select: { name: true, phone: true } },
+        affectedReservations: {
+          select: { visitorGroup: true, startTime: true, status: true }
+        }
+      },
+      orderBy: { reportedAt: 'desc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        status: 'REJECTED',
+        rejectedAt: { gte: twoHoursAgo },
+        createdById: userId
+      },
+      include: {
+        exhibitIssue: { select: { exhibitName: true } }
+      },
+      orderBy: { rejectedAt: 'desc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        status: { in: ['PENDING_CONFIRM', 'CONFIRMED'] },
+        startTime: { lt: today },
+        createdById: userId
+      },
+      orderBy: { startTime: 'asc' }
+    })
+  ]);
+
+  const stats = {
+    pendingReservations: myPendingReservations.length,
+    scheduledToday: myScheduledToday.length,
+    inProgress: myInProgressSchedules.length,
+    reportedIssues: myReportedIssues.length,
+    recentlyReturned: recentlyReturnedMine.length,
+    overdue: myOverdueReservations.length
+  };
+
+  res.json({
+    timestamp: today.toISOString(),
+    stats,
+    role: 'EXHIBIT_EDUCATOR',
+    pendingReservations: myPendingReservations,
+    scheduledToday: myScheduledToday,
+    inProgress: myInProgressSchedules,
+    reportedIssues: myReportedIssues,
+    recentlyReturned: recentlyReturnedMine,
+    overdue: myOverdueReservations
+  });
+});
+
+router.get('/engineer/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const twoHoursAgo = subHours(today, 2);
+
+  const [
+    myAssignedIssues,
+    myReportedIssues,
+    affectedReservations,
+    pendingReviewItems,
+    urgentIssues
+  ] = await Promise.all([
+    prisma.exhibitIssue.findMany({
+      where: {
+        handlerId: userId,
+        status: { in: ['SHUTDOWN_PLANNED', 'SHUTDOWN_EMERGENCY', 'MAINTENANCE', 'REPAIRING'] }
+      },
+      include: {
+        reporter: { select: { name: true, phone: true, role: true } },
+        affectedReservations: {
+          select: {
+            visitorGroup: true,
+            startTime: true,
+            status: true,
+            contactName: true,
+            contactPhone: true
+          }
+        }
+      },
+      orderBy: { deadline: 'asc' }
+    }),
+    
+    prisma.exhibitIssue.findMany({
+      where: {
+        reporterId: userId,
+        status: { in: ['SHUTDOWN_PLANNED', 'SHUTDOWN_EMERGENCY', 'MAINTENANCE', 'REPAIRING'] }
+      },
+      include: {
+        handler: { select: { name: true, phone: true } }
+      },
+      orderBy: { reportedAt: 'desc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        exhibitIssue: {
+          handlerId: userId,
+          status: { in: ['SHUTDOWN_PLANNED', 'SHUTDOWN_EMERGENCY'] }
+        },
+        status: { notIn: ['CANCELLED', 'COMPLETED'] }
+      },
+      include: {
+        createdBy: { select: { name: true, phone: true } },
+        exhibitIssue: { select: { exhibitName: true, status: true, cause: true } }
+      },
+      orderBy: { startTime: 'asc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        needsReview: true,
+        status: 'REJECTED',
+        rejectedAt: { gte: twoHoursAgo }
+      },
+      include: {
+        createdBy: { select: { name: true, role: true } },
+        exhibitIssue: { select: { exhibitName: true, status: true } }
+      },
+      orderBy: { rejectedAt: 'desc' }
+    }),
+    
+    prisma.exhibitIssue.findMany({
+      where: {
+        status: 'SHUTDOWN_EMERGENCY',
+        deadline: { lte: todayStart }
+      },
+      include: {
+        reporter: { select: { name: true, phone: true } },
+        handler: { select: { name: true } }
+      },
+      orderBy: { deadline: 'asc' }
+    })
+  ]);
+
+  const stats = {
+    assignedIssues: myAssignedIssues.length,
+    reportedIssues: myReportedIssues.length,
+    affectedReservations: affectedReservations.length,
+    pendingReview: pendingReviewItems.length,
+    urgentIssues: urgentIssues.length
+  };
+
+  res.json({
+    timestamp: today.toISOString(),
+    stats,
+    role: 'EQUIPMENT_ENGINEER',
+    assignedIssues: myAssignedIssues,
+    reportedIssues: myReportedIssues,
+    affectedReservations: affectedReservations,
+    pendingReview: pendingReviewItems,
+    urgentIssues: urgentIssues
+  });
+});
+
+router.get('/teacher/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const today = new Date();
+  const todayStart = startOfDay(today);
+  const todayEnd = endOfDay(today);
+  const twoHoursAgo = subHours(today, 2);
+
+  const [
+    myPendingReservations,
+    myScheduledToday,
+    myMaterialIssues,
+    recentlyReturnedMine,
+    urgentMaterials,
+    myCreatedReservations
+  ] = await Promise.all([
+    prisma.reservation.findMany({
+      where: {
+        status: 'PENDING_CONFIRM',
+        startTime: { gte: todayStart, lte: todayEnd },
+        createdById: userId
+      },
+      include: {
+        exhibitIssue: { select: { exhibitName: true, status: true } },
+        schedule: { select: { status: true, educator: { select: { name: true } } } }
+      },
+      orderBy: { startTime: 'asc' }
+    }),
+    
+    prisma.schedule.findMany({
+      where: {
+        createdById: userId,
+        scheduledStart: { gte: todayStart, lte: todayEnd },
+        status: { notIn: ['COMPLETED', 'CANCELLED'] }
+      },
+      include: {
+        reservation: {
+          select: {
+            visitorGroup: true,
+            visitorCount: true,
+            startTime: true,
+            endTime: true,
+            contactName: true,
+            contactPhone: true
+          }
+        },
+        educator: { select: { name: true, phone: true } }
+      },
+      orderBy: { scheduledStart: 'asc' }
+    }),
+    
+    prisma.materialIssue.findMany({
+      where: {
+        reporterId: userId,
+        status: { notIn: ['RESOLVED', 'CLOSED'] }
+      },
+      include: {
+        handler: { select: { name: true, phone: true } }
+      },
+      orderBy: { deadline: 'asc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        status: 'REJECTED',
+        rejectedAt: { gte: twoHoursAgo },
+        createdById: userId
+      },
+      include: {
+        exhibitIssue: { select: { exhibitName: true } }
+      },
+      orderBy: { rejectedAt: 'desc' }
+    }),
+    
+    prisma.materialIssue.findMany({
+      where: {
+        reporterId: userId,
+        status: 'OPEN',
+        deadline: { lte: todayEnd }
+      },
+      orderBy: { deadline: 'asc' }
+    }),
+    
+    prisma.reservation.findMany({
+      where: {
+        createdById: userId,
+        status: { notIn: ['CANCELLED', 'COMPLETED'] },
+        startTime: { lt: today }
+      },
+      include: {
+        schedule: { select: { status: true } }
+      },
+      orderBy: { startTime: 'asc' }
+    })
+  ]);
+
+  const stats = {
+    pendingReservations: myPendingReservations.length,
+    scheduledToday: myScheduledToday.length,
+    materialIssues: myMaterialIssues.length,
+    recentlyReturned: recentlyReturnedMine.length,
+    urgentMaterials: urgentMaterials.length,
+    overdueReservations: myCreatedReservations.length
+  };
+
+  res.json({
+    timestamp: today.toISOString(),
+    stats,
+    role: 'ACTIVITY_TEACHER',
+    pendingReservations: myPendingReservations,
+    scheduledToday: myScheduledToday,
+    materialIssues: myMaterialIssues,
+    recentlyReturned: recentlyReturnedMine,
+    urgentMaterials: urgentMaterials,
+    overdueReservations: myCreatedReservations
   });
 });
 
