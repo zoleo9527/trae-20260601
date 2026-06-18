@@ -210,13 +210,21 @@ async function handleResolve(row) {
 async function confirmProcess() {
  if (!selectedException.value)
  return;
- const currentUserId = authStore.user?.id || 1;
+ const currentUserId = authStore.user?.id;
+ if (!currentUserId) {
+ ElMessage.error('请先登录');
+ return;
+ }
  try {
- await exceptionAPI.update(selectedException.value.id, {
+ const updateData = {
  status: 'processing',
- handler_id: currentUserId,
- handle_remarks: handleForm.remarks
- });
+ handler_id: currentUserId
+ };
+ if (handleForm.remarks.trim()) {
+ updateData.handle_remarks = handleForm.remarks.trim();
+ }
+ await exceptionAPI.update(selectedException.value.id, updateData);
+ handleForm.remarks = '';
  ElMessage.success('已开始处理');
  showDetailDrawer.value = false;
  loadExceptions();
@@ -228,13 +236,21 @@ async function confirmProcess() {
 async function confirmResolve() {
  if (!selectedException.value)
  return;
- const currentUserId = authStore.user?.id || 1;
+ const currentUserId = authStore.user?.id;
+ if (!currentUserId) {
+ ElMessage.error('请先登录');
+ return;
+ }
  try {
- await exceptionAPI.update(selectedException.value.id, {
+ const updateData = {
  status: 'resolved',
- handler_id: currentUserId,
- handle_remarks: handleForm.remarks
- });
+ handler_id: currentUserId
+ };
+ if (handleForm.remarks.trim()) {
+ updateData.handle_remarks = handleForm.remarks.trim();
+ }
+ await exceptionAPI.update(selectedException.value.id, updateData);
+ handleForm.remarks = '';
  ElMessage.success('已标记为解决');
  showDetailDrawer.value = false;
  loadExceptions();

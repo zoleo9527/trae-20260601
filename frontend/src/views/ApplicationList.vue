@@ -108,12 +108,14 @@
   </div>
 </template>
 
-<script setup>import { ref, reactive, computed, onMounted } from 'vue';
+<script setup>import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
 import { applicationAPI, activityAPI, authAPI } from '../api';
 import { useAuthStore } from '../stores/auth';
 import { ElMessage } from 'element-plus';
+const route = useRoute();
 const authStore = useAuthStore();
 const statusFilter = ref('');
 const activityFilter = ref('');
@@ -123,6 +125,14 @@ const showDetailDialog = ref(false);
 const selectedApplication = ref(null);
 const processForm = reactive({
  process_remarks: ''
+});
+watch(() => route.query.focusId, (newVal) => {
+ if (newVal) {
+ const app = applications.value.find(a => a.id === parseInt(newVal));
+ if (app) {
+ showDetail(app);
+ }
+ }
 });
 const pendingCount = computed(() => applications.value.filter(a => a.status === 'pending').length);
 const approvedCount = computed(() => applications.value.filter(a => a.status === 'approved').length);
@@ -198,13 +208,20 @@ async function handleProcess(status) {
  showDetailDialog.value = false;
 }
 async function processApplication(id, status) {
- const currentUserId = authStore.user?.id || 1;
+ const currentUserId = authStore.user?.id;
+ if (!currentUserId) {
+ ElMessage.error('请先登录');
+ return;
+ }
  try {
- await applicationAPI.update(id, {
+ const updateData = {
  status,
- process_remarks: processForm.process_remarks,
  processed_by: currentUserId
- });
+ };
+ if (processForm.process_remarks.trim()) {
+ updateData.process_remarks = processForm.process_remarks.trim();
+ }
+ await applicationAPI.update(id, updateData);
  processForm.process_remarks = '';
  ElMessage.success(status === 'approved' ? '已通过' : '已拒绝');
  loadApplications();

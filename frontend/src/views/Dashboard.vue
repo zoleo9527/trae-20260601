@@ -77,7 +77,7 @@ import { useRouter } from 'vue-router';
 import { Calendar, Users, AlertTriangle, ClipboardList } from '@element-plus/icons-vue';
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
-import { activityAPI, applicationAPI, exceptionAPI, postAPI } from '../api';
+import { activityAPI, applicationAPI, exceptionAPI, postAPI, authAPI } from '../api';
 const router = useRouter();
 const stats = ref({
  totalActivities: 0,
@@ -146,7 +146,7 @@ function formatStatus(row) {
  return `<span class="status-badge ${colors[row.status]}">${row.status}</span>`;
 }
 function goToApplication(id) {
-  router.push('/applications');
+  router.push({ path: '/applications', query: { focusId: id } });
 }
 onMounted(() => {
  loadStats();

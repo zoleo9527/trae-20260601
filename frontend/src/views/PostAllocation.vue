@@ -39,6 +39,13 @@
                   <el-icon class="warning-icon"><component :is="AlertTriangle" /></el-icon>
                   <span>还差 {{ post.capacity - post.current_count }} 人</span>
                 </div>
+                <div v-if="getPostException(post.id)" class="exception-info">
+                  <el-icon class="exception-icon"><component :is="AlertCircle" /></el-icon>
+                  <div class="exception-content">
+                    <span class="exception-title">{{ getPostException(post.id).title }}</span>
+                    <span class="exception-desc">{{ getPostException(post.id).description }}</span>
+                  </div>
+                </div>
                 <div class="post-actions">
                   <el-button size="small" @click="showAssignDialog(post)">分配人员</el-button>
                 </div>
@@ -119,12 +126,28 @@
 </template>
 
 <script setup>import { ref, reactive, computed, onMounted } from 'vue';
-import { AlertTriangle } from '@element-plus/icons-vue';
+import { AlertTriangle, AlertCircle } from '@element-plus/icons-vue';
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
 import { postAPI, activityAPI, applicationAPI, authAPI, exceptionAPI } from '../api';
 import { ElMessage } from 'element-plus';
+const activityId = ref('');
+const activities = ref([]);
+const posts = ref([]);
+const applications = ref([]);
+const users = ref([]);
 const exceptions = ref([]);
+const showCreatePostDialog = ref(false);
+const showAssignDialog = ref(false);
+const selectedPost = ref(null);
+const postForm = reactive({
+ name: '',
+ activity_id: '',
+ shift: '全天',
+ capacity: 1,
+ required_skills: '',
+ description: ''
+});
 async function loadData() {
  const [acts, ps, apps, usrs, excs] = await Promise.all([
  activityAPI.list(),
@@ -144,26 +167,9 @@ async function loadData() {
  users.value = usrs.data;
  exceptions.value = excs.data;
 }
-function getPostExceptions(postId) {
- return exceptions.value.filter(e => e.related_post_id === postId);
+function getPostException(postId) {
+ return exceptions.value.find(e => e.related_post_id === postId && e.status !== 'resolved');
 }
-const activityId = ref('');
-const activities = ref([]);
-const posts = ref([]);
-const applications = ref([]);
-const users = ref([]);
-const exceptions = ref([]);
-const showCreatePostDialog = ref(false);
-const showAssignDialog = ref(false);
-const selectedPost = ref(null);
-const postForm = reactive({
- name: '',
- activity_id: '',
- shift: '全天',
- capacity: 1,
- required_skills: '',
- description: ''
-});
 const filteredPosts = computed(() => {
  if (!activityId.value)
  return posts.value;
@@ -427,5 +433,40 @@ onMounted(() => {
 .status-badge.gray {
   background: #f5f5f5;
   color: #666;
+}
+
+.exception-info {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  background: #fff2f0;
+  border-radius: 6px;
+  margin-top: 10px;
+  border-left: 4px solid #f5222d;
+}
+
+.exception-icon {
+  font-size: 16px;
+  color: #f5222d;
+  flex-shrink: 0;
+}
+
+.exception-content {
+  flex: 1;
+}
+
+.exception-title {
+  display: block;
+  font-weight: bold;
+  color: #f5222d;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.exception-desc {
+  display: block;
+  color: #d93026;
+  font-size: 12px;
+  line-height: 1.4;
 }
 </style>
