@@ -1,18 +1,27 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { User } from '../types';
 import { login as apiLogin, getProfile } from '../api';
 
 const STORAGE_KEY = 'volunteer_token';
 
-export function useAuth() {
+interface AuthContextType {
+  user: User | null;
+  loading: boolean;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem(STORAGE_KEY);
     if (token) {
-      getProfile().then(user => {
-        setUser(user);
+      getProfile().then(fetchedUser => {
+        setUser(fetchedUser);
       }).catch(() => {
         localStorage.removeItem(STORAGE_KEY);
       }).finally(() => {
@@ -27,7 +36,6 @@ export function useAuth() {
     const result = await apiLogin(username, password);
     localStorage.setItem(STORAGE_KEY, result.token);
     setUser(result.user);
-    return result;
   }, []);
 
   const logout = useCallback(() => {
@@ -35,5 +43,17 @@ export function useAuth() {
     setUser(null);
   }, []);
 
-  return { user, loading, login, logout };
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }
