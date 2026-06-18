@@ -126,9 +126,19 @@ function handleNotificationClick(notification: Notification) {
  notification.read = true;
  emit('update');
  if (notification.relatedNo) {
- const taskType = notification.relatedNo.startsWith('CT') ? 'complaint' :
- notification.relatedNo.startsWith('RT') ? 'refund' : 'refund';
- emit('navigate', notification.id, taskType);
+ let taskType = 'refund';
+ if (notification.relatedNo.startsWith('CT')) {
+ taskType = 'complaint';
+ } else if (notification.relatedNo.startsWith('RT')) {
+ taskType = 'refund';
+ } else if (notification.relatedNo.startsWith('TK')) {
+ if (notification.title.includes('改期')) {
+ taskType = 'reschedule';
+ } else if (notification.title.includes('退票')) {
+ taskType = 'refund';
+ }
+ }
+ emit('navigate', notification.relatedNo, taskType);
  }
 }
 function handleExport() {

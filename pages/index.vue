@@ -78,7 +78,7 @@
           <button
             v-for="tab in tabs"
             :key="tab.value"
-            @click="activeTab = tab.value"
+            @click="handleTabChange(tab.value)"
             :class="[
               'px-4 py-2 rounded-lg font-medium transition-colors',
               activeTab === tab.value
@@ -386,10 +386,21 @@ function openTaskDetail(task: any) {
   }
 }
 
+function handleTabChange(tab: string) {
+  activeTab.value = tab
+  filterType.value = tab === 'all' ? '' : tab
+  filterStatus.value = ''
+  filterStuck.value = false
+  filterUrgent.value = false
+  loadTasks()
+}
+
 function handlePendingCardClick(type: string) {
   activeTab.value = type
   filterType.value = type
   filterStatus.value = 'pending'
+  filterStuck.value = false
+  filterUrgent.value = false
   loadTasks()
 }
 
@@ -398,6 +409,7 @@ function showStuckTasks() {
   filterType.value = ''
   filterStatus.value = ''
   filterStuck.value = true
+  filterUrgent.value = false
   loadTasks()
 }
 
@@ -405,6 +417,7 @@ function showUrgentComplaints() {
   activeTab.value = 'complaint'
   filterType.value = 'complaint'
   filterStatus.value = ''
+  filterStuck.value = false
   filterUrgent.value = true
   loadTasks()
 }
