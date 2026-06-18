@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { getUserByUsername } from '$lib/database'
+  import { login, setUserToStorage } from '$lib/database'
   import { User, Lock, LogIn, Eye, EyeOff } from 'lucide-svelte'
-  import { bind } from 'svelte'
   
   let username = ''
   let password = ''
   let showPassword = false
   let error = ''
+  let loading = false
   let quickUsers = [
     { username: 'boss', password: '123456', role: '老板', color: '#4CAF50' },
     { username: 'chef', password: '123456', role: '后厨', color: '#FF9800' },
@@ -16,27 +16,33 @@
   
   async function handleLogin() {
     error = ''
+    loading = true
     
     if (!username || !password) {
       error = '请输入用户名和密码'
+      loading = false
       return
     }
     
-    const user = getUserByUsername(username)
+    const result = await login(username, password)
     
-    if (!user || user.password !== password) {
-      error = '用户名或密码错误'
+    if (!result.success) {
+      error = result.message || '登录失败'
+      loading = false
       return
     }
     
-    localStorage.setItem('currentUser', JSON.stringify(user))
-    window.location.href = '/'
+    if (result.user) {
+      setUserToStorage(result.user)
+      window.location.href = '/'
+    }
+    loading = false
   }
   
-  function handleQuickLogin(user: any) {
+  async function handleQuickLogin(user: any) {
     username = user.username
     password = user.password
-    handleLogin()
+    await handleLogin()
   }
 </script>
 
@@ -56,6 +62,7 @@
             class="quick-user-btn"
             style="border-color: {user.color}"
             on:click={() => handleQuickLogin(user)}
+            disabled={loading}
           >
             <div class="user-avatar" style="background: {user.color}">
               <User class="avatar-icon" />
@@ -85,7 +92,7 @@
             type="text" 
             placeholder="用户名" 
             bind:value={username}
-            on:keydown={(e) => e.key === 'Enter' && handleLogin()}
+            on:keydown={(e) => e.key === 'Enter' && !loading && handleLogin()}
           />
         </div>
       </div>
@@ -94,10 +101,18 @@
         <div class="input-wrapper">
           <Lock class="input-icon" />
           <input 
-            type={showPassword ? 'text' : 'password'} 
+            type="password" 
             placeholder="密码" 
             bind:value={password}
-            on:keydown={(e) => e.key === 'Enter' && handleLogin()}
+            on:keydown={(e) => e.key === 'Enter' && !loading && handleLogin()}
+            class:hidden={showPassword}
+          />
+          <input 
+            type="text" 
+            placeholder="密码" 
+            bind:value={password}
+            on:keydown={(e) => e.key === 'Enter' && !loading && handleLogin()}
+            class:hidden={!showPassword}
           />
           <button class="toggle-password" on:click={() => showPassword = !showPassword}>
             {#if showPassword}
@@ -109,9 +124,13 @@
         </div>
       </div>
       
-      <button class="login-btn" on:click={handleLogin}>
-        <LogIn class="btn-icon" />
-        登录系统
+      <button class="login-btn" on:click={handleLogin} disabled={loading}>
+        {#if loading}
+          <div class="loading-spinner"></div>
+        {:else}
+          <LogIn class="btn-icon" />
+          登录系统
+        {/if}
       </button>
     </div>
     
@@ -193,9 +212,14 @@
     text-align: left;
   }
   
-  .quick-user-btn:hover {
+  .quick-user-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  
+  .quick-user-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
   
   .user-avatar {
@@ -310,14 +334,32 @@
     transition: all 0.3s;
   }
   
-  .login-btn:hover {
+  .login-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  }
+  
+  .login-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
   
   .btn-icon {
     width: 20px;
     height: 20px;
+  }
+  
+  .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid #fff;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
   
   .login-footer {
@@ -328,5 +370,9 @@
     font-size: 0.8rem;
     color: #999;
     margin: 0;
+  }
+  
+  .hidden {
+    display: none;
   }
 </style>

@@ -6,11 +6,12 @@
     getAllInventory,
     getAllRooms,
     getAllLogs,
-    getRoomById
+    getUserFromStorage
   } from '$lib/database'
   import { 
     Calendar, AlertTriangle, Clock, Users, Package, CheckCircle, 
-    XCircle, ArrowRight, AlertCircle, History, BedDouble, ChefHat, ClipboardList
+    XCircle, ArrowRight, AlertCircle, History, BedDouble, ChefHat, ClipboardList,
+    AlertOctagon, DollarSign, Users2
   } from 'lucide-svelte'
   
   let checkInToday: any[] = []
@@ -22,6 +23,10 @@
   let logs: any[] = []
   
   let highRiskItems: any[] = []
+  let overbookingRisks: any[] = []
+  let depositIssues: any[] = []
+  
+  let currentUser = getUserFromStorage()
 
   onMount(async () => {
     await loadData()
@@ -29,6 +34,7 @@
 
   async function loadData() {
     const today = new Date().toISOString().split('T')[0]
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
     
     const [reservations, orders, inventory, roomsData, logsData] = await Promise.all([
       getAllReservations(),
@@ -48,6 +54,10 @@
     
     highRiskItems = inventory.filter(i => i.quantity <= i.min_stock * 0.5)
     
+    overbookingRisks = detectOverbooking(reservations, rooms, today, tomorrow)
+    
+    depositIssues = detectDepositIssues(reservations)
+    
     for (const res of checkInToday) {
       const room = rooms.find(r => r.id === res.room_id)
       if (room) res.room_name = room.name
@@ -63,10 +73,82 @@
       if (room) res.room_name = room.name
     }
     
-    logs = await Promise.all(logsData.slice(0, 10).map(async log => {
-      const room = await getRoomById(log.room_id)
+    for (const risk of overbookingRisks) {
+      const room = rooms.find(r => r.id === risk.room_id)
+      if (room) risk.room_name = room.name
+    }
+    
+    for (const issue of depositIssues) {
+      const room = rooms.find(r => r.id === issue.room_id)
+      if (room) issue.room_name = room.name
+    }
+    
+    logs = logsData.slice(0, 10).map(log => {
+      const room = rooms.find(r => r.id === log.room_id)
       return { ...log, room_name: room?.name || `房间 ${log.room_id}` }
-    }))
+    })
+  }
+
+  function detectOverbooking(reservations: any[], rooms: any[], date1: string, date2: string): any[] {
+    const risks: any[] = []
+    const holidays = ['2026-01-01', '2026-01-25', '2026-01-26', '2026-01-27', '2026-04-04', '2026-04-05', '2026-05-01', '2026-06-07', '2026-09-13', '2026-10-01', '2026-10-02', '2026-10-03']
+    
+    for (const room of rooms) {
+      const roomReservations = reservations.filter(r => 
+        r.room_id === room.id && 
+        r.status !== 'completed' &&
+        ((r.check_in <= date2 && r.check_out >= date1) || holidays.some(h => h >= r.check_in && h <= r.check_out))
+      )
+      
+      if (roomReservations.length > 1) {
+        risks.push({
+          room_id: room.id,
+          room_name: room.name,
+          conflict_count: roomReservations.length,
+          guests: roomReservations.map(r => r.guest_name).join(', '),
+          is_holiday: holidays.some(h => roomReservations.some(r => h >= r.check_in && h <= r.check_out))
+        })
+      }
+    }
+    
+    return risks
+  }
+
+  function detectDepositIssues(reservations: any[]): any[] {
+    const issues: any[] = []
+    
+    for (const res of reservations) {
+      if (res.status === 'checked_in' && res.deposit === 0) {
+        issues.push({
+          room_id: res.room_id,
+          guest_name: res.guest_name,
+          check_out: res.check_out,
+          issue_type: 'no_deposit',
+          severity: 'high'
+        })
+      }
+      
+      const depositRatio = res.deposit / (res.price * daysBetween(res.check_in, res.check_out))
+      if (res.status === 'pending' && depositRatio < 0.3) {
+        issues.push({
+          room_id: res.room_id,
+          guest_name: res.guest_name,
+          check_in: res.check_in,
+          deposit: res.deposit,
+          expected: Math.round(res.price * daysBetween(res.check_in, res.check_out) * 0.3),
+          issue_type: 'low_deposit',
+          severity: 'medium'
+        })
+      }
+    }
+    
+    return issues
+  }
+
+  function daysBetween(date1: string, date2: string): number {
+    const d1 = new Date(date1)
+    const d2 = new Date(date2)
+    return Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24)) || 1
   }
 
   function handleQuickAction(type: string) {
@@ -96,6 +178,12 @@
         <div class="greeting">今日工作概览</div>
       </div>
     </div>
+    {#if currentUser}
+    <div class="user-info">
+      <Users class="user-icon" />
+      <span>当前用户: {currentUser.username} ({currentUser.role === 'boss' ? '老板' : currentUser.role === 'chef' ? '后厨' : currentUser.role === 'housekeeper' ? '客房阿姨' : '员工'})</span>
+    </div>
+    {/if}
   </div>
   
   <div class="priority-section">
@@ -105,7 +193,7 @@
         <span class="priority-title">紧急待处理</span>
       </div>
       <div class="priority-content">
-        {#if checkInToday.length > 0 || checkOutToday.length > 0 || highRiskItems.length > 0}
+        {#if checkInToday.length > 0 || checkOutToday.length > 0 || highRiskItems.length > 0 || overbookingRisks.length > 0 || depositIssues.length > 0}
           {#if checkInToday.length > 0}
             <div class="priority-item" on:click={() => handleQuickAction('checkin')}>
               <div class="item-count">{checkInToday.length}</div>
@@ -122,6 +210,26 @@
               <div class="item-info">
                 <div class="item-title">今日退房</div>
                 <div class="item-desc">{checkOutToday.map(c => c.guest_name).join('、')}</div>
+              </div>
+              <ArrowRight class="arrow-icon" />
+            </div>
+          {/if}
+          {#if overbookingRisks.length > 0}
+            <div class="priority-item danger" on:click={() => handleQuickAction('checkin')}>
+              <div class="item-count">{overbookingRisks.length}</div>
+              <div class="item-info">
+                <div class="item-title">超订风险</div>
+                <div class="item-desc">{overbookingRisks.map(r => r.room_name).join('、')}</div>
+              </div>
+              <ArrowRight class="arrow-icon" />
+            </div>
+          {/if}
+          {#if depositIssues.length > 0}
+            <div class="priority-item warning" on:click={() => handleQuickAction('checkin')}>
+              <div class="item-count">{depositIssues.length}</div>
+              <div class="item-info">
+                <div class="item-title">押金异常</div>
+                <div class="item-desc">{depositIssues.map(i => i.guest_name).join('、')}</div>
               </div>
               <ArrowRight class="arrow-icon" />
             </div>
@@ -278,6 +386,11 @@
                 <div class="item-name">{item.guest_name}</div>
                 <div class="item-detail">{item.room_name} | {item.guests}人 | {item.phone}</div>
               </div>
+              {#if item.deposit > 0}
+              <div class="deposit-badge">已交押金 ¥{item.deposit}</div>
+              {:else}
+              <div class="deposit-badge warning">未交押金</div>
+              {/if}
               <button class="btn-checkin" on:click={() => window.location.href = '/rooms'}>办理入住</button>
             </div>
           {/each}
@@ -315,6 +428,65 @@
       </div>
     </div>
   </div>
+  
+  {#if overbookingRisks.length > 0 || depositIssues.length > 0}
+  <div class="section-row">
+    {#if overbookingRisks.length > 0}
+    <div class="section warning">
+      <div class="section-header">
+        <AlertOctagon class="warning-icon" />
+        <h2>节假日超订风险</h2>
+        <span class="section-count">{overbookingRisks.length} 项</span>
+      </div>
+      <div class="list-container">
+        {#each overbookingRisks as risk}
+          <div class="list-item danger">
+            <div class="risk-indicator"></div>
+            <div class="item-info">
+              <div class="item-name">{risk.room_name}</div>
+              <div class="item-detail">
+                冲突预订: {risk.conflict_count} 笔 | 
+                客人: {risk.guests}
+                {#if risk.is_holiday}
+                <span class="holiday-tag">节假日</span>
+                {/if}
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+    {/if}
+    
+    {#if depositIssues.length > 0}
+    <div class="section warning">
+      <div class="section-header">
+        <DollarSign class="warning-icon" />
+        <h2>押金异常提醒</h2>
+        <span class="section-count">{depositIssues.length} 项</span>
+      </div>
+      <div class="list-container">
+        {#each depositIssues as issue}
+          <div class="list-item {issue.severity === 'high' ? 'danger' : 'warning'}">
+            <div class="item-info">
+              <div class="item-name">{issue.guest_name}</div>
+              <div class="item-detail">
+                {#if issue.issue_type === 'no_deposit'}
+                  <span class="issue-type">未交押金</span>
+                  入住中，退房日期: {issue.check_out}
+                {:else}
+                  <span class="issue-type">押金不足</span>
+                  已交 ¥{issue.deposit}，建议至少 ¥{issue.expected}
+                {/if}
+              </div>
+            </div>
+          </div>
+        {/each}
+      </div>
+    </div>
+    {/if}
+  </div>
+  {/if}
   
   <div class="section-row">
     <div class="section">
@@ -408,10 +580,14 @@
   .dashboard {
     max-width: 1400px;
     margin: 0 auto;
+    padding: 1rem;
   }
   
   .header-section {
     margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
   
   .date-display {
@@ -422,6 +598,8 @@
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 12px;
     color: white;
+    flex: 1;
+    margin-right: 1rem;
   }
   
   .calendar-icon {
@@ -438,6 +616,22 @@
     font-size: 1rem;
     opacity: 0.9;
     margin-top: 0.25rem;
+  }
+  
+  .user-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  
+  .user-icon {
+    width: 24px;
+    height: 24px;
+    color: #666;
   }
   
   .priority-section {
@@ -500,6 +694,11 @@
     border-left: 3px solid #F44336;
   }
   
+  .priority-item.warning {
+    background: #FFF8E1;
+    border-left: 3px solid #FF9800;
+  }
+  
   .item-count {
     width: 36px;
     height: 36px;
@@ -516,6 +715,10 @@
   
   .priority-item.danger .item-count {
     background: #F44336;
+  }
+  
+  .priority-item.warning .item-count {
+    background: #FF9800;
   }
   
   .item-info {
@@ -660,6 +863,10 @@
     box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   }
   
+  .section.warning {
+    border-left: 4px solid #FF9800;
+  }
+  
   .section.full-width {
     grid-column: 1 / -1;
   }
@@ -678,6 +885,9 @@
     font-weight: 600;
     color: #333;
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
   
   .section-count {
@@ -692,6 +902,12 @@
     width: 18px;
     height: 18px;
     color: #999;
+  }
+  
+  .warning-icon {
+    width: 20px;
+    height: 20px;
+    color: #FF9800;
   }
   
   .list-container {
@@ -716,6 +932,11 @@
   
   .list-item.warning {
     background: #fff3e0;
+    border-left: 4px solid #FF9800;
+  }
+  
+  .list-item.danger {
+    background: #FFEBEE;
     border-left: 4px solid #F44336;
   }
   
@@ -723,6 +944,19 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+  
+  .risk-indicator {
+    width: 8px;
+    height: 8px;
+    background: #F44336;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
   
   .log-time {
@@ -775,6 +1009,39 @@
   .item-detail {
     font-size: 0.85rem;
     color: #666;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  
+  .issue-type {
+    background: #FF9800;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+  
+  .holiday-tag {
+    background: #E91E63;
+    color: white;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+  }
+  
+  .deposit-badge {
+    background: #4CAF50;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-right: 0.75rem;
+  }
+  
+  .deposit-badge.warning {
+    background: #FF9800;
   }
   
   .btn-checkin {
@@ -817,13 +1084,6 @@
   
   .empty-state.success {
     color: #4CAF50;
-  }
-  
-  .warning-icon {
-    width: 20px;
-    height: 20px;
-    color: #F44336;
-    margin-right: 0.75rem;
   }
   
   .stock-status {
