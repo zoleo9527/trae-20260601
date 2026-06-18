@@ -384,12 +384,18 @@ export function createOrderWithInventory(tableNo: string, dishes: string): { suc
     }
   }
   
-  for (const [name, amount] of Object.entries(requiredIngredients)) {
-    db.prepare('UPDATE inventory SET quantity = quantity - ? WHERE name = ?').run(amount, name)
+  try {
+    db.transaction(() => {
+      for (const [name, amount] of Object.entries(requiredIngredients)) {
+        db.prepare('UPDATE inventory SET quantity = quantity - ? WHERE name = ?').run(amount, name)
+      }
+      
+      db.prepare('INSERT INTO orders (table_no, dishes, status, created_at) VALUES (?, ?, "pending", ?)')
+        .run(tableNo, dishes, new Date().toISOString())
+    })()
+    
+    return { success: true, message: '下单成功' }
+  } catch (error) {
+    return { success: false, message: `下单失败: ${error instanceof Error ? error.message : '未知错误'}` }
   }
-  
-  db.prepare('INSERT INTO orders (table_no, dishes, status, created_at) VALUES (?, ?, "pending", ?)')
-    .run(tableNo, dishes, new Date().toISOString())
-  
-  return { success: true, message: '下单成功' }
 }

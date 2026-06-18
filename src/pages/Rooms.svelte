@@ -18,6 +18,8 @@
     RefreshCw, Users2
   } from 'lucide-svelte'
   
+  import { writable } from 'svelte/store'
+
   let rooms: any[] = []
   let reservations: any[] = []
   let selectedRoom: any = null
@@ -25,7 +27,7 @@
   let searchQuery = ''
   let statusFilter = 'all'
   let roomTypeFilter = 'all'
-  let selectedRooms: number[] = []
+  const selectedRooms = writable<number[]>([])
   let currentUser = '老板'
   
   const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
@@ -72,20 +74,25 @@
   }
   
   function toggleSelectRoom(roomId: number) {
-    const index = selectedRooms.indexOf(roomId)
-    if (index > -1) {
-      selectedRooms.splice(index, 1)
-    } else {
-      selectedRooms.push(roomId)
-    }
+    selectedRooms.update(rooms => {
+      const index = rooms.indexOf(roomId)
+      if (index > -1) {
+        return rooms.filter(id => id !== roomId)
+      } else {
+        return [...rooms, roomId]
+      }
+    })
   }
   
   function selectAllRooms() {
-    if (selectedRooms.length === getFilteredRooms().length) {
-      selectedRooms = []
-    } else {
-      selectedRooms = getFilteredRooms().map(r => r.id)
-    }
+    const filtered = getFilteredRooms()
+    selectedRooms.update(current => {
+      if (current.length === filtered.length && filtered.length > 0) {
+        return []
+      } else {
+        return filtered.map(r => r.id)
+      }
+    })
   }
   
   async function handleCheckIn(roomId: number) {
@@ -124,29 +131,35 @@
   }
   
   async function handleBatchCheckIn() {
-    if (selectedRooms.length === 0) {
+    const currentSelected = $selectedRooms
+    if (currentSelected.length === 0) {
       alert('请先选择要办理入住的房间')
       return
     }
-    await batchCheckIn(selectedRooms, currentUser)
+    await batchCheckIn([...currentSelected], currentUser)
+    selectedRooms.set([])
     await loadData()
   }
   
   async function handleBatchCheckOut() {
-    if (selectedRooms.length === 0) {
+    const currentSelected = $selectedRooms
+    if (currentSelected.length === 0) {
       alert('请先选择要办理退房的房间')
       return
     }
-    await batchCheckOut(selectedRooms, currentUser)
+    await batchCheckOut([...currentSelected], currentUser)
+    selectedRooms.set([])
     await loadData()
   }
   
   async function handleBatchCleanComplete() {
-    if (selectedRooms.length === 0) {
+    const currentSelected = $selectedRooms
+    if (currentSelected.length === 0) {
       alert('请先选择已打扫完成的房间')
       return
     }
-    await batchCleanComplete(selectedRooms, currentUser)
+    await batchCleanComplete([...currentSelected], currentUser)
+    selectedRooms.set([])
     await loadData()
   }
   
@@ -169,7 +182,7 @@
   }
   
   function getSelectedCounts() {
-    const selected = rooms.filter(r => selectedRooms.includes(r.id))
+    const selected = rooms.filter(r => $selectedRooms.includes(r.id))
     return {
       total: selected.length,
       pending: selected.filter(r => r.status === 'reserved' && r.currentReservation?.status === 'pending').length,
@@ -235,11 +248,11 @@
     </button>
   </div>
   
-  {#if selectedRooms.length > 0}
+  {#if $selectedRooms.length > 0}
     <div class="batch-actions">
       <div class="selected-info">
         <Users2 class="selected-icon" />
-        <span>已选择 {selectedRooms.length} 间房间</span>
+        <span>已选择 {$selectedRooms.length} 间房间</span>
       </div>
       <div class="action-buttons">
         {#if getSelectedCounts().pending > 0}
@@ -260,7 +273,7 @@
             批量完成打扫 ({getSelectedCounts().cleaning})
           </button>
         {/if}
-        <button class="btn-batch btn-cancel" on:click={() => selectedRooms = []}>
+        <button class="btn-batch btn-cancel" on:click={() => selectedRooms.set([])}>
           取消选择
         </button>
       </div>
@@ -273,26 +286,26 @@
       on:click={selectAllRooms}
     >
       <div class="select-checkbox">
-        {#if selectedRooms.length === getFilteredRooms().length && getFilteredRooms().length > 0}
+        {#if $selectedRooms.length === getFilteredRooms().length && getFilteredRooms().length > 0}
           <SquareCheck class="check-icon" />
         {:else}
           <Square class="check-icon" />
         {/if}
       </div>
       <div class="select-text">
-        {selectedRooms.length === getFilteredRooms().length && getFilteredRooms().length > 0 ? '取消全选' : '全选'}
+        {$selectedRooms.length === getFilteredRooms().length && getFilteredRooms().length > 0 ? '取消全选' : '全选'}
       </div>
     </div>
     
     {#each getFilteredRooms() as room}
       <div 
         class="room-card"
-        class:selected={selectedRooms.includes(room.id)}
+        class:selected={$selectedRooms.includes(room.id)}
         style="border-color: {statusConfig[room.status].color}"
         on:click={() => openRoomDetail(room)}
       >
         <div class="select-checkbox" on:click|stopPropagation={() => toggleSelectRoom(room.id)}>
-          {#if selectedRooms.includes(room.id)}
+          {#if $selectedRooms.includes(room.id)}
             <SquareCheck class="check-icon" />
           {:else}
             <Square class="check-icon" />
