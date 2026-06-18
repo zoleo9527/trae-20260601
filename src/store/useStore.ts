@@ -133,26 +133,29 @@ export const useStore = create<AppState>((set, get) => ({
 
   getTasksByCurrentUser: () => {
     const user = get().currentUser;
-    return get().feedbacks.filter(
-      (f) => f.assigneeId === user.id && f.status !== 'completed'
-    );
+    return get().feedbacks
+      .filter((f) => f.assigneeId === user.id && f.status !== 'completed')
+      .sort((a, b) => {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+      });
   },
 
   getNextTask: (currentId) => {
-    const user = get().currentUser;
-    const myTasks = get().feedbacks.filter(
-      (f) => f.assigneeId === user.id && f.status !== 'completed'
-    );
+    const myTasks = get().getTasksByCurrentUser();
     const currentIndex = myTasks.findIndex((f) => f.id === currentId);
     return myTasks[currentIndex + 1];
   },
 
   getPrevTask: (currentId) => {
-    const user = get().currentUser;
-    const myTasks = get().feedbacks.filter(
-      (f) => f.assigneeId === user.id && f.status !== 'completed'
-    );
+    const myTasks = get().getTasksByCurrentUser();
     const currentIndex = myTasks.findIndex((f) => f.id === currentId);
     return myTasks[currentIndex - 1];
+  },
+
+  getCurrentTaskIndex: (currentId) => {
+    const myTasks = get().getTasksByCurrentUser();
+    return myTasks.findIndex((f) => f.id === currentId);
   },
 }));

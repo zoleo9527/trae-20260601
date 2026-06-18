@@ -58,17 +58,6 @@ export const Dashboard: React.FC = () => {
     supervisor: 'bg-green-500',
   };
 
-  const myPendingTasks = useMemo(() => {
-    return feedbacks
-      .filter((f) => f.assigneeId === currentUser.id && f.status !== 'completed')
-      .sort((a, b) => {
-        if (a.isOverdue && !b.isOverdue) return -1;
-        if (!a.isOverdue && b.isOverdue) return 1;
-        return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
-      })
-      .slice(0, 3);
-  }, [feedbacks, currentUser]);
-
   const recentCompleted = useMemo(() => {
     return feedbacks
       .filter((f) => f.status === 'completed')
@@ -76,11 +65,19 @@ export const Dashboard: React.FC = () => {
       .slice(0, 3);
   }, [feedbacks]);
 
-  const urgentTasks = useMemo(() => {
+  const myPendingTasks = useMemo(() => {
     return feedbacks
-      .filter((f) => f.isOverdue && f.status !== 'completed' && f.assigneeId === currentUser.id)
-      .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+      .filter((f) => f.assigneeId === currentUser.id && f.status !== 'completed')
+      .sort((a, b) => {
+        if (a.isOverdue && !b.isOverdue) return -1;
+        if (!a.isOverdue && b.isOverdue) return 1;
+        return new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime();
+      });
   }, [feedbacks, currentUser]);
+
+  const urgentTasks = useMemo(() => {
+    return myPendingTasks.filter((f) => f.isOverdue);
+  }, [myPendingTasks]);
 
   const certReadyToIssue = useMemo(() => {
     return certificates.filter((c) => c.status === 'ready').slice(0, 3);
@@ -223,7 +220,7 @@ export const Dashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {myPendingTasks.map((task) => (
+                  {myPendingTasks.slice(0, 3).map((task) => (
                     <TaskCard key={task.id} feedback={task} />
                   ))}
                 </div>

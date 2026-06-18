@@ -31,7 +31,6 @@ export const FeedbackDetail: React.FC = () => {
   const [showCertificatePanel, setShowCertificatePanel] = useState(false);
 
   const {
-    feedbacks,
     getFeedbackById,
     getCertificatesByFeedbackId,
     updateFeedbackStatus,
@@ -42,11 +41,16 @@ export const FeedbackDetail: React.FC = () => {
     updateCertificateStatus,
     getNextTask,
     getPrevTask,
+    getTasksByCurrentUser,
+    getCurrentTaskIndex,
   } = useStore();
 
   const feedback = getFeedbackById(id || '');
   const certs = getCertificatesByFeedbackId(id || '');
 
+  const myPendingTasks = getTasksByCurrentUser();
+  const isMyTask = feedback && feedback.assigneeId === currentUser.id;
+  const currentIndex = feedback ? getCurrentTaskIndex(feedback.id) : -1;
   const nextFeedback = feedback ? getNextTask(feedback.id) : undefined;
   const prevFeedback = feedback ? getPrevTask(feedback.id) : undefined;
 
@@ -63,12 +67,6 @@ export const FeedbackDetail: React.FC = () => {
       </div>
     );
   }
-
-  const myPendingTasks = feedbacks.filter(
-    (f) => f.assigneeId === currentUser.id && f.status !== 'completed'
-  );
-  const currentIndex = myPendingTasks.findIndex((f) => f.id === feedback.id);
-  const isMyTask = feedback.assigneeId === currentUser.id;
 
   const statusLabels = {
     pending_review: '待初核',
