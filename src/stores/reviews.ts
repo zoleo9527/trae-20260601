@@ -28,16 +28,17 @@ export function useReviewsStore() {
   const getCompensationByReviewId = (reviewId: string) => 
     compensations.value.find(c => c.reviewId === reviewId)
 
-  const createFollowUp = (reviewId: string, submittedBy: string, content: string, actionTaken: string) => {
+  const createFollowUp = (reviewId: string, submittedBy: string, submittedByRole: ReviewFollowUp['submittedByRole'], content: string, actionTaken: string) => {
     const newFollowUp: ReviewFollowUp = {
       id: `f${Date.now()}`,
       reviewId,
       submittedBy,
+      submittedByRole,
       submittedAt: new Date().toLocaleString('zh-CN'),
       content,
       actionTaken,
       status: 'processing',
-      nextAction: '等待质检主管处理'
+      nextAction: submittedByRole === 'customer_service' ? '联系家政员核实情况' : submittedByRole === 'cleaner' ? '提交质检主管审批' : '等待处理'
     }
     followUps.value.push(newFollowUp)
     

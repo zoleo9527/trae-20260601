@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Compensation } from '@/types'
 import { useReviewsStore } from '@/stores/reviews'
-import { reviews, cleaners, customers, orders } from '@/data/mockData'
+import { reviews, cleaners, customers, orders, roleLabels, followUps } from '@/data/mockData'
 
 const store = useReviewsStore()
 
@@ -12,7 +12,9 @@ const compensationList = computed(() => {
     const cleaner = cleaners.find(c => c.id === review?.cleanerId)
     const customer = customers.find(c => c.id === review?.customerId)
     const order = orders.find(o => o.id === review?.orderId)
-    const followUps = store.getFollowUpsByReviewId(compensation.reviewId)
+    
+    const relatedFollowUps = followUps.filter(f => f.reviewId === compensation.reviewId)
+    const mainFollowUp = relatedFollowUps.find(f => f.id === compensation.followUpId)
     
     return {
       ...compensation,
@@ -20,7 +22,8 @@ const compensationList = computed(() => {
       cleaner,
       customer,
       order,
-      followUps
+      mainFollowUp,
+      relatedFollowUps
     }
   })
 })
@@ -56,6 +59,9 @@ const handleReject = (compensationId: string) => {
 const handleProcess = (compensationId: string) => {
   store.processCompensation(compensationId)
 }
+
+const roleOrder = ['customer_service', 'cleaner', 'quality_manager']
+const getRoleOrder = (role: string) => roleOrder.indexOf(role)
 </script>
 
 <template>
@@ -111,68 +117,105 @@ const handleProcess = (compensationId: string) => {
           <div class="flex items-center gap-2">
             <div class="flex items-center">
               <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">1</div>
-              <span class="ml-2 text-sm font-medium">客户投诉</span>
+              <span class="ml-2 text-sm">客户投诉</span>
             </div>
             <div class="h-0.5 flex-1 bg-gray-300 relative">
               <div 
                 class="absolute inset-y-0 left-0 bg-blue-500 transition-all"
-                :style="{ width: item.review?.status === 'resolved' ? '100%' : item.review?.status === 'reviewed' ? '66%' : '33%' }"
+                :style="{ width: '100%' }"
               ></div>
             </div>
             <div class="flex items-center">
               <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">2</div>
-              <span class="ml-2 text-sm font-medium">客服回访</span>
+              <span class="ml-2 text-sm">客服回访</span>
             </div>
             <div class="h-0.5 flex-1 bg-gray-300 relative">
               <div 
                 class="absolute inset-y-0 left-0 bg-green-500 transition-all"
-                :style="{ width: item.review?.status === 'resolved' ? '100%' : item.status === 'approved' || item.status === 'processed' ? '100%' : '0%' }"
+                :style="{ width: item.relatedFollowUps.some(f => f.submittedByRole === 'customer_service') ? '100%' : '0%' }"
               ></div>
             </div>
             <div class="flex items-center">
-              <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">3</div>
-              <span class="ml-2 text-sm font-medium">质检审批</span>
+              <div class="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center text-white text-sm font-medium">3</div>
+              <span class="ml-2 text-sm">家政员确认</span>
+            </div>
+            <div class="h-0.5 flex-1 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-orange-500 transition-all"
+                :style="{ width: item.relatedFollowUps.some(f => f.submittedByRole === 'cleaner') ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">4</div>
+              <span class="ml-2 text-sm">质检审批</span>
             </div>
             <div class="h-0.5 flex-1 bg-gray-300 relative">
               <div 
                 class="absolute inset-y-0 left-0 bg-purple-500 transition-all"
-                :style="{ width: item.status === 'processed' ? '100%' : '0%' }"
+                :style="{ width: item.status === 'approved' || item.status === 'processed' ? '100%' : '0%' }"
               ></div>
             </div>
             <div class="flex items-center">
-              <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium">4</div>
-              <span class="ml-2 text-sm font-medium">补偿执行</span>
+              <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium">5</div>
+              <span class="ml-2 text-sm">补偿执行</span>
             </div>
           </div>
         </div>
 
-        <div v-if="item.followUps.length > 0" class="mb-6">
-          <h3 class="text-sm font-medium text-gray-600 mb-3">回访记录</h3>
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-gray-600 mb-3">责任链记录</h3>
           <div class="space-y-3">
             <div 
-              v-for="(followUp, index) in item.followUps" 
+              v-for="(followUp, index) in item.relatedFollowUps.sort((a, b) => getRoleOrder(a.submittedByRole) - getRoleOrder(b.submittedByRole))" 
               :key="followUp.id"
-              class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r-lg"
+              class="border-l-4 pl-4 py-3 rounded-r-lg"
+              :class="[
+                followUp.submittedByRole === 'customer_service' ? 'border-blue-500 bg-blue-50' :
+                followUp.submittedByRole === 'cleaner' ? 'border-green-500 bg-green-50' :
+                'border-purple-500 bg-purple-50'
+              ]"
             >
               <div class="flex items-start justify-between">
                 <div>
                   <div class="flex items-center gap-2">
                     <span class="text-sm font-medium text-gray-700">{{ followUp.submittedBy }}</span>
-                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', followUpStatusLabels[followUp.status].color]">
-                      {{ followUpStatusLabels[followUp.status].text }}
+                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', roleLabels[followUp.submittedByRole]?.color]">
+                      {{ roleLabels[followUp.submittedByRole]?.text }}
+                    </span>
+                    <span v-if="followUp.id === item.followUpId" class="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">
+                      关键判断
                     </span>
                   </div>
                   <div class="text-xs text-gray-500 mt-1">{{ followUp.submittedAt }}</div>
                   <div class="text-sm text-gray-600 mt-2">{{ followUp.content }}</div>
                   <div class="flex items-center gap-2 mt-2 text-xs">
                     <span class="text-gray-500">处理方式:</span>
-                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{{ followUp.actionTaken }}</span>
-                    <span v-if="followUp.nextAction" class="text-gray-500">下一步: {{ followUp.nextAction }}</span>
+                    <span :class="[
+                      'px-2 py-0.5 rounded',
+                      followUp.submittedByRole === 'customer_service' ? 'bg-blue-100 text-blue-700' :
+                      followUp.submittedByRole === 'cleaner' ? 'bg-green-100 text-green-700' :
+                      'bg-purple-100 text-purple-700'
+                    ]">{{ followUp.actionTaken }}</span>
                   </div>
                 </div>
                 <div class="text-xs text-gray-400">步骤{{ index + 1 }}</div>
               </div>
             </div>
+          </div>
+        </div>
+
+        <div v-if="item.mainFollowUp" class="mb-6 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-yellow-600 font-medium">关键判断</span>
+            <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', roleLabels[item.mainFollowUp.submittedByRole]?.color]">
+              {{ roleLabels[item.mainFollowUp.submittedByRole]?.text }} - {{ item.mainFollowUp.submittedBy }}
+            </span>
+          </div>
+          <div class="text-sm text-gray-700">{{ item.mainFollowUp.content }}</div>
+          <div class="flex items-center gap-2 mt-2 text-xs text-gray-500">
+            <span>处理方式: {{ item.mainFollowUp.actionTaken }}</span>
+            <span>|</span>
+            <span>记录时间: {{ item.mainFollowUp.submittedAt }}</span>
           </div>
         </div>
 

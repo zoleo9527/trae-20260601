@@ -45,6 +45,7 @@ export interface ReviewFollowUp {
   id: string
   reviewId: string
   submittedBy: string
+  submittedByRole: 'customer_service' | 'cleaner' | 'quality_manager' | 'admin'
   submittedAt: string
   content: string
   actionTaken: string
