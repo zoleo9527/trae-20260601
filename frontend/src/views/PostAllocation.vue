@@ -35,6 +35,10 @@
                   </div>
                   <p v-else class="no-assignee">暂无分配</p>
                 </div>
+                <div v-if="post.current_count < post.capacity" class="unfilled-warning">
+                  <el-icon class="warning-icon"><component :is="AlertTriangle" /></el-icon>
+                  <span>还差 {{ post.capacity - post.current_count }} 人</span>
+                </div>
                 <div class="post-actions">
                   <el-button size="small" @click="showAssignDialog(post)">分配人员</el-button>
                 </div>
@@ -47,7 +51,8 @@
             <el-table :data="approvedApplications" border>
               <el-table-column prop="volunteer_name" label="志愿者" />
               <el-table-column prop="preferred_shift" label="期望班次" />
-              <el-table-column prop="remarks" label="备注" />
+              <el-table-column prop="remarks" label="报名备注" />
+              <el-table-column prop="process_remarks" label="处理意见" />
               <el-table-column label="操作">
                 <template #default="scope">
                   <el-button size="small" @click="assignToPost(scope.row)">分配</el-button>
@@ -114,15 +119,40 @@
 </template>
 
 <script setup>import { ref, reactive, computed, onMounted } from 'vue';
+import { AlertTriangle } from '@element-plus/icons-vue';
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
-import { postAPI, activityAPI, applicationAPI, authAPI } from '../api';
+import { postAPI, activityAPI, applicationAPI, authAPI, exceptionAPI } from '../api';
 import { ElMessage } from 'element-plus';
+const exceptions = ref([]);
+async function loadData() {
+ const [acts, ps, apps, usrs, excs] = await Promise.all([
+ activityAPI.list(),
+ postAPI.list(),
+ applicationAPI.list(),
+ authAPI.getUsers(),
+ exceptionAPI.list()
+ ]);
+ activities.value = acts.data;
+ posts.value = ps.data;
+ applications.value = apps.data.map(app => ({
+ ...app,
+ volunteer_name: usrs.data.find(u => u.id === app.volunteer_id)?.name || '未知',
+ remarks: app.remarks || '-',
+ process_remarks: app.process_remarks || '-'
+ }));
+ users.value = usrs.data;
+ exceptions.value = excs.data;
+}
+function getPostExceptions(postId) {
+ return exceptions.value.filter(e => e.related_post_id === postId);
+}
 const activityId = ref('');
 const activities = ref([]);
 const posts = ref([]);
 const applications = ref([]);
 const users = ref([]);
+const exceptions = ref([]);
 const showCreatePostDialog = ref(false);
 const showAssignDialog = ref(false);
 const selectedPost = ref(null);
@@ -152,21 +182,6 @@ const availableApplicants = computed(() => {
 function getAssignees(postId) {
  const appIds = applications.value.filter(a => a.assigned_post_id === postId).map(a => a.volunteer_id);
  return users.value.filter(u => appIds.includes(u.id));
-}
-async function loadData() {
- const [acts, ps, apps, usrs] = await Promise.all([
- activityAPI.list(),
- postAPI.list(),
- applicationAPI.list(),
- authAPI.getUsers()
- ]);
- activities.value = acts.data;
- posts.value = ps.data;
- applications.value = apps.data.map(app => ({
- ...app,
- volunteer_name: usrs.data.find(u => u.id === app.volunteer_id)?.name || '未知'
- }));
- users.value = usrs.data;
 }
 function getPostStatusText(status) {
  const map = {
@@ -360,6 +375,22 @@ onMounted(() => {
   color: #999;
   font-size: 12px;
   font-style: italic;
+}
+
+.unfilled-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  background: #fff7e6;
+  border-radius: 6px;
+  margin-top: 10px;
+  color: #fa8c16;
+  font-size: 12px;
+}
+
+.warning-icon {
+  font-size: 14px;
 }
 
 .post-actions {

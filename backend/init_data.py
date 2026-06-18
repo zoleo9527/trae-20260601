@@ -119,6 +119,7 @@ def init_data():
                 volunteer_id=4,
                 status=ApplicationStatus.APPROVED,
                 remarks="有垃圾分类工作经验，可负责讲解",
+                process_remarks="经验丰富，同意分配到宣传岗",
                 preferred_shift="上午",
                 assigned_post_id=post1.id,
                 processed_by=1,
@@ -136,12 +137,32 @@ def init_data():
                 volunteer_id=6,
                 status=ApplicationStatus.APPROVED,
                 remarks="体力好，适合户外工作",
+                process_remarks="已审核通过，等待岗位分配",
                 preferred_shift="上午",
                 assigned_post_id=post2.id,
                 processed_by=1,
                 processed_at="2025-07-15 10:30:00"
             )
             db.add_all([app1, app2, app3])
+            db.commit()
+            
+            exception1 = ExceptionRecord(
+                type=ExceptionType.POST_NOT_FILLED,
+                title="岗位未填满",
+                description=f"活动「{activity1.title}」的垃圾清理岗还差4人",
+                related_activity_id=activity1.id,
+                related_post_id=post3.id,
+                status=ExceptionStatus.PENDING
+            )
+            exception2 = ExceptionRecord(
+                type=ExceptionType.FOLLOWUP_BROKEN,
+                title="回访断档",
+                description="志愿者张三的服务时长尚未记录，需要回访确认",
+                related_activity_id=activity1.id,
+                related_application_id=app1.id,
+                status=ExceptionStatus.PENDING
+            )
+            db.add_all([exception1, exception2])
             db.commit()
         
         print("初始化数据完成")

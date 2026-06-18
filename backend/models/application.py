@@ -17,6 +17,7 @@ class Application(Base):
     volunteer_id = Column(Integer, ForeignKey("users.id"))
     status = Column(Enum(ApplicationStatus), default=ApplicationStatus.PENDING)
     remarks = Column(Text)
+    process_remarks = Column(Text)
     preferred_shift = Column(String)
     assigned_post_id = Column(Integer)
     processed_by = Column(Integer)

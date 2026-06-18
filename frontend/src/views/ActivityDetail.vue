@@ -48,7 +48,8 @@
             <el-table :data="applications" border>
               <el-table-column prop="volunteer_name" label="志愿者" />
               <el-table-column prop="preferred_shift" label="期望班次" />
-              <el-table-column prop="remarks" label="备注" />
+              <el-table-column prop="remarks" label="报名备注" />
+              <el-table-column prop="process_remarks" label="处理意见" />
               <el-table-column prop="created_at" label="报名时间" :formatter="formatDateTime" />
               <el-table-column prop="status" label="状态">
                 <template #default="scope">
@@ -135,6 +136,8 @@ async function loadData() {
  applications.value = apps.data.map(app => ({
  ...app,
  volunteer_name: userMap[app.volunteer_id] || '未知',
+ remarks: app.remarks || '-',
+ process_remarks: app.process_remarks || '-',
  assigned_post_name: ps.data.find(p => p.id === app.assigned_post_id)?.name || '-'
  }));
  posts.value = ps.data;

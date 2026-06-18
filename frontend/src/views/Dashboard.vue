@@ -88,11 +88,12 @@ const stats = ref({
 const recentActivities = ref([]);
 const pendingApplications = ref([]);
 async function loadStats() {
- const [activities, applications, exceptions, posts] = await Promise.all([
+ const [activities, applications, exceptions, posts, users] = await Promise.all([
  activityAPI.list(),
  applicationAPI.list({ status: 'pending' }),
  exceptionAPI.list({ status: 'pending' }),
- postAPI.list({ status: 'empty' })
+ postAPI.list({ status: 'empty' }),
+ authAPI.getUsers()
  ]);
  stats.value = {
  totalActivities: activities.data.length,
@@ -103,6 +104,14 @@ async function loadStats() {
  recentActivities.value = activities.data.slice(0, 5).map(act => ({
  ...act,
  status: formatActivityStatus(act.status)
+ }));
+ const userMap = {};
+ users.data.forEach(u => userMap[u.id] = u.name);
+ pendingApplications.value = applications.data.slice(0, 5).map(app => ({
+ ...app,
+ activity_title: activities.data.find(a => a.id === app.activity_id)?.title || '未知活动',
+ volunteer_name: userMap[app.volunteer_id] || '未知用户',
+ remarks: app.remarks || '-'
  }));
 }
 function formatActivityStatus(status) {
@@ -137,7 +146,7 @@ function formatStatus(row) {
  return `<span class="status-badge ${colors[row.status]}">${row.status}</span>`;
 }
 function goToApplication(id) {
- router.push(`/applications/${id}`);
+  router.push('/applications');
 }
 onMounted(() => {
  loadStats();

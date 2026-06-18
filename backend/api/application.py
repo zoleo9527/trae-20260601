@@ -50,16 +50,18 @@ def update_application(application_id: int, application: ApplicationUpdate, db: 
     if not db_application:
         raise HTTPException(status_code=404, detail="Application not found")
     
+    old_status = db_application.status
+    
     if application.status in [ApplicationStatus.APPROVED, ApplicationStatus.REJECTED]:
         db_application.processed_by = application.processed_by
         db_application.processed_at = datetime.utcnow()
     
-    if db_application.status == ApplicationStatus.PENDING and application.status != ApplicationStatus.PENDING:
+    if old_status == ApplicationStatus.PENDING and application.status != ApplicationStatus.PENDING:
         if application.processed_by is None:
             exception = ExceptionRecord(
                 type=ExceptionType.APPLICATION_STUCK,
-                title=f"报名处理无处理人",
-                description=f"报名ID {application_id} 状态变更但未指定处理人",
+                title=f"报名卡壳",
+                description=f"报名ID {application_id} 状态变更但未指定处理人，可能导致处理记录断档",
                 related_application_id=application_id,
                 status=ExceptionStatus.PENDING
             )

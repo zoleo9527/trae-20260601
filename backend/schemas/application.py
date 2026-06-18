@@ -14,12 +14,14 @@ class ApplicationCreate(ApplicationBase):
 class ApplicationUpdate(BaseModel):
     status: ApplicationStatus | None = None
     remarks: str | None = None
+    process_remarks: str | None = None
     assigned_post_id: int | None = None
     processed_by: int | None = None
 
 class ApplicationResponse(ApplicationBase):
     id: int
     status: ApplicationStatus
+    process_remarks: str | None = None
     assigned_post_id: int | None = None
     processed_by: int | None = None
     processed_at: datetime | None = None

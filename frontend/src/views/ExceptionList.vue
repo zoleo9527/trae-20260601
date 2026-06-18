@@ -116,7 +116,9 @@
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
 import { exceptionAPI, activityAPI, authAPI } from '../api';
+import { useAuthStore } from '../stores/auth';
 import { ElMessage } from 'element-plus';
+const authStore = useAuthStore();
 const typeFilter = ref('');
 const statusFilter = ref('');
 const exceptions = ref([]);
@@ -208,10 +210,11 @@ async function handleResolve(row) {
 async function confirmProcess() {
  if (!selectedException.value)
  return;
+ const currentUserId = authStore.user?.id || 1;
  try {
  await exceptionAPI.update(selectedException.value.id, {
  status: 'processing',
- handler_id: 1,
+ handler_id: currentUserId,
  handle_remarks: handleForm.remarks
  });
  ElMessage.success('已开始处理');
@@ -225,10 +228,11 @@ async function confirmProcess() {
 async function confirmResolve() {
  if (!selectedException.value)
  return;
+ const currentUserId = authStore.user?.id || 1;
  try {
  await exceptionAPI.update(selectedException.value.id, {
  status: 'resolved',
- handler_id: 1,
+ handler_id: currentUserId,
  handle_remarks: handleForm.remarks
  });
  ElMessage.success('已标记为解决');

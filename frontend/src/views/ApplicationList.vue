@@ -36,7 +36,8 @@
           <el-table-column prop="activity_title" label="活动名称" />
           <el-table-column prop="volunteer_name" label="志愿者" />
           <el-table-column prop="preferred_shift" label="期望班次" />
-          <el-table-column prop="remarks" label="备注" />
+          <el-table-column prop="remarks" label="报名备注" />
+          <el-table-column prop="process_remarks" label="处理意见" />
           <el-table-column prop="created_at" label="报名时间" :formatter="formatDateTime" />
           <el-table-column prop="processed_by_name" label="处理人" />
           <el-table-column prop="status" label="状态">
@@ -70,8 +71,12 @@
           <span>{{ selectedApplication.preferred_shift || '-' }}</span>
         </div>
         <div class="detail-row">
-          <label>备注信息</label>
+          <label>报名备注</label>
           <span>{{ selectedApplication.remarks || '-' }}</span>
+        </div>
+        <div v-if="selectedApplication.process_remarks" class="detail-row">
+          <label>处理意见</label>
+          <span>{{ selectedApplication.process_remarks }}</span>
         </div>
         <div class="detail-row">
           <label>报名时间</label>
@@ -86,10 +91,10 @@
           <span>{{ selectedApplication.processed_by_name }}</span>
         </div>
         <div class="detail-section">
-          <h4>处理记录</h4>
+          <h4>处理意见</h4>
           <el-form :model="processForm">
             <el-form-item label="处理意见">
-              <el-textarea v-model="processForm.remarks" rows="3" />
+              <el-textarea v-model="processForm.process_remarks" rows="3" placeholder="请输入处理意见（与报名备注分开保存）" />
             </el-form-item>
           </el-form>
         </div>
@@ -107,7 +112,9 @@
 import Sidebar from '../components/Sidebar.vue';
 import Header from '../components/Header.vue';
 import { applicationAPI, activityAPI, authAPI } from '../api';
+import { useAuthStore } from '../stores/auth';
 import { ElMessage } from 'element-plus';
+const authStore = useAuthStore();
 const statusFilter = ref('');
 const activityFilter = ref('');
 const activities = ref([]);
@@ -115,7 +122,7 @@ const applications = ref([]);
 const showDetailDialog = ref(false);
 const selectedApplication = ref(null);
 const processForm = reactive({
- remarks: ''
+ process_remarks: ''
 });
 const pendingCount = computed(() => applications.value.filter(a => a.status === 'pending').length);
 const approvedCount = computed(() => applications.value.filter(a => a.status === 'approved').length);
@@ -138,7 +145,8 @@ async function loadApplications() {
  ...app,
  activity_title: acts.data.find(a => a.id === app.activity_id)?.title || '未知活动',
  volunteer_name: userMap[app.volunteer_id] || '未知用户',
- processed_by_name: app.processed_by ? userMap[app.processed_by] : '-'
+ processed_by_name: app.processed_by ? userMap[app.processed_by] : '-',
+ process_remarks: app.process_remarks || '-'
  }));
 }
 function formatDateTime(dateStr) {
@@ -174,7 +182,7 @@ function getStatusClass(status) {
 }
 function showDetail(row) {
  selectedApplication.value = row;
- processForm.remarks = row.remarks || '';
+ processForm.process_remarks = row.process_remarks || '';
  showDetailDialog.value = true;
 }
 async function handleApprove(row) {
@@ -190,13 +198,14 @@ async function handleProcess(status) {
  showDetailDialog.value = false;
 }
 async function processApplication(id, status) {
+ const currentUserId = authStore.user?.id || 1;
  try {
  await applicationAPI.update(id, {
  status,
- remarks: processForm.remarks,
- processed_by: 1
+ process_remarks: processForm.process_remarks,
+ processed_by: currentUserId
  });
- processForm.remarks = '';
+ processForm.process_remarks = '';
  ElMessage.success(status === 'approved' ? '已通过' : '已拒绝');
  loadApplications();
  }
