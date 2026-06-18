@@ -21,6 +21,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ error: 'Fault report is already completed' }, { status: 400 });
     }
 
+    if (fault.status !== 'processing') {
+      return json({ error: 'Fault report must be in processing status before completing' }, { status: 400 });
+    }
+
+    if (!fault.processed_at) {
+      return json({ error: '请先完成处理步骤才能确认完成' }, { status: 400 });
+    }
+
     if (fault.assignee_id !== operator_id) {
       return json({ error: 'Only assigned engineer can complete this fault' }, { status: 403 });
     }

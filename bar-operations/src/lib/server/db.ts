@@ -70,6 +70,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_operation_logs_created ON operation_logs(created_at DESC);
 `);
 
+function migrateFaultReportsTable() {
+  const columns = db.prepare("PRAGMA table_info(fault_reports)").all() as Array<{ name: string }>;
+  const columnNames = columns.map(col => col.name);
+
+  if (!columnNames.includes('inspection_id')) {
+    db.exec("ALTER TABLE fault_reports ADD COLUMN inspection_id TEXT;");
+  }
+
+  if (!columnNames.includes('processed_at')) {
+    db.exec("ALTER TABLE fault_reports ADD COLUMN processed_at TEXT;");
+  }
+}
+
+migrateFaultReportsTable();
+
 export default db;
 
 export function seedDatabase() {

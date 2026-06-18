@@ -20,11 +20,15 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
       r.name as reporter_name,
       r.role as reporter_role,
       a.name as assignee_name,
-      a.role as assignee_role
+      a.role as assignee_role,
+      i.result as source_inspection_result,
+      i.notes as source_inspection_notes,
+      i.created_at as source_inspection_time
     FROM fault_reports f
     LEFT JOIN exhibits e ON f.exhibit_id = e.id
     LEFT JOIN users r ON f.reporter_id = r.id
     LEFT JOIN users a ON f.assignee_id = a.id
+    LEFT JOIN inspections i ON f.inspection_id = i.id
     WHERE f.id = ?
   `).get(params.id) as any;
 
