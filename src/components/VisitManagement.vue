@@ -365,43 +365,30 @@
           <div v-if="selectedVisit" class="space-y-4">
             <div class="bg-gray-50 rounded-xl p-4">
               <h4 class="font-medium text-gray-900 mb-3">回访责任流转</h4>
-              <div class="space-y-3">
-                <div class="flex items-start gap-3">
-                  <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <User class="w-4 h-4 text-blue-600" />
+              <div v-if="visitFlowRecords.length === 0" class="text-center py-4 text-gray-500">
+                <History class="w-8 h-8 mx-auto mb-2 text-gray-300" />
+                <p>暂无流转记录</p>
+              </div>
+              <div v-else class="space-y-3">
+                <div v-for="flow in visitFlowRecords" :key="flow.id" class="flex items-start gap-3">
+                  <div 
+                    class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                    :class="getFlowActionClass(flow.action)"
+                  >
+                    <component :is="getFlowActionIcon(flow.action)" class="w-4 h-4" :class="getFlowActionIconClass(flow.action)" />
                   </div>
                   <div class="flex-1">
                     <div class="flex items-center gap-2">
-                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
-                      <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">创建任务</span>
+                      <span class="font-medium text-gray-900">{{ flow.operatorName }}</span>
+                      <span 
+                        class="text-xs px-2 py-0.5 rounded-full"
+                        :class="getFlowActionBadgeClass(flow.action)"
+                      >
+                        {{ flow.action }}
+                      </span>
                     </div>
-                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.createdAt) }}</p>
-                  </div>
-                </div>
-                
-                <div v-if="selectedVisit.status === 'completed' && selectedVisit.actualDate" class="flex items-start gap-3">
-                  <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <CheckCircle class="w-4 h-4 text-green-600" />
-                  </div>
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
-                      <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">完成回访</span>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.updatedAt) }}</p>
-                  </div>
-                </div>
-                
-                <div v-if="selectedVisit.status === 'blocked'" class="flex items-start gap-3">
-                  <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    <XCircle class="w-4 h-4 text-red-600" />
-                  </div>
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2">
-                      <span class="font-medium text-gray-900">{{ selectedVisit.socialWorkerName }}</span>
-                      <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">标记卡住</span>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(selectedVisit.updatedAt) }}</p>
+                    <p v-if="flow.details" class="text-sm text-gray-600 mt-1">{{ flow.details }}</p>
+                    <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(flow.createdAt) }}</p>
                   </div>
                 </div>
               </div>
@@ -411,58 +398,26 @@
               <h4 class="font-medium text-gray-900 mb-3">问题责任流转</h4>
               <div class="space-y-4">
                 <div v-for="issue in relatedIssues" :key="issue.id">
-                  <div class="space-y-3">
-                    <div class="flex items-start gap-3">
-                      <div class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <AlertTriangle class="w-4 h-4 text-yellow-600" />
+                  <div v-if="issueFlowRecords[issue.id]" class="space-y-3">
+                    <div v-for="flow in issueFlowRecords[issue.id]" :key="flow.id" class="flex items-start gap-3">
+                      <div 
+                        class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                        :class="getFlowActionClass(flow.action)"
+                      >
+                        <component :is="getFlowActionIcon(flow.action)" class="w-4 h-4" :class="getFlowActionIconClass(flow.action)" />
                       </div>
                       <div class="flex-1">
                         <div class="flex items-center gap-2">
-                          <span class="font-medium text-gray-900">{{ issue.reporterName }}</span>
-                          <span class="text-xs px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full">上报问题</span>
+                          <span class="font-medium text-gray-900">{{ flow.operatorName }}</span>
+                          <span 
+                            class="text-xs px-2 py-0.5 rounded-full"
+                            :class="getFlowActionBadgeClass(flow.action)"
+                          >
+                            {{ flow.action }}
+                          </span>
                         </div>
-                        <p class="text-sm text-gray-700 mt-1">{{ issue.title }}</p>
-                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.createdAt) }}</p>
-                      </div>
-                    </div>
-                    
-                    <div v-if="issue.status === 'processing' && issue.assignedName" class="flex items-start gap-3 ml-11">
-                      <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <UserCheck class="w-4 h-4 text-blue-600" />
-                      </div>
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
-                          <span class="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full">开始处理</span>
-                        </div>
-                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
-                      </div>
-                    </div>
-                    
-                    <div v-if="issue.status === 'resolved' && issue.assignedName" class="flex items-start gap-3 ml-11">
-                      <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <CheckCircle2 class="w-4 h-4 text-green-600" />
-                      </div>
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
-                          <span class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">处理完成</span>
-                        </div>
-                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
-                      </div>
-                    </div>
-                    
-                    <div v-if="issue.status === 'escalated' && issue.assignedName" class="flex items-start gap-3 ml-11">
-                      <div class="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <ArrowUpCircle class="w-4 h-4 text-red-600" />
-                      </div>
-                      <div class="flex-1">
-                        <div class="flex items-center gap-2">
-                          <span class="font-medium text-gray-900">{{ issue.assignedName }}</span>
-                          <span class="text-xs px-2 py-0.5 bg-red-100 text-red-700 rounded-full">升级上报</span>
-                        </div>
-                        <p class="text-sm text-gray-500">{{ formatDateTime(issue.updatedAt) }}</p>
-                        <p v-if="issue.escalationReason" class="text-sm text-gray-600 mt-1">原因: {{ issue.escalationReason }}</p>
+                        <p v-if="flow.details" class="text-sm text-gray-600 mt-1">{{ flow.details }}</p>
+                        <p class="text-sm text-gray-500 mt-1">{{ formatDateTime(flow.createdAt) }}</p>
                       </div>
                     </div>
                   </div>
@@ -533,7 +488,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Eye, X, ClipboardList, AlertTriangle, User, CheckCircle, XCircle, UserCheck, CheckCircle2, ArrowUpCircle, History } from 'lucide-vue-next'
 import { useStore } from '@/store'
 import { getKeyPersons, createVisitRecord, getIssuesByVisitId } from '@/api'
-import type { VisitRecord, KeyPerson, VisitStatus, IssueStatus, Issue } from '@/types'
+import type { VisitRecord, KeyPerson, VisitStatus, IssueStatus, Issue, FlowRecord } from '@/types'
 
 const store = useStore()
 
@@ -544,6 +499,8 @@ const selectedVisit = ref<VisitRecord | null>(null)
 const visitNotes = ref('')
 const keyPersons = ref<KeyPerson[]>([])
 const relatedIssues = ref<Issue[]>([])
+const visitFlowRecords = ref<FlowRecord[]>([])
+const issueFlowRecords = ref<Record<string, FlowRecord[]>>({})
 
 const drawerStep = ref<'visit' | 'issue' | 'history'>('visit')
 const isCreatingIssue = ref(false)
@@ -591,6 +548,10 @@ const filteredVisits = computed(() => {
 watch(selectedVisit, async (visit) => {
   if (visit) {
     relatedIssues.value = await getIssuesByVisitId(visit.id)
+    visitFlowRecords.value = await store.loadFlowRecords('visit', visit.id)
+    for (const issue of relatedIssues.value) {
+      issueFlowRecords.value[issue.id] = await store.loadFlowRecords('issue', issue.id)
+    }
   }
 })
 
@@ -658,6 +619,62 @@ function formatDate(dateStr: string): string {
 
 function formatDateTime(dateStr: string): string {
   return new Date(dateStr).toLocaleString('zh-CN')
+}
+
+function getFlowActionIcon(action: string) {
+  const map: Record<string, typeof User> = {
+    '创建任务': User,
+    '完成回访': CheckCircle,
+    '标记卡住': XCircle,
+    '协调解决': CheckCircle2,
+    '上报问题': AlertTriangle,
+    '开始处理': UserCheck,
+    '处理完成': CheckCircle2,
+    '升级上报': ArrowUpCircle
+  }
+  return map[action] || User
+}
+
+function getFlowActionIconClass(action: string): string {
+  const map: Record<string, string> = {
+    '创建任务': 'text-blue-600',
+    '完成回访': 'text-green-600',
+    '标记卡住': 'text-red-600',
+    '协调解决': 'text-green-600',
+    '上报问题': 'text-yellow-600',
+    '开始处理': 'text-blue-600',
+    '处理完成': 'text-green-600',
+    '升级上报': 'text-red-600'
+  }
+  return map[action] || 'text-gray-600'
+}
+
+function getFlowActionClass(action: string): string {
+  const map: Record<string, string> = {
+    '创建任务': 'bg-blue-100',
+    '完成回访': 'bg-green-100',
+    '标记卡住': 'bg-red-100',
+    '协调解决': 'bg-green-100',
+    '上报问题': 'bg-yellow-100',
+    '开始处理': 'bg-blue-100',
+    '处理完成': 'bg-green-100',
+    '升级上报': 'bg-red-100'
+  }
+  return map[action] || 'bg-gray-100'
+}
+
+function getFlowActionBadgeClass(action: string): string {
+  const map: Record<string, string> = {
+    '创建任务': 'bg-blue-100 text-blue-700',
+    '完成回访': 'bg-green-100 text-green-700',
+    '标记卡住': 'bg-red-100 text-red-700',
+    '协调解决': 'bg-green-100 text-green-700',
+    '上报问题': 'bg-yellow-100 text-yellow-700',
+    '开始处理': 'bg-blue-100 text-blue-700',
+    '处理完成': 'bg-green-100 text-green-700',
+    '升级上报': 'bg-red-100 text-red-700'
+  }
+  return map[action] || 'bg-gray-100 text-gray-700'
 }
 
 function handleVisit(visit: VisitRecord) {

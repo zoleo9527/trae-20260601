@@ -1,5 +1,5 @@
 import { reactive, computed } from 'vue'
-import type { User, VisitRecord, Issue } from '@/types'
+import type { User, VisitRecord, Issue, FlowRecord } from '@/types'
 import * as api from '@/api'
 
 interface State {
@@ -7,6 +7,7 @@ interface State {
   isLoggedIn: boolean
   visitRecords: VisitRecord[]
   issues: Issue[]
+  flowRecords: FlowRecord[]
   loading: boolean
   error: string | null
 }
@@ -16,6 +17,7 @@ const state = reactive<State>({
   isLoggedIn: false,
   visitRecords: [],
   issues: [],
+  flowRecords: [],
   loading: false,
   error: null
 })
@@ -57,6 +59,7 @@ export function useStore() {
     state.isLoggedIn = false
     state.visitRecords = []
     state.issues = []
+    state.flowRecords = []
   }
 
   async function switchUser(userId: string) {
@@ -90,10 +93,45 @@ export function useStore() {
     }
   }
 
+  async function loadFlowRecords(type: 'visit' | 'issue', id: string) {
+    try {
+      const flows = await api.getFlowRecords(type, id)
+      return flows
+    } catch (err) {
+      state.error = err instanceof Error ? err.message : '获取流转记录失败'
+      return []
+    }
+  }
+
+  async function createVisitRecord(data: {
+    keyPersonId: string
+    socialWorkerId: string
+    socialWorkerName: string
+    scheduledDate: string
+    notes?: string
+  }) {
+    state.loading = true
+    try {
+      const newRecord = await api.createVisitRecord(data)
+      state.visitRecords.push(newRecord)
+      return newRecord
+    } catch (err) {
+      state.error = err instanceof Error ? err.message : '创建失败'
+      throw err
+    } finally {
+      state.loading = false
+    }
+  }
+
   async function updateVisitRecord(id: string, data: Partial<VisitRecord>) {
     state.loading = true
     try {
-      const updated = await api.updateVisitRecord(id, data)
+      const updated = await api.updateVisitRecord(id, {
+        ...data,
+        operatorId: state.currentUser?.id,
+        operatorName: state.currentUser?.name,
+        operatorRole: state.currentUser?.role
+      })
       if (updated) {
         const index = state.visitRecords.findIndex(v => v.id === id)
         if (index !== -1) {
@@ -107,7 +145,14 @@ export function useStore() {
     }
   }
 
-  async function createIssue(data: Omit<Issue, 'id' | 'createdAt' | 'updatedAt'>) {
+  async function createIssue(data: {
+    visitId: string
+    reporterId: string
+    reporterName: string
+    title: string
+    description: string
+    category: string
+  }) {
     state.loading = true
     try {
       const newIssue = await api.createIssue(data)
@@ -124,7 +169,12 @@ export function useStore() {
   async function updateIssue(id: string, data: Partial<Issue>) {
     state.loading = true
     try {
-      const updated = await api.updateIssue(id, data)
+      const updated = await api.updateIssue(id, {
+        ...data,
+        operatorId: state.currentUser?.id,
+        operatorName: state.currentUser?.name,
+        operatorRole: state.currentUser?.role
+      })
       if (updated) {
         const index = state.issues.findIndex(i => i.id === id)
         if (index !== -1) {
@@ -152,6 +202,8 @@ export function useStore() {
     logout,
     switchUser,
     loadData,
+    loadFlowRecords,
+    createVisitRecord,
     updateVisitRecord,
     createIssue,
     updateIssue,

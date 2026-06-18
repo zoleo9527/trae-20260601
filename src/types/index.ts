@@ -65,3 +65,15 @@ export interface SystemStats {
   resolvedIssues: number
   escalatedIssues: number
 }
+
+export interface FlowRecord {
+  id: string
+  targetType: 'visit' | 'issue'
+  targetId: string
+  action: string
+  operatorId: string
+  operatorName: string
+  operatorRole: string
+  details?: string
+  createdAt: string
+}

@@ -1,57 +1,38 @@
 import type { User, KeyPerson, VisitRecord, Issue, SystemStats, Role } from '@/types'
-import { mockUsers, mockKeyPersons, mockVisitRecords, mockIssues } from '@/data/mockData'
 
-const STORAGE_KEYS = {
-  users: 'cv_users',
-  keyPersons: 'cv_keyPersons',
-  visitRecords: 'cv_visitRecords',
-  issues: 'cv_issues'
+export interface FlowRecord {
+  id: string
+  targetType: 'visit' | 'issue'
+  targetId: string
+  action: string
+  operatorId: string
+  operatorName: string
+  operatorRole: string
+  details?: string
+  createdAt: string
 }
 
-function initStorage() {
-  if (!localStorage.getItem(STORAGE_KEYS.users)) {
-    localStorage.setItem(STORAGE_KEYS.users, JSON.stringify(mockUsers))
+const API_BASE = 'http://localhost:3001/api'
+
+async function request<T>(url: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE}${url}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers
+    }
+  })
+  
+  if (!response.ok) {
+    const error = await response.json()
+    throw new Error(error.error || '请求失败')
   }
-  if (!localStorage.getItem(STORAGE_KEYS.keyPersons)) {
-    localStorage.setItem(STORAGE_KEYS.keyPersons, JSON.stringify(mockKeyPersons))
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.visitRecords)) {
-    localStorage.setItem(STORAGE_KEYS.visitRecords, JSON.stringify(mockVisitRecords))
-  }
-  if (!localStorage.getItem(STORAGE_KEYS.issues)) {
-    localStorage.setItem(STORAGE_KEYS.issues, JSON.stringify(mockIssues))
-  }
-}
-
-initStorage()
-
-function getUsersFromStorage(): User[] {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.users) || '[]')
-}
-
-function getKeyPersonsFromStorage(): KeyPerson[] {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.keyPersons) || '[]')
-}
-
-function getVisitRecordsFromStorage(): VisitRecord[] {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.visitRecords) || '[]')
-}
-
-function getIssuesFromStorage(): Issue[] {
-  return JSON.parse(localStorage.getItem(STORAGE_KEYS.issues) || '[]')
-}
-
-function saveVisitRecordsToStorage(records: VisitRecord[]): void {
-  localStorage.setItem(STORAGE_KEYS.visitRecords, JSON.stringify(records))
-}
-
-function saveIssuesToStorage(data: Issue[]): void {
-  localStorage.setItem(STORAGE_KEYS.issues, JSON.stringify(data))
+  
+  return response.json()
 }
 
 export async function login(username: string, password: string): Promise<User> {
-  await delay(500)
-  const users = getUsersFromStorage()
+  const users = await request<User[]>('/users')
   const user = users.find(u => u.name === username)
   if (!user || password !== '123456') {
     throw new Error('用户名或密码错误')
@@ -60,143 +41,104 @@ export async function login(username: string, password: string): Promise<User> {
 }
 
 export async function getUsers(): Promise<User[]> {
-  await delay(300)
-  return getUsersFromStorage()
+  return request<User[]>('/users')
 }
 
 export async function getUserById(id: string): Promise<User | undefined> {
-  await delay(200)
-  return getUsersFromStorage().find(u => u.id === id)
+  return request<User>(`/users/${id}`)
 }
 
 export async function getKeyPersons(): Promise<KeyPerson[]> {
-  await delay(300)
-  return getKeyPersonsFromStorage()
+  return request<KeyPerson[]>('/key-persons')
 }
 
 export async function getKeyPersonById(id: string): Promise<KeyPerson | undefined> {
-  await delay(200)
-  return getKeyPersonsFromStorage().find(kp => kp.id === id)
+  const keyPersons = await getKeyPersons()
+  return keyPersons.find(kp => kp.id === id)
 }
 
-export async function getVisitRecords(status?: VisitRecord['status']): Promise<VisitRecord[]> {
-  await delay(300)
-  const records = getVisitRecordsFromStorage()
-  if (status) {
-    return records.filter(v => v.status === status)
-  }
-  return records
+export async function getVisitRecords(): Promise<VisitRecord[]> {
+  return request<VisitRecord[]>('/visits')
 }
 
 export async function getVisitRecordById(id: string): Promise<VisitRecord | undefined> {
-  await delay(200)
-  return getVisitRecordsFromStorage().find(v => v.id === id)
+  return request<VisitRecord>(`/visits/${id}`)
 }
 
-export async function createVisitRecord(data: Omit<VisitRecord, 'id' | 'createdAt' | 'updatedAt'>): Promise<VisitRecord> {
-  await delay(300)
-  const records = getVisitRecordsFromStorage()
-  const newRecord: VisitRecord = {
-    ...data,
-    id: `v${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-  records.push(newRecord)
-  saveVisitRecordsToStorage(records)
-  return newRecord
+export async function createVisitRecord(data: {
+  keyPersonId: string
+  socialWorkerId: string
+  socialWorkerName: string
+  scheduledDate: string
+  notes?: string
+}): Promise<VisitRecord> {
+  return request<VisitRecord>('/visits', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
 }
 
-export async function updateVisitRecord(id: string, data: Partial<VisitRecord>): Promise<VisitRecord | undefined> {
-  await delay(300)
-  const records = getVisitRecordsFromStorage()
-  const index = records.findIndex(v => v.id === id)
-  if (index === -1) return undefined
-  records[index] = {
-    ...records[index],
-    ...data,
-    updatedAt: new Date().toISOString()
-  }
-  saveVisitRecordsToStorage(records)
-  return records[index]
+export async function updateVisitRecord(id: string, data: Partial<VisitRecord> & {
+  operatorId?: string
+  operatorName?: string
+  operatorRole?: string
+}): Promise<VisitRecord | undefined> {
+  return request<VisitRecord>(`/visits/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
 }
 
-export async function getIssues(status?: Issue['status']): Promise<Issue[]> {
-  await delay(300)
-  const issues = getIssuesFromStorage()
-  if (status) {
-    return issues.filter(i => i.status === status)
-  }
-  return issues
+export async function getIssues(): Promise<Issue[]> {
+  return request<Issue[]>('/issues')
 }
 
 export async function getIssueById(id: string): Promise<Issue | undefined> {
-  await delay(200)
-  return getIssuesFromStorage().find(i => i.id === id)
+  return request<Issue>(`/issues/${id}`)
 }
 
-export async function createIssue(data: Omit<Issue, 'id' | 'createdAt' | 'updatedAt'>): Promise<Issue> {
-  await delay(300)
-  const issues = getIssuesFromStorage()
-  const visitRecords = getVisitRecordsFromStorage()
-  const visitRecord = visitRecords.find(v => v.id === data.visitId)
-  const newIssue: Issue = {
-    ...data,
-    id: `i${Date.now()}`,
-    visitRecord,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-  issues.push(newIssue)
-  saveIssuesToStorage(issues)
-  return newIssue
+export async function createIssue(data: {
+  visitId: string
+  reporterId: string
+  reporterName: string
+  title: string
+  description: string
+  category: string
+}): Promise<Issue> {
+  return request<Issue>('/issues', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  })
 }
 
-export async function updateIssue(id: string, data: Partial<Issue>): Promise<Issue | undefined> {
-  await delay(300)
-  const issues = getIssuesFromStorage()
-  const index = issues.findIndex(i => i.id === id)
-  if (index === -1) return undefined
-  issues[index] = {
-    ...issues[index],
-    ...data,
-    updatedAt: new Date().toISOString()
-  }
-  saveIssuesToStorage(issues)
-  return issues[index]
+export async function updateIssue(id: string, data: Partial<Issue> & {
+  operatorId?: string
+  operatorName?: string
+  operatorRole?: string
+}): Promise<Issue | undefined> {
+  return request<Issue>(`/issues/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(data)
+  })
+}
+
+export async function getFlowRecords(type: 'visit' | 'issue', id: string): Promise<FlowRecord[]> {
+  return request<FlowRecord[]>(`/flow-records/${type}/${id}`)
 }
 
 export async function getSystemStats(): Promise<SystemStats> {
-  await delay(300)
-  const visitRecords = getVisitRecordsFromStorage()
-  const issues = getIssuesFromStorage()
-  return {
-    totalVisits: visitRecords.length,
-    pendingVisits: visitRecords.filter(v => v.status === 'pending').length,
-    overdueVisits: visitRecords.filter(v => v.status === 'overdue').length,
-    blockedVisits: visitRecords.filter(v => v.status === 'blocked').length,
-    totalIssues: issues.length,
-    pendingIssues: issues.filter(i => i.status === 'pending').length,
-    processingIssues: issues.filter(i => i.status === 'processing').length,
-    resolvedIssues: issues.filter(i => i.status === 'resolved').length,
-    escalatedIssues: issues.filter(i => i.status === 'escalated').length
-  }
+  return request<SystemStats>('/stats')
 }
 
 export async function getIssuesByVisitId(visitId: string): Promise<Issue[]> {
-  await delay(200)
-  return getIssuesFromStorage().filter(i => i.visitId === visitId)
+  const issues = await getIssues()
+  return issues.filter(i => i.visitId === visitId)
 }
 
 export async function getRoleOptions(): Promise<{ value: Role; label: string }[]> {
-  await delay(100)
   return [
     { value: 'socialWorker', label: '站点社工' },
     { value: 'volunteerLeader', label: '志愿队长' },
     { value: 'communityLeader', label: '社区干部' }
   ]
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
 }
