@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Compensation } from '@/types'
 import { useReviewsStore } from '@/stores/reviews'
-import { reviews, cleaners, customers } from '@/data/mockData'
+import { reviews, cleaners, customers, orders } from '@/data/mockData'
 
 const store = useReviewsStore()
 
@@ -11,11 +11,16 @@ const compensationList = computed(() => {
     const review = reviews.find(r => r.id === compensation.reviewId)
     const cleaner = cleaners.find(c => c.id === review?.cleanerId)
     const customer = customers.find(c => c.id === review?.customerId)
+    const order = orders.find(o => o.id === review?.orderId)
+    const followUps = store.getFollowUpsByReviewId(compensation.reviewId)
+    
     return {
       ...compensation,
       review,
       cleaner,
-      customer
+      customer,
+      order,
+      followUps
     }
   })
 })
@@ -34,6 +39,12 @@ const statusLabels: Record<string, { text: string; color: string }> = {
   processed: { text: '已处理', color: 'bg-blue-100 text-blue-800' }
 }
 
+const followUpStatusLabels: Record<string, { text: string; color: string }> = {
+  pending: { text: '待处理', color: 'bg-yellow-100 text-yellow-800' },
+  processing: { text: '处理中', color: 'bg-blue-100 text-blue-800' },
+  completed: { text: '已完成', color: 'bg-green-100 text-green-800' }
+}
+
 const handleApprove = (compensationId: string) => {
   store.approveCompensation(compensationId, '质检主管刘')
 }
@@ -48,77 +59,173 @@ const handleProcess = (compensationId: string) => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-6">
     <div 
       v-for="item in compensationList" 
       :key="item.id" 
-      class="bg-white rounded-lg shadow-md p-4"
+      class="bg-white rounded-lg shadow-md overflow-hidden"
     >
-      <div class="flex justify-between items-start mb-3">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-gray-600">补偿ID: {{ item.id }}</span>
-          <span :class="['px-2 py-1 rounded-full text-xs font-medium', statusLabels[item.status].color]">
-            {{ statusLabels[item.status].text }}
-          </span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="px-2 py-1 bg-gray-100 rounded text-xs">{{ compensationTypes[item.type] }}</span>
-          <span class="text-lg font-semibold text-red-500">¥{{ item.amount }}</span>
-        </div>
-      </div>
-      
-      <div class="grid grid-cols-3 gap-4 mb-3 text-sm">
-        <div>
-          <span class="text-gray-500">客户:</span>
-          <span class="ml-2">{{ item.customer?.name }}</span>
-        </div>
-        <div>
-          <span class="text-gray-500">阿姨:</span>
-          <span class="ml-2">{{ item.cleaner?.name }}</span>
-        </div>
-        <div>
-          <span class="text-gray-500">差评内容:</span>
-          <span class="ml-2 line-clamp-1">{{ item.review?.content }}</span>
+      <div class="bg-gradient-to-r from-blue-50 to-blue-100 px-6 py-4">
+        <div class="flex justify-between items-start">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-medium text-gray-600">补偿ID: {{ item.id }}</span>
+            <span :class="['px-3 py-1 rounded-full text-xs font-medium', statusLabels[item.status].color]">
+              {{ statusLabels[item.status].text }}
+            </span>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="px-3 py-1 bg-white rounded-full text-sm font-medium">{{ compensationTypes[item.type] }}</span>
+            <span class="text-xl font-bold text-red-500">¥{{ item.amount }}</span>
+          </div>
         </div>
       </div>
-      
-      <div class="flex items-center justify-between text-sm text-gray-500 mb-3">
-        <div class="flex items-center gap-4">
-          <span>申请时间: {{ item.createdAt }}</span>
-          <span v-if="item.approvedBy">审批人: {{ item.approvedBy }}</span>
-          <span v-if="item.approvedAt">审批时间: {{ item.approvedAt }}</span>
+
+      <div class="p-6">
+        <div class="grid grid-cols-4 gap-4 mb-6 text-sm">
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-gray-500 mb-1">客户信息</div>
+            <div class="font-medium">{{ item.customer?.name }} {{ item.customer?.phone }}</div>
+            <div class="text-gray-500 text-xs">{{ item.customer?.address }}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-gray-500 mb-1">服务阿姨</div>
+            <div class="font-medium">{{ item.cleaner?.name }} {{ item.cleaner?.phone }}</div>
+            <div class="text-gray-500 text-xs">评分: {{ item.cleaner?.rating }} | 订单数: {{ item.cleaner?.completedOrders }}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-gray-500 mb-1">服务信息</div>
+            <div class="font-medium">{{ item.order?.serviceType }}</div>
+            <div class="text-gray-500 text-xs">{{ item.order?.date }} {{ item.order?.startTime }}-{{ item.order?.endTime }}</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <div class="text-gray-500 mb-1">差评评分</div>
+            <div class="flex items-center gap-1">
+              <span v-for="i in 5" :key="i" class="text-yellow-500">{{ i <= (item.review?.rating || 0) ? '★' : '☆' }}</span>
+            </div>
+            <div class="text-gray-500 text-xs line-clamp-2 mt-1">{{ item.review?.content }}</div>
+          </div>
         </div>
-      </div>
-      
-      <div class="text-sm text-gray-700 mb-3">{{ item.description }}</div>
-      
-      <div class="flex gap-2">
-        <button 
-          v-if="item.status === 'pending'"
-          @click="handleApprove(item.id)"
-          class="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600 transition-colors"
-        >
-          批准
-        </button>
-        <button 
-          v-if="item.status === 'pending'"
-          @click="handleReject(item.id)"
-          class="px-3 py-1.5 bg-red-500 text-white rounded text-sm hover:bg-red-600 transition-colors"
-        >
-          拒绝
-        </button>
-        <button 
-          v-if="item.status === 'approved'"
-          @click="handleProcess(item.id)"
-          class="px-3 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition-colors"
-        >
-          执行补偿
-        </button>
+
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-gray-600 mb-3">处理流程</h3>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">1</div>
+              <span class="ml-2 text-sm font-medium">客户投诉</span>
+            </div>
+            <div class="h-0.5 flex-1 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-blue-500 transition-all"
+                :style="{ width: item.review?.status === 'resolved' ? '100%' : item.review?.status === 'reviewed' ? '66%' : '33%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">2</div>
+              <span class="ml-2 text-sm font-medium">客服回访</span>
+            </div>
+            <div class="h-0.5 flex-1 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-green-500 transition-all"
+                :style="{ width: item.review?.status === 'resolved' ? '100%' : item.status === 'approved' || item.status === 'processed' ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">3</div>
+              <span class="ml-2 text-sm font-medium">质检审批</span>
+            </div>
+            <div class="h-0.5 flex-1 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-purple-500 transition-all"
+                :style="{ width: item.status === 'processed' ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium">4</div>
+              <span class="ml-2 text-sm font-medium">补偿执行</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="item.followUps.length > 0" class="mb-6">
+          <h3 class="text-sm font-medium text-gray-600 mb-3">回访记录</h3>
+          <div class="space-y-3">
+            <div 
+              v-for="(followUp, index) in item.followUps" 
+              :key="followUp.id"
+              class="border-l-4 border-blue-500 pl-4 py-2 bg-blue-50 rounded-r-lg"
+            >
+              <div class="flex items-start justify-between">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-gray-700">{{ followUp.submittedBy }}</span>
+                    <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', followUpStatusLabels[followUp.status].color]">
+                      {{ followUpStatusLabels[followUp.status].text }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">{{ followUp.submittedAt }}</div>
+                  <div class="text-sm text-gray-600 mt-2">{{ followUp.content }}</div>
+                  <div class="flex items-center gap-2 mt-2 text-xs">
+                    <span class="text-gray-500">处理方式:</span>
+                    <span class="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">{{ followUp.actionTaken }}</span>
+                    <span v-if="followUp.nextAction" class="text-gray-500">下一步: {{ followUp.nextAction }}</span>
+                  </div>
+                </div>
+                <div class="text-xs text-gray-400">步骤{{ index + 1 }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="border-t border-gray-200 pt-4">
+          <div class="flex items-start justify-between">
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-600 mb-1">补偿说明</div>
+              <p class="text-sm text-gray-700">{{ item.description }}</p>
+            </div>
+            <div class="text-right ml-4">
+              <div class="text-sm text-gray-500">申请时间: {{ item.createdAt }}</div>
+              <div v-if="item.approvedBy" class="text-sm text-gray-500">审批人: {{ item.approvedBy }}</div>
+              <div v-if="item.approvedAt" class="text-sm text-gray-500">审批时间: {{ item.approvedAt }}</div>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-4">
+            <button 
+              v-if="item.status === 'pending'"
+              @click="handleApprove(item.id)"
+              class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm"
+            >
+              批准补偿
+            </button>
+            <button 
+              v-if="item.status === 'pending'"
+              @click="handleReject(item.id)"
+              class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors text-sm"
+            >
+              拒绝申请
+            </button>
+            <button 
+              v-if="item.status === 'approved'"
+              @click="handleProcess(item.id)"
+              class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors text-sm"
+            >
+              执行补偿
+            </button>
+            <button 
+              v-if="item.status === 'processed'"
+              disabled
+              class="px-4 py-2 bg-gray-200 text-gray-500 rounded cursor-not-allowed text-sm"
+            >
+              已完成
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     
     <div v-if="compensationList.length === 0" class="text-center py-12 text-gray-500">
-      暂无补偿记录
+      <div class="text-4xl mb-4">📋</div>
+      <div>暂无补偿记录</div>
     </div>
   </div>
 </template>

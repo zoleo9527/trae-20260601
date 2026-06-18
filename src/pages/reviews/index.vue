@@ -26,6 +26,26 @@ const filteredReviews = computed(() => {
     result = result.filter(r => r.category === categoryFilter.value)
   }
   
+  if (dateFilter.value) {
+    const now = new Date()
+    result = result.filter(r => {
+      const reviewDate = new Date(r.createdAt.replace(/-/g, '/'))
+      const diffTime = now.getTime() - reviewDate.getTime()
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+      
+      switch (dateFilter.value) {
+        case 'today':
+          return diffDays === 0
+        case 'week':
+          return diffDays < 7
+        case 'month':
+          return diffDays < 30
+        default:
+          return true
+      }
+    })
+  }
+  
   result.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   
   return result

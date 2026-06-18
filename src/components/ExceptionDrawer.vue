@@ -155,6 +155,46 @@ watch(() => props.visible, (newVal) => {
             <span><strong>订单金额:</strong> ¥{{ order?.totalAmount }}</span>
           </div>
         </div>
+
+        <div class="mb-6">
+          <h3 class="text-sm font-medium text-gray-600 mb-3">处理流程</h3>
+          <div class="flex items-center gap-2 flex-wrap">
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">1</div>
+              <span class="ml-2 text-sm">客户投诉</span>
+            </div>
+            <div class="h-0.5 w-12 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-blue-500 transition-all"
+                :style="{ width: review.status === 'resolved' || review.status === 'reviewed' ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm font-medium">2</div>
+              <span class="ml-2 text-sm">客服回访</span>
+            </div>
+            <div class="h-0.5 w-12 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-green-500 transition-all"
+                :style="{ width: compensation && (compensation.status === 'approved' || compensation.status === 'processed') ? '100%' : compensation?.status === 'pending' ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm font-medium">3</div>
+              <span class="ml-2 text-sm">质检审批</span>
+            </div>
+            <div class="h-0.5 w-12 bg-gray-300 relative">
+              <div 
+                class="absolute inset-y-0 left-0 bg-purple-500 transition-all"
+                :style="{ width: compensation?.status === 'processed' ? '100%' : '0%' }"
+              ></div>
+            </div>
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-gray-500 rounded-full flex items-center justify-center text-white text-sm font-medium">4</div>
+              <span class="ml-2 text-sm">补偿执行</span>
+            </div>
+          </div>
+        </div>
         
         <div v-if="followUps.length > 0" class="mb-6">
           <h3 class="text-sm font-medium text-gray-500 mb-3">历史回访记录</h3>
