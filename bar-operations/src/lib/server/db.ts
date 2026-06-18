@@ -155,9 +155,11 @@ export function seedDatabase() {
       exhibit_id: 'exhibit-3',
       reporter_id: 'user-exhibitor-1',
       assignee_id: 'user-engineer-1',
+      inspection_id: 'insp-1',
       description: '声波传感器无响应，显示屏黑屏',
       status: 'pending',
       repair_notes: null,
+      processed_at: null,
       created_at: "datetime('now', '-3 days')",
       received_at: null,
       completed_at: null
@@ -167,9 +169,11 @@ export function seedDatabase() {
       exhibit_id: 'exhibit-5',
       reporter_id: 'user-exhibitor-1',
       assignee_id: 'user-engineer-1',
+      inspection_id: 'insp-2',
       description: '机器人动作卡顿，电机异响',
       status: 'processing',
       repair_notes: '已更换主电机，正在测试',
+      processed_at: "datetime('now', '-2 days', '+2 hours')",
       created_at: "datetime('now', '-2 days')",
       received_at: "datetime('now', '-2 days')",
       completed_at: null
@@ -177,17 +181,19 @@ export function seedDatabase() {
   ];
 
   const insertFault = db.prepare(`
-    INSERT INTO fault_reports (id, exhibit_id, reporter_id, assignee_id, description, status, repair_notes, created_at, received_at, completed_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', ?), ?, ?)
+    INSERT INTO fault_reports (id, exhibit_id, reporter_id, assignee_id, inspection_id, description, status, repair_notes, processed_at, created_at, received_at, completed_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?), datetime('now', ?), ?)
   `);
   faultReports.forEach(fault => insertFault.run(
     fault.id,
     fault.exhibit_id,
     fault.reporter_id,
     fault.assignee_id,
+    fault.inspection_id,
     fault.description,
     fault.status,
     fault.repair_notes,
+    fault.processed_at,
     fault.created_at,
     fault.received_at,
     fault.completed_at

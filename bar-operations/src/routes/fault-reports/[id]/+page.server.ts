@@ -13,7 +13,18 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 
   const fault = db.prepare(`
     SELECT
-      f.*,
+      f.id,
+      f.exhibit_id,
+      f.reporter_id,
+      f.assignee_id,
+      f.inspection_id as source_inspection_id,
+      f.description,
+      f.status,
+      f.repair_notes,
+      f.processed_at,
+      f.created_at,
+      f.received_at,
+      f.completed_at,
       e.name as exhibit_name,
       e.location as exhibit_location,
       e.status as exhibit_status,
