@@ -47,28 +47,46 @@ router.get('/', async (req, res) => {
 
 // 获取单个展项问题详情
 router.get('/:id', async (req, res) => {
-  const issue = await prisma.exhibitIssue.findUnique({
-    where: { id: req.params.id },
-    include: {
-      reporter: { select: { id: true, name: true, role: true, phone: true } },
-      handler: { select: { id: true, name: true, phone: true } },
-      affectedReservations: {
-        include: {
-          createdBy: { select: { name: true } }
+  const [issue, auditLogs] = await Promise.all([
+    prisma.exhibitIssue.findUnique({
+      where: { id: req.params.id },
+      include: {
+        reporter: { select: { id: true, name: true, role: true, phone: true } },
+        handler: { select: { id: true, name: true, phone: true } },
+        affectedReservations: {
+          include: {
+            createdBy: { select: { name: true } }
+          }
         }
-      },
-      auditLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 30
       }
-    }
-  });
+    }),
+    prisma.auditLog.findMany({
+      where: {
+        entityType: 'ExhibitIssue',
+        entityId: req.params.id
+      },
+      include: {
+        user: { select: { name: true, role: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30
+    })
+  ]);
   
   if (!issue) {
     return res.status(404).json({ error: '展项问题不存在' });
   }
   
-  res.json(issue);
+  const formattedLogs = auditLogs.map(log => ({
+    ...log,
+    oldValue: log.oldValue ? JSON.parse(log.oldValue) : null,
+    newValue: log.newValue ? JSON.parse(log.newValue) : null
+  }));
+  
+  res.json({
+    ...issue,
+    auditLogs: formattedLogs
+  });
 });
 
 // 报告展项停机（展教员或设备工程师）

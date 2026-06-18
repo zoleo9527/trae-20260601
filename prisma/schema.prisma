@@ -64,12 +64,14 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  exhibitIssues      ExhibitIssue[]
-  reservations        Reservation[]
-  schedules           Schedule[]
-  materialIssues      MaterialIssue[]
-  auditLogs           AuditLog[]
-  assignedSchedules   Schedule[] @relation("AssigneeSchedules")
+  reportedExhibitIssues  ExhibitIssue[] @relation("ReporterExhibitIssues")
+  handledExhibitIssues   ExhibitIssue[] @relation("HandlerExhibitIssues")
+  reservations           Reservation[]
+  createdSchedules       Schedule[]
+  assignedSchedules      Schedule[] @relation("AssigneeSchedules")
+  reportedMaterialIssues MaterialIssue[] @relation("ReporterMaterialIssues")
+  handledMaterialIssues  MaterialIssue[] @relation("HandlerMaterialIssues")
+  auditLogs              AuditLog[]
 }
 
 model ExhibitIssue {
@@ -79,9 +81,9 @@ model ExhibitIssue {
   status      ExhibitStatus
   cause       String?  // 停机原因
   reporterId  String
-  reporter    User     @relation(fields: [reporterId], references: [id])
+  reporter    User     @relation("ReporterExhibitIssues", fields: [reporterId], references: [id])
   handlerId   String?
-  handler     User?    @relation(fields: [handlerId], references: [id])
+  handler     User?    @relation("HandlerExhibitIssues", fields: [handlerId], references: [id])
   reportedAt  DateTime @default(now())
   resolvedAt  DateTime?
   deadline    DateTime? // 处理时限
@@ -151,6 +153,10 @@ model Schedule {
   educatorId      String?  // 展教员
   educator        User?    @relation("AssigneeSchedules", fields: [educatorId], references: [id])
   
+  // 创建者
+  createdById     String?
+  createdBy       User?    @relation("CreatedSchedules", fields: [createdById], references: [id])
+  
   status          ScheduleStatus @default(PENDING)
   
   // 时间段（可与预约略有不同）
@@ -184,10 +190,10 @@ model MaterialIssue {
   status      IssueStatus @default(OPEN)
   
   reporterId  String
-  reporter    User     @relation(fields: [reporterId], references: [id])
+  reporter    User     @relation("ReporterMaterialIssues", fields: [reporterId], references: [id])
   
   handlerId   String?
-  handler     User?    @relation(fields: [handlerId], references: [id])
+  handler     User?    @relation("HandlerMaterialIssues", fields: [handlerId], references: [id])
   
   reportedAt  DateTime @default(now())
   deadline    DateTime?

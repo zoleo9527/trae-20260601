@@ -62,6 +62,70 @@ router.get('/', async (req, res) => {
   });
 });
 
+// 获取展教员可用时间（查询某时间段内未被占用的展教员）
+router.get('/available-educators', async (req, res) => {
+  const { startTime, endTime } = req.query;
+  
+  if (!startTime || !endTime) {
+    return res.status(400).json({ error: '需要提供 startTime 和 endTime' });
+  }
+  
+  const educators = await prisma.user.findMany({
+    where: {
+      role: 'EXHIBIT_EDUCATOR',
+      isActive: true
+    }
+  });
+  
+  const bookedSchedules = await prisma.schedule.findMany({
+    where: {
+      status: { notIn: ['CANCELLED'] },
+      OR: [
+        {
+          scheduledStart: { lte: new Date(startTime) },
+          scheduledEnd: { gt: new Date(startTime) }
+        },
+        {
+          scheduledStart: { lt: new Date(endTime) },
+          scheduledEnd: { gte: new Date(endTime) }
+        },
+        {
+          scheduledStart: { gte: new Date(startTime) },
+          scheduledEnd: { lte: new Date(endTime) }
+        }
+      ]
+    },
+    select: {
+      educatorId: true,
+      scheduledStart: true,
+      scheduledEnd: true,
+      reservation: { select: { visitorGroup: true } }
+    }
+  });
+  
+  const bookedEducatorIds = new Set(bookedSchedules.map(s => s.educatorId).filter(Boolean));
+  
+  const availableEducators = educators.filter(e => !bookedEducatorIds.has(e.id));
+  const busyEducators = educators.filter(e => bookedEducatorIds.has(e.id));
+  
+  res.json({
+    available: availableEducators.map(e => ({ id: e.id, name: e.name, phone: e.phone })),
+    busy: busyEducators.map(e => {
+      const schedule = bookedSchedules.find(s => s.educatorId === e.id);
+      return {
+        id: e.id,
+        name: e.name,
+        phone: e.phone,
+        bookedSchedule: {
+          startTime: schedule.scheduledStart,
+          endTime: schedule.scheduledEnd,
+          visitorGroup: schedule.reservation.visitorGroup
+        }
+      };
+    })
+  });
+});
+
 // 获取单个排班详情
 router.get('/:id', async (req, res) => {
   const schedule = await prisma.schedule.findUnique({
@@ -259,70 +323,6 @@ router.patch('/:id/cancel', requireRole('EXHIBIT_EDUCATOR', 'ADMIN'), async (req
   });
   
   res.json({ message: '排班已取消' });
-});
-
-// 获取展教员可用时间（查询某时间段内未被占用的展教员）
-router.get('/available-educators', async (req, res) => {
-  const { startTime, endTime } = req.query;
-  
-  if (!startTime || !endTime) {
-    return res.status(400).json({ error: '需要提供 startTime 和 endTime' });
-  }
-  
-  const educators = await prisma.user.findMany({
-    where: {
-      role: 'EXHIBIT_EDUCATOR',
-      isActive: true
-    }
-  });
-  
-  const bookedSchedules = await prisma.schedule.findMany({
-    where: {
-      status: { notIn: ['CANCELLED'] },
-      OR: [
-        {
-          scheduledStart: { lte: new Date(startTime) },
-          scheduledEnd: { gt: new Date(startTime) }
-        },
-        {
-          scheduledStart: { lt: new Date(endTime) },
-          scheduledEnd: { gte: new Date(endTime) }
-        },
-        {
-          scheduledStart: { gte: new Date(startTime) },
-          scheduledEnd: { lte: new Date(endTime) }
-        }
-      ]
-    },
-    select: {
-      educatorId: true,
-      scheduledStart: true,
-      scheduledEnd: true,
-      reservation: { select: { visitorGroup: true } }
-    }
-  });
-  
-  const bookedEducatorIds = new Set(bookedSchedules.map(s => s.educatorId).filter(Boolean));
-  
-  const availableEducators = educators.filter(e => !bookedEducatorIds.has(e.id));
-  const busyEducators = educators.filter(e => bookedEducatorIds.has(e.id));
-  
-  res.json({
-    available: availableEducators.map(e => ({ id: e.id, name: e.name, phone: e.phone })),
-    busy: busyEducators.map(e => {
-      const schedule = bookedSchedules.find(s => s.educatorId === e.id);
-      return {
-        id: e.id,
-        name: e.name,
-        phone: e.phone,
-        bookedSchedule: {
-          startTime: schedule.scheduledStart,
-          endTime: schedule.scheduledEnd,
-          visitorGroup: schedule.reservation.visitorGroup
-        }
-      };
-    })
-  });
 });
 
 export default router;

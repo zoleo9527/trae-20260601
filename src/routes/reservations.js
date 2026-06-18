@@ -64,36 +64,51 @@ router.get('/', async (req, res) => {
 
 // 获取单个预约详情
 router.get('/:id', async (req, res) => {
-  const reservation = await prisma.reservation.findUnique({
-    where: { id: req.params.id },
-    include: {
-      createdBy: { select: { id: true, name: true, role: true } },
-      exhibitIssue: {
-        select: {
-          id: true,
-          exhibitName: true,
-          status: true,
-          cause: true,
-          reporter: { select: { name: true } }
+  const [reservation, auditLogs] = await Promise.all([
+    prisma.reservation.findUnique({
+      where: { id: req.params.id },
+      include: {
+        createdBy: { select: { id: true, name: true, role: true } },
+        exhibitIssue: {
+          select: {
+            id: true,
+            exhibitName: true,
+            status: true,
+            cause: true,
+            reporter: { select: { name: true } }
+          }
+        },
+        schedule: {
+          include: {
+            educator: { select: { id: true, name: true, phone: true } }
+          }
         }
-      },
-      schedule: {
-        include: {
-          educator: { select: { id: true, name: true, phone: true } }
-        }
-      },
-      auditLogs: {
-        orderBy: { createdAt: 'desc' },
-        take: 20
       }
-    }
-  });
+    }),
+    prisma.auditLog.findMany({
+      where: { reservationId: req.params.id },
+      include: {
+        user: { select: { name: true, role: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    })
+  ]);
   
   if (!reservation) {
     return res.status(404).json({ error: '预约不存在' });
   }
   
-  res.json(reservation);
+  const formattedLogs = auditLogs.map(log => ({
+    ...log,
+    oldValue: log.oldValue ? JSON.parse(log.oldValue) : null,
+    newValue: log.newValue ? JSON.parse(log.newValue) : null
+  }));
+  
+  res.json({
+    ...reservation,
+    auditLogs: formattedLogs
+  });
 });
 
 // 创建预约（自动检测撞档）
