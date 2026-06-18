@@ -96,56 +96,106 @@ export class WorkflowService {
     const impactFields = ['scheduledAt', 'location', 'lecturerId', 'lecturerName', 'expectedParticipants', 'courseName'];
     const hasMaterialImpact = changedFields.some(field => impactFields.includes(field));
 
-    if (hasMaterialImpact && schedule.materialListId) {
+    if (schedule.materialListId) {
       const materials = await dataStore.findAll<MaterialList>('materials.json');
-      const material = materials.find(m => m.id === schedule.materialListId);
+      const materialIndex = materials.findIndex(m => m.id === schedule.materialListId);
 
-      if (material && material.status !== 'RETURNED') {
-        await this.updateMaterialStatus(material.id, 'BLOCKED', {
-          reason: `排班变更：${changedFields.join(', ')}`,
-        });
+      if (materialIndex !== -1) {
+        const material = materials[materialIndex];
+        
+        if (hasMaterialImpact && material.status !== 'RETURNED') {
+          await this.updateMaterialStatusWithBackwardInfo(material.id, 'BLOCKED', {
+            reason: `排班变更：${changedFields.join(', ')}`,
+            blockedByScheduleId: schedule.id,
+            blockedByScheduleName: schedule.courseName,
+            changedFields,
+          });
 
-        const changeReason = changedFields.map(field => {
-          const labelMap: Record<string, string> = {
-            scheduledAt: '时间',
-            location: '地点',
-            lecturerId: '讲师',
-            lecturerName: '讲师姓名',
-            expectedParticipants: '预计人数',
-            courseName: '课程名称',
-          };
-          return labelMap[field] || field;
-        }).join(', ');
+          const changeLabels = changedFields.map(field => {
+            const labelMap: Record<string, string> = {
+              scheduledAt: '时间',
+              location: '地点',
+              lecturerId: '讲师',
+              lecturerName: '讲师姓名',
+              expectedParticipants: '预计人数',
+              courseName: '课程名称',
+            };
+            return labelMap[field] || field;
+          }).join(', ');
 
-        await this.createNotification({
-          type: 'MATERIAL_CHANGE_REQUIRED',
-          title: '讲师排班已变更，请重新确认物料',
-          content: `课程【${schedule.courseName}】的排班信息已变更（${changeReason}），请检查物料准备是否需要调整`,
-          recipients: material.preparedBy ? [material.preparedBy] : ['user_006', 'user_007'],
-          relatedScheduleId: schedule.id,
-          relatedMaterialId: material.id,
-          priority: 'HIGH',
-          actions: [
-            { type: 'VIEW_SCHEDULE', label: '查看排班' },
-            { type: 'VIEW_MATERIAL', label: '查看物料' },
-            { type: 'RECONFIRM', label: '重新确认物料' },
-          ],
-        });
+          const affectedRecipients: string[] = [];
+          if (material.preparedBy) {
+            affectedRecipients.push(material.preparedBy);
+          } else {
+            affectedRecipients.push('user_006', 'user_007');
+          }
 
-        await this.createNotification({
-          type: 'SCHEDULE_CHANGED',
-          title: '您的排班已变更',
-          content: `课程【${schedule.courseName}】的排班信息已变更，物料管理员将重新确认物料准备情况`,
-          recipients: [schedule.lecturerId],
-          relatedScheduleId: schedule.id,
-          relatedMaterialId: material.id,
-          priority: 'HIGH',
-          actions: [
-            { type: 'VIEW_SCHEDULE', label: '查看排班详情' },
-            { type: 'VIEW_MATERIAL', label: '查看物料准备' },
-          ],
-        });
+          const notification = await this.createNotification({
+            type: 'MATERIAL_CHANGE_REQUIRED',
+            title: '讲师排班已变更，请重新确认物料',
+            content: `课程【${schedule.courseName}】的排班信息已变更（${changeLabels}），请检查物料准备是否需要调整`,
+            recipients: affectedRecipients,
+            relatedScheduleId: schedule.id,
+            relatedMaterialId: material.id,
+            priority: 'HIGH',
+            actions: [
+              { type: 'VIEW_SCHEDULE', label: '查看排班' },
+              { type: 'VIEW_MATERIAL', label: '查看物料' },
+              { type: 'RECONFIRM', label: '重新确认物料' },
+            ],
+          });
+
+          await this.createNotification({
+            type: 'SCHEDULE_CHANGED',
+            title: '您的排班已变更',
+            content: `课程【${schedule.courseName}】的排班信息已变更，物料管理员将重新确认物料准备情况`,
+            recipients: [schedule.lecturerId],
+            relatedScheduleId: schedule.id,
+            relatedMaterialId: material.id,
+            priority: 'HIGH',
+            actions: [
+              { type: 'VIEW_SCHEDULE', label: '查看排班详情' },
+              { type: 'VIEW_MATERIAL', label: '查看物料准备' },
+            ],
+          });
+
+          await this.updateMaterialNotificationReference(material.id, notification.id);
+        }
       }
+    }
+  }
+
+  private async updateMaterialStatusWithBackwardInfo(materialId: string, status: string, options?: {
+    reason?: string;
+    blockedByScheduleId?: string;
+    blockedByScheduleName?: string;
+    changedFields?: string[];
+  }) {
+    let materials = await dataStore.findAll<MaterialList>('materials.json');
+    const index = materials.findIndex(m => m.id === materialId);
+    if (index !== -1) {
+      materials[index].status = status;
+      materials[index].updatedAt = new Date().toISOString();
+      
+      if (options?.blockedByScheduleId) {
+        materials[index].blockedByScheduleId = options.blockedByScheduleId;
+        materials[index].blockedByScheduleName = options.blockedByScheduleName;
+        materials[index].blockedReason = options.reason;
+        materials[index].blockedFields = options.changedFields;
+        materials[index].blockedAt = new Date().toISOString();
+      }
+      
+      await dataStore.write('materials.json', materials);
+    }
+  }
+
+  private async updateMaterialNotificationReference(materialId: string, notificationId: string) {
+    let materials = await dataStore.findAll<MaterialList>('materials.json');
+    const index = materials.findIndex(m => m.id === materialId);
+    if (index !== -1) {
+      materials[index].lastNotificationId = notificationId;
+      materials[index].updatedAt = new Date().toISOString();
+      await dataStore.write('materials.json', materials);
     }
   }
 
@@ -348,13 +398,13 @@ export class WorkflowService {
     this.eventEmitter.emit('schedule.created', { schedule });
   }
 
-  async onScheduleChanged(schedule: ActivitySchedule, oldSchedule: Partial<ActivitySchedule>) {
-    const changedFields = Object.keys(schedule).filter(
+  async onScheduleChanged(schedule: ActivitySchedule, oldSchedule: Partial<ActivitySchedule>, changedFields?: string[]) {
+    const fields = changedFields || Object.keys(schedule).filter(
       key => JSON.stringify(oldSchedule[key]) !== JSON.stringify(schedule[key])
     );
 
-    if (changedFields.length > 0) {
-      this.eventEmitter.emit('schedule.changed', { schedule, oldSchedule, changedFields });
+    if (fields.length > 0) {
+      this.eventEmitter.emit('schedule.changed', { schedule, oldSchedule, changedFields: fields });
     }
   }
 

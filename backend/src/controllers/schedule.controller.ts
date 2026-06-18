@@ -247,7 +247,7 @@ export async function createSchedule(req: Request, res: Response) {
 export async function updateSchedule(req: Request, res: Response) {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const { changeReason, updatedBy, updatedByName, ...updateData } = req.body;
 
     let schedules = await dataStore.findAll('schedules.json');
     if (schedules.length === 0) {
@@ -264,47 +264,62 @@ export async function updateSchedule(req: Request, res: Response) {
     }
 
     const oldSchedule = { ...schedules[index] };
-    const changedFields: string[] = [];
+    const isPublished = oldSchedule.status === 'PUBLISHED';
 
+    const changedFields: string[] = [];
     Object.keys(updateData).forEach(key => {
-      if (oldSchedule[key] !== updateData[key]) {
+      if (JSON.stringify(oldSchedule[key]) !== JSON.stringify(updateData[key])) {
         changedFields.push(key);
       }
     });
 
-    if (changedFields.length > 0 && oldSchedule.status === 'PUBLISHED') {
-      const changeHistoryEntry = {
-        id: `ch_${uuidv4()}`,
-        field: changedFields[0],
-        oldValue: String(oldSchedule[changedFields[0]]),
-        newValue: String(updateData[changedFields[0]]),
-        changedBy: updateData.updatedBy || 'user_001',
-        changedByName: updateData.updatedByName || '未知',
-        changedAt: new Date().toISOString(),
-        reason: updateData.changeReason,
-      };
+    if (isPublished && changedFields.length > 0) {
+      if (!changeReason) {
+        return res.status(400).json({
+          success: false,
+          error: { code: 'CHANGE_REASON_REQUIRED', message: '修改已发布的排班需要填写变更原因' },
+        });
+      }
 
-      updateData.changeHistory = [...(oldSchedule.changeHistory || []), changeHistoryEntry];
+      const historyEntries = changedFields.map(field => ({
+        id: `ch_${uuidv4()}`,
+        field,
+        fieldLabel: getFieldLabel(field),
+        oldValue: String(oldSchedule[field]) || '-',
+        newValue: String(updateData[field]) || '-',
+        changedBy: updatedBy || 'user_001',
+        changedByName: updatedByName || '未知',
+        changedAt: new Date().toISOString(),
+        reason: changeReason,
+      }));
+
+      updateData.changeHistory = [...(oldSchedule.changeHistory || []), ...historyEntries];
       updateData.status = 'CHANGED';
+      updateData.lastChangedAt = new Date().toISOString();
+      updateData.lastChangedBy = updatedBy;
+      updateData.lastChangedByName = updatedByName;
     }
 
     schedules[index] = {
       ...oldSchedule,
       ...updateData,
       updatedAt: new Date().toISOString(),
+      updatedBy,
+      updatedByName,
     };
 
     await dataStore.write('schedules.json', schedules);
 
     if (changedFields.length > 0) {
-      await workflowService.onScheduleChanged(schedules[index], oldSchedule);
+      await workflowService.onScheduleChanged(schedules[index], oldSchedule, changedFields);
     }
 
     res.json({
       success: true,
       data: schedules[index],
-      message: '排班更新成功',
-      notifications: changedFields.length > 0 ? [{ type: 'SCHEDULE_CHANGED' }] : [],
+      message: isPublished ? '排班已变更，相关物料已自动标记为受阻' : '排班更新成功',
+      isChanged: isPublished && changedFields.length > 0,
+      changedFields,
     });
   } catch (error) {
     console.error('更新排班失败:', error);
@@ -313,6 +328,23 @@ export async function updateSchedule(req: Request, res: Response) {
       error: { code: 'INTERNAL_ERROR', message: '更新排班失败' },
     });
   }
+}
+
+function getFieldLabel(field: string): string {
+  const labelMap: Record<string, string> = {
+    scheduledAt: '计划时间',
+    location: '活动地点',
+    lecturerId: '讲师ID',
+    lecturerName: '讲师姓名',
+    lecturerPhone: '讲师电话',
+    lecturerEmail: '讲师邮箱',
+    lecturerRequirements: '讲师要求',
+    expectedParticipants: '预计人数',
+    participantType: '参与对象',
+    courseName: '课程名称',
+    courseId: '课程ID',
+  };
+  return labelMap[field] || field;
 }
 
 export async function transitionSchedule(req: Request, res: Response) {

@@ -5,6 +5,8 @@ import {
   Dashboard,
   ScheduleListPage,
   ScheduleDetailPage,
+  ScheduleEditPage,
+  ApprovalPage,
   MaterialListPage,
   MaterialDetailPage,
   NotificationPage,
@@ -18,6 +20,8 @@ function App() {
           <Route index element={<Dashboard />} />
           <Route path="schedules" element={<ScheduleListPage />} />
           <Route path="schedules/:id" element={<ScheduleDetailPage />} />
+          <Route path="schedules/:id/edit" element={<ScheduleEditPage />} />
+          <Route path="approval" element={<ApprovalPage />} />
           <Route path="materials" element={<MaterialListPage />} />
           <Route path="materials/:id" element={<MaterialDetailPage />} />
           <Route path="notifications" element={<NotificationPage />} />

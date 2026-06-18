@@ -11,6 +11,8 @@ import {
   FileText,
   ArrowRight,
   ChevronRight,
+  RefreshCw,
+  User,
 } from 'lucide-react';
 import { Card, CardBody, StatusTag } from '@/components/common';
 import { useScheduleStore, useMaterialStore, useNotificationStore } from '@/store';
@@ -18,6 +20,7 @@ import { mockSchedules } from '@/data/mockSchedules';
 import { mockMaterials } from '@/data/mockMaterials';
 import { mockNotifications } from '@/data/mockNotifications';
 import { ScheduleStatusMachine, MaterialStatusMachine } from '@/constants';
+import dayjs from 'dayjs';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +34,12 @@ export const Dashboard: React.FC = () => {
     fetchNotifications();
   }, []);
 
+  const handleRefresh = () => {
+    fetchSchedules();
+    fetchMaterials();
+    fetchNotifications();
+  };
+
   const displaySchedules = schedules.length > 0 ? schedules : mockSchedules;
   const displayMaterials = materials.length > 0 ? materials : mockMaterials;
   const displayNotifications = notifications.length > 0 ? notifications : mockNotifications;
@@ -41,16 +50,27 @@ export const Dashboard: React.FC = () => {
   const blockedMaterials = displayMaterials.filter(m => m.status === 'BLOCKED');
   const readyMaterials = displayMaterials.filter(m => m.status === 'READY');
   const unreadNotifications = displayNotifications.filter(n => !n.readBy.includes('user_001'));
+  const totalSchedules = displaySchedules.length;
+  const totalMaterials = displayMaterials.length;
 
   const stats = [
+    {
+      title: '排班总数',
+      value: totalSchedules,
+      icon: Calendar,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100',
+      onClick: () => navigate('/schedules'),
+      description: '所有排班记录',
+    },
     {
       title: '待社教老师确认',
       value: pendingConfirm.length,
       icon: Clock,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
+      color: 'text-cyan-600',
+      bgColor: 'bg-cyan-100',
       onClick: () => navigate('/schedules?status=PENDING_CONFIRM'),
-      description: '等待您确认的排班申请',
+      description: '等待确认的排班',
     },
     {
       title: '待活动主管审核',
@@ -58,8 +78,8 @@ export const Dashboard: React.FC = () => {
       icon: Users,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
-      onClick: () => navigate('/schedules?status=APPROVED'),
-      description: '等待主管审核的排班',
+      onClick: () => navigate('/approval'),
+      description: '等待审核的排班',
     },
     {
       title: '物料准备中',
@@ -68,7 +88,7 @@ export const Dashboard: React.FC = () => {
       color: 'text-purple-600',
       bgColor: 'bg-purple-100',
       onClick: () => navigate('/materials?status=IN_PROGRESS'),
-      description: '正在准备的物料清单',
+      description: '正在准备的物料',
     },
     {
       title: '已就绪物料',
@@ -77,7 +97,7 @@ export const Dashboard: React.FC = () => {
       color: 'text-green-600',
       bgColor: 'bg-green-100',
       onClick: () => navigate('/materials?status=READY'),
-      description: '等待讲师确认的物料',
+      description: '等待确认的物料',
     },
     {
       title: '受阻物料',
@@ -86,74 +106,72 @@ export const Dashboard: React.FC = () => {
       color: 'text-red-600',
       bgColor: 'bg-red-100',
       onClick: () => navigate('/materials?status=BLOCKED'),
-      description: '因排班变更受阻的物料',
+      description: '因变更受阻的物料',
+    },
+    {
+      title: '物料清单',
+      value: totalMaterials,
+      icon: FileText,
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-100',
+      onClick: () => navigate('/materials'),
+      description: '所有物料清单',
     },
     {
       title: '未读通知',
       value: unreadNotifications.length,
       icon: Bell,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-100',
       onClick: () => navigate('/notifications'),
-      description: '待处理的通知消息',
+      description: '待处理的消息',
     },
   ];
 
-  const recentActivities = [
-    {
-      id: '1',
-      type: 'schedule',
-      title: '青铜器鉴赏入门',
-      action: '排班已发布',
-      time: '1小时前',
-      user: '刘伟',
-      icon: Calendar,
-    },
-    {
-      id: '2',
-      type: 'material',
-      title: '古钱币探秘',
-      action: '物料准备受阻',
-      time: '2小时前',
-      user: '孙丽',
-      icon: AlertTriangle,
-    },
-    {
-      id: '3',
-      type: 'schedule',
-      title: '书画临摹体验',
-      action: '提交确认申请',
-      time: '3小时前',
-      user: '李华',
-      icon: FileText,
-    },
-    {
-      id: '4',
-      type: 'material',
-      title: '青铜器鉴赏入门',
-      action: '物料准备中',
-      time: '4小时前',
-      user: '赵军',
-      icon: Package,
-    },
-  ];
+  const recentActivities = displayNotifications.slice(0, 5).map((notification, index) => ({
+    id: notification.id,
+    type: notification.type.includes('SCHEDULE') ? 'schedule' : 'material',
+    title: notification.title,
+    content: notification.content.substring(0, 50) + '...',
+    action: notification.type,
+    time: dayjs(notification.createdAt).fromNow(),
+    user: '系统',
+    icon: notification.type.includes('BLOCKED') || notification.type.includes('CHANGE_REQUIRED')
+      ? AlertTriangle
+      : notification.type.includes('READY')
+      ? CheckCircle
+      : notification.type.includes('SCHEDULE')
+      ? Calendar
+      : Package,
+    relatedScheduleId: notification.relatedScheduleId,
+    relatedMaterialId: notification.relatedMaterialId,
+  }));
 
   const flowSteps = [
     { status: 'DRAFT', label: '草稿', count: displaySchedules.filter(s => s.status === 'DRAFT').length },
-    { status: 'PENDING_CONFIRM', label: '待社教老师确认', count: pendingConfirm.length },
-    { status: 'APPROVED', label: '待活动主管审核', count: pendingApprove.length },
+    { status: 'PENDING_CONFIRM', label: '待确认', count: pendingConfirm.length },
+    { status: 'APPROVED', label: '待审核', count: pendingApprove.length },
     { status: 'PUBLISHED', label: '已发布', count: displaySchedules.filter(s => s.status === 'PUBLISHED').length },
     { status: 'CHANGED', label: '已变更', count: displaySchedules.filter(s => s.status === 'CHANGED').length },
   ];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-gray-900">工作台</h1>
-        <p className="text-gray-600 mt-1">欢迎回来，张明老师</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-gray-900">工作台</h1>
+          <p className="text-gray-600 mt-1">欢迎回来，张明老师</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <RefreshCw className="w-4 h-4" />
+          <span className="text-sm">刷新数据</span>
+        </button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {stats.map((stat) => (
           <Card
             key={stat.title}
@@ -306,24 +324,37 @@ export const Dashboard: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900">最近动态</h3>
           </div>
           <div className="divide-y divide-gray-100">
-            {recentActivities.map((activity) => (
-              <div
-                key={activity.id}
-                className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
-              >
-                <div className="flex items-start gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                    activity.type === 'schedule' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
-                  }`}>
-                    <activity.icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{activity.title}</p>
-                    <p className="text-xs text-gray-500">{activity.action} · {activity.user} · {activity.time}</p>
+            {recentActivities.map((activity) => {
+              const handleClick = () => {
+                if (activity.relatedScheduleId) {
+                  navigate(`/schedules/${activity.relatedScheduleId}`);
+                } else if (activity.relatedMaterialId) {
+                  navigate(`/materials/${activity.relatedMaterialId}`);
+                }
+              };
+
+              return (
+                <div
+                  key={activity.id}
+                  className="px-6 py-4 hover:bg-gray-50 cursor-pointer transition-colors"
+                  onClick={handleClick}
+                >
+                  <div className="flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      activity.type === 'schedule' ? 'bg-blue-100 text-blue-600' : 'bg-orange-100 text-orange-600'
+                    }`}>
+                      <activity.icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{activity.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{activity.content}</p>
+                      <p className="text-xs text-gray-400 mt-1">{activity.time}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       </div>

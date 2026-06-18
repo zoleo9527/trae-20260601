@@ -5,6 +5,7 @@ import {
   Calendar,
   Package,
   Bell,
+  CheckSquare,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -13,6 +14,7 @@ import clsx from 'clsx';
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: '工作台' },
   { to: '/schedules', icon: Calendar, label: '讲师排班' },
+  { to: '/approval', icon: CheckSquare, label: '审批中心' },
   { to: '/materials', icon: Package, label: '物料清单' },
   { to: '/notifications', icon: Bell, label: '消息中心' },
 ];
