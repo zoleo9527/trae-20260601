@@ -68,6 +68,7 @@ export const FeedbackDetail: React.FC = () => {
     (f) => f.assigneeId === currentUser.id && f.status !== 'completed'
   );
   const currentIndex = myPendingTasks.findIndex((f) => f.id === feedback.id);
+  const isMyTask = feedback.assigneeId === currentUser.id;
 
   const statusLabels = {
     pending_review: '待初核',
@@ -229,7 +230,7 @@ export const FeedbackDetail: React.FC = () => {
           <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg">
             <Users className="w-4 h-4 text-text-muted" />
             <span className="text-sm text-text-muted">
-              {currentIndex + 1} / {myPendingTasks.length}
+              {isMyTask ? `${currentIndex + 1} / ${myPendingTasks.length}` : '非本人任务'}
             </span>
           </div>
           <button
@@ -395,35 +396,54 @@ export const FeedbackDetail: React.FC = () => {
                     {certs.map((cert) => (
                       <div
                         key={cert.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                        className="bg-gray-50 rounded-lg overflow-hidden"
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Award className="w-6 h-6 text-primary" />
+                        <div className="flex items-center justify-between p-4">
+                          <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                              <Award className="w-6 h-6 text-primary" />
+                            </div>
+                            <div>
+                              <p className="font-medium text-text-main">{cert.recipientName}</p>
+                              <p className="text-sm text-text-muted">
+                                {cert.activityName} | {cert.recipientPhone || '暂无联系方式'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-medium text-text-main">{cert.recipientName}</p>
-                            <p className="text-sm text-text-muted">
-                              {cert.activityName} | {cert.recipientPhone || '暂无联系方式'}
-                            </p>
+                          <div className="flex items-center gap-3">
+                            <StatusTag
+                              status={cert.status === 'issued' ? 'completed' : cert.status === 'ready' ? 'in_progress' : 'pending'}
+                              label={cert.status === 'issued' ? '已发放' : cert.status === 'ready' ? '待发放' : '待制作'}
+                            />
+                            {cert.status === 'ready' && (
+                              <ActionButton
+                                variant="success"
+                                onClick={() => handleIssueCertificate(cert.id)}
+                                icon={<CheckCircle className="w-4 h-4" />}
+                                size="sm"
+                              >
+                                发放
+                              </ActionButton>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <StatusTag
-                            status={cert.status === 'issued' ? 'completed' : cert.status === 'ready' ? 'in_progress' : 'pending'}
-                            label={cert.status === 'issued' ? '已发放' : cert.status === 'ready' ? '待发放' : '待制作'}
-                          />
-                          {cert.status === 'ready' && (
-                            <ActionButton
-                              variant="success"
-                              onClick={() => handleIssueCertificate(cert.id)}
-                              icon={<CheckCircle className="w-4 h-4" />}
-                              size="sm"
-                            >
-                              发放
-                            </ActionButton>
-                          )}
-                        </div>
+                        {cert.flowLogs && cert.flowLogs.length > 0 && (
+                          <div className="px-4 pb-4 pt-2 border-t border-border">
+                            <div className="text-xs text-text-muted mb-2">流转历史</div>
+                            <div className="space-y-2">
+                              {cert.flowLogs.map((log) => (
+                                <div key={log.id} className="flex items-center gap-2 text-xs">
+                                  <span className="text-text-muted">{log.operatorName}</span>
+                                  <span className={log.action === 'create' ? 'text-purple-600' : log.action === 'issue' ? 'text-green-600' : 'text-gray-600'}>
+                                    {log.action === 'create' ? '创建' : log.action === 'issue' ? '发放' : log.action}
+                                  </span>
+                                  <span className="text-text-muted">-</span>
+                                  <span className="text-text-muted">{log.timestamp}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

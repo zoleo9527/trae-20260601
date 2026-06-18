@@ -78,9 +78,9 @@ export const Dashboard: React.FC = () => {
 
   const urgentTasks = useMemo(() => {
     return feedbacks
-      .filter((f) => f.isOverdue && f.status !== 'completed')
+      .filter((f) => f.isOverdue && f.status !== 'completed' && f.assigneeId === currentUser.id)
       .sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
-  }, [feedbacks]);
+  }, [feedbacks, currentUser]);
 
   const certReadyToIssue = useMemo(() => {
     return certificates.filter((c) => c.status === 'ready').slice(0, 3);

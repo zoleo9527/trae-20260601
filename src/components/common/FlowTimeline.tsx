@@ -17,7 +17,7 @@ interface FlowTimelineProps {
   logs: FlowLog[];
 }
 
-const actionConfig = {
+const actionConfig: Record<string, { icon: React.ComponentType<{ className?: string }>; label: string; color: string }> = {
   submit: { icon: Send, label: '提交', color: 'text-blue-600' },
   review: { icon: CheckCircle, label: '初核', color: 'text-blue-600' },
   organize: { icon: FileText, label: '整理', color: 'text-yellow-600' },
@@ -25,6 +25,7 @@ const actionConfig = {
   issue: { icon: Package, label: '发放', color: 'text-green-600' },
   reject: { icon: XCircle, label: '退回', color: 'text-red-600' },
   note: { icon: MessageSquare, label: '备注', color: 'text-gray-600' },
+  create: { icon: FileText, label: '创建', color: 'text-purple-600' },
 };
 
 export const FlowTimeline: React.FC<FlowTimelineProps> = ({ logs }) => {
@@ -35,7 +36,7 @@ export const FlowTimeline: React.FC<FlowTimelineProps> = ({ logs }) => {
   return (
     <div className="space-y-4">
       {sortedLogs.map((log, index) => {
-        const config = actionConfig[log.action];
+        const config = actionConfig[log.action] || { icon: FileText, label: log.action, color: 'text-gray-600' };
         const Icon = config.icon;
         const isFirst = index === 0;
 
