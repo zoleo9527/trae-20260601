@@ -254,7 +254,8 @@ export default function CourseDetail() {
                                   updateMaterialAllocation(
                                     course.id,
                                     material.materialId,
-                                    material.requiredQty
+                                    material.requiredQty,
+                                    selectedAuthor
                                   )
                                 }
                                 className="px-3 py-1 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
@@ -268,7 +269,8 @@ export default function CourseDetail() {
                                   updateMaterialAllocation(
                                     course.id,
                                     material.materialId,
-                                    material.requiredQty
+                                    material.requiredQty,
+                                    selectedAuthor
                                   )
                                 }
                                 className="px-3 py-1 text-xs bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"

@@ -13,7 +13,7 @@ interface CourseStore {
   addCourse: (course: Omit<Course, 'id' | 'createdAt' | 'updatedAt' | 'comments'>) => void;
   updateCourseStatus: (id: string, status: Course['status']) => void;
   addComment: (courseId: string, author: string, content: string) => void;
-  updateMaterialAllocation: (courseId: string, materialId: string, allocatedQty: number) => void;
+  updateMaterialAllocation: (courseId: string, materialId: string, allocatedQty: number, author?: string) => void;
   consumeStock: (materialId: string, qty: number) => void;
   returnStock: (materialId: string, qty: number) => void;
   getFilteredCourses: () => Course[];
@@ -80,10 +80,11 @@ export const useCourseStore = create<CourseStore>()(
         }));
       },
 
-      updateMaterialAllocation: (courseId, materialId, allocatedQty) => {
+      updateMaterialAllocation: (courseId, materialId, allocatedQty, author = '系统') => {
         const state = get();
         const course = state.courses.find((c) => c.id === courseId);
         const material = state.materials.find((m) => m.id === materialId);
+        const matName = material?.name || '材料';
         
         if (course && material) {
           const currentAllocation = course.materials.find((m) => m.materialId === materialId);
@@ -108,6 +109,35 @@ export const useCourseStore = create<CourseStore>()(
           }
         }
 
+        const isFullyAllocated = course?.materials.every((mat) => {
+          if (mat.materialId === materialId) {
+            return allocatedQty >= mat.requiredQty;
+          }
+          return mat.allocatedQty >= mat.requiredQty;
+        });
+
+        let newComment = null;
+        const currentAllocation = course?.materials.find((m) => m.materialId === materialId);
+        const qtyDiff = allocatedQty - (currentAllocation?.allocatedQty || 0);
+        
+        if (qtyDiff > 0) {
+          newComment = {
+            id: `cm${Date.now()}`,
+            courseId,
+            author,
+            content: `已领用${matName} ${qtyDiff}${material?.unit || ''}`,
+            createdAt: new Date().toLocaleString('zh-CN'),
+          };
+        } else if (qtyDiff < 0) {
+          newComment = {
+            id: `cm${Date.now()}`,
+            courseId,
+            author,
+            content: `已归还${matName} ${Math.abs(qtyDiff)}${material?.unit || ''}`,
+            createdAt: new Date().toLocaleString('zh-CN'),
+          };
+        }
+
         set((state) => ({
           courses: state.courses.map((course) =>
             course.id === courseId
@@ -118,6 +148,8 @@ export const useCourseStore = create<CourseStore>()(
                       ? { ...mat, allocatedQty }
                       : mat
                   ),
+                  status: isFullyAllocated && course.status === 'supplement' ? 'approved' : course.status,
+                  comments: newComment ? [...course.comments, newComment] : course.comments,
                   updatedAt: new Date().toLocaleString('zh-CN'),
                 }
               : course

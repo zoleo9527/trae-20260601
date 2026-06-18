@@ -27,12 +27,15 @@ const getResponsibilityReminder = (course: { status: string; creator: string; as
         title: '待审核',
         message: `${course.creator}（展教员）已提交课程，等待${course.assignee}（设备工程师）审核确认材料需求。`,
       };
-    case 'approved':
+    case 'approved': {
+      const engineer = users.find((u) => u.role === 'engineer');
+      const teacher = users.find((u) => u.role === 'teacher');
       return {
         level: 'info' as const,
         title: '已通过',
-        message: `${course.assignee}（设备工程师）已审核通过，请${course.assignee}（活动老师）确认材料并领用。`,
+        message: `${engineer?.name || course.assignee}（设备工程师）已审核通过，请${teacher?.name || course.assignee}（活动老师）确认材料并领用。`,
       };
+    }
     case 'urgent':
       return {
         level: 'danger' as const,
@@ -51,6 +54,12 @@ const getResponsibilityReminder = (course: { status: string; creator: string; as
         title: '已退回',
         message: `${course.assignee}（设备工程师）已退回课程，请${course.creator}（展教员）修改后重新提交。`,
       };
+    case 'completed':
+      return {
+        level: 'success' as const,
+        title: '已完成',
+        message: '课程已完成，材料已全部归还入库。',
+      };
     default:
       return null;
   }
@@ -60,7 +69,7 @@ export default function Materials() {
   const { courses, materials } = useCourseStore();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const coursesWithMaterials = courses.filter((c) => c.status !== 'completed');
+  const coursesWithMaterials = courses;
 
   const lowStockMaterials = materials.filter((m) => m.quantity <= m.minStock);
 
@@ -69,7 +78,7 @@ export default function Materials() {
   );
 
   const sortedCourses = [...filteredCourses].sort((a, b) => {
-    const statusOrder = { urgent: 0, supplement: 1, pending: 2, approved: 3, rejected: 4 };
+    const statusOrder = { urgent: 0, supplement: 1, pending: 2, approved: 3, rejected: 4, completed: 5 };
     return (statusOrder[a.status] || 5) - (statusOrder[b.status] || 5);
   });
 
@@ -143,6 +152,8 @@ export default function Materials() {
                         ? 'bg-red-50'
                         : responsibilityReminder.level === 'warning'
                         ? 'bg-amber-50'
+                        : responsibilityReminder.level === 'success'
+                        ? 'bg-green-50'
                         : 'bg-blue-50'
                     }`}
                   >
@@ -153,6 +164,8 @@ export default function Materials() {
                             ? 'text-red-600'
                             : responsibilityReminder.level === 'warning'
                             ? 'text-amber-600'
+                            : responsibilityReminder.level === 'success'
+                            ? 'text-green-600'
                             : 'text-blue-600'
                         }`}
                       />
@@ -163,6 +176,8 @@ export default function Materials() {
                               ? 'text-red-800'
                               : responsibilityReminder.level === 'warning'
                               ? 'text-amber-800'
+                              : responsibilityReminder.level === 'success'
+                              ? 'text-green-800'
                               : 'text-blue-800'
                           }`}
                         >
@@ -174,6 +189,8 @@ export default function Materials() {
                               ? 'text-red-700'
                               : responsibilityReminder.level === 'warning'
                               ? 'text-amber-700'
+                              : responsibilityReminder.level === 'success'
+                              ? 'text-green-700'
                               : 'text-blue-700'
                           }`}
                         >
