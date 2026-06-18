@@ -1,5 +1,5 @@
-import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { Observable, of } from 'rxjs';
+import { Injectable, NestInterceptor, ExecutionContext, CallHandler, ConflictException } from '@nestjs/common';
+import { Observable, of, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 import { IdempotencyService } from './idempotency.service';
 
@@ -18,11 +18,16 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const existingRecord = await this.idempotencyService.get(idempotencyKey);
     
     if (existingRecord) {
-      if (existingRecord.status === 'completed') {
-        return of(existingRecord.responseData);
-      }
-      if (existingRecord.status === 'failed') {
-        await this.idempotencyService.create(idempotencyKey, request.body);
+      switch (existingRecord.status) {
+        case 'completed':
+          return of(existingRecord.responseData);
+        case 'failed':
+          await this.idempotencyService.create(idempotencyKey, request.body);
+          break;
+        case 'pending':
+          return throwError(() => new ConflictException('请求正在处理中，请稍后重试'));
+        default:
+          await this.idempotencyService.create(idempotencyKey, request.body);
       }
     } else {
       await this.idempotencyService.create(idempotencyKey, request.body);
