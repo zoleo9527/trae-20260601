@@ -65,7 +65,7 @@ export default function TodoList() {
                   {t.type !== "verification" && (
                     <StatusBadge
                       type="complaint"
-                      value={t.type === "visit" ? "to_visit" : "pending"}
+                      value={t.complaintStatus || (t.type === "visit" ? "to_visit" : "pending")}
                     />
                   )}
                   <span className={`text-xs flex items-center gap-1 ${isOverdue ? "text-red-600 font-medium" : "text-ink-400"}`}>

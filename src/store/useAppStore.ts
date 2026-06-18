@@ -157,7 +157,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           id: `ACT${Date.now()}`,
           actor: opName,
           role: get().currentRole,
-          action: "更新了后厨备注",
+          action: "录入了后厨处理说明",
           target: id,
           time: "刚刚",
         },

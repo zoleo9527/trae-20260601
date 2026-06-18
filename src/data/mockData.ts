@@ -363,6 +363,7 @@ export function getRoleTodos(
           priority: getSeverityPriority(c.severity),
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: c.status,
         });
       });
       break;
@@ -392,6 +393,7 @@ export function getRoleTodos(
           priority,
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: c.status,
         });
       });
       break;
@@ -411,6 +413,7 @@ export function getRoleTodos(
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: "pending",
         });
       });
 
@@ -426,6 +429,7 @@ export function getRoleTodos(
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: "to_visit",
         });
       });
 
@@ -441,6 +445,7 @@ export function getRoleTodos(
           priority: "high",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: "escalated",
         });
       });
 
@@ -456,6 +461,7 @@ export function getRoleTodos(
           priority: "medium",
           time: getTodoTime(c.deadline),
           relatedId: c.id,
+          complaintStatus: "processing",
         });
       });
       break;

@@ -71,6 +71,7 @@ export interface TodoItem {
   priority: "high" | "medium" | "low";
   time: string;
   relatedId: string;
+  complaintStatus?: ComplaintStatus;
 }
 
 export interface RiskItem {

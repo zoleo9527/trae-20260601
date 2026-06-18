@@ -136,6 +136,11 @@ export default function ComplaintDetail() {
         stepStatus = "done";
       }
 
+      if (status === "processing" && complaint.kitchenNote && 
+          (complaint.status === "to_visit" || complaint.status === "completed")) {
+        stepStatus = "done";
+      }
+
       steps.push({
         key: status,
         title: stepInfo.title,
@@ -197,15 +202,8 @@ export default function ComplaintDetail() {
 
   const handleSaveKitchenNote = () => {
     if (!complaint || !kitchenNoteInput.trim()) return;
-
     updateKitchenNote(complaint.id, kitchenNoteInput.trim());
-
-    if (complaint.status === "processing") {
-      updateComplaintStatus(complaint.id, "to_visit", operatorName);
-    } else if (complaint.status === "pending") {
-      updateComplaintStatus(complaint.id, "processing", operatorName);
-    }
-
+    updateComplaintStatus(complaint.id, "to_visit", operatorName);
     setKitchenNoteInput("");
   };
 
