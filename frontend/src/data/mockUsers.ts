@@ -104,7 +104,7 @@ export const mockUsers: User[] = [
 ];
 
 export const getCurrentUser = (): User => {
-  return mockUsers[0];
+  return mockUsers[7];
 };
 
 export const getUserById = (id: string): User | undefined => {

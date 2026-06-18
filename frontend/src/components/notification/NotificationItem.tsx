@@ -4,6 +4,7 @@ import { Card, Button } from '../common';
 import { NotificationIcon } from './NotificationIcon';
 import { useNotificationStore } from '@/store';
 import { useNavigate } from 'react-router-dom';
+import { getCurrentUser } from '@/data/mockUsers';
 import dayjs from 'dayjs';
 import clsx from 'clsx';
 
@@ -16,8 +17,8 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
 }) => {
   const { markAsRead, executeAction } = useNotificationStore();
   const navigate = useNavigate();
-  const currentUserId = 'user_001';
-  const isRead = notification.readBy.includes(currentUserId);
+  const currentUser = getCurrentUser();
+  const isRead = notification.readBy.includes(currentUser.id);
 
   const handleAction = async (actionType: string, params?: any) => {
     if (!isRead) {

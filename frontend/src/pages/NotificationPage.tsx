@@ -3,17 +3,19 @@ import { Bell } from 'lucide-react';
 import { Card, Button } from '@/components/common';
 import { NotificationItem } from '@/components/notification';
 import { useNotificationStore } from '@/store';
+import { getCurrentUser } from '@/data/mockUsers';
 
 export const NotificationPage: React.FC = () => {
   const { notifications, unreadCount, fetchNotifications, batchMarkAsRead, isLoading } =
     useNotificationStore();
+  const currentUser = getCurrentUser();
 
   React.useEffect(() => {
     fetchNotifications();
   }, []);
 
-  const unreadNotifications = notifications.filter((n) => !n.readBy.includes('user_001'));
-  const readNotifications = notifications.filter((n) => n.readBy.includes('user_001'));
+  const unreadNotifications = notifications.filter((n) => !n.readBy.includes(currentUser.id));
+  const readNotifications = notifications.filter((n) => n.readBy.includes(currentUser.id));
 
   const handleMarkAllAsRead = () => {
     const ids = unreadNotifications.map((n) => n.id);
