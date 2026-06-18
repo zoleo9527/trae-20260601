@@ -1,22 +1,21 @@
 import { ref, computed } from 'vue'
-import type { 
-  Feedback, 
-  RectificationTask, 
-  InspectionItem, 
-  ScheduleItem, 
-  MaterialItem, 
+import type {
+  Feedback,
+  RectificationTask,
+  InspectionItem,
+  ScheduleItem,
+  MaterialItem,
   DashboardStats,
   Role,
   FeedbackStatus,
   StatusHistory,
   TaskStatus
 } from '~/types'
-import { 
-  feedbackList, 
-  inspectionItems, 
-  scheduleList, 
-  materialList, 
-  dashboardStats,
+import {
+  feedbackList,
+  inspectionItems,
+  scheduleList,
+  materialList,
   statusLabels,
   roleLabels,
   assigneeList
@@ -26,7 +25,6 @@ const feedbacks = ref<Feedback[]>([...feedbackList])
 const inspections = ref<InspectionItem[]>([...inspectionItems])
 const schedules = ref<ScheduleItem[]>([...scheduleList])
 const materials = ref<MaterialItem[]>([...materialList])
-const stats = ref<DashboardStats>({ ...dashboardStats })
 
 const selectedFeedback = ref<Feedback | null>(null)
 const showDetailSidebar = ref(false)
@@ -86,26 +84,84 @@ const statusFlowMap: Record<string, { next: FeedbackStatus | null; nextRole: Rol
   ]
 }
 
+const allTasksFlat = computed<RectificationTask[]>(() => {
+  const tasks: RectificationTask[] = []
+  feedbacks.value.forEach(f => {
+    f.tasks.forEach(t => tasks.push(t))
+  })
+  return tasks
+})
+
+const stats = computed<DashboardStats>(() => {
+  const fb = feedbacks.value
+  const ins = inspections.value
+  const sch = schedules.value
+  const mat = materials.value
+  const tasks = allTasksFlat.value
+
+  const resolvedCount = fb.filter(f => f.status === 'resolved' || f.status === 'closed').length
+  const today = new Date().toISOString().substring(0, 10)
+  const todaySch = sch.filter(s => s.date === today)
+
+  return {
+    totalFeedback: fb.length,
+    pendingFeedback: fb.filter(f => f.status === 'pending').length,
+    resolvedFeedback: resolvedCount,
+    resolutionRate: fb.length ? Math.round((resolvedCount / fb.length) * 100) : 0,
+    activeTasks: tasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length,
+    completedTasks: tasks.filter(t => t.status === 'completed' || t.status === 'verified').length,
+    inspectionItems: ins.length,
+    normalItems: ins.filter(i => i.status === 'normal').length,
+    todaySchedules: todaySch.length,
+    totalVisitors: todaySch.reduce((sum, s) => sum + s.currentVisitors, 0),
+    materialsCount: mat.length,
+    lowStockCount: mat.filter(m => m.status === 'low' || m.status === 'out').length,
+    roleStats: [
+      {
+        role: 'guide' as Role,
+        roleName: '展教员',
+        pendingCount: fb.filter(f => f.currentRole === 'guide' && f.status === 'pending').length,
+        processingCount: fb.filter(f => f.currentRole === 'guide' && f.status.includes('processing')).length,
+        completedCount: resolvedCount
+      },
+      {
+        role: 'engineer' as Role,
+        roleName: '设备工程师',
+        pendingCount: fb.filter(f => f.currentRole === 'engineer' && f.status === 'pending').length,
+        processingCount: fb.filter(f => f.currentRole === 'engineer' && f.status.includes('processing')).length,
+        completedCount: fb.filter(f => f.status.includes('engineer_completed')).length
+      },
+      {
+        role: 'activity_teacher' as Role,
+        roleName: '活动老师',
+        pendingCount: fb.filter(f => f.currentRole === 'activity_teacher' && f.status === 'pending').length,
+        processingCount: fb.filter(f => f.currentRole === 'activity_teacher' && f.status.includes('processing')).length,
+        completedCount: fb.filter(f => f.status.includes('activity_completed')).length
+      }
+    ]
+  }
+})
+
 export function useFeedback() {
-  const pendingFeedbacks = computed(() => 
+  const pendingFeedbacks = computed(() =>
     feedbacks.value.filter(f => f.status === 'pending')
   )
 
-  const processingFeedbacks = computed(() => 
+  const processingFeedbacks = computed(() =>
     feedbacks.value.filter(f => f.status.includes('processing'))
   )
 
-  const resolvedFeedbacks = computed(() => 
+  const resolvedFeedbacks = computed(() =>
     feedbacks.value.filter(f => f.status === 'resolved' || f.status === 'closed')
   )
 
-  const myFeedbacks = computed(() => 
+  const myFeedbacks = computed(() =>
     feedbacks.value.filter(f => f.currentRole === currentUserRole.value)
   )
 
   const myPendingFeedbacks = computed(() =>
-    feedbacks.value.filter(f => 
-      f.currentRole === currentUserRole.value && 
+    feedbacks.value.filter(f =>
+      f.currentRole === currentUserRole.value &&
       !['resolved', 'closed'].includes(f.status)
     )
   )
@@ -123,15 +179,7 @@ export function useFeedback() {
   )
 
   const activeTasks = computed(() => {
-    const tasks: RectificationTask[] = []
-    feedbacks.value.forEach(f => {
-      f.tasks.forEach(t => {
-        if (t.status === 'pending' || t.status === 'in_progress') {
-          tasks.push(t)
-        }
-      })
-    })
-    return tasks
+    return allTasksFlat.value.filter(t => t.status === 'pending' || t.status === 'in_progress')
   })
 
   const availableActions = computed(() => {
@@ -139,6 +187,12 @@ export function useFeedback() {
     const currentStatus = selectedFeedback.value.status
     return statusFlowMap[currentStatus] || []
   })
+
+  const getAvailableActions = (feedbackId: string) => {
+    const feedback = feedbacks.value.find(f => f.id === feedbackId)
+    if (!feedback) return []
+    return statusFlowMap[feedback.status] || []
+  }
 
   const selectFeedback = (feedback: Feedback) => {
     selectedFeedback.value = feedback
@@ -158,6 +212,80 @@ export function useFeedback() {
   const closeTransferModal = () => {
     showTransferModal.value = false
     transferFeedbackId.value = null
+  }
+
+  const createFeedback = (params: {
+    title: string
+    content: string
+    type: Feedback['type']
+    priority: Feedback['priority']
+    visitorName?: string
+    visitorContact?: string
+    currentAssignee?: string
+    exhibitionId?: string
+    exhibitionName?: string
+    images?: string[]
+    tags?: string[]
+    relatedInspectionId?: string
+    relatedScheduleId?: string
+    relatedMaterialId?: string
+  }) => {
+    const now = formatDate(new Date())
+    const id = generateId()
+    const feedback: Feedback = {
+      id,
+      title: params.title,
+      content: params.content,
+      type: params.type,
+      status: 'pending',
+      priority: params.priority,
+      visitorName: params.visitorName || '系统创建',
+      visitorContact: params.visitorContact || '',
+      currentRole: 'guide',
+      currentAssignee: params.currentAssignee || assigneeList.guide[0],
+      exhibitionId: params.exhibitionId,
+      exhibitionName: params.exhibitionName,
+      images: params.images,
+      tags: params.tags || [],
+      relatedInspectionId: params.relatedInspectionId,
+      relatedScheduleId: params.relatedScheduleId,
+      relatedMaterialId: params.relatedMaterialId,
+      createdAt: now,
+      updatedAt: now,
+      history: [
+        createHistory('pending', 'guide', params.currentAssignee || assigneeList.guide[0], '反馈已创建')
+      ],
+      tasks: []
+    }
+
+    feedbacks.value.push(feedback)
+
+    if (params.relatedInspectionId) {
+      const inspection = inspections.value.find(i => i.id === params.relatedInspectionId)
+      if (inspection) inspection.relatedFeedbackId = id
+    }
+    if (params.relatedScheduleId) {
+      const schedule = schedules.value.find(s => s.id === params.relatedScheduleId)
+      if (schedule) schedule.relatedFeedbackId = id
+    }
+    if (params.relatedMaterialId) {
+      const material = materials.value.find(m => m.id === params.relatedMaterialId)
+      if (material) material.relatedFeedbackId = id
+    }
+
+    return feedback
+  }
+
+  const getRelatedFeedbackByInspection = (inspectionId: string) => {
+    return feedbacks.value.find(f => f.relatedInspectionId === inspectionId) || null
+  }
+
+  const getRelatedFeedbackBySchedule = (scheduleId: string) => {
+    return feedbacks.value.find(f => f.relatedScheduleId === scheduleId) || null
+  }
+
+  const getRelatedFeedbackByMaterial = (materialId: string) => {
+    return feedbacks.value.find(f => f.relatedMaterialId === materialId) || null
   }
 
   const transferFeedback = (
@@ -205,7 +333,6 @@ export function useFeedback() {
     }
 
     closeTransferModal()
-    updateStats()
   }
 
   const updateFeedbackStatus = (id: string, status: Feedback['status'], remark: string = '') => {
@@ -215,7 +342,6 @@ export function useFeedback() {
       feedback.history.push(history)
       feedback.status = status
       feedback.updatedAt = formatDate(new Date())
-      updateStats()
     }
   }
 
@@ -234,50 +360,6 @@ export function useFeedback() {
 
     if (status === 'completed') {
       task.completedAt = formatDate(new Date())
-    }
-
-    updateStats()
-  }
-
-  const updateStats = () => {
-    const allTasks: RectificationTask[] = []
-    feedbacks.value.forEach(f => {
-      f.tasks.forEach(t => allTasks.push(t))
-    })
-
-    stats.value = {
-      ...stats.value,
-      totalFeedback: feedbacks.value.length,
-      pendingFeedback: feedbacks.value.filter(f => f.status === 'pending').length,
-      resolvedFeedback: feedbacks.value.filter(f => f.status === 'resolved' || f.status === 'closed').length,
-      resolutionRate: Math.round(
-        (feedbacks.value.filter(f => f.status === 'resolved' || f.status === 'closed').length / feedbacks.value.length) * 100
-      ),
-      activeTasks: allTasks.filter(t => t.status === 'pending' || t.status === 'in_progress').length,
-      completedTasks: allTasks.filter(t => t.status === 'completed' || t.status === 'verified').length,
-      roleStats: [
-        { 
-          role: 'guide', 
-          roleName: '展教员', 
-          pendingCount: feedbacks.value.filter(f => f.currentRole === 'guide' && f.status === 'pending').length,
-          processingCount: feedbacks.value.filter(f => f.currentRole === 'guide' && f.status.includes('processing')).length,
-          completedCount: feedbacks.value.filter(f => f.status === 'resolved' || f.status === 'closed').length
-        },
-        { 
-          role: 'engineer', 
-          roleName: '设备工程师', 
-          pendingCount: feedbacks.value.filter(f => f.currentRole === 'engineer' && f.status === 'pending').length,
-          processingCount: feedbacks.value.filter(f => f.currentRole === 'engineer' && f.status.includes('processing')).length,
-          completedCount: feedbacks.value.filter(f => f.status.includes('engineer_completed')).length
-        },
-        { 
-          role: 'activity_teacher', 
-          roleName: '活动老师', 
-          pendingCount: feedbacks.value.filter(f => f.currentRole === 'activity_teacher' && f.status === 'pending').length,
-          processingCount: feedbacks.value.filter(f => f.currentRole === 'activity_teacher' && f.status.includes('processing')).length,
-          completedCount: feedbacks.value.filter(f => f.status.includes('activity_completed')).length
-        }
-      ]
     }
   }
 
@@ -307,6 +389,7 @@ export function useFeedback() {
     schedules,
     materials,
     stats,
+    allTasksFlat,
     selectedFeedback,
     showDetailSidebar,
     showTransferModal,
@@ -335,6 +418,11 @@ export function useFeedback() {
     getRelatedMaterial,
     getStatusLabel,
     getRoleLabel,
-    getAssigneesByRole
+    getAssigneesByRole,
+    createFeedback,
+    getAvailableActions,
+    getRelatedFeedbackByInspection,
+    getRelatedFeedbackBySchedule,
+    getRelatedFeedbackByMaterial
   }
 }

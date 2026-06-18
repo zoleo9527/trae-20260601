@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useFeedback } from '~/composables/useFeedback'
 
-const { inspections, feedbacks, selectFeedback, openTransferModal } = useFeedback()
+const { inspections, feedbacks, selectFeedback, openTransferModal, createFeedback } = useFeedback()
 
 const activeTab = ref<'all' | 'normal' | 'warning' | 'error'>('all')
 const searchQuery = ref('')
@@ -71,7 +71,18 @@ const viewRelatedFeedback = (feedbackId: string) => {
 }
 
 const createFeedbackFromInspection = (item: any) => {
-  openTransferModal('fb-new')
+  const newFeedback = createFeedback({
+    title: `${item.name} - 展项异常反馈`,
+    content: `展项${item.name}（${item.location}）出现异常，备注：${item.lastRemark || '无'}，请尽快处理。`,
+    type: 'fault',
+    priority: item.status === 'error' ? 'high' : 'medium',
+    visitorName: item.inspector || '巡检员',
+    visitorContact: '',
+    currentAssignee: item.inspector || '王讲解员',
+    relatedInspectionId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
 }
 
 const statusLabels: Record<string, string> = {

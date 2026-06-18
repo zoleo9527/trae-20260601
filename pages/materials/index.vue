@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useFeedback } from '~/composables/useFeedback'
 
-const { materials, feedbacks, selectFeedback, openTransferModal } = useFeedback()
+const { materials, feedbacks, selectFeedback, openTransferModal, createFeedback } = useFeedback()
 
 const activeTab = ref<'all' | 'normal' | 'low' | 'out'>('all')
 const searchQuery = ref('')
@@ -71,7 +71,15 @@ const viewRelatedFeedback = (feedbackId: string) => {
 }
 
 const createFeedbackFromMaterial = (item: any) => {
-  openTransferModal('fb-new')
+  const newFeedback = createFeedback({
+    title: `${item.name} - 耗材缺货反馈`,
+    content: `实验材料${item.name}（${item.location}）库存不足，当前${item.quantity}${item.unit}，最低需${item.minStock}${item.unit}，请尽快补充。`,
+    type: 'fault',
+    priority: item.status === 'out' ? 'high' : 'medium',
+    relatedMaterialId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
 }
 
 const statusLabels: Record<string, string> = {

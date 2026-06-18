@@ -12,7 +12,7 @@ const {
   getStatusLabel,
   getRoleLabel,
   getAssigneesByRole,
-  availableActions
+  getAvailableActions
 } = useFeedback()
 
 const selectedAction = ref<{ next: FeedbackStatus | null; nextRole: Role | null; action: string } | null>(null)
@@ -28,6 +28,12 @@ const currentFeedback = computed(() => {
   return feedbacks.value.find(f => f.id === transferFeedbackId.value)
 })
 
+const modalActions = computed(() => {
+  if (transferFeedbackId.value) {
+    return getAvailableActions(transferFeedbackId.value)
+  }
+  return []
+})
 watch(showTransferModal, (val) => {
   if (val) {
     selectedAction.value = null
@@ -132,7 +138,7 @@ const roleColors: Record<Role, string> = {
           <div v-if="!selectedAction" class="space-y-3">
             <p class="text-sm font-medium text-gray-700 mb-2">选择下一步操作：</p>
             <button
-              v-for="action in availableActions"
+              v-for="action in modalActions"
               :key="action.action"
               @click="selectAction(action)"
               class="w-full p-4 text-left border border-gray-200 rounded-lg hover:border-primary-400 hover:bg-primary-50 transition-colors"

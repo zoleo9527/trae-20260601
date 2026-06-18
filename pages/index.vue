@@ -14,10 +14,15 @@ const {
   engineerFeedbacks,
   activityFeedbacks,
   selectFeedback,
+  openTransferModal,
+  createFeedback,
   setCurrentRole,
   currentUserRole,
   getStatusLabel,
-  getRoleLabel
+  getRoleLabel,
+  getRelatedFeedbackByInspection,
+  getRelatedFeedbackBySchedule,
+  getRelatedFeedbackByMaterial
 } = useFeedback()
 
 const roleTabs: { key: Role | 'all'; label: string; color: string }[] = [
@@ -154,7 +159,64 @@ const priorityLabels: Record<string, string> = {
 const handleClick = (feedback: Feedback) => {
   selectFeedback(feedback)
 }
-</script>
+
+const handleInspectionClick = (item: any) => {
+  const fb = getRelatedFeedbackByInspection(item.id)
+  if (fb) {
+    selectFeedback(fb)
+  }
+}
+
+const handleScheduleClick = (item: any) => {
+  const fb = getRelatedFeedbackBySchedule(item.id)
+  if (fb) {
+    selectFeedback(fb)
+  }
+}
+
+const handleMaterialClick = (item: any) => {
+  const fb = getRelatedFeedbackByMaterial(item.id)
+  if (fb) {
+    selectFeedback(fb)
+  }
+}
+
+
+const createFeedbackForInspection = (item: any) => {
+  const newFeedback = createFeedback({
+    title: `${item.name} - 展项异常反馈`,
+    content: `展项${item.name}（${item.location}）出现异常，备注：${item.lastRemark || '无'}，请尽快处理。`,
+    type: 'fault',
+    priority: item.status === 'error' ? 'high' : 'medium',
+    relatedInspectionId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
+}
+
+const createFeedbackForSchedule = (item: any) => {
+  const newFeedback = createFeedback({
+    title: `${item.title} - 讲解冲突反馈`,
+    content: `讲解预约"${item.title}"（${item.date} ${item.startTime}-${item.endTime}，${item.location}）存在时间冲突：${item.conflictInfo || '请核实'}，请尽快调整。`,
+    type: 'complaint',
+    priority: 'high',
+    relatedScheduleId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
+}
+
+const createFeedbackForMaterial = (item: any) => {
+  const newFeedback = createFeedback({
+    title: `${item.name} - 耗材缺货反馈`,
+    content: `实验材料${item.name}（${item.location}）库存不足，当前${item.quantity}${item.unit}，最低需${item.minStock}${item.unit}，请尽快补充。`,
+    type: 'fault',
+    priority: item.status === 'out' ? 'high' : 'medium',
+    relatedMaterialId: item.id
+  })
+  selectFeedback(newFeedback)
+  openTransferModal(newFeedback.id)
+}</script>
 
 <template>
   <div class="space-y-6">
@@ -241,7 +303,7 @@ const handleClick = (feedback: Feedback) => {
           <div
             v-for="item in warningInspections"
             :key="item.id"
-            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm font-medium text-gray-900">{{ item.name }}</span>
@@ -255,6 +317,22 @@ const handleClick = (feedback: Feedback) => {
             </div>
             <p class="text-xs text-gray-500">{{ item.location }}</p>
             <p v-if="item.lastRemark" class="text-xs text-red-600 mt-1 line-clamp-1">{{ item.lastRemark }}</p>
+            <div class="flex items-center gap-2 mt-2">
+              <button
+                v-if="getRelatedFeedbackByInspection(item.id)"
+                @click="handleInspectionClick(item)"
+                class="text-xs text-primary-600 hover:text-primary-700 underline"
+              >
+                查看关联反馈 →
+              </button>
+              <button
+                v-else
+                @click="createFeedbackForInspection(item)"
+                class="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 创建反馈
+              </button>
+            </div>
           </div>
           <div v-if="warningInspections.length === 0" class="text-center py-4 text-gray-500 text-sm">
             暂无异常
@@ -274,7 +352,7 @@ const handleClick = (feedback: Feedback) => {
           <div
             v-for="item in conflictSchedules"
             :key="item.id"
-            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm font-medium text-gray-900">{{ item.title }}</span>
@@ -282,6 +360,22 @@ const handleClick = (feedback: Feedback) => {
             </div>
             <p class="text-xs text-gray-500">{{ item.date }} {{ item.startTime }}</p>
             <p v-if="item.conflictInfo" class="text-xs text-orange-600 mt-1 line-clamp-1">{{ item.conflictInfo }}</p>
+            <div class="flex items-center gap-2 mt-2">
+              <button
+                v-if="getRelatedFeedbackBySchedule(item.id)"
+                @click="handleScheduleClick(item)"
+                class="text-xs text-primary-600 hover:text-primary-700 underline"
+              >
+                查看关联反馈 →
+              </button>
+              <button
+                v-else
+                @click="createFeedbackForSchedule(item)"
+                class="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 创建反馈
+              </button>
+            </div>
           </div>
           <div v-if="conflictSchedules.length === 0" class="text-center py-4 text-gray-500 text-sm">
             暂无冲突
@@ -301,7 +395,7 @@ const handleClick = (feedback: Feedback) => {
           <div
             v-for="item in lowStockMaterials"
             :key="item.id"
-            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
+            class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
           >
             <div class="flex items-center justify-between mb-1">
               <span class="text-sm font-medium text-gray-900">{{ item.name }}</span>
@@ -317,6 +411,22 @@ const handleClick = (feedback: Feedback) => {
             </div>
             <p class="text-xs text-gray-500">{{ item.quantity }}{{ item.unit }} / 最低{{ item.minStock }}{{ item.unit }}</p>
             <p v-if="item.lastRemark" class="text-xs text-yellow-600 mt-1 line-clamp-1">{{ item.lastRemark }}</p>
+            <div class="flex items-center gap-2 mt-2">
+              <button
+                v-if="getRelatedFeedbackByMaterial(item.id)"
+                @click="handleMaterialClick(item)"
+                class="text-xs text-primary-600 hover:text-primary-700 underline"
+              >
+                查看关联反馈 →
+              </button>
+              <button
+                v-else
+                @click="createFeedbackForMaterial(item)"
+                class="text-xs text-primary-600 hover:text-primary-700"
+              >
+                + 创建反馈
+              </button>
+            </div>
           </div>
           <div v-if="lowStockMaterials.length === 0" class="text-center py-4 text-gray-500 text-sm">
             暂无预警
