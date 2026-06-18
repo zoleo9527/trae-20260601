@@ -62,3 +62,12 @@ func (h *BookingHandler) GetBookingDetail(c *fiber.Ctx) error {
 	}
 	return c.JSON(detail)
 }
+
+func (h *BookingHandler) GetTimeline(c *fiber.Ctx) error {
+	id := c.Params("id")
+	timeline, ok := h.store.GetBookingTimeline(id)
+	if !ok {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "booking not found"})
+	}
+	return c.JSON(timeline)
+}

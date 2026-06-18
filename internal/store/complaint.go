@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"scenic-ticket-system/internal/models"
@@ -15,11 +16,9 @@ func (s *Store) CreateComplaint(req models.CreateComplaintRequest) *models.Compl
 	s.complaintSeq++
 
 	var bookingNo string
-	if req.BookingID != "" {
-		booking, ok := s.bookings[req.BookingID]
-		if ok {
-			bookingNo = booking.BookingNo
-		}
+	booking, ok := s.bookings[req.BookingID]
+	if ok {
+		bookingNo = booking.BookingNo
 	}
 
 	now := time.Now()
@@ -38,6 +37,23 @@ func (s *Store) CreateComplaint(req models.CreateComplaintRequest) *models.Compl
 	}
 
 	s.complaints[id] = complaint
+	s.createNotificationLocked(
+		"新投诉待处理",
+		"投诉编号 "+complaint.ComplaintNo+"："+complaint.ComplaintType,
+		models.RoleCustomerService,
+		"",
+		"booking",
+		complaint.BookingID,
+	)
+	s.createNotificationLocked(
+		"新投诉待处理",
+		"投诉编号 "+complaint.ComplaintNo+"："+complaint.ComplaintType,
+		models.RoleCustomerService,
+		"",
+		"complaint",
+		complaint.ID,
+	)
+
 	return &complaint
 }
 
@@ -46,7 +62,7 @@ func (s *Store) GetComplaint(id string) (*models.Complaint, bool) {
 	defer s.mu.RUnlock()
 
 	complaint, ok := s.complaints[id]
-	if !ok {
+	if ok != true {
 		return nil, false
 	}
 	return &complaint, true
@@ -66,11 +82,14 @@ func (s *Store) ListComplaints() []models.Complaint {
 func (s *Store) HandleComplaint(id string, req models.HandleComplaintRequest) (*models.Complaint, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	complaint, ok := s.complaints[id]
-	if !ok {
+	if ok != true {
 		return nil, false
 	}
+
 	now := time.Now()
+
 	if req.Handler != "" {
 		complaint.Handler = req.Handler
 	}
@@ -80,13 +99,32 @@ func (s *Store) HandleComplaint(id string, req models.HandleComplaintRequest) (*
 	if req.Status != "" {
 		complaint.Status = models.ComplaintStatus(req.Status)
 	}
-	if complaint.Status == models.ComplaintHandling && complaint.HandledAt == nil {
+
+	if (complaint.Status == models.ComplaintHandling || complaint.Status == models.ComplaintResolved) && complaint.HandledAt == nil {
 		complaint.HandledAt = &now
 	}
 	if complaint.Status == models.ComplaintResolved && complaint.ResolvedAt == nil {
 		complaint.ResolvedAt = &now
 	}
+
 	s.complaints[id] = complaint
+	s.createNotificationLocked(
+		"投诉已处理",
+		"投诉编号 "+complaint.ComplaintNo+"："+string(complaint.Status),
+		models.RoleCustomerService,
+		"",
+		"booking",
+		complaint.BookingID,
+	)
+	s.createNotificationLocked(
+		"投诉已处理",
+		"投诉编号 "+complaint.ComplaintNo+"："+string(complaint.Status),
+		models.RoleCustomerService,
+		"",
+		"complaint",
+		complaint.ID,
+	)
+
 	return &complaint, true
 }
 
@@ -95,25 +133,37 @@ func (s *Store) GetComplaintDetail(id string) (*models.ComplaintDetail, bool) {
 	defer s.mu.RUnlock()
 
 	complaint, ok := s.complaints[id]
-	if !ok {
+	if ok != true {
 		return nil, false
 	}
 
 	detail := &models.ComplaintDetail{
-		Complaint:  complaint,
-		Booking:    nil,
-		Schedule:   nil,
-		ChangeLogs: []models.BookingChangeLog{},
+		Complaint:     complaint,
+		Booking:       nil,
+		Schedule:      nil,
+		ChangeLogs:    []models.BookingChangeLog{},
+		Checkins:      []models.CheckinRecord{},
+		Notifications: []models.Notification{},
 	}
 
-	if complaint.BookingID != "" {
-		booking, ok := s.bookings[complaint.BookingID]
-		if ok {
+	bookingID := complaint.BookingID
+
+	if bookingID != "" {
+		if booking, ok := s.bookings[bookingID]; ok {
 			b := booking
 			detail.Booking = &b
-			logs := make([]models.BookingChangeLog, len(s.changeLogs[complaint.BookingID]))
-			copy(logs, s.changeLogs[complaint.BookingID])
-			detail.ChangeLogs = logs
+			if logs, ok := s.changeLogs[bookingID]; ok { detail.ChangeLogs = logs }
+
+			checkins := make([]models.CheckinRecord, 0)
+			for _, ci := range s.checkins {
+				if ci.BookingID == bookingID {
+					checkins = append(checkins, ci)
+				}
+			}
+			sort.Slice(checkins, func(i, j int) bool {
+				return checkins[i].CheckinTime.Before(checkins[j].CheckinTime)
+			})
+			detail.Checkins = checkins
 		}
 	}
 
@@ -124,6 +174,15 @@ func (s *Store) GetComplaintDetail(id string) (*models.ComplaintDetail, bool) {
 			detail.Schedule = &sc
 		}
 	}
+
+	notifications := make([]models.Notification, 0)
+	for _, n := range s.notifications {
+		if (n.RelatedType == "complaint" && n.RelatedID == id) ||
+			(n.RelatedType == "booking" && n.RelatedID == bookingID) {
+			notifications = append(notifications, n)
+		}
+	}
+	detail.Notifications = notifications
 
 	return detail, true
 }

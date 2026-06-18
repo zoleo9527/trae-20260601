@@ -156,11 +156,43 @@ type ScheduleDetail struct {
 	Checkins    []CheckinRecord     `json:"checkins"`
 }
 
+type TimelineEventType string
+
+const (
+	TimelineBookingCreated   TimelineEventType = "booking_created"
+	TimelineBookingChanged   TimelineEventType = "booking_changed"
+	TimelineScheduleCreated  TimelineEventType = "schedule_created"
+	TimelineScheduleAdjusted TimelineEventType = "schedule_adjusted"
+	TimelineCheckin          TimelineEventType = "checkin"
+	TimelineComplaintCreated TimelineEventType = "complaint_created"
+	TimelineComplaintHandled TimelineEventType = "complaint_handled"
+	TimelineNotification     TimelineEventType = "notification"
+)
+
+type TimelineEvent struct {
+	EventType   TimelineEventType `json:"event_type"`
+	EventTime   time.Time         `json:"event_time"`
+	Title       string            `json:"title"`
+	Content     string            `json:"content"`
+	Operator    string            `json:"operator"`
+	OperatorRole Role             `json:"operator_role"`
+	RelatedID   string            `json:"related_id"`
+	RawData     interface{}       `json:"raw_data,omitempty"`
+}
+
+type TimelineResponse struct {
+	BookingNo string          `json:"booking_no"`
+	TeamName  string          `json:"team_name"`
+	Events    []TimelineEvent `json:"events"`
+}
+
 type ComplaintDetail struct {
-	Complaint  Complaint           `json:"complaint"`
-	Booking    *TeamBooking        `json:"booking"`
-	Schedule   *GuideSchedule      `json:"schedule"`
-	ChangeLogs []BookingChangeLog  `json:"booking_change_logs"`
+	Complaint     Complaint           `json:"complaint"`
+	Booking       *TeamBooking        `json:"booking"`
+	Schedule      *GuideSchedule      `json:"schedule"`
+	ChangeLogs    []BookingChangeLog  `json:"booking_change_logs"`
+	Checkins      []CheckinRecord     `json:"checkins"`
+	Notifications []Notification      `json:"notifications"`
 }
 
 

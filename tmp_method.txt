@@ -1,0 +1,7 @@
+func (s *Store) GetComplaintDetail(id string) (*models.ComplaintDetail, bool) {
+s.mu.RLock()
+defer s.mu.RUnlock()
+
+complaint, ok := s.complaints[id]
+if !ok {
+apply_changes.pyecho ns = append(checkins, ci)

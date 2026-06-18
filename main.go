@@ -37,6 +37,7 @@ func main() {
 	bookings.Get("/:id", bookingHandler.GetBooking)
 	bookings.Put("/:id", bookingHandler.UpdateBooking)
 	bookings.Get("/:id/detail", bookingHandler.GetBookingDetail)
+	bookings.Get("/:id/timeline", bookingHandler.GetTimeline)
 
 	schedules := api.Group("/schedules")
 	schedules.Get("/", scheduleHandler.ListSchedules)

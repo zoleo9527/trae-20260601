@@ -85,9 +85,9 @@ func Seed(s *store.Store) {
 		Remark:       "5名学生请假未到",
 	})
 
-	s.CreateComplaint(models.CreateComplaintRequest{
+	complaint1 := s.CreateComplaint(models.CreateComplaintRequest{
 		BookingID:     booking2.ID,
-			ScheduleID:    schedule2.ID,
+		ScheduleID:    schedule2.ID,
 		Complainant:   "王老师",
 		ContactPhone:  "13900139002",
 		ComplaintType: "服务态度",
@@ -109,5 +109,11 @@ func Seed(s *store.Store) {
 		VisitTimeSlot: &newTimeSlot2,
 		ChangeReason:  "人数再次调整，时间延后",
 		Operator:      "票务主管-李经理",
+	})
+
+	s.HandleComplaint(complaint1.ID, models.HandleComplaintRequest{
+		Handler:      "客服-小陈",
+		HandleResult: "已与讲解员沟通，向游客致歉，赠送下次免费讲解券",
+		Status:       "resolved",
 	})
 }

@@ -10,10 +10,7 @@ import (
 func (s *Store) CreateNotification(title, content string, targetRole models.Role, targetUser string, relatedType, relatedID string) *models.Notification {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	return s.createNotificationLocked(title, content, targetRole, targetUser, relatedType, relatedID)
-}
 
-func (s *Store) createNotificationLocked(title, content string, targetRole models.Role, targetUser string, relatedType, relatedID string) *models.Notification {
 	s.notificationSeq++
 	id := fmt.Sprintf("NF%06d", s.notificationSeq)
 
@@ -50,6 +47,7 @@ func (s *Store) ListNotificationsByRole(role models.Role) []models.Notification 
 func (s *Store) ListNotificationsByUser(user string) []models.Notification {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	var result []models.Notification
 	for _, n := range s.notifications {
 		if n.TargetUser == user {
@@ -62,6 +60,7 @@ func (s *Store) ListNotificationsByUser(user string) []models.Notification {
 func (s *Store) ListAllNotifications() []models.Notification {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+
 	result := make([]models.Notification, 0, len(s.notifications))
 	for _, n := range s.notifications {
 		result = append(result, n)
@@ -72,10 +71,12 @@ func (s *Store) ListAllNotifications() []models.Notification {
 func (s *Store) MarkNotificationRead(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
 	n, exists := s.notifications[id]
 	if !exists {
 		return false
 	}
+
 	now := time.Now()
 	n.Status = models.NotificationRead
 	n.ReadAt = &now
