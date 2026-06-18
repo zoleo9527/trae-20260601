@@ -26,6 +26,25 @@ const inspections = ref<InspectionItem[]>([...inspectionItems])
 const schedules = ref<ScheduleItem[]>([...scheduleList])
 const materials = ref<MaterialItem[]>([...materialList])
 
+
+const syncBidirectionalLinks = () => {
+  feedbacks.value.forEach(fb => {
+    if (fb.relatedInspectionId) {
+      const ins = inspections.value.find(i => i.id === fb.relatedInspectionId)
+      if (ins && !ins.relatedFeedbackId) ins.relatedFeedbackId = fb.id
+    }
+    if (fb.relatedScheduleId) {
+      const sch = schedules.value.find(s => s.id === fb.relatedScheduleId)
+      if (sch && !sch.relatedFeedbackId) sch.relatedFeedbackId = fb.id
+    }
+    if (fb.relatedMaterialId) {
+      const mat = materials.value.find(m => m.id === fb.relatedMaterialId)
+      if (mat && !mat.relatedFeedbackId) mat.relatedFeedbackId = fb.id
+    }
+  })
+}
+syncBidirectionalLinks()
+
 const selectedFeedback = ref<Feedback | null>(null)
 const showDetailSidebar = ref(false)
 const showTransferModal = ref(false)
@@ -388,6 +407,7 @@ export function useFeedback() {
     inspections,
     schedules,
     materials,
+    syncBidirectionalLinks,
     stats,
     allTasksFlat,
     selectedFeedback,

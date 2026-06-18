@@ -472,7 +472,8 @@ export const scheduleList: ScheduleItem[] = [
     maxVisitors: 25,
     currentVisitors: 25,
     status: 'full',
-    description: '穿越时空，领略中华文明的辉煌历程。'
+    description: '穿越时空，领略中华文明的辉煌历程。',
+    relatedFeedbackId: "fb002"
   },
   {
     id: 'sch003',
@@ -499,7 +500,8 @@ export const scheduleList: ScheduleItem[] = [
     currentVisitors: 12,
     status: 'available',
     description: '欣赏名家画作，感受艺术之美。',
-    conflictInfo: '原14:00场次已调整至14:30，避免与科学实验秀冲突'
+    conflictInfo: '原14:00场次已调整至14:30，避免与科学实验秀冲突',
+    relatedFeedbackId: "fb005"
   },
   {
     id: 'sch005',
@@ -566,7 +568,8 @@ export const materialList: MaterialItem[] = [
     minStock: 20,
     status: 'normal',
     location: 'A区-01货架',
-    lastUpdated: formatDateOnly(addDays(now, -2))
+    lastUpdated: formatDateOnly(addDays(now, -2)),
+    relatedFeedbackId: "fb003"
   },
   {
     id: 'mat002',
