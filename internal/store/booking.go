@@ -435,8 +435,17 @@ func (s *Store) GetBookingTimeline(bookingID string) (*models.TimelineResponse, 
 		}
 	}
 
+	complaintIDs := make(map[string]bool)
+	for _, cp := range s.complaints {
+		if cp.BookingID == bookingID {
+			complaintIDs[cp.ID] = true
+		}
+	}
+
 	for _, n := range s.notifications {
-		if n.RelatedID != bookingID {
+		if n.RelatedType == "booking" && n.RelatedID == bookingID {
+		} else if n.RelatedType == "complaint" && complaintIDs[n.RelatedID] {
+		} else {
 			continue
 		}
 		resp.Events = append(resp.Events, models.TimelineEvent{

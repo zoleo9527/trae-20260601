@@ -42,14 +42,6 @@ func (s *Store) CreateComplaint(req models.CreateComplaintRequest) *models.Compl
 		"投诉编号 "+complaint.ComplaintNo+"："+complaint.ComplaintType,
 		models.RoleCustomerService,
 		"",
-		"booking",
-		complaint.BookingID,
-	)
-	s.createNotificationLocked(
-		"新投诉待处理",
-		"投诉编号 "+complaint.ComplaintNo+"："+complaint.ComplaintType,
-		models.RoleCustomerService,
-		"",
 		"complaint",
 		complaint.ID,
 	)
@@ -113,14 +105,6 @@ func (s *Store) HandleComplaint(id string, req models.HandleComplaintRequest) (*
 		"投诉编号 "+complaint.ComplaintNo+"："+string(complaint.Status),
 		models.RoleCustomerService,
 		"",
-		"booking",
-		complaint.BookingID,
-	)
-	s.createNotificationLocked(
-		"投诉已处理",
-		"投诉编号 "+complaint.ComplaintNo+"："+string(complaint.Status),
-		models.RoleCustomerService,
-		"",
 		"complaint",
 		complaint.ID,
 	)
@@ -177,8 +161,7 @@ func (s *Store) GetComplaintDetail(id string) (*models.ComplaintDetail, bool) {
 
 	notifications := make([]models.Notification, 0)
 	for _, n := range s.notifications {
-		if (n.RelatedType == "complaint" && n.RelatedID == id) ||
-			(n.RelatedType == "booking" && n.RelatedID == bookingID) {
+		if n.RelatedType == "complaint" && n.RelatedID == id {
 			notifications = append(notifications, n)
 		}
 	}
