@@ -24,7 +24,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const transaction = db.transaction(() => {
       const updateFault = db.prepare(`
         UPDATE fault_reports
-        SET repair_notes = ?
+        SET repair_notes = ?, processed_at = datetime('now')
         WHERE id = ?
       `);
       updateFault.run(repair_notes, params.id);

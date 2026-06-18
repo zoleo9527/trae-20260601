@@ -180,6 +180,24 @@
         {/if}
       </div>
     </div>
+
+    {#if data.user.role === 'admin'}
+      <div class="dashboard-card admin-section">
+        <div class="card-header">
+          <h2 class="card-title">系统管理</h2>
+        </div>
+
+        <div class="card-content">
+          <div class="admin-actions">
+            <a href="/admin" class="admin-action">
+              <span class="action-icon">⚙️</span>
+              <span class="action-text">数据管理</span>
+              <span class="action-desc">数据重置、系统设置</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -493,5 +511,48 @@
 
   .log-details {
     color: #64748b;
+  }
+
+  .admin-section {
+    border-left: 4px solid #8b5cf6;
+  }
+
+  .admin-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .admin-action {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f5f3ff;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .admin-action:hover {
+    background: #ede9fe;
+    transform: translateX(4px);
+  }
+
+  .admin-action .action-icon {
+    font-size: 1.5rem;
+  }
+
+  .admin-action .action-text {
+    font-weight: 600;
+    color: #4c1d95;
+    font-size: 1rem;
+  }
+
+  .admin-action .action-desc {
+    flex: 1;
+    font-size: 0.75rem;
+    color: #7c3aed;
+    text-align: right;
   }
 </style>

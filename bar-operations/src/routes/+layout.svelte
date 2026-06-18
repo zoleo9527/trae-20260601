@@ -64,6 +64,9 @@
       <a href="/exhibits" class="nav-link" class:active={$page.url.pathname.startsWith('/exhibits')}>展项管理</a>
       <a href="/inspection" class="nav-link" class:active={$page.url.pathname === '/inspection'}>展项巡检</a>
       <a href="/fault-reports" class="nav-link" class:active={$page.url.pathname.startsWith('/fault-reports')}>故障报修</a>
+      {#if data.user?.role === 'admin'}
+        <a href="/admin" class="nav-link" class:active={$page.url.pathname === '/admin'}>系统管理</a>
+      {/if}
     </nav>
   {/if}
 

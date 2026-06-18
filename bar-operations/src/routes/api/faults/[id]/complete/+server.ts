@@ -25,6 +25,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ error: 'Only assigned engineer can complete this fault' }, { status: 403 });
     }
 
+    if (!fault.repair_notes && !repair_notes) {
+      return json({ error: '请先记录处理内容才能确认完成' }, { status: 400 });
+    }
+
     const transaction = db.transaction(() => {
       const updateFault = db.prepare(`
         UPDATE fault_reports

@@ -299,6 +299,28 @@
         <h3 class="timeline-title">操作时间线</h3>
 
         <div class="timeline">
+          {#if data.fault.source_inspection_id}
+            <div class="timeline-item">
+              <div class="timeline-marker">
+                <span class="marker-icon">🔍</span>
+              </div>
+              <div class="timeline-content">
+                <div class="timeline-header">
+                  <span class="timeline-type">来源巡检</span>
+                  <span class="timeline-time">{formatDate(data.fault.source_inspection_time)}</span>
+                </div>
+                <div class="timeline-operator">
+                  巡检结果：<span class="result-badge" class:abnormal={data.fault.source_inspection_result === 'abnormal'}>
+                    {data.fault.source_inspection_result === 'normal' ? '正常' : '异常'}
+                  </span>
+                </div>
+                {#if data.fault.source_inspection_notes}
+                  <div class="timeline-details">{data.fault.source_inspection_notes}</div>
+                {/if}
+              </div>
+            </div>
+          {/if}
+
           {#each data.logs as log}
             <div class="timeline-item">
               <div class="timeline-marker">
@@ -480,6 +502,20 @@
     padding: 0.125rem 0.5rem;
     border-radius: 4px;
     font-size: 0.75rem;
+  }
+
+  .result-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    background: #d1fae5;
+    color: #065f46;
+  }
+
+  .result-badge.abnormal {
+    background: #fee2e2;
+    color: #991b1b;
   }
 
   .description-section {

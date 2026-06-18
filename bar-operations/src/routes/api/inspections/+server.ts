@@ -73,10 +73,10 @@ export const POST: RequestHandler = async ({ request }) => {
       if (result === 'abnormal') {
         const faultId = `fault-${Date.now()}`;
         const insertFault = db.prepare(`
-          INSERT INTO fault_reports (id, exhibit_id, reporter_id, description, status)
-          VALUES (?, ?, ?, ?, 'pending')
+          INSERT INTO fault_reports (id, exhibit_id, reporter_id, inspection_id, description, status)
+          VALUES (?, ?, ?, ?, ?, 'pending')
         `);
-        insertFault.run(faultId, exhibit_id, inspector_id, notes || '展项异常，需设备工程师检修');
+        insertFault.run(faultId, exhibit_id, inspector_id, id, notes || '展项异常，需设备工程师检修');
 
         const insertFaultLog = db.prepare(`
           INSERT INTO operation_logs (id, type, operator_id, target_id, target_type, details)

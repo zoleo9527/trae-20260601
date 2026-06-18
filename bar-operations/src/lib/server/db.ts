@@ -38,15 +38,18 @@ db.exec(`
     exhibit_id TEXT NOT NULL,
     reporter_id TEXT NOT NULL,
     assignee_id TEXT,
+    inspection_id TEXT,
     description TEXT NOT NULL,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'completed')),
     repair_notes TEXT,
+    processed_at TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     received_at TEXT,
     completed_at TEXT,
     FOREIGN KEY (exhibit_id) REFERENCES exhibits(id),
     FOREIGN KEY (reporter_id) REFERENCES users(id),
-    FOREIGN KEY (assignee_id) REFERENCES users(id)
+    FOREIGN KEY (assignee_id) REFERENCES users(id),
+    FOREIGN KEY (inspection_id) REFERENCES inspections(id)
   );
 
   CREATE TABLE IF NOT EXISTS operation_logs (
