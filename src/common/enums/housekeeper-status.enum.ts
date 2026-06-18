@@ -1,0 +1,8 @@
+export enum HousekeeperStatus {
+  ACTIVE = 'ACTIVE',
+  ON_LEAVE = 'ON_LEAVE',
+  ASSIGNED = 'ASSIGNED',
+  SUSPENDED = 'SUSPENDED',
+  NO_SHOW_RISK = 'NO_SHOW_RISK',
+  INACTIVE = 'INACTIVE',
+}
