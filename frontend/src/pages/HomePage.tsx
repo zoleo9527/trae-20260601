@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { User, ServiceRecord, ServiceCreateRequest } from '../types';
-import { getTodayTasks, checkin, completeService, confirmDuration, rejectDuration, resetRecord, createServiceRecord } from '../api';
+import { User, ServiceRecord, ServiceCreateRequest, TodayTasksResponse } from '../types';
+import { getTodayTasks, checkin, completeService, confirmDuration, rejectDuration, resetRecord, createServiceRecord, getServiceRecordById } from '../api';
 import { StatsCard } from '../components/StatsCard';
 import { ServiceRecordCard } from '../components/ServiceRecordCard';
 import { CheckinModal } from '../components/CheckinModal';
@@ -8,31 +8,33 @@ import { CompleteModal } from '../components/CompleteModal';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { RejectModal } from '../components/RejectModal';
 import { CreateServiceModal } from '../components/CreateServiceModal';
+import { RecordDetailModal } from '../components/RecordDetailModal';
 
 interface HomePageProps {
   user: User;
 }
 
-type TabType = 'pending' | 'overdue' | 'rejected';
+type SocialWorkerTab = 'pending_checkin' | 'checked_in' | 'overdue' | 'rejected';
+type LeaderTab = 'pending_confirm' | 'overdue' | 'rejected';
+type TabType = SocialWorkerTab | LeaderTab;
 
 export function HomePage({ user }: HomePageProps) {
-  const [tasks, setTasks] = useState<{
-    pendingConfirm: ServiceRecord[];
-    overdue: ServiceRecord[];
-    recentlyRejected: ServiceRecord[];
-    pendingCount: number;
-    overdueCount: number;
-    rejectedCount: number;
-  }>({
+  const [tasks, setTasks] = useState<TodayTasksResponse>({
+    pendingCheckin: [],
+    checkedIn: [],
     pendingConfirm: [],
     overdue: [],
     recentlyRejected: [],
-    pendingCount: 0,
+    pendingCheckinCount: 0,
+    checkedInCount: 0,
+    pendingConfirmCount: 0,
     overdueCount: 0,
     rejectedCount: 0,
   });
 
-  const [activeTab, setActiveTab] = useState<TabType>('pending');
+  const isSocialWorker = user.role === 'social_worker';
+  const defaultTab = isSocialWorker ? 'pending_checkin' : 'pending_confirm';
+  const [activeTab, setActiveTab] = useState<TabType>(defaultTab);
   const [loading, setLoading] = useState(true);
 
   const [checkinModalOpen, setCheckinModalOpen] = useState(false);
@@ -40,9 +42,11 @@ export function HomePage({ user }: HomePageProps) {
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
 
   const [currentRecordId, setCurrentRecordId] = useState<number | null>(null);
   const [currentDuration, setCurrentDuration] = useState<number | null>(null);
+  const [currentRecordDetail, setCurrentRecordDetail] = useState<any>(null);
 
   useEffect(() => {
     refreshData();
@@ -146,64 +150,65 @@ export function HomePage({ user }: HomePageProps) {
     setRejectModalOpen(true);
   };
 
-  const canCreateService = user.role === 'social_worker';
-
-  const records = {
-    pending: tasks.pendingConfirm,
-    overdue: tasks.overdue,
-    rejected: tasks.recentlyRejected,
+  const openDetailModal = async (id: number) => {
+    try {
+      const detail = await getServiceRecordById(id);
+      setCurrentRecordDetail(detail);
+      setDetailModalOpen(true);
+    } catch (error) {
+      console.error('Failed to get record detail:', error);
+    }
   };
 
-  const tabLabels = {
-    pending: '待确认时长',
-    overdue: '超时未处理',
-    rejected: '刚退回',
-  };
+  const socialWorkerTabs: { key: SocialWorkerTab; label: string; records: ServiceRecord[]; count: number; color: string }[] = [
+    { key: 'pending_checkin', label: '待签到', records: tasks.pendingCheckin, count: tasks.pendingCheckinCount, color: '#ff9800' },
+    { key: 'checked_in', label: '已签到待完成', records: tasks.checkedIn, count: tasks.checkedInCount, color: '#2196f3' },
+    { key: 'overdue', label: '超时未处理', records: tasks.overdue, count: tasks.overdueCount, color: '#f44336' },
+    { key: 'rejected', label: '刚退回', records: tasks.recentlyRejected, count: tasks.rejectedCount, color: '#9e9e9e' },
+  ];
+
+  const leaderTabs: { key: LeaderTab; label: string; records: ServiceRecord[]; count: number; color: string }[] = [
+    { key: 'pending_confirm', label: '待确认时长', records: tasks.pendingConfirm, count: tasks.pendingConfirmCount, color: '#e91e63' },
+    { key: 'overdue', label: '超时未处理', records: tasks.overdue, count: tasks.overdueCount, color: '#f44336' },
+    { key: 'rejected', label: '刚退回', records: tasks.recentlyRejected, count: tasks.rejectedCount, color: '#9e9e9e' },
+  ];
+
+  const tabs = isSocialWorker ? socialWorkerTabs : leaderTabs;
+  const currentTabData = tabs.find(t => t.key === activeTab) || tabs[0];
 
   return (
     <div style={styles.container}>
       <div style={styles.statsRow}>
-        <StatsCard
-          title="待确认时长"
-          count={tasks.pendingCount}
-          color="#e91e63"
-          icon="⏳"
-          onClick={() => setActiveTab('pending')}
-        />
-        <StatsCard
-          title="超时未处理"
-          count={tasks.overdueCount}
-          color="#f44336"
-          icon="⚠️"
-          onClick={() => setActiveTab('overdue')}
-        />
-        <StatsCard
-          title="刚退回"
-          count={tasks.rejectedCount}
-          color="#ff9800"
-          icon="↩️"
-          onClick={() => setActiveTab('rejected')}
-        />
+        {tabs.map(tab => (
+          <StatsCard
+            key={tab.key}
+            title={tab.label}
+            count={tab.count}
+            color={tab.color}
+            icon={tab.key === 'pending_checkin' ? '📋' : tab.key === 'checked_in' ? '✅' : tab.key === 'pending_confirm' ? '⏳' : tab.key === 'overdue' ? '⚠️' : '↩️'}
+            onClick={() => setActiveTab(tab.key)}
+          />
+        ))}
       </div>
 
       <div style={styles.content}>
         <div style={styles.header}>
           <div style={styles.tabs}>
-            {(['pending', 'overdue', 'rejected'] as TabType[]).map((tab) => (
+            {tabs.map((tab) => (
               <button
-                key={tab}
+                key={tab.key}
                 style={{
                   ...styles.tabButton,
-                  ...(activeTab === tab ? styles.tabButtonActive : {}),
+                  ...(activeTab === tab.key ? { ...styles.tabButtonActive, background: tab.color } : {}),
                 }}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => setActiveTab(tab.key)}
               >
-                {tabLabels[tab]}
-                <span style={styles.tabCount}>{records[tab].length}</span>
+                {tab.label}
+                <span style={styles.tabCount}>{tab.count}</span>
               </button>
             ))}
           </div>
-          {canCreateService && (
+          {isSocialWorker && (
             <button style={styles.createButton} onClick={() => setCreateModalOpen(true)}>
               + 创建服务记录
             </button>
@@ -213,10 +218,10 @@ export function HomePage({ user }: HomePageProps) {
         <div style={styles.list}>
           {loading ? (
             <div style={styles.loading}>加载中...</div>
-          ) : records[activeTab].length === 0 ? (
+          ) : currentTabData.records.length === 0 ? (
             <div style={styles.empty}>暂无相关记录</div>
           ) : (
-            records[activeTab].map((record) => (
+            currentTabData.records.map((record) => (
               <ServiceRecordCard
                 key={record.id}
                 record={record}
@@ -226,6 +231,7 @@ export function HomePage({ user }: HomePageProps) {
                 onConfirm={(id) => openConfirmModal(id, record.duration)}
                 onReject={openRejectModal}
                 onReset={handleReset}
+                onViewDetail={openDetailModal}
               />
             ))
           )}
@@ -262,6 +268,12 @@ export function HomePage({ user }: HomePageProps) {
         onClose={() => setCreateModalOpen(false)}
         onSubmit={handleCreateService}
       />
+
+      <RecordDetailModal
+        isOpen={detailModalOpen}
+        onClose={() => setDetailModalOpen(false)}
+        record={currentRecordDetail}
+      />
     </div>
   );
 }
@@ -274,7 +286,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   statsRow: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
     gap: '16px',
   },
   content: {
@@ -295,6 +307,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   tabs: {
     display: 'flex',
     gap: '8px',
+    flexWrap: 'wrap',
   },
   tabButton: {
     padding: '8px 16px',
@@ -310,7 +323,6 @@ const styles: { [key: string]: React.CSSProperties } = {
     transition: 'all 0.2s',
   },
   tabButtonActive: {
-    background: '#667eea',
     color: '#fff',
   },
   tabCount: {

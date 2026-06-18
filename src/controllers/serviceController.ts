@@ -255,6 +255,22 @@ export function getTodayTasks(req: Request, res: Response) {
   const today = new Date().toISOString().split('T')[0];
   const db = getDatabase();
 
+  const pendingCheckin = db.prepare(`
+    SELECT sr.*, v.name as volunteer_name, v.phone as volunteer_phone
+    FROM service_records sr
+    LEFT JOIN volunteers v ON sr.volunteer_id = v.id
+    WHERE sr.status = 'pending_checkin' AND sr.service_date = ?
+    ORDER BY sr.created_at DESC
+  `).all(today) as ServiceRecord[];
+
+  const checkedIn = db.prepare(`
+    SELECT sr.*, v.name as volunteer_name, v.phone as volunteer_phone
+    FROM service_records sr
+    LEFT JOIN volunteers v ON sr.volunteer_id = v.id
+    WHERE sr.status = 'checked_in' AND sr.service_date = ?
+    ORDER BY sr.created_at DESC
+  `).all(today) as ServiceRecord[];
+
   const pendingConfirm = db.prepare(`
     SELECT sr.*, v.name as volunteer_name, v.phone as volunteer_phone
     FROM service_records sr
@@ -280,10 +296,14 @@ export function getTodayTasks(req: Request, res: Response) {
   `).all() as ServiceRecord[];
 
   res.json({
+    pendingCheckin,
+    checkedIn,
     pendingConfirm,
     overdue,
     recentlyRejected,
-    pendingCount: pendingConfirm.length,
+    pendingCheckinCount: pendingCheckin.length,
+    checkedInCount: checkedIn.length,
+    pendingConfirmCount: pendingConfirm.length,
     overdueCount: overdue.length,
     rejectedCount: recentlyRejected.length
   });

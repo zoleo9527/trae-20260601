@@ -8,6 +8,7 @@ interface ServiceRecordCardProps {
   onConfirm?: (id: number) => void;
   onReject?: (id: number) => void;
   onReset?: (id: number) => void;
+  onViewDetail?: (id: number) => void;
 }
 
 const statusLabels: Record<string, string> = {
@@ -28,7 +29,7 @@ const statusColors: Record<string, string> = {
   cancelled: '#9e9e9e',
 };
 
-export function ServiceRecordCard({ record, userRole, onCheckin, onComplete, onConfirm, onReject, onReset }: ServiceRecordCardProps) {
+export function ServiceRecordCard({ record, userRole, onCheckin, onComplete, onConfirm, onReject, onReset, onViewDetail }: ServiceRecordCardProps) {
   const formatDuration = (minutes: number | null) => {
     if (!minutes) return '-';
     const hours = Math.floor(minutes / 60);
@@ -92,6 +93,7 @@ export function ServiceRecordCard({ record, userRole, onCheckin, onComplete, onC
           <span style={styles.metaItem}>{record.created_at}</span>
         </div>
         <div style={styles.actions}>
+          <button style={{ ...styles.actionButton, ...styles.detailButton }} onClick={() => onViewDetail?.(record.id)}>查看详情</button>
           {canCheckin && (
             <button style={styles.actionButton} onClick={() => onCheckin?.(record.id)}>签到</button>
           )}
@@ -210,5 +212,10 @@ const styles: { [key: string]: React.CSSProperties } = {
     borderColor: '#9e9e9e',
     background: '#f5f5f5',
     color: '#666',
+  },
+  detailButton: {
+    borderColor: '#667eea',
+    background: '#f0f4ff',
+    color: '#667eea',
   },
 };

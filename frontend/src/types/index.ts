@@ -56,10 +56,14 @@ export interface LoginResponse {
 }
 
 export interface TodayTasksResponse {
+  pendingCheckin: ServiceRecord[];
+  checkedIn: ServiceRecord[];
   pendingConfirm: ServiceRecord[];
   overdue: ServiceRecord[];
   recentlyRejected: ServiceRecord[];
-  pendingCount: number;
+  pendingCheckinCount: number;
+  checkedInCount: number;
+  pendingConfirmCount: number;
   overdueCount: number;
   rejectedCount: number;
 }

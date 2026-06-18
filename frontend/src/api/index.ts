@@ -7,8 +7,10 @@ const axiosInstance = axios.create({
   baseURL: API_BASE,
 });
 
+const TOKEN_KEY = 'volunteer_token';
+
 axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
