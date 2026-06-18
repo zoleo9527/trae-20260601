@@ -33,8 +33,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   verifications: mockVerifications,
   complaints: mockComplaints,
   activities: mockActivities,
-  getTodos: () => getRoleTodos(get().currentRole),
-  getRisks: () => getRoleRisks(get().currentRole),
+  getTodos: () => getRoleTodos(get().currentRole, get().verifications, get().complaints),
+  getRisks: () => getRoleRisks(get().currentRole, get().verifications, get().complaints),
 
   createComplaint: (data) => {
     const id = generateId("TS");

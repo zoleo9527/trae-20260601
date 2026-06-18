@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAppStore } from "@/store/useAppStore";
 import StatusBadge from "@/components/common/StatusBadge";
@@ -24,6 +24,7 @@ import {
   TrendingUp,
   HandshakeIcon,
   MessageCircle,
+  Save,
 } from "lucide-react";
 import type { ComplaintStatus, VisitMethod } from "@/types";
 
@@ -38,6 +39,7 @@ export default function ComplaintDetail() {
   );
   const updateComplaintStatus = useAppStore((s) => s.updateComplaintStatus);
   const addVisitLog = useAppStore((s) => s.addVisitLog);
+  const updateKitchenNote = useAppStore((s) => s.updateKitchenNote);
   const currentRole = useAppStore((s) => s.currentRole);
 
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
@@ -45,6 +47,13 @@ export default function ComplaintDetail() {
   const [visitResult, setVisitResult] = useState("");
   const [visitFeedback, setVisitFeedback] = useState("");
   const [satisfaction, setSatisfaction] = useState(5);
+  const [kitchenNoteInput, setKitchenNoteInput] = useState("");
+
+  useEffect(() => {
+    if (complaint?.kitchenNote) {
+      setKitchenNoteInput(complaint.kitchenNote);
+    }
+  }, [complaint?.kitchenNote]);
 
   const operatorName =
     currentRole === "floor_manager"
@@ -186,6 +195,20 @@ export default function ComplaintDetail() {
     setSatisfaction(5);
   };
 
+  const handleSaveKitchenNote = () => {
+    if (!complaint || !kitchenNoteInput.trim()) return;
+
+    updateKitchenNote(complaint.id, kitchenNoteInput.trim());
+
+    if (complaint.status === "processing") {
+      updateComplaintStatus(complaint.id, "to_visit", operatorName);
+    } else if (complaint.status === "pending") {
+      updateComplaintStatus(complaint.id, "processing", operatorName);
+    }
+
+    setKitchenNoteInput("");
+  };
+
   if (!complaint) {
     return (
       <div className="p-10 text-center text-ink-500">未找到该客诉记录</div>
@@ -203,6 +226,12 @@ export default function ComplaintDetail() {
 
   const firstLogId = sortedVisitLogs.length > 0 ? sortedVisitLogs[0].id : null;
   const activeExpandedId = expandedLogId ?? firstLogId;
+
+  const showKitchenNoteForm =
+    (complaint.status === "pending" || complaint.status === "processing") &&
+    (complaint.responsibleParty === "kitchen" ||
+      complaint.responsibleParty === "both" ||
+      currentRole === "kitchen_lead");
 
   const visitMethodOptions: {
     value: VisitMethod;
@@ -379,7 +408,7 @@ export default function ComplaintDetail() {
             </div>
           </div>
 
-          {complaint.kitchenNote && (
+          {complaint.kitchenNote && !showKitchenNoteForm && (
             <div className="bg-flame-50/50 rounded-xl shadow-card p-6 border-l-4 border-flame-500">
               <div className="flex items-start gap-2">
                 <ChefHat className="w-5 h-5 text-flame-600 mt-0.5" />
@@ -391,6 +420,37 @@ export default function ComplaintDetail() {
                     {complaint.kitchenNote}
                   </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {showKitchenNoteForm && (
+            <div className="bg-white rounded-xl shadow-card p-6">
+              <div className="text-sm font-medium text-ink-900 mb-4 flex items-center gap-2">
+                <ChefHat className="w-4 h-4 text-flame-600" />
+                后厨处理录入
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-ink-700 mb-2 block">
+                    处理说明
+                  </label>
+                  <textarea
+                    value={kitchenNoteInput}
+                    onChange={(e) => setKitchenNoteInput(e.target.value)}
+                    placeholder="请输入后厨处理说明..."
+                    rows={4}
+                    className="w-full px-3 py-2 rounded-lg border border-ink-200 text-sm text-ink-900 placeholder-ink-400 focus:outline-none focus:ring-2 focus:ring-flame-500/20 focus:border-flame-500 transition-shadow"
+                  />
+                </div>
+                <button
+                  onClick={handleSaveKitchenNote}
+                  disabled={!kitchenNoteInput.trim()}
+                  className="w-full py-2.5 rounded-lg text-sm font-medium bg-flame-600 text-white hover:bg-flame-700 transition-colors disabled:bg-ink-200 disabled:text-ink-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <Save className="w-4 h-4" />
+                  保存处理结果并进入待回访
+                </button>
               </div>
             </div>
           )}

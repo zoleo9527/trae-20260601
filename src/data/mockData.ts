@@ -257,166 +257,358 @@ export const mockActivities: ActivityItem[] = [
   },
 ];
 
-export function getRoleTodos(role: string): TodoItem[] {
-  switch (role) {
-    case "cashier":
-      return [
-        {
-          id: "TD001",
-          type: "verification",
-          title: "处理异常核销 HX20260617087",
-          description: "券码已使用但系统无记录，需联系平台核实",
-          priority: "high",
-          time: "待处理 2小时",
-          relatedId: "HX20260617087",
-        },
-        {
-          id: "TD002",
-          type: "verification",
-          title: "确认退款 HX20260618004",
-          description: "客户临时离店，已操作全额退款待系统确认",
-          priority: "medium",
-          time: "待处理 30分钟",
-          relatedId: "HX20260618004",
-        },
-        {
-          id: "TD003",
-          type: "complaint",
-          title: "协助客诉 TS20260617003 平台核实",
-          description: "需提供核销记录截图给平台客服",
-          priority: "medium",
-          time: "待处理 1天",
-          relatedId: "TS20260617003",
-        },
-      ];
-    case "kitchen_lead":
-      return [
-        {
-          id: "TD004",
-          type: "complaint",
-          title: "处理客诉 TS20260618002",
-          description: "肥牛以次充好投诉，需确认当日出品情况",
-          priority: "high",
-          time: "超时 15分钟",
-          relatedId: "TS20260618002",
-        },
-        {
-          id: "TD005",
-          type: "complaint",
-          title: "跟进客诉 TS20260618001",
-          description: "毛肚不新鲜投诉，已录入原因等待前厅回访",
-          priority: "medium",
-          time: "处理中",
-          relatedId: "TS20260618001",
-        },
-        {
-          id: "TD006",
-          type: "visit",
-          title: "二次回访准备 TS20260617005",
-          description: "虾滑投诉检测结果已出，配合前厅回访",
-          priority: "low",
-          time: "明日 10:00 前",
-          relatedId: "TS20260617005",
-        },
-      ];
-    case "floor_manager":
-    default:
-      return [
-        {
-          id: "TD007",
-          type: "complaint",
-          title: "紧急处理客诉 TS20260618002",
-          description: "肥牛以次充好投诉，客户要求现场解决",
-          priority: "high",
-          time: "超时 10分钟",
-          relatedId: "TS20260618002",
-        },
-        {
-          id: "TD008",
-          type: "visit",
-          title: "执行回访 TS20260618001",
-          description: "毛肚投诉后厨已处理，需联系客户回访",
-          priority: "high",
-          time: "今日 15:40 前",
-          relatedId: "TS20260618001",
-        },
-        {
-          id: "TD009",
-          type: "visit",
-          title: "二次回访 TS20260617005",
-          description: "虾滑投诉检测结果已出，需告知客户",
-          priority: "medium",
-          time: "今日 10:00 前",
-          relatedId: "TS20260617005",
-        },
-        {
-          id: "TD010",
-          type: "complaint",
-          title: "跟进升级客诉 TS20260617003",
-          description: "核销异常投诉平台处理中，需跟进进度",
-          priority: "medium",
-          time: "3个工作日内",
-          relatedId: "TS20260617003",
-        },
-      ];
+export function parseTime(timeStr: string): Date {
+  return new Date(timeStr.replace(/-/g, "/"));
+}
+
+export function calculateTimeLeft(deadline: string): string {
+  const now = new Date();
+  const deadlineDate = parseTime(deadline);
+  const diffMs = deadlineDate.getTime() - now.getTime();
+  const diffMins = Math.floor(diffMs / (1000 * 60));
+
+  if (diffMins < 0) {
+    const overdueMins = Math.abs(diffMins);
+    if (overdueMins >= 60) {
+      const hours = Math.floor(overdueMins / 60);
+      const mins = overdueMins % 60;
+      return mins > 0 ? `超时 ${hours}小时${mins}分钟` : `超时 ${hours}小时`;
+    }
+    return `超时 ${overdueMins}分钟`;
+  } else {
+    if (diffMins >= 60) {
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return mins > 0 ? `剩余 ${hours}小时${mins}分钟` : `剩余 ${hours}小时`;
+    }
+    return `剩余 ${diffMins}分钟`;
   }
 }
 
-export function getRoleRisks(role: string): RiskItem[] {
-  switch (role) {
-    case "cashier":
-      return [
-        {
-          id: "RK001",
-          title: "核销异常未处理",
-          description: "HX20260617087 券码异常已超过24小时未解决",
-          level: "danger",
-          timeLeft: "已超时 14小时",
-          relatedId: "HX20260617087",
-          relatedType: "verification",
-        },
-      ];
-    case "kitchen_lead":
-      return [
-        {
-          id: "RK002",
-          title: "客诉即将超时",
-          description: "TS20260618002 肥牛投诉临近处理时限",
-          level: "danger",
-          timeLeft: "剩余 15分钟",
-          relatedId: "TS20260618002",
-          relatedType: "complaint",
-        },
-        {
-          id: "RK003",
-          title: "供应商质量问题",
-          description: "本周第2次毛肚质量投诉，需更换供应商",
-          level: "warning",
-          relatedId: "TS20260618001",
-          relatedType: "complaint",
-        },
-      ];
-    case "floor_manager":
+function getSeverityPriority(severity: string): "high" | "medium" | "low" {
+  switch (severity) {
+    case "urgent":
+      return "high";
+    case "serious":
+      return "medium";
+    case "normal":
     default:
-      return [
-        {
-          id: "RK004",
-          title: "客诉超时未受理",
-          description: "TS20260618002 紧急投诉超过30分钟未处理",
-          level: "danger",
-          timeLeft: "已超时 10分钟",
-          relatedId: "TS20260618002",
-          relatedType: "complaint",
-        },
-        {
-          id: "RK005",
-          title: "回访即将到期",
-          description: "TS20260617005 二次回访需在今日上午完成",
-          level: "warning",
-          timeLeft: "剩余 1小时",
-          relatedId: "TS20260617005",
-          relatedType: "complaint",
-        },
-      ];
+      return "low";
   }
+}
+
+function truncateDescription(text: string, maxLength: number = 40): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength) + "...";
+}
+
+function getTodoTime(deadline?: string): string {
+  if (!deadline) return "待处理";
+  return calculateTimeLeft(deadline);
+}
+
+export function getRoleTodos(
+  role: string,
+  verifications: Verification[],
+  complaints: Complaint[]
+): TodoItem[] {
+  const todos: TodoItem[] = [];
+  let todoIndex = 0;
+
+  switch (role) {
+    case "cashier": {
+      const abnormalVerifications = verifications.filter(
+        (v) => v.status === "abnormal"
+      );
+      abnormalVerifications.forEach((v) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "verification",
+          title: `处理异常核销 ${v.id}`,
+          description: v.remark
+            ? truncateDescription(v.remark)
+            : "需核实异常原因并处理",
+          priority: "high",
+          time: getTodoTime(),
+          relatedId: v.id,
+        });
+      });
+
+      const refundedVerifications = verifications.filter(
+        (v) => v.status === "refunded"
+      );
+      refundedVerifications.forEach((v) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "verification",
+          title: `确认退款 ${v.id}`,
+          description: v.remark
+            ? truncateDescription(v.remark)
+            : "待确认退款处理结果",
+          priority: "medium",
+          time: getTodoTime(),
+          relatedId: v.id,
+        });
+      });
+
+      const frontComplaints = complaints.filter(
+        (c) => c.responsibleParty === "front" && c.status !== "completed"
+      );
+      frontComplaints.forEach((c) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "complaint",
+          title: `协助处理客诉 ${c.id}`,
+          description: truncateDescription(c.content),
+          priority: getSeverityPriority(c.severity),
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+      break;
+    }
+
+    case "kitchen_lead": {
+      const kitchenComplaints = complaints.filter(
+        (c) =>
+          (c.responsibleParty === "kitchen" ||
+            c.responsibleParty === "both") &&
+          (c.status === "pending" || c.status === "processing")
+      );
+      kitchenComplaints.forEach((c) => {
+        let priority = getSeverityPriority(c.severity);
+        let description = truncateDescription(c.content);
+
+        if (c.status === "processing" && c.kitchenNote) {
+          priority = "medium";
+          description = "等待前厅回访";
+        }
+
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "complaint",
+          title: `处理客诉 ${c.id}`,
+          description,
+          priority,
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+      break;
+    }
+
+    case "floor_manager":
+    default: {
+      const pendingComplaints = complaints.filter(
+        (c) => c.status === "pending"
+      );
+      pendingComplaints.forEach((c) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "complaint",
+          title: `受理客诉 ${c.id}`,
+          description: truncateDescription(c.content),
+          priority: "high",
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+
+      const toVisitComplaints = complaints.filter(
+        (c) => c.status === "to_visit"
+      );
+      toVisitComplaints.forEach((c) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "visit",
+          title: `执行回访 ${c.id}`,
+          description: truncateDescription(c.content),
+          priority: "high",
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+
+      const escalatedComplaints = complaints.filter(
+        (c) => c.status === "escalated"
+      );
+      escalatedComplaints.forEach((c) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "complaint",
+          title: `跟进升级客诉 ${c.id}`,
+          description: truncateDescription(c.content),
+          priority: "high",
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+
+      const processingComplaints = complaints.filter(
+        (c) => c.status === "processing"
+      );
+      processingComplaints.forEach((c) => {
+        todos.push({
+          id: `TD${++todoIndex}`,
+          type: "complaint",
+          title: `跟进处理中客诉 ${c.id}`,
+          description: truncateDescription(c.content),
+          priority: "medium",
+          time: getTodoTime(c.deadline),
+          relatedId: c.id,
+        });
+      });
+      break;
+    }
+  }
+
+  return todos;
+}
+
+export function getRoleRisks(
+  role: string,
+  verifications: Verification[],
+  complaints: Complaint[]
+): RiskItem[] {
+  const risks: RiskItem[] = [];
+  let riskIndex = 0;
+  const now = new Date();
+
+  switch (role) {
+    case "cashier": {
+      verifications.forEach((v) => {
+        if (v.status === "abnormal") {
+          const verifyTime = parseTime(v.verifyTime);
+          const hoursSince = (now.getTime() - verifyTime.getTime()) / (1000 * 60 * 60);
+          if (hoursSince > 24) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "核销异常未处理",
+              description: `${v.id} 券码异常已超过24小时未解决`,
+              level: "danger",
+              timeLeft: `已超时 ${Math.floor(hoursSince - 24)}小时`,
+              relatedId: v.id,
+              relatedType: "verification",
+            });
+          }
+        }
+
+        if (v.status === "refunded") {
+          const verifyTime = parseTime(v.verifyTime);
+          const hoursSince = (now.getTime() - verifyTime.getTime()) / (1000 * 60 * 60);
+          if (hoursSince > 2) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "退款未确认",
+              description: `${v.id} 退款核销超过2小时未确认`,
+              level: "warning",
+              timeLeft: `已超时 ${Math.floor(hoursSince - 2)}小时`,
+              relatedId: v.id,
+              relatedType: "verification",
+            });
+          }
+        }
+      });
+      break;
+    }
+
+    case "kitchen_lead": {
+      complaints.forEach((c) => {
+        if (
+          (c.responsibleParty === "kitchen" ||
+            c.responsibleParty === "both") &&
+          c.severity === "urgent" &&
+          c.deadline
+        ) {
+          const deadlineDate = parseTime(c.deadline);
+          const minsLeft = (deadlineDate.getTime() - now.getTime()) / (1000 * 60);
+          if (minsLeft > 0 && minsLeft < 30) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "紧急客诉即将超时",
+              description: `${c.id} 紧急客诉临近处理时限`,
+              level: "danger",
+              timeLeft: `剩余 ${Math.ceil(minsLeft)}分钟`,
+              relatedId: c.id,
+              relatedType: "complaint",
+            });
+          }
+        }
+      });
+
+      const contentKeywords: Record<string, string[]> = {
+        "毛肚不新鲜": ["毛肚", "不新鲜", "异味"],
+        "菜品不卫生": ["拉肚子", "不干净", "卫生"],
+        "上菜慢": ["慢", "等了", "太久"],
+      };
+
+      Object.entries(contentKeywords).forEach(([issueType, keywords]) => {
+        const matchingComplaints = complaints.filter((c) => {
+          if (c.responsibleParty !== "kitchen" && c.responsibleParty !== "both") return false;
+          const content = c.content;
+          return keywords.some((kw) => content.includes(kw));
+        });
+
+        if (matchingComplaints.length >= 2) {
+          const recentComplaints = matchingComplaints.filter((c) => {
+            const createTime = parseTime(c.createTime);
+            const hoursSince = (now.getTime() - createTime.getTime()) / (1000 * 60 * 60);
+            return hoursSince < 24;
+          });
+
+          if (recentComplaints.length >= 2) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "供应商质量问题",
+              description: `24小时内有 ${recentComplaints.length} 条${issueType}投诉，需关注供应商质量`,
+              level: "warning",
+              relatedId: recentComplaints[0].id,
+              relatedType: "complaint",
+            });
+          }
+        }
+      });
+      break;
+    }
+
+    case "floor_manager":
+    default: {
+      complaints.forEach((c) => {
+        if (c.severity === "urgent" && c.status === "pending") {
+          const createTime = parseTime(c.createTime);
+          const minsSince = (now.getTime() - createTime.getTime()) / (1000 * 60);
+          if (minsSince > 30) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "紧急客诉超时未受理",
+              description: `${c.id} 紧急投诉超过30分钟未处理`,
+              level: "danger",
+              timeLeft: `已超时 ${Math.floor(minsSince - 30)}分钟`,
+              relatedId: c.id,
+              relatedType: "complaint",
+            });
+          }
+        }
+
+        if (c.status === "to_visit" && c.deadline) {
+          const deadlineDate = parseTime(c.deadline);
+          const minsLeft = (deadlineDate.getTime() - now.getTime()) / (1000 * 60);
+          if (minsLeft > 0 && minsLeft < 60) {
+            risks.push({
+              id: `RK${++riskIndex}`,
+              title: "回访即将到期",
+              description: `${c.id} 待回访客诉临近时限`,
+              level: "warning",
+              timeLeft: `剩余 ${Math.ceil(minsLeft)}分钟`,
+              relatedId: c.id,
+              relatedType: "complaint",
+            });
+          }
+        }
+      });
+      break;
+    }
+  }
+
+  return risks;
 }

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAppStore } from "@/store/useAppStore";
 import StatusBadge from "@/components/common/StatusBadge";
-import { ArrowLeft, Building2, MapPin, Users, Calendar, Receipt, User, AlertTriangle, MessageSquarePlus, ChevronRight, FileText, X } from "lucide-react";
+import { ArrowLeft, Building2, MapPin, Users, Calendar, Receipt, User, AlertTriangle, MessageSquarePlus, ChevronRight, FileText, X, Eye } from "lucide-react";
 import type { SeverityLevel, ResponsibleParty } from "@/types";
 
 export default function VerificationDetail() {
@@ -105,6 +105,9 @@ export default function VerificationDetail() {
               <div className="flex items-center gap-2">
                 <MessageSquarePlus className="w-4 h-4 text-flame-600" />
                 关联客诉
+                {complaint && (
+                  <span className="text-xs text-flame-600 font-normal">已关联客诉，点击查看详情</span>
+                )}
               </div>
               {!complaint && (
                 <button
@@ -119,7 +122,7 @@ export default function VerificationDetail() {
             {complaint ? (
               <Link
                 to={`/complaints/${complaint.id}`}
-                className="flex items-center gap-4 p-4 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors border border-ink-200"
+                className="flex items-center gap-4 p-4 rounded-xl bg-ink-50 hover:bg-ink-100 transition-colors border border-ink-200 border-l-4 border-l-flame-500"
               >
                 <div className="w-10 h-10 rounded-lg bg-flame-50 text-flame-600 flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="w-5 h-5" />
@@ -139,7 +142,7 @@ export default function VerificationDetail() {
               </Link>
             ) : (
               <div className="text-center py-8 text-ink-400 text-sm">
-                该核销单暂无关联客诉
+                该核销单暂无客诉，如客户有投诉可点击右上角发起
               </div>
             )}
           </div>
@@ -155,9 +158,19 @@ export default function VerificationDetail() {
           <div className="bg-white rounded-xl shadow-card p-6">
             <div className="text-sm font-medium text-ink-900 mb-3">快捷操作</div>
             <div className="space-y-2">
-              <ActionButton variant="primary" icon={<MessageSquarePlus className="w-4 h-4" />} onClick={handleOpenModal}>
-                发起客诉
-              </ActionButton>
+              {complaint ? (
+                <ActionButton
+                  variant="secondary"
+                  icon={<Eye className="w-4 h-4" />}
+                  onClick={() => navigate(`/complaints/${complaint.id}`)}
+                >
+                  查看客诉详情
+                </ActionButton>
+              ) : (
+                <ActionButton variant="primary" icon={<MessageSquarePlus className="w-4 h-4" />} onClick={handleOpenModal}>
+                  发起客诉
+                </ActionButton>
+              )}
               <ActionButton variant="secondary" icon={<FileText className="w-4 h-4" />}>
                 打印核销单
               </ActionButton>
