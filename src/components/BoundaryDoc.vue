@@ -116,7 +116,7 @@
                 </li>
                 <li class="flex items-start gap-2">
                   <CheckCircle class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                  <span class="text-gray-700">本地存储数据持久化方案</span>
+                  <span class="text-gray-700">Express + SQLite 本地后端服务</span>
                 </li>
                 <li class="flex items-start gap-2">
                   <CheckCircle class="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -149,7 +149,7 @@
                 </li>
                 <li class="flex items-start gap-2">
                   <XCircle class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                  <span class="text-gray-700">真实数据库部署</span>
+                  <span class="text-gray-700">云端数据库部署</span>
                 </li>
                 <li class="flex items-start gap-2">
                   <XCircle class="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
@@ -166,11 +166,17 @@
           <h2 class="text-lg font-semibold text-white">5. 部署与运行说明</h2>
         </div>
         <div class="p-6">
-          <div class="bg-gray-50 rounded-lg p-4">
-            <pre class="text-sm text-gray-700 font-mono overflow-x-auto"><code># 安装依赖
+          <div class="bg-gray-50 rounded-lg p-4 mb-4">
+            <pre class="text-sm text-gray-700 font-mono overflow-x-auto"><code># 安装后端依赖
+cd server && npm install
+
+# 启动后端服务（端口3001）
+cd server && npx tsx index.ts
+
+# 新开终端，安装前端依赖
 npm install
 
-# 开发模式运行
+# 启动前端开发服务器
 npm run dev
 
 # 构建生产版本
@@ -179,9 +185,15 @@ npm run build
 # 预览生产版本
 npm run preview</code></pre>
           </div>
-          <p class="text-sm text-gray-500 mt-4">
-            系统采用 localStorage 进行本地数据持久化，无需配置数据库。首次运行时会自动初始化模拟数据。
-          </p>
+          <div class="bg-blue-50 rounded-lg p-4">
+            <h4 class="font-medium text-blue-900 mb-2">技术架构说明</h4>
+            <ul class="space-y-1 text-sm text-blue-700">
+              <li>• 前端：Vue 3 + TypeScript + Vite</li>
+              <li>• 后端：Express + SQLite（数据存储在 server/data/community.db）</li>
+              <li>• 首次运行自动初始化模拟数据</li>
+              <li>• 需同时启动前端和后端服务</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>

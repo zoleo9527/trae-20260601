@@ -487,7 +487,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { Plus, Eye, X, ClipboardList, AlertTriangle, User, CheckCircle, XCircle, UserCheck, CheckCircle2, ArrowUpCircle, History } from 'lucide-vue-next'
 import { useStore } from '@/store'
-import { getKeyPersons, createVisitRecord, getIssuesByVisitId } from '@/api'
+import { getKeyPersons, getIssuesByVisitId } from '@/api'
 import type { VisitRecord, KeyPerson, VisitStatus, IssueStatus, Issue, FlowRecord } from '@/types'
 
 const store = useStore()
@@ -743,26 +743,23 @@ async function submitIssue() {
     reporterName: store.state.currentUser?.name || '',
     title: issueForm.value.title,
     description: issueForm.value.description,
-    category: issueForm.value.category,
-    status: 'pending' as IssueStatus
+    category: issueForm.value.category
   })
   
   relatedIssues.value.push(newIssue)
+  issueFlowRecords.value[newIssue.id] = await store.loadFlowRecords('issue', newIssue.id)
   isCreatingIssue.value = false
   issueForm.value = { title: '', category: '', description: '' }
 }
 
 async function submitNewVisit() {
-  const kp = keyPersons.value.find(k => k.id === newVisitForm.value.keyPersonId)
-  if (!kp) return
+  if (!newVisitForm.value.keyPersonId || !newVisitForm.value.scheduledDate) return
   
-  await createVisitRecord({
+  await store.createVisitRecord({
     keyPersonId: newVisitForm.value.keyPersonId,
-    keyPerson: kp,
     socialWorkerId: store.state.currentUser?.id || '',
     socialWorkerName: store.state.currentUser?.name || '',
-    scheduledDate: newVisitForm.value.scheduledDate,
-    status: 'pending'
+    scheduledDate: newVisitForm.value.scheduledDate
   })
   
   await store.loadData()
