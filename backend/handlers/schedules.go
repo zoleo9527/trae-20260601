@@ -20,14 +20,18 @@ func (h *Handler) CreateScheduleAndAssign() fiber.Handler {
 			sid := sched.ID; vehID := sched.VehicleID
 			if e := tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Updates(map[string]interface{}{"status":models.BookingAssigned,"vehicle_id":vehID,"schedule_id":sid}).Error; e!=nil { return e }
 			for _, ci := range req.CrewList {
+				if ci.Role == "组长" || ci.Role == "leader" {
+					sched.LeaderID = ci.CrewID
+					if e := tx.Save(sched).Error; e != nil { return e }
+				}
 				asgn := &models.CrewAssignment{ScheduleID:sched.ID,CrewID:ci.CrewID,BookingID:req.BookingID,Role:ci.Role,Status:models.AssignmentPending}
 				if e := tx.Create(asgn).Error; e != nil { return e }
 				rid := sched.ID
-				h.createNotificationTx(tx, ci.CrewID, models.NotificationAssignment, "新派工", "您有新的搬家任务", &rid)
+				h.createNotification(ci.CrewID, models.NotificationAssignment, "新派工", "您有新的搬家任务", &rid)
 			}
 			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) {
 				rid := sched.ID
-				h.createNotificationTx(tx, du, models.NotificationSchedule, "新排班", "有新的排班已创建", &rid)
+				h.createNotification(du, models.NotificationSchedule, "新排班", "有新的排班已创建", &rid)
 			}
 			return nil
 		})
@@ -41,14 +45,15 @@ func (h *Handler) CreateScheduleAndAssign() fiber.Handler {
 func (h *Handler) ListSchedules() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page:=c.QueryInt("page",1); ps:=c.QueryInt("page_size",20)
-		vid:=c.Query("vehicle_id"); bid:=c.Query("booking_id"); status:=c.Query("status"); date:=c.Query("date")
+		vid:=c.Query("vehicle_id"); bid:=c.Query("booking_id"); status:=c.Query("status"); date:=c.Query("date"); leader_id:=c.Query("leader_id")
 		q:=h.DB.Model(&models.VehicleSchedule{})
 		if vid!="" { q=q.Where("vehicle_id=?",vid) }
 		if bid!="" { q=q.Where("booking_id=?",bid) }
 		if status!="" { q=q.Where("status=?",status) }
 		if date!="" { if t,e:=time.Parse("2006-01-02",date); e==nil { q=q.Where("DATE(planned_start)=?",t.Format("2006-01-02")) } }
+		if leader_id!="" { q=q.Where("leader_id=?",leader_id) }
 		var d []models.VehicleSchedule
-		r,e:=models.Paginate(q.Order("planned_start DESC"),page,ps,&d)
+		r,e:=models.Paginate(q.Preload("Vehicle").Preload("Booking").Preload("Leader").Preload("Assignments").Preload("Assignments.Crew").Order("planned_start DESC"),page,ps,&d)
 		if e!=nil { return c.Status(500).JSON(fiber.Map{"error":e.Error()}) }
 		return c.JSON(r)
 	}
@@ -105,12 +110,12 @@ func (h *Handler) GetTimeline() fiber.Handler {
 		if e != nil { return c.Status(400).JSON(fiber.Map{"error":"bad date"}) }
 		var list []models.VehicleSchedule
 		dateCond := t.Format("2006-01-02")
-		h.DB.Preload("Vehicle").Preload("Booking").Where("DATE(planned_start)=?", dateCond).Order("planned_start").Find(&list)
+		h.DB.Preload("Vehicle").Preload("Booking").Preload("Leader").Preload("Assignments").Where("DATE(planned_start)=?", dateCond).Order("planned_start").Find(&list)
 		groups := make(map[string][]models.VehicleSchedule)
 		for _, s := range list {
 			vid := s.VehicleID.String()
 			groups[vid] = append(groups[vid], s)
 		}
-		return c.JSON(fiber.Map{"date": dateCond, "by_vehicle": groups, "items": list})
+		return c.JSON(fiber.Map{"date": dateStr, "by_vehicle": groups, "items": list})
 	}
 }

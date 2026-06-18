@@ -20,15 +20,12 @@ func (h *Handler) CreateException() fiber.Handler {
 				photo := &models.DamagePhoto{BookingID:req.BookingID,ExceptionID:exc.ID,UploaderID:req.ReporterID,URL:ph.URL,FileName:ph.FileName,Description:ph.Description}
 				if e := tx.Create(photo).Error; e != nil { return e }
 			}
-			var bname string
-			var bk models.Booking
-			if tx.Where("id=?", req.BookingID).First(&bk).Error == nil { bname = bk.CustomerName }
 			rid := exc.ID
 			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) {
-				h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid)
+				h.createNotification(du, models.NotificationException, "异常通知", "有新异常需处理", &rid)
 			}
 			for _, du := range h.getUserIDsByRole(models.RoleCustomer) {
-				h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid)
+				h.createNotification(du, models.NotificationException, "异常通知", "有新异常需处理", &rid)
 			}
 			if req.Type == models.ExceptionDelay {
 				tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Update("status",models.BookingDelayed)
@@ -53,7 +50,7 @@ func (h *Handler) ListExceptions() fiber.Handler {
 		if status!="" { q=q.Where("status=?",status) }
 		if typ!="" { q=q.Where("type=?",typ) }
 		var d []models.ExceptionRecord
-		r,e:=models.Paginate(q.Order("created_at DESC"),page,ps,&d)
+		r,e:=models.Paginate(q.Preload("Booking").Preload("Photos").Preload("Schedule").Order("created_at DESC"),page,ps,&d)
 		if e!=nil { return c.Status(500).JSON(fiber.Map{"error":e.Error()}) }
 		return c.JSON(r)
 	}
@@ -154,12 +151,9 @@ func (h *Handler) TriggerTestException() fiber.Handler {
 				photo := &models.DamagePhoto{BookingID:req.BookingID,ExceptionID:exc.ID,UploaderID:req.ReporterID,URL:ph.URL,FileName:ph.FileName,Description:ph.Description}
 				if e := tx.Create(photo).Error; e != nil { return e }
 			}
-			var bname string
-			var bk models.Booking
-			if tx.Where("id=?", req.BookingID).First(&bk).Error == nil { bname = bk.CustomerName }
 			rid := exc.ID
-			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) { h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid) }
-			for _, du := range h.getUserIDsByRole(models.RoleCustomer) { h.createNotificationTx(tx, du, models.NotificationException, "异常待处理", req.Title+"（客户:"+bname+"）", &rid) }
+			for _, du := range h.getUserIDsByRole(models.RoleDispatcher) { h.createNotification(du, models.NotificationException, "异常通知", "有新异常需处理", &rid) }
+			for _, du := range h.getUserIDsByRole(models.RoleCustomer) { h.createNotification(du, models.NotificationException, "异常通知", "有新异常需处理", &rid) }
 			if req.Type == models.ExceptionDelay { tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Update("status",models.BookingDelayed) }
 			if req.Type == models.ExceptionSurcharge { tx.Model(&models.Booking{}).Where("id=?",req.BookingID).Update("status",models.BookingSurcharged) }
 			return nil

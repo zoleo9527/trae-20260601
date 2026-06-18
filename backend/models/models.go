@@ -117,6 +117,8 @@ type VehicleSchedule struct {
 	ID          uuid.UUID      `gorm:"type:uuid;primaryKey" json:"id"`
 	VehicleID   uuid.UUID      `gorm:"type:uuid;index;not null" json:"vehicle_id"`
 	BookingID   uuid.UUID      `gorm:"type:uuid;index;not null" json:"booking_id"`
+	LeaderID    uuid.UUID      `gorm:"type:uuid;index" json:"leader_id"`
+	Leader      *CrewMember    `gorm:"foreignKey:LeaderID" json:"leader,omitempty"`
 	PlannedStart time.Time     `json:"planned_start"`
 	PlannedEnd  time.Time      `json:"planned_end"`
 	ActualStart *time.Time     `json:"actual_start"`
