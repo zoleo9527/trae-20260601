@@ -2,6 +2,13 @@ import { create } from "zustand";
 import type { UserRole, Verification, Complaint, ActivityItem } from "@/types";
 import { mockVerifications, mockComplaints, mockActivities, getRoleTodos, getRoleRisks } from "@/data/mockData";
 
+interface TodoItem {
+  id: string;
+  type: "verification" | "complaint" | "visit";
+  relatedId: string;
+  complaintStatus?: "pending" | "processing" | "to_visit" | "completed" | "escalated";
+}
+
 interface AppState {
   currentRole: UserRole;
   setCurrentRole: (role: UserRole) => void;
@@ -13,12 +20,25 @@ interface AppState {
   updateComplaintStatus: (id: string, status: Complaint["status"], operator?: string) => void;
   addVisitLog: (complaintId: string, log: Omit<Complaint["visitLogs"][number], "id" | "complaintId">) => void;
   createComplaint: (data: Omit<Complaint, "id" | "visitLogs" | "createTime" | "status" | "handler"> & { verificationId: string }) => string;
-  selectedIds: Set<string>;
-  toggleSelected: (id: string) => void;
-  clearSelected: () => void;
-  selectAll: (ids: string[]) => void;
   batchUpdateComplaintStatus: (ids: string[], status: Complaint["status"]) => void;
   updateKitchenNote: (id: string, note: string) => void;
+
+  todoSelectedIds: Set<string>;
+  toggleTodoSelected: (id: string) => void;
+  clearTodoSelected: () => void;
+  selectAllTodo: (ids: string[]) => void;
+
+  verificationSelectedIds: Set<string>;
+  toggleVerificationSelected: (id: string) => void;
+  clearVerificationSelected: () => void;
+  selectAllVerification: (ids: string[]) => void;
+
+  complaintSelectedIds: Set<string>;
+  toggleComplaintSelected: (id: string) => void;
+  clearComplaintSelected: () => void;
+  selectAllComplaint: (ids: string[]) => void;
+
+  batchProcessTodos: (todos: TodoItem[]) => void;
 }
 
 function generateId(prefix: string) {
@@ -29,7 +49,12 @@ function generateId(prefix: string) {
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentRole: "floor_manager",
-  setCurrentRole: (role) => set({ currentRole: role, selectedIds: new Set() }),
+  setCurrentRole: (role) => set({
+    currentRole: role,
+    todoSelectedIds: new Set(),
+    verificationSelectedIds: new Set(),
+    complaintSelectedIds: new Set(),
+  }),
   verifications: mockVerifications,
   complaints: mockComplaints,
   activities: mockActivities,
@@ -133,7 +158,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       complaints: state.complaints.map((c) =>
         ids.includes(c.id) ? { ...c, status } : c
       ),
-      selectedIds: new Set(),
+      complaintSelectedIds: new Set(),
       activities: [
         {
           id: `ACT${Date.now()}`,
@@ -166,14 +191,93 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
-  selectedIds: new Set(),
-  toggleSelected: (id) =>
+  todoSelectedIds: new Set(),
+  toggleTodoSelected: (id) =>
     set((state) => {
-      const next = new Set(state.selectedIds);
+      const next = new Set(state.todoSelectedIds);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return { selectedIds: next };
+      return { todoSelectedIds: next };
     }),
-  clearSelected: () => set({ selectedIds: new Set() }),
-  selectAll: (ids) => set({ selectedIds: new Set(ids) }),
+  clearTodoSelected: () => set({ todoSelectedIds: new Set() }),
+  selectAllTodo: (ids) => set({ todoSelectedIds: new Set(ids) }),
+
+  verificationSelectedIds: new Set(),
+  toggleVerificationSelected: (id) =>
+    set((state) => {
+      const next = new Set(state.verificationSelectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { verificationSelectedIds: next };
+    }),
+  clearVerificationSelected: () => set({ verificationSelectedIds: new Set() }),
+  selectAllVerification: (ids) => set({ verificationSelectedIds: new Set(ids) }),
+
+  complaintSelectedIds: new Set(),
+  toggleComplaintSelected: (id) =>
+    set((state) => {
+      const next = new Set(state.complaintSelectedIds);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return { complaintSelectedIds: next };
+    }),
+  clearComplaintSelected: () => set({ complaintSelectedIds: new Set() }),
+  selectAllComplaint: (ids) => set({ complaintSelectedIds: new Set(ids) }),
+
+  batchProcessTodos: (todos) => {
+    const opName = get().currentRole === "floor_manager" ? "陈静" : get().currentRole === "kitchen_lead" ? "赵刚" : "张婷";
+    const { verifications } = get();
+
+    const complaintUpdates: Map<string, Complaint["status"]> = new Map();
+    const verificationUpdates: Set<string> = new Set();
+
+    for (const todo of todos) {
+      if (todo.type === "complaint" || todo.type === "visit") {
+        const currentStatus = todo.complaintStatus;
+        let nextStatus: Complaint["status"] | null = null;
+
+        if (todo.type === "visit") {
+          nextStatus = "completed";
+        } else if (currentStatus === "pending") {
+          nextStatus = "processing";
+        } else if (currentStatus === "processing") {
+          nextStatus = "to_visit";
+        } else if (currentStatus === "to_visit") {
+          nextStatus = "completed";
+        } else if (currentStatus === "escalated") {
+          nextStatus = "to_visit";
+        }
+
+        if (nextStatus) {
+          complaintUpdates.set(todo.relatedId, nextStatus);
+        }
+      } else if (todo.type === "verification") {
+        const v = verifications.find((ver) => ver.id === todo.relatedId);
+        if (v && v.status === "abnormal") {
+          verificationUpdates.add(todo.relatedId);
+        }
+      }
+    }
+
+    set((state) => ({
+      complaints: state.complaints.map((c) =>
+        complaintUpdates.has(c.id) ? { ...c, status: complaintUpdates.get(c.id)! } : c
+      ),
+      verifications: state.verifications.map((v) =>
+        verificationUpdates.has(v.id) ? { ...v, status: "normal" as const } : v
+      ),
+      todoSelectedIds: new Set(),
+      activities: [
+        {
+          id: `ACT${Date.now()}`,
+          actor: opName,
+          role: get().currentRole,
+          action: `批量处理了${todos.length}条待办事项`,
+          target: todos.map((t) => t.id).join(","),
+          time: "刚刚",
+        },
+        ...state.activities,
+      ],
+    }));
+  },
 }));

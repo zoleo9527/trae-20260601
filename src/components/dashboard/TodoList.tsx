@@ -11,12 +11,17 @@ const priorityMap = {
 
 export default function TodoList() {
   const todos = useAppStore((s) => s.getTodos());
-  const { selectedIds, toggleSelected } = useAppStore();
+  const { todoSelectedIds, toggleTodoSelected, batchProcessTodos } = useAppStore();
   const navigate = useNavigate();
 
   const handleClick = (t: typeof todos[number]) => {
     if (t.type === "complaint" || t.type === "visit") navigate(`/complaints/${t.relatedId}`);
     else navigate(`/verification/${t.relatedId}`);
+  };
+
+  const handleBatchProcess = () => {
+    const selectedTodos = todos.filter((t) => todoSelectedIds.has(t.id));
+    batchProcessTodos(selectedTodos);
   };
 
   return (
@@ -27,10 +32,13 @@ export default function TodoList() {
           <span className="font-medium text-ink-900">待处理事项</span>
           <span className="text-xs bg-ink-100 text-ink-600 px-2 py-0.5 rounded-full">{todos.length}</span>
         </div>
-        {selectedIds.size > 0 && (
+        {todoSelectedIds.size > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-ink-500">已选 {selectedIds.size} 项</span>
-            <button className="text-xs px-3 py-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors">
+            <span className="text-sm text-ink-500">已选 {todoSelectedIds.size} 项</span>
+            <button
+              onClick={handleBatchProcess}
+              className="text-xs px-3 py-1.5 rounded-lg bg-brand-600 text-white hover:bg-brand-700 transition-colors"
+            >
               批量标记处理
             </button>
           </div>
@@ -38,7 +46,7 @@ export default function TodoList() {
       </div>
       <div className="divide-y divide-ink-100">
         {todos.map((t) => {
-          const checked = selectedIds.has(t.id);
+          const checked = todoSelectedIds.has(t.id);
           const p = priorityMap[t.priority];
           const isOverdue = t.time.includes("超时");
           return (
@@ -47,7 +55,7 @@ export default function TodoList() {
               className="px-5 py-4 flex items-start gap-3 hover:bg-ink-50 transition-colors group"
             >
               <button
-                onClick={(e) => { e.stopPropagation(); toggleSelected(t.id); }}
+                onClick={(e) => { e.stopPropagation(); toggleTodoSelected(t.id); }}
                 className="mt-0.5 text-ink-400 hover:text-ink-700 transition-colors"
               >
                 {checked ? <CheckSquare className="w-5 h-5 text-brand-600 fill-brand-50" /> : <Square className="w-5 h-5" />}

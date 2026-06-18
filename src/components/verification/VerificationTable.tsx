@@ -6,12 +6,12 @@ import { useState } from "react";
 
 export default function VerificationTable() {
   const verifications = useAppStore((s) => s.verifications);
-  const { selectedIds, toggleSelected, selectAll, clearSelected } = useAppStore();
+  const { verificationSelectedIds, toggleVerificationSelected, selectAllVerification, clearVerificationSelected } = useAppStore();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const filtered = statusFilter === "all" ? verifications : verifications.filter((v) => v.status === statusFilter);
-  const allChecked = filtered.length > 0 && filtered.every((v) => selectedIds.has(v.id));
+  const allChecked = filtered.length > 0 && filtered.every((v) => verificationSelectedIds.has(v.id));
 
   return (
     <div className="bg-white rounded-xl shadow-card overflow-hidden">
@@ -43,9 +43,9 @@ export default function VerificationTable() {
           </div>
         </div>
 
-        {selectedIds.size > 0 && (
+        {verificationSelectedIds.size > 0 && (
           <div className="flex items-center gap-2">
-            <span className="text-sm text-ink-500">已选 {selectedIds.size} 项</span>
+            <span className="text-sm text-ink-500">已选 {verificationSelectedIds.size} 项</span>
             <button className="text-sm px-3 py-1.5 rounded-lg border border-ink-200 text-ink-700 hover:bg-ink-50 transition-colors flex items-center gap-1">
               <Download className="w-4 h-4" />
               批量导出
@@ -59,7 +59,7 @@ export default function VerificationTable() {
           <thead>
             <tr className="bg-ink-50 text-xs text-ink-500 uppercase tracking-wider">
               <th className="px-5 py-3 text-left w-12">
-                <button onClick={() => allChecked ? clearSelected() : selectAll(filtered.map((v) => v.id))}>
+                <button onClick={() => allChecked ? clearVerificationSelected() : selectAllVerification(filtered.map((v) => v.id))}>
                   {allChecked ? (
                     <CheckSquare className="w-4 h-4 text-brand-600 fill-brand-50" />
                   ) : (
@@ -83,12 +83,12 @@ export default function VerificationTable() {
               <tr
                 key={v.id}
                 className={`hover:bg-ink-50/70 transition-colors ${
-                  selectedIds.has(v.id) ? "bg-brand-50/30" : ""
+                  verificationSelectedIds.has(v.id) ? "bg-brand-50/30" : ""
                 } ${v.status === "abnormal" ? "bg-flame-50/30" : ""}`}
               >
                 <td className="px-5 py-4">
-                  <button onClick={() => toggleSelected(v.id)}>
-                    {selectedIds.has(v.id) ? (
+                  <button onClick={() => toggleVerificationSelected(v.id)}>
+                    {verificationSelectedIds.has(v.id) ? (
                       <CheckSquare className="w-4 h-4 text-brand-600 fill-brand-50" />
                     ) : (
                       <Square className="w-4 h-4 text-ink-400" />

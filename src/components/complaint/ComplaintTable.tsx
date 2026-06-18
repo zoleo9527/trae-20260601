@@ -6,7 +6,7 @@ import { useState } from "react";
 
 export default function ComplaintTable() {
   const complaints = useAppStore((s) => s.complaints);
-  const { selectedIds, toggleSelected, selectAll, clearSelected, batchUpdateComplaintStatus } = useAppStore();
+  const { complaintSelectedIds, toggleComplaintSelected, selectAllComplaint, clearComplaintSelected, batchUpdateComplaintStatus } = useAppStore();
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -17,7 +17,7 @@ export default function ComplaintTable() {
     return statusMatch && severityMatch;
   });
 
-  const allChecked = filtered.length > 0 && filtered.every((v) => selectedIds.has(v.id));
+  const allChecked = filtered.length > 0 && filtered.every((v) => complaintSelectedIds.has(v.id));
 
   const pendingCount = complaints.filter((c) => c.status === "pending" || c.status === "processing").length;
   const toVisitCount = complaints.filter((c) => c.status === "to_visit").length;
@@ -32,7 +32,7 @@ export default function ComplaintTable() {
   };
 
   const handleBatchMarkToVisit = () => {
-    const ids = Array.from(selectedIds);
+    const ids = Array.from(complaintSelectedIds);
     batchUpdateComplaintStatus(ids, "to_visit");
   };
 
@@ -98,9 +98,9 @@ export default function ComplaintTable() {
             </div>
           </div>
 
-          {selectedIds.size > 0 && (
+          {complaintSelectedIds.size > 0 && (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-ink-500">已选 {selectedIds.size} 项</span>
+              <span className="text-sm text-ink-500">已选 {complaintSelectedIds.size} 项</span>
               <button
                 onClick={handleBatchMarkToVisit}
                 className="text-sm px-3 py-1.5 rounded-lg border border-ink-200 text-ink-700 hover:bg-ink-50 transition-colors flex items-center gap-1"
@@ -122,7 +122,7 @@ export default function ComplaintTable() {
           <thead>
             <tr className="bg-ink-50 text-xs text-ink-500 uppercase tracking-wider">
               <th className="px-5 py-3 text-left w-12">
-                <button onClick={() => (allChecked ? clearSelected() : selectAll(filtered.map((v) => v.id)))}>
+                <button onClick={() => (allChecked ? clearComplaintSelected() : selectAllComplaint(filtered.map((v) => v.id)))}>
                   {allChecked ? (
                     <CheckSquare className="w-4 h-4 text-brand-600 fill-brand-50" />
                   ) : (
@@ -146,12 +146,12 @@ export default function ComplaintTable() {
               <tr
                 key={c.id}
                 className={`hover:bg-ink-50/70 transition-colors ${
-                  selectedIds.has(c.id) ? "bg-brand-50/30" : ""
+                  complaintSelectedIds.has(c.id) ? "bg-brand-50/30" : ""
                 } ${isUrgentOrOverdue(c) ? "bg-flame-50/30" : ""}`}
               >
                 <td className="px-5 py-4">
-                  <button onClick={() => toggleSelected(c.id)}>
-                    {selectedIds.has(c.id) ? (
+                  <button onClick={() => toggleComplaintSelected(c.id)}>
+                    {complaintSelectedIds.has(c.id) ? (
                       <CheckSquare className="w-4 h-4 text-brand-600 fill-brand-50" />
                     ) : (
                       <Square className="w-4 h-4 text-ink-400" />
