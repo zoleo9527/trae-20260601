@@ -255,13 +255,25 @@ export class OrderService {
       ? this.db.getUser(order.measureRecord.measurerId)?.name || '未知'
       : '未量尺';
 
+
+    const storeManager = this.db.getUsersByRole(UserRole.STORE_MANAGER).find(u => u.storeId === order.storeId)
+      || this.db.getUsersByRole(UserRole.STORE_MANAGER)[0];
+    const storeManagerId = storeManager?.id || '';
+    const storeManagerName = storeManager?.name || '未知店长';
+
+    const measurer = order.measureRecord?.measurerId
+      ? this.db.getUser(order.measureRecord.measurerId)
+      : this.db.getUsersByRole(UserRole.MEASURER).find(u => u.storeId === order.storeId)
+        || this.db.getUsersByRole(UserRole.MEASURER)[0];
+    const measurerId = measurer?.id || '';
+    const measurerNameResolved = measurer?.name || '未知量尺师';
     switch (order.status) {
       case OrderStatus.CREATED:
         return {
           stage: 'MEASURE',
           currentRole: UserRole.MEASURER,
-          currentUserId: '',
-          currentUserName: '待分配量尺师',
+          currentUserId: measurerId,
+          currentUserName: measurerNameResolved,
           previousNode: '导购' + salesGuideName + '创建订单',
           nextAction: '安排量尺师上门量尺',
         };
@@ -281,8 +293,8 @@ export class OrderService {
         return {
           stage: 'SCHEDULE',
           currentRole: UserRole.STORE_MANAGER,
-          currentUserId: '',
-          currentUserName: '待店长排班',
+          currentUserId: storeManagerId,
+          currentUserName: storeManagerName,
           previousNode: '导购' + salesGuideName + '创建预约',
           nextAction: '分配安装师傅排班',
         };
@@ -293,7 +305,7 @@ export class OrderService {
           currentRole: UserRole.INSTALLER,
           currentUserId: order.schedule?.installerId || '',
           currentUserName: installerName,
-          previousNode: '店长分配' + installerName + '师傅',
+          previousNode: '店长' + storeManagerName + '分配' + installerName + '师傅',
           nextAction: '按预约时间上门安装',
         };
 
@@ -303,7 +315,7 @@ export class OrderService {
           currentRole: UserRole.INSTALLER,
           currentUserId: order.schedule?.installerId || '',
           currentUserName: installerName,
-          previousNode: '客户催单，店长加急',
+          previousNode: '客户催单，店长' + storeManagerName + '加急',
           nextAction: '尽快上门安装',
         };
 
@@ -334,9 +346,9 @@ export class OrderService {
           return {
             stage: 'MATERIALS',
             currentRole: UserRole.STORE_MANAGER,
-            currentUserId: '',
-            currentUserName: '待店长备货',
-            previousNode: '导购申请补料',
+            currentUserId: storeManagerId,
+            currentUserName: storeManagerName,
+            previousNode: '导购' + salesGuideName + '申请补料',
             nextAction: '安排备货并发货',
           };
         } else if (pendingReceive.length > 0) {

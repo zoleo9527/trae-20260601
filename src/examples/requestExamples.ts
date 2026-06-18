@@ -136,6 +136,10 @@ export function runReturnAndSupplementFlowExample(): void {
   const orderAfterAppointment = res.data as any;
   assertEqual(orderAfterAppointment.status, OrderStatus.APPOINTED, 'Order status should be APPOINTED after appointment');
   assertEqual(orderAfterAppointment.appointment.createdBy, 'U-001', 'Appointment createdBy should be U-001');
+  assertEqual(orderAfterAppointment.responsibility.stage, 'SCHEDULE', 'Stage should be SCHEDULE after appointment');
+  assertEqual(orderAfterAppointment.responsibility.currentRole, UserRole.STORE_MANAGER, 'Role should be STORE_MANAGER');
+  assertEqual(orderAfterAppointment.responsibility.currentUserId, 'U-006', 'Manager userId should be U-006');
+  assertEqual(orderAfterAppointment.responsibility.currentUserName, '孙明辉', 'Manager name should be 孙明辉');
   step(2, 'GET /api/schedules/available - 查询可用师傅');
   req = { method: 'GET', path: '/api/schedules/available', query: { date: daysLater(3), timeSlot: '10:00-12:00' } };
   showReq(req);
@@ -229,7 +233,9 @@ export function runReturnAndSupplementFlowExample(): void {
   assertEqual(orderAfterSupplement.status, OrderStatus.MATERIALS_NEEDED, 'Order status should be MATERIALS_NEEDED after supplement');
   assertEqual(orderAfterSupplement.supplementRecords.length >= 1, true, 'Supplement records should have at least 1 entry');
   assertEqual(orderAfterSupplement.responsibility.stage, 'MATERIALS', 'Stage should be MATERIALS');
-  assertEqual(orderAfterSupplement.responsibility.currentRole, UserRole.STORE_MANAGER, 'Role should be STORE_MANAGER');
+  assertEqual(orderAfterSupplement.responsibility.currentRole, UserRole.STORE_MANAGER, 'Role should be STORE_MANAGER for pending fulfill');
+  assertEqual(orderAfterSupplement.responsibility.currentUserId, 'U-006', 'Manager userId should be U-006');
+  assertEqual(orderAfterSupplement.responsibility.currentUserName, '孙明辉', 'Manager name should be 孙明辉');
   const supplement = (res.data as any).supplementRecords?.[(res.data as any).supplementRecords.length - 1];
 
   step(10, 'POST supplement/fulfill + supplement/receive - 补料发货与签收');
