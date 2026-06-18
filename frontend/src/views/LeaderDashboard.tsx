@@ -50,7 +50,7 @@ export default function LeaderDashboard() {
     if (!user) return
     setLoading(true)
     try {
-      const res = await api.listSchedules({ leader_id: user.id, page_size: 100 })
+      const res = await api.listSchedules({ user_id: user.id, page_size: 100 })
       setSchedules(res.data)
     } catch (err: any) {
       message.error(err.message)
@@ -62,7 +62,7 @@ export default function LeaderDashboard() {
   const loadReview = useCallback(async () => {
     if (!user) return
     try {
-      const res = await api.getCrewReview(user.id)
+      const res = await api.getCrewReview("me", { user_id: user.id })
       setReview(res)
     } catch (err: any) {
       message.error(err.message)
@@ -264,25 +264,23 @@ export default function LeaderDashboard() {
                 columns={[
                   {
                     title: "客户",
-                    dataIndex: "customer_name",
+                      render: (_: any, r: any) => r.booking?.customer_name || "-",
                     width: 100,
                   },
                   {
                     title: "路线",
                     width: 240,
-                    render: (_: any, r: any) => r.from_address + " → " + r.to_address,
+                    render: (_: any, r: any) => (r.booking?.from_address || "-") + " → " + (r.booking?.to_address || "-"),
                   },
                   {
                     title: "日期",
-                    dataIndex: "planned_start",
                     width: 180,
-                    render: (v: string) => dayjs(v).format("YYYY-MM-DD HH:mm"),
+                    render: (_: any, r: any) => r.schedule?.planned_start ? dayjs(r.schedule.planned_start).format("YYYY-MM-DD HH:mm") : "-",
                   },
                   {
                     title: "状态",
-                    dataIndex: "status",
                     width: 100,
-                    render: (s: string) => <StatusBadge type="assignment" value={s as any} />,
+                    render: (_: any, r: any) => <StatusBadge type="schedule" value={r.schedule?.status || r.status} />,
                   },
                 ]}
               />

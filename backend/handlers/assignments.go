@@ -72,7 +72,14 @@ func (h *Handler) GetCrewReview() fiber.Handler {
 		cidStr := c.Params("member_id")
 		if cidStr == "" { cidStr = c.Query("member_id") }
 		if cidStr == "" { cidStr = c.Query("crew_id") }
-		if cidStr == "" { return c.Status(400).JSON(fiber.Map{"error":"no crew_id"}) }
+		if cidStr == "" {
+uid := c.Query("user_id")
+if uid != "" {
+var cm models.CrewMember
+if h.DB.Where("user_id=?", uid).First(&cm).Error == nil { cidStr = cm.ID.String() }
+}
+}
+if cidStr == "" { return c.Status(400).JSON(fiber.Map{"error":"no crew_id"}) }
 		cid,e:=uuid.Parse(cidStr)
 		if e!=nil { return c.Status(400).JSON(fiber.Map{"error":"bad id"}) }
 		sd:=c.Query("start_date"); ed:=c.Query("end_date")

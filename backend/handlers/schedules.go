@@ -45,12 +45,16 @@ func (h *Handler) CreateScheduleAndAssign() fiber.Handler {
 func (h *Handler) ListSchedules() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		page:=c.QueryInt("page",1); ps:=c.QueryInt("page_size",20)
-		vid:=c.Query("vehicle_id"); bid:=c.Query("booking_id"); status:=c.Query("status"); date:=c.Query("date"); leader_id:=c.Query("leader_id")
+		vid:=c.Query("vehicle_id"); bid:=c.Query("booking_id"); status:=c.Query("status"); date:=c.Query("date"); leader_id:=c.Query("leader_id"); user_id:=c.Query("user_id")
 		q:=h.DB.Model(&models.VehicleSchedule{})
 		if vid!="" { q=q.Where("vehicle_id=?",vid) }
 		if bid!="" { q=q.Where("booking_id=?",bid) }
 		if status!="" { q=q.Where("status=?",status) }
 		if date!="" { if t,e:=time.Parse("2006-01-02",date); e==nil { q=q.Where("DATE(planned_start)=?",t.Format("2006-01-02")) } }
+if user_id!="" && leader_id=="" {
+var cm models.CrewMember
+if h.DB.Where("user_id=?",user_id).First(&cm).Error==nil { leader_id=cm.ID.String() }
+}
 		if leader_id!="" { q=q.Where("leader_id=?",leader_id) }
 		var d []models.VehicleSchedule
 		r,e:=models.Paginate(q.Preload("Vehicle").Preload("Booking").Preload("Leader").Preload("Assignments").Preload("Assignments.Crew").Order("planned_start DESC"),page,ps,&d)

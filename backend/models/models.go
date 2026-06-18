@@ -148,6 +148,7 @@ const (
 
 type CrewMember struct {
 	ID        uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+UserID    *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
 	Name      string     `gorm:"size:50;not null" json:"name"`
 	Phone     string     `gorm:"size:20;not null" json:"phone"`
 	IDCard    string     `gorm:"size:20" json:"id_card"`
@@ -361,6 +362,7 @@ func SeedData(db *gorm.DB) error {
 	}
 	for i := range crewMembers {
 		if len(crewUserIDs) > i {
+			crewMembers[i].UserID = &crewUserIDs[i]
 		}
 		if err := db.Create(&crewMembers[i]).Error; err != nil {
 			return err

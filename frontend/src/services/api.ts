@@ -176,6 +176,7 @@ export const listAssignments = (params?: {
 export const getCrewReview = (memberId: string, params?: {
   start_date?: string
   end_date?: string
+  user_id?: string
 }): Promise<CrewReviewResult> =>
   request.get("/assignments/review/" + memberId, { params }).then(r => r.data)
 
@@ -191,6 +192,8 @@ export const uploadDamagePhoto = (data: CreateDamagePhotoRequest): Promise<Damag
 
 export const listExceptions = (params?: {
   booking_id?: string
+  leader_id?: string
+  user_id?: string
   status?: ExceptionStatus
   type?: ExceptionType
   page?: number
@@ -221,6 +224,8 @@ export const markAllNotificationsRead = (data?: MarkAllReadRequest): Promise<{ m
 // Damage Photos
 export const listDamagePhotos = (params?: {
   booking_id?: string
+  leader_id?: string
+  user_id?: string
   exception_id?: string
   page?: number
   page_size?: number
