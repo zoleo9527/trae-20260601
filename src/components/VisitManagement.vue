@@ -47,7 +47,8 @@
               <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">类型</th>
               <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">关怀等级</th>
               <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">计划日期</th>
-              <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">状态</th>
+              <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">回访状态</th>
+              <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">问题状态</th>
               <th class="px-5 py-3 text-left text-sm font-semibold text-gray-600">操作</th>
             </tr>
           </thead>
@@ -80,6 +81,25 @@
                 >
                   {{ getStatusLabel(visit.status) }}
                 </span>
+              </td>
+              <td class="px-5 py-4">
+                <template v-if="getRelatedIssueInfo(visit.id)">
+                  <div class="space-y-1">
+                    <span
+                      class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
+                      :class="getIssueStatusClass(getRelatedIssueInfo(visit.id)!.status)"
+                    >
+                      <AlertTriangle class="w-3 h-3" />
+                      {{ getIssueStatusLabel(getRelatedIssueInfo(visit.id)!.status) }}
+                    </span>
+                    <p class="text-xs text-gray-500">
+                      责任人: {{ getRelatedIssueInfo(visit.id)!.assignedName || getRelatedIssueInfo(visit.id)!.reporterName }}
+                    </p>
+                  </div>
+                </template>
+                <template v-else>
+                  <span class="text-xs text-gray-400">-</span>
+                </template>
               </td>
               <td class="px-5 py-4">
                 <button
@@ -269,25 +289,49 @@
               <div
                 v-for="issue in relatedIssues"
                 :key="issue.id"
-                class="p-3 bg-gray-50 rounded-lg border border-gray-200"
+                class="p-4 bg-gray-50 rounded-lg border border-gray-200"
               >
-                <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center justify-between mb-3">
                   <h4 class="font-medium text-gray-900">{{ issue.title }}</h4>
                   <span
-                    class="text-xs px-2 py-0.5 rounded-full"
+                    class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full"
                     :class="getIssueStatusClass(issue.status)"
                   >
+                    <AlertTriangle class="w-3 h-3" />
                     {{ getIssueStatusLabel(issue.status) }}
                   </span>
                 </div>
-                <p class="text-sm text-gray-600">{{ issue.description }}</p>
-                <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
-                  <span>分类: {{ issue.category }}</span>
-                  <span>上报人: {{ issue.reporterName }}</span>
-                  <span>{{ formatDate(issue.createdAt) }}</span>
+                <p class="text-sm text-gray-600 mb-3">{{ issue.description }}</p>
+                
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                  <div class="bg-white rounded-lg p-2">
+                    <p class="text-xs text-gray-500 mb-1">上报人</p>
+                    <p class="text-sm font-medium text-gray-900">{{ issue.reporterName }}</p>
+                  </div>
+                  <div class="bg-white rounded-lg p-2">
+                    <p class="text-xs text-gray-500 mb-1">当前处理人</p>
+                    <p class="text-sm font-medium text-gray-900">{{ issue.assignedName || '待分配' }}</p>
+                  </div>
                 </div>
-                <div v-if="issue.assignedName" class="mt-2 text-xs text-gray-500">
-                  处理人: {{ issue.assignedName }}
+                
+                <div class="bg-white rounded-lg p-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span 
+                      class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full font-medium"
+                      :class="getHandlerRoleBadge(issue)"
+                    >
+                      {{ getHandlerRoleLabel(issue) }}
+                    </span>
+                    <span class="text-xs text-gray-500">{{ getHandlerStage(issue) }}</span>
+                  </div>
+                  <p v-if="issue.escalationReason" class="text-xs text-orange-600 bg-orange-50 rounded p-2">
+                    升级原因: {{ issue.escalationReason }}
+                  </p>
+                </div>
+                
+                <div class="flex items-center gap-4 mt-3 text-xs text-gray-500">
+                  <span>分类: {{ issue.category }}</span>
+                  <span>{{ formatDate(issue.createdAt) }}</span>
                 </div>
               </div>
             </div>
@@ -524,6 +568,55 @@ const canBlockVisit = computed(() => ['socialWorker', 'volunteerLeader'].include
 const canReportIssue = computed(() => currentRole.value === 'socialWorker')
 
 const hasRelatedIssues = computed(() => relatedIssues.value.length > 0)
+
+const issuesByVisit = computed(() => {
+  const map: Record<string, Issue> = {}
+  for (const issue of store.state.issues) {
+    if (!map[issue.visitId] || getIssuePriority(issue.status) > getIssuePriority(map[issue.visitId].status)) {
+      map[issue.visitId] = issue
+    }
+  }
+  return map
+})
+
+function getRelatedIssueInfo(visitId: string): Issue | null {
+  return issuesByVisit.value[visitId] || null
+}
+
+function getIssuePriority(status: IssueStatus): number {
+  const priorities: Record<IssueStatus, number> = {
+    escalated: 4,
+    pending: 3,
+    processing: 2,
+    resolved: 1
+  }
+  return priorities[status]
+}
+
+function getHandlerRoleLabel(issue: Issue): string {
+  if (issue.status === 'pending') return '待处理'
+  if (issue.status === 'escalated') return '社区干部'
+  if (issue.assignedName) return issue.assignedName
+  return '待分配'
+}
+
+function getHandlerRoleBadge(issue: Issue): string {
+  if (issue.status === 'pending') return 'bg-yellow-100 text-yellow-700'
+  if (issue.status === 'escalated') return 'bg-red-100 text-red-700'
+  if (issue.status === 'processing') return 'bg-blue-100 text-blue-700'
+  if (issue.status === 'resolved') return 'bg-green-100 text-green-700'
+  return 'bg-gray-100 text-gray-700'
+}
+
+function getHandlerStage(issue: Issue): string {
+  const stages: Record<IssueStatus, string> = {
+    pending: '等待志愿队长接手处理',
+    processing: '志愿队长处理中',
+    resolved: '问题已解决',
+    escalated: '需社区干部协调处理'
+  }
+  return stages[issue.status]
+}
 
 const drawerTitle = computed(() => {
   if (!selectedVisit.value) return '回访详情'

@@ -70,24 +70,60 @@
           </div>
           <div v-else class="space-y-3">
             <template v-for="visit in blockedVisits" :key="'v-' + visit.id">
-              <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-                <div class="flex items-center justify-between">
-                  <div>
+              <div class="p-4 bg-red-50 rounded-lg border border-red-100">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex-1">
                     <p class="font-medium text-gray-900">{{ visit.keyPerson.name }}</p>
                     <p class="text-sm text-gray-500">{{ visit.keyPerson.address }}</p>
                   </div>
-                  <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">回访卡住</span>
+                  <div class="flex flex-col items-end gap-1">
+                    <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">回访卡住</span>
+                    <span class="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded-full">社工执行</span>
+                  </div>
+                </div>
+                <div class="bg-white rounded-lg p-3 mb-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                    <span class="text-xs font-medium text-gray-900">处理环节：社工回访</span>
+                  </div>
+                  <p class="text-xs text-gray-600">
+                    <span class="font-medium text-red-600">卡点：</span>{{ visit.notes || '多次上门无人应答' }}
+                  </p>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-500">负责人：{{ visit.socialWorkerName }}</span>
+                  <span class="text-xs text-gray-400">需协调解决</span>
                 </div>
               </div>
             </template>
             <template v-for="issue in escalatedIssues" :key="'i-' + issue.id">
-              <div class="p-3 bg-red-50 rounded-lg border border-red-100">
-                <div class="flex items-center justify-between">
-                  <div>
+              <div class="p-4 bg-red-50 rounded-lg border border-red-100">
+                <div class="flex items-start justify-between mb-3">
+                  <div class="flex-1">
                     <p class="font-medium text-gray-900">{{ issue.title }}</p>
-                    <p class="text-sm text-gray-500">{{ issue.description }}</p>
+                    <p class="text-sm text-gray-500">{{ truncateText(issue.description, 40) }}</p>
                   </div>
-                  <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">问题升级</span>
+                  <div class="flex flex-col items-end gap-1">
+                    <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full">问题升级</span>
+                    <span class="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded-full">需社区干部</span>
+                  </div>
+                </div>
+                <div class="bg-white rounded-lg p-3 mb-3">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="w-2 h-2 bg-orange-500 rounded-full"></span>
+                    <span class="text-xs font-medium text-gray-900">处理环节：问题升级</span>
+                  </div>
+                  <p class="text-xs text-gray-600 mb-2">
+                    <span class="font-medium text-orange-600">卡点：</span>{{ issue.escalationReason || '志愿队长无法处理' }}
+                  </p>
+                  <div class="flex items-center gap-4">
+                    <span class="text-xs text-gray-500">上报人：{{ issue.reporterName }}</span>
+                    <span class="text-xs text-gray-500">→ 处理人：{{ issue.assignedName || '待定' }}</span>
+                  </div>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-xs text-gray-500">责任归属：志愿队长</span>
+                  <span class="text-xs text-orange-600 font-medium">需社区干部协调</span>
                 </div>
               </div>
             </template>
@@ -176,6 +212,11 @@ function getStatusClass(status: VisitStatus): string {
     blocked: 'bg-red-100 text-red-700'
   }
   return map[status]
+}
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return text.slice(0, maxLength) + '...'
 }
 
 onMounted(async () => {
