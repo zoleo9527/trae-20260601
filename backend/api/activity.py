@@ -76,37 +76,55 @@ def check_activity_exceptions(activity_id: int, db: Session = Depends(get_db)):
     applications = db.query(Application).filter(Application.activity_id == activity_id).all()
     
     exceptions_created = []
+    exceptions_resolved = []
+    exceptions_updated = []
     
     for post in posts:
+        existing_exception = db.query(ExceptionRecord).filter(
+            ExceptionRecord.type == ExceptionType.POST_NOT_FILLED,
+            ExceptionRecord.related_post_id == post.id,
+            ExceptionRecord.status != ExceptionStatus.RESOLVED
+        ).first()
+        
+        missing_count = post.capacity - post.current_count
         if post.current_count < post.capacity:
-            existing_exception = db.query(ExceptionRecord).filter(
-                ExceptionRecord.type == ExceptionType.POST_NOT_FILLED,
-                ExceptionRecord.related_post_id == post.id,
-                ExceptionRecord.status != ExceptionStatus.RESOLVED
-            ).first()
-            
-            if not existing_exception:
+            if existing_exception:
+                new_desc = f"活动「{activity.title}」的「{post.name}」还差 {missing_count} 人"
+                if existing_exception.description != new_desc:
+                    existing_exception.description = new_desc
+                    exceptions_updated.append(f"岗位未填满: {post.name} (更新)")
+            else:
                 exception = ExceptionRecord(
                     type=ExceptionType.POST_NOT_FILLED,
                     title=f"岗位未填满",
-                    description=f"活动「{activity.title}」的「{post.name}」还差 {post.capacity - post.current_count} 人",
+                    description=f"活动「{activity.title}」的「{post.name}」还差 {missing_count} 人",
                     related_activity_id=activity_id,
                     related_post_id=post.id,
                     status=ExceptionStatus.PENDING
                 )
                 db.add(exception)
                 exceptions_created.append(f"岗位未填满: {post.name}")
+        else:
+            if existing_exception:
+                existing_exception.status = ExceptionStatus.RESOLVED
+                existing_exception.description = f"活动「{activity.title}」的「{post.name}」已满员"
+                exceptions_resolved.append(f"岗位已满: {post.name}")
     
     approved_apps = [app for app in applications if app.status == ApplicationStatus.APPROVED]
     for app in approved_apps:
+        existing_exception = db.query(ExceptionRecord).filter(
+            ExceptionRecord.type == ExceptionType.APPLICATION_STUCK,
+            ExceptionRecord.related_application_id == app.id,
+            ExceptionRecord.status != ExceptionStatus.RESOLVED
+        ).first()
+        
         if not app.assigned_post_id:
-            existing_exception = db.query(ExceptionRecord).filter(
-                ExceptionRecord.type == ExceptionType.APPLICATION_STUCK,
-                ExceptionRecord.related_application_id == app.id,
-                ExceptionRecord.status != ExceptionStatus.RESOLVED
-            ).first()
-            
-            if not existing_exception:
+            if existing_exception:
+                new_desc = f"志愿者已通过审核但未分配岗位，报名ID: {app.id}"
+                if existing_exception.description != new_desc:
+                    existing_exception.description = new_desc
+                    exceptions_updated.append(f"报名卡壳: 报名ID {app.id} (更新)")
+            else:
                 exception = ExceptionRecord(
                     type=ExceptionType.APPLICATION_STUCK,
                     title="报名卡壳",
@@ -117,17 +135,39 @@ def check_activity_exceptions(activity_id: int, db: Session = Depends(get_db)):
                 )
                 db.add(exception)
                 exceptions_created.append(f"报名卡壳: 报名ID {app.id}")
+        else:
+            if existing_exception:
+                existing_exception.status = ExceptionStatus.RESOLVED
+                existing_exception.description = f"报名ID: {app.id} 已分配到岗位"
+                exceptions_resolved.append(f"报名已分配: 报名ID {app.id}")
     
-    completed_apps = [app for app in applications if app.status == ApplicationStatus.COMPLETED]
-    for app in completed_apps:
-        if not app.process_remarks or "时长" not in app.process_remarks:
+    for app in applications:
+        if app.status != ApplicationStatus.COMPLETED:
             existing_exception = db.query(ExceptionRecord).filter(
                 ExceptionRecord.type == ExceptionType.FOLLOWUP_BROKEN,
                 ExceptionRecord.related_application_id == app.id,
                 ExceptionRecord.status != ExceptionStatus.RESOLVED
             ).first()
-            
-            if not existing_exception:
+            if existing_exception:
+                existing_exception.status = ExceptionStatus.RESOLVED
+                existing_exception.description = f"报名ID: {app.id} 状态已变更"
+                exceptions_resolved.append(f"回访断档已关闭: 报名ID {app.id}")
+    
+    completed_apps = [app for app in applications if app.status == ApplicationStatus.COMPLETED]
+    for app in completed_apps:
+        existing_exception = db.query(ExceptionRecord).filter(
+            ExceptionRecord.type == ExceptionType.FOLLOWUP_BROKEN,
+            ExceptionRecord.related_application_id == app.id,
+            ExceptionRecord.status != ExceptionStatus.RESOLVED
+        ).first()
+        
+        if not app.process_remarks or "时长" not in app.process_remarks:
+            if existing_exception:
+                new_desc = f"志愿者服务完成但时长未记录，需要回访确认，报名ID: {app.id}"
+                if existing_exception.description != new_desc:
+                    existing_exception.description = new_desc
+                    exceptions_updated.append(f"回访断档: 报名ID {app.id} (更新)")
+            else:
                 exception = ExceptionRecord(
                     type=ExceptionType.FOLLOWUP_BROKEN,
                     title="回访断档",
@@ -141,4 +181,9 @@ def check_activity_exceptions(activity_id: int, db: Session = Depends(get_db)):
     
     db.commit()
     
-    return {"message": f"已检查异常，新增 {len(exceptions_created)} 条记录", "exceptions": exceptions_created}
+    return {
+        "message": f"已检查异常，新增 {len(exceptions_created)} 条，更新 {len(exceptions_updated)} 条，关闭 {len(exceptions_resolved)} 条",
+        "created": exceptions_created,
+        "updated": exceptions_updated,
+        "resolved": exceptions_resolved
+    }

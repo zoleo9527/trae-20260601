@@ -244,14 +244,18 @@ async function handleCreatePost() {
  return;
  }
  try {
+ const activityId = postForm.activity_id;
  await postAPI.create({
  name: postForm.name,
- activity_id: postForm.activity_id,
+ activity_id: activityId,
  shift: postForm.shift,
  capacity: postForm.capacity,
  required_skills: postForm.required_skills,
  description: postForm.description
  });
+ 
+ await activityAPI.checkExceptions(activityId);
+ 
  ElMessage.success('创建成功');
  showCreatePostDialog.value = false;
  postForm.name = '';
