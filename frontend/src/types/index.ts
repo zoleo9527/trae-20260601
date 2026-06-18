@@ -16,7 +16,11 @@ export type VehicleStatus = "idle" | "busy" | "maintenance" | "out_of_service"
 
 export type CrewStatus = "active" | "inactive" | "on_leave"
 
-export type TimelineResult = Record<string, VehicleSchedule[]>
+export interface TimelineResult {
+  date: string
+  by_vehicle: Record<string, VehicleSchedule[]>
+  items: VehicleSchedule[]
+}
 
 export interface User {
   id: string

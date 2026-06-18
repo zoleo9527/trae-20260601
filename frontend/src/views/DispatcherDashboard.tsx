@@ -59,7 +59,7 @@ export default function DispatcherDashboard() {
   const [crews, setCrews] = useState<CrewMember[]>([])
   const [schedules, setSchedules] = useState<VehicleSchedule[]>([])
   const [exceptions, setExceptions] = useState<ExceptionRecord[]>([])
-  const [timeline, setTimeline] = useState<TimelineResult>({})
+  const [timeline, setTimeline] = useState<TimelineResult>({ date: "", by_vehicle: {}, items: [] })
 
   const [scheduleModal, setScheduleModal] = useState(false)
   const [currentBooking, setCurrentBooking] = useState<Booking | null>(null)
@@ -486,7 +486,7 @@ export default function DispatcherDashboard() {
   )
 
   const renderTodayBoard = () => {
-    const vids = Object.keys(timeline)
+    const vids = Object.keys(timeline.by_vehicle || {})
     if (vids.length === 0)
       return (
         <Spin spinning={loading}>
@@ -499,7 +499,7 @@ export default function DispatcherDashboard() {
       <Spin spinning={loading}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {vids.map(vid => {
-            const scheds = timeline[vid] || []
+            const scheds = (timeline.by_vehicle || {})[vid] || []
             const vh = scheds[0]?.vehicle || vehicles.find(v => v.id === vid)
             return (
               <Card
