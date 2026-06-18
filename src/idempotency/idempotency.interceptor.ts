@@ -1,7 +1,7 @@
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler } from '@nestjs/common';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
-import { IdempotencyService, IdempotencyStatus } from './idempotency.service';
+import { IdempotencyService } from './idempotency.service';
 
 @Injectable()
 export class IdempotencyInterceptor implements NestInterceptor {
@@ -32,12 +32,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
       tap(async (response) => {
         await this.idempotencyService.update(idempotencyKey, response);
       }),
-      catchError(async (error) => {
+      catchError(async (error: any) => {
         await this.idempotencyService.fail(idempotencyKey, {
           error: error.message,
           statusCode: error.status || 500,
+          timestamp: new Date().toISOString(),
         });
-        return throwError(() => error);
+        throw error;
       }),
     );
   }

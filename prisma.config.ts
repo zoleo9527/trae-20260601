@@ -1,3 +1,12 @@
-import { PrismaPlugin } from '@prisma/nextjs-monorepo-workaround';
+import { defineConfig } from '@prisma/client';
+import { config } from 'dotenv';
 
-export default PrismaPlugin;
+config();
+
+export default defineConfig({
+  datasources: {
+    db: {
+      url: process.env.DATABASE_URL,
+    },
+  },
+});

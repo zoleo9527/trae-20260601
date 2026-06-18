@@ -1,11 +1,9 @@
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url = "postgresql://postgres:postgres@localhost:5432/volunteer_db?schema=public"
 }
 
 model User {
