@@ -1,0 +1,227 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum Role {
+  EXHIBIT_EDUCATOR  // 展教员
+  EQUIPMENT_ENGINEER // 设备工程师
+  ACTIVITY_TEACHER   // 活动老师
+  ADMIN
+}
+
+enum ExhibitStatus {
+  NORMAL
+  SHUTDOWN_PLANNED   // 计划停机
+  SHUTDOWN_EMERGENCY // 紧急停机
+  MAINTENANCE
+  REPAIRING
+}
+
+enum ReservationStatus {
+  PENDING_CONFIRM      // 待确认
+  CONFIRMED            // 已确认
+  IN_PROGRESS          // 进行中
+  COMPLETED            // 已完成
+  CANCELLED            // 已取消
+  CONFLICT_DETECTED    // 撞档冲突
+  REJECTED             // 已退回
+}
+
+enum IssueType {
+  EXHIBIT_SHUTDOWN     // 展项停机
+  RESERVATION_CONFLICT // 预约撞档
+  MATERIAL_OUT_OF_STOCK // 材料缺货
+  OTHER
+}
+
+enum IssueStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum ScheduleStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  role      Role
+  phone     String?
+  email     String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  exhibitIssues      ExhibitIssue[]
+  reservations        Reservation[]
+  schedules           Schedule[]
+  materialIssues      MaterialIssue[]
+  auditLogs           AuditLog[]
+  assignedSchedules   Schedule[] @relation("AssigneeSchedules")
+}
+
+model ExhibitIssue {
+  id          String   @id @default(uuid())
+  exhibitId   String
+  exhibitName String
+  status      ExhibitStatus
+  cause       String?  // 停机原因
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id])
+  handlerId   String?
+  handler     User?    @relation(fields: [handlerId], references: [id])
+  reportedAt  DateTime @default(now())
+  resolvedAt  DateTime?
+  deadline    DateTime? // 处理时限
+  notes       String?
+  
+  // 撞档相关：受影响的预约
+  affectedReservations Reservation[]
+  
+  // 复盘记录
+  reviewRecord String? // 复盘说明
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Reservation {
+  id            String   @id @default(uuid())
+  visitorGroup  String   // 参观团体名称
+  visitorCount  Int      // 参观人数
+  contactName   String
+  contactPhone  String
+  contactEmail  String?
+  
+  exhibitId     String?  // 关联展项
+  exhibitName   String?
+  
+  // 预约时间段
+  startTime     DateTime
+  endTime       DateTime
+  
+  status        ReservationStatus @default(PENDING_CONFIRM)
+  
+  // 关联的问题
+  exhibitIssueId String?
+  exhibitIssue   ExhibitIssue? @relation(fields: [exhibitIssueId], references: [id])
+  
+  // 预约创建和处理
+  createdById   String
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  
+  // 退回原因
+  rejectionReason String?
+  rejectedAt     DateTime?
+  rejectedById   String?
+  
+  // 复盘标记
+  needsReview    Boolean @default(false)
+  reviewReason   String?
+  
+  // 排班会自动关联
+  schedule       Schedule?
+  
+  notes          String?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Schedule {
+  id              String   @id @default(uuid())
+  
+  // 关联的预约
+  reservationId   String   @unique
+  reservation     Reservation @relation(fields: [reservationId], references: [id])
+  
+  // 排班信息
+  educatorId      String?  // 展教员
+  educator        User?    @relation("AssigneeSchedules", fields: [educatorId], references: [id])
+  
+  status          ScheduleStatus @default(PENDING)
+  
+  // 时间段（可与预约略有不同）
+  scheduledStart  DateTime
+  scheduledEnd    DateTime
+  
+  // 完成情况
+  actualStart     DateTime?
+  actualEnd       DateTime?
+  completionNotes String?
+  
+  assignedAt      DateTime?
+  assignedById    String?
+  
+  // 交接备注
+  handoverNotes   String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model MaterialIssue {
+  id          String   @id @default(uuid())
+  
+  materialName String
+  quantity    Int      // 缺货数量/需要数量
+  unit        String?  // 单位
+  
+  issueType   IssueType @default(MATERIAL_OUT_OF_STOCK)
+  
+  status      IssueStatus @default(OPEN)
+  
+  reporterId  String
+  reporter    User     @relation(fields: [reporterId], references: [id])
+  
+  handlerId   String?
+  handler     User?    @relation(fields: [handlerId], references: [id])
+  
+  reportedAt  DateTime @default(now())
+  deadline    DateTime?
+  resolvedAt  DateTime?
+  
+  notes       String?
+  resolution  String?  // 解决方案
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  
+  // 谁做的
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // 做了什么
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, REVIEW, ASSIGN
+  entityType  String   // Reservation, Schedule, ExhibitIssue, etc.
+  entityId    String
+  
+  // 详情
+  description String   // 便于阅读的描述
+  oldValue    String?  // JSON字符串
+  newValue    String?  // JSON字符串
+  
+  // 关联预约（如果有）
+  reservationId String?
+  
+  ipAddress   String?
+  userAgent   String?
+  
+  createdAt   DateTime @default(now())
+}
