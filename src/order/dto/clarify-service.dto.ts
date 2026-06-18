@@ -1,12 +1,7 @@
-import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsBoolean, IsNotEmpty, IsOptional, IsString, IsUUID } from "class-validator";
+import { ApiPropertyOptional } from "@nestjs/swagger";
+import { IsBoolean, IsOptional, IsString } from "class-validator";
 
 export class ClarifyServiceDto {
-  @ApiProperty({ description: "订单ID" })
-  @IsNotEmpty()
-  @IsUUID()
-  orderId: string;
-
   @ApiPropertyOptional({ description: "服务内容澄清" })
   @IsOptional()
   @IsString()

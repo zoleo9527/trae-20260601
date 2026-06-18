@@ -127,8 +127,8 @@ export class OrderService {
     return saved;
   }
 
-  async reportNoShow(dto: ReportNoShowDto, actor: Actor): Promise<Order> {
-    const order = await this.findOneOrFail(dto.orderId);
+  async reportNoShow(id: string, dto: ReportNoShowDto, actor: Actor): Promise<Order> {
+    const order = await this.findOneOrFail(id);
     const oldStatus = order.status;
     const newStatus =
       dto.noShowParty === NoShowParty.HOUSEKEEPER
@@ -144,7 +144,7 @@ export class OrderService {
     const saved = await this.orderRepo.save(order);
     await this.auditService.logStatusChange(
       "ORDER",
-      dto.orderId,
+      id,
       "status",
       oldStatus,
       newStatus,
@@ -165,8 +165,8 @@ export class OrderService {
     return saved;
   }
 
-  async handleNoShow(dto: HandleNoShowDto, actor: Actor): Promise<Order> {
-    const order = await this.findOneOrFail(dto.orderId);
+  async handleNoShow(id: string, dto: HandleNoShowDto, actor: Actor): Promise<Order> {
+    const order = await this.findOneOrFail(id);
     if (
       order.status !== OrderStatus.NO_SHOW_BY_HOUSEKEEPER &&
       order.status !== OrderStatus.NO_SHOW_BY_CUSTOMER
@@ -180,7 +180,7 @@ export class OrderService {
       order.ownerName = dto.assignOwnerName;
     }
     const saved = await this.orderRepo.save(order);
-    await this.auditQuickLog(dto.orderId, AuditAction.HANDLE_NO_SHOW, actor, {
+    await this.auditQuickLog(id, AuditAction.HANDLE_NO_SHOW, actor, {
       resolutionType: dto.resolutionType,
       resolution: dto.resolution,
       assignedOwner: dto.assignOwnerRole
@@ -202,8 +202,8 @@ export class OrderService {
     return saved;
   }
 
-  async clarifyService(dto: ClarifyServiceDto, actor: Actor): Promise<Order> {
-    const order = await this.findOneOrFail(dto.orderId);
+  async clarifyService(id: string, dto: ClarifyServiceDto, actor: Actor): Promise<Order> {
+    const order = await this.findOneOrFail(id);
     const old = {
       serviceScope: order.serviceScope,
       clarificationContactCount: order.clarificationContactCount,
@@ -217,7 +217,7 @@ export class OrderService {
       order.clarificationContactCount += 1;
     }
     const saved = await this.orderRepo.save(order);
-    await this.auditQuickLog(dto.orderId, AuditAction.CLARIFY, actor, {
+    await this.auditQuickLog(id, AuditAction.CLARIFY, actor, {
       old,
       new: {
         serviceScope: saved.serviceScope,

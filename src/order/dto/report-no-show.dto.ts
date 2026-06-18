@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
 import { Role } from "../../common/enums";
 
 export enum NoShowParty {
@@ -8,11 +8,6 @@ export enum NoShowParty {
 }
 
 export class ReportNoShowDto {
-  @ApiProperty({ description: "订单ID" })
-  @IsNotEmpty()
-  @IsUUID()
-  orderId: string;
-
   @ApiProperty({ description: "爽约方", enum: NoShowParty })
   @IsNotEmpty()
   @IsEnum(NoShowParty)

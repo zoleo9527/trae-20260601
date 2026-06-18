@@ -7,12 +7,13 @@ import { Order } from '../../order/entities/order.entity';
 import { Review } from '../../review/review.entity';
 import { MatchingAttempt } from '../../matching/entities/matching-attempt.entity';
 import { MatchingSnapshot } from '../../matching/entities/matching-snapshot.entity';
-import { AuditLog } from '../../audit/entities/audit-log.entity';
+import { AuditLog, AuditAction } from '../../audit/entities/audit-log.entity';
 import { HousekeeperService } from '../../housekeeper/service/housekeeper.service';
 import { IntakeService } from '../../intake/service/intake.service';
 import { OrderService } from '../../order/service/order.service';
 import { ReviewService } from '../../review/service/review.service';
-import { Role, IntakeStatus, IntakeBlockReason, HousekeeperStatus } from '../../common/enums';
+import { AuditService } from '../../audit/service/audit.service';
+import { Role, IntakeStatus, IntakeBlockReason, HousekeeperStatus, MatchingStatus, MatchingFailReason } from '../../common/enums';
 import { OrderStatus } from '../../common/enums/order-status.enum';
 import { ReviewStatus } from '../../common/enums/review-status.enum';
 
@@ -37,6 +38,7 @@ export class SeederService {
     private readonly intakeService: IntakeService,
     private readonly orderService: OrderService,
     private readonly reviewService: ReviewService,
+    private readonly auditService: AuditService,
   ) {}
 
   private generateIntakeNo(): string {
@@ -131,15 +133,52 @@ export class SeederService {
     return created;
   }
 
+  async seedMatchingData(intakes: Intake[], housekeepers: Housekeeper[]) {
+    const zhouIntake = intakes.find(i => i.customerName === '周女士');
+    const liuHk = housekeepers.find(h => h.name === '刘阿姨');
+    const wangHk = housekeepers.find(h => h.name === '王阿姨');
+    const zhaoHk = housekeepers.find(h => h.name === '赵阿姨');
+    const liHk = housekeepers.find(h => h.name === '李阿姨');
+    if (!zhouIntake) return { snapshots: 0, attempts: 0 };
+    const round1Attempts = [
+      this.matchingAttemptRepo.create({ intakeId: zhouIntake.id, housekeeperId: liuHk.id, round: 1, rank: 1, status: MatchingStatus.RECOMMENDED, score: 80, failReason: MatchingFailReason.NONE, recommendedAt: new Date(), actorRole: Role.CUSTOMER_SERVICE, actorId: 'system' }),
+      this.matchingAttemptRepo.create({ intakeId: zhouIntake.id, housekeeperId: wangHk.id, round: 1, rank: 2, status: MatchingStatus.RECOMMENDED, score: 60, failReason: MatchingFailReason.AREA_NOT_COVERED, failDetails: '王阿姨服务区域为海淀区，不覆盖东城区', recommendedAt: new Date(), actorRole: Role.CUSTOMER_SERVICE, actorId: 'system' }),
+      this.matchingAttemptRepo.create({ intakeId: zhouIntake.id, housekeeperId: zhaoHk.id, round: 1, rank: 3, status: MatchingStatus.REJECTED_BY_CUSTOMER, score: 35, failReason: MatchingFailReason.SKILL_MISMATCH, failDetails: '赵阿姨技能为老人护理、烹饪，与保洁需求不匹配', recommendedAt: new Date(), customerRejectedAt: new Date(), actorRole: Role.CUSTOMER_SERVICE, actorId: zhouIntake.customerPhone }),
+    ];
+    const round2Attempts = [
+      this.matchingAttemptRepo.create({ intakeId: zhouIntake.id, housekeeperId: liuHk.id, round: 2, rank: 1, status: MatchingStatus.ACCEPTED, score: 80, failReason: MatchingFailReason.NONE, recommendedAt: new Date(), acceptedAt: new Date(), actorRole: Role.CUSTOMER_SERVICE, actorId: zhouIntake.customerPhone }),
+      this.matchingAttemptRepo.create({ intakeId: zhouIntake.id, housekeeperId: liHk.id, round: 2, rank: 2, status: MatchingStatus.REJECTED_BY_HOUSEKEEPER, score: 40, failReason: MatchingFailReason.SKILL_MISMATCH, failDetails: '李阿姨技能为月嫂、育儿嫂，与保洁需求不匹配', recommendedAt: new Date(), housekeeperRejectedAt: new Date(), actorRole: Role.HOUSEKEEPER, actorId: liHk.id }),
+    ];
+    const savedAttempts: MatchingAttempt[] = [];
+    for (const a of [...round1Attempts, ...round2Attempts]) { savedAttempts.push(await this.matchingAttemptRepo.save(a)); }
+    const round1Snapshot = this.matchingSnapshotRepo.create({ intakeId: zhouIntake.id, round: 1, generatedBy: 'system', totalCandidates: 3, shortlistedCandidates: 0, snapshotJson: JSON.stringify([{ housekeeperName: '刘阿姨', score: 80, status: 'RECOMMENDED' }, { housekeeperName: '王阿姨', score: 60, status: 'RECOMMENDED' }, { housekeeperName: '赵阿姨', score: 35, status: 'REJECTED_BY_CUSTOMER' }]) });
+    const round2Snapshot = this.matchingSnapshotRepo.create({ intakeId: zhouIntake.id, round: 2, generatedBy: 'system', totalCandidates: 2, shortlistedCandidates: 1, snapshotJson: JSON.stringify([{ housekeeperName: '刘阿姨', score: 80, status: 'ACCEPTED' }, { housekeeperName: '李阿姨', score: 40, status: 'REJECTED_BY_HOUSEKEEPER' }]) });
+    await this.matchingSnapshotRepo.save(round1Snapshot);
+    await this.matchingSnapshotRepo.save(round2Snapshot);
+    return { snapshots: 2, attempts: savedAttempts.length };
+  }
+
+  async seedAuditLogs(intakes: Intake[]) {
+    let count = 0;
+    for (const intake of intakes) {
+      await this.auditService.quickLog('Intake', intake.id, AuditAction.CREATE, '创建客户需求: ' + intake.customerName, { role: intake.ownerRole, id: intake.ownerId, name: intake.ownerName });
+      count++;
+    }
+    return count;
+  }
+
+
   async seed() {
     await this.clearAll();
     const housekeepers = await this.seedHousekeepers();
     const intakes = await this.seedIntakes();
     const orders = await this.seedOrders(housekeepers, intakes);
     const reviews = await this.seedReviews(orders, housekeepers);
+    const matching = await this.seedMatchingData(intakes, housekeepers);
+    const auditCount = await this.seedAuditLogs(intakes);
     return {
       success: true,
-      counts: { housekeepers: housekeepers.length, intakes: intakes.length, orders: orders.length, reviews: reviews.length },
+      counts: { housekeepers: housekeepers.length, intakes: intakes.length, orders: orders.length, reviews: reviews.length, matchingSnapshots: matching.snapshots, matchingAttempts: matching.attempts, auditLogs: auditCount },
     };
   }
 

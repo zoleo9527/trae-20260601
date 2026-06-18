@@ -121,8 +121,8 @@ export class OrderController {
 
   @Post(':id/report-no-show')
   @ApiOperation({ summary: '上报爽约' })
-  reportNoShow(@Body() dto: ReportNoShowDto, @Body() body: any = {}) {
-    return this.svc.reportNoShow(dto, {
+  reportNoShow(@Param("id") id: string, @Body() dto: ReportNoShowDto, @Body() body: any = {}) {
+    return this.svc.reportNoShow(id, dto, {
       role: body.actorRole || Role.CUSTOMER_SERVICE,
       id: body.actorId || 'system',
       name: body.actorName || 'system',
@@ -131,8 +131,8 @@ export class OrderController {
 
   @Post(':id/handle-no-show')
   @ApiOperation({ summary: '处理爽约' })
-  handleNoShow(@Body() dto: HandleNoShowDto, @Body() body: any = {}) {
-    return this.svc.handleNoShow(dto, {
+  handleNoShow(@Param("id") id: string, @Body() dto: HandleNoShowDto, @Body() body: any = {}) {
+    return this.svc.handleNoShow(id, dto, {
       role: body.actorRole || Role.CUSTOMER_SERVICE,
       id: body.actorId || 'system',
       name: body.actorName || 'system',
@@ -141,8 +141,8 @@ export class OrderController {
 
   @Post(':id/clarify-service')
   @ApiOperation({ summary: '服务内容澄清' })
-  clarifyService(@Body() dto: ClarifyServiceDto, @Body() body: any = {}) {
-    return this.svc.clarifyService(dto, {
+  clarifyService(@Param("id") id: string, @Body() dto: ClarifyServiceDto, @Body() body: any = {}) {
+    return this.svc.clarifyService(id, dto, {
       role: body.actorRole || Role.CUSTOMER_SERVICE,
       id: body.actorId || 'system',
       name: body.actorName || 'system',

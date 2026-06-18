@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from "@nestjs/swagger";
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsUUID, MaxLength } from "class-validator";
+import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength } from "class-validator";
 import { Role } from "../../common/enums";
 
 export enum NoShowResolutionType {
@@ -9,11 +9,6 @@ export enum NoShowResolutionType {
 }
 
 export class HandleNoShowDto {
-  @ApiProperty({ description: "订单ID" })
-  @IsNotEmpty()
-  @IsUUID()
-  orderId: string;
-
   @ApiProperty({ description: "处理方案类型", enum: NoShowResolutionType })
   @IsNotEmpty()
   @IsEnum(NoShowResolutionType)

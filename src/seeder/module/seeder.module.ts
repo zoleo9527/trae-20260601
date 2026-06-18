@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { SeederController } from '../controller/seeder.controller';
 import { SeederService } from '../service/seeder.service';
 import { Housekeeper } from '../../housekeeper/entities/housekeeper.entity';
 import { Intake } from '../../intake/entities/intake.entity';
@@ -33,6 +34,7 @@ import { AuditModule } from '../../audit/module/audit.module';
     MatchingModule,
     AuditModule,
   ],
+  controllers: [SeederController],
   providers: [SeederService],
   exports: [SeederService],
 })

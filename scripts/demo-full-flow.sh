@@ -314,7 +314,6 @@ echo "--- 订单2 (周女士)：服务内容澄清 ---"
 RESP=$(curl -s -X POST "$BASE_URL/orders/$ORDER_2/clarify-service" \
   -H "Content-Type: application/json" \
   -d "{
-    \"orderId\": \"$ORDER_2\",
     \"serviceScope\": \"每周一至周五上午9点-12点，打扫卫生、做饭、洗衣服，不包含擦玻璃和油烟机深度清洁\",
     \"contactCountIncrement\": true,
     \"notes\": \"已与客户电话确认服务范围，客户明确表示不需要深度清洁服务\",
@@ -334,7 +333,6 @@ echo "--- 订单1 (陈女士)：阿姨爽约 ---"
 RESP=$(curl -s -X POST "$BASE_URL/orders/$ORDER_1/report-no-show" \
   -H "Content-Type: application/json" \
   -d "{
-    \"orderId\": \"$ORDER_1\",
     \"noShowParty\": \"HOUSEKEEPER\",
     \"noShowReason\": \"阿姨临时有事无法到岗，且未提前24小时通知客户\",
     \"handlerRole\": \"CUSTOMER_SERVICE\",
@@ -356,7 +354,6 @@ echo "--- 订单1 (陈女士)：处理爽约 - 安排重新匹配 ---"
 RESP=$(curl -s -X POST "$BASE_URL/orders/$ORDER_1/handle-no-show" \
   -H "Content-Type: application/json" \
   -d "{
-    \"orderId\": \"$ORDER_1\",
     \"resolutionType\": \"REMATCH\",
     \"resolution\": \"已向客户致歉，安排张阿姨作为替代人选，预计明日到岗，额外赠送一次免费深度保洁作为补偿\",
     \"assignOwnerRole\": \"CUSTOMER_SERVICE\",

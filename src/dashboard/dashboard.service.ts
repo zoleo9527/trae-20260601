@@ -156,6 +156,7 @@ export class DashboardService {
   }
 
   async getOwnerSummary() {
+    await this.reviewService.detectOverdueReviews({ role: Role.QUALITY_SUPERVISOR, id: "system", name: "系统" });
     const activeIntakes = await this.intakeRepo.find({
       where: { status: In(NON_FINAL_INTAKE_STATUSES) },
       order: { createdAt: 'DESC' },
@@ -372,6 +373,7 @@ export class DashboardService {
   }
 
   async getOverview() {
+    await this.reviewService.detectOverdueReviews({ role: Role.QUALITY_SUPERVISOR, id: "system", name: "系统" });
     const [allIntakes, allOrders, allReviews, allAttempts, pendingAssignments, inProgressReviews, escalatedReviews, overdueReviews] = await Promise.all([
       this.intakeRepo.find(),
       this.orderRepo.find(),
