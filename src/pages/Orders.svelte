@@ -4,7 +4,7 @@
     getAllOrders, 
     getAllInventory,
     updateOrderStatus,
-    updateInventoryStock 
+    addOrder
   } from '$lib/database'
   import { 
     ClipboardList, ChefHat, Clock, CheckCircle, 
@@ -85,15 +85,17 @@
       return
     }
     
-    for (const dish of newOrder.dishes) {
-      const inventoryItem = inventory.find(i => i.name === dish.name)
-      if (inventoryItem) {
-        await updateInventoryStock(inventoryItem.id, -dish.quantity)
-      }
+    const dishesJson = JSON.stringify(newOrder.dishes)
+    const result = await addOrder(newOrder.table_no, dishesJson, true)
+    
+    if (!result.success) {
+      alert(result.message || '下单失败')
+      return
     }
     
     await loadData()
     closeAddModal()
+    alert('下单成功')
   }
   
   async function handleStatusChange(orderId: number, status: string) {

@@ -1,0 +1,36 @@
+{
+	"/": [],
+	"/api/batch": [
+		"src/routes/api/batch/+server.ts"
+	],
+	"/api/inventory": [
+		"src/routes/api/inventory/+server.ts"
+	],
+	"/api/login": [
+		"src/routes/api/login/+server.ts"
+	],
+	"/api/logs": [
+		"src/routes/api/logs/+server.ts"
+	],
+	"/api/orders": [
+		"src/routes/api/orders/+server.ts"
+	],
+	"/api/reservations": [
+		"src/routes/api/reservations/+server.ts"
+	],
+	"/api/reset": [
+		"src/routes/api/reset/+server.ts"
+	],
+	"/api/rooms": [
+		"src/routes/api/rooms/+server.ts"
+	],
+	"/api/users": [
+		"src/routes/api/users/+server.ts"
+	],
+	"/home": [],
+	"/inventory": [],
+	"/login": [],
+	"/orders": [],
+	"/rooms": [],
+	"/settings": []
+}

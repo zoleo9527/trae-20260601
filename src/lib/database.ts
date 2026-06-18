@@ -168,11 +168,11 @@ export async function batchAction(action: string, roomIds: number[], operator: s
 }
 
 export async function batchCheckIn(roomIds: number[], operator: string): Promise<{ success: boolean }> {
-  return await batchAction('checkIn', roomIds, operator);
+  return await batchAction('checkin', roomIds, operator);
 }
 
 export async function batchCheckOut(roomIds: number[], operator: string): Promise<{ success: boolean }> {
-  return await batchAction('checkOut', roomIds, operator);
+  return await batchAction('checkout', roomIds, operator);
 }
 
 export async function batchCleanComplete(roomIds: number[], operator: string): Promise<{ success: boolean }> {

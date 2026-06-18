@@ -1,13 +1,6 @@
-import { svelte } from '@sveltejs/vite-plugin-svelte'
-import path from 'path'
+import { sveltekit } from '@sveltejs/kit/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [svelte()],
-  resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-      '$lib': path.resolve(__dirname, './src/lib'),
-    },
-  },
+  plugins: [sveltekit()]
 })
