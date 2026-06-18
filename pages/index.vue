@@ -22,7 +22,8 @@ const {
   getRoleLabel,
   getRelatedFeedbackByInspection,
   getRelatedFeedbackBySchedule,
-  getRelatedFeedbackByMaterial
+  getRelatedFeedbackByMaterial,
+  getFeedbackSummary
 } = useFeedback()
 
 const roleTabs: { key: Role | 'all'; label: string; color: string }[] = [
@@ -360,21 +361,45 @@ const createFeedbackForMaterial = (item: any) => {
             </div>
             <p class="text-xs text-gray-500">{{ item.date }} {{ item.startTime }}</p>
             <p v-if="item.conflictInfo" class="text-xs text-orange-600 mt-1 line-clamp-1">{{ item.conflictInfo }}</p>
-            <div class="flex items-center gap-2 mt-2">
-              <button
-                v-if="getRelatedFeedbackBySchedule(item.id)"
-                @click="handleScheduleClick(item)"
-                class="text-xs text-primary-600 hover:text-primary-700 underline"
-              >
-                查看关联反馈 →
-              </button>
-              <button
-                v-else
-                @click="createFeedbackForSchedule(item)"
-                class="text-xs text-primary-600 hover:text-primary-700"
-              >
-                + 创建反馈
-              </button>
+            <div class="mt-2">
+              <template v-if="getRelatedFeedbackBySchedule(item.id)">
+                <!-- 处理摘要 -->
+                <div class="bg-white border border-gray-200 rounded-md p-2 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-white"
+                      :class="getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.statusColor"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-white/80"></span>
+                      {{ getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.statusLabel }}
+                    </span>
+                    <span class="text-xs text-gray-600">
+                      负责人: {{ getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.currentAssignee }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    最近处理: {{ getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.lastAt }}
+                  </div>
+                  <div v-if="getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.lastRemark" 
+                       class="text-xs text-gray-600 line-clamp-1">
+                    备注: {{ getFeedbackSummary(getRelatedFeedbackBySchedule(item.id))?.lastRemark }}
+                  </div>
+                  <button
+                    @click="handleScheduleClick(item)"
+                    class="text-xs text-primary-600 hover:text-primary-700 underline mt-1"
+                  >
+                    查看关联反馈 →
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <button
+                  @click="createFeedbackForSchedule(item)"
+                  class="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 创建反馈
+                </button>
+              </template>
             </div>
           </div>
           <div v-if="conflictSchedules.length === 0" class="text-center py-4 text-gray-500 text-sm">

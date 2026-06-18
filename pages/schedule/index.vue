@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useFeedback } from '~/composables/useFeedback'
 
-const { schedules, feedbacks, selectFeedback, openTransferModal, createFeedback, getRelatedFeedbackBySchedule } = useFeedback()
+const { schedules, feedbacks, selectFeedback, openTransferModal, createFeedback, getRelatedFeedbackBySchedule, getFeedbackSummary } = useFeedback()
 
 const selectedDate = ref(new Date().toISOString().split('T')[0])
 const searchQuery = ref('')
@@ -255,20 +255,43 @@ const availableCount = computed(() => schedules.value.filter(s => s.date === sel
             </div>
 
             <div class="mt-3 pt-3 border-t border-gray-100">
-              <button
-                v-if="getScheduleFeedback(schedule.id)"
-                @click.stop="viewRelatedFeedback(schedule.id)"
-                class="text-xs text-primary-600 hover:text-primary-700 underline"
-              >
-                查看关联反馈 →
-              </button>
-              <button
-                v-else
-                @click.stop="createFeedbackForSchedule(schedule)"
-                class="text-xs text-primary-600 hover:text-primary-700"
-              >
-                + 创建反馈
-              </button>
+              <template v-if="getScheduleFeedback(schedule.id)">
+                <div class="bg-white border border-gray-200 rounded-md p-2 space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span 
+                      class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs text-white"
+                      :class="getFeedbackSummary(getScheduleFeedback(schedule.id))?.statusColor"
+                    >
+                      <span class="w-1.5 h-1.5 rounded-full bg-white/80"></span>
+                      {{ getFeedbackSummary(getScheduleFeedback(schedule.id))?.statusLabel }}
+                    </span>
+                    <span class="text-xs text-gray-600">
+                      {{ getFeedbackSummary(getScheduleFeedback(schedule.id))?.currentRoleLabel }} · {{ getFeedbackSummary(getScheduleFeedback(schedule.id))?.currentAssignee }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-gray-500">
+                    最近处理: {{ getFeedbackSummary(getScheduleFeedback(schedule.id))?.lastAt }}
+                  </div>
+                  <div v-if="getFeedbackSummary(getScheduleFeedback(schedule.id))?.lastRemark" 
+                       class="text-xs text-gray-600 line-clamp-1">
+                    备注: {{ getFeedbackSummary(getScheduleFeedback(schedule.id))?.lastRemark }}
+                  </div>
+                  <button
+                    @click.stop="viewRelatedFeedback(schedule.id)"
+                    class="text-xs text-primary-600 hover:text-primary-700 underline mt-1"
+                  >
+                    查看详情 →
+                  </button>
+                </div>
+              </template>
+              <template v-else>
+                <button
+                  @click.stop="createFeedbackForSchedule(schedule)"
+                  class="text-xs text-primary-600 hover:text-primary-700"
+                >
+                  + 创建反馈
+                </button>
+              </template>
             </div>
           </div>
         </div>
@@ -332,21 +355,53 @@ const availableCount = computed(() => schedules.value.filter(s => s.date === sel
             <p class="text-sm text-gray-600">{{ selectedSchedule.description }}</p>
           </div>
 
-          <div v-if="getScheduleFeedback(selectedSchedule.id)">
-            <h5 class="text-sm font-medium text-gray-700 mb-2">关联反馈</h5>
-            <div
-              class="p-3 bg-primary-50 rounded-lg cursor-pointer hover:bg-primary-100 transition-colors"
-              @click="viewRelatedFeedback(selectedSchedule.id)"
-            >
-              <p class="text-sm font-medium text-primary-900">{{ getScheduleFeedback(selectedSchedule.id)?.title }}</p>
-              <p class="text-xs text-primary-600 mt-1">点击查看反馈详情 →</p>
+          <div v-if="getScheduleFeedback(selectedSchedule.id)" class="space-y-3">
+            <div class="flex items-center gap-2 text-sm font-medium text-gray-700">
+              <svg class="w-4 h-4 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/>
+              </svg>
+              关联反馈处理进展
+            </div>
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-medium text-gray-900 line-clamp-1">
+                  {{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.title }}
+                </div>
+                <span 
+                  class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs text-white whitespace-nowrap shrink-0 ml-2"
+                  :class="getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.statusColor"
+                >
+                  <span class="w-1.5 h-1.5 rounded-full bg-white/80"></span>
+                  {{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.statusLabel }}
+                </span>
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="text-gray-500">处理角色</div>
+                <div class="text-gray-900">{{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.currentRoleLabel }} · {{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.currentAssignee }}</div>
+                <div class="text-gray-500">最近更新</div>
+                <div class="text-gray-900">{{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.lastAt }}</div>
+                <div v-if="getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.progress > 0" class="text-gray-500">处理进度</div>
+                <div v-if="getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.progress > 0" class="text-gray-900">{{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.progress }}%</div>
+              </div>
+              <div v-if="getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.lastRemark" class="pt-2 border-t border-gray-100">
+                <div class="text-xs text-gray-500 mb-1">最新备注</div>
+                <div class="text-xs text-gray-700 bg-gray-50 rounded p-2">
+                  {{ getFeedbackSummary(getScheduleFeedback(selectedSchedule.id))?.lastRemark }}
+                </div>
+              </div>
+              <button
+                @click="viewRelatedFeedback(selectedSchedule.id)"
+                class="btn btn-outline w-full text-sm py-2"
+              >
+                打开反馈详情
+              </button>
             </div>
           </div>
-          <div v-else>
-            <h5 class="text-sm font-medium text-gray-700 mb-2">关联反馈</h5>
+          <div v-else class="space-y-2">
+            <div class="text-sm text-gray-500">暂无关联反馈</div>
             <button
               @click="createFeedbackForSchedule(selectedSchedule)"
-              class="text-sm text-primary-600 hover:text-primary-700"
+              class="btn btn-primary w-full text-sm"
             >
               + 创建反馈并流转处理
             </button>

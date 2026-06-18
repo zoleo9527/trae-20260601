@@ -307,6 +307,44 @@ export function useFeedback() {
     return feedbacks.value.find(f => f.relatedMaterialId === materialId) || null
   }
 
+  const getStatusColor = (status: FeedbackStatus) => {
+    const map: Record<string, string> = {
+      pending: 'bg-gray-500',
+      guide_processing: 'bg-blue-500',
+      guide_completed: 'bg-blue-400',
+      engineer_processing: 'bg-orange-500',
+      engineer_completed: 'bg-orange-400',
+      activity_processing: 'bg-purple-500',
+      activity_completed: 'bg-purple-400',
+      resolved: 'bg-green-500',
+      closed: 'bg-gray-600'
+    }
+    return map[status] || 'bg-gray-500'
+  }
+
+  const getFeedbackSummary = (feedback: Feedback | null) => {
+    if (!feedback) return null
+    const lastHistory = feedback.history.length > 0 
+      ? feedback.history[feedback.history.length - 1] 
+      : null
+    return {
+      id: feedback.id,
+      title: feedback.title,
+      status: feedback.status,
+      statusLabel: getStatusLabel(feedback.status),
+      statusColor: getStatusColor(feedback.status),
+      currentRole: feedback.currentRole,
+      currentRoleLabel: getRoleLabel(feedback.currentRole),
+      currentAssignee: feedback.currentAssignee,
+      updatedAt: feedback.updatedAt,
+      lastRemark: lastHistory?.remark || '',
+      lastAt: lastHistory?.createdAt || feedback.updatedAt,
+      progress: feedback.tasks.length > 0
+        ? Math.round(feedback.tasks.reduce((s, t) => s + t.progress, 0) / feedback.tasks.length)
+        : 0
+    }
+  }
+
   const transferFeedback = (
     feedbackId: string,
     nextStatus: FeedbackStatus,
@@ -443,6 +481,8 @@ export function useFeedback() {
     getAvailableActions,
     getRelatedFeedbackByInspection,
     getRelatedFeedbackBySchedule,
-    getRelatedFeedbackByMaterial
+    getRelatedFeedbackByMaterial,
+    getStatusColor,
+    getFeedbackSummary
   }
 }
