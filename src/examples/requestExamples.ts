@@ -1,6 +1,6 @@
 import { createApiRouter, ApiRouter, ApiRequest, ApiResponse } from '../mock/handlers';
 import { ServiceFactory } from '../mock/serviceFactory';
-import { OrderStatus, ReturnReason } from '../types';
+import { OrderStatus, ReturnReason, UserRole } from '../types';
 
 const sep = (t: string) => {
   console.log('\n' + '='.repeat(80));
@@ -62,6 +62,9 @@ export function runRemindFlowExample(): void {
   const o3 = res.data as any;
   assertEqual(o3.status, OrderStatus.REMINDED, 'Order ORD-003 status should be REMINDED');
   assertEqual(!!o3.schedule, true, 'Order ORD-003 should have a schedule');
+  assertEqual(o3.responsibility.stage, 'INSTALLATION', 'Order ORD-003 responsibility stage should be INSTALLATION');
+  assertEqual(o3.responsibility.currentRole, UserRole.INSTALLER, 'Order ORD-003 responsibility role should be INSTALLER');
+  assertEqual(o3.responsibility.currentUserId, 'U-004', 'Order ORD-003 responsibility userId should be U-004');
   console.log(`    客户: ${o3.customerSnapshot.name} | 状态: ${o3.status}`);
   console.log(`    预约: ${o3.appointment?.preferredDate} ${o3.appointment?.preferredTimeSlot}`);
   console.log(`    排班: ${o3.schedule?.scheduledDate} 师傅=${o3.schedule?.installerId}`);
@@ -83,6 +86,8 @@ export function runRemindFlowExample(): void {
   const orderStart = res.data as any;
   assertEqual(orderStart.status, OrderStatus.INSTALLING, 'Order status should be INSTALLING after start');
   assertEqual(orderStart.schedule.status, 'IN_PROGRESS', 'Schedule status should be IN_PROGRESS after start');
+  assertEqual(orderStart.responsibility.stage, 'INSTALLATION', 'Responsibility stage should be INSTALLATION after start');
+  assertEqual(orderStart.responsibility.nextAction.includes('完成'), true, 'Next action should include 完成');
 
   step(4, 'POST /api/orders/ORD-003/complete');
   req = { method: 'POST', path: '/api/orders/ORD-003/complete', body: { installerId: 'U-004' } };
@@ -102,6 +107,7 @@ export function runRemindFlowExample(): void {
   const orderArchive = res.data as any;
   assertEqual(orderArchive.status, OrderStatus.ARCHIVED, 'Order status should be ARCHIVED after archive');
   assertEqual(!!orderArchive.archivedAt, true, 'Order should have archivedAt after archive');
+  assertEqual(orderArchive.responsibility.stage, 'ARCHIVED', 'Responsibility stage should be ARCHIVED after archive');
 
   step(6, 'GET /api/orders/ORD-003/audit-logs - 完整审计轨迹');
   req = { method: 'GET', path: '/api/orders/ORD-003/audit-logs' };
@@ -190,6 +196,8 @@ export function runReturnAndSupplementFlowExample(): void {
   const orderAfterReturn = res.data as any;
   assertEqual(orderAfterReturn.status, OrderStatus.RETURNED, 'Order status should be RETURNED after return');
   assertEqual(orderAfterReturn.returnRecord.reason, ReturnReason.WRONG_SIZE, 'Return reason should be WRONG_SIZE');
+  assertEqual(orderAfterReturn.responsibility.stage, 'RETURN', 'Responsibility stage should be RETURN after return');
+  assertEqual(orderAfterReturn.responsibility.currentRole, UserRole.SALES_GUIDE, 'Responsibility role should be SALES_GUIDE after return');
   step(8, 'POST /api/orders/ORD-002/handle-return - 处理退回');
   req = { method: 'POST', path: '/api/orders/ORD-002/handle-return', body: { handledBy: 'U-002', handlingNotes: '安排补料' } };
   showReq(req);
@@ -220,6 +228,8 @@ export function runReturnAndSupplementFlowExample(): void {
   const orderAfterSupplement = res.data as any;
   assertEqual(orderAfterSupplement.status, OrderStatus.MATERIALS_NEEDED, 'Order status should be MATERIALS_NEEDED after supplement');
   assertEqual(orderAfterSupplement.supplementRecords.length >= 1, true, 'Supplement records should have at least 1 entry');
+  assertEqual(orderAfterSupplement.responsibility.stage, 'MATERIALS', 'Stage should be MATERIALS');
+  assertEqual(orderAfterSupplement.responsibility.currentRole, UserRole.STORE_MANAGER, 'Role should be STORE_MANAGER');
   const supplement = (res.data as any).supplementRecords?.[(res.data as any).supplementRecords.length - 1];
 
   step(10, 'POST supplement/fulfill + supplement/receive - 补料发货与签收');
@@ -237,6 +247,8 @@ export function runReturnAndSupplementFlowExample(): void {
     assertOk(res, `POST /api/orders/ORD-002/supplement/${supplement.id}/receive`);
     const orderAfterReceive = res.data as any;
     assertEqual(orderAfterReceive.status, OrderStatus.MEASURED, 'Order status should be MEASURED after supplement receive');
+    assertEqual(orderAfterReceive.responsibility.stage, 'APPOINTMENT', 'Stage should be APPOINTMENT after supplement receive');
+    assertEqual(orderAfterReceive.responsibility.currentRole, UserRole.SALES_GUIDE, 'Role should be SALES_GUIDE after supplement receive');
   }
 
   step(11, 'POST appointment + POST schedule - 重新预约排班');
@@ -332,6 +344,7 @@ export function runArchiveConfirmationExample(): void {
   assertOk(res, 'GET /api/users/U-001/todos');
   const todosU001 = res.data as any[];
   assertEqual(todosU001.length, 0, 'Sales guide U-001 should have 0 todos');
+  assertEqual(todosU001.every((t: any) => t.responsibility !== undefined), true, 'All todos should have responsibility field');
 
   step(3, 'GET /api/orders/ORD-003 - verify archived order');
   req = { method: 'GET', path: '/api/orders/ORD-003' };
@@ -341,6 +354,7 @@ export function runArchiveConfirmationExample(): void {
   assertOk(res, 'GET /api/orders/ORD-003');
   const order = res.data as any;
   assertEqual(order.status, OrderStatus.ARCHIVED, 'Order status should be ARCHIVED');
+  assertEqual(order.responsibility.stage, 'ARCHIVED', 'Responsibility stage should be ARCHIVED');
   assertEqual(!!order.schedule, true, 'Order should have a schedule');
   assertEqual(!!order.appointment, true, 'Order should have an appointment');
 

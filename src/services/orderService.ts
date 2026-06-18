@@ -5,6 +5,7 @@ import {
   OrderStatus,
   UserRole,
   TodoItem,
+  ResponsibilityInfo,
   MeasureRecord,
   AppointmentRecord,
   ReturnRecord,
@@ -35,6 +36,12 @@ export class OrderService {
     return JSON.parse(JSON.stringify(order));
   }
 
+
+  getOrderDetail(orderId: string): Order & { responsibility: ResponsibilityInfo } {
+    const order = this.getOrderById(orderId);
+    const responsibility = this.getResponsibilityInfo(order);
+    return { ...order, responsibility };
+  }
   listOrders(params: PaginationParams): PaginationResult<Order> {
     const all = this.db.getAllOrders();
     const start = (params.page - 1) * params.pageSize;
@@ -84,6 +91,7 @@ export class OrderService {
       customerName: order.customerSnapshot.name,
       createdAt: order.updatedAt,
       status: order.status,
+      responsibility: this.getResponsibilityInfo(order),
     };
     switch (user.role) {
       case UserRole.MEASURER:
@@ -236,6 +244,153 @@ export class OrderService {
     };
     return map[reason] || '未知原因';
   }
+
+
+  private getResponsibilityInfo(order: Order): ResponsibilityInfo {
+    const salesGuideName = this.db.getUser(order.salesGuideId)?.name || '未知';
+    const installerName = order.schedule?.installerId
+      ? this.db.getUser(order.schedule.installerId)?.name || '未知'
+      : '未分配';
+    const measurerName = order.measureRecord?.measurerId
+      ? this.db.getUser(order.measureRecord.measurerId)?.name || '未知'
+      : '未量尺';
+
+    switch (order.status) {
+      case OrderStatus.CREATED:
+        return {
+          stage: 'MEASURE',
+          currentRole: UserRole.MEASURER,
+          currentUserId: '',
+          currentUserName: '待分配量尺师',
+          previousNode: '导购' + salesGuideName + '创建订单',
+          nextAction: '安排量尺师上门量尺',
+        };
+
+      case OrderStatus.MEASURED:
+      case OrderStatus.APPOINTMENT_PENDING:
+        return {
+          stage: 'APPOINTMENT',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '量尺师' + measurerName + '完成量尺',
+          nextAction: '联系客户确认安装时间',
+        };
+
+      case OrderStatus.APPOINTED:
+        return {
+          stage: 'SCHEDULE',
+          currentRole: UserRole.STORE_MANAGER,
+          currentUserId: '',
+          currentUserName: '待店长排班',
+          previousNode: '导购' + salesGuideName + '创建预约',
+          nextAction: '分配安装师傅排班',
+        };
+
+      case OrderStatus.INSTALLATION_SCHEDULED:
+        return {
+          stage: 'INSTALLATION',
+          currentRole: UserRole.INSTALLER,
+          currentUserId: order.schedule?.installerId || '',
+          currentUserName: installerName,
+          previousNode: '店长分配' + installerName + '师傅',
+          nextAction: '按预约时间上门安装',
+        };
+
+      case OrderStatus.REMINDED:
+        return {
+          stage: 'INSTALLATION',
+          currentRole: UserRole.INSTALLER,
+          currentUserId: order.schedule?.installerId || '',
+          currentUserName: installerName,
+          previousNode: '客户催单，店长加急',
+          nextAction: '尽快上门安装',
+        };
+
+      case OrderStatus.INSTALLING:
+        return {
+          stage: 'INSTALLATION',
+          currentRole: UserRole.INSTALLER,
+          currentUserId: order.schedule?.installerId || '',
+          currentUserName: installerName,
+          previousNode: installerName + '师傅开始安装',
+          nextAction: '完成安装并确认验收',
+        };
+
+      case OrderStatus.RETURNED:
+        return {
+          stage: 'RETURN',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '安装师傅' + installerName + '退回(原因:' + (order.returnRecord?.reason || '未知') + ')',
+          nextAction: '处理退回并安排补料或重新量尺',
+        };
+
+      case OrderStatus.MATERIALS_NEEDED: {
+        const pendingFulfill = order.supplementRecords.filter(s => !s.fulfilledAt);
+        const pendingReceive = order.supplementRecords.filter(s => s.fulfilledAt && !s.receivedAt);
+        if (pendingFulfill.length > 0) {
+          return {
+            stage: 'MATERIALS',
+            currentRole: UserRole.STORE_MANAGER,
+            currentUserId: '',
+            currentUserName: '待店长备货',
+            previousNode: '导购申请补料',
+            nextAction: '安排备货并发货',
+          };
+        } else if (pendingReceive.length > 0) {
+          return {
+            stage: 'MATERIALS',
+            currentRole: UserRole.INSTALLER,
+            currentUserId: order.schedule?.installerId || '',
+            currentUserName: installerName,
+            previousNode: '补料已发货',
+            nextAction: '收取补充材料并确认',
+          };
+        }
+        return {
+          stage: 'MATERIALS',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '补料已完成',
+          nextAction: '确认补料完成',
+        };
+      }
+
+      case OrderStatus.COMPLETED:
+        return {
+          stage: 'COMPLETED',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '安装师傅' + installerName + '完成安装',
+          nextAction: '确认完工并归档订单',
+        };
+
+      case OrderStatus.ARCHIVED:
+        return {
+          stage: 'ARCHIVED',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '订单已归档',
+          nextAction: '无',
+        };
+
+      default:
+        return {
+          stage: 'MEASURE',
+          currentRole: UserRole.SALES_GUIDE,
+          currentUserId: order.salesGuideId,
+          currentUserName: salesGuideName,
+          previousNode: '订单处理中',
+          nextAction: '等待下一步操作',
+        };
+    }
+  }
+
 
   submitMeasureRecord(orderId: string, data: { measurerId: string; windows: MeasureRecord['windows']; notes?: string; images?: string[] }): Order {
     const order = this.db.getOrder(orderId);

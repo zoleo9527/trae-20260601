@@ -203,6 +203,16 @@ export interface TodoItem {
   status: OrderStatus;
   dueAt?: string;
   createdAt: string;
+  responsibility: ResponsibilityInfo;
+}
+
+export interface ResponsibilityInfo {
+  stage: 'MEASURE' | 'APPOINTMENT' | 'SCHEDULE' | 'INSTALLATION' | 'RETURN' | 'MATERIALS' | 'COMPLETED' | 'ARCHIVED';
+  currentRole: UserRole;
+  currentUserId: string;
+  currentUserName: string;
+  previousNode: string;
+  nextAction: string;
 }
 
 export interface PaginationParams {

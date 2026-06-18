@@ -83,7 +83,7 @@ export function createApiRouter(): ApiRouter {
   const auditLogService = ServiceFactory.getAuditLogService();
 
   router.get('/api/orders/:id', (params) => {
-    return orderService.getOrderById(params.id);
+    return orderService.getOrderDetail(params.id);
   });
 
   router.get('/api/orders', (_params, query) => {
@@ -100,33 +100,36 @@ export function createApiRouter(): ApiRouter {
   });
 
   router.post('/api/orders/:id/measure', (params, _query, body) => {
-    return orderService.submitMeasureRecord(params.id, {
+    orderService.submitMeasureRecord(params.id, {
       measurerId: body.measurerId as string,
       windows: body.windows as MeasureRecord['windows'],
       notes: body.notes as string | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/appointment', (params, _query, body) => {
-    return orderService.createAppointment(params.id, {
+    orderService.createAppointment(params.id, {
       preferredDate: body.preferredDate as string,
       preferredTimeSlot: body.preferredTimeSlot as TimeSlot,
       createdBy: body.createdBy as string,
       notes: body.notes as string | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.put('/api/orders/:id/appointment', (params, _query, body) => {
-    return orderService.updateAppointment(params.id, {
+    orderService.updateAppointment(params.id, {
       preferredDate: body.preferredDate as string | undefined,
       preferredTimeSlot: body.preferredTimeSlot as TimeSlot | undefined,
       updatedBy: body.updatedBy as string,
       notes: body.notes as string | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/schedule', (params, _query, body) => {
-    return scheduleService.assignSchedule({
+    scheduleService.assignSchedule({
       orderId: params.id,
       installerId: body.installerId as string,
       scheduledDate: body.scheduledDate as string,
@@ -134,10 +137,11 @@ export function createApiRouter(): ApiRouter {
       assignedBy: body.assignedBy as string,
       estimatedDurationHours: body.estimatedDurationHours as number,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.put('/api/orders/:id/schedule/reassign', (params, _query, body) => {
-    return scheduleService.reassignSchedule({
+    scheduleService.reassignSchedule({
       orderId: params.id,
       newInstallerId: body.newInstallerId as string,
       reassignedBy: body.reassignedBy as string,
@@ -146,6 +150,7 @@ export function createApiRouter(): ApiRouter {
       timeSlot: body.timeSlot as TimeSlot | undefined,
       estimatedDurationHours: body.estimatedDurationHours as number | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
 
@@ -172,64 +177,74 @@ export function createApiRouter(): ApiRouter {
   });
 
   router.post('/api/orders/:id/start-installation', (params, _query, body) => {
-    return orderService.startInstallation(params.id, body.installerId as string);
+    orderService.startInstallation(params.id, body.installerId as string);
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/return', (params, _query, body) => {
-    return orderService.returnInstallation(params.id, {
+    orderService.returnInstallation(params.id, {
       returnedBy: body.returnedBy as string,
       reason: body.reason as ReturnReason,
       detailedReason: body.detailedReason as string,
       images: body.images as string[] | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/handle-return', (params, _query, body) => {
-    return orderService.handleReturn(params.id, {
+    orderService.handleReturn(params.id, {
       handledBy: body.handledBy as string,
       handlingNotes: body.handlingNotes as string,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/supplement', (params, _query, body) => {
-    return orderService.requestSupplement(params.id, {
+    orderService.requestSupplement(params.id, {
       requestedBy: body.requestedBy as string,
       items: body.items as any[],
       urgency: body.urgency as any,
       notes: body.notes as string | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/supplement/:supplementId/fulfill', (params, _query, body) => {
-    return orderService.fulfillSupplement(params.id, params.supplementId, {
+    orderService.fulfillSupplement(params.id, params.supplementId, {
       fulfilledBy: body.fulfilledBy as string,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/supplement/:supplementId/receive', (params, _query, body) => {
-    return orderService.receiveSupplement(params.id, params.supplementId, {
+    orderService.receiveSupplement(params.id, params.supplementId, {
       receivedBy: body.receivedBy as string,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/complete', (params, _query, body) => {
-    return orderService.completeInstallation(params.id, body.installerId as string);
+    orderService.completeInstallation(params.id, body.installerId as string);
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/archive', (params, _query, body) => {
-    return orderService.archiveOrder(params.id, body.operatorId as string);
+    orderService.archiveOrder(params.id, body.operatorId as string);
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/remind', (params, _query, body) => {
-    return orderService.remindOrder(params.id, body.operatorId as string, body.reason as string);
+    orderService.remindOrder(params.id, body.operatorId as string, body.reason as string);
+    return orderService.getOrderDetail(params.id);
   });
 
   router.post('/api/orders/:id/remark', (params, _query, body) => {
-    return orderService.addRemark(params.id, {
+    orderService.addRemark(params.id, {
       createdBy: body.createdBy as string,
       content: body.content as string,
       attachments: body.attachments as string[] | undefined,
     });
+    return orderService.getOrderDetail(params.id);
   });
 
   router.get('/api/orders/:id/audit-logs', (params, query) => {
