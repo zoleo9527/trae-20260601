@@ -16,7 +16,6 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
     const [remarks, setRemarks] = useState('');
     
     const supervisors = mockUsers.filter(u => u.role === 'supervisor');
-    const requiresApproval = exceptionType !== 'gate_offline';
     const isGateOffline = exceptionType === 'gate_offline';
     
     const handleSubmit = () => {
@@ -25,10 +24,10 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
         createReleaseRecord({
             exception_type: exceptionType,
             release_reason: selectedReason,
-            approver: requiresApproval ? '' : currentUser?.name || '',
+            approver: '',
             checker: currentUser?.name || '',
             remarks,
-            status: requiresApproval ? 'pending' : 'approved'
+            status: 'pending'
         }, ticket);
         
         onSubmit();
@@ -36,7 +35,7 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
 
     const approvalFlow = [
         { step: '1', label: '检票员记录', status: 'done' },
-        { step: '2', label: requiresApproval ? '主管审批' : '自动放行', status: requiresApproval ? 'pending' : 'done' },
+        { step: '2', label: '主管审批', status: 'pending' },
         { step: '3', label: '游客入园', status: 'pending' }
     ];
 
@@ -45,17 +44,13 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
             <div className={`p-4 ${isGateOffline ? 'bg-amber-50' : 'bg-blue-50'}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                        {isGateOffline ? (
-                            <CheckCircle2 className="w-5 h-5 text-amber-600" />
-                        ) : (
-                            <AlertTriangle className="w-5 h-5 text-blue-600" />
-                        )}
-                        <span className={`font-semibold ${isGateOffline ? 'text-amber-800' : 'text-blue-800'}`}>
-                            {isGateOffline ? '自动放行模式' : '需主管审批'}
+                        <AlertTriangle className="w-5 h-5 text-blue-600" />
+                        <span className="font-semibold text-blue-800">
+                            {isGateOffline ? '闸机离线异常' : '异常放行申请'}
                         </span>
                     </div>
-                    <span className={`text-sm ${isGateOffline ? 'text-amber-600' : 'text-blue-600'}`}>
-                        {isGateOffline ? '无需审批，直接放行' : '审批通过后放行'}
+                    <span className="text-sm text-blue-600">
+                        需主管审批后放行
                     </span>
                 </div>
             </div>
@@ -108,7 +103,7 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
                         </div>
                     </div>
 
-                    {requiresApproval && supervisors.length > 0 && (
+                    {supervisors.length > 0 && (
                         <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
                             <div className="flex items-center justify-between mb-3">
                                 <label className="text-sm font-semibold text-yellow-800">审批主管</label>
@@ -154,14 +149,12 @@ export const ReleaseForm = ({ ticket, exceptionType, onSubmit }: ReleaseFormProp
                             disabled={!selectedReason}
                             className={`w-full flex items-center justify-center space-x-2 py-4 rounded-xl font-semibold transition-all duration-200 ${
                                 selectedReason
-                                    ? isGateOffline
-                                        ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-lg hover:shadow-xl'
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
                                     : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                             }`}
                         >
                             <Send className="w-5 h-5" />
-                            <span className="text-lg">{requiresApproval ? '提交审批申请' : '确认放行'}</span>
+                            <span className="text-lg">提交审批申请</span>
                         </button>
                     </div>
                 </div>

@@ -85,6 +85,7 @@ export const mockRecords: ReleaseRecord[] = [
         checker: '张检票员',
         remarks: '游客持过期套票，经主管批准放行',
         cs_remarks: '已联系游客办理延期，游客表示满意',
+        cs_action_type: 'reschedule',
         created_at: '2024-01-15 09:30:00',
         status: 'approved'
     },
@@ -131,9 +132,26 @@ export const mockRecords: ReleaseRecord[] = [
         release_reason: '票务系统升级影响',
         approver: '',
         checker: '王检票员',
-        remarks: '闸机离线，手动记录放行',
+        remarks: '闸机离线，等待主管审批放行',
         cs_remarks: '',
         created_at: '2024-01-15 14:20:00',
+        status: 'pending'
+    },
+    {
+        record_id: 'RR202401150005',
+        ticket_id: 'TK202401010005',
+        ticket_type: '儿童票',
+        channel: '官网',
+        visitor_name: '小明',
+        visitor_id: '110101201505051234',
+        exception_type: 'gate_offline',
+        release_reason: '系统故障导致无法正常检票',
+        approver: '李主管',
+        checker: '张检票员',
+        remarks: '闸机离线，主管批准放行',
+        cs_remarks: '家长咨询改期事宜，已协助办理',
+        cs_action_type: 'info',
+        created_at: '2024-01-15 15:30:00',
         status: 'approved'
     }
 ];
