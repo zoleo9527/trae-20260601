@@ -1,4 +1,4 @@
-import { courses, registrations, waitlist, users } from '../../../../server/data/mockData'
+import { courses, registrations, waitlist, users, waitlistHistory } from '../../../../server/data/mockData'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -36,10 +36,22 @@ export default defineEventHandler(async (event) => {
         waitlist[idx].handledAt = new Date().toISOString()
         waitlist[idx].handledResult = 'cancelled'
         waitlist[idx].updatedAt = new Date().toISOString()
+        
+        const historyEntry = {
+          id: `h${Date.now()}`,
+          waitlistEntryId: w.id,
+          courseId: id!,
+          action: 'cancel' as const,
+          actorId: body.actorId,
+          actorName: actor.name,
+          timestamp: new Date().toISOString(),
+          result: '数据重置被取消',
+          notes: '课程数据重置导致候补被取消'
+        }
+        waitlistHistory.push(historyEntry)
       }
     })
   
-  courses[courseIndex].currentParticipants = 0
   courses[courseIndex].updatedAt = new Date().toISOString()
   
   const newTimelineItem = {

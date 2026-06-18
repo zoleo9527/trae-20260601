@@ -2210,7 +2210,22 @@ _0c3I_sU22NGZbE2MQJSv53lZVufzms1DvtjTn68Yg,
 _wH6JrtIxmaSoA8lCPWFnE9z4lQeXW6H5z3l5aymEQw
 ];
 
-const assets = {};
+const assets = {
+  "/index.mjs": {
+    "type": "text/javascript; charset=utf-8",
+    "etag": "\"24b1b-BZASTlASjnKe/AxK98TEoiVQ9Hc\"",
+    "mtime": "2026-06-18T03:19:16.176Z",
+    "size": 150299,
+    "path": "index.mjs"
+  },
+  "/index.mjs.map": {
+    "type": "application/json",
+    "etag": "\"8eb4b-dZWRkUuK5r5ZTIGZkItJkviEncI\"",
+    "mtime": "2026-06-18T03:19:16.177Z",
+    "size": 584523,
+    "path": "index.mjs.map"
+  }
+};
 
 function readAsset (id) {
   const serverDir = dirname$1(fileURLToPath(globalThis._importMeta_.url));
@@ -2743,6 +2758,8 @@ async function getIslandContext(event) {
 
 const _lazy_MF8bYG = () => Promise.resolve().then(function () { return courses_get$1; });
 const _lazy_SoTU55 = () => Promise.resolve().then(function () { return _id__get$1; });
+const _lazy_gvlA8D = () => Promise.resolve().then(function () { return confirmMaterial_post$1; });
+const _lazy_w_kfJk = () => Promise.resolve().then(function () { return confirmSchedule_post$1; });
 const _lazy_1xj64U = () => Promise.resolve().then(function () { return promoteWaitlist_post$1; });
 const _lazy_q7QXFs = () => Promise.resolve().then(function () { return register_post$1; });
 const _lazy_UpxB5X = () => Promise.resolve().then(function () { return resetData_post$1; });
@@ -2755,6 +2772,8 @@ const handlers = [
   { route: '', handler: _YDLHT4, lazy: false, middleware: true, method: undefined },
   { route: '/api/courses', handler: _lazy_MF8bYG, lazy: true, middleware: false, method: "get" },
   { route: '/api/courses/:id', handler: _lazy_SoTU55, lazy: true, middleware: false, method: "get" },
+  { route: '/api/courses/:id/confirm-material', handler: _lazy_gvlA8D, lazy: true, middleware: false, method: "post" },
+  { route: '/api/courses/:id/confirm-schedule', handler: _lazy_w_kfJk, lazy: true, middleware: false, method: "post" },
   { route: '/api/courses/:id/promote-waitlist', handler: _lazy_1xj64U, lazy: true, middleware: false, method: "post" },
   { route: '/api/courses/:id/register', handler: _lazy_q7QXFs, lazy: true, middleware: false, method: "post" },
   { route: '/api/courses/:id/reset-data', handler: _lazy_UpxB5X, lazy: true, middleware: false, method: "post" },
@@ -3297,17 +3316,31 @@ const waitlistHistory = [
 ];
 
 const courses_get = defineEventHandler(() => {
-  const coursesWithTeacher = courses.map((course) => {
+  const coursesWithDetails = courses.map((course) => {
     const teacher = users.find((u) => u.id === course.teacherId);
     const submitter = users.find((u) => u.id === course.submitterId);
+    const courseRegistrations = registrations.filter((r) => r.courseId === course.id && r.status === "confirmed");
+    const courseWaitlist = waitlist.filter((w) => w.courseId === course.id && w.status === "active");
+    const courseSchedule = schedules.find((s) => s.courseId === course.id);
+    const currentParticipants = courseRegistrations.length;
+    const isFull = currentParticipants >= course.maxParticipants;
+    const confirmedMaterials = course.materials.filter((m) => m.confirmedBy).length;
+    const totalMaterials = course.materials.length;
+    const materialConfirmationRate = totalMaterials > 0 ? Math.round(confirmedMaterials / totalMaterials * 100) : 0;
     return {
       ...course,
       teacherName: (teacher == null ? void 0 : teacher.name) || "\u672A\u77E5",
       submitterName: (submitter == null ? void 0 : submitter.name) || "\u672A\u77E5",
-      openIssues: course.issues.filter((i) => i.status === "open").length
+      openIssues: course.issues.filter((i) => i.status === "open").length,
+      currentParticipants,
+      maxParticipants: course.maxParticipants,
+      isFull,
+      waitlistCount: courseWaitlist.length,
+      scheduleStatus: (courseSchedule == null ? void 0 : courseSchedule.status) || "not_assigned",
+      materialConfirmationRate
     };
   });
-  return coursesWithTeacher;
+  return coursesWithDetails;
 });
 
 const courses_get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
@@ -3333,6 +3366,8 @@ const _id__get = defineEventHandler((event) => {
   const confirmedMaterials = course.materials.filter((m) => m.confirmedBy).length;
   const totalMaterials = course.materials.length;
   const materialConfirmationRate = totalMaterials > 0 ? Math.round(confirmedMaterials / totalMaterials * 100) : 0;
+  const currentParticipants = courseRegistrations.length;
+  const isFull = currentParticipants >= course.maxParticipants;
   return {
     ...course,
     teacherName: (teacher == null ? void 0 : teacher.name) || "\u672A\u77E5",
@@ -3348,13 +3383,130 @@ const _id__get = defineEventHandler((event) => {
     waitlistHistory: courseWaitlistHistory,
     materialConfirmationRate,
     confirmedMaterials,
-    openIssues: course.issues.filter((i) => i.status === "open").length
+    openIssues: course.issues.filter((i) => i.status === "open").length,
+    currentParticipants,
+    isFull
   };
 });
 
 const _id__get$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
   __proto__: null,
   default: _id__get
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const confirmMaterial_post = defineEventHandler(async (event) => {
+  const id = getRouterParam(event, "id");
+  const body = await readBody(event);
+  const courseIndex = courses.findIndex((c) => c.id === id);
+  if (courseIndex === -1) {
+    throw createError({ statusCode: 404, message: "\u8BFE\u7A0B\u4E0D\u5B58\u5728" });
+  }
+  const actor = users.find((u) => u.id === body.actorId);
+  if (!actor) {
+    throw createError({ statusCode: 403, message: "\u65E0\u6548\u7684\u64CD\u4F5C\u4EBA" });
+  }
+  if (actor.role !== "volunteer" && actor.role !== "manager") {
+    throw createError({ statusCode: 403, message: "\u53EA\u6709\u5FD7\u613F\u8005\u6216\u4E3B\u7BA1\u53EF\u4EE5\u786E\u8BA4\u7269\u6599" });
+  }
+  const course = courses[courseIndex];
+  const materialIndex = course.materials.findIndex((m) => m.id === body.materialId);
+  if (materialIndex === -1) {
+    throw createError({ statusCode: 404, message: "\u7269\u6599\u4E0D\u5B58\u5728" });
+  }
+  const material = course.materials[materialIndex];
+  if (material.confirmedBy) {
+    throw createError({ statusCode: 400, message: "\u8BE5\u7269\u6599\u5DF2\u88AB\u786E\u8BA4" });
+  }
+  courses[courseIndex].materials[materialIndex].confirmedBy = body.actorId;
+  courses[courseIndex].materials[materialIndex].confirmedAt = (/* @__PURE__ */ new Date()).toISOString();
+  courses[courseIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const newTimelineItem = {
+    id: `t${Date.now()}`,
+    action: "material_confirm",
+    actorId: body.actorId,
+    actorName: actor.name,
+    timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+    description: `\u786E\u8BA4\u7269\u6599\u300C${material.name}\u300D`,
+    result: "\u5DF2\u786E\u8BA4"
+  };
+  courses[courseIndex].timeline.push(newTimelineItem);
+  const confirmedCount = courses[courseIndex].materials.filter((m) => m.confirmedBy).length;
+  const totalCount = courses[courseIndex].materials.length;
+  const confirmationRate = Math.round(confirmedCount / totalCount * 100);
+  return {
+    success: true,
+    message: `\u5DF2\u786E\u8BA4\u7269\u6599\u300C${material.name}\u300D`,
+    material: courses[courseIndex].materials[materialIndex],
+    confirmedBy: actor.name,
+    confirmedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    confirmationRate,
+    confirmedCount,
+    totalCount
+  };
+});
+
+const confirmMaterial_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  default: confirmMaterial_post
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const confirmSchedule_post = defineEventHandler(async (event) => {
+  const id = getRouterParam(event, "id");
+  const body = await readBody(event);
+  const course = courses.find((c) => c.id === id);
+  if (!course) {
+    throw createError({ statusCode: 404, message: "\u8BFE\u7A0B\u4E0D\u5B58\u5728" });
+  }
+  const actor = users.find((u) => u.id === body.actorId);
+  if (!actor) {
+    throw createError({ statusCode: 403, message: "\u65E0\u6548\u7684\u64CD\u4F5C\u4EBA" });
+  }
+  const scheduleIndex = schedules.findIndex((s) => s.courseId === id);
+  if (scheduleIndex === -1) {
+    throw createError({ statusCode: 404, message: "\u6392\u73ED\u8BB0\u5F55\u4E0D\u5B58\u5728" });
+  }
+  const schedule = schedules[scheduleIndex];
+  if (schedule.status === "confirmed") {
+    throw createError({ statusCode: 400, message: "\u6392\u73ED\u5DF2\u786E\u8BA4" });
+  }
+  if (schedule.status === "completed") {
+    throw createError({ statusCode: 400, message: "\u8BFE\u7A0B\u5DF2\u5B8C\u6210" });
+  }
+  if (actor.role === "teacher" && schedule.teacherId !== actor.id) {
+    throw createError({ statusCode: 403, message: "\u8BB2\u5E08\u53EA\u80FD\u786E\u8BA4\u81EA\u5DF1\u7684\u6392\u73ED" });
+  }
+  if (actor.role === "volunteer") {
+    throw createError({ statusCode: 403, message: "\u5FD7\u613F\u8005\u65E0\u6CD5\u786E\u8BA4\u6392\u73ED" });
+  }
+  schedules[scheduleIndex].status = "confirmed";
+  schedules[scheduleIndex].confirmedAt = (/* @__PURE__ */ new Date()).toISOString();
+  schedules[scheduleIndex].confirmedBy = body.actorId;
+  const courseIndex = courses.findIndex((c) => c.id === id);
+  if (courseIndex !== -1) {
+    courses[courseIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const newTimelineItem = {
+      id: `t${Date.now()}`,
+      action: "schedule_confirm",
+      actorId: body.actorId,
+      actorName: actor.name,
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      description: actor.role === "teacher" ? "\u786E\u8BA4\u6388\u8BFE\u5B89\u6392" : "\u786E\u8BA4\u8BB2\u5E08\u6392\u73ED",
+      result: "\u5DF2\u786E\u8BA4"
+    };
+    courses[courseIndex].timeline.push(newTimelineItem);
+  }
+  return {
+    success: true,
+    message: `${actor.role === "teacher" ? "\u60A8\u5DF2\u786E\u8BA4" : "\u5DF2\u786E\u8BA4"}\u6388\u8BFE\u5B89\u6392`,
+    schedule: schedules[scheduleIndex],
+    confirmedBy: actor.name,
+    confirmedAt: (/* @__PURE__ */ new Date()).toISOString()
+  };
+});
+
+const confirmSchedule_post$1 = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+  __proto__: null,
+  default: confirmSchedule_post
 }, Symbol.toStringTag, { value: 'Module' }));
 
 const promoteWaitlist_post = defineEventHandler(async (event) => {
@@ -3556,9 +3708,20 @@ const resetData_post = defineEventHandler(async (event) => {
       waitlist[idx].handledAt = (/* @__PURE__ */ new Date()).toISOString();
       waitlist[idx].handledResult = "cancelled";
       waitlist[idx].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const historyEntry = {
+        id: `h${Date.now()}`,
+        waitlistEntryId: w.id,
+        courseId: id,
+        action: "cancel",
+        actorId: body.actorId,
+        actorName: actor.name,
+        timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+        result: "\u6570\u636E\u91CD\u7F6E\u88AB\u53D6\u6D88",
+        notes: "\u8BFE\u7A0B\u6570\u636E\u91CD\u7F6E\u5BFC\u81F4\u5019\u8865\u88AB\u53D6\u6D88"
+      };
+      waitlistHistory.push(historyEntry);
     }
   });
-  courses[courseIndex].currentParticipants = 0;
   courses[courseIndex].updatedAt = (/* @__PURE__ */ new Date()).toISOString();
   const newTimelineItem = {
     id: `t${Date.now()}`,

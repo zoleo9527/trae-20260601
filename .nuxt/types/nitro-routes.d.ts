@@ -9,6 +9,12 @@ declare module "nitropack/types" {
     '/api/courses/:id': {
       'get': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/courses/[id].get').default>>>>
     }
+    '/api/courses/:id/confirm-material': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/courses/[id]/confirm-material.post').default>>>>
+    }
+    '/api/courses/:id/confirm-schedule': {
+      'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/courses/[id]/confirm-schedule.post').default>>>>
+    }
     '/api/courses/:id/promote-waitlist': {
       'post': Simplify<Serialize<Awaited<ReturnType<typeof import('../../server/api/courses/[id]/promote-waitlist.post').default>>>>
     }

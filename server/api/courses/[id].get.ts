@@ -22,6 +22,9 @@ export default defineEventHandler((event) => {
   const totalMaterials = course.materials.length
   const materialConfirmationRate = totalMaterials > 0 ? Math.round((confirmedMaterials / totalMaterials) * 100) : 0
   
+  const currentParticipants = courseRegistrations.length
+  const isFull = currentParticipants >= course.maxParticipants
+  
   return {
     ...course,
     teacherName: teacher?.name || '未知',
@@ -37,6 +40,8 @@ export default defineEventHandler((event) => {
     waitlistHistory: courseWaitlistHistory,
     materialConfirmationRate,
     confirmedMaterials,
-    openIssues: course.issues.filter(i => i.status === 'open').length
+    openIssues: course.issues.filter(i => i.status === 'open').length,
+    currentParticipants,
+    isFull
   }
 })

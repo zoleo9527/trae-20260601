@@ -83,6 +83,7 @@ interface Course {
   location: string
   maxParticipants: number
   currentParticipants: number
+  isFull: boolean
   status: string
   materials: Material[]
   teacherName: string
@@ -179,10 +180,18 @@ const issueTypeLabels: Record<string, string> = {
 }
 
 const canReview = computed(() => props.currentUser.role === 'manager' && course.value?.status === 'submitted')
-const canRegister = computed(() => course.value?.status === 'approved')
+const canRegister = computed(() => course.value?.status === 'approved' && !course.value?.isFull)
 const canManageWaitlist = computed(() => props.currentUser.role === 'manager')
 const hasOpenIssues = computed(() => course.value?.issues.filter(i => i.status === 'open').length || 0 > 0)
 const hasWaitlist = computed(() => course.value?.waitlist.length && course.value.waitlist.length > 0)
+
+const canConfirmSchedule = computed(() => {
+  if (!course.value?.schedule) return false
+  if (course.value.schedule.status !== 'assigned') return false
+  if (props.currentUser.role === 'manager') return true
+  if (props.currentUser.role === 'teacher' && course.value.schedule.teacherId === props.currentUser.id) return true
+  return false
+})
 
 const formatDate = (dateStr: string) => {
   const date = new Date(dateStr)
@@ -324,6 +333,46 @@ const handlePromote = async () => {
   }
 }
 
+const handleConfirmSchedule = async () => {
+  try {
+    const res = await fetch(`/api/courses/${props.courseId}/confirm-schedule`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorId: props.currentUser.id })
+    })
+    
+    const data = await res.json()
+    if (res.ok) {
+      showMessage(data.message, 'success')
+      fetchCourse()
+    } else {
+      showMessage(data.message || '确认失败', 'error')
+    }
+  } catch (error) {
+    showMessage('确认失败', 'error')
+  }
+}
+
+const handleConfirmMaterial = async (materialId: string) => {
+  try {
+    const res = await fetch(`/api/courses/${props.courseId}/confirm-material`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actorId: props.currentUser.id, materialId })
+    })
+    
+    const data = await res.json()
+    if (res.ok) {
+      showMessage(data.message, 'success')
+      fetchCourse()
+    } else {
+      showMessage(data.message || '确认失败', 'error')
+    }
+  } catch (error) {
+    showMessage('确认失败', 'error')
+  }
+}
+
 const openPromoteModal = (entry: WaitlistEntry) => {
   selectedWaitlistEntry.value = entry
   promotionNotes.value = ''
@@ -360,6 +409,7 @@ watch(() => props.courseId, () => {
         </button>
         <h2 class="text-xl font-semibold text-gray-900">{{ course.title }}</h2>
         <span :class="statusBadgeClass[course.status]" class="badge">{{ statusLabels[course.status] }}</span>
+        <span v-if="course.isFull" class="badge badge-danger">已满员</span>
       </div>
 
       <div class="grid grid-cols-6 gap-4 mb-6">
@@ -524,8 +574,17 @@ watch(() => props.courseId, () => {
             </div>
           </div>
           
-          <div v-if="currentUser.role === 'manager' && course.schedule.status === 'assigned'" class="pt-4 border-t border-gray-200">
-            <button class="btn btn-success">确认排班</button>
+          <div v-if="canConfirmSchedule" class="pt-4 border-t border-gray-200">
+            <button @click="handleConfirmSchedule" class="btn btn-success">
+              {{ currentUser.role === 'teacher' ? '确认授课安排' : '确认排班' }}
+            </button>
+            <p v-if="currentUser.role === 'teacher'" class="text-xs text-gray-500 mt-2">确认后表示您已收到授课通知并同意安排</p>
+          </div>
+          <div v-else-if="course.schedule.status === 'assigned' && !canConfirmSchedule" class="pt-4 border-t border-gray-200">
+            <p class="text-sm text-gray-500">
+              <span v-if="currentUser.role === 'teacher' && course.schedule.teacherId !== currentUser.id">此排班不属于您</span>
+              <span v-else-if="currentUser.role === 'volunteer'">志愿者无法确认排班</span>
+            </p>
           </div>
         </div>
         <div v-else class="text-center py-8 text-gray-500">
@@ -566,12 +625,17 @@ watch(() => props.courseId, () => {
               </span>
               <button 
                 v-if="!material.confirmedBy && (currentUser.role === 'volunteer' || currentUser.role === 'manager')"
+                @click="handleConfirmMaterial(material.id)"
                 class="btn btn-success text-xs"
               >
                 确认
               </button>
             </div>
           </div>
+        </div>
+        
+        <div v-if="currentUser.role !== 'volunteer' && currentUser.role !== 'manager'" class="mt-4 pt-4 border-t border-gray-200">
+          <p class="text-sm text-gray-500">只有志愿者或主管可以确认物料</p>
         </div>
       </div>
 
@@ -596,7 +660,7 @@ watch(() => props.courseId, () => {
                 </div>
                 <div class="flex items-center justify-between">
                   <span class="text-sm text-gray-500">操作人: {{ item.actorName }}</span>
-                  <span v-if="item.result" class="text-sm" :class="item.result === '成功' || item.result === '通过' ? 'text-success-600' : item.result === '未通过' ? 'text-danger-600' : 'text-gray-500'">
+                  <span v-if="item.result" class="text-sm" :class="item.result === '成功' || item.result === '通过' || item.result === '已确认' ? 'text-success-600' : item.result === '未通过' ? 'text-danger-600' : 'text-gray-500'">
                     {{ item.result }}
                   </span>
                 </div>
