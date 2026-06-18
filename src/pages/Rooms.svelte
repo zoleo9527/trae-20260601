@@ -291,7 +291,7 @@
         style="border-color: {statusConfig[room.status].color}"
         on:click={() => openRoomDetail(room)}
       >
-        <div class="select-checkbox" on:click|stopPropagation>
+        <div class="select-checkbox" on:click|stopPropagation={() => toggleSelectRoom(room.id)}>
           {#if selectedRooms.includes(room.id)}
             <SquareCheck class="check-icon" />
           {:else}

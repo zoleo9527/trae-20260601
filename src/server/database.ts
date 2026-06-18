@@ -122,6 +122,19 @@ function initTables() {
   `)
 }
 
+const dishIngredients: Record<string, { name: string; amount: number }[]> = {
+  '红烧肉': [{ name: '五花肉', amount: 0.5 }, { name: '花生油', amount: 0.1 }],
+  '炒青菜': [{ name: '青菜', amount: 0.5 }, { name: '花生油', amount: 0.05 }],
+  '土鸡汤': [{ name: '土鸡', amount: 1 }, { name: '土鸡蛋', amount: 2 }],
+  '清蒸鱼': [{ name: '鲜鱼', amount: 1 }, { name: '花生油', amount: 0.05 }],
+  '豆腐煲': [{ name: '豆腐', amount: 4 }, { name: '花生油', amount: 0.05 }],
+  '腊肉炒饭': [{ name: '腊肉', amount: 0.3 }, { name: '大米', amount: 0.4 }],
+  '凉拌黄瓜': [{ name: '黄瓜', amount: 0.4 }, { name: '花生油', amount: 0.03 }],
+  '农家小炒肉': [{ name: '五花肉', amount: 0.4 }, { name: '青菜', amount: 0.3 }],
+  '蒜蓉西兰花': [{ name: '西兰花', amount: 0.5 }, { name: '花生油', amount: 0.05 }],
+  '西红柿炒蛋': [{ name: '西红柿', amount: 0.4 }, { name: '土鸡蛋', amount: 3 }]
+}
+
 export function initSampleData() {
   const today = new Date().toISOString().split('T')[0]
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0]
@@ -151,7 +164,9 @@ export function initSampleData() {
       (1, '王五', '13800138003', '${tomorrow}', '${dayAfter}', 2, 0, 'pending', '${new Date().toISOString()}'),
       (7, '赵六', '13800138004', '${today}', '${dayAfter}', 2, 300, 'pending', '${new Date().toISOString()}'),
       (8, '孙七', '13800138005', '${today}', '${tomorrow}', 6, 800, 'checked_in', '${new Date().toISOString()}'),
-      (3, '周八', '13800138006', '${today}', '${tomorrow}', 2, 0, 'pending', '${new Date().toISOString()}')
+      (3, '周八', '13800138006', '${today}', '${tomorrow}', 2, 0, 'pending', '${new Date().toISOString()}'),
+      (4, '吴九', '13800138007', '${today}', '${tomorrow}', 2, 0, 'checked_in', '${new Date().toISOString()}'),
+      (6, '郑十', '13800138008', '${today}', '${tomorrow}', 4, 100, 'checked_in', '${new Date().toISOString()}')
     `)
   }
 
@@ -194,6 +209,26 @@ export function initSampleData() {
       ('chef', '123456', 'chef'),
       ('housekeeper', '123456', 'housekeeper'),
       ('staff', '123456', 'staff')
+    `)
+  }
+
+  const logsCount = db.prepare('SELECT COUNT(*) as count FROM room_status_log').get().count
+  if (logsCount === 0) {
+    const now = new Date()
+    const hourAgo = new Date(now.getTime() - 3600000).toISOString()
+    const twoHoursAgo = new Date(now.getTime() - 7200000).toISOString()
+    const threeHoursAgo = new Date(now.getTime() - 10800000).toISOString()
+    
+    db.exec(`
+      INSERT INTO room_status_log (room_id, status, changed_by, changed_at, note) VALUES
+      (2, 'occupied', '老板', '${hourAgo}', '客人 张三 办理入住'),
+      (8, 'occupied', '老板', '${hourAgo}', '客人 孙七 办理入住'),
+      (5, 'cleaning', '客房阿姨', '${twoHoursAgo}', '房间打扫中'),
+      (1, 'available', '客房阿姨', '${twoHoursAgo}', '房间打扫完成'),
+      (4, 'available', '客房阿姨', '${threeHoursAgo}', '房间打扫完成'),
+      (6, 'available', '老板', '${threeHoursAgo}', '房间状态初始化'),
+      (3, 'reserved', '老板', '${threeHoursAgo}', '客人 李四 预订房间'),
+      (7, 'reserved', '老板', '${threeHoursAgo}', '客人 赵六 预订房间')
     `)
   }
 }
@@ -328,15 +363,29 @@ export function batchCleanComplete(roomIds: number[], operator: string) {
 export function createOrderWithInventory(tableNo: string, dishes: string): { success: boolean; message: string } {
   const dishesArray = JSON.parse(dishes)
   
+  const requiredIngredients: Record<string, number> = {}
+  
   for (const dish of dishesArray) {
-    const item = db.prepare('SELECT * FROM inventory WHERE name = ?').get(dish.name) as InventoryItem | undefined
-    if (!item || item.quantity < dish.quantity) {
-      return { success: false, message: `${dish.name}库存不足` }
+    const ingredients = dishIngredients[dish.name]
+    if (!ingredients) {
+      return { success: false, message: `菜品 ${dish.name} 暂无原料配方` }
+    }
+    
+    for (const ing of ingredients) {
+      const key = ing.name
+      requiredIngredients[key] = (requiredIngredients[key] || 0) + ing.amount * dish.quantity
     }
   }
   
-  for (const dish of dishesArray) {
-    db.prepare('UPDATE inventory SET quantity = quantity - ? WHERE name = ?').run(dish.quantity, dish.name)
+  for (const [name, amount] of Object.entries(requiredIngredients)) {
+    const item = db.prepare('SELECT * FROM inventory WHERE name = ?').get(name) as InventoryItem | undefined
+    if (!item || item.quantity < amount) {
+      return { success: false, message: `${name}库存不足，需要${amount}${item?.unit || ''}，现有${item?.quantity || 0}${item?.unit || ''}` }
+    }
+  }
+  
+  for (const [name, amount] of Object.entries(requiredIngredients)) {
+    db.prepare('UPDATE inventory SET quantity = quantity - ? WHERE name = ?').run(amount, name)
   }
   
   db.prepare('INSERT INTO orders (table_no, dishes, status, created_at) VALUES (?, ?, "pending", ?)')
