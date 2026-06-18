@@ -15,9 +15,11 @@ func (s *Store) CreateComplaint(req models.CreateComplaintRequest) *models.Compl
 	s.complaintSeq++
 
 	var bookingNo string
-	booking, ok := s.bookings[req.BookingID]
-	if ok {
-		bookingNo = booking.BookingNo
+	if req.BookingID != "" {
+		booking, ok := s.bookings[req.BookingID]
+		if ok {
+			bookingNo = booking.BookingNo
+		}
 	}
 
 	now := time.Now()
@@ -86,4 +88,42 @@ func (s *Store) HandleComplaint(id string, req models.HandleComplaintRequest) (*
 	}
 	s.complaints[id] = complaint
 	return &complaint, true
+}
+
+func (s *Store) GetComplaintDetail(id string) (*models.ComplaintDetail, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	complaint, ok := s.complaints[id]
+	if !ok {
+		return nil, false
+	}
+
+	detail := &models.ComplaintDetail{
+		Complaint:  complaint,
+		Booking:    nil,
+		Schedule:   nil,
+		ChangeLogs: []models.BookingChangeLog{},
+	}
+
+	if complaint.BookingID != "" {
+		booking, ok := s.bookings[complaint.BookingID]
+		if ok {
+			b := booking
+			detail.Booking = &b
+			logs := make([]models.BookingChangeLog, len(s.changeLogs[complaint.BookingID]))
+			copy(logs, s.changeLogs[complaint.BookingID])
+			detail.ChangeLogs = logs
+		}
+	}
+
+	if complaint.ScheduleID != "" {
+		schedule, ok := s.schedules[complaint.ScheduleID]
+		if ok {
+			sc := schedule
+			detail.Schedule = &sc
+		}
+	}
+
+	return detail, true
 }

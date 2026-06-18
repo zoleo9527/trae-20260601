@@ -55,6 +55,7 @@ func main() {
 	complaints.Get("/", complaintHandler.ListComplaints)
 	complaints.Post("/", complaintHandler.CreateComplaint)
 	complaints.Get("/:id", complaintHandler.GetComplaint)
+	complaints.Get("/:id/detail", complaintHandler.GetComplaintDetail)
 	complaints.Put("/:id/handle", complaintHandler.HandleComplaint)
 
 	notifications := api.Group("/notifications")

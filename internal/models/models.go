@@ -88,6 +88,7 @@ type GuideSchedule struct {
 	GuideName      string              `json:"guide_name"`
 	GuideLanguage  string              `json:"guide_language"`
 	VisitDate      string              `json:"visit_date"`
+	VisitTimeSlot  string              `json:"visit_time_slot"`
 	StartTime      string              `json:"start_time"`
 	EndTime        string              `json:"end_time"`
 	TeamName       string              `json:"team_name"`
@@ -154,6 +155,14 @@ type ScheduleDetail struct {
 	ChangeLogs  []BookingChangeLog  `json:"booking_change_logs"`
 	Checkins    []CheckinRecord     `json:"checkins"`
 }
+
+type ComplaintDetail struct {
+	Complaint  Complaint           `json:"complaint"`
+	Booking    *TeamBooking        `json:"booking"`
+	Schedule   *GuideSchedule      `json:"schedule"`
+	ChangeLogs []BookingChangeLog  `json:"booking_change_logs"`
+}
+
 
 type CreateBookingRequest struct {
 	TeamName      string `json:"team_name" validate:"required"`

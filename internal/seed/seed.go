@@ -58,7 +58,7 @@ func Seed(s *store.Store) {
 		Remark:        "上午场讲解",
 	})
 
-	s.CreateSchedule(models.CreateScheduleRequest{
+	schedule2 := s.CreateSchedule(models.CreateScheduleRequest{
 		BookingID:     booking2.ID,
 		GuideID:       "G002",
 		GuideName:     "讲解员-陈导",
@@ -87,7 +87,7 @@ func Seed(s *store.Store) {
 
 	s.CreateComplaint(models.CreateComplaintRequest{
 		BookingID:     booking2.ID,
-		ScheduleID:    "",
+			ScheduleID:    schedule2.ID,
 		Complainant:   "王老师",
 		ContactPhone:  "13900139002",
 		ComplaintType: "服务态度",
@@ -100,6 +100,14 @@ func Seed(s *store.Store) {
 		VisitorCount:  &newVisitorCount,
 		VisitTimeSlot: &newTimeSlot,
 		ChangeReason:  "团队人数调整，时间变更",
+		Operator:      "票务主管-李经理",
+	})
+	newVisitorCount2 := 35
+	newTimeSlot2 := "14:00-17:00"
+	s.UpdateBooking(booking1.ID, models.UpdateBookingRequest{
+		VisitorCount:  &newVisitorCount2,
+		VisitTimeSlot: &newTimeSlot2,
+		ChangeReason:  "人数再次调整，时间延后",
 		Operator:      "票务主管-李经理",
 	})
 }

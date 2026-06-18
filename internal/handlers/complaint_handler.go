@@ -64,3 +64,12 @@ func (h *ComplaintHandler) HandleComplaint(c *fiber.Ctx) error {
 
 	return c.JSON(complaint)
 }
+
+func (h *ComplaintHandler) GetComplaintDetail(c *fiber.Ctx) error {
+	id := c.Params("id")
+	detail, ok := h.store.GetComplaintDetail(id)
+	if !ok {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "complaint not found"})
+	}
+	return c.JSON(detail)
+}

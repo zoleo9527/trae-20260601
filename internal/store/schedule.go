@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"scenic-ticket-system/internal/models"
@@ -15,11 +16,13 @@ func (s *Store) CreateSchedule(req models.CreateScheduleRequest) *models.GuideSc
 	var bookingNo string
 	var teamName string
 	var visitorCount int
+	var visitTimeSlot string
 	booking, ok := s.bookings[req.BookingID]
 	if ok {
 		bookingNo = booking.BookingNo
 		teamName = booking.TeamName
 		visitorCount = booking.VisitorCount
+			visitTimeSlot = booking.VisitTimeSlot
 	}
 	now := time.Now()
 	schedule := models.GuideSchedule{
@@ -31,6 +34,7 @@ func (s *Store) CreateSchedule(req models.CreateScheduleRequest) *models.GuideSc
 		GuideName:     req.GuideName,
 		GuideLanguage: req.GuideLanguage,
 		VisitDate:     req.VisitDate,
+		VisitTimeSlot: visitTimeSlot,
 		StartTime:     req.StartTime,
 		EndTime:       req.EndTime,
 		TeamName:      teamName,
@@ -152,6 +156,12 @@ func (s *Store) adjustSchedulesForBookingLocked(bookingID string, reason string)
 			schedule.VisitorCount = booking.VisitorCount
 			schedule.VisitDate = booking.VisitDate
 			schedule.GuideLanguage = booking.GuideLanguage
+				schedule.VisitTimeSlot = booking.VisitTimeSlot
+				timeParts := strings.Split(booking.VisitTimeSlot, "-")
+				if len(timeParts) == 2 {
+					schedule.StartTime = timeParts[0]
+					schedule.EndTime = timeParts[1]
+				}
 			schedule.UpdatedAt = time.Now()
 			s.schedules[id] = schedule
 			result = append(result, schedule)

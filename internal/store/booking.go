@@ -148,22 +148,33 @@ func (s *Store) UpdateBooking(id string, req models.UpdateBookingRequest) (*mode
 	booking.UpdatedAt = time.Now()
 	s.bookings[id] = booking
 
-	if keyFieldsChanged && booking.Status == models.BookingConfirmed {
-		booking.Status = models.BookingModified
-		s.bookings[id] = booking
-		s.addChangeLogLocked(id, "status_change", "status", string(models.BookingConfirmed), string(models.BookingModified), "关键信息变更，状态自动更新", req.Operator, operatorRole)
+	if keyFieldsChanged && booking.Status != models.BookingCancelled && booking.Status != models.BookingCompleted {
+		isFirstChange := oldBooking.Status == models.BookingConfirmed
+		if isFirstChange {
+			booking.Status = models.BookingModified
+			s.bookings[id] = booking
+			s.addChangeLogLocked(id, "status_change", "status", string(models.BookingConfirmed), string(models.BookingModified), "关键信息变更，状态自动更新", req.Operator, operatorRole)
+		}
 		s.adjustSchedulesForBookingLocked(id, req.ChangeReason)
+		notificationTitle := "预约信息变更"
+		notificationContentGuide := "预约 " + booking.BookingNo + " 的关键信息已变更，请关注排班调整"
+		notificationContentSupervisor := "预约 " + booking.BookingNo + " 的关键信息已变更，请关注"
+		if !isFirstChange {
+			notificationTitle = "预约再次变更"
+			notificationContentGuide = "预约 " + booking.BookingNo + " 再次发生变更，请关注最新排班调整"
+			notificationContentSupervisor = "预约 " + booking.BookingNo + " 再次发生变更，请关注"
+		}
 		s.createNotificationLocked(
-			"预约信息变更",
-			"预约 "+booking.BookingNo+" 的关键信息已变更，请关注排班调整",
+			notificationTitle,
+			notificationContentGuide,
 			models.RoleGuide,
 			"",
 			"booking",
 			id,
 		)
 		s.createNotificationLocked(
-			"预约信息变更",
-			"预约 "+booking.BookingNo+" 的关键信息已变更，请关注",
+			notificationTitle,
+			notificationContentSupervisor,
 			models.RoleTicketSupervisor,
 			"",
 			"booking",
