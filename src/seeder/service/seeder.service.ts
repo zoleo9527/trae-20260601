@@ -161,7 +161,7 @@ export class SeederService {
   async seedAuditLogs(intakes: Intake[]) {
     let count = 0;
     for (const intake of intakes) {
-      await this.auditService.quickLog('Intake', intake.id, AuditAction.CREATE, '创建客户需求: ' + intake.customerName, { role: intake.ownerRole, id: intake.ownerId, name: intake.ownerName });
+      await this.auditService.quickLog('INTAKE', intake.id, AuditAction.CREATE, '创建客户需求: ' + intake.customerName, { role: intake.ownerRole, id: intake.ownerId, name: intake.ownerName });
       count++;
     }
     return count;
