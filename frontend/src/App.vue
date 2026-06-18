@@ -6,11 +6,17 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from './stores/auth'
 
 const route = useRoute()
+const authStore = useAuthStore()
 const isLoginPage = computed(() => route.path === '/login')
+
+onMounted(async () => {
+  await authStore.refreshUser()
+})
 </script>
 
 <style scoped>

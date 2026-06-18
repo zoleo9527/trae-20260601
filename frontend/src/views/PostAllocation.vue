@@ -225,6 +225,11 @@ async function confirmAssign(app) {
  return;
  try {
  await postAPI.assign(selectedPost.value.id, app.id);
+ 
+ if (selectedPost.value.activity_id) {
+ await activityAPI.checkExceptions(selectedPost.value.activity_id);
+ }
+ 
  ElMessage.success('分配成功');
  showAssignDialog.value = false;
  loadData();

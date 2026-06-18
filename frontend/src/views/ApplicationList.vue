@@ -127,7 +127,7 @@ const processForm = reactive({
  process_remarks: ''
 });
 watch(() => route.query.focusId, (newVal) => {
- if (newVal) {
+ if (newVal && applications.value.length > 0) {
  const app = applications.value.find(a => a.id === parseInt(newVal));
  if (app) {
  showDetail(app);
@@ -137,28 +137,6 @@ watch(() => route.query.focusId, (newVal) => {
 const pendingCount = computed(() => applications.value.filter(a => a.status === 'pending').length);
 const approvedCount = computed(() => applications.value.filter(a => a.status === 'approved').length);
 const rejectedCount = computed(() => applications.value.filter(a => a.status === 'rejected').length);
-async function loadApplications() {
- const params = {};
- if (statusFilter.value)
- params.status = statusFilter.value;
- if (activityFilter.value)
- params.activity_id = activityFilter.value;
- const [apps, acts, users] = await Promise.all([
- applicationAPI.list(params),
- activityAPI.list(),
- authAPI.getUsers()
- ]);
- activities.value = acts.data;
- const userMap = {};
- users.data.forEach(u => userMap[u.id] = u.name);
- applications.value = apps.data.map(app => ({
- ...app,
- activity_title: acts.data.find(a => a.id === app.activity_id)?.title || '未知活动',
- volunteer_name: userMap[app.volunteer_id] || '未知用户',
- processed_by_name: app.processed_by ? userMap[app.processed_by] : '-',
- process_remarks: app.process_remarks || '-'
- }));
-}
 function formatDateTime(dateStr) {
  if (!dateStr)
  return '-';
@@ -192,7 +170,7 @@ function getStatusClass(status) {
 }
 function showDetail(row) {
  selectedApplication.value = row;
- processForm.process_remarks = row.process_remarks || '';
+ processForm.process_remarks = (row.process_remarks && row.process_remarks !== '-') ? row.process_remarks : '';
  showDetailDialog.value = true;
 }
 async function handleApprove(row) {
@@ -214,6 +192,7 @@ async function processApplication(id, status) {
  return;
  }
  try {
+ const app = applications.value.find(a => a.id === id);
  const updateData = {
  status,
  processed_by: currentUserId
@@ -223,6 +202,11 @@ async function processApplication(id, status) {
  }
  await applicationAPI.update(id, updateData);
  processForm.process_remarks = '';
+ 
+ if (status === 'approved' && app?.activity_id) {
+ await activityAPI.checkExceptions(app.activity_id);
+ }
+ 
  ElMessage.success(status === 'approved' ? '已通过' : '已拒绝');
  loadApplications();
  }
@@ -230,6 +214,41 @@ async function processApplication(id, status) {
  ElMessage.error('处理失败');
  }
 }
+async function loadApplications() {
+ const params = {};
+ if (statusFilter.value)
+ params.status = statusFilter.value;
+ if (activityFilter.value)
+ params.activity_id = activityFilter.value;
+ const [apps, acts, users] = await Promise.all([
+ applicationAPI.list(params),
+ activityAPI.list(),
+ authAPI.getUsers()
+ ]);
+ activities.value = acts.data;
+ const userMap = {};
+ users.data.forEach(u => userMap[u.id] = u.name);
+ applications.value = apps.data.map(app => ({
+ ...app,
+ activity_title: acts.data.find(a => a.id === app.activity_id)?.title || '未知活动',
+ volunteer_name: userMap[app.volunteer_id] || '未知用户',
+ processed_by_name: app.processed_by ? userMap[app.processed_by] : '-',
+ process_remarks: app.process_remarks || null
+ }));
+ 
+ checkFocusId();
+}
+
+function checkFocusId() {
+ const focusId = route.query.focusId;
+ if (focusId && applications.value.length > 0) {
+ const app = applications.value.find(a => a.id === parseInt(focusId));
+ if (app) {
+ showDetail(app);
+ }
+ }
+}
+
 onMounted(() => {
  loadApplications();
 });

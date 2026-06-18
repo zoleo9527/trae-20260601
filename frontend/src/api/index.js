@@ -40,7 +40,8 @@ export const activityAPI = {
   create: (data) => axiosInstance.post('/activities', data),
   list: (params) => axiosInstance.get('/activities', { params }),
   get: (id) => axiosInstance.get(`/activities/${id}`),
-  update: (id, data) => axiosInstance.put(`/activities/${id}`, data)
+  update: (id, data) => axiosInstance.put(`/activities/${id}`, data),
+  checkExceptions: (id) => axiosInstance.post(`/activities/${id}/check-exceptions`)
 }
 
 export const applicationAPI = {

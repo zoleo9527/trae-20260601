@@ -25,6 +25,25 @@ export const useAuthStore = defineStore('auth', () => {
     return response.data
   }
 
+  async function refreshUser() {
+    if (accessToken.value && !user.value) {
+      try {
+        const response = await authAPI.getUsers()
+        const users = response.data
+        const token = accessToken.value
+        const payload = JSON.parse(atob(token.split('.')[1]))
+        const username = payload.sub
+        const foundUser = users.find(u => u.username === username)
+        if (foundUser) {
+          user.value = foundUser
+        }
+      } catch (error) {
+        console.error('Failed to refresh user:', error)
+        logout()
+      }
+    }
+  }
+
   function logout() {
     user.value = null
     accessToken.value = null
@@ -42,6 +61,7 @@ export const useAuthStore = defineStore('auth', () => {
     roleText,
     login,
     logout,
-    setUser
+    setUser,
+    refreshUser
   }
 })
