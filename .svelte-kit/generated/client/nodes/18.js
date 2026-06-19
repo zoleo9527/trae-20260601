@@ -1,0 +1,1 @@
+export { default as component } from "../../../../src/routes/wine-storage/retrieve/[id]/+page.svelte";

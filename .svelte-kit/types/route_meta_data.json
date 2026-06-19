@@ -1,0 +1,93 @@
+{
+	"/": [
+		"src/routes/+layout.ts",
+		"src/routes/+layout.ts"
+	],
+	"/api/attachments": [
+		"src/routes/api/attachments/+server.ts"
+	],
+	"/api/attachments/[id]": [
+		"src/routes/api/attachments/[id]/+server.ts"
+	],
+	"/api/guests": [
+		"src/routes/api/guests/+server.ts"
+	],
+	"/api/guests/[id]": [
+		"src/routes/api/guests/[id]/+server.ts"
+	],
+	"/api/login": [
+		"src/routes/api/login/+server.ts"
+	],
+	"/api/logs": [
+		"src/routes/api/logs/+server.ts"
+	],
+	"/api/performances": [
+		"src/routes/api/performances/+server.ts"
+	],
+	"/api/performances/[id]": [
+		"src/routes/api/performances/[id]/+server.ts"
+	],
+	"/api/reservations": [
+		"src/routes/api/reservations/+server.ts"
+	],
+	"/api/reservations/[id]": [
+		"src/routes/api/reservations/[id]/+server.ts"
+	],
+	"/api/user": [
+		"src/routes/api/user/+server.ts"
+	],
+	"/api/wine-storage": [
+		"src/routes/api/wine-storage/+server.ts"
+	],
+	"/api/wine-storage/[id]": [
+		"src/routes/api/wine-storage/[id]/+server.ts"
+	],
+	"/dashboard": [
+		"src/routes/+layout.ts"
+	],
+	"/guests": [
+		"src/routes/+layout.ts"
+	],
+	"/guests/edit/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/guests/new": [
+		"src/routes/+layout.ts"
+	],
+	"/logout": [
+		"src/routes/+layout.ts"
+	],
+	"/logs": [
+		"src/routes/+layout.ts"
+	],
+	"/performances": [
+		"src/routes/+layout.ts"
+	],
+	"/performances/edit/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/performances/new": [
+		"src/routes/+layout.ts"
+	],
+	"/reservations": [
+		"src/routes/+layout.ts"
+	],
+	"/reservations/edit/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/reservations/new": [
+		"src/routes/+layout.ts"
+	],
+	"/wine-storage": [
+		"src/routes/+layout.ts"
+	],
+	"/wine-storage/edit/[id]": [
+		"src/routes/+layout.ts"
+	],
+	"/wine-storage/new": [
+		"src/routes/+layout.ts"
+	],
+	"/wine-storage/retrieve/[id]": [
+		"src/routes/+layout.ts"
+	]
+}

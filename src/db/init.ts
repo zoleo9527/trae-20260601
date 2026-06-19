@@ -1,9 +1,16 @@
 import Database from 'better-sqlite3';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { mkdirSync, existsSync } from 'fs';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const dbPath = join(__dirname, '../../data/bar.db');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const dataDir = join(__dirname, '../../data');
+
+if (!existsSync(dataDir)) {
+  mkdirSync(dataDir, { recursive: true });
+}
+
+const dbPath = join(dataDir, 'bar.db');
 
 export const db = new Database(dbPath);
 
@@ -114,9 +121,9 @@ export function initDatabase() {
   `);
 
   const checkAdmin = db.prepare('SELECT COUNT(*) as count FROM users WHERE username = ?');
-  const adminExists = checkAdmin.get('admin');
+  const adminExists = checkAdmin.get('admin') as { count: number };
   
-  if (!adminExists || adminExists.count === 0) {
+  if (adminExists.count === 0) {
     const insertAdmin = db.prepare(`
       INSERT INTO users (username, password, role)
       VALUES (?, ?, 'admin')
