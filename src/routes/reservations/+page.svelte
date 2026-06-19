@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { fetchReservations, type Reservation } from '$lib/api';
   import { BarChart3, Plus, Edit, Trash2, Search, Filter, Eye, CalendarClock, FileText } from 'lucide-svelte';
+  import { getTimeSlotLabel } from '$lib/constants';
 
   export let data;
   $: user = data.user;
@@ -50,16 +51,6 @@
       completed: 'bg-blue-100 text-blue-700'
     };
     return colors[status] || 'bg-gray-100 text-gray-700';
-  }
-
-  function getTimeSlotLabel(slot: string) {
-    const labels: Record<string, string> = {
-      morning: '上午 (10:00-14:00)',
-      afternoon: '下午 (14:00-18:00)',
-      evening: '晚间 (18:00-22:00)',
-      night: '深夜 (22:00-02:00)'
-    };
-    return labels[slot] || slot;
   }
 
   function openDetail(reservation: Reservation) {

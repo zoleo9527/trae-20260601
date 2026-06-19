@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { createReservation } from '$lib/api';
   import { BarChart3, ArrowLeft, Save, AlertCircle } from 'lucide-svelte';
+  import { TIME_SLOTS } from '$lib/constants';
 
   export let data;
   $: user = data.user;
@@ -18,8 +19,6 @@
   let error = '';
   let showDuplicateWarning = false;
   let success = false;
-
-  const timeSlots = ['18:00-20:00', '20:00-22:00', '22:00-00:00', '00:00-02:00'];
 
   onMount(() => {
     if (!user) {
@@ -143,8 +142,8 @@
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
             >
               <option value="">请选择时段</option>
-              {#each timeSlots as slot}
-                <option value={slot}>{slot}</option>
+              {#each TIME_SLOTS as slot}
+                <option value={slot.value}>{slot.label}</option>
               {/each}
             </select>
           </div>

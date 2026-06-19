@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { fetchPerformances, fetchGuests, type Performance, type Guest } from '$lib/api';
   import { Calendar, Plus, Edit, Trash2, Search, Filter, Eye, FileText } from 'lucide-svelte';
+  import { getStageLabel } from '$lib/constants';
 
   export let data;
   $: user = data.user;
@@ -131,7 +132,7 @@
                 <td class="py-3 px-4 text-gray-800">{getGuestName(performance.guest_id)}</td>
                 <td class="py-3 px-4 text-gray-600">{performance.date}</td>
                 <td class="py-3 px-4 text-gray-600">{performance.start_time} - {performance.end_time}</td>
-                <td class="py-3 px-4 text-gray-600">{performance.stage}</td>
+                <td class="py-3 px-4 text-gray-600">{getStageLabel(performance.stage)}</td>
                 <td class="py-3 px-4">
                   <span class={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(performance.status)}`}>
                     {getStatusLabel(performance.status)}
@@ -212,7 +213,7 @@
             <div class="grid grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-500 mb-1">舞台</label>
-                <p class="text-gray-800">{selectedPerformance.stage}</p>
+                <p class="text-gray-800">{getStageLabel(selectedPerformance.stage)}</p>
               </div>
               <div>
                 <label class="block text-sm font-medium text-gray-500 mb-1">状态</label>

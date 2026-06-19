@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { fetchPerformances, fetchGuests, updatePerformance, type Performance, type Guest } from '$lib/api';
   import { Calendar, ArrowLeft, Save } from 'lucide-svelte';
+  import { STAGE_OPTIONS } from '$lib/constants';
   
   export let data;
   $: user = data.user;
@@ -19,12 +20,6 @@
   let notes = '';
   let error = '';
   let success = false;
-
-  const stageOptions = [
-    { value: 'main', label: '主舞台' },
-    { value: 'vip', label: 'VIP区' },
-    { value: 'lounge', label: '休息区' }
-  ];
 
   const statusOptions = [
     { value: 'scheduled', label: '已安排' },
@@ -161,7 +156,7 @@
               bind:value={stage}
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
             >
-              {#each stageOptions as option}
+              {#each STAGE_OPTIONS as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
             </select>

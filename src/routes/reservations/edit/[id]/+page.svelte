@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { fetchReservations, updateReservation, type Reservation } from '$lib/api';
   import { BarChart3, ArrowLeft, Save } from 'lucide-svelte';
+  import { TIME_SLOTS } from '$lib/constants';
   
   export let data;
   $: user = data.user;
@@ -19,13 +20,6 @@
   let notes = '';
   let error = '';
   let success = false;
-
-  const timeSlots = [
-    { value: 'morning', label: '上午 (10:00-14:00)' },
-    { value: 'afternoon', label: '下午 (14:00-18:00)' },
-    { value: 'evening', label: '晚间 (18:00-22:00)' },
-    { value: 'night', label: '深夜 (22:00-02:00)' }
-  ];
 
   const statusOptions = [
     { value: 'pending', label: '待确认' },
@@ -156,7 +150,7 @@
               bind:value={time_slot}
               class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-purple-500 transition-colors"
             >
-              {#each timeSlots as option}
+              {#each TIME_SLOTS as option}
                 <option value={option.value}>{option.label}</option>
               {/each}
             </select>

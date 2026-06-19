@@ -1,4 +1,5 @@
 import { c as create_ssr_component, v as validate_component, d as add_attribute, f as each, e as escape } from "../../../chunks/ssr.js";
+import { a as getTimeSlotLabel } from "../../../chunks/constants.js";
 import { I as Icon } from "../../../chunks/Icon.js";
 import { P as Plus, E as Eye, a as Edit } from "../../../chunks/square-pen.js";
 import { S as Search, F as Filter } from "../../../chunks/search.js";
@@ -41,15 +42,6 @@ function getStatusColor(status) {
     completed: "bg-blue-100 text-blue-700"
   };
   return colors[status] || "bg-gray-100 text-gray-700";
-}
-function getTimeSlotLabel(slot) {
-  const labels = {
-    morning: "上午 (10:00-14:00)",
-    afternoon: "下午 (14:00-18:00)",
-    evening: "晚间 (18:00-22:00)",
-    night: "深夜 (22:00-02:00)"
-  };
-  return labels[slot] || slot;
 }
 const Page = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   let user;

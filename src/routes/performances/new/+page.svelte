@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation';
   import { createPerformance, fetchGuests, type Guest } from '$lib/api';
   import { Calendar, ArrowLeft, Save, Upload } from 'lucide-svelte';
+  import { STAGE_OPTIONS } from '$lib/constants';
 
   export let data;
   $: user = data.user;
