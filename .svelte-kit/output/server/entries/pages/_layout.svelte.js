@@ -1,8 +1,5 @@
 import { c as create_ssr_component, v as validate_component, e as escape } from "../../chunks/ssr.js";
-import { B as BarChart3 } from "../../chunks/bar-chart-3.js";
-import { M as Music } from "../../chunks/music.js";
-import { C as Calendar } from "../../chunks/calendar.js";
-import { W as Wine } from "../../chunks/wine.js";
+import { B as BarChart3, M as Music, C as Calendar, W as Wine } from "../../chunks/wine.js";
 import { F as FileText } from "../../chunks/file-text.js";
 import { U as User } from "../../chunks/user.js";
 const _layout_svelte_svelte_type_style_lang = "";

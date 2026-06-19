@@ -241,7 +241,7 @@
             <a href={`/performances/edit/${selectedPerformance.id}`} class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
               编辑
             </a>
-            <a href="/logs?table=performances&recordId={selectedPerformance.id}" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <a href={`/logs?table=performances&recordId=${selectedPerformance.id}`} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               查看日志
             </a>
           </div>

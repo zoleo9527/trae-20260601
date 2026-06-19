@@ -23,7 +23,7 @@ const PUT = async ({ locals, params, request }) => {
     return error(404, { message: "订台不存在" });
   }
   if (body.table_number !== void 0 && body.date !== void 0 && body.time_slot !== void 0) {
-    if (checkDuplicateReservation(body.date, body.table_number, body.time_slot)) {
+    if (checkDuplicateReservation(body.date, body.table_number, body.time_slot, id)) {
       return error(409, { message: "该台号在该时段已被预订" });
     }
   }

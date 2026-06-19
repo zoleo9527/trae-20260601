@@ -14,11 +14,17 @@ function getReservationsByDate(date) {
     SELECT * FROM reservations WHERE date = ? ORDER BY time_slot ASC
   `).all(date);
 }
-function checkDuplicateReservation(date, tableNumber, timeSlot) {
-  const result = db.prepare(`
+function checkDuplicateReservation(date, tableNumber, timeSlot, excludeId) {
+  let sql = `
     SELECT COUNT(*) as count FROM reservations 
     WHERE date = ? AND table_number = ? AND time_slot = ? AND status != 'cancelled'
-  `).get(date, tableNumber, timeSlot);
+  `;
+  const params = [date, tableNumber, timeSlot];
+  if (excludeId !== void 0) {
+    sql += " AND id != ?";
+    params.push(excludeId);
+  }
+  const result = db.prepare(sql).get(...params);
   return result.count > 0;
 }
 function createReservation(data) {

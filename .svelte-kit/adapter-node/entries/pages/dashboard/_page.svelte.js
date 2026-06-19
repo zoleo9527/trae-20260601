@@ -1,8 +1,5 @@
 import { c as create_ssr_component, e as escape, v as validate_component } from "../../../chunks/ssr.js";
-import { M as Music } from "../../../chunks/music.js";
-import { C as Calendar } from "../../../chunks/calendar.js";
-import { B as BarChart3 } from "../../../chunks/bar-chart-3.js";
-import { W as Wine } from "../../../chunks/wine.js";
+import { M as Music, C as Calendar, B as BarChart3, W as Wine } from "../../../chunks/wine.js";
 const Page = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   let user;
   let { data } = $$props;

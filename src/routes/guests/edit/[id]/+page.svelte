@@ -110,7 +110,7 @@
         </div>
       {/if}
 
-      <form onsubmit={handleSubmit} class="space-y-6">
+      <form on:submit|preventDefault={handleSubmit} class="space-y-6">
         <div class="grid grid-cols-2 gap-6">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">姓名 <span class="text-red-500">*</span></label>

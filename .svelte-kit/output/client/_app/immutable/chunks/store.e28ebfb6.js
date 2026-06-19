@@ -1,1 +1,0 @@
-import{w as n}from"./index.9b8e8a7d.js";const t=n(null);async function r(){try{const s=await fetch("/api/user");if(s.ok){const{user:e}=await s.json();t.set(e)}else t.set(null)}catch{t.set(null)}}async function c(){try{await fetch("/api/user",{method:"POST"}),t.set(null)}catch{t.set(null)}}export{t as c,r as f,c as l};

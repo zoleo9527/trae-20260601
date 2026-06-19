@@ -28,7 +28,7 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   }
   
   if (body.table_number !== undefined && body.date !== undefined && body.time_slot !== undefined) {
-    if (checkDuplicateReservation(body.date, body.table_number, body.time_slot)) {
+    if (checkDuplicateReservation(body.date, body.table_number, body.time_slot, id)) {
       return error(409, { message: '该台号在该时段已被预订' });
     }
   }

@@ -19,11 +19,19 @@ export function getReservationsByDate(date: string): Reservation[] {
   `).all(date) as Reservation[];
 }
 
-export function checkDuplicateReservation(date: string, tableNumber: number, timeSlot: string): boolean {
-  const result = db.prepare(`
+export function checkDuplicateReservation(date: string, tableNumber: number, timeSlot: string, excludeId?: number): boolean {
+  let sql = `
     SELECT COUNT(*) as count FROM reservations 
     WHERE date = ? AND table_number = ? AND time_slot = ? AND status != 'cancelled'
-  `).get(date, tableNumber, timeSlot);
+  `;
+  const params: unknown[] = [date, tableNumber, timeSlot];
+  
+  if (excludeId !== undefined) {
+    sql += ' AND id != ?';
+    params.push(excludeId);
+  }
+  
+  const result = db.prepare(sql).get(...params);
   return (result as { count: number }).count > 0;
 }
 

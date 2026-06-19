@@ -1,9 +1,6 @@
-import { c as create_ssr_component, v as validate_component, e as escape, b as add_attribute } from "../../chunks/ssr.js";
+import { c as create_ssr_component, v as validate_component, e as escape, d as add_attribute } from "../../chunks/ssr.js";
 import { I as Icon } from "../../chunks/Icon.js";
-import { M as Music } from "../../chunks/music.js";
-import { C as Calendar } from "../../chunks/calendar.js";
-import { B as BarChart3 } from "../../chunks/bar-chart-3.js";
-import { W as Wine } from "../../chunks/wine.js";
+import { M as Music, C as Calendar, B as BarChart3, W as Wine } from "../../chunks/wine.js";
 import { U as User } from "../../chunks/user.js";
 const Lock = create_ssr_component(($$result, $$props, $$bindings, slots) => {
   const iconNode = [
