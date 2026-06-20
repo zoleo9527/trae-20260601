@@ -37,3 +37,37 @@ export function getTimeSlotLabel(slot: string): string {
 export function getStageLabel(stage: string): string {
   return STAGE_LABELS[stage] || stage;
 }
+
+const TIME_SLOT_NORMALIZE_MAP: Record<string, string> = {
+  'morning': '18:00-20:00',
+  'afternoon': '18:00-20:00',
+  'evening': '20:00-22:00',
+  'night': '22:00-00:00'
+};
+
+const STAGE_NORMALIZE_MAP: Record<string, string> = {
+  'vip': 'secondary',
+  'lounge': 'secondary'
+};
+
+export function normalizeTimeSlot(slot: string): string {
+  if (TIME_SLOTS.some(s => s.value === slot)) {
+    return slot;
+  }
+  return TIME_SLOT_NORMALIZE_MAP[slot] || slot;
+}
+
+export function normalizeStage(stage: string): string {
+  if (STAGE_OPTIONS.some(s => s.value === stage)) {
+    return stage;
+  }
+  return STAGE_NORMALIZE_MAP[stage] || 'main';
+}
+
+export function isValidTimeSlot(slot: string): boolean {
+  return TIME_SLOTS.some(s => s.value === slot) || slot in TIME_SLOT_NORMALIZE_MAP;
+}
+
+export function isValidStage(stage: string): boolean {
+  return STAGE_OPTIONS.some(s => s.value === stage) || stage in STAGE_NORMALIZE_MAP;
+}

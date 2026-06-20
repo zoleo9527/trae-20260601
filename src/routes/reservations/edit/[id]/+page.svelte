@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { fetchReservations, updateReservation, type Reservation } from '$lib/api';
   import { BarChart3, ArrowLeft, Save } from 'lucide-svelte';
-  import { TIME_SLOTS } from '$lib/constants';
+  import { TIME_SLOTS, normalizeTimeSlot } from '$lib/constants';
   
   export let data;
   $: user = data.user;
@@ -40,7 +40,7 @@
       customer_name = reservation.customer_name;
       phone = reservation.phone;
       date = reservation.date;
-      time_slot = reservation.time_slot;
+      time_slot = normalizeTimeSlot(reservation.time_slot);
       table_number = reservation.table_number;
       guests_count = reservation.guests_count;
       status = reservation.status;

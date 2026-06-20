@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { fetchPerformances, fetchGuests, updatePerformance, type Performance, type Guest } from '$lib/api';
   import { Calendar, ArrowLeft, Save } from 'lucide-svelte';
-  import { STAGE_OPTIONS } from '$lib/constants';
+  import { STAGE_OPTIONS, normalizeStage } from '$lib/constants';
   
   export let data;
   $: user = data.user;
@@ -42,7 +42,7 @@
       date = performance.date;
       start_time = performance.start_time;
       end_time = performance.end_time;
-      stage = performance.stage;
+      stage = normalizeStage(performance.stage);
       status = performance.status;
       notes = performance.notes || '';
     }

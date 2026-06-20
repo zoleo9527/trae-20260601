@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getReservationById, checkDuplicateReservation, updateReservation, deleteReservation } from '$db/reservations';
 import { createLog } from '$db/operation_logs';
+import { normalizeTimeSlot } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ locals, params }) => {
   if (!locals.user) {
@@ -25,6 +26,10 @@ export const PUT: RequestHandler = async ({ locals, params, request }) => {
   
   if (!oldReservation) {
     return error(404, { message: '订台不存在' });
+  }
+  
+  if (body.time_slot !== undefined) {
+    body.time_slot = normalizeTimeSlot(body.time_slot);
   }
   
   if (body.table_number !== undefined && body.date !== undefined && body.time_slot !== undefined) {

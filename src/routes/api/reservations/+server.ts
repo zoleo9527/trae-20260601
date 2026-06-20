@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getAllReservations, getReservationsByDate, checkDuplicateReservation, createReservation } from '$db/reservations';
 import { createLog } from '$db/operation_logs';
+import { normalizeTimeSlot } from '$lib/constants';
 
 export const GET: RequestHandler = async ({ locals, url }) => {
   if (!locals.user) {
@@ -17,6 +18,9 @@ export const POST: RequestHandler = async ({ locals, request }) => {
     return error(401, { message: '未登录' });
   }
   const body = await request.json();
+  
+  const normalizedTimeSlot = normalizeTimeSlot(body.time_slot);
+  body.time_slot = normalizedTimeSlot;
   
   if (checkDuplicateReservation(body.date, body.table_number, body.time_slot)) {
     return error(409, { message: '该台号在该时段已被预订' });
