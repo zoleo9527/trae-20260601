@@ -1,6 +1,57 @@
 import db from '../config/database';
 import { SortingRecord, SortedMaterial, MaterialType } from '../types';
 import { generateId, formatDate, parseJsonSafely } from '../utils/helpers';
+
+const checkColumnExists = (table: string, column: string): boolean => {
+  try {
+    const cols = db.prepare(`PRAGMA table_info(${table})`).all() as any[];
+    return cols.some((c: any) => c.name === column);
+  } catch (e) {
+    return false;
+  }
+};
+
+const getMaterialStatusFromInventory = (sortedMaterialId: string): { is_stocked: boolean; is_scrapped: boolean } => {
+  try {
+    const row = db.prepare(
+      "SELECT warehouse, grade_level FROM inventory_records WHERE sorted_material_id = ? ORDER BY created_at DESC LIMIT 1"
+    ).get(sortedMaterialId) as any;
+    if (!row) return { is_stocked: false, is_scrapped: false };
+    const isScrap = row.warehouse === '报废区' || row.grade_level === 'E';
+    return { is_stocked: !isScrap, is_scrapped: isScrap };
+  } catch (e) {
+    return { is_stocked: false, is_scrapped: false };
+  }
+};
+
+const enrichSortedMaterial = (m: any): SortedMaterial => {
+  const hasStocked = checkColumnExists('sorted_materials', 'is_stocked');
+  const hasScrapped = checkColumnExists('sorted_materials', 'is_scrapped');
+  
+  let is_stocked = false;
+  let is_scrapped = false;
+  
+  if (hasStocked) is_stocked = (m.is_stocked ?? 0) === 1;
+  if (hasScrapped) is_scrapped = (m.is_scrapped ?? 0) === 1;
+  
+  if (!hasStocked || !hasScrapped) {
+    const inv = getMaterialStatusFromInventory(m.id);
+    if (!hasStocked) is_stocked = inv.is_stocked;
+    if (!hasScrapped) is_scrapped = inv.is_scrapped;
+  }
+  
+  if (!is_scrapped && !is_stocked && m.grade_level === 'E') {
+    is_scrapped = true;
+  }
+  
+  return {
+    ...m,
+    photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
+    is_stocked,
+    is_scrapped
+  };
+};
+
 import { updateBatchStatus, getInboundBatchById } from './batch.service';
 
 interface SortedMaterialInput {
@@ -86,22 +137,12 @@ export const getSortedMaterialById = (id: string): SortedMaterial | undefined =>
   const material = db.prepare('SELECT * FROM sorted_materials WHERE id = ?').get(id) as any;
   if (!material) return undefined;
 
-  return {
-    ...material,
-    photo_urls: parseJsonSafely<string[]>(material.photo_urls, []),
-    is_stocked: (material.is_stocked ?? 0) === 1,
-    is_scrapped: (material.is_scrapped ?? 0) === 1
-  };
+  return enrichSortedMaterial(material);
 };
 
 export const getSortedMaterialsByRecordId = (recordId: string): SortedMaterial[] => {
   const materials = db.prepare('SELECT * FROM sorted_materials WHERE sorting_record_id = ?').all(recordId) as any[];
-  return materials.map(m => ({
-    ...m,
-    photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: (m.is_stocked ?? 0) === 1,
-    is_scrapped: (m.is_scrapped ?? 0) === 1
-  }));
+  return materials.map(m => enrichSortedMaterial(m));
 };
 
 export const getSortedMaterialsByBatchId = (batchId: string): SortedMaterial[] => {
@@ -111,12 +152,7 @@ export const getSortedMaterialsByBatchId = (batchId: string): SortedMaterial[] =
     WHERE sr.batch_id = ?
   `).all(batchId) as any[];
 
-  return materials.map(m => ({
-    ...m,
-    photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: (m.is_stocked ?? 0) === 1,
-    is_scrapped: (m.is_scrapped ?? 0) === 1
-  }));
+  return materials.map(m => enrichSortedMaterial(m));
 };
 
 export const updateSortedMaterialGrade = (
