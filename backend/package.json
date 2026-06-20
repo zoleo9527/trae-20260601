@@ -1,0 +1,28 @@
+{
+  "name": "recycling-sorting-center",
+  "version": "1.0.0",
+  "description": "再生资源分拣中心品级确认系统",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "ts-node src/server.ts",
+    "init-db": "ts-node src/scripts/initDb.ts",
+    "seed-data": "ts-node src/scripts/seedData.ts"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "better-sqlite3": "^11.3.0",
+    "cors": "^2.8.5",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.5",
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/cors": "^2.8.17",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.5.0",
+    "ts-node": "^10.9.2"
+  }
+}
