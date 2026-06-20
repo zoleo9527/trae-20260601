@@ -1,8 +1,8 @@
 import db from '../config/database';
-import { InventoryRecord, ReviewRecord } from '../types';
+import { InventoryRecord, ReviewRecord, MaterialType, GradeLevel } from '../types';
 import { generateId, formatDate } from '../utils/helpers';
 import { updateBatchStatus, getInboundBatchById } from './batch.service';
-import { getSortedMaterialById, markMaterialAsStocked } from './sorting.service';
+import { getSortedMaterialById, markMaterialAsStocked, markMaterialAsScrapped, getSortedMaterialsByBatchId } from './sorting.service';
 import { getGradeJudgmentByMaterialId } from './grade.service';
 
 interface CreateInventoryInput {
@@ -56,14 +56,80 @@ export const createInventoryRecord = (input: CreateInventoryInput): InventoryRec
 
   markMaterialAsStocked(input.sorted_material_id);
 
-  const allMaterials = db.prepare(`
-    SELECT sm.* FROM sorted_materials sm
-    JOIN sorting_records sr ON sm.sorting_record_id = sr.id
-    WHERE sr.batch_id = ?
-  `).all(input.batch_id) as any[];
+  const allMaterials = getSortedMaterialsByBatchId(input.batch_id);
+  const allProcessed = allMaterials.every(m => m.is_stocked || m.is_scrapped);
+  if (allProcessed) {
+    updateBatchStatus(input.batch_id, 'stocked');
+  }
 
-  const allStocked = allMaterials.every(m => m.is_stocked === 1);
-  if (allStocked) {
+  return getInventoryRecordById(id)!;
+};
+
+interface CreateScrapRecordInput {
+  batch_id: string;
+  sorted_material_id: string;
+  handler_id: string;
+  handler_name: string;
+  reason: string;
+}
+
+export const createScrapRecord = (input: CreateScrapRecordInput) => {
+  const sortedMaterial = getSortedMaterialById(input.sorted_material_id);
+  if (!sortedMaterial) {
+    throw new Error('分选物料不存在');
+  }
+
+  if (sortedMaterial.is_stocked) {
+    throw new Error('该物料已入库，不能报废');
+  }
+
+  if (sortedMaterial.is_scrapped) {
+    throw new Error('该物料已报废');
+  }
+
+  const batch = getInboundBatchById(input.batch_id);
+  if (!batch) {
+    throw new Error('批次不存在');
+  }
+
+  const id = generateId();
+  const now = formatDate();
+  const zeroPrice = 0;
+  const zeroAmount = 0;
+
+  const stmt = db.prepare(`
+    INSERT INTO inventory_records (
+      id, batch_id, batch_no, sorted_material_id, material_type, grade_level,
+      weight, unit_price, amount, warehouse, location, stocker_id, stocker_name,
+      remark, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  stmt.run(
+    id, input.batch_id, batch.batch_no, input.sorted_material_id,
+    sortedMaterial.material_type, 'E',
+    sortedMaterial.weight, zeroPrice, zeroAmount,
+    '报废区', 'SC-001', input.handler_id, input.handler_name,
+    `报废处理: ${input.reason}`, now
+  );
+
+  markMaterialAsScrapped(input.sorted_material_id);
+
+  // 检查品级判定是否全部完成
+  const allMaterialsForGrade = getSortedMaterialsByBatchId(input.batch_id);
+  const allGraded = allMaterialsForGrade.every(m => {
+    if (m.is_scrapped) return true;
+    return m.grade_level !== null;
+  });
+  const currentBatch = getInboundBatchById(input.batch_id);
+  if (allGraded && currentBatch && currentBatch.status === 'grading') {
+    updateBatchStatus(input.batch_id, 'grading_completed');
+  }
+
+  // 检查入库/报废是否全部完成
+  const allMaterials = getSortedMaterialsByBatchId(input.batch_id);
+  const allProcessed = allMaterials.every(m => m.is_stocked || m.is_scrapped);
+  if (allProcessed) {
     updateBatchStatus(input.batch_id, 'stocked');
   }
 

@@ -13,6 +13,15 @@ router.post('/', (req: Request, res: Response) => {
   }
 });
 
+router.post('/scrap', (req: Request, res: Response) => {
+  try {
+    const record = inventoryService.createScrapRecord(req.body);
+    res.json({ success: true, data: record, message: '报废处理成功' } as ApiResponse<typeof record>);
+  } catch (error) {
+    res.status(400).json({ success: false, error: (error as Error).message } as ApiResponse<null>);
+  }
+});
+
 router.get('/', (req: Request, res: Response) => {
   const records = inventoryService.getAllInventoryRecords();
   res.json({ success: true, data: records } as ApiResponse<typeof records>);

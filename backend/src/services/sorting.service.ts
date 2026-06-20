@@ -89,7 +89,8 @@ export const getSortedMaterialById = (id: string): SortedMaterial | undefined =>
   return {
     ...material,
     photo_urls: parseJsonSafely<string[]>(material.photo_urls, []),
-    is_stocked: material.is_stocked === 1
+    is_stocked: material.is_stocked === 1,
+    is_scrapped: material.is_scrapped === 1
   };
 };
 
@@ -98,7 +99,8 @@ export const getSortedMaterialsByRecordId = (recordId: string): SortedMaterial[]
   return materials.map(m => ({
     ...m,
     photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: m.is_stocked === 1
+    is_stocked: m.is_stocked === 1,
+    is_scrapped: m.is_scrapped === 1
   }));
 };
 
@@ -112,7 +114,8 @@ export const getSortedMaterialsByBatchId = (batchId: string): SortedMaterial[] =
   return materials.map(m => ({
     ...m,
     photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: m.is_stocked === 1
+    is_stocked: m.is_stocked === 1,
+    is_scrapped: m.is_scrapped === 1
   }));
 };
 
@@ -134,6 +137,12 @@ export const updateSortedMaterialGrade = (
 export const markMaterialAsStocked = (id: string): boolean => {
   const stmt = db.prepare('UPDATE sorted_materials SET is_stocked = 1 WHERE id = ?');
   const result = stmt.run(id);
+  return result.changes > 0;
+};
+
+export const markMaterialAsScrapped = (id: string): boolean => {
+  const stmt = db.prepare('UPDATE sorted_materials SET is_scrapped = 1, grade_level = ? WHERE id = ?');
+  const result = stmt.run('E', id);
   return result.changes > 0;
 };
 

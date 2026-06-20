@@ -62,6 +62,7 @@ const initDatabase = () => {
       amount REAL,
       photo_urls TEXT DEFAULT '[]',
       is_stocked INTEGER DEFAULT 0,
+      is_scrapped INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (sorting_record_id) REFERENCES sorting_records(id)
     )`,
@@ -93,6 +94,7 @@ const initDatabase = () => {
       grade_judgment_id TEXT NOT NULL,
       batch_id TEXT NOT NULL,
       sorted_material_id TEXT NOT NULL,
+      material_type TEXT NOT NULL,
       original_grade TEXT NOT NULL,
       original_unit_price REAL NOT NULL,
       original_amount REAL NOT NULL,

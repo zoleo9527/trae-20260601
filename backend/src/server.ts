@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import path from 'path';
 import batchRoutes from './routes/batch.routes';
 import sortingRoutes from './routes/sorting.routes';
 import gradeRoutes from './routes/grade.routes';
@@ -12,6 +13,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
+
+const frontendDir = path.join(__dirname, '../../frontend');
+app.use(express.static(frontendDir));
 
 app.get('/api/health', (req, res) => {
   res.json({ 

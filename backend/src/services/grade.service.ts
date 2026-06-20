@@ -2,7 +2,7 @@ import db from '../config/database';
 import { GradeJudgment, GradeLevel } from '../types';
 import { generateId, formatDate, parseJsonSafely, calculateGradeDifference } from '../utils/helpers';
 import { updateBatchStatus, getInboundBatchById } from './batch.service';
-import { getSortedMaterialById, updateSortedMaterialGrade } from './sorting.service';
+import { getSortedMaterialById, updateSortedMaterialGrade, getSortedMaterialsByBatchId } from './sorting.service';
 
 interface CreateGradeJudgmentInput {
   batch_id: string;
@@ -44,9 +44,19 @@ export const createGradeJudgment = (input: CreateGradeJudgmentInput): GradeJudgm
 
   updateSortedMaterialGrade(input.sorted_material_id, input.judged_grade, input.unit_price, amount);
 
-  const batch = getInboundBatchById(input.batch_id);
-  if (batch && batch.status !== 'reviewing') {
+  const allMaterials = getSortedMaterialsByBatchId(input.batch_id);
+  const allMaterialsProcessed = allMaterials.every(m => {
+    if (m.is_scrapped) return true;
+    return m.grade_level !== null;
+  });
+
+  if (allMaterialsProcessed) {
     updateBatchStatus(input.batch_id, 'grading_completed');
+  } else {
+    const batch = getInboundBatchById(input.batch_id);
+    if (batch && batch.status === 'created') {
+      updateBatchStatus(input.batch_id, 'grading');
+    }
   }
 
   return getGradeJudgmentById(id)!;
@@ -105,16 +115,16 @@ export const updateGradeJudgment = (
   const reviewId = generateId();
   const reviewStmt = db.prepare(`
     INSERT INTO review_records (
-      id, grade_judgment_id, batch_id, sorted_material_id,
+      id, grade_judgment_id, batch_id, sorted_material_id, material_type,
       original_grade, original_unit_price, original_amount,
       new_grade, new_unit_price, new_amount,
       grade_difference, price_difference, amount_difference,
       reviewer_id, reviewer_name, reason, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   reviewStmt.run(
-    reviewId, id, judgment.batch_id, judgment.sorted_material_id,
+    reviewId, id, judgment.batch_id, judgment.sorted_material_id, judgment.material_type,
     judgment.judged_grade, judgment.unit_price, judgment.amount,
     newGrade, newUnitPrice, newAmount,
     gradeDiff, priceDiff, amountDiff,

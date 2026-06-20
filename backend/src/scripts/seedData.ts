@@ -109,6 +109,7 @@ const seedData = () => {
   const petMaterial1 = sorting1.sorted_materials.find(m => m.material_type === 'PET')!;
   const hdpeMaterial1 = sorting1.sorted_materials.find(m => m.material_type === 'HDPE')!;
   const pvcMaterial1 = sorting1.sorted_materials.find(m => m.material_type === 'PVC')!;
+  const otherMaterial1 = sorting1.sorted_materials.find(m => m.material_type === 'other')!;
 
   const judgmentPET1 = gradeService.createGradeJudgment({
     batch_id: batch1.id,
@@ -148,6 +149,15 @@ const seedData = () => {
     remark: 'PVC管材有磨损，判定为C级'
   });
   console.log(`✓ PVC品级判定: ${judgmentPVC1.original_grade}→${judgmentPVC1.judged_grade}级 | ${judgmentPVC1.unit_price}元/kg | 金额: ${judgmentPVC1.amount.toFixed(2)}元`);
+
+  const scrapOther1 = inventoryService.createScrapRecord({
+    batch_id: batch1.id,
+    sorted_material_id: otherMaterial1.id,
+    handler_id: salesClerk.id,
+    handler_name: salesClerk.name,
+    reason: 'other尾料：混杂塑料碎片、标签纸、灰尘等无回收价值物质'
+  });
+  console.log(`🗑️ other尾料报废处理: ${scrapOther1.weight}kg, 入账至${scrapOther1.warehouse}-${scrapOther1.location}`);
 
   console.log('\n库存入账');
   const invPET1 = inventoryService.createInventoryRecord({
@@ -235,6 +245,7 @@ const seedData = () => {
   console.log('\n销售内勤进行品级判定（降级处理）');
   const ppMaterial2 = sorting2.sorted_materials.find(m => m.material_type === 'PP')!;
   const paperMaterial2 = sorting2.sorted_materials.find(m => m.material_type === 'paper')!;
+  const otherMaterial2 = sorting2.sorted_materials.find(m => m.material_type === 'other')!;
 
   const judgmentPP2 = gradeService.createGradeJudgment({
     batch_id: batch2.id,
@@ -267,6 +278,15 @@ const seedData = () => {
   console.log(`  原单价: 1.50元/kg → 现单价: ${judgmentPaper2.unit_price}元/kg`);
   console.log(`  金额: ${judgmentPaper2.amount.toFixed(2)}元 (若为B级应为: ${(2200 * 1.50).toFixed(2)}元)`);
   console.log(`  损失: ${(2200 * 1.50 - judgmentPaper2.amount).toFixed(2)}元`);
+
+  const scrapOther2 = inventoryService.createScrapRecord({
+    batch_id: batch2.id,
+    sorted_material_id: otherMaterial2.id,
+    handler_id: salesClerk.id,
+    handler_name: salesClerk.name,
+    reason: 'other尾料：泥沙石块、腐烂杂物，质量极差无法回收'
+  });
+  console.log(`🗑️ other尾料报废处理: ${scrapOther2.weight}kg`);
 
   console.log('\n库存入账');
   const invPP2 = inventoryService.createInventoryRecord({
@@ -330,16 +350,22 @@ const seedData = () => {
         material_type: 'HDPE',
         weight: 1200,
         photo_urls: ['/photos/HDPE_batch3_1.jpg']
+      },
+      {
+        material_type: 'other',
+        weight: 500,
+        photo_urls: []
       }
     ],
     remark: '工业边角料，质量较好'
   });
-  console.log(`✓ 分选完成: PET 5500kg, 金属 3800kg, HDPE 1200kg`);
+  console.log(`✓ 分选完成: PET 5500kg, 金属 3800kg, HDPE 1200kg, other 500kg`);
 
   console.log('\n销售内勤进行品级判定');
   const petMaterial3 = sorting3.sorted_materials.find(m => m.material_type === 'PET')!;
   const metalMaterial3 = sorting3.sorted_materials.find(m => m.material_type === 'metal')!;
   const hdpeMaterial3 = sorting3.sorted_materials.find(m => m.material_type === 'HDPE')!;
+  const otherMaterial3 = sorting3.sorted_materials.find(m => m.material_type === 'other')!;
 
   const judgmentPET3 = gradeService.createGradeJudgment({
     batch_id: batch3.id,
@@ -379,6 +405,15 @@ const seedData = () => {
     remark: 'HDPE质量很好，判定为A级'
   });
   console.log(`✓ HDPE品级判定: ${judgmentHDPE3.original_grade}→${judgmentHDPE3.judged_grade}级 | ${judgmentHDPE3.unit_price}元/kg | ${judgmentHDPE3.amount.toFixed(2)}元`);
+
+  const scrapOther3 = inventoryService.createScrapRecord({
+    batch_id: batch3.id,
+    sorted_material_id: otherMaterial3.id,
+    handler_id: salesClerk.id,
+    handler_name: salesClerk.name,
+    reason: 'other尾料：工业生产边角料中的混杂垃圾、包装碎片等'
+  });
+  console.log(`🗑️ other尾料报废处理: ${scrapOther3.weight}kg`);
 
   console.log('\n📝 复核员进行复核改判');
   console.log('  发现PET实际质量很好，应该是A级而非B级');

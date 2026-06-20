@@ -57,6 +57,7 @@ export interface SortedMaterial {
   amount: number | null;
   photo_urls: string[];
   is_stocked: boolean;
+  is_scrapped: boolean;
 }
 
 export interface GradeJudgment {
@@ -83,6 +84,7 @@ export interface ReviewRecord {
   grade_judgment_id: string;
   batch_id: string;
   sorted_material_id: string;
+  material_type: MaterialType;
   original_grade: GradeLevel;
   original_unit_price: number;
   original_amount: number;
