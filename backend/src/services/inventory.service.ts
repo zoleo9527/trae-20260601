@@ -5,6 +5,23 @@ import { updateBatchStatus, getInboundBatchById } from './batch.service';
 import { getSortedMaterialById, markMaterialAsStocked, markMaterialAsScrapped, getSortedMaterialsByBatchId } from './sorting.service';
 import { getGradeJudgmentByMaterialId } from './grade.service';
 
+
+const getMaterialTypeForReview = (sortedMaterialId: string): string => {
+  try {
+    const row = db.prepare('SELECT material_type FROM sorted_materials WHERE id = ?').get(sortedMaterialId) as any;
+    return row ? row.material_type : 'unknown';
+  } catch (e) {
+    return 'unknown';
+  }
+};
+
+const enrichReviewRecord = (r: any): ReviewRecord => {
+  return {
+    ...r,
+    material_type: r.material_type || getMaterialTypeForReview(r.sorted_material_id)
+  };
+};
+
 interface CreateInventoryInput {
   batch_id: string;
   sorted_material_id: string;
@@ -170,15 +187,15 @@ export const getInventorySummary = () => {
 
 export const getReviewRecordsByJudgmentId = (judgmentId: string): ReviewRecord[] => {
   const stmt = db.prepare('SELECT * FROM review_records WHERE grade_judgment_id = ? ORDER BY created_at DESC');
-  return stmt.all(judgmentId) as ReviewRecord[];
+  return stmt.all(judgmentId).map(r => enrichReviewRecord(r as any)) as ReviewRecord[];
 };
 
 export const getReviewRecordsByBatchId = (batchId: string): ReviewRecord[] => {
   const stmt = db.prepare('SELECT * FROM review_records WHERE batch_id = ? ORDER BY created_at DESC');
-  return stmt.all(batchId) as ReviewRecord[];
+  return stmt.all(batchId).map(r => enrichReviewRecord(r as any)) as ReviewRecord[];
 };
 
 export const getAllReviewRecords = (): ReviewRecord[] => {
   const stmt = db.prepare('SELECT * FROM review_records ORDER BY created_at DESC');
-  return stmt.all() as ReviewRecord[];
+  return stmt.all().map(r => enrichReviewRecord(r as any)) as ReviewRecord[];
 };

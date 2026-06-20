@@ -482,9 +482,10 @@
                 paper: '废纸',
                 metal: '金属',
                 glass: '玻璃',
-                other: '其他'
+                other: '其他',
+                unknown: '未知'
             };
-            return names[type] || type;
+            return names[type] || type || '未知';
         }
 
         function formatDate(dateStr) {
@@ -640,7 +641,7 @@
                                     ${m.photo_urls.length}张照片
                                 </span>
                             </td>
-                            <td>${m.is_stocked ? '<span class="badge badge-success">已入库</span>' : '<span class="badge badge-secondary">未入库</span>'}</td>
+                            <td>${m.is_scrapped ? `<span class="badge badge-danger">已报废</span>` : (m.is_stocked ? `<span class="badge badge-success">已入库</span>` : `<span class="badge badge-secondary">未处理</span>`)}</td>
                         </tr>
                     `;
                 });
@@ -762,20 +763,28 @@
             `;
 
             reviews.forEach(r => {
+                const materialType = r.material_type || 'unknown';
+                const originalGrade = r.original_grade || '-';
+                const newGrade = r.new_grade || '-';
+                const gradeDiff = r.grade_difference || '-';
+                const origPrice = r.original_unit_price || 0;
+                const newPrice = r.new_unit_price || 0;
+                const priceDiff = r.price_difference || 0;
+                const amountDiff = r.amount_difference || 0;
                 html += `
                     <tr>
                         <td>${formatDate(r.created_at)}</td>
-                        <td>${getMaterialName(r.material_type)}</td>
-                        <td><span style="color: #999; text-decoration: line-through;">${r.original_grade}</span></td>
-                        <td><strong style="color: #28a745;">${r.new_grade}</strong></td>
-                        <td><span class="badge ${r.amount_difference >= 0 ? 'badge-success' : 'badge-warning'}">${r.grade_difference}</span></td>
-                        <td style="color: #999; text-decoration: line-through;">¥${r.original_unit_price.toFixed(2)}</td>
-                        <td><strong>¥${r.new_unit_price.toFixed(2)}</strong></td>
-                        <td style="color: ${r.price_difference >= 0 ? '#28a745' : '#dc3545'};">
-                            ${r.price_difference >= 0 ? '+' : ''}¥${r.price_difference.toFixed(2)}
+                        <td>${getMaterialName(materialType)}</td>
+                        <td><span style="color: #999; text-decoration: line-through;">${originalGrade}</span></td>
+                        <td><strong style="color: #28a745;">${newGrade}</strong></td>
+                        <td><span class="badge ${amountDiff >= 0 ? 'badge-success' : 'badge-warning'}">${gradeDiff}</span></td>
+                        <td style="color: #999; text-decoration: line-through;">¥${origPrice.toFixed(2)}</td>
+                        <td><strong>¥${newPrice.toFixed(2)}</strong></td>
+                        <td style="color: ${priceDiff >= 0 ? '#28a745' : '#dc3545'};">
+                            ${priceDiff >= 0 ? '+' : ''}¥${priceDiff.toFixed(2)}
                         </td>
-                        <td style="font-weight: bold; color: ${r.amount_difference >= 0 ? '#28a745' : '#dc3545'};">
-                            ${r.amount_difference >= 0 ? '+' : ''}¥${r.amount_difference.toFixed(2)}
+                        <td style="font-weight: bold; color: ${amountDiff >= 0 ? '#28a745' : '#dc3545'};">
+                            ${amountDiff >= 0 ? '+' : ''}¥${amountDiff.toFixed(2)}
                         </td>
                         <td>${r.reviewer_name}</td>
                         <td style="max-width: 250px; font-size: 0.85rem;">${r.reason}</td>

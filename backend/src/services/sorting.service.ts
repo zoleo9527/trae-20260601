@@ -89,8 +89,8 @@ export const getSortedMaterialById = (id: string): SortedMaterial | undefined =>
   return {
     ...material,
     photo_urls: parseJsonSafely<string[]>(material.photo_urls, []),
-    is_stocked: material.is_stocked === 1,
-    is_scrapped: material.is_scrapped === 1
+    is_stocked: (material.is_stocked ?? 0) === 1,
+    is_scrapped: (material.is_scrapped ?? 0) === 1
   };
 };
 
@@ -99,8 +99,8 @@ export const getSortedMaterialsByRecordId = (recordId: string): SortedMaterial[]
   return materials.map(m => ({
     ...m,
     photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: m.is_stocked === 1,
-    is_scrapped: m.is_scrapped === 1
+    is_stocked: (m.is_stocked ?? 0) === 1,
+    is_scrapped: (m.is_scrapped ?? 0) === 1
   }));
 };
 
@@ -114,8 +114,8 @@ export const getSortedMaterialsByBatchId = (batchId: string): SortedMaterial[] =
   return materials.map(m => ({
     ...m,
     photo_urls: parseJsonSafely<string[]>(m.photo_urls, []),
-    is_stocked: m.is_stocked === 1,
-    is_scrapped: m.is_scrapped === 1
+    is_stocked: (m.is_stocked ?? 0) === 1,
+    is_scrapped: (m.is_scrapped ?? 0) === 1
   }));
 };
 

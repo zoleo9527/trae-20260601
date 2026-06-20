@@ -4,6 +4,25 @@ import { generateId, formatDate, parseJsonSafely, calculateGradeDifference } fro
 import { updateBatchStatus, getInboundBatchById } from './batch.service';
 import { getSortedMaterialById, updateSortedMaterialGrade, getSortedMaterialsByBatchId } from './sorting.service';
 
+
+const getMaterialTypeForGrade = (sortedMaterialId: string): string => {
+  try {
+    const row = db.prepare('SELECT material_type FROM sorted_materials WHERE id = ?').get(sortedMaterialId) as any;
+    return row ? row.material_type : 'unknown';
+  } catch (e) {
+    return 'unknown';
+  }
+};
+
+const enrichGradeJudgment = (j: any): GradeJudgment => {
+  return {
+    ...j,
+    photo_urls: parseJsonSafely<string[]>(j.photo_urls, []),
+    is_reviewed: (j.is_reviewed ?? 0) === 1,
+    material_type: j.material_type || getMaterialTypeForGrade(j.sorted_material_id)
+  };
+};
+
 interface CreateGradeJudgmentInput {
   batch_id: string;
   sorted_material_id: string;
@@ -69,7 +88,7 @@ export const getGradeJudgmentById = (id: string): GradeJudgment | undefined => {
   return {
     ...judgment,
     photo_urls: parseJsonSafely<string[]>(judgment.photo_urls, []),
-    is_reviewed: judgment.is_reviewed === 1
+    is_reviewed: ((judgment.is_reviewed ?? 0) === 1)
   };
 };
 
@@ -78,7 +97,7 @@ export const getGradeJudgmentsByBatchId = (batchId: string): GradeJudgment[] => 
   return judgments.map(j => ({
     ...j,
     photo_urls: parseJsonSafely<string[]>(j.photo_urls, []),
-    is_reviewed: j.is_reviewed === 1
+    is_reviewed: ((j.is_reviewed ?? 0) === 1)
   }));
 };
 
@@ -89,7 +108,7 @@ export const getGradeJudgmentByMaterialId = (materialId: string): GradeJudgment 
   return {
     ...judgment,
     photo_urls: parseJsonSafely<string[]>(judgment.photo_urls, []),
-    is_reviewed: judgment.is_reviewed === 1
+    is_reviewed: ((judgment.is_reviewed ?? 0) === 1)
   };
 };
 
@@ -124,7 +143,7 @@ export const updateGradeJudgment = (
   `);
 
   reviewStmt.run(
-    reviewId, id, judgment.batch_id, judgment.sorted_material_id, judgment.material_type,
+    reviewId, id, judgment.batch_id, judgment.sorted_material_id, judgment.material_type || getMaterialTypeForGrade(judgment.sorted_material_id),
     judgment.judged_grade, judgment.unit_price, judgment.amount,
     newGrade, newUnitPrice, newAmount,
     gradeDiff, priceDiff, amountDiff,
@@ -153,6 +172,6 @@ export const getAllGradeJudgments = (): GradeJudgment[] => {
   return judgments.map(j => ({
     ...j,
     photo_urls: parseJsonSafely<string[]>(j.photo_urls, []),
-    is_reviewed: j.is_reviewed === 1
+    is_reviewed: ((j.is_reviewed ?? 0) === 1)
   }));
 };
