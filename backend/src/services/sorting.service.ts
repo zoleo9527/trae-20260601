@@ -141,8 +141,13 @@ export const markMaterialAsStocked = (id: string): boolean => {
 };
 
 export const markMaterialAsScrapped = (id: string): boolean => {
-  const stmt = db.prepare('UPDATE sorted_materials SET is_scrapped = 1, grade_level = ? WHERE id = ?');
-  const result = stmt.run('E', id);
+  let stmt;
+  try {
+    stmt = db.prepare("UPDATE sorted_materials SET is_scrapped = 1, grade_level = ? WHERE id = ?");
+  } catch (e) {
+    stmt = db.prepare("UPDATE sorted_materials SET grade_level = ? WHERE id = ?");
+  }
+  const result = stmt.run("E", id);
   return result.changes > 0;
 };
 

@@ -332,13 +332,13 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-btn active" data-tab="overview" onclick="showTab('overview', event)">📊 总览</button>
-            <button class="tab-btn" data-tab="batches" onclick="showTab('batches', event)">🚛 进厂批次</button>
-            <button class="tab-btn" data-tab="sorting" onclick="showTab('sorting', event)">🔄 分选记录</button>
-            <button class="tab-btn" data-tab="grades" onclick="showTab('grades', event)">📋 品级判定</button>
-            <button class="tab-btn" data-tab="reviews" onclick="showTab('reviews', event)">🔍 复核记录</button>
-            <button class="tab-btn" data-tab="inventory" onclick="showTab('inventory', event)">📦 库存管理</button>
-            <button class="tab-btn" data-tab="prices" onclick="showTab('prices', event)">💰 价格体系</button>
+            <button class="tab-btn active" onclick="showTab('overview')">📊 总览</button>
+            <button class="tab-btn" onclick="showTab('batches')">🚛 进厂批次</button>
+            <button class="tab-btn" onclick="showTab('sorting')">🔄 分选记录</button>
+            <button class="tab-btn" onclick="showTab('grades')">📋 品级判定</button>
+            <button class="tab-btn" onclick="showTab('reviews')">🔍 复核记录</button>
+            <button class="tab-btn" onclick="showTab('inventory')">📦 库存管理</button>
+            <button class="tab-btn" onclick="showTab('prices')">💰 价格体系</button>
         </div>
 
         <div id="overview" class="tab-content active">
@@ -437,11 +437,11 @@
     ? 'http://localhost:3000/api'
     : (window.location.origin + '/api');
 
-        function showTab(tabId, evt) {
+        function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            var btn = evt && evt.target ? evt.target : document.querySelector('.tab-btn[data-tab="' + tabId + '"]'); if (btn) btn.classList.add('active');
+            event.target.classList.add('active');
             
             loadTabData(tabId);
         }
@@ -915,20 +915,7 @@
             }
         }
 
-        window.onerror = function(msg, url, line, col, error) {
-            console.error("Page error:", msg, "at line", line);
-            try {
-                var errDiv = document.createElement("div");
-                errDiv.style.cssText = "position:fixed;top:0;left:0;right:0;background:#ff6b6b;color:white;padding:15px;z-index:9999;font-family:monospace;";
-                errDiv.innerHTML = "<strong>页面错误:</strong> " + msg + " (line " + line + ")";
-                document.body.appendChild(errDiv);
-            } catch(e) {}
-            return false;
-        };
-
-        document.addEventListener("DOMContentLoaded", function() {
-            showTab("overview");
-        });
+        loadOverview();
     </script>
 </body>
 </html>

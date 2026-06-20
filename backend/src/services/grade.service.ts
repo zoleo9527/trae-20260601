@@ -132,23 +132,45 @@ export const updateGradeJudgment = (
   const gradeDiff = calculateGradeDifference(judgment.judged_grade, newGrade);
 
   const reviewId = generateId();
-  const reviewStmt = db.prepare(`
-    INSERT INTO review_records (
-      id, grade_judgment_id, batch_id, sorted_material_id, material_type,
-      original_grade, original_unit_price, original_amount,
-      new_grade, new_unit_price, new_amount,
-      grade_difference, price_difference, amount_difference,
-      reviewer_id, reviewer_name, reason, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-
-  reviewStmt.run(
-    reviewId, id, judgment.batch_id, judgment.sorted_material_id, judgment.material_type || getMaterialTypeForGrade(judgment.sorted_material_id),
-    judgment.judged_grade, judgment.unit_price, judgment.amount,
-    newGrade, newUnitPrice, newAmount,
-    gradeDiff, priceDiff, amountDiff,
-    reviewerId, reviewerName, reason, now
-  );
+  const materialTypeVal = judgment.material_type || getMaterialTypeForGrade(judgment.sorted_material_id);
+  let reviewStmt;
+  let reviewParams: any[];
+  try {
+    reviewStmt = db.prepare(`
+      INSERT INTO review_records (
+        id, grade_judgment_id, batch_id, sorted_material_id, material_type,
+        original_grade, original_unit_price, original_amount,
+        new_grade, new_unit_price, new_amount,
+        grade_difference, price_difference, amount_difference,
+        reviewer_id, reviewer_name, reason, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    reviewParams = [
+      reviewId, id, judgment.batch_id, judgment.sorted_material_id, materialTypeVal,
+      judgment.judged_grade, judgment.unit_price, judgment.amount,
+      newGrade, newUnitPrice, newAmount,
+      gradeDiff, priceDiff, amountDiff,
+      reviewerId, reviewerName, reason, now
+    ];
+  } catch (e) {
+    reviewStmt = db.prepare(`
+      INSERT INTO review_records (
+        id, grade_judgment_id, batch_id, sorted_material_id,
+        original_grade, original_unit_price, original_amount,
+        new_grade, new_unit_price, new_amount,
+        grade_difference, price_difference, amount_difference,
+        reviewer_id, reviewer_name, reason, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    reviewParams = [
+      reviewId, id, judgment.batch_id, judgment.sorted_material_id,
+      judgment.judged_grade, judgment.unit_price, judgment.amount,
+      newGrade, newUnitPrice, newAmount,
+      gradeDiff, priceDiff, amountDiff,
+      reviewerId, reviewerName, reason, now
+    ];
+  }
+  reviewStmt.run(...reviewParams);
 
   const updateStmt = db.prepare(`
     UPDATE grade_judgments
