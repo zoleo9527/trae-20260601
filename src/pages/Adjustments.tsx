@@ -25,6 +25,7 @@ import {
 import type { PriceAdjustment, AdjustmentStatus, AdjustmentType } from '@/types'
 
 type FilterStatus = 'all' | AdjustmentStatus
+type FilterType = 'all' | AdjustmentType
 
 export default function Adjustments() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -47,7 +48,14 @@ export default function Adjustments() {
       ? urlStatus
       : 'all'
 
+  const urlType = searchParams.get('type') as FilterType | null
+  const initialType =
+    urlType && ['market_change', 'customer_negotiation', 'grade_change'].includes(urlType)
+      ? urlType
+      : 'all'
+
   const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus)
+  const [filterType, setFilterType] = useState<FilterType>(initialType)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
@@ -85,10 +93,11 @@ export default function Adjustments() {
     fetchCustomers()
   }, [fetchAdjustments, fetchInventory, fetchCustomers])
 
-  const filteredAdjustments =
-    filterStatus === 'all'
-      ? adjustments
-      : adjustments.filter((a) => a.status === filterStatus)
+  const filteredAdjustments = adjustments.filter((a) => {
+    const statusMatch = filterStatus === 'all' || a.status === filterStatus
+    const typeMatch = filterType === 'all' || a.adjustment_type === filterType
+    return statusMatch && typeMatch
+  })
 
   const getSelectedInventory = () => {
     return inventory.find((i) => i.id === formData.inventory_id)
@@ -170,43 +179,91 @@ export default function Adjustments() {
     setSearchParams(searchParams)
   }
 
+  const handleTypeChange = (type: FilterType) => {
+    setFilterType(type)
+    if (type === 'all') {
+      searchParams.delete('type')
+    } else {
+      searchParams.set('type', type)
+    }
+    setSearchParams(searchParams)
+  }
+
   const clearFilter = () => {
+    setFilterStatus('all')
+    setFilterType('all')
+    searchParams.delete('status')
+    searchParams.delete('type')
+    setSearchParams(searchParams)
+  }
+
+  const clearStatusFilter = () => {
     setFilterStatus('all')
     searchParams.delete('status')
     setSearchParams(searchParams)
   }
 
+  const clearTypeFilter = () => {
+    setFilterType('all')
+    searchParams.delete('type')
+    setSearchParams(searchParams)
+  }
+
   const statusFilters: { value: FilterStatus; label: string }[] = [
-    { value: 'all', label: '全部' },
+    { value: 'all', label: '全部状态' },
     { value: 'pending', label: '待审核' },
     { value: 'approved', label: '已通过' },
     { value: 'rejected', label: '已拒绝' },
     { value: 'expired', label: '已过期' },
   ]
 
+  const typeFilters: { value: FilterType; label: string }[] = [
+    { value: 'all', label: '全部类型' },
+    { value: 'market_change', label: '市场价变化' },
+    { value: 'customer_negotiation', label: '客户议价' },
+    { value: 'grade_change', label: '库存等级变化' },
+  ]
+
   return (
     <div className="space-y-6">
-      {filterStatus !== 'all' && (
-        <div className="flex items-center gap-2">
+      {(filterStatus !== 'all' || filterType !== 'all') && (
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-slate-500">当前筛选：</span>
-          <span
-            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
-              adjustmentStatusColors[filterStatus as AdjustmentStatus]
-            }`}
-          >
-            {adjustmentStatusLabels[filterStatus as AdjustmentStatus]}
-            <button
-              onClick={clearFilter}
-              className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+          {filterStatus !== 'all' && (
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                adjustmentStatusColors[filterStatus as AdjustmentStatus]
+              }`}
             >
-              <X className="w-3 h-3" />
-            </button>
-          </span>
+              {adjustmentStatusLabels[filterStatus as AdjustmentStatus]}
+              <button
+                onClick={clearStatusFilter}
+                className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filterType !== 'all' && (
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                adjustmentTypeColors[filterType as AdjustmentType]
+              }`}
+            >
+              {adjustmentTypeLabels[filterType as AdjustmentType]}
+              <button
+                onClick={clearTypeFilter}
+                className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
           <button
             onClick={clearFilter}
             className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
           >
-            清除筛选
+            清除所有筛选
           </button>
         </div>
       )}
@@ -214,7 +271,7 @@ export default function Adjustments() {
       <Card>
         <CardHeader>
           <CardTitle>调价申请管理</CardTitle>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="w-4 h-4 text-slate-400" />
               <div className="relative">
@@ -231,6 +288,20 @@ export default function Adjustments() {
                 </select>
                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
+            </div>
+            <div className="relative">
+              <select
+                value={filterType}
+                onChange={(e) => handleTypeChange(e.target.value as FilterType)}
+                className="appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              >
+                {typeFilters.map((f) => (
+                  <option key={f.value} value={f.value}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
             <Button onClick={() => setShowCreateModal(true)}>
               <Plus className="w-4 h-4" />

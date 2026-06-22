@@ -11,8 +11,16 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  LineChart,
+  Users,
+  Medal,
 } from 'lucide-react'
-import { formatCurrency, adjustmentTypeLabels } from '@/lib/format'
+import {
+  formatCurrency,
+  adjustmentTypeLabels,
+  adjustmentTypeColors,
+} from '@/lib/format'
+import type { AdjustmentType } from '@/types'
 
 export default function Dashboard() {
   const navigate = useNavigate()
@@ -31,6 +39,10 @@ export default function Dashboard() {
   const expiringLocks = priceLocks.filter((l) => l.status === 'expiring_soon')
 
   const activeQuotes = quotes.filter((q) => q.status === 'active')
+
+  const marketChangeCount = adjustments.filter((a) => a.adjustment_type === 'market_change').length
+  const customerNegotiationCount = adjustments.filter((a) => a.adjustment_type === 'customer_negotiation').length
+  const gradeChangeCount = adjustments.filter((a) => a.adjustment_type === 'grade_change').length
 
   const totalInventoryValue = inventory.reduce((sum, item) => sum + item.market_price * item.quantity, 0)
   const totalLockedValue = activeLocks.reduce(
@@ -100,6 +112,44 @@ export default function Dashboard() {
     },
   ]
 
+  const typeStats: {
+    type: AdjustmentType
+    label: string
+    value: number
+    icon: typeof LineChart
+    color: string
+    bgColor: string
+    onClick: () => void
+  }[] = [
+    {
+      type: 'market_change',
+      label: '市场价变化',
+      value: marketChangeCount,
+      icon: LineChart,
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-50',
+      onClick: () => navigate('/adjustments?type=market_change'),
+    },
+    {
+      type: 'customer_negotiation',
+      label: '客户议价',
+      value: customerNegotiationCount,
+      icon: Users,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      onClick: () => navigate('/adjustments?type=customer_negotiation'),
+    },
+    {
+      type: 'grade_change',
+      label: '库存等级变化',
+      value: gradeChangeCount,
+      icon: Medal,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      onClick: () => navigate('/adjustments?type=grade_change'),
+    },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-4">
@@ -151,6 +201,29 @@ export default function Dashboard() {
             </div>
           </CardBody>
         </Card>
+      </div>
+
+      <div>
+        <h3 className="text-base font-semibold text-slate-800 mb-3">按调价类型统计</h3>
+        <div className="grid grid-cols-3 gap-4">
+          {typeStats.map((stat, idx) => (
+            <Card
+              key={idx}
+              onClick={stat.onClick}
+              className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
+            >
+              <CardBody className="flex items-center gap-4">
+                <div className={`p-3 rounded-xl ${stat.bgColor}`}>
+                  <stat.icon className={`w-6 h-6 ${stat.color}`} />
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-slate-800">{stat.value}</div>
+                  <div className="text-sm text-slate-500">{stat.label}</div>
+                </div>
+              </CardBody>
+            </Card>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-6">
