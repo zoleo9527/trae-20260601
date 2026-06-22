@@ -1,0 +1,36 @@
+Script started on Thu Jun 11 15:07:05 2026
+Command: r"' roimport os
+
+BASE = '"/ol
+��标题为必填项'"'"')
+e3 = U('"'"'创建联调测试: '"'"')
+e4 = U('"'"'testItemId和passed为必填项'"'"')
+e5 = U('"'"'测试项不存在'"'"')
+e6 = U('"'"'测试通过'"'"')
+e7 = U('"'"'测试未通过'"'"')
+e8 = U('"'"'执行测试项: '"'"')
+e9 = U('"'"'，结果: '"'"')
+e10 = U('"'"'完成联调测试，结果: '"'"')
+e11 = U('"'"'failedItemIds为必填项且不能为空'"'"')
+e12 = U('"'"'预期结果：'"'"')
+e13 = U('"'"'无'"'"')
+e14 = U('"'"'，实际结果：'"'"')
+e15 = U('"'"'，备注：'"'"')
+e16 = U('"'"'从联调测试生成问题: '"'"')
+
+t = []
+t.append("import { Router, type Request, type Response } from '"'"'express'"'"'")
+t.append("import crypto from '"'"'crypto'"'"'")
+t.append("import { getDb } from '"'"'../db.js'"'"'")
+t.append("import { getRoleInfo } from '"'"'./role.js'"'"'")
+t.append("")
+t.append("const router = Router()")
+t.append("")
+t.append("router.get('"'"'/'"'"', (req: Request, res: Response): void => {")
+t.append("  const db = getDb()")
+t.appscript: r"' roimport os
+
+BASE = '"/ol: No such file or directory
+
+Command exit status: 1
+Script done on Thu Jun 11 15:07:05 2026
