@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
-import { Lock, Unlock, AlertTriangle, Calendar, Filter, ChevronDown } from 'lucide-react'
+import { Lock, Unlock, AlertTriangle, Calendar, Filter, ChevronDown, X } from 'lucide-react'
 import {
   formatCurrency,
   formatDate,
@@ -16,10 +17,17 @@ import type { PriceLock, LockStatus } from '@/types'
 type FilterStatus = 'all' | LockStatus
 
 export default function PriceLocks() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { fetchPriceLocks, fetchAdjustments, priceLocks, adjustments, expireLock, loading } =
     useAppStore()
 
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+  const urlStatus = searchParams.get('status') as FilterStatus | null
+  const initialStatus =
+    urlStatus && ['active', 'expiring_soon', 'expired'].includes(urlStatus)
+      ? urlStatus
+      : 'all'
+
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showExpireModal, setShowExpireModal] = useState(false)
   const [selectedLock, setSelectedLock] = useState<PriceLock | null>(null)
@@ -55,6 +63,22 @@ export default function PriceLocks() {
     setSelectedLock(null)
   }
 
+  const handleFilterChange = (status: FilterStatus) => {
+    setFilterStatus(status)
+    if (status === 'all') {
+      searchParams.delete('status')
+    } else {
+      searchParams.set('status', status)
+    }
+    setSearchParams(searchParams)
+  }
+
+  const clearFilter = () => {
+    setFilterStatus('all')
+    searchParams.delete('status')
+    setSearchParams(searchParams)
+  }
+
   const statusFilters: { value: FilterStatus; label: string }[] = [
     { value: 'all', label: '全部' },
     { value: 'active', label: '锁价中' },
@@ -73,6 +97,31 @@ export default function PriceLocks() {
 
   return (
     <div className="space-y-6">
+      {filterStatus !== 'all' && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">当前筛选：</span>
+          <span
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+              lockStatusColors[filterStatus as LockStatus]
+            }`}
+          >
+            {lockStatusLabels[filterStatus as LockStatus]}
+            <button
+              onClick={clearFilter}
+              className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+          <button
+            onClick={clearFilter}
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            清除筛选
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-4 gap-4">
         <Card>
           <CardBody className="flex items-center gap-4">
@@ -128,7 +177,7 @@ export default function PriceLocks() {
             <div className="relative">
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                onChange={(e) => handleFilterChange(e.target.value as FilterStatus)}
                 className="appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 {statusFilters.map((f) => (

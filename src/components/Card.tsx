@@ -1,14 +1,18 @@
 import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
+import type { ReactNode, MouseEventHandler } from 'react'
 
 interface CardProps {
   children: ReactNode
   className?: string
+  onClick?: MouseEventHandler<HTMLDivElement>
 }
 
-export function Card({ children, className }: CardProps) {
+export function Card({ children, className, onClick }: CardProps) {
   return (
-    <div className={cn('bg-white rounded-xl border border-slate-200 shadow-sm', className)}>
+    <div
+      className={cn('bg-white rounded-xl border border-slate-200 shadow-sm', className)}
+      onClick={onClick}
+    >
       {children}
     </div>
   )

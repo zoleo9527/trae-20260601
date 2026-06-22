@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/Card'
 import Button from '@/components/Button'
 import Modal from '@/components/Modal'
-import { MessageSquareQuote, Filter, ChevronDown, Eye } from 'lucide-react'
+import { MessageSquareQuote, Filter, ChevronDown, Eye, X } from 'lucide-react'
 import {
   formatCurrency,
   formatDateTime,
@@ -18,9 +19,16 @@ type FilterStatus = 'all' | QuoteStatus
 type FilterCustomer = 'all' | string
 
 export default function Quotes() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { fetchQuotes, fetchCustomers, getQuoteDetail, quotes, customers, loading } = useAppStore()
 
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+  const urlStatus = searchParams.get('status') as FilterStatus | null
+  const initialStatus =
+    urlStatus && ['active', 'expired', 'rejected'].includes(urlStatus)
+      ? urlStatus
+      : 'all'
+
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus)
   const [filterCustomer, setFilterCustomer] = useState<FilterCustomer>('all')
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedQuote, setSelectedQuote] = useState<CustomerQuote | null>(null)
@@ -47,6 +55,23 @@ export default function Quotes() {
     setDetailLoading(false)
   }
 
+  const handleFilterChange = (status: FilterStatus) => {
+    setFilterStatus(status)
+    if (status === 'all') {
+      searchParams.delete('status')
+    } else {
+      searchParams.set('status', status)
+    }
+    setSearchParams(searchParams)
+  }
+
+  const clearFilter = () => {
+    setFilterStatus('all')
+    setFilterCustomer('all')
+    searchParams.delete('status')
+    setSearchParams(searchParams)
+  }
+
   const statusFilters: { value: FilterStatus; label: string }[] = [
     { value: 'all', label: '全部状态' },
     { value: 'active', label: '有效' },
@@ -58,6 +83,44 @@ export default function Quotes() {
 
   return (
     <div className="space-y-6">
+      {(filterStatus !== 'all' || filterCustomer !== 'all') && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-slate-500">当前筛选：</span>
+          {filterStatus !== 'all' && (
+            <span
+              className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+                quoteStatusColors[filterStatus as QuoteStatus]
+              }`}
+            >
+              {quoteStatusLabels[filterStatus as QuoteStatus]}
+              <button
+                onClick={() => handleFilterChange('all')}
+                className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          {filterCustomer !== 'all' && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              {customers.find((c) => c.id === filterCustomer)?.name || filterCustomer}
+              <button
+                onClick={() => setFilterCustomer('all')}
+                className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          )}
+          <button
+            onClick={clearFilter}
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            清除所有筛选
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-3 gap-4">
         <Card>
           <CardBody className="flex items-center gap-4">
@@ -103,7 +166,7 @@ export default function Quotes() {
               <div className="relative">
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                  onChange={(e) => handleFilterChange(e.target.value as FilterStatus)}
                   className="appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   {statusFilters.map((f) => (

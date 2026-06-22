@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card, CardBody } from '@/components/Card'
 import {
@@ -14,6 +15,7 @@ import {
 import { formatCurrency, adjustmentTypeLabels } from '@/lib/format'
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { fetchAll, adjustments, priceLocks, quotes, inventory, loading } = useAppStore()
 
   useEffect(() => {
@@ -43,6 +45,7 @@ export default function Dashboard() {
       icon: Clock,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50',
+      onClick: () => navigate('/adjustments?status=pending'),
     },
     {
       label: '已通过申请',
@@ -50,6 +53,7 @@ export default function Dashboard() {
       icon: CheckCircle,
       color: 'text-green-600',
       bgColor: 'bg-green-50',
+      onClick: () => navigate('/adjustments?status=approved'),
     },
     {
       label: '已拒绝申请',
@@ -57,6 +61,7 @@ export default function Dashboard() {
       icon: XCircle,
       color: 'text-red-600',
       bgColor: 'bg-red-50',
+      onClick: () => navigate('/adjustments?status=rejected'),
     },
     {
       label: '已过期申请',
@@ -64,6 +69,7 @@ export default function Dashboard() {
       icon: FileText,
       color: 'text-gray-600',
       bgColor: 'bg-gray-50',
+      onClick: () => navigate('/adjustments?status=expired'),
     },
   ]
 
@@ -74,6 +80,7 @@ export default function Dashboard() {
       icon: Lock,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',
+      onClick: () => navigate('/price-locks?status=active'),
     },
     {
       label: '即将到期',
@@ -81,6 +88,7 @@ export default function Dashboard() {
       icon: TrendingDown,
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
+      onClick: () => navigate('/price-locks?status=expiring_soon'),
     },
     {
       label: '有效报价',
@@ -88,6 +96,7 @@ export default function Dashboard() {
       icon: MessageSquareQuote,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
+      onClick: () => navigate('/quotes?status=active'),
     },
   ]
 
@@ -95,7 +104,11 @@ export default function Dashboard() {
     <div className="space-y-6">
       <div className="grid grid-cols-4 gap-4">
         {stats.map((stat, idx) => (
-          <Card key={idx}>
+          <Card
+            key={idx}
+            onClick={stat.onClick}
+            className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
+          >
             <CardBody className="flex items-center gap-4">
               <div className={`p-3 rounded-xl ${stat.bgColor}`}>
                 <stat.icon className={`w-6 h-6 ${stat.color}`} />
@@ -111,7 +124,11 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-3 gap-4">
         {lockStats.map((stat, idx) => (
-          <Card key={idx}>
+          <Card
+            key={idx}
+            onClick={stat.onClick}
+            className="cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5"
+          >
             <CardBody className="flex items-center gap-4">
               <div className={`p-3 rounded-xl ${stat.bgColor}`}>
                 <stat.icon className={`w-6 h-6 ${stat.color}`} />

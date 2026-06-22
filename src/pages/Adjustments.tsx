@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAppStore } from '@/store/useAppStore'
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/Card'
 import Button from '@/components/Button'
@@ -10,6 +11,7 @@ import {
   XCircle,
   Filter,
   ChevronDown,
+  X,
 } from 'lucide-react'
 import {
   formatCurrency,
@@ -25,6 +27,7 @@ import type { PriceAdjustment, AdjustmentStatus, AdjustmentType } from '@/types'
 type FilterStatus = 'all' | AdjustmentStatus
 
 export default function Adjustments() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     fetchAdjustments,
     fetchInventory,
@@ -38,7 +41,13 @@ export default function Adjustments() {
     loading,
   } = useAppStore()
 
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
+  const urlStatus = searchParams.get('status') as FilterStatus | null
+  const initialStatus =
+    urlStatus && ['pending', 'approved', 'rejected', 'expired'].includes(urlStatus)
+      ? urlStatus
+      : 'all'
+
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>(initialStatus)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
@@ -151,6 +160,22 @@ export default function Adjustments() {
     setShowReviewModal(true)
   }
 
+  const handleFilterChange = (status: FilterStatus) => {
+    setFilterStatus(status)
+    if (status === 'all') {
+      searchParams.delete('status')
+    } else {
+      searchParams.set('status', status)
+    }
+    setSearchParams(searchParams)
+  }
+
+  const clearFilter = () => {
+    setFilterStatus('all')
+    searchParams.delete('status')
+    setSearchParams(searchParams)
+  }
+
   const statusFilters: { value: FilterStatus; label: string }[] = [
     { value: 'all', label: '全部' },
     { value: 'pending', label: '待审核' },
@@ -161,6 +186,31 @@ export default function Adjustments() {
 
   return (
     <div className="space-y-6">
+      {filterStatus !== 'all' && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-slate-500">当前筛选：</span>
+          <span
+            className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+              adjustmentStatusColors[filterStatus as AdjustmentStatus]
+            }`}
+          >
+            {adjustmentStatusLabels[filterStatus as AdjustmentStatus]}
+            <button
+              onClick={clearFilter}
+              className="ml-1 hover:bg-black/10 rounded-full p-0.5 transition-colors"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </span>
+          <button
+            onClick={clearFilter}
+            className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
+          >
+            清除筛选
+          </button>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>调价申请管理</CardTitle>
@@ -170,7 +220,7 @@ export default function Adjustments() {
               <div className="relative">
                 <select
                   value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
+                  onChange={(e) => handleFilterChange(e.target.value as FilterStatus)}
                   className="appearance-none bg-white border border-slate-300 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   {statusFilters.map((f) => (
