@@ -269,7 +269,7 @@ pnpm dev
 
 #### 角色
 - `GET /api/role` - 获取当前角色
-- `POST /api/role` - 设置当前角色 `{ role: "pm" | "captain" | "engineer" }`
+- `POST /api/role` - 设置当前角色 `{ role: "safety_inspector" | "customer_service" | "repair_technician" }`
 
 #### 联调测试
 - `GET /api/tests?status=&project=&date_from=&date_to=` - 获取测试列表
@@ -344,8 +344,9 @@ pnpm dev
 | level | string | 等级 (critical/major/minor) |
 | status | string | 状态 (pending/in_progress/completed) |
 | description | string | 隐患描述 |
-| discovery_date | string | 发现日期 |
-| handler | string | 处理人 |
+| created_at | string | 创建时间 |
+| rectified_by | string | 处理人 |
+| verify_result | string | 验证结果 |
 
 ### 换表记录 (MeterChange)
 | 字段 | 类型 | 说明 |
@@ -355,7 +356,8 @@ pnpm dev
 | address | string | 地址 |
 | technician | string | 维修师傅 |
 | change_date | string | 换表日期 |
-| old_meter_model | string | 原表型号 |
-| new_meter_model | string | 新表型号 |
-| old_meter_serial | string | 原表编号 |
-| new_meter_serial | string | 新表编号 |
+| old_meter_number | string | 原表号 |
+| new_meter_number | string | 新表号 |
+| meter_type | string | 表型 |
+| old_meter_reading | string | 原表读数 |
+| new_meter_reading | string | 新表读数 |

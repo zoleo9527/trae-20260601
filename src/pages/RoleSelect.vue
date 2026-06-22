@@ -1,104 +1,95 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRouter } from "vue-router";
-import { User, HardHat, Wrench } from "lucide-vue-next";
-import type { Role } from "@/types";
-import { useRole } from "@/stores/role";
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ShieldCheck, Headphones, Wrench } from 'lucide-vue-next'
+import type { GasRole } from '@/types/gas'
 
-const router = useRouter();
-const { setRole } = useRole();
-const loading = ref<Role | null>(null);
+const router = useRouter()
+const loading = ref<GasRole | null>(null)
 
-const roles = [
+const roles: Array<{
+  key: GasRole
+  name: string
+  icon: any
+  color: string
+  description: string
+  permissions: string[]
+}> = [
   {
-    key: "pm" as Role,
-    name: "项目经理",
-    icon: User,
-    color: "purple",
-    description:
-      "查看全部联调和问题、审批测试结果、指派整改责任人、导出交班报告",
-    permissions: [
-      "全局数据查看",
-      "测试结果审批",
-      "整改责任指派",
-      "交班报告导出",
-    ],
+    key: 'safety_inspector',
+    name: '安检员',
+    icon: ShieldCheck,
+    color: 'purple',
+    description: '执行燃气安检、发现安全隐患、创建安检报告、验证隐患整改',
+    permissions: ['燃气安检', '隐患发现', '安检报告', '整改验证'],
   },
   {
-    key: "captain" as Role,
-    name: "施工队长",
-    icon: HardHat,
-    color: "blue",
-    description:
-      "创建和执行联调测试、提交测试结果、从失败测试一键创建问题整改单",
-    permissions: [
-      "创建联调测试",
-      "执行测试项",
-      "提交测试结果",
-      "一键转问题整改",
-    ],
+    key: 'customer_service',
+    name: '客服',
+    icon: Headphones,
+    color: 'blue',
+    description: '接收客户申请、创建停复气工单、回访客户、跟踪申请进度',
+    permissions: ['申请受理', '工单创建', '客户回访', '进度跟踪'],
   },
   {
-    key: "engineer" as Role,
-    name: "售后工程师",
+    key: 'repair_technician',
+    name: '维修师傅',
     icon: Wrench,
-    color: "green",
-    description: "接收整改指派、更新整改进度、提交整改完成、标记验证通过",
-    permissions: ["接收整改任务", "更新整改进度", "提交整改完成", "参与验证"],
+    color: 'green',
+    description: '执行停复气操作、处理隐患整改、更换燃气表、更新处理进度',
+    permissions: ['停复气操作', '隐患整改', '换表作业', '进度更新'],
   },
-];
+]
 
-const colorClasses: Record<
-  string,
-  { card: string; icon: string; button: string }
-> = {
+const colorClasses: Record<string, { card: string; icon: string; button: string }> = {
   purple: {
-    card: "border-purple-200 hover:border-purple-400",
-    icon: "bg-purple-100 text-purple-600",
-    button: "bg-purple-600 hover:bg-purple-700",
+    card: 'border-purple-200 hover:border-purple-400',
+    icon: 'bg-purple-100 text-purple-600',
+    button: 'bg-purple-600 hover:bg-purple-700',
   },
   blue: {
-    card: "border-blue-200 hover:border-blue-400",
-    icon: "bg-blue-100 text-blue-600",
-    button: "bg-blue-600 hover:bg-blue-700",
+    card: 'border-blue-200 hover:border-blue-400',
+    icon: 'bg-blue-100 text-blue-600',
+    button: 'bg-blue-600 hover:bg-blue-700',
   },
   green: {
-    card: "border-green-200 hover:border-green-400",
-    icon: "bg-green-100 text-green-600",
-    button: "bg-green-600 hover:bg-green-700",
+    card: 'border-green-200 hover:border-green-400',
+    icon: 'bg-green-100 text-green-600',
+    button: 'bg-green-600 hover:bg-green-700',
   },
-};
+}
 
-async function handleSelect(role: Role) {
-  loading.value = role;
+async function handleSelect(role: GasRole) {
+  loading.value = role
   try {
-    await setRole(role);
-    router.push("/dashboard");
+    const res = await fetch('/api/role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    })
+    const data = await res.json()
+    if (data.success) {
+      router.push('/gas')
+    }
   } catch (error) {
-    console.error("角色切换失败:", error);
+    console.error('角色切换失败:', error)
   } finally {
-    loading.value = null;
+    loading.value = null
   }
 }
 </script>
 
 <template>
-  <div
-    class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8"
-  >
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
     <div class="max-w-6xl w-full">
       <div class="text-center mb-12">
         <div class="inline-flex items-center gap-3 mb-4">
-          <div
-            class="w-12 h-12 bg-amber-500 rounded-xl flex items-center justify-center"
-          >
-            <span class="text-white font-bold text-xl">安</span>
+          <div class="w-12 h-12 bg-orange-500 rounded-xl flex items-center justify-center">
+            <span class="text-white font-bold text-xl">燃</span>
           </div>
-          <h1 class="text-3xl font-bold text-white">安防工程商联调系统</h1>
+          <h1 class="text-3xl font-bold text-white">燃气维保管理系统</h1>
         </div>
-        <p class="text-slate-400 text-lg">
-          联调测试与问题整改管理 · 责任清晰 · 历史可追溯
-        </p>
+        <p class="text-slate-400 text-lg">停复气申请与客户回访 · 责任清晰 · 历史可追溯</p>
       </div>
 
       <div class="grid md:grid-cols-3 gap-6">
@@ -120,18 +111,12 @@ async function handleSelect(role: Role) {
             </div>
 
             <div>
-              <h3 class="text-xl font-bold text-slate-900 mb-2">
-                {{ role.name }}
-              </h3>
+              <h3 class="text-xl font-bold text-slate-900 mb-2">{{ role.name }}</h3>
               <p class="text-slate-500 text-sm">{{ role.description }}</p>
             </div>
 
             <div class="space-y-2">
-              <p
-                class="text-xs font-medium text-slate-400 uppercase tracking-wider"
-              >
-                核心权限
-              </p>
+              <p class="text-xs font-medium text-slate-400 uppercase tracking-wider">核心权限</p>
               <ul class="space-y-1">
                 <li
                   v-for="(perm, index) in role.permissions"
@@ -139,18 +124,6 @@ async function handleSelect(role: Role) {
                   class="flex items-center gap-2 text-sm text-slate-600"
                 >
                   <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                  {{ perm }}
-                </li>
-              </ul>
-            </div>
-
-            <button
-              @click="handleSelect(role.key)"
-              :disabled="loading !== null"
-              class="w-full py-3 px-6 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              :class="colorClasses[role.color].button"
-            >
-              {{ loading === role.key ? "进入中..." : "以此身份进入"slate-400"></span>
                   {{ perm }}
                 </li>
               </ul>

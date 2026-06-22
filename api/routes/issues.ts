@@ -1,7 +1,6 @@
-import { Router, type Request, type Response } from 'express'
 import crypto from 'crypto'
+import { Router, type Request, type Response } from 'express'
 import { getDb } from '../db.js'
-import type { Role } from '../types.js'
 import { getRoleInfo } from './role.js'
 
 const router = Router()
