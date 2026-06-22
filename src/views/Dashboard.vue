@@ -32,13 +32,43 @@ const stats = computed(() => {
 const recentActivities = computed(() => store.getRecentLogs(undefined, undefined, 15))
 
 function goInbound(id: string) {
+  const inbound = store.getInboundById(id)
+  if (inbound) {
+    store.addRecentItem({
+      id: inbound.id,
+      type: 'inbound',
+      title: inbound.registrationNo,
+      subtitle: `${inbound.supplierName} - ${inbound.mainCategoryName}`,
+      status: inbound.status,
+      visitedAt: dayjs().toISOString()
+    })
+  }
   router.push(`/inbound/${id}`)
 }
 
-function goReview(id: string) {
-  const review = store.reviews.find(r => r.inboundId === id)
+function goReview(reviewId: string) {
+  const review = store.reviews.find(r => r.id === reviewId)
   if (review) {
+    const inbound = store.getInboundById(review.inboundId)
+    store.addRecentItem({
+      id: review.id,
+      type: 'review',
+      title: review.registrationNo,
+      subtitle: `${inbound?.supplierName || ''} - ${inbound?.mainCategoryName || ''}`,
+      status: review.status,
+      visitedAt: dayjs().toISOString()
+    })
     router.push(`/review/${review.id}`)
+  }
+}
+
+function goDisputeReview(disputeId: string) {
+  const dispute = store.disputes.find(d => d.id === disputeId)
+  if (dispute) {
+    const review = store.reviews.find(r => r.disputeId === disputeId)
+    if (review) {
+      goReview(review.id)
+    }
   }
 }
 
@@ -105,7 +135,7 @@ function getActionIcon(action: string) {
             v-for="dispute in store.disputes.filter(d => d.status === 'pending').slice(0, 3)"
             :key="dispute.id"
             class="todo-item dispute-item"
-            @click="goInbound(dispute.inboundId)"
+            @click="goDisputeReview(dispute.id)"
           >
             <div class="todo-icon">⚠️</div>
             <div class="todo-content">

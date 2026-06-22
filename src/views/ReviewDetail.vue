@@ -72,7 +72,7 @@ function loadData() {
       visitedAt: dayjs().toISOString()
     })
 
-    if (r.status === 'pending') {
+    if (r.status === 'pending' && store.canConfirmReview) {
       editMode.value = true
     }
   }
@@ -246,21 +246,24 @@ function goInbound() {
       <div class="header-actions">
         <button class="btn btn-sm" @click="goInbound">查看登记单</button>
         <button
-          v-if="review?.status === 'pending' && !editMode"
+          v-if="store.canConfirmReview && review?.status === 'pending' && !editMode"
           class="btn btn-primary btn-sm"
           @click="startEdit"
         >
           开始复核
         </button>
-        <template v-if="editMode && review?.status === 'pending'">
+        <template v-if="store.canConfirmReview && editMode && review?.status === 'pending'">
           <button class="btn btn-sm" @click="cancelEdit">取消</button>
           <button class="btn btn-warning btn-sm" @click="openRejectModal">驳回</button>
           <button class="btn btn-danger btn-sm" @click="openDisputeModal">发起争议</button>
           <button class="btn btn-success btn-sm" @click="confirmReview">确认通过</button>
         </template>
-        <template v-if="dispute?.status === 'pending'">
+        <template v-if="store.canHandleDispute && dispute?.status === 'pending'">
           <button class="btn btn-warning btn-sm" @click="openResolveModal">处理争议</button>
         </template>
+        <div v-if="review?.status === 'pending' && !store.canConfirmReview" class="permission-tip">
+          仅分拣班长可复核
+        </div>
       </div>
     </div>
 
@@ -1210,5 +1213,13 @@ function goInbound() {
 .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -10px);
+}
+
+.permission-tip {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
 }
 </style>

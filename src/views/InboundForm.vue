@@ -143,6 +143,12 @@ const mixedTotalWeight = computed(() => {
   return (form.value.mixedItems || []).reduce((sum, item) => sum + (Number(item.estimatedWeight) || 0), 0)
 })
 
+const isEditable = computed(() => {
+  if (!store.canEditInbound) return false
+  if (!isEdit.value) return true
+  return form.value.status === 'draft'
+})
+
 const canSubmit = computed(() => {
   if (!form.value.supplierName) return false
   if (!form.value.vehicleNo) return false
@@ -230,17 +236,22 @@ function goReview() {
         >
           查看过磅复核
         </button>
-        <button v-if="!isEdit || form.status === 'draft'" class="btn btn-sm" @click="saveDraft">
-          保存草稿
-        </button>
-        <button
-          v-if="!isEdit || form.status === 'draft'"
-          class="btn btn-primary btn-sm"
-          :disabled="!canSubmit"
-          @click="submitInbound"
-        >
-          提交登记
-        </button>
+        <template v-if="store.canEditInbound && (!isEdit || form.status === 'draft')">
+          <button class="btn btn-sm" @click="saveDraft">
+            保存草稿
+          </button>
+          <button
+            v-if="store.canSubmitInbound"
+            class="btn btn-primary btn-sm"
+            :disabled="!canSubmit"
+            @click="submitInbound"
+          >
+            提交登记
+          </button>
+        </template>
+        <div v-if="!store.canEditInbound && form.status === 'draft'" class="permission-tip">
+          仅过磅员可编辑
+        </div>
       </div>
     </div>
 
@@ -259,7 +270,7 @@ function goReview() {
                   type="text"
                   class="form-input"
                   placeholder="请输入供应商名称"
-                  :disabled="form.status && form.status !== 'draft'"
+                  :disabled="!isEditable"
                 />
               </div>
               <div class="form-item form-item-half">
@@ -269,7 +280,7 @@ function goReview() {
                   type="text"
                   class="form-input"
                   placeholder="请输入车牌号"
-                  :disabled="form.status && form.status !== 'draft'"
+                  :disabled="!isEditable"
                 />
               </div>
             </div>
@@ -281,7 +292,7 @@ function goReview() {
                   type="text"
                   class="form-input"
                   placeholder="请输入司机姓名"
-                  :disabled="form.status && form.status !== 'draft'"
+                  :disabled="!isEditable"
                 />
               </div>
               <div class="form-item form-item-half">
@@ -291,7 +302,7 @@ function goReview() {
                   type="text"
                   class="form-input"
                   placeholder="请输入联系电话"
-                  :disabled="form.status && form.status !== 'draft'"
+                  :disabled="!isEditable"
                 />
               </div>
             </div>
@@ -305,7 +316,7 @@ function goReview() {
               <input
                 type="checkbox"
                 v-model="form.isMixed"
-                :disabled="form.status && form.status !== 'draft'"
+                :disabled="!isEditable"
               />
               <span>品类混装</span>
               <span class="tip">（扯皮高发）</span>
@@ -318,7 +329,7 @@ function goReview() {
                 <select
                   v-model="form.mainCategoryId"
                   class="form-select"
-                  :disabled="form.status && form.status !== 'draft'"
+                  :disabled="!isEditable"
                 >
                   <option v-for="cat in mainCategoryOptions" :key="cat.id" :value="cat.id">
                     {{ cat.name }} ({{ cat.code }})
@@ -359,7 +370,7 @@ function goReview() {
                       <select
                         v-model="item.categoryId"
                         class="form-select"
-                        :disabled="form.status && form.status !== 'draft'"
+                        :disabled="!isEditable"
                         @change="onMixedCategoryChange(index)"
                       >
                         <option v-for="cat in store.categories" :key="cat.id" :value="cat.id">
@@ -372,7 +383,7 @@ function goReview() {
                         v-model.number="item.estimatedWeight"
                         type="number"
                         class="form-input"
-                        :disabled="form.status && form.status !== 'draft'"
+                        :disabled="!isEditable"
                         @input="onMixedWeightChange"
                       />
                     </td>
@@ -391,12 +402,12 @@ function goReview() {
                         type="text"
                         class="form-input"
                         placeholder="备注"
-                        :disabled="form.status && form.status !== 'draft'"
+                        :disabled="!isEditable"
                       />
                     </td>
                     <td>
                       <button
-                        v-if="form.status === 'draft' || !form.status"
+                        v-if="isEditable"
                         class="btn btn-sm btn-danger"
                         @click="removeMixedItem(index)"
                       >
@@ -421,7 +432,7 @@ function goReview() {
               </table>
 
               <button
-                v-if="form.status === 'draft' || !form.status"
+                v-if="isEditable"
                 class="btn btn-sm mt-8"
                 @click="addMixedItem"
               >
@@ -444,7 +455,7 @@ function goReview() {
                     v-model.number="form.grossWeight"
                     type="number"
                     class="weight-input"
-                    :disabled="form.status && form.status !== 'draft'"
+                    :disabled="!isEditable"
                   />
                   <span class="weight-unit">kg</span>
                 </div>
@@ -457,7 +468,7 @@ function goReview() {
                     v-model.number="form.tareWeight"
                     type="number"
                     class="weight-input"
-                    :disabled="form.status && form.status !== 'draft'"
+                    :disabled="!isEditable"
                   />
                   <span class="weight-unit">kg</span>
                 </div>
@@ -490,7 +501,7 @@ function goReview() {
               class="form-textarea"
               rows="4"
               placeholder="请输入备注信息，如货物情况、特殊要求、注意事项等。此备注会同步到过磅复核环节。"
-              :disabled="form.status && form.status !== 'draft'"
+              :disabled="!isEditable"
             ></textarea>
             <div class="remark-tip">
               💡 提示：关于品类混装、重量预估的重要信息请写在这里，过磅复核时可以看到。
@@ -998,5 +1009,13 @@ function goReview() {
 .toast-leave-to {
   opacity: 0;
   transform: translate(-50%, -10px);
+}
+
+.permission-tip {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
 }
 </style>

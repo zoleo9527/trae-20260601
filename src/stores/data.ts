@@ -82,6 +82,31 @@ export const useDataStore = defineStore('data', () => {
     return count
   })
 
+  const canSubmitInbound = computed(() => {
+    if (!currentUser.value) return false
+    return ['weigher', 'admin'].includes(currentUser.value.role)
+  })
+
+  const canConfirmReview = computed(() => {
+    if (!currentUser.value) return false
+    return ['sortingLeader', 'admin'].includes(currentUser.value.role)
+  })
+
+  const canHandleDispute = computed(() => {
+    if (!currentUser.value) return false
+    return ['salesClerk', 'admin'].includes(currentUser.value.role)
+  })
+
+  const canEditInbound = computed(() => {
+    if (!currentUser.value) return false
+    return ['weigher', 'admin'].includes(currentUser.value.role)
+  })
+
+  const canManageSettings = computed(() => {
+    if (!currentUser.value) return false
+    return ['admin'].includes(currentUser.value.role)
+  })
+
   function addLog(
     targetType: 'inbound' | 'review' | 'dispute',
     targetId: string,
@@ -614,6 +639,11 @@ export const useDataStore = defineStore('data', () => {
     pendingInbounds,
     pendingReviews,
     toDoCount,
+    canSubmitInbound,
+    canConfirmReview,
+    canHandleDispute,
+    canEditInbound,
+    canManageSettings,
     loadData,
     saveData,
     createInbound,

@@ -71,7 +71,7 @@ function goNew() {
             {{ opt.label }}
           </option>
         </select>
-        <button class="btn btn-primary" @click="goNew">
+        <button v-if="store.canEditInbound" class="btn btn-primary" @click="goNew">
           ➕ 新建登记
         </button>
       </div>

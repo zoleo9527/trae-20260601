@@ -83,11 +83,12 @@ function goDetail(id: string) {
             <th>供应商</th>
             <th>主品类</th>
             <th>混装</th>
-            <th>登记净重</th>
-            <th>复核净重</th>
+            <th>净重对比</th>
             <th>状态</th>
-            <th>复核人</th>
+            <th>提交人</th>
             <th>提交时间</th>
+            <th>复核人</th>
+            <th>复核时间</th>
             <th>操作</th>
           </tr>
         </thead>
@@ -103,22 +104,37 @@ function goDetail(id: string) {
               <span v-else class="badge">否</span>
             </td>
             <td class="weight-cell">
-              {{ getInbound(review.id)?.netWeight?.toLocaleString() || '-' }}
-            </td>
-            <td class="weight-cell">
-              <span
-                :class="{
-                  'text-error': review.confirmedNetWeight !== (getInbound(review.id)?.netWeight || 0) && review.confirmedNetWeight < (getInbound(review.id)?.netWeight || 0),
-                  'text-success': review.confirmedNetWeight !== (getInbound(review.id)?.netWeight || 0) && review.confirmedNetWeight > (getInbound(review.id)?.netWeight || 0)
-                }"
-              >
-                {{ review.confirmedNetWeight.toLocaleString() }}
-              </span>
+              <div class="weight-compare">
+                <span class="weight-orig">{{ getInbound(review.id)?.netWeight?.toLocaleString() || '-' }}</span>
+                <span class="weight-arrow">→</span>
+                <span
+                  :class="[
+                    'weight-confirmed',
+                    review.confirmedNetWeight !== (getInbound(review.id)?.netWeight || 0) && review.confirmedNetWeight < (getInbound(review.id)?.netWeight || 0) ? 'text-error' : '',
+                    review.confirmedNetWeight !== (getInbound(review.id)?.netWeight || 0) && review.confirmedNetWeight > (getInbound(review.id)?.netWeight || 0) ? 'text-success' : ''
+                  ]"
+                >
+                  {{ review.confirmedNetWeight.toLocaleString() }}
+                </span>
+              </div>
             </td>
             <td>
               <StatusBadge :status="review.status" />
             </td>
-            <td>{{ review.reviewer || '-' }}</td>
+            <td class="handover-cell">
+              <span class="handover-name">{{ getInbound(review.id)?.submittedBy || '-' }}</span>
+              <span class="handover-role">过磅员</span>
+            </td>
+            <td class="time-cell">
+              {{ getInbound(review.id)?.submittedAt ? dayjs(getInbound(review.id)?.submittedAt).format('MM-DD HH:mm') : '-' }}
+            </td>
+            <td class="handover-cell">
+              <template v-if="review.reviewer">
+                <span class="handover-name">{{ review.reviewer }}</span>
+                <span class="handover-role">分拣班长</span>
+              </template>
+              <span v-else class="text-tertiary">-</span>
+            </td>
             <td class="time-cell">
               {{ review.reviewedAt ? dayjs(review.reviewedAt).format('MM-DD HH:mm') : '-' }}
             </td>
@@ -129,7 +145,7 @@ function goDetail(id: string) {
             </td>
           </tr>
           <tr v-if="filteredReviews.length === 0">
-            <td colspan="10" class="empty-cell">
+            <td colspan="11" class="empty-cell">
               <div class="empty-content">
                 <div class="empty-icon">⚖️</div>
                 <div class="empty-text">暂无过磅复核记录</div>
@@ -244,5 +260,48 @@ function goDetail(id: string) {
 .empty-text {
   color: var(--text-tertiary);
   font-size: 14px;
+}
+
+.weight-compare {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.weight-orig {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.weight-arrow {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.weight-confirmed {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.handover-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.handover-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.handover-role {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  padding: 1px 6px;
+  border-radius: 3px;
+  width: fit-content;
 }
 </style>
