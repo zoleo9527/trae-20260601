@@ -1,21 +1,23 @@
 import { Router, Request, Response } from "express";
 import { ReceivableService } from "../services/ReceivableService";
-import { ReceivableStatus } from "../entities/Receivable";
+import { ReceivableStatus, ReconciliationStatus } from "../entities/Receivable";
 
 const router = Router();
 const receivableService = new ReceivableService();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { customerId, outboundOrderId, status } = req.query;
+    const { customerId, outboundOrderId, status, reconciliationStatus } = req.query;
     let receivables;
 
-    if (customerId) {
-      receivables = await receivableService.getReceivablesByCustomer(Number(customerId));
+    if (customerId || reconciliationStatus || status) {
+      receivables = await receivableService.getReceivablesByFilters({
+        customerId: customerId ? Number(customerId) : undefined,
+        status: status as ReceivableStatus | undefined,
+        reconciliationStatus: reconciliationStatus as ReconciliationStatus | undefined,
+      });
     } else if (outboundOrderId) {
       receivables = await receivableService.getReceivablesByOutboundOrder(Number(outboundOrderId));
-    } else if (status) {
-      receivables = await receivableService.getReceivablesByStatus(status as ReceivableStatus);
     } else {
       const repo = (receivableService as any).receivableRepo;
       receivables = await repo.find({
@@ -43,6 +45,18 @@ router.get("/aging-report", async (req: Request, res: Response) => {
   try {
     const report = await receivableService.getAgingReport();
     res.json({ success: true, data: report });
+  } catch (error) {
+    res.status(500).json({ success: false, error: (error as Error).message });
+  }
+});
+
+router.get("/reconciliation-summary", async (req: Request, res: Response) => {
+  try {
+    const { customerId } = req.query;
+    const summary = await receivableService.getReconciliationSummaryByCustomer(
+      customerId ? Number(customerId) : undefined
+    );
+    res.json({ success: true, data: summary });
   } catch (error) {
     res.status(500).json({ success: false, error: (error as Error).message });
   }

@@ -109,6 +109,32 @@ export class PaymentService {
     });
   }
 
+  async getPaymentsByFilters(options: {
+    customerId?: number;
+    isReconciled?: boolean;
+    status?: PaymentStatus;
+    startDate?: Date;
+    endDate?: Date;
+  }): Promise<Payment[]> {
+    const where: any = {};
+    if (options.customerId !== undefined) where.customerId = options.customerId;
+    if (options.isReconciled !== undefined) where.isReconciled = options.isReconciled;
+    if (options.status) where.status = options.status;
+
+    let query = this.paymentRepo.createQueryBuilder("payment").where(where);
+    if (options.startDate) {
+      query = query.andWhere("payment.paymentDate >= :startDate", { startDate: options.startDate });
+    }
+    if (options.endDate) {
+      query = query.andWhere("payment.paymentDate <= :endDate", { endDate: options.endDate });
+    }
+    return await query
+      .leftJoinAndSelect("payment.customer", "customer")
+      .leftJoinAndSelect("payment.receivable", "receivable")
+      .orderBy("payment.paymentDate", "DESC")
+      .getMany();
+  }
+
   async reconcilePayment(paymentId: number, reconciledBy: string): Promise<Payment | null> {
     const payment = await this.paymentRepo.findOneBy({ id: paymentId });
     if (!payment) return null;

@@ -7,18 +7,18 @@ const paymentService = new PaymentService();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { customerId, receivableId, startDate, endDate } = req.query;
+    const { customerId, receivableId, startDate, endDate, isReconciled } = req.query;
     let payments;
 
-    if (customerId) {
-      payments = await paymentService.getPaymentsByCustomer(Number(customerId));
+    if (customerId || isReconciled !== undefined || startDate || endDate) {
+      payments = await paymentService.getPaymentsByFilters({
+        customerId: customerId ? Number(customerId) : undefined,
+        isReconciled: isReconciled !== undefined ? isReconciled === "true" : undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+      });
     } else if (receivableId) {
       payments = await paymentService.getPaymentsByReceivable(Number(receivableId));
-    } else if (startDate && endDate) {
-      payments = await paymentService.getPaymentsByDateRange(
-        new Date(startDate as string),
-        new Date(endDate as string)
-      );
     } else {
       const repo = (paymentService as any).paymentRepo;
       payments = await repo.find({

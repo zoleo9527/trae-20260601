@@ -21,6 +21,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       partialPaymentOrders,
       unreconciledPayments,
       paymentSummary,
+      reconciliationSummary,
     ] = await Promise.all([
       customerService.getCustomersWithOverdue(),
       customerService.getCustomersWithCreditWarning(),
@@ -30,6 +31,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       orderService.getOrdersWithPartialPayment(),
       paymentService.getUnreconciledPayments(),
       paymentService.getPaymentSummary(),
+      receivableService.getReconciliationSummaryByCustomer(),
     ]);
 
     const totalOverdueAmount = overdueReceivables.reduce(
@@ -38,6 +40,42 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     );
 
     const agingReport = await receivableService.getAgingReport();
+
+    const unreconciledReceivableCount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.receivable.unreconciled.count + c.receivable.partial.count,
+      0
+    );
+    const unreconciledReceivableAmount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.receivable.unreconciled.amount,
+      0
+    );
+    const partiallyReconciledReceivableCount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.receivable.partial.count,
+      0
+    );
+    const partiallyReconciledReceivableAmount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.receivable.partial.amount,
+      0
+    );
+    const unreconciledPaymentCount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.payment.unreconciled.count,
+      0
+    );
+    const unreconciledPaymentAmount = reconciliationSummary.reduce(
+      (sum: number, c: any) => sum + c.payment.unreconciled.amount,
+      0
+    );
+    const pendingReconciliationCount =
+      unreconciledReceivableCount + unreconciledPaymentCount;
+    const pendingReconciliationAmount =
+      unreconciledReceivableAmount + unreconciledPaymentAmount;
+
+    const customersNeedReconciliation = reconciliationSummary.filter(
+      (c: any) =>
+        c.receivable.unreconciled.count > 0 ||
+        c.receivable.partial.count > 0 ||
+        c.payment.unreconciled.count > 0
+    ).length;
 
     res.json({
       success: true,
@@ -50,7 +88,15 @@ router.get("/dashboard", async (req: Request, res: Response) => {
           warningOrderCount: warningOrders.length,
           notInvoicedOrderCount: notInvoicedOrders.length,
           partialPaymentOrderCount: partialPaymentOrders.length,
-          unreconciledPaymentCount: unreconciledPayments.length,
+          unreconciledReceivableCount,
+          unreconciledReceivableAmount,
+          partiallyReconciledReceivableCount,
+          partiallyReconciledReceivableAmount,
+          unreconciledPaymentCount,
+          unreconciledPaymentAmount,
+          pendingReconciliationCount,
+          pendingReconciliationAmount,
+          customersNeedReconciliation,
         },
         overdueCustomers,
         warningCustomers,
@@ -61,6 +107,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
         unreconciledPayments,
         agingReport,
         paymentSummary,
+        reconciliationSummary,
       },
     });
   } catch (error) {

@@ -85,6 +85,22 @@ export class ReceivableService {
     });
   }
 
+  async getReceivablesByFilters(options: {
+    customerId?: number;
+    reconciliationStatus?: ReconciliationStatus;
+    status?: ReceivableStatus;
+  }): Promise<Receivable[]> {
+    const where: any = {};
+    if (options.customerId !== undefined) where.customerId = options.customerId;
+    if (options.reconciliationStatus) where.reconciliationStatus = options.reconciliationStatus;
+    if (options.status) where.status = options.status;
+    return await this.receivableRepo.find({
+      where,
+      relations: ["customer", "outboundOrder", "payments"],
+      order: { dueDate: "ASC" },
+    });
+  }
+
   async updateReceivableAging(): Promise<void> {
     const receivables = await this.receivableRepo.find({
       where: { status: In(["PENDING", "PARTIAL_PAID", "OVERDUE"]) },
@@ -175,6 +191,125 @@ export class ReceivableService {
     }
 
     return Object.values(customerGroups);
+  }
+
+  async getReconciliationSummaryByCustomer(customerId?: number): Promise<any[]> {
+    const where: any = {};
+    if (customerId !== undefined) where.customerId = customerId;
+
+    const receivables = await this.receivableRepo.find({
+      where,
+      relations: ["customer"],
+    });
+
+    const payments = await this.receivableRepo.manager.query(
+      `SELECT
+        p.customerId,
+        SUM(CASE WHEN p.isReconciled = 0 THEN p.amount ELSE 0 END) as unreconciledPaymentAmount,
+        SUM(CASE WHEN p.isReconciled = 1 THEN p.amount ELSE 0 END) as reconciledPaymentAmount,
+        COUNT(CASE WHEN p.isReconciled = 0 THEN 1 END) as unreconciledPaymentCount,
+        COUNT(CASE WHEN p.isReconciled = 1 THEN 1 END) as reconciledPaymentCount
+       FROM payment p
+       WHERE p.status != 'CANCELLED'
+       ${customerId !== undefined ? `AND p.customerId = ${customerId}` : ""}
+       GROUP BY p.customerId`
+    );
+
+    const paymentMap: Record<number, any> = {};
+    for (const p of payments) {
+      paymentMap[p.customerId] = p;
+    }
+
+    const customerGroups: Record<number, any> = {};
+
+    for (const r of receivables) {
+      if (!customerGroups[r.customerId]) {
+        const pm = paymentMap[r.customerId] || {};
+        customerGroups[r.customerId] = {
+          customerId: r.customerId,
+          customerName: r.customer?.customerName,
+          customerCode: r.customer?.customerCode,
+          contactPerson: r.customer?.contactPerson,
+          contactPhone: r.customer?.contactPhone,
+          receivable: {
+            unreconciled: { count: 0, amount: 0 },
+            partial: { count: 0, amount: 0 },
+            fully: { count: 0, amount: 0 },
+            total: { count: 0, amount: 0 },
+          },
+          payment: {
+            unreconciled: {
+              count: Number(pm.unreconciledPaymentCount || 0),
+              amount: Number(pm.unreconciledPaymentAmount || 0),
+            },
+            reconciled: {
+              count: Number(pm.reconciledPaymentCount || 0),
+              amount: Number(pm.reconciledPaymentAmount || 0),
+            },
+            total: {
+              count: Number((pm.unreconciledPaymentCount || 0) + (pm.reconciledPaymentCount || 0)),
+              amount: Number((pm.unreconciledPaymentAmount || 0) + (pm.reconciledPaymentAmount || 0)),
+            },
+          },
+        };
+      }
+
+      const group = customerGroups[r.customerId];
+      group.receivable.total.count += 1;
+      group.receivable.total.amount += Number(r.totalAmount);
+
+      if (r.reconciliationStatus === "UNRECONCILED") {
+        group.receivable.unreconciled.count += 1;
+        group.receivable.unreconciled.amount += Number(r.totalAmount);
+      } else if (r.reconciliationStatus === "PARTIAL_RECONCILED") {
+        group.receivable.partial.count += 1;
+        group.receivable.partial.amount += Number(r.reconciledAmount);
+      } else if (r.reconciliationStatus === "FULLY_RECONCILED") {
+        group.receivable.fully.count += 1;
+        group.receivable.fully.amount += Number(r.totalAmount);
+      }
+    }
+
+    for (const cid of Object.keys(paymentMap)) {
+      if (!customerGroups[Number(cid)]) {
+        const pm = paymentMap[Number(cid)];
+        customerGroups[Number(cid)] = {
+          customerId: Number(cid),
+          customerName: null,
+          customerCode: null,
+          contactPerson: null,
+          contactPhone: null,
+          receivable: {
+            unreconciled: { count: 0, amount: 0 },
+            partial: { count: 0, amount: 0 },
+            fully: { count: 0, amount: 0 },
+            total: { count: 0, amount: 0 },
+          },
+          payment: {
+            unreconciled: {
+              count: Number(pm.unreconciledPaymentCount || 0),
+              amount: Number(pm.unreconciledPaymentAmount || 0),
+            },
+            reconciled: {
+              count: Number(pm.reconciledPaymentCount || 0),
+              amount: Number(pm.reconciledPaymentAmount || 0),
+            },
+            total: {
+              count: Number((pm.unreconciledPaymentCount || 0) + (pm.reconciledPaymentCount || 0)),
+              amount: Number((pm.unreconciledPaymentAmount || 0) + (pm.reconciledPaymentAmount || 0)),
+            },
+          },
+        };
+      }
+    }
+
+    const result = Object.values(customerGroups).sort((a, b) => {
+      const aPending = a.receivable.unreconciled.amount + a.receivable.partial.amount + a.payment.unreconciled.amount;
+      const bPending = b.receivable.unreconciled.amount + b.receivable.partial.amount + b.payment.unreconciled.amount;
+      return bPending - aPending;
+    });
+
+    return result;
   }
 
   async markAsBadDebt(id: number, remark?: string): Promise<Receivable | null> {
