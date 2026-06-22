@@ -113,7 +113,7 @@ async function runReconciliationTests() {
     console.log(`  汇总客户数: ${summary.length}`);
     let allCustomers = summary.map((s: any) => {
       console.log(`  - ${s.customerName}:`);
-      console.log(`      应收[未对账:${s.receivable.unreconciled.count}笔 ¥${s.receivable.unreconciled.amount.toLocaleString()}, 部分:${s.receivable.partial.count}笔 ¥${s.receivable.partial.amount.toLocaleString()}, 已对:${s.receivable.fully.count}笔 ¥${s.receivable.fully.amount.toLocaleString()}`);
+      console.log(`      应收[未对账:${s.receivable.unreconciled.count}笔 ¥${s.receivable.unreconciled.amount.toLocaleString()}, 部分:${s.receivable.partial.count}笔 ¥${s.receivable.partial.amount.toLocaleString()}, 已对:${s.receivable.reconciled.count}笔 ¥${s.receivable.reconciled.amount.toLocaleString()}`);
       console.log(`      收款[未对账:${s.payment.unreconciled.count}笔 ¥${s.payment.unreconciled.amount.toLocaleString()}, 已对账:${s.payment.reconciled.count}笔 ¥${s.payment.reconciled.amount.toLocaleString()}`);
     });
     const passed = summary.length >= 3 && summary.every((s: any) => s.customerId != null);

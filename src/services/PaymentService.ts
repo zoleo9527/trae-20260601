@@ -112,14 +112,24 @@ export class PaymentService {
   async getPaymentsByFilters(options: {
     customerId?: number;
     isReconciled?: boolean;
+    reconciliationStatus?: "UNRECONCILED" | "RECONCILED";
     status?: PaymentStatus;
     startDate?: Date;
     endDate?: Date;
   }): Promise<Payment[]> {
     const where: any = {};
     if (options.customerId !== undefined) where.customerId = options.customerId;
-    if (options.isReconciled !== undefined) where.isReconciled = options.isReconciled;
-    if (options.status) where.status = options.status;
+    if (options.status) {
+      where.status = options.status;
+    } else {
+      where.status = In(["CONFIRMED", "RECONCILED"]);
+    }
+
+    if (options.reconciliationStatus) {
+      where.isReconciled = options.reconciliationStatus === "RECONCILED";
+    } else if (options.isReconciled !== undefined) {
+      where.isReconciled = options.isReconciled;
+    }
 
     let query = this.paymentRepo.createQueryBuilder("payment").where(where);
     if (options.startDate) {

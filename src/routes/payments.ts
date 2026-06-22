@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { In } from "typeorm";
 import { PaymentService } from "../services/PaymentService";
 import { PaymentMethod } from "../entities/Payment";
 
@@ -7,13 +8,15 @@ const paymentService = new PaymentService();
 
 router.get("/", async (req: Request, res: Response) => {
   try {
-    const { customerId, receivableId, startDate, endDate, isReconciled } = req.query;
+    const { customerId, receivableId, startDate, endDate, isReconciled, reconciliationStatus, status } = req.query;
     let payments;
 
-    if (customerId || isReconciled !== undefined || startDate || endDate) {
+    if (customerId || isReconciled !== undefined || reconciliationStatus || startDate || endDate || status) {
       payments = await paymentService.getPaymentsByFilters({
         customerId: customerId ? Number(customerId) : undefined,
         isReconciled: isReconciled !== undefined ? isReconciled === "true" : undefined,
+        reconciliationStatus: reconciliationStatus as "UNRECONCILED" | "RECONCILED" | undefined,
+        status: status as any,
         startDate: startDate ? new Date(startDate as string) : undefined,
         endDate: endDate ? new Date(endDate as string) : undefined,
       });
@@ -22,6 +25,7 @@ router.get("/", async (req: Request, res: Response) => {
     } else {
       const repo = (paymentService as any).paymentRepo;
       payments = await repo.find({
+        where: { status: In(["CONFIRMED", "RECONCILED"]) },
         relations: ["customer", "receivable"],
         order: { paymentDate: "DESC" },
       });

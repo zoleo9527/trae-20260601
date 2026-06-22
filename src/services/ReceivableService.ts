@@ -205,12 +205,14 @@ export class ReceivableService {
     const payments = await this.receivableRepo.manager.query(
       `SELECT
         p.customerId,
-        SUM(CASE WHEN p.isReconciled = 0 THEN p.amount ELSE 0 END) as unreconciledPaymentAmount,
-        SUM(CASE WHEN p.isReconciled = 1 THEN p.amount ELSE 0 END) as reconciledPaymentAmount,
-        COUNT(CASE WHEN p.isReconciled = 0 THEN 1 END) as unreconciledPaymentCount,
-        COUNT(CASE WHEN p.isReconciled = 1 THEN 1 END) as reconciledPaymentCount
+        SUM(CASE WHEN p.isReconciled = 0 AND p.status != 'CANCELLED' THEN p.amount ELSE 0 END) as unreconciledPaymentAmount,
+        SUM(CASE WHEN p.isReconciled = 1 AND p.status != 'CANCELLED' THEN p.amount ELSE 0 END) as reconciledPaymentAmount,
+        SUM(CASE WHEN p.status != 'CANCELLED' THEN p.amount ELSE 0 END) as totalPaymentAmount,
+        COUNT(CASE WHEN p.isReconciled = 0 AND p.status != 'CANCELLED' THEN 1 END) as unreconciledPaymentCount,
+        COUNT(CASE WHEN p.isReconciled = 1 AND p.status != 'CANCELLED' THEN 1 END) as reconciledPaymentCount,
+        COUNT(CASE WHEN p.status != 'CANCELLED' THEN 1 END) as totalPaymentCount
        FROM payment p
-       WHERE p.status != 'CANCELLED'
+       WHERE 1=1
        ${customerId !== undefined ? `AND p.customerId = ${customerId}` : ""}
        GROUP BY p.customerId`
     );
@@ -234,8 +236,9 @@ export class ReceivableService {
           receivable: {
             unreconciled: { count: 0, amount: 0 },
             partial: { count: 0, amount: 0 },
-            fully: { count: 0, amount: 0 },
+            reconciled: { count: 0, amount: 0 },
             total: { count: 0, amount: 0 },
+            pendingReconcileAmount: 0,
           },
           payment: {
             unreconciled: {
@@ -247,10 +250,11 @@ export class ReceivableService {
               amount: Number(pm.reconciledPaymentAmount || 0),
             },
             total: {
-              count: Number((pm.unreconciledPaymentCount || 0) + (pm.reconciledPaymentCount || 0)),
-              amount: Number((pm.unreconciledPaymentAmount || 0) + (pm.reconciledPaymentAmount || 0)),
+              count: Number(pm.totalPaymentCount || 0),
+              amount: Number(pm.totalPaymentAmount || 0),
             },
           },
+          totalPendingReconcileAmount: 0,
         };
       }
 
@@ -261,12 +265,15 @@ export class ReceivableService {
       if (r.reconciliationStatus === "UNRECONCILED") {
         group.receivable.unreconciled.count += 1;
         group.receivable.unreconciled.amount += Number(r.totalAmount);
+        group.receivable.pendingReconcileAmount += Number(r.totalAmount);
       } else if (r.reconciliationStatus === "PARTIAL_RECONCILED") {
+        const unreconciledBalance = Number(r.totalAmount) - Number(r.reconciledAmount);
         group.receivable.partial.count += 1;
-        group.receivable.partial.amount += Number(r.reconciledAmount);
+        group.receivable.partial.amount += Math.max(0, unreconciledBalance);
+        group.receivable.pendingReconcileAmount += Math.max(0, unreconciledBalance);
       } else if (r.reconciliationStatus === "FULLY_RECONCILED") {
-        group.receivable.fully.count += 1;
-        group.receivable.fully.amount += Number(r.totalAmount);
+        group.receivable.reconciled.count += 1;
+        group.receivable.reconciled.amount += Number(r.totalAmount);
       }
     }
 
@@ -282,8 +289,9 @@ export class ReceivableService {
           receivable: {
             unreconciled: { count: 0, amount: 0 },
             partial: { count: 0, amount: 0 },
-            fully: { count: 0, amount: 0 },
+            reconciled: { count: 0, amount: 0 },
             total: { count: 0, amount: 0 },
+            pendingReconcileAmount: 0,
           },
           payment: {
             unreconciled: {
@@ -295,18 +303,23 @@ export class ReceivableService {
               amount: Number(pm.reconciledPaymentAmount || 0),
             },
             total: {
-              count: Number((pm.unreconciledPaymentCount || 0) + (pm.reconciledPaymentCount || 0)),
-              amount: Number((pm.unreconciledPaymentAmount || 0) + (pm.reconciledPaymentAmount || 0)),
+              count: Number(pm.totalPaymentCount || 0),
+              amount: Number(pm.totalPaymentAmount || 0),
             },
           },
+          totalPendingReconcileAmount: 0,
         };
       }
     }
 
-    const result = Object.values(customerGroups).sort((a, b) => {
-      const aPending = a.receivable.unreconciled.amount + a.receivable.partial.amount + a.payment.unreconciled.amount;
-      const bPending = b.receivable.unreconciled.amount + b.receivable.partial.amount + b.payment.unreconciled.amount;
-      return bPending - aPending;
+    for (const cid of Object.keys(customerGroups)) {
+      const g = customerGroups[Number(cid)];
+      g.totalPendingReconcileAmount =
+        g.receivable.pendingReconcileAmount + g.payment.unreconciled.amount;
+    }
+
+    const result = Object.values(customerGroups).sort((a: any, b: any) => {
+      return b.totalPendingReconcileAmount - a.totalPendingReconcileAmount;
     });
 
     return result;
