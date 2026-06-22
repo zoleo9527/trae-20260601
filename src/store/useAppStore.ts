@@ -52,6 +52,9 @@ interface AppState {
   ) => Promise<void>
 
   expireLock: (id: string) => Promise<void>
+
+  getAdjustmentDetail: (id: string) => Promise<PriceAdjustment | undefined>
+  getQuoteDetail: (id: string) => Promise<CustomerQuote | undefined>
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -163,11 +166,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ loading: true, error: null })
     try {
       await priceLocksApi.expire(id)
-      await get().fetchPriceLocks()
+      await Promise.all([
+        get().fetchAdjustments(),
+        get().fetchPriceLocks(),
+        get().fetchQuotes(),
+      ])
     } catch (err) {
       set({ error: (err as Error).message })
     } finally {
       set({ loading: false })
+    }
+  },
+
+  getAdjustmentDetail: async (id) => {
+    try {
+      return await adjustmentsApi.get(id)
+    } catch (err) {
+      set({ error: (err as Error).message })
+      return undefined
+    }
+  },
+
+  getQuoteDetail: async (id) => {
+    try {
+      return await quotesApi.get(id)
+    } catch (err) {
+      set({ error: (err as Error).message })
+      return undefined
     }
   },
 }))

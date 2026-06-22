@@ -18,12 +18,13 @@ type FilterStatus = 'all' | QuoteStatus
 type FilterCustomer = 'all' | string
 
 export default function Quotes() {
-  const { fetchQuotes, fetchCustomers, quotes, customers, loading } = useAppStore()
+  const { fetchQuotes, fetchCustomers, getQuoteDetail, quotes, customers, loading } = useAppStore()
 
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all')
   const [filterCustomer, setFilterCustomer] = useState<FilterCustomer>('all')
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [selectedQuote, setSelectedQuote] = useState<CustomerQuote | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   useEffect(() => {
     fetchQuotes()
@@ -36,9 +37,14 @@ export default function Quotes() {
     return statusMatch && customerMatch
   })
 
-  const openDetail = (quote: CustomerQuote) => {
-    setSelectedQuote(quote)
-    setShowDetailModal(true)
+  const openDetail = async (quote: CustomerQuote) => {
+    setDetailLoading(true)
+    const detail = await getQuoteDetail(quote.id)
+    if (detail) {
+      setSelectedQuote(detail)
+      setShowDetailModal(true)
+    }
+    setDetailLoading(false)
   }
 
   const statusFilters: { value: FilterStatus; label: string }[] = [
@@ -362,7 +368,7 @@ export default function Quotes() {
         )}
       </Modal>
 
-      {loading && (
+      {(loading || detailLoading) && (
         <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
           <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
         </div>

@@ -31,6 +31,7 @@ export default function Adjustments() {
     fetchCustomers,
     createAdjustment,
     reviewAdjustment,
+    getAdjustmentDetail,
     adjustments,
     inventory,
     customers,
@@ -42,6 +43,7 @@ export default function Adjustments() {
   const [showDetailModal, setShowDetailModal] = useState(false)
   const [showReviewModal, setShowReviewModal] = useState(false)
   const [selectedAdjustment, setSelectedAdjustment] = useState<PriceAdjustment | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
 
   const [formData, setFormData] = useState<{
     inventory_id: string
@@ -130,9 +132,14 @@ export default function Adjustments() {
     setSelectedAdjustment(null)
   }
 
-  const openDetail = (adj: PriceAdjustment) => {
-    setSelectedAdjustment(adj)
-    setShowDetailModal(true)
+  const openDetail = async (adj: PriceAdjustment) => {
+    setDetailLoading(true)
+    const detail = await getAdjustmentDetail(adj.id)
+    if (detail) {
+      setSelectedAdjustment(detail)
+      setShowDetailModal(true)
+    }
+    setDetailLoading(false)
   }
 
   const openReview = (adj: PriceAdjustment) => {
@@ -725,7 +732,7 @@ export default function Adjustments() {
         )}
       </Modal>
 
-      {loading && (
+      {(loading || detailLoading) && (
         <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
           <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
         </div>

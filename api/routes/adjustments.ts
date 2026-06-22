@@ -8,7 +8,10 @@ router.get('/', (req: Request, res: Response) => {
   const { status } = req.query
 
   let sql = `
-    SELECT pa.*, i.name as inventoryName, c.name as customerName
+    SELECT pa.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, 
+           i.unit as inventoryUnit, i.quantity as inventoryQuantity,
+           c.name as customerName, c.contact as customerContact
     FROM price_adjustment pa
     LEFT JOIN inventory i ON pa.inventory_id = i.id
     LEFT JOIN customer c ON pa.customer_id = c.id
@@ -29,7 +32,10 @@ router.get('/', (req: Request, res: Response) => {
 router.get('/pending', (_req: Request, res: Response) => {
   const db = getDb()
   const rows = db.prepare(`
-    SELECT pa.*, i.name as inventoryName, c.name as customerName
+    SELECT pa.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, 
+           i.unit as inventoryUnit, i.quantity as inventoryQuantity,
+           c.name as customerName, c.contact as customerContact
     FROM price_adjustment pa
     LEFT JOIN inventory i ON pa.inventory_id = i.id
     LEFT JOIN customer c ON pa.customer_id = c.id
@@ -42,7 +48,10 @@ router.get('/pending', (_req: Request, res: Response) => {
 router.get('/reviewed', (_req: Request, res: Response) => {
   const db = getDb()
   const rows = db.prepare(`
-    SELECT pa.*, i.name as inventoryName, c.name as customerName
+    SELECT pa.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, 
+           i.unit as inventoryUnit, i.quantity as inventoryQuantity,
+           c.name as customerName, c.contact as customerContact
     FROM price_adjustment pa
     LEFT JOIN inventory i ON pa.inventory_id = i.id
     LEFT JOIN customer c ON pa.customer_id = c.id
@@ -89,7 +98,10 @@ router.post('/', (req: Request, res: Response) => {
   `).run(id, inventory_id, original_price, new_price, adjustment_type, reason || null, requested_lock_days || null, customer_id, applicant_name, now, now)
 
   const row = db.prepare(`
-    SELECT pa.*, i.name as inventoryName, c.name as customerName
+    SELECT pa.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, 
+           i.unit as inventoryUnit, i.quantity as inventoryQuantity,
+           c.name as customerName, c.contact as customerContact
     FROM price_adjustment pa
     LEFT JOIN inventory i ON pa.inventory_id = i.id
     LEFT JOIN customer c ON pa.customer_id = c.id
@@ -148,13 +160,16 @@ router.post('/:id/review', (req: Request, res: Response) => {
     const expiresAt = new Date(lockEndDate + 'T23:59:59.000Z').toISOString()
 
     db.prepare(`
-      INSERT INTO customer_quote (id, customer_id, inventory_id, quoted_price, market_price, adjustment_type, status, created_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
-    `).run(quoteId, adjustment.customer_id, adjustment.inventory_id, adjustment.new_price, adjustment.original_price, adjustment.adjustment_type, now, expiresAt)
+      INSERT INTO customer_quote (id, customer_id, inventory_id, adjustment_id, quoted_price, market_price, adjustment_type, status, created_at, expires_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
+    `).run(quoteId, adjustment.customer_id, adjustment.inventory_id, id, adjustment.new_price, adjustment.original_price, adjustment.adjustment_type, now, expiresAt)
   }
 
   const row = db.prepare(`
-    SELECT pa.*, i.name as inventoryName, c.name as customerName
+    SELECT pa.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, 
+           i.unit as inventoryUnit, i.quantity as inventoryQuantity,
+           c.name as customerName, c.contact as customerContact
     FROM price_adjustment pa
     LEFT JOIN inventory i ON pa.inventory_id = i.id
     LEFT JOIN customer c ON pa.customer_id = c.id

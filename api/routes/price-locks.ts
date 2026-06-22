@@ -6,12 +6,37 @@ const router = Router()
 function updateLockStatuses(db: ReturnType<typeof getDb>): void {
   const today = new Date().toISOString().split('T')[0]
   const threeDaysLater = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const now = new Date().toISOString()
 
-  db.prepare(`
-    UPDATE price_lock
-    SET status = 'expired'
+  const expiringLocks = db.prepare(`
+    SELECT id, adjustment_id, inventory_id, customer_id 
+    FROM price_lock 
     WHERE lock_end_date < ? AND status != 'expired'
-  `).run(today)
+  `).all(today) as Array<{id: string, adjustment_id: string, inventory_id: string, customer_id: string}>
+
+  if (expiringLocks.length > 0) {
+    const updateLockStmt = db.prepare('UPDATE price_lock SET status = ? WHERE id = ?')
+    const updateAdjStmt = db.prepare(`
+      UPDATE price_adjustment 
+      SET status = 'expired', updated_at = ? 
+      WHERE id = ? AND status = 'approved'
+    `)
+    const updateQuoteStmt = db.prepare(`
+      UPDATE customer_quote 
+      SET status = 'expired' 
+      WHERE adjustment_id = ? AND status = 'active'
+    `)
+
+    const tx = db.transaction((locks: typeof expiringLocks) => {
+      for (const lock of locks) {
+        updateLockStmt.run('expired', lock.id)
+        updateAdjStmt.run(now, lock.adjustment_id)
+        updateQuoteStmt.run(lock.adjustment_id)
+      }
+    })
+
+    tx(expiringLocks)
+  }
 
   db.prepare(`
     UPDATE price_lock
@@ -70,7 +95,27 @@ router.delete('/:id', (req: Request, res: Response) => {
     return
   }
 
-  db.prepare('UPDATE price_lock SET status = ? WHERE id = ?').run('expired', req.params.id)
+  const now = new Date().toISOString()
+
+  const updateLockStmt = db.prepare('UPDATE price_lock SET status = ? WHERE id = ?')
+  const updateAdjStmt = db.prepare(`
+    UPDATE price_adjustment 
+    SET status = 'expired', updated_at = ? 
+    WHERE id = ? AND status = 'approved'
+  `)
+  const updateQuoteStmt = db.prepare(`
+    UPDATE customer_quote 
+    SET status = 'expired' 
+    WHERE adjustment_id = ? AND status = 'active'
+  `)
+
+  const tx = db.transaction(() => {
+    updateLockStmt.run('expired', req.params.id)
+    updateAdjStmt.run(now, lock.adjustment_id)
+    updateQuoteStmt.run(lock.adjustment_id)
+  })
+
+  tx()
 
   res.json({ success: true, data: { id: req.params.id, status: 'expired' } })
 })

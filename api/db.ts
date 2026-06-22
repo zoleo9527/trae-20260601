@@ -84,6 +84,7 @@ export function initDb(): void {
       id TEXT PRIMARY KEY,
       customer_id TEXT NOT NULL,
       inventory_id TEXT NOT NULL,
+      adjustment_id TEXT,
       quoted_price REAL NOT NULL,
       market_price REAL NOT NULL,
       adjustment_type TEXT NOT NULL,
@@ -91,9 +92,36 @@ export function initDb(): void {
       created_at TEXT NOT NULL,
       expires_at TEXT,
       FOREIGN KEY (customer_id) REFERENCES customer(id),
-      FOREIGN KEY (inventory_id) REFERENCES inventory(id)
+      FOREIGN KEY (inventory_id) REFERENCES inventory(id),
+      FOREIGN KEY (adjustment_id) REFERENCES price_adjustment(id)
     );
   `)
+
+  try {
+    db.exec('ALTER TABLE customer_quote ADD COLUMN adjustment_id TEXT REFERENCES price_adjustment(id)')
+  } catch (e) {
+    // Column already exists, ignore
+  }
+
+  // Migration: add adjustment_id to customer_quote and populate existing records
+  try {
+    const quotes = db.prepare('SELECT id, customer_id, inventory_id, quoted_price, market_price, adjustment_type FROM customer_quote WHERE adjustment_id IS NULL').all() as Array<{id: string, customer_id: string, inventory_id: string, quoted_price: number, market_price: number, adjustment_type: string}>
+    const updateQuote = db.prepare('UPDATE customer_quote SET adjustment_id = ? WHERE id = ?')
+    
+    for (const quote of quotes) {
+      const adj = db.prepare(`
+        SELECT id FROM price_adjustment 
+        WHERE customer_id = ? AND inventory_id = ? AND new_price = ? AND original_price = ? AND adjustment_type = ?
+        LIMIT 1
+      `).get(quote.customer_id, quote.inventory_id, quote.quoted_price, quote.market_price, quote.adjustment_type) as {id: string} | undefined
+      
+      if (adj) {
+        updateQuote.run(adj.id, quote.id)
+      }
+    }
+  } catch (e) {
+    console.warn('Migration skipped:', e)
+  }
 
   seedData()
 }
@@ -162,21 +190,21 @@ function seedData(): void {
   )
 
   const insertQuote = db.prepare(
-    `INSERT INTO customer_quote (id, customer_id, inventory_id, quoted_price, market_price, adjustment_type, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO customer_quote (id, customer_id, inventory_id, adjustment_id, quoted_price, market_price, adjustment_type, status, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   )
 
   insertQuote.run(
-    'quote-001', 'cust-001', 'inv-001', 46500, 48000, 'market_change', 'active',
+    'quote-001', 'cust-001', 'inv-001', 'adj-002', 46500, 48000, 'market_change', 'active',
     '2026-06-15T10:00:00.000Z', '2026-07-05T23:59:59.000Z'
   )
 
   insertQuote.run(
-    'quote-002', 'cust-002', 'inv-002', 11000, 13500, 'customer_negotiation', 'rejected',
+    'quote-002', 'cust-002', 'inv-002', 'adj-001', 11000, 13500, 'customer_negotiation', 'rejected',
     '2026-06-08T09:00:00.000Z', '2026-06-30T23:59:59.000Z'
   )
 
   insertQuote.run(
-    'quote-003', 'cust-003', 'inv-004', 2600, 2800, 'grade_change', 'expired',
+    'quote-003', 'cust-003', 'inv-004', 'adj-003', 2600, 2800, 'grade_change', 'expired',
     '2026-06-01T11:00:00.000Z', '2026-06-17T23:59:59.000Z'
   )
 }

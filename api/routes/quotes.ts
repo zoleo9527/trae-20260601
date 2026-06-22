@@ -8,7 +8,9 @@ router.get('/', (req: Request, res: Response) => {
   const { customerId } = req.query
 
   let sql = `
-    SELECT cq.*, i.name as inventoryName, c.name as customerName
+    SELECT cq.*, 
+           i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, i.unit as inventoryUnit,
+           c.name as customerName, c.contact as customerContact
     FROM customer_quote cq
     LEFT JOIN inventory i ON cq.inventory_id = i.id
     LEFT JOIN customer c ON cq.customer_id = c.id
