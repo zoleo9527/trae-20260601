@@ -16,7 +16,7 @@ import {
   XCircle,
   TrendingUp
 } from 'lucide-vue-next'
-import { gasApi, createVisit } from '@/api/gas'
+import { gasApi } from '@/api/gas'
 import type { GasApplication, CustomerVisit } from '@/types/gas'
 
 const router = useRouter()

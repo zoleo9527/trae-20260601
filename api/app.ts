@@ -12,6 +12,7 @@ import express, {
 import path from 'path'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
+import gasRoutes from './routes/gas.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)

@@ -402,6 +402,28 @@ router.put('/applications/:id/approve', (req, res) => {
     application.approved_by = req.body.approved_by
     application.approved_at = new Date().toISOString()
     application.updated_at = new Date().toISOString()
+    
+    const existingPreVisit = customerVisits.find(v => v.application_id === application.id && v.visit_type === 'pre_visit')
+    if (!existingPreVisit) {
+      const newVisit: CustomerVisit = {
+        id: `cv${String(customerVisits.length + 1).padStart(3, '0')}`,
+        application_id: application.id,
+        customer_id: application.customer_id,
+        customer_name: application.customer_name,
+        customer_phone: application.customer_phone,
+        address: application.address,
+        visit_type: 'pre_visit',
+        purpose: '停复气前确认用户准备情况',
+        status: 'pending',
+        visitor: '客服小李',
+        visitor_role: 'customer_service',
+        scheduled_date: application.planned_date,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      customerVisits.push(newVisit)
+    }
+    
     res.json({ success: true, data: application })
   } else {
     res.json({ success: false, error: '申请不存在' })
@@ -427,6 +449,30 @@ router.put('/applications/:id/complete', (req, res) => {
     application.status = 'completed'
     application.completed_at = new Date().toISOString()
     application.updated_at = new Date().toISOString()
+    
+    const existingPostVisit = customerVisits.find(v => v.application_id === application.id && v.visit_type === 'post_visit')
+    if (!existingPostVisit) {
+      const today = new Date()
+      today.setDate(today.getDate() + 1)
+      const newVisit: CustomerVisit = {
+        id: `cv${String(customerVisits.length + 1).padStart(3, '0')}`,
+        application_id: application.id,
+        customer_id: application.customer_id,
+        customer_name: application.customer_name,
+        customer_phone: application.customer_phone,
+        address: application.address,
+        visit_type: 'post_visit',
+        purpose: '停复气后回访确认',
+        status: 'pending',
+        visitor: '客服小李',
+        visitor_role: 'customer_service',
+        scheduled_date: today.toISOString().split('T')[0],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      }
+      customerVisits.push(newVisit)
+    }
+    
     res.json({ success: true, data: application })
   } else {
     res.json({ success: false, error: '申请不存在' })

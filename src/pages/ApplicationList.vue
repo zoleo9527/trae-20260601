@@ -5,7 +5,8 @@ import {
   Plus,
   Search,
   Filter,
-  Checkbox,
+  CheckSquare,
+  Square,
   MoreVertical,
   Eye,
   Edit,
@@ -233,10 +234,10 @@ onMounted(() => {
       <div class="px-6 py-4 bg-slate-50 border-b border-slate-200">
         <div class="flex items-center gap-4">
           <label class="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              :checked="isAllSelected"
-              @change="toggleSelectAll"
-              class="w-4 h-4 text-blue-600 rounded"
+            <component
+              :is="isAllSelected ? CheckSquare : Square"
+              @click="toggleSelectAll"
+              class="w-4 h-4 text-blue-600"
             />
             <span class="text-sm text-slate-600">全选</span>
           </label>
@@ -261,10 +262,10 @@ onMounted(() => {
         >
           <div class="flex items-start gap-4">
             <label class="flex items-center gap-2 cursor-pointer pt-1">
-              <Checkbox
-                :checked="selectedIds.includes(app.id)"
-                @change="toggleSelect(app.id)"
-                class="w-4 h-4 text-blue-600 rounded"
+              <component
+                :is="selectedIds.includes(app.id) ? CheckSquare : Square"
+                @click="toggleSelect(app.id)"
+                class="w-4 h-4 text-blue-600"
               />
             </label>
             <div class="flex-1 min-w-0">
