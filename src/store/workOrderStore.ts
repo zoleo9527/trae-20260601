@@ -8,6 +8,7 @@ interface WorkOrderState {
   isDetailOpen: boolean;
   isDispatchModalOpen: boolean;
   isOnSiteModalOpen: boolean;
+  isCompleteModalOpen: boolean;
   filterStatus: WorkOrderStatus | 'all';
   filterPriority: Priority | 'all';
   searchKeyword: string;
@@ -23,6 +24,8 @@ interface WorkOrderState {
   closeDispatchModal: () => void;
   openOnSiteModal: () => void;
   closeOnSiteModal: () => void;
+  openCompleteModal: () => void;
+  closeCompleteModal: () => void;
   getFilteredWorkOrders: () => WorkOrder[];
   getTodoByRole: (user: User) => WorkOrder[];
 
@@ -55,6 +58,7 @@ export const useWorkOrderStore = create<WorkOrderState>((set, get) => ({
   isDetailOpen: false,
   isDispatchModalOpen: false,
   isOnSiteModalOpen: false,
+  isCompleteModalOpen: false,
   filterStatus: 'all',
   filterPriority: 'all',
   searchKeyword: '',
@@ -77,6 +81,9 @@ export const useWorkOrderStore = create<WorkOrderState>((set, get) => ({
 
   openOnSiteModal: () => set({ isOnSiteModalOpen: true }),
   closeOnSiteModal: () => set({ isOnSiteModalOpen: false }),
+
+  openCompleteModal: () => set({ isCompleteModalOpen: true }),
+  closeCompleteModal: () => set({ isCompleteModalOpen: false }),
 
   setFlashingWorkOrderId: (id) => set({ flashingWorkOrderId: id }),
 

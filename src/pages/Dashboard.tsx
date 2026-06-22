@@ -17,6 +17,7 @@ import { WorkOrderList } from '../components/WorkOrderList';
 import { WorkOrderDetail } from '../components/WorkOrderDetail';
 import { DispatchModal } from '../components/DispatchModal';
 import { OnSiteFeedbackModal } from '../components/OnSiteFeedbackModal';
+import { CompleteModal } from '../components/CompleteModal';
 import { EmptyState } from '../components/EmptyState';
 import { roleLabels } from '../types';
 
@@ -29,6 +30,7 @@ export default function Dashboard() {
     isDetailOpen,
     isDispatchModalOpen,
     isOnSiteModalOpen,
+    isCompleteModalOpen,
   } = useWorkOrderStore();
 
   useEffect(() => {
@@ -157,6 +159,7 @@ export default function Dashboard() {
       {isDetailOpen && <WorkOrderDetail />}
       {isDispatchModalOpen && <DispatchModal />}
       {isOnSiteModalOpen && <OnSiteFeedbackModal />}
+      {isCompleteModalOpen && <CompleteModal />}
     </div>
   );
 }

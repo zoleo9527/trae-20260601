@@ -29,6 +29,7 @@ export function WorkOrderDetail() {
     closeDetail,
     openDispatchModal,
     openOnSiteModal,
+    openCompleteModal,
     completeWorkOrder,
     addRemark,
   } = useWorkOrderStore();
@@ -74,10 +75,7 @@ export function WorkOrderDetail() {
   };
 
   const handleComplete = () => {
-    const remark = prompt('请输入完成备注：', '维修完成，测试正常。');
-    if (remark !== null && selectedWorkOrder) {
-      completeWorkOrder(selectedWorkOrder.id, remark);
-    }
+    openCompleteModal();
   };
 
   const latestRemark = useMemo(() => {

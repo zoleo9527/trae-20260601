@@ -36,6 +36,16 @@ export default {
           500: "#EF4444",
           600: "#DC2626",
         },
+        info: {
+          50: "#F0F9FF",
+          100: "#E0F2FE",
+          200: "#BAE6FD",
+          300: "#7DD3FC",
+          400: "#38BDF8",
+          500: "#0EA5E9",
+          600: "#0284C7",
+          700: "#0369A1",
+        },
         neutral: {
           50: "#F9FAFB",
           100: "#F3F4F6",
@@ -63,6 +73,7 @@ export default {
         "slide-out-right": "slideOutRight 0.3s ease-in",
         "fade-in": "fadeIn 0.2s ease-out",
         "pulse-bg": "pulseBg 1s ease-in-out",
+        "pulse-ring": "pulseRing 2s ease-in-out infinite",
       },
       keyframes: {
         slideInRight: {
@@ -80,6 +91,16 @@ export default {
         pulseBg: {
           "0%, 100%": { backgroundColor: "transparent" },
           "50%": { backgroundColor: "rgba(30, 64, 175, 0.1)" },
+        },
+        pulseRing: {
+          "0%, 100%": {
+            boxShadow: "0 0 0 0 rgba(30, 64, 175, 0.4)",
+            transform: "scale(1.1)",
+          },
+          "50%": {
+            boxShadow: "0 0 0 8px rgba(30, 64, 175, 0)",
+            transform: "scale(1.15)",
+          },
         },
       },
       transitionTimingFunction: {

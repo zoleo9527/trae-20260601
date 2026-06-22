@@ -52,10 +52,8 @@ export function WorkOrderList({ workOrders }: WorkOrderListProps) {
 
   const handleComplete = (e: React.MouseEvent, wo: WorkOrder) => {
     e.stopPropagation();
-    const remark = prompt('请输入完成备注：', '维修完成，测试正常。');
-    if (remark !== null) {
-      useWorkOrderStore.getState().completeWorkOrder(wo.id, remark);
-    }
+    useWorkOrderStore.getState().selectWorkOrder(wo);
+    useWorkOrderStore.getState().openCompleteModal();
   };
 
   return (
