@@ -149,15 +149,20 @@ export class OutboundOrderService {
   }
 
   async updateInvoiceStatus(orderId: number, invoiceStatus: InvoiceStatus, invoicedAmount: number): Promise<OutboundOrder | null> {
-    const order = await this.orderRepo.findOneBy({ id: orderId });
+    let order = await this.orderRepo.findOneBy({ id: orderId });
     if (!order) return null;
 
     order.invoiceStatus = invoiceStatus;
     order.invoicedAmount = Number(order.invoicedAmount) + Number(invoicedAmount);
 
+    order = await this.orderRepo.save(order);
+
     await this.updateOrderWarningFlags(orderId);
 
-    return await this.orderRepo.save(order);
+    return await this.orderRepo.findOne({
+      where: { id: orderId },
+      relations: ["customer", "receivables"],
+    });
   }
 
   async updateOrderWarningFlags(orderId: number): Promise<void> {

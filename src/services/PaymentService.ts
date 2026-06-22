@@ -5,16 +5,19 @@ import { AppDataSource } from "../data-source";
 import { generateOrderNo } from "../utils/dateUtils";
 import { ReceivableService } from "./ReceivableService";
 import { OutboundOrderService } from "./OutboundOrderService";
+import { CustomerService } from "./CustomerService";
 
 export class PaymentService {
   private paymentRepo: Repository<Payment>;
   private receivableRepo: Repository<Receivable>;
+  private customerService: CustomerService;
   private receivableService: ReceivableService;
   private outboundOrderService: OutboundOrderService;
 
   constructor() {
     this.paymentRepo = AppDataSource.getRepository(Payment);
     this.receivableRepo = AppDataSource.getRepository(Receivable);
+    this.customerService = new CustomerService();
     this.receivableService = new ReceivableService();
     this.outboundOrderService = new OutboundOrderService();
   }
@@ -33,6 +36,9 @@ export class PaymentService {
     const receivable = await this.receivableRepo.findOneBy({ id: data.receivableId });
     if (!receivable) {
       throw new Error("应收明细不存在");
+    }
+    if (receivable.customerId !== data.customerId) {
+      throw new Error(`客户ID不匹配：应收明细属于客户ID=${receivable.customerId}，传入的customerId=${data.customerId}，不能跨客户挂账收款`);
     }
     if (receivable.remainingAmount < data.amount) {
       throw new Error(`付款金额(${data.amount})不能超过应收余额(${receivable.remainingAmount})`);
@@ -158,7 +164,23 @@ export class PaymentService {
         receivable.status = "PARTIAL_PAID";
       }
 
+      if (payment.isReconciled) {
+        const newReconciledAmount = Number(receivable.reconciledAmount) - Number(payment.amount);
+        receivable.reconciledAmount = Math.max(0, newReconciledAmount);
+        if (receivable.reconciledAmount <= 0) {
+          receivable.reconciliationStatus = "UNRECONCILED";
+        } else if (receivable.reconciledAmount >= receivable.totalAmount) {
+          receivable.reconciliationStatus = "FULLY_RECONCILED";
+        } else {
+          receivable.reconciliationStatus = "PARTIAL_RECONCILED";
+        }
+      }
+
       await this.receivableRepo.save(receivable);
+
+      await this.customerService.updateCustomerTotals(receivable.customerId);
+      await this.customerService.updateCustomerCreditStatus(receivable.customerId);
+      await this.outboundOrderService.updateOrderWarningFlags(receivable.outboundOrderId);
     }
 
     return saved;
