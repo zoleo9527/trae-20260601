@@ -19,8 +19,9 @@ import { useAuthStore } from '../store/authStore';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import { Timeline } from './Timeline';
 import { RemarkBubble } from './RemarkBubble';
+import { getLatestRemark } from '../lib/utils';
 import type { WorkOrder } from '../types';
-import { statusLabels, priorityLabels, roleLabels } from '../types';
+import { statusLabels, priorityLabels, roleLabels, remarkTypeLabels } from '../types';
 
 export function WorkOrderDetail() {
   const {
@@ -79,9 +80,8 @@ export function WorkOrderDetail() {
   };
 
   const latestRemark = useMemo(() => {
-    if (selectedWorkOrder.remarks.length === 0) return null;
-    return selectedWorkOrder.remarks[selectedWorkOrder.remarks.length - 1];
-  }, [selectedWorkOrder.remarks]);
+    return getLatestRemark(selectedWorkOrder);
+  }, [selectedWorkOrder]);
 
   const getStatusDescription = (wo: WorkOrder) => {
     switch (wo.status) {
@@ -160,8 +160,11 @@ export function WorkOrderDetail() {
             <div className="flex items-start gap-2">
               <Zap className="w-4 h-4 text-warning-500 flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-medium text-warning-700">最新动态</span>
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-xs font-medium text-warning-700">最新进展</span>
+                  <span className="text-xs px-1.5 py-0.5 bg-warning-100 text-warning-700 rounded">
+                    {remarkTypeLabels[latestRemark.type] || '备注'}
+                  </span>
                   <span className="text-xs text-warning-500">
                     {latestRemark.timestamp}
                   </span>

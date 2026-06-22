@@ -10,7 +10,7 @@ export type WorkOrderStatus =
 
 export type Priority = 'urgent' | 'high' | 'medium' | 'low';
 
-export type RemarkType = 'dispatch' | 'onsite' | 'return' | 'supplement';
+export type RemarkType = 'dispatch' | 'onsite' | 'return' | 'complete' | 'supplement';
 
 export interface User {
   id: string;
@@ -115,5 +115,6 @@ export const remarkTypeLabels: Record<RemarkType, string> = {
   dispatch: '派工备注',
   onsite: '到场反馈',
   return: '退回原因',
+  complete: '完成记录',
   supplement: '补充备注',
 };

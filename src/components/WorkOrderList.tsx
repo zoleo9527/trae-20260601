@@ -2,7 +2,8 @@ import type { WorkOrder } from '../types';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import { useWorkOrderStore } from '../store/workOrderStore';
 import { useAuthStore } from '../store/authStore';
-import { MapPin, Clock, User, Send, CheckCircle } from 'lucide-react';
+import { getLatestRemark } from '../lib/utils';
+import { MapPin, Clock, User, Send, CheckCircle, MessageSquare } from 'lucide-react';
 
 interface WorkOrderListProps {
   workOrders: WorkOrder[];
@@ -11,11 +12,6 @@ interface WorkOrderListProps {
 export function WorkOrderList({ workOrders }: WorkOrderListProps) {
   const { openDetail, flashingWorkOrderId } = useWorkOrderStore();
   const { currentUser } = useAuthStore();
-
-  const getLatestRemark = (wo: WorkOrder) => {
-    if (wo.remarks.length === 0) return null;
-    return wo.remarks[wo.remarks.length - 1];
-  };
 
   const showDispatchButton = (wo: WorkOrder) => {
     if (!currentUser) return false;
@@ -132,17 +128,28 @@ export function WorkOrderList({ workOrders }: WorkOrderListProps) {
                 </td>
                 <td className="px-4 py-4">
                   {latestRemark ? (
-                    <div className="max-w-[250px]">
-                      <p className="text-sm text-neutral-600 truncate">
+                    <div className="max-w-[280px]">
+                      <div className="flex items-center gap-2 mb-1">
+                        <MessageSquare className="w-3.5 h-3.5 text-primary-500" />
+                        <span className="text-xs font-medium text-primary-600">
+                          最新进展
+                        </span>
+                      </div>
+                      <p className="text-sm text-neutral-700 line-clamp-2 mb-1">
                         {latestRemark.content}
                       </p>
-                      <p className="text-xs text-neutral-400 flex items-center gap-1 mt-1">
+                      <p className="text-xs text-neutral-400 flex items-center gap-1">
                         <Clock className="w-3 h-3" />
                         {latestRemark.timestamp}
+                        <span className="mx-1">·</span>
+                        {latestRemark.authorName}
                       </p>
                     </div>
                   ) : (
-                    <span className="text-sm text-neutral-400">暂无备注</span>
+                    <div className="flex items-center gap-2 text-sm text-neutral-400">
+                      <MessageSquare className="w-4 h-4" />
+                      暂无进展
+                    </div>
                   )}
                 </td>
                 <td className="px-4 py-4">

@@ -11,6 +11,7 @@ export function RemarkBubble({ remark }: RemarkBubbleProps) {
     dispatch: 'bg-primary-50/50 border-primary-200 border-l-4 border-l-primary-500',
     onsite: 'bg-warning-50/50 border-warning-200 border-l-4 border-l-warning-500',
     return: 'bg-danger-50/50 border-danger-200 border-l-4 border-l-danger-500',
+    complete: 'bg-success-50/50 border-success-200 border-l-4 border-l-success-500',
     supplement: 'bg-neutral-50 border-neutral-200 border-l-4 border-l-neutral-400',
   };
 
@@ -18,6 +19,7 @@ export function RemarkBubble({ remark }: RemarkBubbleProps) {
     dispatch: 'bg-primary-100 text-primary-700',
     onsite: 'bg-warning-100 text-warning-700',
     return: 'bg-danger-100 text-danger-700',
+    complete: 'bg-success-100 text-success-700',
     supplement: 'bg-neutral-100 text-neutral-600',
   };
 
@@ -25,6 +27,7 @@ export function RemarkBubble({ remark }: RemarkBubbleProps) {
     dispatch: 'bg-primary-100 text-primary-600',
     onsite: 'bg-warning-100 text-warning-600',
     return: 'bg-danger-100 text-danger-600',
+    complete: 'bg-success-100 text-success-600',
     supplement: 'bg-neutral-100 text-neutral-600',
   };
 

@@ -39,6 +39,7 @@ interface TimelineNodeData {
   remark?: string;
   isCurrent?: boolean;
   isMainNode: boolean;
+  roundNumber?: number;
   remarkType?: string;
 }
 
@@ -55,77 +56,84 @@ export function Timeline({ workOrder }: TimelineProps) {
       time: workOrder.patrolRecord.reportTime,
       remark: workOrder.patrolRecord.description,
       isMainNode: true,
+      roundNumber: 0,
     });
 
-    if (workOrder.dispatchTime) {
-      result.push({
-        id: 'dispatch',
-        type: 'dispatch',
-        title: '维修派工',
-        operator: '陈调度',
-        operatorRole: 'dispatcher',
-        time: workOrder.dispatchTime,
-        remark: workOrder.dispatchRemark,
-        isMainNode: true,
-      });
-    }
+    let currentRound = 0;
 
-    if (workOrder.onSiteTime) {
-      result.push({
-        id: 'onsite',
-        type: 'onsite',
-        title: '到场反馈',
-        operator: workOrder.electricianName || '电工',
-        operatorRole: 'electrician',
-        time: workOrder.onSiteTime,
-        remark: workOrder.onSiteRemark,
-        isMainNode: true,
-      });
-    }
+    const sortedRemarks = [...workOrder.remarks].sort(
+      (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
 
-    if (workOrder.status === 'in_progress' && workOrder.onSiteTime) {
-      const inProgressTime = workOrder.onSiteTime;
-      result.push({
-        id: 'in_progress',
-        type: 'in_progress',
-        title: '维修处理中',
-        operator: workOrder.electricianName || '电工',
-        operatorRole: 'electrician',
-        time: inProgressTime,
-        remark: '正在进行故障排查和维修作业',
-        isMainNode: true,
-      });
-    }
+    sortedRemarks.forEach((remark: Remark, index: number) => {
+      if (remark.type === 'dispatch') {
+        currentRound += 1;
+        result.push({
+          id: `dispatch-${index}`,
+          type: 'dispatch',
+          title: currentRound > 1 ? `二次派工` : '维修派工',
+          operator: remark.authorName,
+          operatorRole: remark.authorRole,
+          time: remark.timestamp,
+          remark: remark.content,
+          isMainNode: true,
+          roundNumber: currentRound,
+          remarkType: remark.type,
+        });
+      } else if (remark.type === 'onsite') {
+        result.push({
+          id: `onsite-${index}`,
+          type: 'onsite',
+          title: '到场反馈',
+          operator: remark.authorName,
+          operatorRole: remark.authorRole,
+          time: remark.timestamp,
+          remark: remark.content,
+          isMainNode: true,
+          roundNumber: currentRound,
+          remarkType: remark.type,
+        });
 
-    if (workOrder.returnTime) {
-      result.push({
-        id: 'return',
-        type: 'return',
-        title: '退回申请',
-        operator: workOrder.electricianName || '电工',
-        operatorRole: 'electrician',
-        time: workOrder.returnTime,
-        remark: workOrder.returnReason,
-        isMainNode: true,
-      });
-    }
-
-    if (workOrder.completeTime) {
-      result.push({
-        id: 'complete',
-        type: 'complete',
-        title: '维修完成',
-        operator: workOrder.electricianName || '电工',
-        operatorRole: 'electrician',
-        time: workOrder.completeTime,
-        remark: workOrder.completeRemark,
-        isMainNode: true,
-      });
-    }
-
-    workOrder.remarks
-      .filter((remark) => remark.type === 'supplement')
-      .forEach((remark: Remark, index: number) => {
+        if (workOrder.status === 'in_progress') {
+          result.push({
+            id: `in-progress-${index}`,
+            type: 'in_progress',
+            title: '维修处理中',
+            operator: remark.authorName,
+            operatorRole: remark.authorRole,
+            time: remark.timestamp,
+            remark: '正在进行故障排查和维修作业',
+            isMainNode: true,
+            roundNumber: currentRound,
+          });
+        }
+      } else if (remark.type === 'return') {
+        result.push({
+          id: `return-${index}`,
+          type: 'return',
+          title: '退回申请',
+          operator: remark.authorName,
+          operatorRole: remark.authorRole,
+          time: remark.timestamp,
+          remark: remark.content,
+          isMainNode: true,
+          roundNumber: currentRound,
+          remarkType: remark.type,
+        });
+      } else if (remark.type === 'complete') {
+        result.push({
+          id: `complete-${index}`,
+          type: 'complete',
+          title: '维修完成',
+          operator: remark.authorName,
+          operatorRole: remark.authorRole,
+          time: remark.timestamp,
+          remark: remark.content,
+          isMainNode: true,
+          roundNumber: currentRound,
+          remarkType: remark.type,
+        });
+      } else if (remark.type === 'supplement') {
         result.push({
           id: `remark-${index}`,
           type: 'remark',
@@ -135,12 +143,25 @@ export function Timeline({ workOrder }: TimelineProps) {
           time: remark.timestamp,
           remark: remark.content,
           isMainNode: false,
+          roundNumber: currentRound,
           remarkType: remark.type,
         });
-      });
+      }
+    });
 
     result.sort((a, b) => {
-      return new Date(a.time).getTime() - new Date(b.time).getTime();
+      const timeDiff = new Date(a.time).getTime() - new Date(b.time).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      const typeOrder: Record<string, number> = {
+        report: 0,
+        dispatch: 1,
+        onsite: 2,
+        in_progress: 3,
+        remark: 4,
+        return: 5,
+        complete: 6,
+      };
+      return (typeOrder[a.type] || 0) - (typeOrder[b.type] || 0);
     });
 
     let lastMainNodeIndex = -1;
@@ -235,6 +256,7 @@ export function Timeline({ workOrder }: TimelineProps) {
 
   const mainNodeCount = nodes.filter((n) => n.isMainNode).length;
   const remarkCount = nodes.filter((n) => !n.isMainNode).length;
+  const roundCount = nodes.filter((n) => n.type === 'dispatch').length;
 
   return (
     <div className="relative">
@@ -244,6 +266,11 @@ export function Timeline({ workOrder }: TimelineProps) {
           <span className="text-xs font-medium text-primary-600">
             当前状态：{statusLabels[workOrder.status]}
           </span>
+          {roundCount > 1 && (
+            <span className="text-xs px-2 py-0.5 bg-warning-100 text-warning-700 rounded">
+              第 {roundCount} 轮处理
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2 text-xs">
           <span className="text-neutral-400">
@@ -312,7 +339,7 @@ export function Timeline({ workOrder }: TimelineProps) {
                     <div className={`${isRemark ? 'p-2.5' : 'p-3'}`}>
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h4
                               className={`font-semibold text-neutral-800 ${
                                 isRemark ? 'text-sm' : 'text-sm'
@@ -329,6 +356,11 @@ export function Timeline({ workOrder }: TimelineProps) {
                             {!isRemark && (
                               <span className="text-xs px-2 py-0.5 bg-white/60 rounded text-neutral-500">
                                 {typeLabels[node.type]}
+                              </span>
+                            )}
+                            {node.roundNumber && node.roundNumber > 1 && node.type === 'dispatch' && (
+                              <span className="text-xs px-1.5 py-0.5 bg-warning-100 text-warning-700 rounded">
+                                第{node.roundNumber}轮
                               </span>
                             )}
                             {isRemark && node.remarkType && (

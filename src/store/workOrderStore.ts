@@ -249,7 +249,7 @@ export const useWorkOrderStore = create<WorkOrderState>((set, get) => ({
       authorName: currentUser.name || '王电工',
       authorRole: currentUser.role || 'electrician',
       content: remark,
-      type: 'supplement',
+      type: 'complete',
       timestamp: currentTime,
     };
 
