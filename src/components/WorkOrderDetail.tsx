@@ -19,7 +19,12 @@ import { useAuthStore } from '../store/authStore';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
 import { Timeline } from './Timeline';
 import { RemarkBubble } from './RemarkBubble';
-import { getLatestRemark } from '../lib/utils';
+import {
+  getLatestRemark,
+  getCurrentBlockSummary,
+  getDispatchRound,
+  isReturnedAwaitingDispatch,
+} from '../lib/utils';
 import type { WorkOrder } from '../types';
 import { statusLabels, priorityLabels, roleLabels, remarkTypeLabels } from '../types';
 
@@ -81,6 +86,18 @@ export function WorkOrderDetail() {
 
   const latestRemark = useMemo(() => {
     return getLatestRemark(selectedWorkOrder);
+  }, [selectedWorkOrder]);
+
+  const blockSummary = useMemo(() => {
+    return getCurrentBlockSummary(selectedWorkOrder);
+  }, [selectedWorkOrder]);
+
+  const dispatchRound = useMemo(() => {
+    return getDispatchRound(selectedWorkOrder);
+  }, [selectedWorkOrder]);
+
+  const needDispatch = useMemo(() => {
+    return isReturnedAwaitingDispatch(selectedWorkOrder);
   }, [selectedWorkOrder]);
 
   const getStatusDescription = (wo: WorkOrder) => {
@@ -153,6 +170,109 @@ export function WorkOrderDetail() {
               </p>
             </div>
           </div>
+        </div>
+
+        <div className="border-b border-neutral-200 px-5 py-4 flex-shrink-0 bg-white">
+          <div className="flex items-center gap-2 mb-3">
+            <Zap className="w-4 h-4 text-primary-500" />
+            <h3 className="text-sm font-bold text-neutral-800">当前卡点摘要</h3>
+            {dispatchRound > 1 && (
+              <span className="ml-auto text-xs px-2 py-0.5 bg-warning-100 text-warning-700 rounded-full font-medium">
+                第 {dispatchRound} 轮处理
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-1.5">
+                <Send className="w-3 h-3" />
+                最近派工
+              </div>
+              {blockSummary.dispatcherName ? (
+                <div>
+                  <p className="text-sm font-medium text-neutral-800">
+                    {blockSummary.dispatcherName}
+                  </p>
+                  <p className="text-xs text-neutral-400 mt-0.5 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    {blockSummary.dispatchTime}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-sm text-neutral-400">尚未派工</p>
+              )}
+            </div>
+
+            <div className="bg-neutral-50 rounded-lg p-3 border border-neutral-100">
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500 mb-1.5">
+                <User className="w-3 h-3" />
+                负责电工
+              </div>
+              {blockSummary.electricianName ? (
+                <p className="text-sm font-medium text-neutral-800">
+                  {blockSummary.electricianName}
+                </p>
+              ) : (
+                <p className="text-sm text-neutral-400">待分配</p>
+              )}
+            </div>
+          </div>
+
+          {needDispatch && blockSummary.lastReturnReason && (
+            <div className="mt-3 bg-danger-50 rounded-lg p-3 border border-danger-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-danger-700 mb-1.5">
+                <RefreshCw className="w-3 h-3" />
+                退回原因
+                {blockSummary.lastReturnTime && (
+                  <span className="ml-auto font-normal text-danger-500">
+                    {blockSummary.lastReturnTime}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-danger-800 leading-relaxed">
+                {blockSummary.lastReturnReason}
+              </p>
+            </div>
+          )}
+
+          {selectedWorkOrder.status === 'completed' && blockSummary.completeResult && (
+            <div className="mt-3 bg-success-50 rounded-lg p-3 border border-success-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-success-700 mb-1.5">
+                <CheckCircle className="w-3 h-3" />
+                完成结果
+                {blockSummary.completeTime && (
+                  <span className="ml-auto font-normal text-success-500">
+                    {blockSummary.completeTime}
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-success-800 leading-relaxed">
+                {blockSummary.completeResult}
+              </p>
+            </div>
+          )}
+
+          {blockSummary.dispatchRemark && !needDispatch && selectedWorkOrder.status !== 'completed' && (
+            <div className="mt-3 bg-primary-50 rounded-lg p-3 border border-primary-200">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-primary-700 mb-1.5">
+                <FileText className="w-3 h-3" />
+                派工要求
+              </div>
+              <p className="text-sm text-primary-800 leading-relaxed">
+                {blockSummary.dispatchRemark}
+              </p>
+            </div>
+          )}
+
+          {needDispatch && (
+            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-danger-50/60 rounded-lg border border-dashed border-danger-300">
+              <AlertTriangle className="w-4 h-4 text-danger-500 flex-shrink-0 animate-pulse" />
+              <p className="text-xs font-medium text-danger-700">
+                此工单已退回，请调度员尽快安排二次派工
+              </p>
+            </div>
+          )}
         </div>
 
         {latestRemark && activeTab === 'timeline' && (
