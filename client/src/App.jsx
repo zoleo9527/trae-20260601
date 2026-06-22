@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Avatar, Dropdown, theme } from 'antd';
 import {
   DashboardOutlined,
@@ -39,6 +39,8 @@ const menuItems = [
   { key: '/customers', icon: <TeamOutlined />, label: '客户档案' }
 ];
 
+const validRoutes = ['/', '/plans', '/hazards', '/notices', '/appointments', '/revisits', '/visits', '/customers'];
+
 const App = () => {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
@@ -47,7 +49,16 @@ const App = () => {
     token: { colorBgContainer, borderRadiusLG }
   } = theme.useToken();
 
-  const selectedKey = '/' + location.pathname.split('/')[1];
+  useEffect(() => {
+    const hash = window.location.hash;
+    const pathname = window.location.pathname;
+    if (!hash && pathname !== '/' && validRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))) {
+      window.location.replace(`/#${pathname}${window.location.search}`);
+    }
+  }, []);
+
+  const pathSegments = (location.pathname || '/').split('/').filter(Boolean);
+  const selectedKey = pathSegments.length > 0 ? '/' + pathSegments[0] : '/';
 
   return (
     <Layout style={{ minHeight: '100vh' }}>

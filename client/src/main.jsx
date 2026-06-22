@@ -6,6 +6,14 @@ import { HashRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './index.css';
 
+const validRoutes = ['/', '/plans', '/hazards', '/notices', '/appointments', '/revisits', '/visits', '/customers'];
+const pathname = window.location.pathname;
+const hash = window.location.hash;
+
+if (!hash && pathname !== '/' && validRoutes.some(r => pathname === r || pathname.startsWith(r + '/'))) {
+  window.location.replace(`/#${pathname}${window.location.search}`);
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ConfigProvider
