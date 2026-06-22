@@ -65,6 +65,11 @@ export function Timeline({ workOrder }: TimelineProps) {
       (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
+    let lastOnsiteIndex = -1;
+    sortedRemarks.forEach((remark, idx) => {
+      if (remark.type === 'onsite') lastOnsiteIndex = idx;
+    });
+
     sortedRemarks.forEach((remark: Remark, index: number) => {
       if (remark.type === 'dispatch') {
         currentRound += 1;
@@ -94,7 +99,16 @@ export function Timeline({ workOrder }: TimelineProps) {
           remarkType: remark.type,
         });
 
-        if (workOrder.status === 'in_progress') {
+        const isLastOnsite = index === lastOnsiteIndex;
+        const hasReturnAfter = sortedRemarks
+          .slice(index + 1)
+          .some((r) => r.type === 'return' || r.type === 'complete');
+
+        if (
+          workOrder.status === 'in_progress' &&
+          isLastOnsite &&
+          !hasReturnAfter
+        ) {
           result.push({
             id: `in-progress-${index}`,
             type: 'in_progress',

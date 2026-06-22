@@ -6,11 +6,22 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+const remarkTypePriority: Record<string, number> = {
+  complete: 5,
+  return: 4,
+  supplement: 3,
+  onsite: 2,
+  dispatch: 1,
+}
+
 export function getLatestRemark(workOrder: WorkOrder): Remark | null {
   if (workOrder.remarks.length === 0) return null
-  const sorted = [...workOrder.remarks].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  )
+  const sorted = [...workOrder.remarks].sort((a, b) => {
+    const timeDiff =
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    if (timeDiff !== 0) return timeDiff
+    return (remarkTypePriority[b.type] || 0) - (remarkTypePriority[a.type] || 0)
+  })
   return sorted[0]
 }
 

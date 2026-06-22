@@ -76,7 +76,7 @@ export function WorkOrderList({ workOrders }: WorkOrderListProps) {
               负责人
             </th>
             <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">
-              最新备注
+              最新进展
             </th>
             <th className="text-left text-xs font-semibold text-neutral-500 uppercase tracking-wider px-4 py-3">
               操作
