@@ -8,8 +8,8 @@ import {
   ChevronDown,
   LogOut,
   User,
-  Briefcase,
-  HardHat,
+  ShieldCheck,
+  Headphones,
   Wrench,
   Flame,
   Users,
@@ -18,7 +18,7 @@ import {
   Gauge
 } from 'lucide-vue-next'
 import { useRole } from '@/stores/role'
-import type { Role } from '../../../api/types'
+import type { GasRole } from '@/types/gas'
 import { cn } from '@/lib/utils'
 
 const router = useRouter()
@@ -29,6 +29,19 @@ const showRoleMenu = ref(false)
 const showGasMenu = ref(false)
 
 const menuItems = [
+  {
+    name: 'gas',
+    label: '燃气维保',
+    icon: Flame,
+    path: '/gas',
+    children: [
+      { name: 'gas-applications', label: '停复气申请', path: '/gas/applications' },
+      { name: 'gas-visits', label: '客户回访', path: '/gas/visits' },
+      { name: 'gas-safety-checks', label: '安检记录', path: '/gas/safety-checks' },
+      { name: 'gas-hidden-dangers', label: '隐患通知', path: '/gas/hidden-dangers' },
+      { name: 'gas-meter-changes', label: '换表记录', path: '/gas/meter-changes' },
+    ]
+  },
   {
     name: 'dashboard',
     label: '控制台',
@@ -47,25 +60,12 @@ const menuItems = [
     icon: AlertTriangle,
     path: '/issues'
   },
-  {
-    name: 'gas',
-    label: '燃气维保',
-    icon: Flame,
-    path: '/gas',
-    children: [
-      { name: 'gas-applications', label: '停复气申请', path: '/gas/applications' },
-      { name: 'gas-visits', label: '客户回访', path: '/gas/visits' },
-      { name: 'gas-safety-checks', label: '安检记录', path: '/gas/safety-checks' },
-      { name: 'gas-hidden-dangers', label: '隐患通知', path: '/gas/hidden-dangers' },
-      { name: 'gas-meter-changes', label: '换表记录', path: '/gas/meter-changes' },
-    ]
-  }
 ]
 
-const roleOptions: { value: Role; label: string; icon: any }[] = [
-  { value: 'pm', label: '项目经理', icon: Briefcase },
-  { value: 'captain', label: '施工队长', icon: HardHat },
-  { value: 'engineer', label: '售后工程师', icon: Wrench }
+const roleOptions: { value: GasRole; label: string; icon: any }[] = [
+  { value: 'safety_inspector', label: '安检员', icon: ShieldCheck },
+  { value: 'customer_service', label: '客服', icon: Headphones },
+  { value: 'repair_technician', label: '维修师傅', icon: Wrench }
 ]
 
 const isActive = (name: string) => {
@@ -76,7 +76,7 @@ const navigateTo = (path: string) => {
   router.push(path)
 }
 
-const switchRole = (role: Role) => {
+const switchRole = (role: GasRole) => {
   setRole(role)
   showRoleMenu.value = false
 }
@@ -86,12 +86,12 @@ const handleLogout = () => {
   router.push('/')
 }
 
-const getRoleIcon = (role: Role | null) => {
+const getRoleIcon = (role: GasRole | null) => {
   if (!role) return User
-  const icons: Record<Role, any> = {
-    pm: Briefcase,
-    captain: HardHat,
-    engineer: Wrench
+  const icons: Record<GasRole, any> = {
+    safety_inspector: ShieldCheck,
+    customer_service: Headphones,
+    repair_technician: Wrench
   }
   return icons[role] || User
 }
@@ -161,8 +161,8 @@ const getRoleIcon = (role: Role | null) => {
           @click="showRoleMenu = !showRoleMenu"
           class="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
         >
-          <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-            <component :is="getRoleIcon(currentRole)" class="w-4 h-4 text-blue-600" />
+          <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+            <component :is="getRoleIcon(currentRole)" class="w-4 h-4 text-orange-600" />
           </div>
           <div class="flex-1 text-left">
             <p class="text-sm font-medium text-gray-900">{{ roleName }}</p>
@@ -184,7 +184,7 @@ const getRoleIcon = (role: Role | null) => {
             @click="switchRole(option.value)"
             :class="[
               'w-full flex items-center gap-3 px-3 py-2 text-sm hover:bg-gray-50 transition-colors',
-              currentRole === option.value ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
+              currentRole === option.value ? 'text-orange-600 bg-orange-50' : 'text-gray-700'
             ]"
           >
             <component :is="option.icon" class="w-4 h-4" />

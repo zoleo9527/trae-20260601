@@ -102,8 +102,8 @@ const handleExport = () => {
     地址: danger.address,
     隐患等级: getLevelLabel(danger.level),
     状态: getStatusLabel(danger.status),
-    发现日期: danger.discovery_date,
-    处理人: danger.handler || '-'
+    发现日期: danger.created_at.split('T')[0],
+    处理人: danger.rectified_by || '-'
   }))
   const csv = [Object.keys(data[0]).join(','), ...data.map(row => Object.values(row).join(','))].join('\n')
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' })
@@ -233,10 +233,10 @@ onMounted(() => {
                 </div>
                 <div class="flex items-center gap-1">
                   <Calendar class="w-4 h-4" />
-                  {{ danger.discovery_date }}
+                  {{ danger.created_at.split('T')[0] }}
                 </div>
-                <div v-if="danger.handler" class="text-slate-600">
-                  处理人：{{ danger.handler }}
+                <div v-if="danger.rectified_by" class="text-slate-600">
+                  处理人：{{ danger.rectified_by }}
                 </div>
               </div>
             </div>

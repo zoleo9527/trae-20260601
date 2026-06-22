@@ -206,13 +206,13 @@ onMounted(() => {
             </div>
           </div>
 
-          <div v-if="danger.process_record" class="bg-white rounded-2xl border border-slate-200 p-6">
+          <div v-if="danger.status === 'completed'" class="bg-white rounded-2xl border border-slate-200 p-6">
             <div class="flex items-center gap-2 mb-4">
               <CheckSquare class="w-5 h-5 text-green-500" />
-              <h3 class="text-lg font-semibold text-slate-900">处理记录</h3>
+              <h3 class="text-lg font-semibold text-slate-900">处理结果</h3>
             </div>
             <div class="p-4 bg-green-50 rounded-lg">
-              <p class="text-sm text-green-700">{{ danger.process_record }}</p>
+              <p class="text-sm text-green-700">隐患已由 {{ danger.rectified_by || '系统' }} 处理完成，验证结果：{{ danger.verify_result || '通过' }}</p>
             </div>
           </div>
         </div>
