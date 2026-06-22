@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Table, Card, Space, Button, Tag, Input, Select, Tooltip, Modal,
-  Form, Drawer, Descriptions, Badge, Row, Col, List, App, Dropdown, message
+  Form, Drawer, Descriptions, Badge, Row, Col, List, App, Dropdown
 } from 'antd';
 import {
   SearchOutlined, FilterOutlined, EyeOutlined, AlertOutlined,
@@ -26,7 +26,7 @@ const Hazards = () => {
   const [editModal, setEditModal] = useState(false);
   const [editForm] = Form.useForm();
   const [noticeForm] = Form.useForm();
-  const { modal } = App.useApp();
+  const { modal, message } = App.useApp();
 
   const fetchData = () => {
     setLoading(true);
@@ -71,7 +71,7 @@ const Hazards = () => {
         operator_id: values.operator_id,
         customer_signature: values.customer_signature
       }).then(() => {
-        App.useApp().message?.success('整改通知已发送，隐患状态已更新为「已通知」');
+        message.success('整改通知已发送，隐患状态已更新为「已通知」');
         setNoticeDrawer(false);
         fetchData();
       });

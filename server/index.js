@@ -399,12 +399,18 @@ app.post('/api/revisits', (req, res) => {
     db.prepare('UPDATE revisit_appointments SET status=? WHERE id=?').run(newStatus, appointment_id);
   }
   if (hazard_record_id) {
+    let newHazardStatus = null;
     if (rectify_result === 'rectified') {
-      db.prepare('UPDATE hazard_records SET rectify_status=? WHERE id=?').run('rectified', hazard_record_id);
+      newHazardStatus = 'rectified';
+    } else if (rectify_result === 'partial') {
+      newHazardStatus = 'partial';
     } else if (rectify_result === 'refused') {
-      db.prepare('UPDATE hazard_records SET rectify_status=? WHERE id=?').run('refused', hazard_record_id);
+      newHazardStatus = 'refused';
     } else if (!is_user_at_home) {
-      db.prepare('UPDATE hazard_records SET rectify_status=? WHERE id=?').run('unreachable', hazard_record_id);
+      newHazardStatus = 'unreachable';
+    }
+    if (newHazardStatus) {
+      db.prepare('UPDATE hazard_records SET rectify_status=? WHERE id=?').run(newHazardStatus, hazard_record_id);
     }
   }
   res.json({ id: info.lastInsertRowid, ok: true });

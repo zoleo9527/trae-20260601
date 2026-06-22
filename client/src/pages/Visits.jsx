@@ -124,7 +124,13 @@ const Visits = () => {
 
   const doEditFollowup = () => {
     editForm.validateFields().then(values => {
-      api.patch(`/visits/${editFollowup.id}`, values).then(() => {
+      const satisfaction = values.satisfaction_level;
+      const rateToEnum = { 5: 'very_satisfied', 4: 'satisfied', 3: 'neutral', 2: 'dissatisfied', 1: 'very_dissatisfied' };
+      const payload = {
+        ...values,
+        satisfaction_level: satisfaction ? rateToEnum[satisfaction] : null
+      };
+      api.patch(`/visits/${editFollowup.id}`, payload).then(() => {
         message.success('跟进信息已更新');
         setEditFollowup(null);
         fetchData();
