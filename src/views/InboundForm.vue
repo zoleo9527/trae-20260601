@@ -160,13 +160,17 @@ const canSubmit = computed(() => {
 
 function saveDraft() {
   if (isEdit.value) {
-    store.updateInbound(inboundId.value, form.value)
+    const result = store.updateInbound(inboundId.value, form.value)
+    if (result.ok) {
+      showToast('草稿已保存', 'success')
+    } else {
+      showToast(result.msg, 'error')
+    }
   } else {
     const newInbound = store.createInbound(form.value)
     router.replace(`/inbound/${newInbound.id}`)
     return
   }
-  showToast('草稿已保存')
 }
 
 function submitInbound() {
@@ -186,15 +190,22 @@ function submitInbound() {
 
   if (isEdit.value) {
     store.updateInbound(inboundId.value, form.value)
-    store.submitInbound(inboundId.value)
+    const result = store.submitInbound(inboundId.value)
+    if (result.ok) {
+      showToast(result.msg, 'success')
+      loadInbound()
+    } else {
+      showToast(result.msg, 'error')
+    }
   } else {
     const newInbound = store.createInbound(form.value)
-    store.submitInbound(newInbound.id)
-    router.replace(`/inbound/${newInbound.id}`)
-    return
+    const result = store.submitInbound(newInbound.id)
+    if (result.ok) {
+      router.replace(`/inbound/${newInbound.id}`)
+    } else {
+      showToast(result.msg, 'error')
+    }
   }
-  showToast('已提交，等待过磅复核')
-  loadInbound()
 }
 
 const toast = ref({ visible: false, message: '', type: 'info' })

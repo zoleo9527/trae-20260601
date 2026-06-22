@@ -149,14 +149,18 @@ function confirmReview() {
     }
   }
 
-  store.confirmReview(review.value.id, {
+  const result = store.confirmReview(review.value.id, {
     ...reviewForm.value,
     confirmedNetWeight: confirmedNetWeight.value
   })
 
-  loadData()
-  editMode.value = false
-  showToast('过磅复核已确认')
+  if (result.ok) {
+    loadData()
+    editMode.value = false
+    showToast(result.msg, 'success')
+  } else {
+    showToast(result.msg, 'error')
+  }
 }
 
 function openRejectModal() {
@@ -169,10 +173,15 @@ function submitReject() {
     showToast('请填写驳回原因', 'warning')
     return
   }
-  store.rejectReview(review.value.id, rejectReason.value)
-  showRejectModal.value = false
-  loadData()
-  showToast('已驳回')
+  const result = store.rejectReview(review.value.id, rejectReason.value)
+  if (result.ok) {
+    showRejectModal.value = false
+    loadData()
+    showToast(result.msg, 'success')
+  } else {
+    showRejectModal.value = false
+    showToast(result.msg, 'error')
+  }
 }
 
 function openDisputeModal() {
@@ -187,10 +196,15 @@ function submitDispute() {
     showToast('请填写争议原因', 'warning')
     return
   }
-  store.createDispute(review.value.inboundId, disputeWeight.value, disputeReason.value)
-  showDisputeModal.value = false
-  loadData()
-  showToast('争议已提交')
+  const result = store.createDispute(review.value.inboundId, disputeWeight.value, disputeReason.value)
+  if (result.ok) {
+    showDisputeModal.value = false
+    loadData()
+    showToast(result.msg, 'success')
+  } else {
+    showDisputeModal.value = false
+    showToast(result.msg, 'error')
+  }
 }
 
 function openResolveModal() {
@@ -206,10 +220,15 @@ function submitResolve() {
     showToast('请填写处理结果', 'warning')
     return
   }
-  store.resolveDispute(dispute.value.id, resolveResolution.value, resolveFinalWeight.value)
-  showResolveModal.value = false
-  loadData()
-  showToast('争议已处理')
+  const result = store.resolveDispute(dispute.value.id, resolveResolution.value, resolveFinalWeight.value)
+  if (result.ok) {
+    showResolveModal.value = false
+    loadData()
+    showToast(result.msg, 'success')
+  } else {
+    showResolveModal.value = false
+    showToast(result.msg, 'error')
+  }
 }
 
 const toast = ref({ visible: false, message: '', type: 'info' })

@@ -177,97 +177,139 @@ export const useDataStore = defineStore('data', () => {
     return inbound
   }
 
-  function updateInbound(id: string, data: Partial<InboundRegistration>) {
+  function updateInbound(id: string, data: Partial<InboundRegistration>): { ok: boolean; msg: string } {
+    if (!currentUser.value || !['weigher', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权修改登记单，仅过磅员可操作` }
+    }
     const index = inbounds.value.findIndex(i => i.id === id)
     if (index >= 0) {
+      if (inbounds.value[index].status !== 'draft') {
+        return { ok: false, msg: `登记单当前状态为"${inbounds.value[index].status}"，仅草稿可修改` }
+      }
       const old = { ...inbounds.value[index] }
       inbounds.value[index] = { ...inbounds.value[index], ...data, updatedAt: dayjs().toISOString() }
       addLog('inbound', id, '更新', `更新进厂登记单信息`, old, data)
       saveData()
+      return { ok: true, msg: '登记单已更新' }
     }
+    return { ok: false, msg: '未找到对应登记单' }
   }
 
-  function submitInbound(id: string) {
+  function submitInbound(id: string): { ok: boolean; msg: string } {
+    if (!currentUser.value || !['weigher', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权提交进厂登记，仅过磅员可操作` }
+    }
     const index = inbounds.value.findIndex(i => i.id === id)
-    if (index >= 0) {
-      const oldStatus = inbounds.value[index].status
-      inbounds.value[index].status = 'submitted'
-      inbounds.value[index].submittedBy = currentUser.value?.name || ''
-      inbounds.value[index].submittedAt = dayjs().toISOString()
-      inbounds.value[index].updatedAt = dayjs().toISOString()
-
-      const review: WeighingReview = {
-        id: generateId(),
-        inboundId: id,
-        registrationNo: inbounds.value[index].registrationNo,
-        reviewer: '',
-        reviewedAt: '',
-        confirmedGrossWeight: inbounds.value[index].grossWeight,
-        confirmedTareWeight: inbounds.value[index].tareWeight,
-        confirmedNetWeight: inbounds.value[index].netWeight,
-        confirmedMixedItems: inbounds.value[index].mixedItems.map(m => ({ ...m })),
-        reviewRemark: '',
-        registrationRemarkSnapshot: inbounds.value[index].registrationRemark,
-        status: 'pending'
-      }
-      reviews.value.unshift(review)
-
-      addLog('inbound', id, '提交', `提交进厂登记单，状态从 ${oldStatus} 变为 submitted`)
-      saveData()
+    if (index < 0) {
+      return { ok: false, msg: '未找到对应登记单' }
     }
+    if (inbounds.value[index].status !== 'draft') {
+      return { ok: false, msg: `登记单当前状态为"${inbounds.value[index].status}"，仅草稿可提交` }
+    }
+
+    const oldStatus = inbounds.value[index].status
+    inbounds.value[index].status = 'submitted'
+    inbounds.value[index].submittedBy = currentUser.value.name
+    inbounds.value[index].submittedAt = dayjs().toISOString()
+    inbounds.value[index].updatedAt = dayjs().toISOString()
+
+    const review: WeighingReview = {
+      id: generateId(),
+      inboundId: id,
+      registrationNo: inbounds.value[index].registrationNo,
+      reviewer: '',
+      reviewedAt: '',
+      confirmedGrossWeight: inbounds.value[index].grossWeight,
+      confirmedTareWeight: inbounds.value[index].tareWeight,
+      confirmedNetWeight: inbounds.value[index].netWeight,
+      confirmedMixedItems: inbounds.value[index].mixedItems.map(m => ({ ...m })),
+      reviewRemark: '',
+      registrationRemarkSnapshot: inbounds.value[index].registrationRemark,
+      status: 'pending'
+    }
+    reviews.value.unshift(review)
+
+    addLog('inbound', id, '提交', `提交进厂登记单，状态从 ${oldStatus} 变为 submitted`)
+    saveData()
+    return { ok: true, msg: '已提交，等待过磅复核' }
   }
 
-  function confirmReview(reviewId: string, data: Partial<WeighingReview>) {
+  function confirmReview(reviewId: string, data: Partial<WeighingReview>): { ok: boolean; msg: string } {
+    if (!currentUser.value || !['sortingLeader', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权确认复核，仅分拣班长可操作` }
+    }
     const index = reviews.value.findIndex(r => r.id === reviewId)
-    if (index >= 0) {
-      const old = { ...reviews.value[index] }
-      reviews.value[index] = {
-        ...reviews.value[index],
-        ...data,
-        status: 'confirmed',
-        reviewer: currentUser.value?.name || '',
-        reviewedAt: dayjs().toISOString()
-      }
-
-      const inboundIndex = inbounds.value.findIndex(i => i.id === reviews.value[index].inboundId)
-      if (inboundIndex >= 0) {
-        inbounds.value[inboundIndex].status = 'confirmed'
-        inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
-      }
-
-      addLog('review', reviewId, '确认过磅复核', `过磅复核确认通过`, old, data)
-      saveData()
+    if (index < 0) {
+      return { ok: false, msg: '未找到对应复核记录' }
     }
+    if (reviews.value[index].status !== 'pending') {
+      return { ok: false, msg: `复核记录当前状态为"${reviews.value[index].status}"，仅待复核可确认` }
+    }
+
+    const old = { ...reviews.value[index] }
+    reviews.value[index] = {
+      ...reviews.value[index],
+      ...data,
+      status: 'confirmed',
+      reviewer: currentUser.value.name,
+      reviewedAt: dayjs().toISOString()
+    }
+
+    const inboundIndex = inbounds.value.findIndex(i => i.id === reviews.value[index].inboundId)
+    if (inboundIndex >= 0) {
+      inbounds.value[inboundIndex].status = 'confirmed'
+      inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
+    }
+
+    addLog('review', reviewId, '确认过磅复核', `过磅复核确认通过`, old, data)
+    saveData()
+    return { ok: true, msg: '过磅复核已确认' }
   }
 
-  function rejectReview(reviewId: string, reason: string) {
+  function rejectReview(reviewId: string, reason: string): { ok: boolean; msg: string } {
+    if (!currentUser.value || !['sortingLeader', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权驳回复核，仅分拣班长可操作` }
+    }
     const index = reviews.value.findIndex(r => r.id === reviewId)
-    if (index >= 0) {
-      const old = { ...reviews.value[index] }
-      reviews.value[index].status = 'rejected'
-      reviews.value[index].reviewRemark = reason
-      reviews.value[index].reviewer = currentUser.value?.name || ''
-      reviews.value[index].reviewedAt = dayjs().toISOString()
-
-      const inboundIndex = inbounds.value.findIndex(i => i.id === reviews.value[index].inboundId)
-      if (inboundIndex >= 0) {
-        inbounds.value[inboundIndex].status = 'submitted'
-        inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
-      }
-
-      addLog('review', reviewId, '驳回过磅复核', `驳回原因: ${reason}`, old, { status: 'rejected' })
-      saveData()
+    if (index < 0) {
+      return { ok: false, msg: '未找到对应复核记录' }
     }
+    if (reviews.value[index].status !== 'pending') {
+      return { ok: false, msg: `复核记录当前状态为"${reviews.value[index].status}"，仅待复核可驳回` }
+    }
+
+    const old = { ...reviews.value[index] }
+    reviews.value[index].status = 'rejected'
+    reviews.value[index].reviewRemark = reason
+    reviews.value[index].reviewer = currentUser.value.name
+    reviews.value[index].reviewedAt = dayjs().toISOString()
+
+    const inboundIndex = inbounds.value.findIndex(i => i.id === reviews.value[index].inboundId)
+    if (inboundIndex >= 0) {
+      inbounds.value[inboundIndex].status = 'submitted'
+      inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
+    }
+
+    addLog('review', reviewId, '驳回过磅复核', `驳回原因: ${reason}`, old, { status: 'rejected' })
+    saveData()
+    return { ok: true, msg: '已驳回' }
   }
 
-  function createDispute(inboundId: string, disputedWeight: number, reason: string): WeightDispute {
+  function createDispute(inboundId: string, disputedWeight: number, reason: string): { ok: boolean; msg: string; disputeId?: string } {
+    if (!currentUser.value || !['sortingLeader', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权发起争议，仅分拣班长可操作` }
+    }
     const inbound = inbounds.value.find(i => i.id === inboundId)
+    if (!inbound) {
+      return { ok: false, msg: '未找到对应登记单' }
+    }
+
     const dispute: WeightDispute = {
       id: generateId(),
       inboundId,
       disputedWeight,
-      originalWeight: inbound?.netWeight || 0,
-      difference: disputedWeight - (inbound?.netWeight || 0),
+      originalWeight: inbound.netWeight,
+      difference: disputedWeight - inbound.netWeight,
       reason,
       handler: '',
       handledAt: '',
@@ -276,11 +318,9 @@ export const useDataStore = defineStore('data', () => {
     }
     disputes.value.unshift(dispute)
 
-    if (inbound) {
-      inbound.hasDispute = true
-      inbound.status = 'disputed'
-      inbound.updatedAt = dayjs().toISOString()
-    }
+    inbound.hasDispute = true
+    inbound.status = 'disputed'
+    inbound.updatedAt = dayjs().toISOString()
 
     const review = reviews.value.find(r => r.inboundId === inboundId)
     if (review) {
@@ -290,37 +330,46 @@ export const useDataStore = defineStore('data', () => {
 
     addLog('dispute', dispute.id, '创建争议', `重量争议: 原重量 ${dispute.originalWeight}kg, 争议重量 ${disputedWeight}kg, 差异 ${dispute.difference}kg`)
     saveData()
-    return dispute
+    return { ok: true, msg: '争议已提交', disputeId: dispute.id }
   }
 
-  function resolveDispute(disputeId: string, resolution: string, finalWeight: number) {
-    const index = disputes.value.findIndex(d => d.id === disputeId)
-    if (index >= 0) {
-      const old = { ...disputes.value[index] }
-      disputes.value[index].status = 'resolved'
-      disputes.value[index].resolution = resolution
-      disputes.value[index].handler = currentUser.value?.name || ''
-      disputes.value[index].handledAt = dayjs().toISOString()
-      disputes.value[index].disputedWeight = finalWeight
-      disputes.value[index].difference = finalWeight - disputes.value[index].originalWeight
-
-      const inboundIndex = inbounds.value.findIndex(i => i.id === disputes.value[index].inboundId)
-      if (inboundIndex >= 0) {
-        inbounds.value[inboundIndex].netWeight = finalWeight
-        inbounds.value[inboundIndex].status = 'confirmed'
-        inbounds.value[inboundIndex].hasDispute = false
-        inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
-      }
-
-      const review = reviews.value.find(r => r.disputeId === disputeId)
-      if (review) {
-        review.status = 'confirmed'
-        review.confirmedNetWeight = finalWeight
-      }
-
-      addLog('dispute', disputeId, '解决争议', `争议处理结果: ${resolution}, 最终重量: ${finalWeight}kg`, old, { status: 'resolved', finalWeight })
-      saveData()
+  function resolveDispute(disputeId: string, resolution: string, finalWeight: number): { ok: boolean; msg: string } {
+    if (!currentUser.value || !['salesClerk', 'admin'].includes(currentUser.value.role)) {
+      return { ok: false, msg: `当前角色"${currentUser.value?.roleLabel || '未知'}"无权处理争议，仅销售内勤可操作` }
     }
+    const index = disputes.value.findIndex(d => d.id === disputeId)
+    if (index < 0) {
+      return { ok: false, msg: '未找到对应争议记录' }
+    }
+    if (disputes.value[index].status !== 'pending') {
+      return { ok: false, msg: `争议当前状态为"${disputes.value[index].status}"，仅待处理争议可操作` }
+    }
+
+    const old = { ...disputes.value[index] }
+    disputes.value[index].status = 'resolved'
+    disputes.value[index].resolution = resolution
+    disputes.value[index].handler = currentUser.value.name
+    disputes.value[index].handledAt = dayjs().toISOString()
+    disputes.value[index].disputedWeight = finalWeight
+    disputes.value[index].difference = finalWeight - disputes.value[index].originalWeight
+
+    const inboundIndex = inbounds.value.findIndex(i => i.id === disputes.value[index].inboundId)
+    if (inboundIndex >= 0) {
+      inbounds.value[inboundIndex].netWeight = finalWeight
+      inbounds.value[inboundIndex].status = 'confirmed'
+      inbounds.value[inboundIndex].hasDispute = false
+      inbounds.value[inboundIndex].updatedAt = dayjs().toISOString()
+    }
+
+    const review = reviews.value.find(r => r.disputeId === disputeId)
+    if (review) {
+      review.status = 'confirmed'
+      review.confirmedNetWeight = finalWeight
+    }
+
+    addLog('dispute', disputeId, '解决争议', `争议处理结果: ${resolution}, 最终重量: ${finalWeight}kg`, old, { status: 'resolved', finalWeight })
+    saveData()
+    return { ok: true, msg: '争议已处理' }
   }
 
   function updateCategoryPrice(categoryId: string, newPrice: number, reason: string) {
