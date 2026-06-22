@@ -97,10 +97,15 @@ const Visits = () => {
     }
   };
 
+  const rateToEnum = (rate) => {
+    if (!rate || rate <= 0) return null;
+    const rounded = Math.round(rate);
+    const map = { 5: 'very_satisfied', 4: 'satisfied', 3: 'neutral', 2: 'dissatisfied', 1: 'very_dissatisfied' };
+    return map[rounded] || null;
+  };
+
   const submitVisit = () => {
     form.validateFields().then(values => {
-      const satisfaction = values.satisfaction_level;
-      const map = { 5: 'very_satisfied', 4: 'satisfied', 3: 'neutral', 2: 'dissatisfied', 1: 'very_dissatisfied' };
       api.post('/visits', {
         visit_no: `CV${dayjs().format('YYYYMMDDHHmmss')}`,
         customer_id: values.customer_id,
@@ -111,7 +116,7 @@ const Visits = () => {
         visit_purpose: values.visit_purpose,
         visit_content: values.visit_content,
         customer_feedback: values.customer_feedback,
-        satisfaction_level: satisfaction ? map[satisfaction] : null,
+        satisfaction_level: rateToEnum(values.satisfaction_level),
         status: values.status,
         follow_up: values.follow_up
       }).then(() => {
@@ -124,11 +129,10 @@ const Visits = () => {
 
   const doEditFollowup = () => {
     editForm.validateFields().then(values => {
-      const satisfaction = values.satisfaction_level;
-      const rateToEnum = { 5: 'very_satisfied', 4: 'satisfied', 3: 'neutral', 2: 'dissatisfied', 1: 'very_dissatisfied' };
+      const satisfactionEnum = rateToEnum(values.satisfaction_level);
       const payload = {
         ...values,
-        satisfaction_level: satisfaction ? rateToEnum[satisfaction] : null
+        satisfaction_level: satisfactionEnum
       };
       api.patch(`/visits/${editFollowup.id}`, payload).then(() => {
         message.success('跟进信息已更新');

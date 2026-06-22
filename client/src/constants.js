@@ -33,7 +33,7 @@ export const APPOINTMENT_STATUS_MAP = {
   scheduled: { text: '已预约', color: 'blue' },
   completed: { text: '已完成', color: 'green' },
   missed: { text: '未遇', color: 'orange' },
-  refused: { text: '用户爽约', color: 'magenta' },
+  refused: { text: '拒不整改', color: 'magenta' },
   partial: { text: '部分整改', color: 'gold' },
   rescheduled: { text: '已改期', color: 'purple' }
 };

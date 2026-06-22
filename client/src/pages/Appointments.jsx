@@ -275,8 +275,9 @@ const Appointments = () => {
               { value: 'pending', label: '待确认' },
               { value: 'scheduled', label: '✓ 已预约（待上门）' },
               { value: 'completed', label: '✓ 已完成' },
+              { value: 'partial', label: '⚠️ 部分整改' },
               { value: 'missed', label: '未遇' },
-              { value: 'refused', label: '用户爽约' },
+              { value: 'refused', label: '拒不整改' },
               { value: 'rescheduled', label: '已改期' }
             ]}
           />
@@ -461,8 +462,10 @@ const Appointments = () => {
           </Row>
 
           <Form.Item name="is_user_at_home" valuePropName="checked" extra="取消勾选则本次记为「未遇」，并安排改期">
-            <CheckCircleOutlined /> <Checkbox checked={true} onChange={e => {
-              if (!e.target.checked) revisitForm.setFieldsValue({ rectify_result: null });
+            <Checkbox onChange={e => {
+              if (!e.target.checked) {
+                revisitForm.setFieldsValue({ rectify_result: null });
+              }
             }}>✅ 用户在家（开门配合复查）</Checkbox>
           </Form.Item>
 
