@@ -23,6 +23,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   return data.data as T
 }
 
+export const syncApi = {
+  syncLocks: () => request<{ message: string }>('/sync-locks'),
+}
+
 export const inventoryApi = {
   list: () => request<Inventory[]>('/inventory'),
   get: (id: string) => request<Inventory>(`/inventory/${id}`),

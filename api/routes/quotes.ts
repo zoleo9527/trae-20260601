@@ -1,9 +1,11 @@
 import { Router, type Request, type Response } from 'express'
 import { getDb } from '../db.js'
+import { syncExpiredLocks } from '../lib/lockStatusSync.js'
 
 const router = Router()
 
 router.get('/', (req: Request, res: Response) => {
+  syncExpiredLocks()
   const db = getDb()
   const { customerId } = req.query
 
@@ -29,6 +31,7 @@ router.get('/', (req: Request, res: Response) => {
 })
 
 router.get('/:id', (req: Request, res: Response) => {
+  syncExpiredLocks()
   const db = getDb()
   const row = db.prepare(`
     SELECT cq.*, i.name as inventoryName, i.category as inventoryCategory, i.grade as inventoryGrade, i.unit as inventoryUnit, c.name as customerName, c.contact as customerContact

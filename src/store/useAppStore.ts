@@ -12,6 +12,7 @@ import {
   adjustmentsApi,
   priceLocksApi,
   quotesApi,
+  syncApi,
 } from '@/lib/api'
 
 interface AppState {
@@ -69,6 +70,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   fetchAll: async () => {
     set({ loading: true, error: null })
     try {
+      await syncApi.syncLocks()
       const [inv, cust, adj, locks, qts] = await Promise.all([
         inventoryApi.list(),
         customerApi.list(),

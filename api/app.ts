@@ -8,6 +8,7 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { initDb } from './db.js'
+import { syncExpiredLocks } from './lib/lockStatusSync.js'
 import adjustmentsRoutes from './routes/adjustments.js'
 import priceLocksRoutes from './routes/price-locks.js'
 import quotesRoutes from './routes/quotes.js'
@@ -39,6 +40,17 @@ app.use(
     res.status(200).json({
       success: true,
       message: 'ok',
+    })
+  },
+)
+
+app.use(
+  '/api/sync-locks',
+  (req: Request, res: Response, next: NextFunction): void => {
+    syncExpiredLocks()
+    res.status(200).json({
+      success: true,
+      message: 'Locks synced successfully',
     })
   },
 )
