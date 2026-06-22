@@ -83,8 +83,12 @@ const handleComplete = async () => {
   
   isCompleting.value = true
   try {
-    await gasApi.updateHiddenDanger(id.value, { status: 'completed' })
+    await gasApi.rectifyHiddenDanger(id.value, {
+      rectified_by: '维修师傅张工',
+      verify_result: 'passed'
+    })
     danger.value!.status = 'completed'
+    danger.value!.rectified_by = '维修师傅张工'
   } catch (err) {
     console.error('处理隐患失败:', err)
   } finally {
@@ -161,11 +165,11 @@ onMounted(() => {
               </div>
               <div class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                 <Calendar class="w-5 h-5 text-slate-400 flex-shrink-0" />
-                <span class="text-sm text-slate-700">发现日期：{{ danger.discovery_date }}</span>
+                <span class="text-sm text-slate-700">发现日期：{{ new Date(danger.created_at).toLocaleDateString() }}</span>
               </div>
-              <div v-if="danger.handler" class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
+              <div v-if="danger.rectified_by" class="flex items-center gap-3 p-3 bg-slate-50 rounded-lg">
                 <UserCheck class="w-5 h-5 text-slate-400 flex-shrink-0" />
-                <span class="text-sm text-slate-700">处理人：{{ danger.handler }}</span>
+                <span class="text-sm text-slate-700">处理人：{{ danger.rectified_by }}</span>
               </div>
             </div>
           </div>
@@ -239,13 +243,9 @@ onMounted(() => {
           <div class="bg-white rounded-2xl border border-slate-200 p-6">
             <h3 class="text-lg font-semibold text-slate-900 mb-4">关联信息</h3>
             <div class="space-y-3">
-              <div v-if="danger.safety_check_id" class="p-3 bg-slate-50 rounded-lg">
+              <div v-if="danger.check_id" class="p-3 bg-slate-50 rounded-lg">
                 <span class="text-xs text-slate-500">关联安检记录</span>
-                <p class="text-sm text-slate-700">#{{ danger.safety_check_id }}</p>
-              </div>
-              <div v-if="danger.application_id" class="p-3 bg-slate-50 rounded-lg">
-                <span class="text-xs text-slate-500">关联停复气申请</span>
-                <p class="text-sm text-slate-700">#{{ danger.application_id }}</p>
+                <p class="text-sm text-slate-700">#{{ danger.check_id }}</p>
               </div>
             </div>
           </div>

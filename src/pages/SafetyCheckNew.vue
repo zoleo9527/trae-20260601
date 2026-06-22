@@ -8,6 +8,7 @@ import type { SafetyCheckItem } from '@/types/gas'
 const router = useRouter()
 
 const form = ref({
+  customer_id: '',
   customer_name: '',
   customer_phone: '',
   address: '',

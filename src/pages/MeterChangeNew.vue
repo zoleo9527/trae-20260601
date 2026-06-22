@@ -7,23 +7,23 @@ import { gasApi } from '@/api/gas'
 const router = useRouter()
 
 const form = ref({
+  customer_id: '',
   customer_name: '',
   customer_phone: '',
   address: '',
   technician: '',
   change_date: new Date().toISOString().split('T')[0],
-  old_meter_model: '',
-  old_meter_serial: '',
+  old_meter_number: '',
+  new_meter_number: '',
+  meter_type: '',
   old_meter_reading: '',
-  new_meter_model: '',
-  new_meter_serial: '',
   new_meter_reading: '',
   remark: ''
 })
 
 const hasError = computed(() => {
   return !form.value.customer_name || !form.value.address || !form.value.technician ||
-         !form.value.old_meter_model || !form.value.new_meter_model
+         !form.value.old_meter_number || !form.value.new_meter_number || !form.value.meter_type
 })
 
 const handleSubmit = async () => {
@@ -97,20 +97,11 @@ const handleSubmit = async () => {
             <div class="space-y-4">
               <h4 class="text-sm font-medium text-red-700 p-3 bg-red-50 rounded-lg">原表信息</h4>
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">型号 *</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">表号 *</label>
                 <input
-                  v-model="form.old_meter_model"
+                  v-model="form.old_meter_number"
                   type="text"
-                  placeholder="请输入原表型号"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">编号</label>
-                <input
-                  v-model="form.old_meter_serial"
-                  type="text"
-                  placeholder="请输入原表编号"
+                  placeholder="请输入原表表号"
                   class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
@@ -128,20 +119,11 @@ const handleSubmit = async () => {
             <div class="space-y-4">
               <h4 class="text-sm font-medium text-green-700 p-3 bg-green-50 rounded-lg">新表信息</h4>
               <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">型号 *</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">表号 *</label>
                 <input
-                  v-model="form.new_meter_model"
+                  v-model="form.new_meter_number"
                   type="text"
-                  placeholder="请输入新表型号"
-                  class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">编号</label>
-                <input
-                  v-model="form.new_meter_serial"
-                  type="text"
-                  placeholder="请输入新表编号"
+                  placeholder="请输入新表表号"
                   class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
@@ -155,6 +137,15 @@ const handleSubmit = async () => {
                 />
               </div>
             </div>
+          </div>
+          <div class="mt-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1">表型 *</label>
+            <input
+              v-model="form.meter_type"
+              type="text"
+              placeholder="请输入燃气表型号"
+              class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
           </div>
         </div>
 

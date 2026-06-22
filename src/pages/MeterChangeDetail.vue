@@ -104,12 +104,8 @@ onMounted(() => {
                 <h4 class="text-sm font-medium text-red-700 mb-3">原表信息</h4>
                 <div class="space-y-2">
                   <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">型号</span>
-                    <span class="text-slate-700">{{ change.old_meter_model }}</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">编号</span>
-                    <span class="text-slate-700">{{ change.old_meter_serial }}</span>
+                    <span class="text-slate-500">表号</span>
+                    <span class="text-slate-700">{{ change.old_meter_number }}</span>
                   </div>
                   <div class="flex justify-between text-sm">
                     <span class="text-slate-500">读数</span>
@@ -122,18 +118,21 @@ onMounted(() => {
                 <h4 class="text-sm font-medium text-green-700 mb-3">新表信息</h4>
                 <div class="space-y-2">
                   <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">型号</span>
-                    <span class="text-slate-700">{{ change.new_meter_model }}</span>
-                  </div>
-                  <div class="flex justify-between text-sm">
-                    <span class="text-slate-500">编号</span>
-                    <span class="text-slate-700">{{ change.new_meter_serial }}</span>
+                    <span class="text-slate-500">表号</span>
+                    <span class="text-slate-700">{{ change.new_meter_number }}</span>
                   </div>
                   <div class="flex justify-between text-sm">
                     <span class="text-slate-500">读数</span>
                     <span class="text-slate-700">{{ change.new_meter_reading }}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+            <div class="mt-4 p-4 bg-blue-50 rounded-xl">
+              <h4 class="text-sm font-medium text-blue-700 mb-3">表型信息</h4>
+              <div class="flex justify-between text-sm">
+                <span class="text-slate-500">表型</span>
+                <span class="text-slate-700">{{ change.meter_type }}</span>
               </div>
             </div>
           </div>
@@ -153,11 +152,11 @@ onMounted(() => {
             <div class="space-y-3">
               <div class="flex justify-between text-sm">
                 <span class="text-slate-500">表号变更</span>
-                <span class="text-slate-700">{{ change.old_meter_serial }} → {{ change.new_meter_serial }}</span>
+                <span class="text-slate-700">{{ change.old_meter_number }} → {{ change.new_meter_number }}</span>
               </div>
               <div class="flex justify-between text-sm">
-                <span class="text-slate-500">型号变更</span>
-                <span class="text-slate-700">{{ change.old_meter_model }} → {{ change.new_meter_model }}</span>
+                <span class="text-slate-500">表型</span>
+                <span class="text-slate-700">{{ change.meter_type }}</span>
               </div>
             </div>
           </div>

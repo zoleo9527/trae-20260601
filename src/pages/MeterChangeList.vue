@@ -38,8 +38,9 @@ const handleExport = () => {
     换表编号: change.id,
     客户名称: change.customer_name,
     地址: change.address,
-    原表型号: change.old_meter_model,
-    新表型号: change.new_meter_model,
+    原表表号: change.old_meter_number,
+    新表表号: change.new_meter_number,
+    表型: change.meter_type,
     换表日期: change.change_date,
     维修师傅: change.technician
   }))
@@ -147,11 +148,14 @@ onMounted(() => {
           </div>
           <div class="mt-2 flex flex-wrap items-center gap-4 text-sm">
             <span class="text-slate-500">
-              <span class="font-medium text-slate-700">原表：</span>{{ change.old_meter_model }}
+              <span class="font-medium text-slate-700">原表号：</span>{{ change.old_meter_number }}
             </span>
             <span class="text-slate-300">→</span>
             <span class="text-slate-500">
-              <span class="font-medium text-slate-700">新表：</span>{{ change.new_meter_model }}
+              <span class="font-medium text-slate-700">新表号：</span>{{ change.new_meter_number }}
+            </span>
+            <span v-if="change.meter_type" class="text-slate-500">
+              <span class="font-medium text-slate-700">表型：</span>{{ change.meter_type }}
             </span>
             <span v-if="change.old_meter_reading" class="text-slate-500">
               <span class="font-medium text-slate-700">原读数：</span>{{ change.old_meter_reading }}
