@@ -193,7 +193,14 @@ export class ReceivableService {
     return Object.values(customerGroups);
   }
 
-  async getReconciliationSummaryByCustomer(customerId?: number): Promise<any[]> {
+  async getReconciliationSummaryByCustomer(
+    customerId?: number,
+    options?: {
+      pendingOnly?: boolean;
+      sortBy?: "pendingAmount" | "overdueDays" | "nearestDueDate" | "customerName";
+      minPendingAmount?: number;
+    }
+  ): Promise<any[]> {
     const where: any = {};
     if (customerId !== undefined) where.customerId = customerId;
 
@@ -255,12 +262,25 @@ export class ReceivableService {
             },
           },
           totalPendingReconcileAmount: 0,
+          nearestDueDate: null as string | null,
+          maxOverdueDays: 0,
+          overdueReceivableCount: 0,
         };
       }
 
       const group = customerGroups[r.customerId];
       group.receivable.total.count += 1;
       group.receivable.total.amount += Number(r.totalAmount);
+
+      if (!group.nearestDueDate || r.dueDate < group.nearestDueDate) {
+        group.nearestDueDate = r.dueDate;
+      }
+      if (r.overdueDays > group.maxOverdueDays) {
+        group.maxOverdueDays = r.overdueDays;
+      }
+      if (r.isOverdue) {
+        group.overdueReceivableCount += 1;
+      }
 
       if (r.reconciliationStatus === "UNRECONCILED") {
         group.receivable.unreconciled.count += 1;
@@ -308,6 +328,9 @@ export class ReceivableService {
             },
           },
           totalPendingReconcileAmount: 0,
+          nearestDueDate: null as string | null,
+          maxOverdueDays: 0,
+          overdueReceivableCount: 0,
         };
       }
     }
@@ -318,9 +341,47 @@ export class ReceivableService {
         g.receivable.pendingReconcileAmount + g.payment.unreconciled.amount;
     }
 
-    const result = Object.values(customerGroups).sort((a: any, b: any) => {
-      return b.totalPendingReconcileAmount - a.totalPendingReconcileAmount;
+    let result = Object.values(customerGroups);
+
+    if (options?.pendingOnly) {
+      result = result.filter((g: any) => g.totalPendingReconcileAmount > 0.01);
+    }
+    if (options?.minPendingAmount !== undefined) {
+      result = result.filter(
+        (g: any) => g.totalPendingReconcileAmount >= Number(options.minPendingAmount)
+      );
+    }
+
+    const sortBy = options?.sortBy || "pendingAmount";
+    result.sort((a: any, b: any) => {
+      switch (sortBy) {
+        case "overdueDays":
+          if (b.maxOverdueDays !== a.maxOverdueDays) return b.maxOverdueDays - a.maxOverdueDays;
+          return b.totalPendingReconcileAmount - a.totalPendingReconcileAmount;
+        case "nearestDueDate":
+          if (!a.nearestDueDate && !b.nearestDueDate) return 0;
+          if (!a.nearestDueDate) return 1;
+          if (!b.nearestDueDate) return -1;
+          return new Date(a.nearestDueDate).getTime() - new Date(b.nearestDueDate).getTime();
+        case "customerName":
+          return (a.customerName || "").localeCompare(b.customerName || "");
+        case "pendingAmount":
+        default:
+          return b.totalPendingReconcileAmount - a.totalPendingReconcileAmount;
+      }
     });
+
+    for (const item of result) {
+      if (item.nearestDueDate) {
+        const d = new Date(item.nearestDueDate);
+        item.nearestDueDate =
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0");
+      }
+    }
 
     return result;
   }

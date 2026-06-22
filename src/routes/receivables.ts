@@ -52,9 +52,14 @@ router.get("/aging-report", async (req: Request, res: Response) => {
 
 router.get("/reconciliation-summary", async (req: Request, res: Response) => {
   try {
-    const { customerId } = req.query;
+    const { customerId, pendingOnly, sortBy, minPendingAmount } = req.query;
     const summary = await receivableService.getReconciliationSummaryByCustomer(
-      customerId ? Number(customerId) : undefined
+      customerId ? Number(customerId) : undefined,
+      {
+        pendingOnly: pendingOnly === "true",
+        sortBy: sortBy as "pendingAmount" | "overdueDays" | "nearestDueDate" | "customerName" | undefined,
+        minPendingAmount: minPendingAmount !== undefined ? Number(minPendingAmount) : undefined,
+      }
     );
     res.json({ success: true, data: summary });
   } catch (error) {
